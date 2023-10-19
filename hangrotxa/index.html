@@ -4,9 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HÀNG RỚT - XẢ</title>
-    <link rel="stylesheet" type="text/css" href="style.css">
+    <link href="style.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="../style.css">
     <link rel="shortcut icon" href="../logo.jpg" />
+	<!-- The core Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- The Firebase storage SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+	<!-- The Firebase firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -14,7 +20,7 @@
         <ul class="nav-list">
             <li class="nav-item"><a href="../index.html">TRANG CHỦ</a></li>
             <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
-            <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
+            <li class="nav-item"><a id="current-page-link" href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
             <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
             <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
         </ul>
@@ -35,8 +41,8 @@
                 <option value="PKGD">Phụ kiện và Giày dép</option>
             </select>
 
-            <label for="hinhAnh">Hình ảnh sản phẩm:</label>
-            <input type="file" id="hinhAnhInput" accept="image/*" required>
+            <label for="hinhAnh">Hình ảnh sản phẩm (URL):</label>
+            <input type="text" id="hinhAnh" required>
 
             <label for="tenSanPham">Tên sản phẩm:</label>
             <input type="text" id="tenSanPham" required>
@@ -60,7 +66,7 @@
     </div>
 
 
-    <p class="tieude">HÀNG LIVE RỚT - XẢ HÀNG</p>
+    <p class="tieude">HÀNG RỚT - XẢ</p>
 
     <!-- Thêm dropdown menu và nút áp dụng bộ lọc -->
     <label for="filterCategory">Chọn phân loại:</label>
@@ -71,8 +77,7 @@
         <option value="SetDam">Set và Đầm</option>       
         <option value="PKGD">Phụ kiện và Giày dép</option>
     </select>
-    <!-- <button id="filterButton">Áp dụng bộ lọc</button> -->
-
+    
     <!-- Bảng sản phẩm tồn kho -->
     <table>
         <thead>

@@ -31,6 +31,10 @@ body {
     transform: scale(0.95); /* Hiệu ứng nhỏ lại khi nút được nhấn */
 }
 
+h1 {
+    text-align: center;
+}
+
 p.tieude {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
@@ -55,10 +59,9 @@ th, td {
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: top; /* Để căn hình ảnh từ trên xuống */
+    vertical-align: center;
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
-    
 }
 
 th:first-child {
@@ -70,13 +73,16 @@ th {
 }
 
 img {
+    width: 150px;
     max-width: 200px;
+    height: auto;
     max-height: 200px;
     transition: transform 0.3s;
+    cursor: pointer;
 }
 
 img:hover {
-    transform: scale(5);
+    transform: scale(3);
 }
 
 input[type="number"] {
@@ -85,12 +91,13 @@ input[type="number"] {
     font-family: 'Times New Roman', Times, serif;
 }
 
-button.delete {
+.deleteButton {
     background-color: #f00;
     color: #fff;
     border: none;
     padding: 5px 10px;
     cursor: pointer;
+    font-weight: bold;
 }
 
 button.increment,
@@ -120,15 +127,12 @@ button.decrement {
 }
 
 #dataForm button[type="submit"] {
-    background-color: #007bff;
+    background-color: green;
     color: #fff;
     border: none;
     padding: 10px 20px;
     cursor: pointer;
-}
-
-#dataForm button[type="submit"]:hover {
-    background-color: #0056b3;
+    font-weight: bold;
 }
 
 /* Thêm CSS để căn giữa nút "Thêm dữ liệu" */
@@ -141,14 +145,11 @@ button.decrement {
 }
 
 #clearDataButton {
-    background-color: #e74c3c; /* Màu đỏ */
+    background-color: red; /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 10px 20px;
     margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
-}
-
-#clearDataButton:hover {
-    background-color: #c0392b; /* Màu đỏ khi hover */
+    font-weight: bold;
 }

@@ -25,6 +25,10 @@ body {
     transform: scale(0.95); /* Hiệu ứng nhỏ lại khi nút được nhấn */
 }
 
+h1 {
+    text-align: center;
+}
+
 p.tieude {
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
@@ -49,14 +53,17 @@ th, td {
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: top; /* Để căn hình ảnh từ trên xuống */
+    vertical-align: center;
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
-    
 }
 
 th:first-child {
     width: 75px; /* Độ rộng mới cho cột "Thứ tự" */
+}
+
+th:nth-child(5){
+    width: 2%;
 }
 
 th {
@@ -64,10 +71,12 @@ th {
 }
 
 .product-image {
+    width: 150px;
     max-width: 200px;
+    height: auto;
     max-height: 200px;
-    cursor: pointer;
     transition: transform 0.3s;
+    cursor: pointer;
 }
 
 .product-image:hover {
@@ -77,17 +86,18 @@ th {
 .customer-image-cell {
     text-align: center;
     display: flex;
-    flex-direction: column;
+    align-items: flex-start;
     align-items: center; /* Căn giữa theo chiều ngang */
     justify-content: center; /* Căn giữa theo chiều dọc */
 }
 
 .customer-image-cell img {
-    max-width: 100px;
-    max-height: 100px;
-    display: block;
-    margin: 5px; /* Khoảng cách giữa các ảnh khách hàng */
+    width: 150px;
+    max-width: 200px;
+    height: auto;
+    max-height: 200px;
     transition: transform 0.3s;
+    cursor: pointer;
 }
 
 .customer-image-cell img:hover {
@@ -95,20 +105,22 @@ th {
 }
 
 .toggle-visibility {
-    background-color: #e74c3c; /* Màu đỏ */
+    background-color: #00f; /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 5px 10px;
     cursor: pointer;
+    font-weight: bold;
 }
 
-.toggle-visibility:hover {
-    background-color: #c0392b; /* Màu đỏ khi hover */
-}
+/* .toggle-visibility:hover {
+    background-color: #c0392b;
+} */
 
 /* Thêm CSS để ẩn các cột cụ thể */
 th:first-child, td:first-child {
     display: table-cell;
+    width: 2%;
 }
 
 th:nth-child(2), td:nth-child(2) {
@@ -117,6 +129,12 @@ th:nth-child(2), td:nth-child(2) {
 
 th:nth-child(3), td:nth-child(3) {
     display: table-cell;
+    width: 20%;
+}
+
+th:nth-child(5), td:nth-child(5) {
+    display: table-cell;
+    width: 2%;
 }
 
 /* Thêm CSS cho biểu mẫu */
@@ -140,15 +158,12 @@ th:nth-child(3), td:nth-child(3) {
 }
 
 #dataForm button[type="submit"] {
-    background-color: #007bff;
+    background-color: green;
     color: #fff;
     border: none;
     padding: 10px 20px;
     cursor: pointer;
-}
-
-button[type="submit"]:hover {
-    background-color: #0056b3;
+    font-weight: bold;
 }
 
 .center-button {
@@ -160,14 +175,15 @@ button[type="submit"]:hover {
 }
 
 #clearDataButton {
-    background-color: #e74c3c; /* Màu đỏ */
+    background-color: red; /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 10px 20px;
     margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
+    font-weight: bold;
 }
 
-#clearDataButton:hover {
-    background-color: #c0392b; /* Màu đỏ khi hover */
-}
+/* #clearDataButton:hover {
+    background-color: #f00;
+} */

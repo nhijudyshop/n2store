@@ -1,28 +1,28 @@
-body {
+﻿body {
     font-family: 'Times New Roman', Times, serif;
     margin: 20px;
     background: #FFF;
 }
 
 #toggleFormButton {
-    background-color: #007bff; /* Màu nền */
-    color: #fff; /* Màu văn bản */
-    border: none; /* Bỏ viền */
-    padding: 5px 8px; /* Kích thước nút */
-    cursor: pointer; /* Con trỏ thay đổi khi di chuột vào nút */
-    border-radius: 5px; /* Bo góc */
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 5px 8px;
+    cursor: pointer;
+    border-radius: 5px;
 }
 
 #toggleFormButton:hover {
-    background-color: #0056b3; /* Màu nền khi di chuột vào */
+    background-color: #0056b3;
 }
 
 #toggleFormButton:focus {
-    outline: none; /* Loại bỏ đường viền khi nút được chọn */
+    outline: none;
 }
 
 #toggleFormButton:active {
-    transform: scale(0.95); /* Hiệu ứng nhỏ lại khi nút được nhấn */
+    transform: scale(0.95);
 }
 
 h1 {
@@ -54,10 +54,9 @@ th, td {
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: top; /* Để căn hình ảnh từ trên xuống */
+    vertical-align: top;
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
-    
 }
 
 th {
@@ -72,10 +71,9 @@ th:first-child {
 .product-image {
     width: 100%;
     max-width: 150px;
-    /* display: block; Xếp theo chiều dọc */
     height: auto;
     transition: transform 0.3s;
-    margin: 1px 4px; /* Khoảng cách 1px phía trên và dưới, 4px ở hai bên trái và phải */
+    margin: 1px 4px;
 }
 
 .product-image:hover {
@@ -83,7 +81,6 @@ th:first-child {
     z-index: 1;
 }
 
-/* CSS cho div form */
 #dataForm {
     border: 1px solid #ccc;
     padding: 20px;
@@ -105,18 +102,14 @@ th:first-child {
 }
 
 #dataForm button[type="submit"] {
-    background-color: #007bff;
+    background-color: green;
     color: #fff;
     border: none;
     padding: 10px 20px;
     cursor: pointer;
+    font-weight: bold;
 }
 
-#dataForm button[type="submit"]:hover {
-    background-color: #0056b3;
-}
-
-/* Thêm CSS để căn giữa nút "Thêm dữ liệu" */
 .center-button {
     text-align: center;
 }
@@ -126,14 +119,40 @@ th:first-child {
 }
 
 #clearDataButton {
-    background-color: #e74c3c; /* Màu đỏ */
+    background-color: red;
     color: #fff;
     border: none;
     padding: 10px 20px;
-    margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
+    margin-left: 10px;
     cursor: pointer;
+    font-weight: bold;
 }
 
-#clearDataButton:hover {
-    background-color: #c0392b; /* Màu đỏ khi hover */
+.popup {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #4ca0af;
+    color: #fff;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.popup-content {
+    text-align: center;
+}
+
+.popup-message {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.popup-show {
+    display: block;
 }
