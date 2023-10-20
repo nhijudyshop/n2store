@@ -46,3 +46,14 @@ body {
     background-color: #fff;
     color: #333;
 }
+
+/* Điều chỉnh menu cho các thiết bị di động */
+@media (max-width: 768px) {
+    .nav-list {
+        text-align: center;
+    }
+    .nav-item {
+        display: block;
+        margin: 10px 0;
+    }
+}
