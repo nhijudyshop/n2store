@@ -1,3 +1,12 @@
+#radioButtonsContainer {
+  display: flex;
+  align-items: center;
+}
+
+#radioButtonsContainer input[type="radio"] {
+  margin-right: 10px;
+}
+
 body {
     font-family: 'Times New Roman', Times, serif;
     margin: 20px;
@@ -71,10 +80,9 @@ th {
 }
 
 .product-image {
-    width: 150px;
+    width: 100%;
     max-width: 200px;
     height: auto;
-    max-height: 200px;
     transition: transform 0.3s;
     cursor: pointer;
 }
@@ -86,16 +94,15 @@ th {
 .customer-image-cell {
     text-align: center;
     display: flex;
-    align-items: flex-start;
+    /* align-items: flex-start; */
     align-items: center; /* Căn giữa theo chiều ngang */
     justify-content: center; /* Căn giữa theo chiều dọc */
 }
 
 .customer-image-cell img {
-    width: 150px;
+    width: 100%;
     max-width: 200px;
     height: auto;
-    max-height: 200px;
     transition: transform 0.3s;
     cursor: pointer;
 }
@@ -105,17 +112,16 @@ th {
 }
 
 .toggle-visibility {
-    background-color: #00f; /* Màu đỏ */
+    background-color: #e74c3c; /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 5px 10px;
     cursor: pointer;
-    font-weight: bold;
 }
 
-/* .toggle-visibility:hover {
-    background-color: #c0392b;
-} */
+.toggle-visibility:hover {
+    background-color: #c0392b; /* Màu đỏ khi hover */
+}
 
 /* Thêm CSS để ẩn các cột cụ thể */
 th:first-child, td:first-child {
@@ -166,6 +172,10 @@ th:nth-child(5), td:nth-child(5) {
     font-weight: bold;
 }
 
+/* button[type="submit"]:hover {
+    background-color: #0056b3;
+} */
+
 .center-button {
     text-align: center;
 }
@@ -185,5 +195,34 @@ th:nth-child(5), td:nth-child(5) {
 }
 
 /* #clearDataButton:hover {
-    background-color: #f00;
+    background-color: #c0392b;
 } */
+
+.popup {
+    display: none;
+    position: fixed;
+    top: 10%;
+    right: 0%;
+    transform: translate(-50%, -50%);
+    background-color: #4ca0af;
+    color: #fff;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.popup-content {
+    text-align: center;
+}
+
+.popup-message {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.popup-show {
+    display: block;
+}

@@ -41,9 +41,25 @@
                 <option value="PKGD">Phụ kiện và Giày dép</option>
             </select>
 
-            <label for="hinhAnh">Hình ảnh sản phẩm (URL):</label>
-            <input type="text" id="hinhAnh" required>
-
+            <label for="hinhAnh">Hình ảnh sản phẩm:</label>
+        <div id="radioButtonsContainer">
+          <input type="radio" name="inputType" id="inputClipboard" checked>
+          <label for="inputClipboard">Copy Paste</label>
+          <input type="radio" name="inputType" id="inputFile">
+          <label for="inputFile">Nhập file</label>
+          <input type="radio" name="inputType" id="inputLink">
+          <label for="inputLink">Nhập link</label>
+        </div>
+        <div id="container">
+          <p>Dán ảnh ở đây…</p>
+        </div>
+        <div id="inputFileContainer">
+          <input type="file" id="hinhAnhInputFile">
+        </div>
+        <div id="inputLinkContainer">
+          <input type="text" id="hinhAnhInput" accept="image/*">
+        </div>
+        <div id="hinhAnhContainer"></div>
             <label for="tenSanPham">Tên sản phẩm:</label>
             <input type="text" id="tenSanPham" required>
 
@@ -96,7 +112,11 @@
             <!-- Dữ liệu sản phẩm tồn kho sẽ được thêm bằng JavaScript -->
         </tbody>
     </table>
-
+	<div id="popup" class="popup">
+      <div class="popup-content">
+        <span id="popup-message">Đã sao chép</span>
+      </div>
+    </div>
     <script src="script.js"></script>
 </body>
 </html>

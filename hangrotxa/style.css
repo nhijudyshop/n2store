@@ -1,3 +1,12 @@
+#radioButtonsContainer {
+  display: flex;
+  align-items: center;
+}
+
+#radioButtonsContainer input[type="radio"] {
+  margin-right: 10px;
+}
+
 /* CSS để làm cho số trong cột "Số lượng" to lên */
 td:nth-child(7) input[type="number"] {
     font-size: 24px; /* Điều chỉnh kích thước chữ số trong cột "Số lượng" */
@@ -59,7 +68,7 @@ th, td {
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: center;
+    vertical-align: center; /* Để căn hình ảnh từ trên xuống */
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -73,10 +82,9 @@ th {
 }
 
 img {
-    width: 150px;
+    width: 100%;
     max-width: 200px;
     height: auto;
-    max-height: 200px;
     transition: transform 0.3s;
     cursor: pointer;
 }
@@ -91,13 +99,12 @@ input[type="number"] {
     font-family: 'Times New Roman', Times, serif;
 }
 
-.deleteButton {
+button.delete {
     background-color: #f00;
     color: #fff;
     border: none;
     padding: 5px 10px;
     cursor: pointer;
-    font-weight: bold;
 }
 
 button.increment,
@@ -135,6 +142,10 @@ button.decrement {
     font-weight: bold;
 }
 
+/* #dataForm button[type="submit"]:hover {
+    background-color: #0056b3;
+} */
+
 /* Thêm CSS để căn giữa nút "Thêm dữ liệu" */
 .center-button {
     text-align: center;
@@ -152,4 +163,37 @@ button.decrement {
     margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
     font-weight: bold;
+}
+
+/* #clearDataButton:hover {
+    background-color: #c0392b;
+} */
+
+.popup {
+    display: none;
+    position: fixed;
+    top: 10%;
+    right: 5%;
+    transform: translate(-50%, -50%);
+    background-color: #4ca0af;
+    color: #fff;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.popup-content {
+    text-align: center;
+}
+
+.popup-message {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.popup-show {
+    display: block;
 }

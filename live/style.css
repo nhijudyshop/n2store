@@ -54,7 +54,7 @@ th, td {
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: top;
+    vertical-align: center;
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -110,6 +110,10 @@ th:first-child {
     font-weight: bold;
 }
 
+/* #dataForm button[type="submit"]:hover {
+    background-color: #0056b3;
+} */
+
 .center-button {
     text-align: center;
 }
@@ -119,14 +123,18 @@ th:first-child {
 }
 
 #clearDataButton {
-    background-color: red;
+    background-color: red; /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 10px 20px;
-    margin-left: 10px;
+    margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
     font-weight: bold;
 }
+
+/* #clearDataButton:hover {
+    background-color: #c0392b;
+} */
 
 .popup {
     display: none;

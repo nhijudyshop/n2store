@@ -2,7 +2,6 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com/">
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
     <link href="style.css" rel="stylesheet">
@@ -16,13 +15,23 @@
   </head>
   <body>
     <div class="nav-container">
-        <ul class="nav-list">
-            <li class="nav-item"><a href="../index.html">TRANG CHỦ</a></li>
-            <li class="nav-item"><a id="current-page-link" href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
-            <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
-            <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
-            <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
-        </ul>
+      <ul class="nav-list">
+        <li class="nav-item">
+          <a href="../index.html">TRANG CHỦ</a>
+        </li>
+        <li class="nav-item">
+          <a id="current-page-link" href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a>
+        </li>
+        <li class="nav-item">
+          <a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a>
+        </li>
+        <li class="nav-item">
+          <a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a>
+        </li>
+        <li class="nav-item">
+          <a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a>
+        </li>
+      </ul>
     </div>
     <!-- Nút để ẩn/hiện biểu mẫu -->
     <button id="toggleFormButton">Hiện biểu mẫu</button>
@@ -52,7 +61,7 @@
     <!-- Dropdown để lọc đợt live -->
     <label for="dateFilter">Lọc Đợt Live:</label>
     <select id="dateFilter">
-      <option disabled selected>Chọn ngày</option>
+      <option value="all" selected>Tất cả</option>
     </select>
     <div class="live">
       <table>
@@ -74,9 +83,9 @@
     </div>
     <div id="popup" class="popup">
       <div class="popup-content">
-          <span id="popup-message">Đã sao chép</span>
+        <span id="popup-message">Đã sao chép</span>
       </div>
-  </div>  
+    </div>
     <script type="module">
       import {
         initializeApp

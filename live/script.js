@@ -1,1 +1,333 @@
-var _$_d76c=["\x44\x4F\x4D\x43\x6F\x6E\x74\x65\x6E\x74\x4C\x6F\x61\x64\x65\x64","\x41\x49\x7A\x61\x53\x79\x41\x2D\x6C\x65\x67\x57\x6C\x43\x67\x6A\x4D\x44\x45\x79\x37\x30\x72\x73\x61\x54\x54\x77\x4C\x4B\x33\x39\x46\x34\x5A\x43\x4B\x68\x4D","\x6E\x32\x73\x68\x6F\x70\x2D\x36\x39\x65\x33\x37\x2E\x66\x69\x72\x65\x62\x61\x73\x65\x61\x70\x70\x2E\x63\x6F\x6D","\x6E\x32\x73\x68\x6F\x70\x2D\x36\x39\x65\x33\x37","\x6E\x32\x73\x68\x6F\x70\x2D\x36\x39\x65\x33\x37\x2E\x61\x70\x70\x73\x70\x6F\x74\x2E\x63\x6F\x6D","\x35\x39\x38\x39\x30\x36\x34\x39\x33\x33\x30\x33","\x31\x3A\x35\x39\x38\x39\x30\x36\x34\x39\x33\x33\x30\x33\x3A\x77\x65\x62\x3A\x34\x36\x64\x36\x32\x33\x36\x61\x31\x66\x64\x63\x32\x65\x66\x66\x33\x33\x65\x39\x37\x32","\x47\x2D\x54\x45\x4A\x48\x33\x53\x32\x54\x31\x44","\x69\x6E\x69\x74\x69\x61\x6C\x69\x7A\x65\x41\x70\x70","\x72\x65\x66","\x73\x74\x6F\x72\x61\x67\x65","\x74\x6F\x67\x67\x6C\x65\x46\x6F\x72\x6D\x42\x75\x74\x74\x6F\x6E","\x67\x65\x74\x45\x6C\x65\x6D\x65\x6E\x74\x42\x79\x49\x64","\x64\x61\x74\x61\x46\x6F\x72\x6D","\x70\x72\x6F\x64\x75\x63\x74\x46\x6F\x72\x6D","\x2E\x6C\x69\x76\x65\x20\x74\x61\x62\x6C\x65","\x71\x75\x65\x72\x79\x53\x65\x6C\x65\x63\x74\x6F\x72","\x64\x61\x74\x65\x46\x69\x6C\x74\x65\x72","\x64\x6F\x74\x4C\x69\x76\x65","\x6C\x69\x76\x65\x44\x61\x74\x65","\x67\x65\x74\x46\x75\x6C\x6C\x59\x65\x61\x72","\x30","\x70\x61\x64\x53\x74\x61\x72\x74","\x67\x65\x74\x4D\x6F\x6E\x74\x68","\x67\x65\x74\x44\x61\x74\x65","\x76\x61\x6C\x75\x65","\x2D","","\x69\x6E\x70\x75\x74","\x61\x64\x64\x45\x76\x65\x6E\x74\x4C\x69\x73\x74\x65\x6E\x65\x72","\x63\x6C\x69\x63\x6B","\x64\x69\x73\x70\x6C\x61\x79","\x73\x74\x79\x6C\x65","\x6E\x6F\x6E\x65","\x62\x6C\x6F\x63\x6B","\x74\x65\x78\x74\x43\x6F\x6E\x74\x65\x6E\x74","\u1EA8\x6E\x20\x62\x69\u1EC3\x75\x20\x6D\u1EAB\x75","\x48\x69\u1EC7\x6E\x20\x62\x69\u1EC3\x75\x20\x6D\u1EAB\x75","\x73\x75\x62\x6D\x69\x74","\x70\x72\x65\x76\x65\x6E\x74\x44\x65\x66\x61\x75\x6C\x74","\x70\x68\x61\x6E\x4C\x6F\x61\x69","\x56\x75\x69\x20\x6C\xF2\x6E\x67\x20\x63\x68\u1ECD\x6E\x20\x6D\u1ED9\x74\x20\u0111\u1EE3\x74\x20\x4C\x69\x76\x65\x2E","\x73\x6C\x69\x63\x65","\xC1\x6F","\x6C\x69\x76\x65\x2F","\x2F\x61\x6F\x2F","\x51\x75\u1EA7\x6E","\x2F\x71\x75\x61\x6E\x2F","\x53\x65\x74\x20\x76\xE0\x20\u0110\u1EA7\x6D","\x2F\x73\x65\x74\x76\x61\x64\x61\x6D\x2F","\x50\x4B\x47\x44","\x2F\x70\x6B\x67\x64\x2F","\x72\x6F\x77\x73","\x63\x65\x6C\x6C\x73","\x69\x6E\x73\x65\x72\x74\x52\x6F\x77","\x69\x6E\x73\x65\x72\x74\x43\x65\x6C\x6C","\x68\x69\x6E\x68\x41\x6E\x68\x49\x6E\x70\x75\x74","\x66\x69\x6C\x65\x73","\x63\x68\x69\x6C\x64","\x6E\x61\x6D\x65","\x70\x75\x74","\x73\x74\x61\x74\x65\x5F\x63\x68\x61\x6E\x67\x65\x64","\x70\x6F\x70\x75\x70","\x70\x6F\x70\x75\x70\x2D\x6D\x65\x73\x73\x61\x67\x65","\u0110\x61\x6E\x67\x20\x74\u1EA3\x69\x20\x68\xEC\x6E\x68\x20\u1EA3\x6E\x68","\x70\x6F\x70\x75\x70\x2D\x73\x68\x6F\x77","\x61\x64\x64","\x63\x6C\x61\x73\x73\x4C\x69\x73\x74","\x72\x65\x6D\x6F\x76\x65","\x72\x65\x6C\x6F\x61\x64","\x6F\x6E","\x63\x68\x61\x6E\x67\x65","\x53\x65\x6C\x65\x63\x74\x65\x64\x20\x64\x61\x74\x65\x3A","\x6C\x6F\x67","\x53\x74\x6F\x72\x61\x67\x65\x20\x72\x65\x66\x20\x70\x61\x74\x68\x3A","\x61\x6C\x6C","\x54\u1EA5\x74\x20\x63\u1EA3","\u0110\u1EE2\x54\x20\x4C\x49\x56\x45","\x74\x61\x62\x6C\x65\x2D\x72\x6F\x77","\x70\x75\x73\x68","\x61\x6F","\x71\x75\x61\x6E","\x73\x65\x74\x76\x61\x64\x61\x6D","\x70\x6B\x67\x64","\x65\x72\x72\x6F\x72","\x63\x61\x74\x63\x68","\x66\x75\x6C\x6C\x50\x61\x74\x68","\x2F","\x73\x70\x6C\x69\x74","\x6C\x65\x6E\x67\x74\x68","\x66\x6F\x72\x45\x61\x63\x68","\x70\x72\x65\x66\x69\x78\x65\x73","\x74\x68\x65\x6E","\x6C\x69\x73\x74\x41\x6C\x6C","\x2E","\x70\x72\x6F\x64\x75\x63\x74\x2D\x72\x6F\x77","\x66\x69\x72\x73\x74\x43\x68\x69\x6C\x64","\x72\x65\x6D\x6F\x76\x65\x43\x68\x69\x6C\x64","\x69\x6D\x67","\x63\x72\x65\x61\x74\x65\x45\x6C\x65\x6D\x65\x6E\x74","\x73\x72\x63","\x63\x6C\x61\x73\x73\x4E\x61\x6D\x65","\x70\x72\x6F\x64\x75\x63\x74\x2D\x69\x6D\x61\x67\x65","\x61\x70\x70\x65\x6E\x64\x43\x68\x69\x6C\x64","\x67\x65\x74\x44\x6F\x77\x6E\x6C\x6F\x61\x64\x55\x52\x4C","\x69\x74\x65\x6D\x73","\x64\x69\x76","\x62\x6F\x64\x79","\x74\x65\x78\x74\x61\x72\x65\x61","\x73\x65\x6C\x65\x63\x74","\x63\x6F\x70\x79","\x65\x78\x65\x63\x43\x6F\x6D\x6D\x61\x6E\x64","\u0110\xE3\x20\x73\x61\x6F\x20\x63\x68\xE9\x70","\x6F\x70\x74\x69\x6F\x6E\x73","\x4C\u1ED7\x69\x20\x6B\x68\x69\x20\x6C\u1EA5\x79\x20\x64\x61\x6E\x68\x20\x73\xE1\x63\x68\x20\x74\x68\u01B0\x20\x6D\u1EE5\x63\x3A\x20","\x6F\x70\x74\x69\x6F\x6E","\x72\x65\x73\x65\x74"];document[_$_d76c[29]](_$_d76c[0],function(){const _0x1C3B7={apiKey:_$_d76c[1],authDomain:_$_d76c[2],projectId:_$_d76c[3],storageBucket:_$_d76c[4],messagingSenderId:_$_d76c[5],appId:_$_d76c[6],measurementId:_$_d76c[7]};firebase[_$_d76c[8]](_0x1C3B7);const _0x1C497=firebase[_$_d76c[10]]()[_$_d76c[9]]();const _0x1C4CF=document[_$_d76c[12]](_$_d76c[11]);const _0x1C347=document[_$_d76c[12]](_$_d76c[13]);const _0x1C47B=document[_$_d76c[12]](_$_d76c[14]);const _0x1C443=document[_$_d76c[16]](_$_d76c[15]);const _0x1C363=document[_$_d76c[12]](_$_d76c[17]);const _0x1C39B=document[_$_d76c[12]](_$_d76c[18]);const _0x1C427=document[_$_d76c[12]](_$_d76c[19]);const _0x1C4B3= new Date();const _0x1C507=_0x1C4B3[_$_d76c[20]]();const _0x1C45F=String(_0x1C4B3[_$_d76c[23]]()+ 1)[_$_d76c[22]](2,_$_d76c[21]);const _0x1C37F=String(_0x1C4B3[_$_d76c[24]]())[_$_d76c[22]](2,_$_d76c[21]);_0x1C39B[_$_d76c[25]]= (""+_0x1C507+_$_d76c[26]+_0x1C45F+_$_d76c[26]+_0x1C37F+_$_d76c[27]);_0x1C39B[_$_d76c[29]](_$_d76c[28],function(){const _0x1C523= new Date(_0x1C39B[_$_d76c[25]]);if(_0x1C523> _0x1C4B3){_0x1C39B[_$_d76c[25]]= (""+_0x1C507+_$_d76c[26]+_0x1C45F+_$_d76c[26]+_0x1C37F+_$_d76c[27])}});_0x1C4CF[_$_d76c[29]](_$_d76c[30],function(){if(_0x1C347[_$_d76c[32]][_$_d76c[31]]=== _$_d76c[33]|| _0x1C347[_$_d76c[32]][_$_d76c[31]]=== _$_d76c[27]){_0x1C347[_$_d76c[32]][_$_d76c[31]]= _$_d76c[34];_0x1C4CF[_$_d76c[35]]= _$_d76c[36]}else {_0x1C347[_$_d76c[32]][_$_d76c[31]]= _$_d76c[33];_0x1C4CF[_$_d76c[35]]= _$_d76c[37]}});_0x1C47B[_$_d76c[29]](_$_d76c[38],function(_0x1C5AF){_0x1C5AF[_$_d76c[39]]();const _0x1C68F=document[_$_d76c[12]](_$_d76c[40])[_$_d76c[25]];const _0x1C39B=document[_$_d76c[12]](_$_d76c[18]);const _0x1C593=_0x1C39B[_$_d76c[25]];var _0x1C6C7;if(!_0x1C593){alert(_$_d76c[41]);return};const _0x1C577= new Date(_0x1C593);const _0x1C37F=String(_0x1C577[_$_d76c[24]]())[_$_d76c[22]](2,_$_d76c[21]);const _0x1C45F=String(_0x1C577[_$_d76c[23]]()+ 1)[_$_d76c[22]](2,_$_d76c[21]);const _0x1C6FF=String(_0x1C577[_$_d76c[20]]())[_$_d76c[42]](-2);const _0x1C5E7=_0x1C37F+ _$_d76c[26]+ _0x1C45F+ _$_d76c[26]+ _0x1C6FF;if(_0x1C68F== _$_d76c[43]){_0x1C6C7= _$_d76c[44]+ _0x1C5E7+ _$_d76c[45]}else {if(_0x1C68F== _$_d76c[46]){_0x1C6C7= _$_d76c[44]+ _0x1C5E7+ _$_d76c[47]}else {if(_0x1C68F== _$_d76c[48]){_0x1C6C7= _$_d76c[44]+ _0x1C5E7+ _$_d76c[49]}else {if(_0x1C68F== _$_d76c[50]){_0x1C6C7= _$_d76c[44]+ _0x1C5E7+ _$_d76c[51]}}}};let _0x1C53F=null;for(const _0x1C6AB of _0x1C443[_$_d76c[52]]){if(_0x1C6AB[_$_d76c[53]][0][_$_d76c[35]]=== _0x1C5E7){_0x1C53F= _0x1C6AB;break}};if(!_0x1C53F){_0x1C53F= _0x1C443[_$_d76c[54]](-1);const _0x1C55B=_0x1C53F[_$_d76c[55]](0);_0x1C55B[_$_d76c[35]]= _0x1C5E7;_0x1C53F[_$_d76c[55]](1);_0x1C53F[_$_d76c[55]](2);_0x1C53F[_$_d76c[55]](3);_0x1C53F[_$_d76c[55]](4)};const _0x1C63B=document[_$_d76c[12]](_$_d76c[56]);const _0x1C61F=_0x1C63B[_$_d76c[57]];var _0x1C673=_0x1C497[_$_d76c[58]](_0x1C6C7);for(const _0x1C603 of _0x1C61F){var _0x1C5CB=_0x1C603;var _0x1C657=_0x1C673[_$_d76c[58]](_0x1C5CB[_$_d76c[59]]);var _0x1C6E3=_0x1C657[_$_d76c[60]](_0x1C5CB);_0x1C6E3[_$_d76c[70]](_$_d76c[61],function(_0x1C753){var _0x1C71B=document[_$_d76c[12]](_$_d76c[62]);var _0x1C737=document[_$_d76c[12]](_$_d76c[63]);_0x1C737[_$_d76c[35]]= _$_d76c[64];_0x1C71B[_$_d76c[67]][_$_d76c[66]](_$_d76c[65]);setTimeout(function(){_0x1C71B[_$_d76c[67]][_$_d76c[68]](_$_d76c[65])},1500)},function(_0x1C76F){},function(){location[_$_d76c[69]]()})}});_0x1C363[_$_d76c[29]](_$_d76c[71],function(){var _0x1C7DF=_0x1C363[_$_d76c[25]];var _0x1C427=document[_$_d76c[12]](_$_d76c[19]);console[_$_d76c[73]](_$_d76c[72],_0x1C7DF);console[_$_d76c[73]](_$_d76c[74],_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF+ _$_d76c[45]));if(_0x1C7DF=== _$_d76c[75]){_0x1C427[_$_d76c[35]]= _$_d76c[76];for(const _0x1C6AB of _0x1C443[_$_d76c[52]]){if(_0x1C6AB[_$_d76c[53]][0][_$_d76c[35]]!== _$_d76c[77]){_0x1C6AB[_$_d76c[32]][_$_d76c[31]]= _$_d76c[78]}};var _0x1C78B=[];for(const _0x1C6AB of _0x1C443[_$_d76c[52]]){if(_0x1C6AB[_$_d76c[53]][0][_$_d76c[35]]!== _$_d76c[77]){_0x1C78B[_$_d76c[79]](_0x1C6AB[_$_d76c[53]][0][_$_d76c[35]])}};for(const _0x1C7A7 of _0x1C78B){_0x1C40B(_0x1C7A7)}}else {_0x1C427[_$_d76c[35]]= _0x1C7DF;for(const _0x1C6AB of _0x1C443[_$_d76c[52]]){if(_0x1C6AB[_$_d76c[53]][0][_$_d76c[35]]!== _$_d76c[77]){const _0x1C7C3=_0x1C6AB[_$_d76c[53]][0][_$_d76c[35]];if(_0x1C7DF=== _0x1C7C3){_0x1C6AB[_$_d76c[32]][_$_d76c[31]]= _$_d76c[78]}else {_0x1C6AB[_$_d76c[32]][_$_d76c[31]]= _$_d76c[33]}}};_0x1C40B(_0x1C7DF)}});function _0x1C40B(_0x1C7DF){_0x1C2F3(_$_d76c[80]);_0x1C2F3(_$_d76c[81]);_0x1C2F3(_$_d76c[82]);_0x1C2F3(_$_d76c[83]);var _0x1C78B=[];_0x1C497[_$_d76c[58]](_$_d76c[44])[_$_d76c[93]]()[_$_d76c[92]](function(_0x1C833){_0x1C833[_$_d76c[91]][_$_d76c[90]](function(_0x1C913){var _0x1C8F7=_0x1C913[_$_d76c[86]];var _0x1C92F=_0x1C8F7[_$_d76c[88]](_$_d76c[87]);var _0x1C8DB=_0x1C92F[_0x1C92F[_$_d76c[89]]- 1];_0x1C78B[_$_d76c[79]](_0x1C8DB)});if(_0x1C7DF=== _$_d76c[75]){for(const _0x1C7A7 of _0x1C78B){_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7),_$_d76c[80]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7),_$_d76c[81]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7),_$_d76c[82]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7),_$_d76c[83])}}else {_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF),_$_d76c[80]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF),_$_d76c[81]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF),_$_d76c[82]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF),_$_d76c[83])}})[_$_d76c[85]](function(_0x1C76F){console[_$_d76c[84]](_0x1C76F)})}function _0x1C40B(_0x1C7DF){_0x1C2F3(_$_d76c[80]);_0x1C2F3(_$_d76c[81]);_0x1C2F3(_$_d76c[82]);_0x1C2F3(_$_d76c[83]);var _0x1C78B=[];_0x1C497[_$_d76c[58]](_$_d76c[44])[_$_d76c[93]]()[_$_d76c[92]](function(_0x1C833){_0x1C833[_$_d76c[91]][_$_d76c[90]](function(_0x1C913){var _0x1C8F7=_0x1C913[_$_d76c[86]];var _0x1C92F=_0x1C8F7[_$_d76c[88]](_$_d76c[87]);var _0x1C8DB=_0x1C92F[_0x1C92F[_$_d76c[89]]- 1];_0x1C78B[_$_d76c[79]](_0x1C8DB)});if(_0x1C7DF=== _$_d76c[75]){for(const _0x1C7A7 of _0x1C78B){_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7+ _$_d76c[45]),_$_d76c[80]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7+ _$_d76c[47]),_$_d76c[81]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7+ _$_d76c[49]),_$_d76c[82]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7A7+ _$_d76c[51]),_$_d76c[83])}}else {_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF+ _$_d76c[45]),_$_d76c[80]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF+ _$_d76c[47]),_$_d76c[81]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF+ _$_d76c[49]),_$_d76c[82]);_0x1C2D7(_0x1C497[_$_d76c[58]](_$_d76c[44]+ _0x1C7DF+ _$_d76c[51]),_$_d76c[83])}})}function _0x1C2F3(_0x1C7FB){var _0x1C817=document[_$_d76c[16]](_$_d76c[94]+ _0x1C7FB+ _$_d76c[95]);while(_0x1C817[_$_d76c[96]]){_0x1C817[_$_d76c[97]](_0x1C817[_$_d76c[96]])}}function _0x1C2D7(_0x1C497,_0x1C7FB){var _0x1C817=document[_$_d76c[16]](_$_d76c[94]+ _0x1C7FB+ _$_d76c[95]);_0x1C497[_$_d76c[93]]()[_$_d76c[92]](function(_0x1C833){_0x1C833[_$_d76c[105]][_$_d76c[90]](function(_0x1C657){_0x1C657[_$_d76c[104]]()[_$_d76c[92]](function(_0x1C86B){var _0x1C84F=document[_$_d76c[99]](_$_d76c[98]);_0x1C84F[_$_d76c[100]]= _0x1C86B;_0x1C84F[_$_d76c[101]]= _$_d76c[102];_0x1C817[_$_d76c[103]](_0x1C84F);_0x1C84F[_$_d76c[29]](_$_d76c[30],function(){_0x1C30F(_0x1C86B)})})[_$_d76c[85]](function(_0x1C76F){console[_$_d76c[84]](_0x1C76F)})})})[_$_d76c[85]](function(_0x1C76F){console[_$_d76c[84]](_0x1C76F)})}function _0x1C32B(_0x1C8BF){var _0x1C71B=document[_$_d76c[99]](_$_d76c[106]);_0x1C71B[_$_d76c[101]]= _$_d76c[62];_0x1C71B[_$_d76c[35]]= _0x1C8BF;document[_$_d76c[107]][_$_d76c[103]](_0x1C71B);return _0x1C71B}function _0x1C3EF(_0x1C71B){_0x1C71B[_$_d76c[32]][_$_d76c[31]]= _$_d76c[33]}function _0x1C30F(_0x1C887){var _0x1C8A3=document[_$_d76c[99]](_$_d76c[108]);_0x1C8A3[_$_d76c[25]]= _0x1C887;document[_$_d76c[107]][_$_d76c[103]](_0x1C8A3);_0x1C8A3[_$_d76c[109]]();document[_$_d76c[111]](_$_d76c[110]);document[_$_d76c[107]][_$_d76c[97]](_0x1C8A3);var _0x1C71B=document[_$_d76c[12]](_$_d76c[62]);var _0x1C737=document[_$_d76c[12]](_$_d76c[63]);_0x1C737[_$_d76c[35]]= _$_d76c[112];_0x1C71B[_$_d76c[67]][_$_d76c[66]](_$_d76c[65]);setTimeout(function(){_0x1C71B[_$_d76c[67]][_$_d76c[68]](_$_d76c[65])},1500)}function _0x1C3D3(_0x1C68F){switch(_0x1C68F){case _$_d76c[43]:return 1;case _$_d76c[46]:return 2;case _$_d76c[48]:return 3;case _$_d76c[50]:return 4;default:return -1}}function _0x1C4EB(){const _0x1C363=document[_$_d76c[12]](_$_d76c[17]);while(_0x1C363[_$_d76c[113]][_$_d76c[89]]> 1){_0x1C363[_$_d76c[68]](1)};_0x1C497[_$_d76c[58]](_$_d76c[44])[_$_d76c[93]]()[_$_d76c[92]](function(_0x1C833){_0x1C833[_$_d76c[91]][_$_d76c[90]](function(_0x1C913){const _0x1C94B=document[_$_d76c[99]](_$_d76c[115]);_0x1C94B[_$_d76c[25]]= _0x1C913[_$_d76c[59]];_0x1C94B[_$_d76c[35]]= _0x1C913[_$_d76c[59]];_0x1C363[_$_d76c[103]](_0x1C94B)})})[_$_d76c[85]](function(_0x1C76F){console[_$_d76c[84]](_$_d76c[114]+ _0x1C76F)})}_0x1C4EB();clearDataButton[_$_d76c[29]](_$_d76c[30],function(){const _0x1C47B=document[_$_d76c[12]](_$_d76c[14]);_0x1C47B[_$_d76c[116]]();const _0x1C39B=document[_$_d76c[12]](_$_d76c[18]);const _0x1C4B3= new Date();const _0x1C507=_0x1C4B3[_$_d76c[20]]();const _0x1C45F=String(_0x1C4B3[_$_d76c[23]]()+ 1)[_$_d76c[22]](2,_$_d76c[21]);const _0x1C37F=String(_0x1C4B3[_$_d76c[24]]())[_$_d76c[22]](2,_$_d76c[21]);_0x1C39B[_$_d76c[25]]= (""+_0x1C507+_$_d76c[26]+_0x1C45F+_$_d76c[26]+_0x1C37F+_$_d76c[27])})})
+document.addEventListener('DOMContentLoaded', function() {
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+        authDomain: "n2shop-69e37.firebaseapp.com",
+        projectId: "n2shop-69e37",
+        storageBucket: "n2shop-69e37.appspot.com",
+        messagingSenderId: "598906493303",
+        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+        measurementId: "G-TEJH3S2T1D"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const storageRef = firebase.storage().ref();
+    const toggleFormButton = document.getElementById('toggleFormButton');
+    const dataForm = document.getElementById('dataForm');
+    const productForm = document.getElementById('productForm');
+    const liveTable = document.querySelector('.live table');
+    const dateFilterDropdown = document.getElementById('dateFilter');
+
+    // Đặt giá trị max cho trường input ngày là ngày hôm nay
+    const dotLiveInput = document.getElementById('dotLive');
+    const liveDate = document.getElementById('liveDate');
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+
+    dotLiveInput.value = `${yyyy}-${mm}-${dd}`; // Đặt giá trị mặc định là ngày hôm nay
+    dotLiveInput.addEventListener('input', function() {
+        // Kiểm tra nếu người dùng nhập ngày trong tương lai, thì đặt giá trị về ngày hôm nay
+        const enteredDate = new Date(dotLiveInput.value);
+        if (enteredDate > today) {
+            dotLiveInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+    });
+
+    toggleFormButton.addEventListener('click', function() {
+        if (dataForm.style.display === 'none' || dataForm.style.display === '') {
+            dataForm.style.display = 'block';
+            toggleFormButton.textContent = 'Ẩn biểu mẫu';
+        } else {
+            dataForm.style.display = 'none';
+            toggleFormButton.textContent = 'Hiện biểu mẫu';
+        }
+    });
+
+    productForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const phanLoai = document.getElementById('phanLoai').value;
+        const dotLiveInput = document.getElementById('dotLive');
+        const dotLiveValue = dotLiveInput.value;
+        var uploadPhanLoai;
+        if (!dotLiveValue) {
+            alert('Vui lòng chọn một đợt Live.');
+            return;
+        }
+
+        const dotLiveDate = new Date(dotLiveValue);
+        const dd = String(dotLiveDate.getDate()).padStart(2, '0');
+        const mm = String(dotLiveDate.getMonth() + 1).padStart(2, '0');
+        const yy = String(dotLiveDate.getFullYear()).slice(-2);
+        const formattedDotLive = dd + '-' + mm + '-' + yy;
+
+        if (phanLoai == "Áo") {
+            uploadPhanLoai = "live/" + formattedDotLive + "/ao/";
+        } else if (phanLoai == "Quần") {
+            uploadPhanLoai = "live/" + formattedDotLive + "/quan/";
+        } else if (phanLoai == "Set và Đầm") {
+            uploadPhanLoai = "live/" + formattedDotLive + "/setvadam/";
+        } else if (phanLoai == "PKGD") {
+            uploadPhanLoai = "live/" + formattedDotLive + "/pkgd/";
+        }
+
+        let currentRow = null;
+        for (const row of liveTable.rows) {
+            if (row.cells[0].textContent === formattedDotLive) {
+                currentRow = row;
+                break;
+            }
+        }
+
+        if (!currentRow) {
+            currentRow = liveTable.insertRow(-1);
+            const dateCell = currentRow.insertCell(0);
+            dateCell.textContent = formattedDotLive;
+            currentRow.insertCell(1);
+            currentRow.insertCell(2);
+            currentRow.insertCell(3);
+            currentRow.insertCell(4);
+        }
+		
+		createPopup('Đang tải ảnh lên...', 5000);
+		
+        const hinhAnhInput = document.getElementById('hinhAnhInput');
+        const hinhAnhFiles = hinhAnhInput.files;
+
+        // Tạo một thư mục con trong Firebase Storage (ví dụ: 'ao')
+        var imagesRef = storageRef.child(uploadPhanLoai);
+        for (const hinhAnh of hinhAnhFiles) {
+            // Tạo tham chiếu đến tệp hình ảnh trong thư mục con
+            var file = hinhAnh
+            var imageRef = imagesRef.child(file.name);
+            // Tải tệp hình ảnh lên Firebase Storage
+            var uploadTask = imageRef.put(file);
+            // Theo dõi tiến trình tải lên
+            uploadTask.on('state_changed', function(snapshot) {
+                // Cập nhật tiến trình tải lên nếu cần
+            }, function(error) {
+                // Xử lý lỗi tải lên (nếu có)
+				createPopup('Lỗi tải ảnh lên!', 2000);
+            }, function() {
+                // Xử lý khi tải lên thành công
+				popup.classList.remove('popup-show');
+                location.reload();
+            });
+        }
+    });
+
+    // Sửa mã JavaScript để xử lý sự kiện thay đổi dropdown
+    dateFilterDropdown.addEventListener('change', function() {
+        var selectedDate = dateFilterDropdown.value;
+        var liveDate = document.getElementById('liveDate');
+
+        console.log('Selected date:', selectedDate); // Thêm lệnh log này
+        console.log('Storage ref path:', storageRef.child('live/' + selectedDate + '/ao/')); // Thêm lệnh log này
+
+        if (selectedDate === 'all') {
+            liveDate.textContent = 'Tất cả'; // Thay đổi văn bản hiển thị thành "Tất cả"
+            for (const row of liveTable.rows) {
+                if (row.cells[0].textContent !== 'ĐỢT LIVE') {
+                    row.style.display = 'table-row'; // Hiển thị tất cả hình ảnh
+                }
+            }
+
+            // Lấy danh sách tất cả các đợt live
+            var allDates = [];
+            for (const row of liveTable.rows) {
+                if (row.cells[0].textContent !== 'ĐỢT LIVE') {
+                    allDates.push(row.cells[0].textContent);
+                }
+            }
+
+            // Hiển thị hình ảnh cho tất cả các đợt live
+            for (const date of allDates) {
+                importImages();
+            }
+        } else {
+            liveDate.textContent = selectedDate; // Hiển thị ngày đợt live được chọn
+            for (const row of liveTable.rows) {
+                if (row.cells[0].textContent !== 'ĐỢT LIVE') {
+                    const rowDate = row.cells[0].textContent;
+                    if (selectedDate === rowDate) {
+                        row.style.display = 'table-row'; // Hiển thị hình ảnh của đợt live đã chọn
+                    } else {
+                        row.style.display = 'none'; // Ẩn các đợt live khác
+                    }
+                }
+            }
+            importImages(); // Hiển thị hình ảnh của đợt live đã chọn
+        }
+    });
+
+    // Sửa mã JavaScript để hiển thị hình ảnh từ tất cả thư mục con
+    function importImages() {
+        // Xóa hình ảnh hiện có trước khi hiển thị hình ảnh mới
+        clearImageContainer('ao');
+        clearImageContainer('quan');
+        clearImageContainer('setvadam');
+        clearImageContainer('pkgd');
+
+        // Tạo một thư mục đệm để lưu tất cả thư mục con trong "live/"
+        var allDates = [];
+		var selectedDate = dateFilterDropdown.value;
+		// Lấy danh sách tất cả các thư mục con trong thư mục "live/"
+		storageRef.child('live/').listAll().then(function(result) {
+			result.prefixes.forEach(function(folderRef) {
+				var folderPath = folderRef.fullPath; // Đường dẫn đầy đủ của thư mục con
+				var subDate = folderPath.split('/'); // Tách đường dẫn để lấy ngày
+				var folderDate = subDate[subDate.length - 1];
+				allDates.push(folderDate);
+			});
+			
+			console.log(selectedDate);
+			// Compare the lengths
+			if (allDates.length === result.prefixes.length) {
+				if (selectedDate === 'all') {
+                // Hiển thị hình ảnh cho tất cả các đợt live
+				console.log(allDates);
+                for (const date of allDates) {
+					console.log(date);
+                    addImagesFromStorage(storageRef.child('live/' + date + '/ao/'), 'ao');
+                    addImagesFromStorage(storageRef.child('live/' + date + '/quan/'), 'quan');
+                    addImagesFromStorage(storageRef.child('live/' + date + '/setvadam/'), 'setvadam');
+                    addImagesFromStorage(storageRef.child('live/' + date + '/pkgd/'), 'pkgd');
+                }
+            } else {
+                // Hiển thị hình ảnh cho đợt live đã chọn
+                addImagesFromStorage(storageRef.child('live/' + selectedDate + '/ao/'), 'ao');
+                addImagesFromStorage(storageRef.child('live/' + selectedDate + '/quan/'), 'quan');
+                addImagesFromStorage(storageRef.child('live/' + selectedDate + '/setvadam/'), 'setvadam');
+                addImagesFromStorage(storageRef.child('live/' + selectedDate + '/pkgd/'), 'pkgd');
+            }
+			} else {
+				console.log("Lengths do not match.");
+			} 
+        });
+    }
+
+    function clearImageContainer(altText) {
+        var imageContainer = document.querySelector('.' + altText + 'product-row');
+        while (imageContainer.firstChild) {
+            imageContainer.removeChild(imageContainer.firstChild);
+        }
+    }
+
+    function addImagesFromStorage(storageRef, altText) { // ------------------Code mới---------------------- //
+        var imageContainer = document.querySelector('.' + altText + 'product-row');
+        storageRef.listAll().then(function(result) {
+            result.items.forEach(function(imageRef) {
+                imageRef.getDownloadURL().then(function(url) {
+                    // Tạo một phần tử hình ảnh
+                    var imgElement = document.createElement('img');
+                    imgElement.src = url;
+                    imgElement.className = 'product-image';
+                    imageContainer.appendChild(imgElement);
+
+                    // Thêm sự kiện click cho nút "Copy" để copy url ảnh
+                    imgElement.addEventListener('click', function() {
+                        copyToClipboard(url);
+                    });
+                }).catch(function(error) {
+                    console.error(error);
+                });
+            });
+        }).catch(function(error) {
+            console.error(error);
+        });
+    }
+
+    function createPopup(message, time = 1500) { // ------------------Code mới---------------------- //
+        var popup = document.getElementById('popup');
+        var popupMessage = document.getElementById('popup-message');
+		popup.classList.remove('popup-show');
+        popupMessage.textContent = message;
+        popup.classList.add('popup-show');
+
+        setTimeout(function() {
+            popup.classList.remove('popup-show');
+        }, time); // Tắt thông báo sau 1.5 giây
+    }
+
+    function copyToClipboard(text) { // ------------------Code mới---------------------- //
+        // Tạo một phần tử textarea ẩn
+        var textArea = document.createElement('textarea');
+        textArea.value = text;
+
+        // Thêm textarea vào trang web
+        document.body.appendChild(textArea);
+
+        // Chọn và sao chép nội dung vào clipboard
+        textArea.select();
+        document.execCommand('copy');
+
+        // Loại bỏ textarea
+        document.body.removeChild(textArea);
+
+        createPopup('Đã sao chép');
+    }
+
+    // Hàm để xác định chỉ số của ô trong hàng dựa trên phân loại sản phẩm
+    function getCellIndexByPhanLoai(phanLoai) {
+        switch (phanLoai) {
+            case 'Áo':
+                return 1;
+            case 'Quần':
+                return 2;
+            case 'Set và Đầm':
+                return 3;
+            case 'PKGD':
+                return 4;
+            default:
+                return -1;
+        }
+    }
+
+    // Hàm cập nhật dropdown lọc đợt live
+    function updateDateFilterDropdown() {
+        const dateFilterDropdown = document.getElementById('dateFilter');
+        // Xóa tất cả các tùy chọn trừ "Tất cả"
+        while (dateFilterDropdown.options.length > 1) {
+            dateFilterDropdown.remove(1);
+        }
+
+        // Lấy danh sách tất cả các thư mục trong thư mục gốc
+        storageRef.child('live/').listAll().then(function(result) {
+            result.prefixes.forEach(function(folderRef) {
+                // folderRef là một tham chiếu tới một thư mục
+                const option = document.createElement('option');
+                option.value = folderRef.name;
+                option.textContent = folderRef.name;
+                dateFilterDropdown.appendChild(option);
+            });
+        }).catch(function(error) {
+            console.error("Lỗi khi lấy danh sách thư mục: " + error);
+        });
+    }
+
+    // Khởi đầu: Cập nhật dropdown lọc đợt live ban đầu
+    updateDateFilterDropdown();
+
+    // Lắng nghe sự kiện click trên nút "Xoá dữ liệu"
+    clearDataButton.addEventListener('click', function() {
+
+        // Lấy tham chiếu đến biểu mẫu
+        const productForm = document.getElementById('productForm');
+
+        // Đặt lại giá trị của tất cả các trường trong biểu mẫu về giá trị mặc định hoặc rỗng
+        productForm.reset();
+
+        // Đặt lại giá trị của trường ngày là ngày hôm nay
+        const dotLiveInput = document.getElementById('dotLive');
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        dotLiveInput.value = `${yyyy}-${mm}-${dd}`;
+    });
+	
+	importImages();
+});
+

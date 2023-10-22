@@ -1,1 +1,673 @@
-var _$_a34b=["\x41\x49\x7A\x61\x53\x79\x41\x2D\x6C\x65\x67\x57\x6C\x43\x67\x6A\x4D\x44\x45\x79\x37\x30\x72\x73\x61\x54\x54\x77\x4C\x4B\x33\x39\x46\x34\x5A\x43\x4B\x68\x4D","\x6E\x32\x73\x68\x6F\x70\x2D\x36\x39\x65\x33\x37\x2E\x66\x69\x72\x65\x62\x61\x73\x65\x61\x70\x70\x2E\x63\x6F\x6D","\x6E\x32\x73\x68\x6F\x70\x2D\x36\x39\x65\x33\x37","\x6E\x32\x73\x68\x6F\x70\x2D\x36\x39\x65\x33\x37\x2E\x61\x70\x70\x73\x70\x6F\x74\x2E\x63\x6F\x6D","\x35\x39\x38\x39\x30\x36\x34\x39\x33\x33\x30\x33","\x31\x3A\x35\x39\x38\x39\x30\x36\x34\x39\x33\x33\x30\x33\x3A\x77\x65\x62\x3A\x34\x36\x64\x36\x32\x33\x36\x61\x31\x66\x64\x63\x32\x65\x66\x66\x33\x33\x65\x39\x37\x32","\x47\x2D\x54\x45\x4A\x48\x33\x53\x32\x54\x31\x44","\x69\x6E\x69\x74\x69\x61\x6C\x69\x7A\x65\x41\x70\x70","\x66\x69\x72\x65\x73\x74\x6F\x72\x65","\x72\x65\x66","\x73\x74\x6F\x72\x61\x67\x65","\x68\x61\x6E\x67\x72\x6F\x74\x78\x61","\x63\x6F\x6C\x6C\x65\x63\x74\x69\x6F\x6E","\x70\x72\x6F\x64\x75\x63\x74\x54\x61\x62\x6C\x65\x42\x6F\x64\x79","\x67\x65\x74\x45\x6C\x65\x6D\x65\x6E\x74\x42\x79\x49\x64","\x66\x69\x6C\x74\x65\x72\x43\x61\x74\x65\x67\x6F\x72\x79","\x63\x68\x61\x6E\x67\x65","\x61\x64\x64\x45\x76\x65\x6E\x74\x4C\x69\x73\x74\x65\x6E\x65\x72","\x70\x72\x6F\x64\x75\x63\x74\x46\x6F\x72\x6D","\x73\x75\x62\x6D\x69\x74","\x65\x78\x69\x73\x74\x73","\x64\x61\x74\x61","\x69\x73\x41\x72\x72\x61\x79","\x6C\x65\x6E\x67\x74\x68","\x74\x72","\x63\x72\x65\x61\x74\x65\x45\x6C\x65\x6D\x65\x6E\x74","\x74\x64","\x69\x6D\x67","\x69\x6E\x70\x75\x74","\x62\x75\x74\x74\x6F\x6E","\x74\x65\x78\x74\x43\x6F\x6E\x74\x65\x6E\x74","\x74\x68\x6F\x69\x47\x69\x61\x6E\x55\x70\x6C\x6F\x61\x64","\x70\x68\x61\x6E\x4C\x6F\x61\x69","\x73\x72\x63","\x68\x69\x6E\x68\x41\x6E\x68","\x61\x6C\x74","\x48\xEC\x6E\x68\x20\x73\u1EA3\x6E\x20\x70\x68\u1EA9\x6D","\x61\x70\x70\x65\x6E\x64\x43\x68\x69\x6C\x64","\x74\x65\x6E\x53\x61\x6E\x50\x68\x61\x6D","\x6B\x69\x63\x68\x43\x6F","\x74\x79\x70\x65","\x6E\x75\x6D\x62\x65\x72","\x76\x61\x6C\x75\x65","\x73\x6F\x4C\x75\x6F\x6E\x67","\x6D\x69\x6E","\x30","\x73\x74\x65\x70","\x31","\x69\x64","\x6E\x75\x6D","\x58\x6F\xE1","\x63\x6C\x61\x73\x73\x4E\x61\x6D\x65","\x64\x65\x6C\x65\x74\x65\x42\x75\x74\x74\x6F\x6E","\x63\x6C\x69\x63\x6B","\x74\x68\x65\x6E","\x67\x65\x74","\x64\x6F\x63","\x70\x61\x64\x53\x74\x61\x72\x74","\x74\x6F\x53\x74\x72\x69\x6E\x67","\x67\x65\x74\x44\x61\x74\x65","\x67\x65\x74\x4D\x6F\x6E\x74\x68","\x67\x65\x74\x46\x75\x6C\x6C\x59\x65\x61\x72","\x2D","","\x74\x62\x6F\x64\x79\x20\x74\x72","\x71\x75\x65\x72\x79\x53\x65\x6C\x65\x63\x74\x6F\x72\x41\x6C\x6C","\x74\x64\x3A\x6E\x74\x68\x2D\x63\x68\x69\x6C\x64\x28\x33\x29","\x71\x75\x65\x72\x79\x53\x65\x6C\x65\x63\x74\x6F\x72","\x74\x72\x69\x6D","\x61\x6C\x6C","\x64\x69\x73\x70\x6C\x61\x79","\x73\x74\x79\x6C\x65","\x6E\x6F\x6E\x65","\x66\x6F\x72\x45\x61\x63\x68","\x53\u1ED1\x20\x6C\u01B0\u1EE3\x6E\x67\x20\x70\x68\u1EA3\x69\x20\x6C\u1EDB\x6E\x20\x68\u01A1\x6E\x20\x68\x6F\u1EB7\x63\x20\x62\u1EB1\x6E\x67\x20\x31","\x63\x6C\x6F\x73\x65\x73\x74","\x74\x61\x72\x67\x65\x74","\x67\x65\x74\x45\x6C\x65\x6D\x65\x6E\x74\x73\x42\x79\x54\x61\x67\x4E\x61\x6D\x65","\x4C\u1ED7\x69\x20\x6C\u1EA5\x79\x20\x64\x6F\x63\x75\x6D\x65\x6E\x74\x3A","\x65\x72\x72\x6F\x72","\x63\x61\x74\x63\x68","\x73\x70\x6C\x69\x63\x65","\x4C\u1ED7\x69\x20\x6B\x68\x69\x20\x6B\x69\u1EC3\x6D\x20\x74\x72\x61\x20\x74\xE0\x69\x20\x6C\x69\u1EC7\x75\x20\x74\u1ED3\x6E\x20\x74\u1EA1\x69\x3A\x20","\x4C\u1ED7\x69\x20\x6B\x68\x69\x20\x74\u1EA3\x69\x20\x64\x6F\x63\x75\x6D\x65\x6E\x74\x20\x6C\xEA\x6E\x3A\x20","\x44\x6F\x63\x75\x6D\x65\x6E\x74\x20\x74\u1EA3\x69\x20\x6C\xEA\x6E\x20\x74\x68\xE0\x6E\x68\x20\x63\xF4\x6E\x67","\x6C\x6F\x67","\x75\x70\x64\x61\x74\x65","\x73\x65\x74","\x72\x65\x6D\x6F\x76\x65","\x42\u1EA1\x6E\x20\x63\xF3\x20\x63\x68\u1EAF\x63\x20\x63\x68\u1EAF\x6E\x20\x6D\x75\u1ED1\x6E\x20\x78\xF3\x61\x3F","\x70\x72\x65\x76\x65\x6E\x74\x44\x65\x66\x61\x75\x6C\x74","\x68\x74\x74\x70\x73\x3A\x2F\x2F","\x73\x74\x61\x72\x74\x73\x57\x69\x74\x68","\x53\x61\x69\x20\u0111\u1ECB\x6E\x68\x20\x64\u1EA1\x6E\x67\x20\x6C\x69\x6E\x6B","\xC1\x6F","\x61\x6F","\x51\x75\u1EA7\x6E","\x71\x75\x61\x6E","\x53\x65\x74\x20\x76\xE0\x20\u0110\u1EA7\x6D","\x73\x65\x74\x76\x61\x64\x61\x6D","\x50\x4B\x47\x44","\x70\x6B\x67\x64","\x76\x69\x2D\x56\x4E","\x6E\x75\x6D\x65\x72\x69\x63","\x32\x2D\x64\x69\x67\x69\x74","\x74\x6F\x4C\x6F\x63\x61\x6C\x65\x44\x61\x74\x65\x53\x74\x72\x69\x6E\x67","\x72\x65\x6C\x6F\x61\x64","\x61\x72\x72\x61\x79\x55\x6E\x69\x6F\x6E","\x46\x69\x65\x6C\x64\x56\x61\x6C\x75\x65","\x72\x65\x73\x65\x74","\x64\x61\x74\x61\x46\x6F\x72\x6D","\x74\x6F\x67\x67\x6C\x65\x46\x6F\x72\x6D\x42\x75\x74\x74\x6F\x6E","\x62\x6C\x6F\x63\x6B","\u1EA8\x6E\x20\x62\x69\u1EC3\x75\x20\x6D\u1EAB\x75","\x48\x69\u1EC7\x6E\x20\x62\x69\u1EC3\x75\x20\x6D\u1EAB\x75","\x63\x6C\x65\x61\x72\x44\x61\x74\x61\x42\x75\x74\x74\x6F\x6E","\x64\x6F\x74\x4C\x69\x76\x65"];const firebaseConfig={apiKey:_$_a34b[0],authDomain:_$_a34b[1],projectId:_$_a34b[2],storageBucket:_$_a34b[3],messagingSenderId:_$_a34b[4],appId:_$_a34b[5],measurementId:_$_a34b[6]};const app=firebase[_$_a34b[7]](firebaseConfig);const db=firebase[_$_a34b[8]]();const storageRef=firebase[_$_a34b[10]]()[_$_a34b[9]]();const collectionRef=db[_$_a34b[12]](_$_a34b[11]);const tbody=document[_$_a34b[14]](_$_a34b[13]);const filterCategorySelect=document[_$_a34b[14]](_$_a34b[15]);filterCategorySelect[_$_a34b[17]](_$_a34b[16],applyCategoryFilter);const productForm=document[_$_a34b[14]](_$_a34b[18]);productForm[_$_a34b[17]](_$_a34b[19],addProduct);function displayInventoryData(){collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){const _0xD44E=_0xD1B0[_$_a34b[21]]();if(_0xD44E&& Array[_$_a34b[22]](_0xD44E[_$_a34b[21]])){var _0xD623=document[_$_a34b[14]](_$_a34b[13]);for(let _0xD491=0;_0xD491< _0xD44E[_$_a34b[21]][_$_a34b[23]];_0xD491++){const _0xD59D=_0xD44E[_$_a34b[21]][_0xD491];var _0xD87E=document[_$_a34b[25]](_$_a34b[24]);var _0xD666=document[_$_a34b[25]](_$_a34b[26]);var _0xD6A9=document[_$_a34b[25]](_$_a34b[26]);var _0xD6EC=document[_$_a34b[25]](_$_a34b[26]);var _0xD72F=document[_$_a34b[25]](_$_a34b[26]);var _0xD772=document[_$_a34b[25]](_$_a34b[26]);var _0xD7B5=document[_$_a34b[25]](_$_a34b[26]);var _0xD7F8=document[_$_a34b[25]](_$_a34b[26]);var _0xD83B=document[_$_a34b[25]](_$_a34b[26]);var _0xD517=document[_$_a34b[25]](_$_a34b[27]);var _0xD55A=document[_$_a34b[25]](_$_a34b[28]);var _0xD4D4=document[_$_a34b[25]](_$_a34b[29]);_0xD666[_$_a34b[30]]= _0xD491+ 1;_0xD6A9[_$_a34b[30]]= _0xD59D[_$_a34b[31]];_0xD6EC[_$_a34b[30]]= _0xD59D[_$_a34b[32]];_0xD517[_$_a34b[33]]= _0xD59D[_$_a34b[34]];_0xD517[_$_a34b[35]]= _$_a34b[36];_0xD72F[_$_a34b[37]](_0xD517);_0xD772[_$_a34b[30]]= _0xD59D[_$_a34b[38]];_0xD7B5[_$_a34b[30]]= _0xD59D[_$_a34b[39]];_0xD55A[_$_a34b[40]]= _$_a34b[41];_0xD55A[_$_a34b[42]]= _0xD59D[_$_a34b[43]];_0xD55A[_$_a34b[44]]= _$_a34b[45];_0xD55A[_$_a34b[46]]= _$_a34b[47];_0xD55A[_$_a34b[48]]= _$_a34b[49];_0xD55A[_$_a34b[17]](_$_a34b[16],function(){updateInventory()});_0xD7F8[_$_a34b[37]](_0xD55A);_0xD4D4[_$_a34b[30]]= _$_a34b[50];_0xD4D4[_$_a34b[51]]= _$_a34b[52];_0xD4D4[_$_a34b[17]](_$_a34b[53],deleteInventory);_0xD87E[_$_a34b[37]](_0xD666);_0xD87E[_$_a34b[37]](_0xD6A9);_0xD87E[_$_a34b[37]](_0xD6EC);_0xD87E[_$_a34b[37]](_0xD72F);_0xD87E[_$_a34b[37]](_0xD772);_0xD87E[_$_a34b[37]](_0xD7B5);_0xD87E[_$_a34b[37]](_0xD7F8);_0xD87E[_$_a34b[37]](_0xD83B);_0xD83B[_$_a34b[37]](_0xD4D4);var _0xD5E0=document[_$_a34b[14]](_$_a34b[13]);_0xD5E0[_$_a34b[37]](_0xD87E)}}}})}function getFormattedDate(){const _0xD8C1= new Date();const _0xD904=_0xD8C1[_$_a34b[59]]()[_$_a34b[58]]()[_$_a34b[57]](2,_$_a34b[45]);const _0xD947=(_0xD8C1[_$_a34b[60]]()+ 1)[_$_a34b[58]]()[_$_a34b[57]](2,_$_a34b[45]);const _0xD98A=_0xD8C1[_$_a34b[61]]();return (""+_0xD904+_$_a34b[62]+_0xD947+_$_a34b[62]+_0xD98A+_$_a34b[63])}function applyCategoryFilter(){const _0xD236=filterCategorySelect[_$_a34b[42]];const _0xD279=document[_$_a34b[65]](_$_a34b[64]);_0xD279[_$_a34b[73]]((_0xD342)=>{const _0xD2FF=_0xD342[_$_a34b[67]](_$_a34b[66]);const _0xD2BC=_0xD2FF[_$_a34b[30]][_$_a34b[68]]();if(_0xD236=== _$_a34b[69]|| _0xD2BC=== _0xD236){_0xD342[_$_a34b[71]][_$_a34b[70]]= _$_a34b[63]}else {_0xD342[_$_a34b[71]][_$_a34b[70]]= _$_a34b[72]}})}const soLuongInput=document[_$_a34b[14]](_$_a34b[43]);soLuongInput[_$_a34b[17]](_$_a34b[28],function(){const _0xCD3D=parseInt(soLuongInput[_$_a34b[42]]);if(_0xCD3D< 1){alert(_$_a34b[74]);soLuongInput[_$_a34b[42]]= _$_a34b[47]}});function updateInventory(){const _0xD342=event[_$_a34b[76]][_$_a34b[75]](_$_a34b[24]);const _0xDA10=event[_$_a34b[76]][_$_a34b[42]];const _0xDA53=_0xD342[_$_a34b[77]](_$_a34b[26])[5][_$_a34b[30]];if(_0xDA10< 1){if(_0xD342){const _0xD3C8=_0xD342[_$_a34b[67]](_$_a34b[27]);if(_0xD3C8){const _0xD40B=_0xD3C8[_$_a34b[33]];collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){const _0xD44E=_0xD1B0[_$_a34b[21]]();for(let _0xD491=0;_0xD491< _0xD44E[_$_a34b[21]][_$_a34b[23]];_0xD491++){if(_0xD40B=== _0xD44E[_$_a34b[21]][_0xD491][_$_a34b[34]]&& _0xDA53=== _0xD44E[_$_a34b[21]][_0xD491][_$_a34b[39]]){_0xD44E[_$_a34b[21]][_$_a34b[81]](_0xD491,1);break}};collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[86]]({"\x64\x61\x74\x61":_0xD44E[_$_a34b[21]]})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84])})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}else {collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[87]]({"\x64\x61\x74\x61":_0xD44E[_$_a34b[21]]})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84])})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[82],_0xD1F3)})}})[_$_a34b[80]]((_0xD1F3)=>{console[_$_a34b[79]](_$_a34b[78],_0xD1F3)})};_0xD342[_$_a34b[88]]()}}else {if(_0xD342){const _0xD3C8=_0xD342[_$_a34b[67]](_$_a34b[27]);if(_0xD3C8){const _0xD40B=_0xD3C8[_$_a34b[33]];collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){const _0xD44E=_0xD1B0[_$_a34b[21]]();for(let _0xD491=0;_0xD491< _0xD44E[_$_a34b[21]][_$_a34b[23]];_0xD491++){if(_0xD40B=== _0xD44E[_$_a34b[21]][_0xD491][_$_a34b[34]]&& _0xDA53=== _0xD44E[_$_a34b[21]][_0xD491][_$_a34b[39]]){_0xD44E[_$_a34b[21]][_0xD491][_$_a34b[43]]= _0xDA10;break}};collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[86]]({"\x64\x61\x74\x61":_0xD44E[_$_a34b[21]]})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84])})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}else {collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[87]]({"\x64\x61\x74\x61":_0xD44E[_$_a34b[21]]})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84])})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[82],_0xD1F3)})}})[_$_a34b[80]]((_0xD1F3)=>{console[_$_a34b[79]](_$_a34b[78],_0xD1F3)})}}}}function deleteInventory(){const _0xD385=confirm(_$_a34b[89]);const _0xD342=event[_$_a34b[76]][_$_a34b[75]](_$_a34b[24]);if(_0xD385){if(_0xD342){const _0xD3C8=_0xD342[_$_a34b[67]](_$_a34b[27]);if(_0xD3C8){const _0xD40B=_0xD3C8[_$_a34b[33]];collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){const _0xD44E=_0xD1B0[_$_a34b[21]]();for(let _0xD491=0;_0xD491< _0xD44E[_$_a34b[21]][_$_a34b[23]];_0xD491++){if(_0xD40B=== _0xD44E[_$_a34b[21]][_0xD491][_$_a34b[34]]){_0xD44E[_$_a34b[21]][_$_a34b[81]](_0xD491,1);break}};collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[86]]({"\x64\x61\x74\x61":_0xD44E[_$_a34b[21]]})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84])})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}else {collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[87]]({"\x64\x61\x74\x61":_0xD44E[_$_a34b[21]]})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84])})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[82],_0xD1F3)})}})[_$_a34b[80]]((_0xD1F3)=>{console[_$_a34b[79]](_$_a34b[78],_0xD1F3)})};_0xD342[_$_a34b[88]]()}}}function addProduct(_0xCF55){_0xCF55[_$_a34b[90]]();const _0xD0A4=document[_$_a34b[14]](_$_a34b[32])[_$_a34b[42]];const _0xCFDB=document[_$_a34b[14]](_$_a34b[34])[_$_a34b[42]];const _0xD12A=document[_$_a34b[14]](_$_a34b[38])[_$_a34b[42]];const _0xD061=document[_$_a34b[14]](_$_a34b[39])[_$_a34b[42]];const _0xD0E7=parseInt(document[_$_a34b[14]](_$_a34b[43])[_$_a34b[42]]);if(_0xD0E7< 1){alert(_$_a34b[74]);return};if(!_0xCFDB[_$_a34b[92]](_$_a34b[91])){alert(_$_a34b[93]);return};const _0xD01E=_0xCFDB;var _0xCECF;if(_0xD0A4== _$_a34b[94]){_0xCECF= _$_a34b[95]}else {if(_0xD0A4== _$_a34b[96]){_0xCECF= _$_a34b[97]}else {if(_0xD0A4== _$_a34b[98]){_0xCECF= _$_a34b[99]}else {if(_0xD0A4== _$_a34b[100]){_0xCECF= _$_a34b[101]}}}};var _0xD16D= new Date();var _0xCF98=_0xD16D[_$_a34b[105]](_$_a34b[102],{year:_$_a34b[103],month:_$_a34b[104],day:_$_a34b[104],hour:_$_a34b[104],minute:_$_a34b[104]});var _0xCF12={thoiGianUpload:_0xCF98,phanLoai:_0xD0A4,hinhAnh:_0xCFDB,tenSanPham:_0xD12A,kichCo:_0xD061,soLuong:_0xD0E7};collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[55]]()[_$_a34b[54]]((_0xD1B0)=>{if(_0xD1B0[_$_a34b[20]]){collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[86]]({[_$_a34b[21]]:firebase[_$_a34b[8]][_$_a34b[108]][_$_a34b[107]](_0xCF12)})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84]);location[_$_a34b[106]]()})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}else {collectionRef[_$_a34b[56]](_$_a34b[11])[_$_a34b[87]]({[_$_a34b[21]]:firebase[_$_a34b[8]][_$_a34b[108]][_$_a34b[107]](_0xCF12)})[_$_a34b[54]](function(){console[_$_a34b[85]](_$_a34b[84]);location[_$_a34b[106]]()})[_$_a34b[80]](function(_0xD1F3){console[_$_a34b[79]](_$_a34b[83],_0xD1F3)})}});document[_$_a34b[14]](_$_a34b[18])[_$_a34b[109]]();displayInventoryData();applyCategoryFilter()}function toggleForm(){const _0xD9CD=document[_$_a34b[14]](_$_a34b[110]);const toggleFormButton=document[_$_a34b[14]](_$_a34b[111]);if(_0xD9CD[_$_a34b[71]][_$_a34b[70]]=== _$_a34b[72]|| _0xD9CD[_$_a34b[71]][_$_a34b[70]]=== _$_a34b[63]){_0xD9CD[_$_a34b[71]][_$_a34b[70]]= _$_a34b[112];toggleFormButton[_$_a34b[30]]= _$_a34b[113]}else {_0xD9CD[_$_a34b[71]][_$_a34b[70]]= _$_a34b[72];toggleFormButton[_$_a34b[30]]= _$_a34b[114]}}const toggleFormButton=document[_$_a34b[14]](_$_a34b[111]);toggleFormButton[_$_a34b[17]](_$_a34b[53],toggleForm);const clearDataButton=document[_$_a34b[14]](_$_a34b[115]);clearDataButton[_$_a34b[17]](_$_a34b[53],function(){document[_$_a34b[14]](_$_a34b[18])[_$_a34b[109]]();const _0xCDC3=document[_$_a34b[14]](_$_a34b[116]);const _0xCE49= new Date();const _0xCE8C=_0xCE49[_$_a34b[61]]();const _0xCE06=String(_0xCE49[_$_a34b[60]]()+ 1)[_$_a34b[57]](2,_$_a34b[45]);const _0xCD80=String(_0xCE49[_$_a34b[59]]())[_$_a34b[57]](2,_$_a34b[45]);_0xCDC3[_$_a34b[42]]= (""+_0xCE8C+_$_a34b[62]+_0xCE06+_$_a34b[62]+_0xCD80+_$_a34b[63])});displayInventoryData()
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37.appspot.com",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D"
+};
+
+// Initialize Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storageRef = firebase.storage().ref();
+const collectionRef = db.collection("hangrotxa");
+
+// Lấy tbody của bảng
+const tbody = document.getElementById('productTableBody');
+
+const inputFileRadio = document.getElementById('inputFile');
+const inputLinkRadio = document.getElementById('inputLink');
+const inputClipboardRadio = document.getElementById('inputClipboard');
+const inputFileContainer = document.getElementById('inputFileContainer');
+const inputLinkContainer = document.getElementById('inputLinkContainer');
+const inputClipboardContainer = document.getElementById('container');
+const hinhAnhInputFile = document.getElementById('hinhAnhInputFile');
+const hinhAnhInputLink = document.getElementById('hinhAnhInputLink');
+const hinhAnhContainer = document.getElementById('hinhAnhContainer');
+
+const imageUrlFile = []; // Mảng để lưu trữ URL tải về
+var imgArray = [];
+
+// Ẩn trường nhập liệu link ban đầu
+inputLinkContainer.style.display = 'none';
+inputFileContainer.style.display = 'none';
+
+inputFileRadio.addEventListener('change', function() {
+    inputFileContainer.style.display = 'block';
+    inputLinkContainer.style.display = 'none';
+    inputClipboardContainer.style.display = 'none';
+    hinhAnhContainer.style.display = 'none';
+});
+
+inputLinkRadio.addEventListener('change', function() {
+    inputFileContainer.style.display = 'none';
+    inputLinkContainer.style.display = 'block';
+    inputClipboardContainer.style.display = 'none';
+    hinhAnhContainer.style.display = 'block';
+});
+
+inputClipboardRadio.addEventListener('change', function() {
+    inputFileContainer.style.display = 'none';
+    inputLinkContainer.style.display = 'none';
+    inputClipboardContainer.style.display = 'block';
+    hinhAnhContainer.style.display = 'none';
+});
+
+// Add a paste event listener to the document
+inputClipboardContainer.addEventListener('paste', function(e) {
+    if (inputClipboardRadio.checked) {
+        // Create a temporary file input element
+        imgArray = [];
+
+        e.preventDefault();
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf("image") !== -1) {
+                var blob = items[i].getAsFile(); // Tạo một Blob từ dữ liệu hình ảnh
+                var file = new File([blob], "image.jpg"); // Tạo một File từ Blob
+
+                // Xóa tất cả các phần tử hình ảnh hiện có trong phần tử <div>
+                inputClipboardContainer.innerHTML = "";
+
+                // Tạo một phần tử img
+                var imgElement = document.createElement("img");
+
+                // Đặt thuộc tính src cho phần tử img bằng URL của tệp
+                imgElement.src = URL.createObjectURL(file);
+
+                // Thêm phần tử img vào phần tử <div>
+                inputClipboardContainer.appendChild(imgElement);
+
+                imgArray.push(file);
+            }
+        }
+    }
+});
+
+
+// Hàm để tạo tên tệp động duy nhất
+function generateUniqueFileName() {
+    return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.png';
+}
+
+// Lấy thẻ select
+const filterCategorySelect = document.getElementById('filterCategory');
+
+// Sử dụng sự kiện 'change' để tự động áp dụng bộ lọc khi người dùng thay đổi giá trị
+filterCategorySelect.addEventListener('change', applyCategoryFilter);
+
+// Lấy thẻ form và xử lý sự kiện nút "Thêm dữ liệu"
+const productForm = document.getElementById('productForm');
+productForm.addEventListener('submit', addProduct);
+
+// Hiển thị dữ liệu hàng tồn sản phẩm trong bảng
+function displayInventoryData() {
+    collectionRef.doc("hangrotxa").get()
+        .then((doc) => {
+            if (doc.exists) {
+                // Sao chép dữ liệu
+                const data = doc.data(); // Sao chép mảng
+                // Check if data is defined and data.data is an array
+                if (data && Array.isArray(data.data)) {
+                    var tableElement = document.getElementById('productTableBody');
+
+                    for (let i = 0; i < data.data.length; i++) {
+                        const product = data.data[i];
+                        // Tạo các phần tử
+                        var tr = document.createElement('tr');
+                        var td1 = document.createElement('td');
+                        var td2 = document.createElement('td');
+                        var td3 = document.createElement('td');
+                        var td4 = document.createElement('td');
+                        var td5 = document.createElement('td');
+                        var td6 = document.createElement('td');
+                        var td7 = document.createElement('td');
+                        var td8 = document.createElement('td');
+                        var img = document.createElement('img');
+                        var input = document.createElement('input');
+                        var button = document.createElement('button');
+
+                        // Đặt nội dung cho các phần tử
+                        td1.textContent = i + 1;
+                        td2.textContent = product.thoiGianUpload;
+                        td3.textContent = product.phanLoai;
+                        img.src = product.hinhAnh;
+                        img.alt = 'Hình sản phẩm';
+                        td4.appendChild(img);
+                        td5.textContent = product.tenSanPham;
+                        td6.textContent = product.kichCo;
+                        input.type = 'number';
+                        input.value = product.soLuong;
+                        input.min = '0';
+                        input.step = '1';
+                        input.id = 'num';
+                        input.addEventListener('change', function() {
+                            updateInventory();
+                        });
+                        td7.appendChild(input);
+                        button.textContent = 'Xoá';
+                        button.class = 'deleteButton';
+                        button.addEventListener('click', deleteInventory);
+
+                        // Đặt các phần tử con vào phần tử tr
+                        tr.appendChild(td1);
+                        tr.appendChild(td2);
+                        tr.appendChild(td3);
+                        tr.appendChild(td4);
+                        tr.appendChild(td5);
+                        tr.appendChild(td6);
+                        tr.appendChild(td7);
+                        tr.appendChild(td8);
+                        td8.appendChild(button);
+
+                        // Lấy bảng trong trang web và chèn phần tử tr vào bảng
+                        var table = document.getElementById('productTableBody');
+                        table.appendChild(tr);
+                    }
+                }
+            }
+        })
+}
+
+
+// Hàm để lấy thời gian hiện tại và định dạng theo dd/mm/yyyy
+function getFormattedDate() {
+    const currentDate = new Date();
+    const day = currentDate.getDate().toString().padStart(2, '0');
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0'); // Tháng bắt đầu từ 0
+    const year = currentDate.getFullYear();
+    return `${day}-${month}-${year}`;
+}
+
+// Hàm áp dụng bộ lọc phân loại
+function applyCategoryFilter() {
+    const filterCategory = filterCategorySelect.value;
+
+    // Lặp qua từng hàng của bảng và xử lý việc ẩn/cuộn hàng dựa trên phân loại
+    const rows = document.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const categoryCell = row.querySelector('td:nth-child(3)'); // Lấy cột phân loại
+        const category = categoryCell.textContent.trim();
+
+        if (filterCategory === 'all' || category === filterCategory) {
+            row.style.display = ''; // Hiển thị hàng nếu phân loại khớp hoặc đang chọn "Tất cả"
+        } else {
+            row.style.display = 'none'; // Ẩn hàng nếu phân loại không khớp
+        }
+    });
+}
+
+const soLuongInput = document.getElementById('soLuong');
+
+soLuongInput.addEventListener('input', function() {
+    const enteredValue = parseInt(soLuongInput.value);
+
+    if (enteredValue < 1) {
+        alert('Số lượng phải lớn hơn hoặc bằng 1');
+        soLuongInput.value = '1'; // Đặt lại giá trị thành 1 nếu người dùng nhập số nhỏ hơn 1
+    }
+});
+
+// Cập nhật số lượng sản phẩm khi người dùng thay đổi giá trị
+function updateInventory() {
+    // Lắng nghe sự kiện khi giá trị cột số lượng thay đổi
+
+    const row = event.target.closest("tr");
+    const quantity = event.target.value;
+    const size = row.getElementsByTagName("td")[5].textContent;
+
+    if (quantity < 1) {
+        if (row) {
+            const imgElement = row.querySelector("img");
+            if (imgElement) {
+                const imgSrc = imgElement.src;
+                collectionRef.doc("hangrotxa").get()
+                    .then((doc) => {
+                        if (doc.exists) {
+                            // Sao chép dữ liệu
+                            const data = doc.data(); // Sao chép mảng
+
+                            for (let i = 0; i < data["data"].length; i++) {
+                                if (imgSrc === data["data"][i].hinhAnh && size === data["data"][i].kichCo) {
+                                    data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
+                                    break; // Kết thúc vòng lặp sau khi xoá
+                                }
+                            }
+
+                            // Kiểm tra xem tài liệu đã tồn tại chưa
+                            collectionRef.doc("hangrotxa").get().then(doc => {
+                                if (doc.exists) {
+                                    // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                    collectionRef.doc("hangrotxa").update({
+                                        "data": data["data"]
+                                    }).then(function() {
+                                        console.log("Document tải lên thành công");
+                                    }).catch(function(error) {
+                                        console.error("Lỗi khi tải document lên: ", error);
+                                    });
+                                } else {
+                                    // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                    collectionRef.doc("hangrotxa").set({
+                                        "data": data["data"]
+                                    }).then(function() {
+                                        console.log("Document tải lên thành công");
+                                    }).catch(function(error) {
+                                        console.error("Lỗi khi tải document lên: ", error);
+                                    });
+                                }
+                            }).catch(function(error) {
+                                console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                            });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Lỗi lấy document:", error);
+                    });
+            }
+            row.remove();
+        }
+    } else {
+        if (row) {
+            const imgElement = row.querySelector("img");
+            if (imgElement) {
+                const imgSrc = imgElement.src;
+                collectionRef.doc("hangrotxa").get()
+                    .then((doc) => {
+                        if (doc.exists) {
+                            // Sao chép dữ liệu
+                            const data = doc.data(); // Sao chép mảng
+
+                            for (let i = 0; i < data["data"].length; i++) {
+                                if (imgSrc === data["data"][i].hinhAnh && size === data["data"][i].kichCo) {
+                                    data["data"][i].soLuong = quantity;
+                                    break; // Kết thúc vòng lặp sau khi xoá
+                                }
+                            }
+
+                            // Kiểm tra xem tài liệu đã tồn tại chưa
+                            collectionRef.doc("hangrotxa").get().then(doc => {
+                                if (doc.exists) {
+                                    // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                    collectionRef.doc("hangrotxa").update({
+                                        "data": data["data"]
+                                    }).then(function() {
+                                        console.log("Document tải lên thành công");
+                                    }).catch(function(error) {
+                                        console.error("Lỗi khi tải document lên: ", error);
+                                    });
+                                } else {
+                                    // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                    collectionRef.doc("hangrotxa").set({
+                                        "data": data["data"]
+                                    }).then(function() {
+                                        console.log("Document tải lên thành công");
+                                    }).catch(function(error) {
+                                        console.error("Lỗi khi tải document lên: ", error);
+                                    });
+                                }
+                            }).catch(function(error) {
+                                console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                            });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Lỗi lấy document:", error);
+                    });
+            }
+        }
+    }
+
+}
+
+// Xoá sản phẩm khi người dùng ấn nút "Xoá"
+function deleteInventory() {
+    const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
+    const row = event.target.closest("tr");
+    if (confirmDelete) {
+        if (row) {
+            const imgElement = row.querySelector("img");
+            if (imgElement) {
+                const imgSrc = imgElement.src;
+                collectionRef.doc("hangrotxa").get()
+                    .then((doc) => {
+                        if (doc.exists) {
+                            // Sao chép dữ liệu
+                            const data = doc.data(); // Sao chép mảng
+
+                            for (let i = 0; i < data["data"].length; i++) {
+                                if (imgSrc === data["data"][i].hinhAnh) {
+                                    data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
+                                    break; // Kết thúc vòng lặp sau khi xoá
+                                }
+                            }
+
+                            // Kiểm tra xem tài liệu đã tồn tại chưa
+                            collectionRef.doc("hangrotxa").get().then(doc => {
+                                if (doc.exists) {
+                                    // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                    collectionRef.doc("hangrotxa").update({
+                                        "data": data["data"]
+                                    }).then(function() {
+                                        console.log("Document tải lên thành công");
+                                    }).catch(function(error) {
+                                        console.error("Lỗi khi tải document lên: ", error);
+                                    });
+                                } else {
+                                    // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                    collectionRef.doc("hangrotxa").set({
+                                        "data": data["data"]
+                                    }).then(function() {
+                                        console.log("Document tải lên thành công");
+                                    }).catch(function(error) {
+                                        console.error("Lỗi khi tải document lên: ", error);
+                                    });
+                                }
+                            }).catch(function(error) {
+                                console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                            });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Lỗi lấy document:", error);
+                    });
+            }
+            row.remove();
+        }
+    }
+}
+
+// Thêm sản phẩm mới từ biểu mẫu
+function addProduct(event) {
+    event.preventDefault();
+    const phanLoai = document.getElementById('phanLoai').value;
+    const hinhAnhInput = document.getElementById('hinhAnhInput');
+    const tenSanPham = document.getElementById('tenSanPham').value;
+    const kichCo = document.getElementById('kichCo').value;
+    const soLuong = parseInt(document.getElementById('soLuong').value);
+
+    if (soLuong < 1) {
+        alert('Số lượng phải lớn hơn hoặc bằng 1');
+        return;
+    }
+
+    // Dữ liệu muốn tải lên Firestore
+    var collectionName;
+
+    if (phanLoai == "Áo") {
+        collectionName = "ao";
+    } else if (phanLoai == "Quần") {
+        collectionName = "quan";
+    } else if (phanLoai == "Set và Đầm") {
+        collectionName = "setvadam";
+    } else if (phanLoai == "PKGD") {
+        collectionName = "pkgd";
+    }
+
+    var thoiGianUpload = new Date();
+
+    // Định dạng ngày tháng năm + giờ phút
+    var formattedTime = thoiGianUpload.toLocaleDateString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+	
+    if (inputLinkRadio.checked) {
+        if (!hinhAnhInput.value.startsWith("https://")) {
+            alert('Sai định dạng link');
+            return;
+        }
+		
+		createPopup('Đang tải ảnh lên', 5000);
+
+        const imageUrl = hinhAnhInput.value; // Đặt URL của hình ảnh tải lên
+
+        var dataToUpload = {
+            thoiGianUpload: formattedTime,
+            phanLoai: phanLoai,
+            hinhAnh: imageUrl,
+            tenSanPham: tenSanPham,
+            kichCo: kichCo,
+            soLuong: soLuong
+        };
+
+        // Kiểm tra xem tài liệu đã tồn tại chưa
+        collectionRef.doc("hangrotxa").get().then(doc => {
+            if (doc.exists) {
+                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                collectionRef.doc("hangrotxa").update({
+                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                }).then(function() {
+                    console.log("Document tải lên thành công");
+					popup.classList.remove('popup-show');
+                    location.reload();
+                }).catch(function(error) {
+					createPopup('Lỗi khi tải ảnh lên...', 2000);
+                    console.error("Lỗi khi tải document lên: ", error);
+                });
+            } else {
+                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                collectionRef.doc("hangrotxa").set({
+                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                }).then(function() {
+                    console.log("Document tải lên thành công");
+					popup.classList.remove('popup-show');
+                    location.reload();
+                }).catch(function(error) {
+					createPopup('Lỗi khi tải ảnh lên...', 2000);
+                    console.error("Lỗi khi tải document lên: ", error);
+                });
+            }
+        })
+
+    } else if (inputFileRadio.checked) {
+		createPopup('Đang tải ảnh lên', 5000);
+
+        const hinhAnhFiles = hinhAnhInputFile.files;
+
+        var imagesRef = storageRef.child('hangrotxa/sp');
+
+        // Sử dụng Promise.all để theo dõi tất cả các tải lên
+        const uploadPromises = [];
+
+        function uploadImage(file) {
+            return new Promise((resolve, reject) => {
+                var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                var uploadTask = imageRef.put(file);
+
+                uploadTask.on('state_changed',
+                    function(snapshot) {
+                        // Xử lý tiến trình tải lên (nếu cần)
+                    },
+                    function(error) {
+                        // Xử lý lỗi tải lên (nếu có)
+                        reject(error);
+                    },
+                    function() {
+                        // Xử lý khi tải lên thành công
+                        uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
+                            imageUrlFile.push(downloadURL);
+                            resolve();
+                        }).catch(function(error) {
+                            // Xử lý lỗi lấy URL tải về (nếu có)
+                            reject(error);
+                        });
+                    }
+                );
+            });
+        }
+
+        for (const hinhAnh of hinhAnhFiles) {
+            uploadPromises.push(uploadImage(hinhAnh));
+        }
+
+        Promise.all(uploadPromises)
+            .then(() => {
+                // Tất cả các tác vụ tải lên đã hoàn thành, imageUrlFile bây giờ chứa các URL
+
+                const imageUrl = imageUrlFile; // Đặt URL của hình ảnh tải lên
+
+                var dataToUpload = {
+                    thoiGianUpload: formattedTime,
+                    phanLoai: phanLoai,
+                    hinhAnh: imageUrl,
+                    tenSanPham: tenSanPham,
+                    kichCo: kichCo,
+                    soLuong: soLuong
+                };
+
+                // Kiểm tra xem tài liệu đã tồn tại chưa
+                collectionRef.doc("hangrotxa").get().then(doc => {
+                    if (doc.exists) {
+                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                        collectionRef.doc("hangrotxa").update({
+                            ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                        }).then(function() {
+                            console.log("Document tải lên thành công");
+							popup.classList.remove('popup-show');
+                            location.reload();
+                        }).catch(function(error) {
+							createPopup('Lỗi khi tải ảnh lên...', 2000);
+                            console.error("Lỗi khi tải document lên: ", error);
+                        });
+                    } else {
+                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                        collectionRef.doc("hangrotxa").set({
+                            ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                        }).then(function() {
+                            console.log("Document tải lên thành công");
+							popup.classList.remove('popup-show');
+                            location.reload();
+                        }).catch(function(error) {
+							createPopup('Lỗi khi tải ảnh lên...', 2000);
+                            console.error("Lỗi khi tải document lên: ", error);
+                        });
+                    }
+                })
+
+            })
+            .catch((error) => {
+                console.error("Lỗi trong quá trình tải lên ảnh:", error);
+            });
+    } else if (inputClipboardRadio.checked) {
+			createPopup('Đang tải ảnh lên', 5000);
+		
+            var imageName = generateUniqueFileName(); // Đặt tên cho tệp tin trên Firebase Storage
+
+            var imageRef = storageRef.child('hangrotxa/sp/' + imageName);
+
+            // Tải tệp lên Firebase Storage
+            var uploadTask = imageRef.put(imgArray[0]);
+
+            // Xử lý sự kiện hoàn thành tải lên
+            uploadTask.on('state_changed',
+                function(snapshot) {
+                    // Xử lý quá trình tải lên (có thể theo dõi tiến trình)
+                },
+                function(error) {
+                    // Xử lý lỗi trong quá trình tải lên
+                    console.error("Lỗi tải lên: ", error);
+                },
+                function() {
+                    uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
+                        const imageUrl = downloadURL;
+                        console.log(imageUrl);
+
+                        var dataToUpload = {
+                            thoiGianUpload: formattedTime,
+                            phanLoai: phanLoai,
+                            hinhAnh: imageUrl,
+                            tenSanPham: tenSanPham,
+                            kichCo: kichCo,
+                            soLuong: soLuong
+                        };
+
+                        // Kiểm tra xem tài liệu đã tồn tại chưa
+                        collectionRef.doc("hangrotxa").get().then(doc => {
+                            if (doc.exists) {
+                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                collectionRef.doc("hangrotxa").update({
+                                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                                }).then(function() {
+                                    console.log("Document tải lên thành công");
+									popup.classList.remove('popup-show');
+                                    location.reload();
+                                }).catch(function(error) {
+									createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    console.error("Lỗi khi tải document lên: ", error);
+                                });
+                            } else {
+                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                collectionRef.doc("hangrotxa").set({
+                                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                                }).then(function() {
+                                    console.log("Document tải lên thành công");
+									popup.classList.remove('popup-show');
+                                    location.reload();
+                                }).catch(function(error) {
+									createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    console.error("Lỗi khi tải document lên: ", error);
+                                });
+                            }
+                        })
+                    });
+                    // Xử lý khi tải lên thành công
+                    console.log("Tải lên thành công");
+                }
+            );
+    }
+}
+
+// Thêm hàm để ẩn/hiện biểu mẫu
+function toggleForm() {
+    const dataForm = document.getElementById('dataForm');
+    const toggleFormButton = document.getElementById('toggleFormButton');
+
+    if (dataForm.style.display === 'none' || dataForm.style.display === '') {
+        dataForm.style.display = 'block';
+        toggleFormButton.textContent = 'Ẩn biểu mẫu';
+    } else {
+        dataForm.style.display = 'none';
+        toggleFormButton.textContent = 'Hiện biểu mẫu';
+    }
+}
+
+// Lắng nghe sự kiện click trên nút "Thêm Sản Phẩm"
+const toggleFormButton = document.getElementById('toggleFormButton');
+toggleFormButton.addEventListener('click', toggleForm);
+
+// Lắng nghe sự kiện click trên nút "Xóa dữ liệu"
+const clearDataButton = document.getElementById('clearDataButton');
+clearDataButton.addEventListener('click', function() {
+    // Đặt lại giá trị của tất cả các trường trong biểu mẫu về giá trị mặc định hoặc rỗng
+    document.getElementById('productForm').reset();
+    // Đặt lại giá trị của trường ngày là ngày hôm nay
+    const dotLiveInput = document.getElementById('dotLive');
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    dotLiveInput.value = `${yyyy}-${mm}-${dd}`;
+});
+
+function createPopup(message, time = 1500) {
+    var popup = document.getElementById('popup');
+    var popupMessage = document.getElementById('popup-message');
+    popup.classList.remove('popup-show');
+    popupMessage.textContent = message;
+    popup.classList.add('popup-show');
+
+    setTimeout(function() {
+        popup.classList.remove('popup-show');
+    }, time); // Tắt thông báo sau 1.5 giây
+}
+
+// Gọi hàm để hiển thị dữ liệu ban đầu và cài đặt sự kiện cho input tệp hình ảnh
+displayInventoryData();
