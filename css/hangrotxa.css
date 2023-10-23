@@ -65,22 +65,24 @@ p.tieude {
 }
 
 table {
-    width: 100%;
     border-collapse: collapse;
+    width: 100%;
     margin-top: 20px;
-}
-
-table, th, td {
-    border: 1px solid #ccc;
+    table-layout: fixed;
 }
 
 th, td {
+    word-wrap: break-word;
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: center; /* Để căn hình ảnh từ trên xuống */
+    vertical-align: top; /* Căn ảnh trên theo chiều dọc */
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
+}
+
+th {
+    background-color: #f2f2f2;
 }
 
 th:first-child {
