@@ -1,3 +1,14 @@
+/* Điều chỉnh menu cho các thiết bị di động */
+@media (max-width: 768px) {
+    .nav-list {
+        text-align: center;
+    }
+    .nav-item {
+        display: block;
+        margin: 0 0 30px;
+    }
+}
+
 #radioButtonsContainer {
   display: flex;
   align-items: center;
@@ -75,7 +86,7 @@ th {
     background-color: #f2f2f2;
 }
 
-img {
+.clipboard-image {
     width: 100%;
     max-width: 200px;
     height: auto;
@@ -83,7 +94,15 @@ img {
     cursor: pointer;
 }
 
-img:hover {
+.product-image {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+    transition: transform 0.3s;
+    cursor: pointer;
+}
+
+.product-image:hover {
     transform: scale(5);
 }
 

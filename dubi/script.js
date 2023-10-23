@@ -3,11 +3,17 @@ const firebaseConfig = {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
     authDomain: "n2shop-69e37.firebaseapp.com",
     projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37.appspot.com",
+    storageBucket: "n2shop-69e37-ne0q1",
     messagingSenderId: "598906493303",
     appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
     measurementId: "G-TEJH3S2T1D"
 };
+
+// Create file metadata to update
+var newMetadata = {
+    cacheControl: 'public,max-age=31536000',
+}
+
 // Initialize Firebase
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -42,15 +48,14 @@ const inputClipboardContainer = document.getElementById('container');
 const inputClipboardContainerKH = document.getElementById('containerKH');
 
 const hinhAnhInputFile = document.getElementById('hinhAnhInputFile');
-const hinhAnhInputLink = document.getElementById('hinhAnhInputLink');
 
 const hinhAnhInputFileKH = document.getElementById('hinhAnhInputFileKH');
 
 const hinhAnhContainer = document.getElementById('hinhAnhContainer');
 const hinhAnhContainerKH = document.getElementById('hinhAnhContainerKH');
 
-const imageUrlFile = []; // Mảng để lưu trữ URL tải về
-const imageUrlFileKH = []; // Mảng để lưu trữ URL tải về
+var imageUrlFile = []; // Mảng để lưu trữ URL tải về
+var imageUrlFileKH = []; // Mảng để lưu trữ URL tải về
 
 // Ẩn trường nhập liệu link ban đầu
 inputLinkContainer.style.display = 'none';
@@ -97,26 +102,23 @@ inputClipboardRadioKH.addEventListener('change', function() {
 
 // Add a paste event listener to the document
 inputClipboardContainer.addEventListener('paste', function(e) {
-    if (inputClipboardRadio.checked) {
-        e.preventDefault();
-        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    e.preventDefault();
+    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+            var blob = items[i].getAsFile(); // Tạo một Blob từ dữ liệu hình ảnh
+            var file = new File([blob], "imageSP.jpg"); // Tạo một File từ Blob
 
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf("image") !== -1) {
-                var blob = items[i].getAsFile(); // Tạo một Blob từ dữ liệu hình ảnh
-                var file = new File([blob], "imageSP.jpg"); // Tạo một File từ Blob
+            // Tạo một phần tử img
+            var imgElement = document.createElement("img");
 
-                // Tạo một phần tử img
-                var imgElement = document.createElement("img");
+            // Đặt thuộc tính src cho phần tử img bằng URL của tệp
+            imgElement.src = URL.createObjectURL(file);
+            imgElement.classList.add('clipboard-image');
 
-                // Đặt thuộc tính src cho phần tử img bằng URL của tệp
-                imgElement.src = URL.createObjectURL(file);
-
-                // Thêm phần tử img vào phần tử <div>
-                inputClipboardContainer.appendChild(imgElement);
-
-                imgArray.push(file);
-            }
+            // Thêm phần tử img vào phần tử <div>
+            inputClipboardContainer.appendChild(imgElement);
+            imgArray.push(file);
         }
     }
 });
@@ -136,6 +138,7 @@ inputClipboardContainerKH.addEventListener('paste', function(e) {
 
             // Đặt thuộc tính src cho phần tử img bằng URL của tệp
             imgElement.src = URL.createObjectURL(file);
+            imgElement.classList.add('clipboard-image');
 
             // Thêm phần tử img vào phần tử <div>
             inputClipboardContainerKH.appendChild(imgElement);
@@ -144,11 +147,6 @@ inputClipboardContainerKH.addEventListener('paste', function(e) {
         }
     }
 });
-
-// Hàm để tạo tên tệp động duy nhất
-function generateUniqueFileName() {
-    return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.png';
-}
 
 document.getElementById('hinhAnhInputLink').addEventListener('click', function(event) {
     const inputValue = event.target.value;
@@ -162,6 +160,11 @@ document.getElementById('hinhAnhInputLink').addEventListener('click', function(e
     // Thêm trường nhập liệu mới vào hàng dưới (hinhAnhContainer)
     hinhAnhContainer.appendChild(newInput);
 });
+
+// Hàm để tạo tên tệp động duy nhất
+function generateUniqueFileName() {
+    return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.png';
+}
 
 function displayData() {
     collectionRef.doc("dubi").get()
@@ -318,6 +321,9 @@ displayData();
 const dataForm = document.getElementById('dataForm');
 dataForm.addEventListener('submit', function(e) {
     e.preventDefault();
+
+    document.getElementById("addButton").disabled = true;
+
     //const phanLoai = document.getElementById('phanLoai').value;
     const hinhAnhInput = document.getElementById('hinhAnhInput');
     const tenSanPham = document.getElementById('tenSanPham').value;
@@ -365,7 +371,7 @@ dataForm.addEventListener('submit', function(e) {
                     var imageRef = storageRef.child('dubi/kh/' + imageName);
 
                     // Tải tệp lên Firebase Storage
-                    var uploadTask = imageRef.put(file);
+                    var uploadTask = imageRef.put(file, newMetadata);
 
                     // Xử lý khi tải lên thành công
                     uploadTask.then((snapshot) => {
@@ -404,7 +410,9 @@ dataForm.addEventListener('submit', function(e) {
                                                     .then(function() {
                                                         console.log("Document tải lên thành công");
                                                         popup.classList.remove('popup-show');
-                                                        location.reload();
+                                                        addProductToTable(imageUrl, giaTriKHText, tenSanPham);
+														document.getElementById("addButton").disabled = false;
+														clearData();
                                                     })
                                                     .catch(function(error) {
                                                         createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -418,7 +426,9 @@ dataForm.addEventListener('submit', function(e) {
                                                     .then(function() {
                                                         console.log("Document tải lên thành công");
                                                         popup.classList.remove('popup-show');
-                                                        location.reload();
+                                                        addProductToTable(imageUrl, giaTriKHText, tenSanPham);
+														document.getElementById("addButton").disabled = false;
+														clearData();
                                                     })
                                                     .catch(function(error) {
                                                         createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -448,7 +458,7 @@ dataForm.addEventListener('submit', function(e) {
                 function uploadImage(file) {
                     return new Promise((resolve, reject) => {
                         var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                        var uploadTask = imageRef.put(file);
+                        var uploadTask = imageRef.put(file, newMetadata);
 
                         uploadTask.on('state_changed',
                             function(snapshot) {
@@ -507,10 +517,12 @@ dataForm.addEventListener('submit', function(e) {
                                         .then(function() {
                                             console.log("Document tải lên thành công");
                                             popup.classList.remove('popup-show');
-                                            location.reload();
+                                            addProductToTable(imageUrl, imageUrlFileKH, tenSanPham);
+                                            document.getElementById("addButton").disabled = false;
+											clearData();
                                         })
                                         .catch(function(error) {
-                                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                            createPopup('Lỗi khi tải ảnh lên...', 30000);
                                             console.error("Lỗi khi tải document lên: ", error);
                                         });
                                 } else {
@@ -521,10 +533,12 @@ dataForm.addEventListener('submit', function(e) {
                                         .then(function() {
                                             console.log("Document tải lên thành công");
                                             popup.classList.remove('popup-show');
-                                            location.reload();
+                                            addProductToTable(imageUrl, imageUrlFileKH, tenSanPham);
+                                            document.getElementById("addButton").disabled = false;
+											clearData();
                                         })
                                         .catch(function(error) {
-                                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                            createPopup('Lỗi khi tải ảnh lên...', 30000);
                                             console.error("Lỗi khi tải document lên: ", error);
                                         });
                                 }
@@ -548,7 +562,7 @@ dataForm.addEventListener('submit', function(e) {
         function uploadImage(file) {
             return new Promise((resolve, reject) => {
                 var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                var uploadTask = imageRef.put(file);
+                var uploadTask = imageRef.put(file, newMetadata);
 
                 uploadTask.on('state_changed',
                     function(snapshot) {
@@ -587,7 +601,7 @@ dataForm.addEventListener('submit', function(e) {
                         var imageRef = storageRef.child('dubi/kh/' + imageName);
 
                         // Tải tệp lên Firebase Storage
-                        var uploadTask = imageRef.put(file);
+                        var uploadTask = imageRef.put(file, newMetadata);
 
                         // Xử lý khi tải lên thành công
                         uploadTask.then((snapshot) => {
@@ -626,10 +640,12 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            location.reload();
+                                                            addProductToTable(imageUrlFile, giaTriKHText, tenSanPham);
+                                                            document.getElementById("addButton").disabled = false;
+															clearData();
                                                         })
                                                         .catch(function(error) {
-                                                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                            createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                             console.error("Lỗi khi tải document lên: ", error);
                                                         });
                                                 } else {
@@ -640,10 +656,12 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            location.reload();
+                                                            addProductToTable(imageUrlFile, giaTriKHText, tenSanPham);
+                                                            document.getElementById("addButton").disabled = false;
+															clearData();
                                                         })
                                                         .catch(function(error) {
-                                                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                            createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                             console.error("Lỗi khi tải document lên: ", error);
                                                         });
                                                 }
@@ -670,7 +688,7 @@ dataForm.addEventListener('submit', function(e) {
                     function uploadImage(file) {
                         return new Promise((resolve, reject) => {
                             var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                            var uploadTask = imageRef.put(file);
+                            var uploadTask = imageRef.put(file, newMetadata);
 
                             uploadTask.on('state_changed',
                                 function(snapshot) {
@@ -731,10 +749,12 @@ dataForm.addEventListener('submit', function(e) {
                                             .then(function() {
                                                 console.log("Document tải lên thành công");
                                                 popup.classList.remove('popup-show');
-                                                location.reload();
+                                                addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham);
+                                                document.getElementById("addButton").disabled = false;
+												clearData();
                                             })
                                             .catch(function(error) {
-                                                createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                 console.error("Lỗi khi tải document lên: ", error);
                                             });
                                     } else {
@@ -745,10 +765,12 @@ dataForm.addEventListener('submit', function(e) {
                                             .then(function() {
                                                 console.log("Document tải lên thành công");
                                                 popup.classList.remove('popup-show');
-                                                location.reload();
+                                                addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham);
+                                                document.getElementById("addButton").disabled = false;
+												clearData();
                                             })
                                             .catch(function(error) {
-                                                createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                 console.error("Lỗi khi tải document lên: ", error);
                                             });
                                     }
@@ -773,7 +795,7 @@ dataForm.addEventListener('submit', function(e) {
             var imageRef = storageRef.child('dubi/sp/' + imageName);
 
             // Tải tệp lên Firebase Storage
-            var uploadTask = imageRef.put(file);
+            var uploadTask = imageRef.put(file, newMetadata);
 
             // Xử lý sự kiện hoàn thành tải lên
             uploadTask.on('state_changed',
@@ -798,7 +820,7 @@ dataForm.addEventListener('submit', function(e) {
                                     var imageRef = storageRef.child('dubi/kh/' + imageName);
 
                                     // Tải tệp lên Firebase Storage
-                                    var uploadTask = imageRef.put(file);
+                                    var uploadTask = imageRef.put(file, newMetadata);
 
                                     // Xử lý khi tải lên thành công
                                     uploadTask.then((snapshot) => {
@@ -837,10 +859,12 @@ dataForm.addEventListener('submit', function(e) {
                                                                     .then(function() {
                                                                         console.log("Document tải lên thành công");
                                                                         popup.classList.remove('popup-show');
-                                                                        location.reload();
+                                                                        addProductToTable(giaTriText, giaTriKHText, tenSanPham);
+                                                                        document.getElementById("addButton").disabled = false;
+																		clearData();
                                                                     })
                                                                     .catch(function(error) {
-                                                                        createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                                        createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                                         console.error("Lỗi khi tải document lên: ", error);
                                                                     });
                                                             } else {
@@ -851,10 +875,12 @@ dataForm.addEventListener('submit', function(e) {
                                                                     .then(function() {
                                                                         console.log("Document tải lên thành công");
                                                                         popup.classList.remove('popup-show');
-                                                                        location.reload();
+                                                                        addProductToTable(giaTriText, giaTriKHText, tenSanPham);
+                                                                        document.getElementById("addButton").disabled = false;
+																		clearData();
                                                                     })
                                                                     .catch(function(error) {
-                                                                        createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                                        createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                                         console.error("Lỗi khi tải document lên: ", error);
                                                                     });
                                                             }
@@ -870,7 +896,7 @@ dataForm.addEventListener('submit', function(e) {
                                         });
                                 });
                             } else {
-                                createPopup('Đang tải ảnh lên', 5000);
+                                createPopup('Đang tải ảnh lên', 10000);
 
                                 const hinhAnhFiles = hinhAnhInputFileKH.files;
 
@@ -882,7 +908,7 @@ dataForm.addEventListener('submit', function(e) {
                                 function uploadImage(file) {
                                     return new Promise((resolve, reject) => {
                                         var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                                        var uploadTask = imageRef.put(file);
+                                        var uploadTask = imageRef.put(file, newMetadata);
 
                                         uploadTask.on('state_changed',
                                             function(snapshot) {
@@ -943,10 +969,12 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            location.reload();
+                                                            addProductToTable(giaTriText, imageUrlFileKH, tenSanPham);
+                                                            document.getElementById("addButton").disabled = false;
+															clearData();
                                                         })
                                                         .catch(function(error) {
-                                                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                            createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                             console.error("Lỗi khi tải document lên: ", error);
                                                         });
                                                 } else {
@@ -957,10 +985,12 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            location.reload();
+                                                            addProductToTable(giaTriText, imageUrlFileKH, tenSanPham);
+                                                            document.getElementById("addButton").disabled = false;
+															clearData();
                                                         })
                                                         .catch(function(error) {
-                                                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                                            createPopup('Lỗi khi tải ảnh lên...', 30000);
                                                             console.error("Lỗi khi tải document lên: ", error);
                                                         });
                                                 }
@@ -980,15 +1010,43 @@ dataForm.addEventListener('submit', function(e) {
     }
 });
 
+document.getElementById('clearDataButton').addEventListener('click', clearData);
 
-const clearDataButton = document.getElementById('clearDataButton');
-clearDataButton.addEventListener('click', clearFormData);
+function clearData() {
+    imgArray = [];
+    imgArrayKH = [];
+    imageUrlFile = [];
+    imageUrlFileKH = [];
 
-function clearFormData() {
-    //document.getElementById('phanLoai').value = '';
-    document.getElementById('hinhAnhInput').value = '';
     document.getElementById('tenSanPham').value = '';
-    document.getElementById('hinhKhachHangInput').value = '';
+    document.getElementById('hinhAnhInputFile').value = '';
+    document.getElementById('hinhAnhInputFileKH').value = '';
+
+    // Kiểm tra xem có các thẻ <input> trong hinhAnhContainer không
+    var resetInputLinks = hinhAnhContainer.querySelectorAll('input');
+
+    resetInputLinks.forEach(function(input) {
+        hinhAnhContainer.removeChild(input);
+    });
+
+    var imagesToRemoveSP = inputClipboardContainer.querySelectorAll('img');
+
+    // Kiểm tra xem có các thẻ <img> trong inputClipboardContainer không
+    if (imagesToRemoveSP.length > 0) {
+        imagesToRemoveSP.forEach(function(image) {
+            inputClipboardContainer.removeChild(image);
+        });
+    }
+
+    var imagesToRemoveKH = inputClipboardContainerKH.querySelectorAll('img');
+
+    // Kiểm tra xem có các thẻ <img> trong inputClipboardContainerKH không
+    if (imagesToRemoveKH.length > 0) {
+        imagesToRemoveKH.forEach(function(image) {
+            inputClipboardContainerKH.removeChild(image);
+        });
+    }
+
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1004,23 +1062,6 @@ document.addEventListener('DOMContentLoaded', function() {
             toggleFormButton.textContent = 'Hiện biểu mẫu';
         }
     });
-});
-
-// Lắng nghe sự kiện click trên nút "Xoá dữ liệu"
-clearDataButton.addEventListener('click', function() {
-    // Lấy tham chiếu đến biểu mẫu
-    const productForm = document.getElementById('productForm');
-
-    // Đặt lại giá trị của tất cả các trường trong biểu mẫu về giá trị mặc định hoặc rỗng
-    productForm.reset();
-
-    // Đặt lại giá trị của trường ngày là ngày hôm nay
-    const dotLiveInput = document.getElementById('dotLive');
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    dotLiveInput.value = `${yyyy}-${mm}-${dd}`;
 });
 
 // Hàm để trích xuất giá trị của tham số từ URL
@@ -1041,4 +1082,37 @@ function createPopup(message, time = 1500) {
     setTimeout(function() {
         popup.classList.remove('popup-show');
     }, time); // Tắt thông báo sau 1.5 giây
+}
+
+function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham) {
+    const row = tbody.insertRow(0);
+    const sttCell = row.insertCell();
+    const hinhAnhSanPhamCell = row.insertCell();
+    const tenSanPhamCell = row.insertCell();
+    const anhKhachHangCell = row.insertCell();
+    const toggleVisibilityCell = row.insertCell();
+
+    sttCell.textContent = tbody.querySelectorAll("tr").length;
+
+    // Hiển thị một hình ảnh sản phẩm
+    hinhAnhSanPhamCell.innerHTML = `
+        <div class="product-image-cell">
+            <img src="${imgSrcSP}" alt="Hình ảnh sản phẩm" class="product-image">
+        </div>
+    `;
+
+    // Hiển thị một hình ảnh sản phẩm
+    anhKhachHangCell.innerHTML = `
+        <div class="customer-image-cell">
+            <img src="${imgSrcKH}" alt="Hình ảnh sản phẩm">
+        </div>
+    `;
+
+    tenSanPhamCell.textContent = tenSanPham;
+    const hideButton = document.createElement('button');
+    hideButton.innerText = 'Ẩn';
+    hideButton.className = 'toggle-visibility';
+    hideButton.onclick = () => toggleCustomerVisibility(row, hideButton);
+
+    toggleVisibilityCell.appendChild(hideButton);
 }

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+	<meta http-equiv="Cache-Control" content="public, max-age=31536000">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HÀNG RỚT - XẢ</title>
@@ -41,7 +42,7 @@
                 <option value="PKGD">Phụ kiện và Giày dép</option>
             </select>
 
-            <label for="hinhAnh">Hình ảnh sản phẩm:</label>
+            <p>Hình ảnh sản phẩm:</p>
         <div id="radioButtonsContainer">
           <input type="radio" name="inputType" id="inputClipboard" checked>
           <label for="inputClipboard">Copy Paste</label>
@@ -65,17 +66,26 @@
 
             <label for="kichCo">Kích cỡ:</label>
             <select id="kichCo" required>
+                <option value="FreeSize">FreeSize</option>
                 <option value="S">S</option>
                 <option value="M">M</option>
                 <option value="L">L</option>
+                <option value="XL">XL</option>
+                <option value="2XL">2XL</option>
+                <option value="35">35</option>
+                <option value="36">36</option>
+                <option value="37">37</option>
+                <option value="38">38</option>
+                <option value="39">39</option>
+                <option value="40">40</option>
             </select>
 
             <label for="soLuong">Số lượng:</label>
-            <input type="number" id="soLuong" min="1" required>
+            <input type="number" id="soLuong" required>
 
             <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
             <div class="center-button">
-                <button type="submit">Thêm</button>
+                <button type="submit" id="addButton">Thêm</button>
                 <button type="button" id="clearDataButton">Reset</button>
             </div>
         </form>

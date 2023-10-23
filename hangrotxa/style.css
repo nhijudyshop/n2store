@@ -1,3 +1,14 @@
+/* Điều chỉnh menu cho các thiết bị di động */
+@media (max-width: 768px) {
+    .nav-list {
+        text-align: center;
+    }
+    .nav-item {
+        display: block;
+        margin: 0 0 30px;
+    }
+}
+
 #radioButtonsContainer {
   display: flex;
   align-items: center;
@@ -11,7 +22,6 @@
 td:nth-child(7) input[type="number"] {
     font-size: 24px; /* Điều chỉnh kích thước chữ số trong cột "Số lượng" */
 }
-
 
 body {
     font-family: 'Times New Roman', Times, serif;

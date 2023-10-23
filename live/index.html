@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html>
   <head>
+	<meta http-equiv="Cache-Control" content="public, max-age=31536000">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <link rel="preconnect" href="https://fonts.googleapis.com/">
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="style.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="../style.css">
     <title>HÌNH ẢNH LIVE</title>
@@ -52,7 +54,7 @@
         <input type="file" id="hinhAnhInput" accept="image/*" multiple required>
         <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
         <div class="center-button">
-          <button type="submit">Thêm</button>
+          <button type="submit" id="addButton">Thêm</button>
           <button type="button" id="clearDataButton">Reset</button>
         </div>
       </form>
@@ -61,7 +63,7 @@
     <!-- Dropdown để lọc đợt live -->
     <label for="dateFilter">Lọc Đợt Live:</label>
     <select id="dateFilter">
-      <option value="all" selected>Tất cả</option>
+      <option disabled selected>Chọn ngày</option>
     </select>
     <div class="live">
       <table>

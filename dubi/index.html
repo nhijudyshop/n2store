@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
   <head>
+	<meta http-equiv="Cache-Control" content="public, max-age=31536000">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KHÁCH HÀNG DỰ BỊ</title>
@@ -48,7 +49,7 @@
           <option value="PKGD">Phụ kiện và Giày dép</option>
         </select>
 		-->
-        <label for="hinhAnh">Hình ảnh sản phẩm:</label>
+        <p>Hình ảnh sản phẩm:</p>
         <div id="radioButtonsContainer">
           <input type="radio" name="inputType" id="inputClipboard" checked>
           <label for="inputClipboard">Copy Paste</label>
@@ -61,7 +62,7 @@
           <p>Dán ảnh sản phẩm ở đây…</p>
         </div>
         <div id="inputFileContainer">
-          <input type="file" id="hinhAnhInputFile">
+          <input type="file" id="hinhAnhInputFile" accept="image/*" multiple>
         </div>
         <div id="inputLinkContainer">
           <input type="button" id="hinhAnhInputLink" value="Thêm link">
@@ -69,7 +70,7 @@
         <div id="hinhAnhContainer"></div>
         <label for="tenSanPham">Tên sản phẩm:</label>
         <input type="text" id="tenSanPham" required>
-        <label for="hinhKhachHang">Ảnh khách hàng:</label>
+        <p>Ảnh khách hàng:</p>
 		<div id="radioButtonsContainer">
           <input type="radio" name="inputTypeKH" id="inputClipboardKH" checked>
           <label for="inputClipboardKH">Copy Paste</label>
@@ -85,7 +86,7 @@
         </div>
         <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
         <div class="center-button">
-          <button type="submit">Thêm</button>
+          <button type="submit" id="addButton">Thêm</button>
           <button type="button" id="clearDataButton">Reset</button>
         </div>
       </form>
