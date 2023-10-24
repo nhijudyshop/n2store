@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		
         const hinhAnhInput = document.getElementById('hinhAnhInput');
         const hinhAnhFiles = hinhAnhInput.files;
+        var uploadedCount = 0;
 
         // Tạo một thư mục con trong Firebase Storage (ví dụ: 'ao')
         var imagesRef = storageRef.child(uploadPhanLoai);
@@ -92,9 +93,13 @@ document.addEventListener('DOMContentLoaded', function() {
 				createPopup('Lỗi tải ảnh lên!', 30000);
             }, function() {
                 // Xử lý khi tải lên thành công
-				popup.classList.remove('popup-show');
-				document.getElementById("addButton").disabled = false;
-				location.reload();
+				uploadedCount++;
+                if (uploadedCount === hinhAnhFiles.length) {
+                    // Nếu đã tải lên tất cả các tệp, hãy reload trang
+                    popup.classList.remove('popup-show');
+                    document.getElementById("addButton").disabled = false;
+                    location.reload();
+                }
             });
         }
     });
