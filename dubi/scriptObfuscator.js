@@ -1096,7 +1096,7 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham) {
     // Hiển thị một hình ảnh sản phẩm
     anhKhachHangCell.innerHTML = `
         <div class="customer-image-cell">
-            <img src="${imgSrcKH}" alt="Hình ảnh sản phẩm">
+            <img src="${imgSrcKH}" alt="Hình ảnh sản phẩm" class="product-image">
         </div>
     `;
 

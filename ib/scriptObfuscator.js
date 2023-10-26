@@ -319,7 +319,7 @@ dataForm.addEventListener('submit', function(e) {
                                                     .then(function() {
                                                         console.log("Document tải lên thành công");
                                                         popup.classList.remove('popup-show');
-                                                        addProductToTable(imageUrl, giaTriKHText, tenSanPham, thoiGianUpload, phanLoai);
+                                                        addProductToTable(imageUrl, giaTriKHText, tenSanPham, formattedTime, phanLoai);
 														document.getElementById("addButton").disabled = false;
 														clearData();
                                                     })
@@ -335,7 +335,7 @@ dataForm.addEventListener('submit', function(e) {
                                                     .then(function() {
                                                         console.log("Document tải lên thành công");
                                                         popup.classList.remove('popup-show');
-                                                        addProductToTable(imageUrl, giaTriKHText, tenSanPham, thoiGianUpload, phanLoai);
+                                                        addProductToTable(imageUrl, giaTriKHText, tenSanPham, formattedTime, phanLoai);
 														document.getElementById("addButton").disabled = false;
 														clearData();
                                                     })
@@ -425,7 +425,7 @@ dataForm.addEventListener('submit', function(e) {
                                         .then(function() {
                                             console.log("Document tải lên thành công");
                                             popup.classList.remove('popup-show');
-                                            addProductToTable(imageUrl, imageUrlFileKH, tenSanPham, thoiGianUpload, phanLoai);
+                                            addProductToTable(imageUrl, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
 											document.getElementById("addButton").disabled = false;
 											clearData();
                                         })
@@ -441,7 +441,7 @@ dataForm.addEventListener('submit', function(e) {
                                         .then(function() {
                                             console.log("Document tải lên thành công");
                                             popup.classList.remove('popup-show');
-                                            addProductToTable(imageUrl, imageUrlFileKH, tenSanPham, thoiGianUpload, phanLoai);
+                                            addProductToTable(imageUrl, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
 											document.getElementById("addButton").disabled = false;
 											clearData();
                                         })
@@ -548,7 +548,7 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            addProductToTable(imageUrlFile, giaTriKHText, tenSanPham, thoiGianUpload, phanLoai);
+                                                            addProductToTable(imageUrlFile, giaTriKHText, tenSanPham, formattedTime, phanLoai);
 															document.getElementById("addButton").disabled = false;
 															clearData();
                                                         })
@@ -564,7 +564,7 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            addProductToTable(imageUrlFile, giaTriKHText, tenSanPham, thoiGianUpload, phanLoai);
+                                                            addProductToTable(imageUrlFile, giaTriKHText, tenSanPham, formattedTime, phanLoai);
 															document.getElementById("addButton").disabled = false;
 															clearData();
                                                         })
@@ -656,7 +656,7 @@ dataForm.addEventListener('submit', function(e) {
                                             .then(function() {
                                                 console.log("Document tải lên thành công");
                                                 popup.classList.remove('popup-show');
-                                                addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham, thoiGianUpload, phanLoai);
+                                                addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
 												document.getElementById("addButton").disabled = false;
 												clearData();
                                             })
@@ -672,7 +672,7 @@ dataForm.addEventListener('submit', function(e) {
                                             .then(function() {
                                                 console.log("Document tải lên thành công");
                                                 popup.classList.remove('popup-show');
-                                                addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham, thoiGianUpload, phanLoai);
+                                                addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
 												document.getElementById("addButton").disabled = false;
 												clearData();
                                             })
@@ -765,7 +765,7 @@ dataForm.addEventListener('submit', function(e) {
                                                                     .then(function() {
                                                                         console.log("Document tải lên thành công");
                                                                         popup.classList.remove('popup-show');
-                                                                        addProductToTable(giaTriText, giaTriKHText, tenSanPham, thoiGianUpload, phanLoai);
+                                                                        addProductToTable(giaTriText, giaTriKHText, tenSanPham, formattedTime, phanLoai);
 																		document.getElementById("addButton").disabled = false;
 																		clearData();
                                                                     })
@@ -781,7 +781,7 @@ dataForm.addEventListener('submit', function(e) {
                                                                     .then(function() {
                                                                         console.log("Document tải lên thành công");
                                                                         popup.classList.remove('popup-show');
-                                                                        addProductToTable(giaTriText, giaTriKHText, tenSanPham, thoiGianUpload, phanLoai);
+                                                                        addProductToTable(giaTriText, giaTriKHText, tenSanPham, formattedTime, phanLoai);
 																		document.getElementById("addButton").disabled = false;
 																		clearData();
                                                                     })
@@ -875,7 +875,7 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            addProductToTable(giaTriText, imageUrlFileKH, tenSanPham, thoiGianUpload, phanLoai);
+                                                            addProductToTable(giaTriText, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
 															document.getElementById("addButton").disabled = false;
 															clearData();
                                                         })
@@ -891,7 +891,7 @@ dataForm.addEventListener('submit', function(e) {
                                                         .then(function() {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
-                                                            addProductToTable(giaTriText, imageUrlFileKH, tenSanPham, thoiGianUpload, phanLoai);
+                                                            addProductToTable(giaTriText, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
 															document.getElementById("addButton").disabled = false;
 															clearData();
                                                         })
@@ -1160,11 +1160,12 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham, thoiGianUpload, phanL
 
     hinhAnhCell.innerHTML = `<img src="${imgSrcSP}" alt="${tenSanPham}" class="product-image">`;
 
-    tenSanPhamCell.textContent = data["data"][i].tenSanPham;
-    thongTinKhachHangCell.innerHTML = `<img src="${imgSrcKH}" alt="Hình ảnh khách hàng">`;
+    tenSanPhamCell.textContent = tenSanPham;
+    thongTinKhachHangCell.innerHTML = `<img src="${imgSrcKH}" alt="Hình ảnh khách hàng" class="product-image">`;
 
     const hideButton = document.createElement('button');
     hideButton.className = 'toggle-visibility';
+	hideButton.textContent = 'Ẩn';
     hideButton.onclick = () => toggleRowVisibility(row, hideButton);
     toggleVisibilityCell.appendChild(hideButton);
 }

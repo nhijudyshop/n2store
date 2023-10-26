@@ -744,7 +744,7 @@ function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo,
     var button = document.createElement('button');
 
     // Đặt nội dung cho các phần tử
-    td1.textContent = tbody.querySelectorAll("tr").length;
+    td1.textContent = tbody.querySelectorAll("tr").length + 1;
     td2.textContent = thoiGianUpload;
     td3.textContent = phanLoai;
     img.src = hinhAnh;
@@ -777,7 +777,8 @@ function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo,
 
     // Lấy bảng trong trang web và chèn phần tử tr vào bảng
     var table = document.getElementById('productTableBody');
-    table.appendChild(tr);
+    var firstRow = table.querySelector('tr:first-child'); // Lấy dòng đầu tiên
+    table.insertBefore(tr, firstRow);
 }
 
 // Gọi hàm để hiển thị dữ liệu ban đầu và cài đặt sự kiện cho input tệp hình ảnh
