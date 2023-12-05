@@ -1,5 +1,43 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-function _0x1ab2(_0x36a23b,_0x52223b){const _0x2e058f=_0x2e05();return _0x1ab2=function(_0x1ab212,_0x4110aa){_0x1ab212=_0x1ab212-0x162;let _0x120a0e=_0x2e058f[_0x1ab212];return _0x120a0e;},_0x1ab2(_0x36a23b,_0x52223b);}function _0x2e05(){const _0x5a5dc7=['1235460FrnjKH','22977963vpMYJv','AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM','n2shop-69e37-ne0q1','G-TEJH3S2T1D','1345047lnZTNJ','366711YpKMry','13142736zaWdgA','598906493303','3756921uppNah','25XRvqCS','n2shop-69e37','14dthlHY','n2shop-69e37.firebaseapp.com','10009662EXBqRi'];_0x2e05=function(){return _0x5a5dc7;};return _0x2e05();}const _0x3a343d=_0x1ab2;(function(_0x46d1e0,_0x1a2442){const _0x1acdbc=_0x1ab2,_0x2a2d1c=_0x46d1e0();while(!![]){try{const _0x1aa040=parseInt(_0x1acdbc(0x168))/0x1+-parseInt(_0x1acdbc(0x16f))/0x2*(-parseInt(_0x1acdbc(0x169))/0x3)+parseInt(_0x1acdbc(0x163))/0x4*(-parseInt(_0x1acdbc(0x16d))/0x5)+parseInt(_0x1acdbc(0x162))/0x6+-parseInt(_0x1acdbc(0x16c))/0x7+parseInt(_0x1acdbc(0x16a))/0x8+-parseInt(_0x1acdbc(0x164))/0x9;if(_0x1aa040===_0x1a2442)break;else _0x2a2d1c['push'](_0x2a2d1c['shift']());}catch(_0x3223ad){_0x2a2d1c['push'](_0x2a2d1c['shift']());}}}(_0x2e05,0xd647a));const firebaseConfig={'apiKey':_0x3a343d(0x165),'authDomain':_0x3a343d(0x170),'projectId':_0x3a343d(0x16e),'storageBucket':_0x3a343d(0x166),'messagingSenderId':_0x3a343d(0x16b),'appId':'1:598906493303:web:46d6236a1fdc2eff33e972','measurementId':_0x3a343d(0x167)};
+function _0x1ab2(_0x36a23b, _0x52223b) {
+    const _0x2e058f = _0x2e05();
+    return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
+        _0x1ab212 = _0x1ab212 - 0x162;
+        let _0x120a0e = _0x2e058f[_0x1ab212];
+        return _0x120a0e;
+    }, _0x1ab2(_0x36a23b, _0x52223b);
+}
+
+function _0x2e05() {
+    const _0x5a5dc7 = ['1235460FrnjKH', '22977963vpMYJv', 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM', 'n2shop-69e37-ne0q1', 'G-TEJH3S2T1D', '1345047lnZTNJ', '366711YpKMry', '13142736zaWdgA', '598906493303', '3756921uppNah', '25XRvqCS', 'n2shop-69e37', '14dthlHY', 'n2shop-69e37.firebaseapp.com', '10009662EXBqRi'];
+    _0x2e05 = function() {
+        return _0x5a5dc7;
+    };
+    return _0x2e05();
+}
+const _0x3a343d = _0x1ab2;
+(function(_0x46d1e0, _0x1a2442) {
+    const _0x1acdbc = _0x1ab2,
+        _0x2a2d1c = _0x46d1e0();
+    while (!![]) {
+        try {
+            const _0x1aa040 = parseInt(_0x1acdbc(0x168)) / 0x1 + -parseInt(_0x1acdbc(0x16f)) / 0x2 * (-parseInt(_0x1acdbc(0x169)) / 0x3) + parseInt(_0x1acdbc(0x163)) / 0x4 * (-parseInt(_0x1acdbc(0x16d)) / 0x5) + parseInt(_0x1acdbc(0x162)) / 0x6 + -parseInt(_0x1acdbc(0x16c)) / 0x7 + parseInt(_0x1acdbc(0x16a)) / 0x8 + -parseInt(_0x1acdbc(0x164)) / 0x9;
+            if (_0x1aa040 === _0x1a2442) break;
+            else _0x2a2d1c['push'](_0x2a2d1c['shift']());
+        } catch (_0x3223ad) {
+            _0x2a2d1c['push'](_0x2a2d1c['shift']());
+        }
+    }
+}(_0x2e05, 0xd647a));
+const firebaseConfig = {
+    'apiKey': _0x3a343d(0x165),
+    'authDomain': _0x3a343d(0x170),
+    'projectId': _0x3a343d(0x16e),
+    'storageBucket': _0x3a343d(0x166),
+    'messagingSenderId': _0x3a343d(0x16b),
+    'appId': '1:598906493303:web:46d6236a1fdc2eff33e972',
+    'measurementId': _0x3a343d(0x167)
+};
 
 // Create file metadata to update
 var newMetadata = {
@@ -59,7 +97,7 @@ var imgArray = [];
 var imgArrayKH = [];
 
 // Add a paste event listener to the document
-inputClipboardContainer.addEventListener('paste', function(e) {
+inputClipboardContainer.addEventListener('paste', async function(e) {
     e.preventDefault();
     var items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (var i = 0; i < items.length; i++) {
@@ -76,13 +114,54 @@ inputClipboardContainer.addEventListener('paste', function(e) {
 
             // Thêm phần tử img vào phần tử <div>
             inputClipboardContainer.appendChild(imgElement);
-            imgArray.push(file);
+			
+			// Function to compress an image
+                const compressImage = async (file) => {
+                    return new Promise((resolve) => {
+                        const maxWidth = 500; // Set kích thước tối đa mong muốn
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.src = event.target.result;
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                const width = img.width;
+                                const height = img.height;
+
+                                // Kiểm tra xem có cần resize hay không
+                                if (width > maxWidth) {
+                                    const ratio = maxWidth / width;
+                                    canvas.width = maxWidth;
+                                    canvas.height = height * ratio;
+                                } else {
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                }
+
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                canvas.toBlob(function(blob) {
+                                    const compressedFile = new File([blob], file.name, {
+                                        type: file.type,
+                                        lastModified: Date.now()
+                                    });
+                                    resolve(compressedFile);
+                                }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                            };
+                        };
+                    });
+                };
+			
+			const compressedFile = await compressImage(file);
+			
+            imgArray.push(compressedFile);
         }
     }
 });
 
 // Add a paste event listener to the document
-inputClipboardContainerKH.addEventListener('paste', function(e) {
+inputClipboardContainerKH.addEventListener('paste', async function(e) {
     e.preventDefault();
     var items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (var i = 0; i < items.length; i++) {
@@ -99,7 +178,48 @@ inputClipboardContainerKH.addEventListener('paste', function(e) {
 
             // Thêm phần tử img vào phần tử <div>
             inputClipboardContainerKH.appendChild(imgElement);
-            imgArrayKH.push(file);
+			
+			// Function to compress an image
+                const compressImage = async (file) => {
+                    return new Promise((resolve) => {
+                        const maxWidth = 500; // Set kích thước tối đa mong muốn
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.src = event.target.result;
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                const width = img.width;
+                                const height = img.height;
+
+                                // Kiểm tra xem có cần resize hay không
+                                if (width > maxWidth) {
+                                    const ratio = maxWidth / width;
+                                    canvas.width = maxWidth;
+                                    canvas.height = height * ratio;
+                                } else {
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                }
+
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                canvas.toBlob(function(blob) {
+                                    const compressedFile = new File([blob], file.name, {
+                                        type: file.type,
+                                        lastModified: Date.now()
+                                    });
+                                    resolve(compressedFile);
+                                }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                            };
+                        };
+                    });
+                };
+			
+			const compressedFile = await compressImage(file);
+			
+            imgArrayKH.push(compressedFile);
         }
     }
 });
@@ -320,8 +440,8 @@ dataForm.addEventListener('submit', function(e) {
                                                         console.log("Document tải lên thành công");
                                                         popup.classList.remove('popup-show');
                                                         addProductToTable(imageUrl, giaTriKHText, tenSanPham, formattedTime, phanLoai);
-														document.getElementById("addButton").disabled = false;
-														clearData();
+                                                        document.getElementById("addButton").disabled = false;
+                                                        clearData();
                                                     })
                                                     .catch(function(error) {
                                                         createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -336,8 +456,8 @@ dataForm.addEventListener('submit', function(e) {
                                                         console.log("Document tải lên thành công");
                                                         popup.classList.remove('popup-show');
                                                         addProductToTable(imageUrl, giaTriKHText, tenSanPham, formattedTime, phanLoai);
-														document.getElementById("addButton").disabled = false;
-														clearData();
+                                                        document.getElementById("addButton").disabled = false;
+                                                        clearData();
                                                     })
                                                     .catch(function(error) {
                                                         createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -360,33 +480,104 @@ dataForm.addEventListener('submit', function(e) {
                 const hinhAnhFiles = hinhAnhInputFileKH.files;
                 var imagesRef = storageRef.child('ib/kh');
 
+                // Function to compress an image
+                const compressImage = async (file) => {
+                    return new Promise((resolve) => {
+                        const maxWidth = 500; // Set kích thước tối đa mong muốn
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.src = event.target.result;
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                const width = img.width;
+                                const height = img.height;
+
+                                // Kiểm tra xem có cần resize hay không
+                                if (width > maxWidth) {
+                                    const ratio = maxWidth / width;
+                                    canvas.width = maxWidth;
+                                    canvas.height = height * ratio;
+                                } else {
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                }
+
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                canvas.toBlob(function(blob) {
+                                    const compressedFile = new File([blob], file.name, {
+                                        type: file.type,
+                                        lastModified: Date.now()
+                                    });
+                                    resolve(compressedFile);
+                                }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                            };
+                        };
+                    });
+                };
+
+                // Function to upload a compressed image
+                const uploadCompressedImage = async (compressedFile) => {
+                    return new Promise((resolve, reject) => {
+                        var imageRef = imagesRef.child(compressedFile.name);
+                        // Tải tệp hình ảnh lên Firebase Storage
+                        var uploadTask = imageRef.put(compressedFile, newMetadata);
+                        // Theo dõi tiến trình tải lên
+                        uploadTask.on('state_changed', function(snapshot) {
+                            // Cập nhật tiến trình tải lên nếu cần
+                        }, function(error) {
+                            // Xử lý lỗi tải lên (nếu có)
+                            reject(error);
+                        }, function() {
+                            // Xử lý khi tải lên thành công
+                            resolve();
+                        });
+                    });
+                };
+
                 // Sử dụng Promise.all để theo dõi tất cả các tải lên
                 const uploadPromises = [];
 
                 function uploadImage(file) {
-                    return new Promise((resolve, reject) => {
-                        var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                        var uploadTask = imageRef.put(file, newMetadata);
+                    return new Promise(async (resolve, reject) => {
+                        try {
+                            const compressedFile = await compressImage(file);
+                            await uploadCompressedImage(compressedFile);
 
-                        uploadTask.on('state_changed',
-                            function(snapshot) {
-                                // Xử lý tiến trình tải lên (nếu cần)
-                            },
-                            function(error) {
-                                // Xử lý lỗi tải lên (nếu có)
-                                reject(error);
-                            },
-                            function() {
-                                // Xử lý khi tải lên thành công
-                                uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
-                                    imageUrlFileKH.push(downloadURL);
-                                    resolve();
-                                }).catch(function(error) {
-                                    // Xử lý lỗi lấy URL tải về (nếu có)
+                            var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                            var uploadTask = imageRef.put(compressedFile, newMetadata);
+
+                            uploadTask.on(
+                                'state_changed',
+                                function(snapshot) {
+                                    // Xử lý tiến trình tải lên (nếu cần)
+                                },
+                                function(error) {
+                                    // Xử lý lỗi tải lên (nếu có)
                                     reject(error);
-                                });
-                            }
-                        );
+                                },
+                                function() {
+                                    // Xử lý khi tải lên thành công
+                                    uploadTask.snapshot.ref
+                                        .getDownloadURL()
+                                        .then(function(downloadURL) {
+                                            imageUrlFileKH.push(downloadURL);
+                                            resolve();
+                                        })
+                                        .catch(function(error) {
+                                            // Xử lý lỗi lấy URL tải về (nếu có)
+                                            reject(error);
+                                        });
+                                }
+                            );
+                        } catch (error) {
+                            // Handle errors during compression or upload
+                            createPopup('Lỗi tải ảnh lên!', 30000);
+                            console.error(error);
+                            reject(error);
+                        }
                     });
                 }
 
@@ -426,8 +617,8 @@ dataForm.addEventListener('submit', function(e) {
                                             console.log("Document tải lên thành công");
                                             popup.classList.remove('popup-show');
                                             addProductToTable(imageUrl, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
-											document.getElementById("addButton").disabled = false;
-											clearData();
+                                            document.getElementById("addButton").disabled = false;
+                                            clearData();
                                         })
                                         .catch(function(error) {
                                             createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -442,8 +633,8 @@ dataForm.addEventListener('submit', function(e) {
                                             console.log("Document tải lên thành công");
                                             popup.classList.remove('popup-show');
                                             addProductToTable(imageUrl, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
-											document.getElementById("addButton").disabled = false;
-											clearData();
+                                            document.getElementById("addButton").disabled = false;
+                                            clearData();
                                         })
                                         .catch(function(error) {
                                             createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -464,35 +655,107 @@ dataForm.addEventListener('submit', function(e) {
 
         var imagesRef = storageRef.child('ib/sp');
 
+        // Function to compress an image
+        const compressImage = async (file) => {
+            return new Promise((resolve) => {
+                const maxWidth = 500; // Set kích thước tối đa mong muốn
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const width = img.width;
+                        const height = img.height;
+
+                        // Kiểm tra xem có cần resize hay không
+                        if (width > maxWidth) {
+                            const ratio = maxWidth / width;
+                            canvas.width = maxWidth;
+                            canvas.height = height * ratio;
+                        } else {
+                            canvas.width = width;
+                            canvas.height = height;
+                        }
+
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(function(blob) {
+                            const compressedFile = new File([blob], file.name, {
+                                type: file.type,
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                    };
+                };
+            });
+        };
+
+        // Function to upload a compressed image
+        const uploadCompressedImage = async (compressedFile) => {
+            return new Promise((resolve, reject) => {
+                var imageRef = imagesRef.child(compressedFile.name);
+                // Tải tệp hình ảnh lên Firebase Storage
+                var uploadTask = imageRef.put(compressedFile, newMetadata);
+                // Theo dõi tiến trình tải lên
+                uploadTask.on('state_changed', function(snapshot) {
+                    // Cập nhật tiến trình tải lên nếu cần
+                }, function(error) {
+                    // Xử lý lỗi tải lên (nếu có)
+                    reject(error);
+                }, function() {
+                    // Xử lý khi tải lên thành công
+                    resolve();
+                });
+            });
+        };
+
         // Sử dụng Promise.all để theo dõi tất cả các tải lên
         const uploadPromises = [];
 
         function uploadImage(file) {
-            return new Promise((resolve, reject) => {
-                var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                var uploadTask = imageRef.put(file, newMetadata);
+            return new Promise(async (resolve, reject) => {
+                try {
+                    const compressedFile = await compressImage(file);
+                    await uploadCompressedImage(compressedFile);
 
-                uploadTask.on('state_changed',
-                    function(snapshot) {
-                        // Xử lý tiến trình tải lên (nếu cần)
-                    },
-                    function(error) {
-                        // Xử lý lỗi tải lên (nếu có)
-                        reject(error);
-                    },
-                    function() {
-                        // Xử lý khi tải lên thành công
-                        uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
-                            imageUrlFile.push(downloadURL);
-                            resolve();
-                        }).catch(function(error) {
-                            // Xử lý lỗi lấy URL tải về (nếu có)
+                    var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                    var uploadTask = imageRef.put(compressedFile, newMetadata);
+
+                    uploadTask.on(
+                        'state_changed',
+                        function(snapshot) {
+                            // Xử lý tiến trình tải lên (nếu cần)
+                        },
+                        function(error) {
+                            // Xử lý lỗi tải lên (nếu có)
                             reject(error);
-                        });
-                    }
-                );
+                        },
+                        function() {
+                            // Xử lý khi tải lên thành công
+                            uploadTask.snapshot.ref
+                                .getDownloadURL()
+                                .then(function(downloadURL) {
+                                    imageUrlFile.push(downloadURL);
+                                    resolve();
+                                })
+                                .catch(function(error) {
+                                    // Xử lý lỗi lấy URL tải về (nếu có)
+                                    reject(error);
+                                });
+                        }
+                    );
+                } catch (error) {
+                    // Handle errors during compression or upload
+                    createPopup('Lỗi tải ảnh lên!', 30000);
+                    console.error(error);
+                    reject(error);
+                }
             });
         }
+
 
         for (const hinhAnh of hinhAnhFiles) {
             uploadPromises.push(uploadImage(hinhAnh));
@@ -549,8 +812,8 @@ dataForm.addEventListener('submit', function(e) {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
                                                             addProductToTable(imageUrlFile, giaTriKHText, tenSanPham, formattedTime, phanLoai);
-															document.getElementById("addButton").disabled = false;
-															clearData();
+                                                            document.getElementById("addButton").disabled = false;
+                                                            clearData();
                                                         })
                                                         .catch(function(error) {
                                                             createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -565,8 +828,8 @@ dataForm.addEventListener('submit', function(e) {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
                                                             addProductToTable(imageUrlFile, giaTriKHText, tenSanPham, formattedTime, phanLoai);
-															document.getElementById("addButton").disabled = false;
-															clearData();
+                                                            document.getElementById("addButton").disabled = false;
+                                                            clearData();
                                                         })
                                                         .catch(function(error) {
                                                             createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -589,35 +852,107 @@ dataForm.addEventListener('submit', function(e) {
                     const hinhAnhFiles = hinhAnhInputFileKH.files;
                     var imagesRef = storageRef.child('ib/kh');
 
+                    // Function to compress an image
+                    const compressImage = async (file) => {
+                        return new Promise((resolve) => {
+                            const maxWidth = 500; // Set kích thước tối đa mong muốn
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = function(event) {
+                                const img = new Image();
+                                img.src = event.target.result;
+                                img.onload = function() {
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
+                                    const width = img.width;
+                                    const height = img.height;
+
+                                    // Kiểm tra xem có cần resize hay không
+                                    if (width > maxWidth) {
+                                        const ratio = maxWidth / width;
+                                        canvas.width = maxWidth;
+                                        canvas.height = height * ratio;
+                                    } else {
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                    }
+
+                                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                    canvas.toBlob(function(blob) {
+                                        const compressedFile = new File([blob], file.name, {
+                                            type: file.type,
+                                            lastModified: Date.now()
+                                        });
+                                        resolve(compressedFile);
+                                    }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                                };
+                            };
+                        });
+                    };
+
+                    // Function to upload a compressed image
+                    const uploadCompressedImage = async (compressedFile) => {
+                        return new Promise((resolve, reject) => {
+                            var imageRef = imagesRef.child(compressedFile.name);
+                            // Tải tệp hình ảnh lên Firebase Storage
+                            var uploadTask = imageRef.put(compressedFile, newMetadata);
+                            // Theo dõi tiến trình tải lên
+                            uploadTask.on('state_changed', function(snapshot) {
+                                // Cập nhật tiến trình tải lên nếu cần
+                            }, function(error) {
+                                // Xử lý lỗi tải lên (nếu có)
+                                reject(error);
+                            }, function() {
+                                // Xử lý khi tải lên thành công
+                                resolve();
+                            });
+                        });
+                    };
+
                     // Sử dụng Promise.all để theo dõi tất cả các tải lên
                     const uploadPromises = [];
 
                     function uploadImage(file) {
-                        return new Promise((resolve, reject) => {
-                            var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                            var uploadTask = imageRef.put(file, newMetadata);
+                        return new Promise(async (resolve, reject) => {
+                            try {
+                                const compressedFile = await compressImage(file);
+                                await uploadCompressedImage(compressedFile);
 
-                            uploadTask.on('state_changed',
-                                function(snapshot) {
-                                    // Xử lý tiến trình tải lên (nếu cần)
-                                },
-                                function(error) {
-                                    // Xử lý lỗi tải lên (nếu có)
-                                    reject(error);
-                                },
-                                function() {
-                                    // Xử lý khi tải lên thành công
-                                    uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
-                                        imageUrlFileKH.push(downloadURL);
-                                        resolve();
-                                    }).catch(function(error) {
-                                        // Xử lý lỗi lấy URL tải về (nếu có)
+                                var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                                var uploadTask = imageRef.put(compressedFile, newMetadata);
+
+                                uploadTask.on(
+                                    'state_changed',
+                                    function(snapshot) {
+                                        // Xử lý tiến trình tải lên (nếu cần)
+                                    },
+                                    function(error) {
+                                        // Xử lý lỗi tải lên (nếu có)
                                         reject(error);
-                                    });
-                                }
-                            );
+                                    },
+                                    function() {
+                                        // Xử lý khi tải lên thành công
+                                        uploadTask.snapshot.ref
+                                            .getDownloadURL()
+                                            .then(function(downloadURL) {
+                                                imageUrlFileKH.push(downloadURL);
+                                                resolve();
+                                            })
+                                            .catch(function(error) {
+                                                // Xử lý lỗi lấy URL tải về (nếu có)
+                                                reject(error);
+                                            });
+                                    }
+                                );
+                            } catch (error) {
+                                // Handle errors during compression or upload
+                                createPopup('Lỗi tải ảnh lên!', 30000);
+                                console.error(error);
+                                reject(error);
+                            }
                         });
                     }
+
 
                     for (const hinhAnh of hinhAnhFiles) {
                         uploadPromises.push(uploadImage(hinhAnh));
@@ -657,8 +992,8 @@ dataForm.addEventListener('submit', function(e) {
                                                 console.log("Document tải lên thành công");
                                                 popup.classList.remove('popup-show');
                                                 addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
-												document.getElementById("addButton").disabled = false;
-												clearData();
+                                                document.getElementById("addButton").disabled = false;
+                                                clearData();
                                             })
                                             .catch(function(error) {
                                                 createPopup('Lỗi khi tải ảnh lên...', 2000);
@@ -673,8 +1008,8 @@ dataForm.addEventListener('submit', function(e) {
                                                 console.log("Document tải lên thành công");
                                                 popup.classList.remove('popup-show');
                                                 addProductToTable(imageUrlFile, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
-												document.getElementById("addButton").disabled = false;
-												clearData();
+                                                document.getElementById("addButton").disabled = false;
+                                                clearData();
                                             })
                                             .catch(function(error) {
                                                 createPopup('Lỗi khi tải ảnh lên...', 30000);
@@ -766,8 +1101,8 @@ dataForm.addEventListener('submit', function(e) {
                                                                         console.log("Document tải lên thành công");
                                                                         popup.classList.remove('popup-show');
                                                                         addProductToTable(giaTriText, giaTriKHText, tenSanPham, formattedTime, phanLoai);
-																		document.getElementById("addButton").disabled = false;
-																		clearData();
+                                                                        document.getElementById("addButton").disabled = false;
+                                                                        clearData();
                                                                     })
                                                                     .catch(function(error) {
                                                                         createPopup('Lỗi khi tải ảnh lên...', 30000);
@@ -782,8 +1117,8 @@ dataForm.addEventListener('submit', function(e) {
                                                                         console.log("Document tải lên thành công");
                                                                         popup.classList.remove('popup-show');
                                                                         addProductToTable(giaTriText, giaTriKHText, tenSanPham, formattedTime, phanLoai);
-																		document.getElementById("addButton").disabled = false;
-																		clearData();
+                                                                        document.getElementById("addButton").disabled = false;
+                                                                        clearData();
                                                                     })
                                                                     .catch(function(error) {
                                                                         createPopup('Lỗi khi tải ảnh lên...', 30000);
@@ -808,35 +1143,107 @@ dataForm.addEventListener('submit', function(e) {
 
                                 var imagesRef = storageRef.child('ib/kh');
 
+                                // Function to compress an image
+                                const compressImage = async (file) => {
+                                    return new Promise((resolve) => {
+                                        const maxWidth = 500; // Set kích thước tối đa mong muốn
+                                        const reader = new FileReader();
+                                        reader.readAsDataURL(file);
+                                        reader.onload = function(event) {
+                                            const img = new Image();
+                                            img.src = event.target.result;
+                                            img.onload = function() {
+                                                const canvas = document.createElement('canvas');
+                                                const ctx = canvas.getContext('2d');
+                                                const width = img.width;
+                                                const height = img.height;
+
+                                                // Kiểm tra xem có cần resize hay không
+                                                if (width > maxWidth) {
+                                                    const ratio = maxWidth / width;
+                                                    canvas.width = maxWidth;
+                                                    canvas.height = height * ratio;
+                                                } else {
+                                                    canvas.width = width;
+                                                    canvas.height = height;
+                                                }
+
+                                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                canvas.toBlob(function(blob) {
+                                                    const compressedFile = new File([blob], file.name, {
+                                                        type: file.type,
+                                                        lastModified: Date.now()
+                                                    });
+                                                    resolve(compressedFile);
+                                                }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                                            };
+                                        };
+                                    });
+                                };
+
+                                // Function to upload a compressed image
+                                const uploadCompressedImage = async (compressedFile) => {
+                                    return new Promise((resolve, reject) => {
+                                        var imageRef = imagesRef.child(compressedFile.name);
+                                        // Tải tệp hình ảnh lên Firebase Storage
+                                        var uploadTask = imageRef.put(compressedFile, newMetadata);
+                                        // Theo dõi tiến trình tải lên
+                                        uploadTask.on('state_changed', function(snapshot) {
+                                            // Cập nhật tiến trình tải lên nếu cần
+                                        }, function(error) {
+                                            // Xử lý lỗi tải lên (nếu có)
+                                            reject(error);
+                                        }, function() {
+                                            // Xử lý khi tải lên thành công
+                                            resolve();
+                                        });
+                                    });
+                                };
+
                                 // Sử dụng Promise.all để theo dõi tất cả các tải lên
                                 const uploadPromises = [];
 
                                 function uploadImage(file) {
-                                    return new Promise((resolve, reject) => {
-                                        var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                                        var uploadTask = imageRef.put(file, newMetadata);
+                                    return new Promise(async (resolve, reject) => {
+                                        try {
+                                            const compressedFile = await compressImage(file);
+                                            await uploadCompressedImage(compressedFile);
 
-                                        uploadTask.on('state_changed',
-                                            function(snapshot) {
-                                                // Xử lý tiến trình tải lên (nếu cần)
-                                            },
-                                            function(error) {
-                                                // Xử lý lỗi tải lên (nếu có)
-                                                reject(error);
-                                            },
-                                            function() {
-                                                // Xử lý khi tải lên thành công
-                                                uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
-                                                    imageUrlFileKH.push(downloadURL);
-                                                    resolve();
-                                                }).catch(function(error) {
-                                                    // Xử lý lỗi lấy URL tải về (nếu có)
+                                            var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                                            var uploadTask = imageRef.put(compressedFile, newMetadata);
+
+                                            uploadTask.on(
+                                                'state_changed',
+                                                function(snapshot) {
+                                                    // Xử lý tiến trình tải lên (nếu cần)
+                                                },
+                                                function(error) {
+                                                    // Xử lý lỗi tải lên (nếu có)
                                                     reject(error);
-                                                });
-                                            }
-                                        );
+                                                },
+                                                function() {
+                                                    // Xử lý khi tải lên thành công
+                                                    uploadTask.snapshot.ref
+                                                        .getDownloadURL()
+                                                        .then(function(downloadURL) {
+                                                            imageUrlFileKH.push(downloadURL);
+                                                            resolve();
+                                                        })
+                                                        .catch(function(error) {
+                                                            // Xử lý lỗi lấy URL tải về (nếu có)
+                                                            reject(error);
+                                                        });
+                                                }
+                                            );
+                                        } catch (error) {
+                                            // Handle errors during compression or upload
+                                            createPopup('Lỗi tải ảnh lên!', 30000);
+                                            console.error(error);
+                                            reject(error);
+                                        }
                                     });
                                 }
+
 
                                 for (const hinhAnh of hinhAnhFiles) {
                                     uploadPromises.push(uploadImage(hinhAnh));
@@ -876,8 +1283,8 @@ dataForm.addEventListener('submit', function(e) {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
                                                             addProductToTable(giaTriText, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
-															document.getElementById("addButton").disabled = false;
-															clearData();
+                                                            document.getElementById("addButton").disabled = false;
+                                                            clearData();
                                                         })
                                                         .catch(function(error) {
                                                             createPopup('Lỗi khi tải ảnh lên...', 30000);
@@ -892,8 +1299,8 @@ dataForm.addEventListener('submit', function(e) {
                                                             console.log("Document tải lên thành công");
                                                             popup.classList.remove('popup-show');
                                                             addProductToTable(giaTriText, imageUrlFileKH, tenSanPham, formattedTime, phanLoai);
-															document.getElementById("addButton").disabled = false;
-															clearData();
+                                                            document.getElementById("addButton").disabled = false;
+                                                            clearData();
                                                         })
                                                         .catch(function(error) {
                                                             createPopup('Lỗi khi tải ảnh lên...', 30000);
@@ -1165,7 +1572,7 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham, thoiGianUpload, phanL
 
     const hideButton = document.createElement('button');
     hideButton.className = 'toggle-visibility';
-	hideButton.textContent = 'Ẩn';
+    hideButton.textContent = 'Ẩn';
     hideButton.onclick = () => toggleRowVisibility(row, hideButton);
     toggleVisibilityCell.appendChild(hideButton);
 }

@@ -43,66 +43,117 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    productForm.addEventListener('submit', function(e) {
-        e.preventDefault();
+    productForm.addEventListener('submit', async function (e) {
+		e.preventDefault();
 		document.getElementById("addButton").disabled = true;
-        const phanLoai = document.getElementById('phanLoai').value;
-        const dotLiveInput = document.getElementById('dotLive');
-        const dotLiveValue = dotLiveInput.value;
-        var uploadPhanLoai;
-        if (!dotLiveValue) {
-            alert('Vui lòng chọn một đợt Live.');
-            return;
-        }
+		const phanLoai = document.getElementById('phanLoai').value;
+		const dotLiveInput = document.getElementById('dotLive');
+		const dotLiveValue = dotLiveInput.value;
+		var uploadPhanLoai;
+		if (!dotLiveValue) {
+			alert('Vui lòng chọn một đợt Live.');
+			return;
+		}
 
-        const dotLiveDate = new Date(dotLiveValue);
-        const dd = String(dotLiveDate.getDate()).padStart(2, '0');
-        const mm = String(dotLiveDate.getMonth() + 1).padStart(2, '0');
-        const yy = String(dotLiveDate.getFullYear()).slice(-2);
-        const formattedDotLive = dd + '-' + mm + '-' + yy;
+		const dotLiveDate = new Date(dotLiveValue);
+		const dd = String(dotLiveDate.getDate()).padStart(2, '0');
+		const mm = String(dotLiveDate.getMonth() + 1).padStart(2, '0');
+		const yy = String(dotLiveDate.getFullYear()).slice(-2);
+		const formattedDotLive = yy + '-' + mm + '-' + dd;
 
-        if (phanLoai == "Áo") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/ao/";
-        } else if (phanLoai == "Quần") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/quan/";
-        } else if (phanLoai == "Set và Đầm") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/setvadam/";
-        } else if (phanLoai == "PKGD") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/pkgd/";
-        }
-		
+		if (phanLoai == "Áo") {
+			uploadPhanLoai = "live/" + formattedDotLive + "/ao/";
+		} else if (phanLoai == "Quần") {
+			uploadPhanLoai = "live/" + formattedDotLive + "/quan/";
+		} else if (phanLoai == "Set và Đầm") {
+			uploadPhanLoai = "live/" + formattedDotLive + "/setvadam/";
+		} else if (phanLoai == "PKGD") {
+			uploadPhanLoai = "live/" + formattedDotLive + "/pkgd/";
+		}
+
 		createPopup('Đang tải ảnh lên...', 10000);
-		
-        const hinhAnhInput = document.getElementById('hinhAnhInput');
-        const hinhAnhFiles = hinhAnhInput.files;
-        var uploadedCount = 0;
 
-        // Tạo một thư mục con trong Firebase Storage (ví dụ: 'ao')
-        var imagesRef = storageRef.child(uploadPhanLoai);
-        for (const hinhAnh of hinhAnhFiles) {
-            // Tạo tham chiếu đến tệp hình ảnh trong thư mục con
-            var file = hinhAnh
-            var imageRef = imagesRef.child(file.name);
-            // Tải tệp hình ảnh lên Firebase Storage
-            var uploadTask = imageRef.put(file, newMetadata);
-            // Theo dõi tiến trình tải lên
-            uploadTask.on('state_changed', function(snapshot) {
-                // Cập nhật tiến trình tải lên nếu cần
-            }, function(error) {
-                // Xử lý lỗi tải lên (nếu có)
-				createPopup('Lỗi tải ảnh lên!', 30000);
-            }, function() {
-                // Xử lý khi tải lên thành công
+		const hinhAnhInput = document.getElementById('hinhAnhInput');
+		const hinhAnhFiles = hinhAnhInput.files;
+		var uploadedCount = 0;
+
+		// Tạo một thư mục con trong Firebase Storage (ví dụ: 'ao')
+		var imagesRef = storageRef.child(uploadPhanLoai);
+
+		// Function to compress an image
+		const compressImage = async (file) => {
+			return new Promise((resolve) => {
+				const maxWidth = 500; // Set kích thước tối đa mong muốn
+				const reader = new FileReader();
+				reader.readAsDataURL(file);
+				reader.onload = function (event) {
+					const img = new Image();
+					img.src = event.target.result;
+					img.onload = function () {
+						const canvas = document.createElement('canvas');
+						const ctx = canvas.getContext('2d');
+						const width = img.width;
+						const height = img.height;
+
+						// Kiểm tra xem có cần resize hay không
+						if (width > maxWidth) {
+							const ratio = maxWidth / width;
+							canvas.width = maxWidth;
+							canvas.height = height * ratio;
+						} else {
+							canvas.width = width;
+							canvas.height = height;
+						}
+
+						ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+						canvas.toBlob(function (blob) {
+							const compressedFile = new File([blob], file.name, { type: file.type, lastModified: Date.now() });
+							resolve(compressedFile);
+						}, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+					};
+				};
+			});
+		};
+
+		// Function to upload a compressed image
+		const uploadCompressedImage = async (compressedFile) => {
+			return new Promise((resolve, reject) => {
+				var imageRef = imagesRef.child(compressedFile.name);
+				// Tải tệp hình ảnh lên Firebase Storage
+				var uploadTask = imageRef.put(compressedFile, newMetadata);
+				// Theo dõi tiến trình tải lên
+				uploadTask.on('state_changed', function (snapshot) {
+					// Cập nhật tiến trình tải lên nếu cần
+				}, function (error) {
+					// Xử lý lỗi tải lên (nếu có)
+					reject(error);
+				}, function () {
+					// Xử lý khi tải lên thành công
+					resolve();
+				});
+			});
+		};
+
+		// Loop through each image file, compress and upload
+		for (const hinhAnh of hinhAnhFiles) {
+			try {
+				const compressedFile = await compressImage(hinhAnh);
+				await uploadCompressedImage(compressedFile);
 				uploadedCount++;
-                if (uploadedCount === hinhAnhFiles.length) {
-                    // Nếu đã tải lên tất cả các tệp, hãy reload trang
-                    popup.classList.remove('popup-show');
-                    document.getElementById("addButton").disabled = false;
-                    location.reload();
-                }
-            });
-        }
-    });
+				if (uploadedCount === hinhAnhFiles.length) {
+					// Nếu đã tải lên tất cả các tệp, hãy reload trang
+					popup.classList.remove('popup-show');
+					document.getElementById("addButton").disabled = false;
+					location.reload();
+				}
+			} catch (error) {
+				// Handle errors during compression or upload
+				createPopup('Lỗi tải ảnh lên!', 30000);
+				console.error(error);
+			}
+		}
+	});
+
 
     // Sửa mã JavaScript để xử lý sự kiện thay đổi dropdown
     dateFilterDropdown.addEventListener('change', function() {
