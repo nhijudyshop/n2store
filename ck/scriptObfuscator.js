@@ -196,6 +196,9 @@ loginButton.addEventListener('click', function() {
 
                 if (inputPassword.value === matKhau) {
                     checkLogin = 1;
+                    // Luu thong tin dang nhap
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('userType', 'admin');
                     alert('Đăng nhập thành công.');
                     return;
                 } else {
@@ -213,6 +216,9 @@ loginButton.addEventListener('click', function() {
 
                 if (inputPassword.value === matKhau) {
                     checkLogin = 2;
+                    // Luu thong tin dang nhap
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('userType', 'my');
                     alert('Đăng nhập thành công.');
                     return;
                 } else {
@@ -225,6 +231,23 @@ loginButton.addEventListener('click', function() {
         alert('Sai thông tin đăng nhập.');
         return;
     }
+});
+
+// Luu thong tin dang nhap
+document.addEventListener('DOMContentLoaded', function () {
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    const userType = localStorage.getItem('userType');
+
+    if (isLoggedIn === 'true') {
+        checkLogin = userType === 'admin' ? 1 : userType === 'my' ? 2 : 0;
+    }
+});
+
+const logoutButton = document.getElementById('logoutButton');
+
+logoutButton.addEventListener('click', function() {
+    checkLogin = 0;  // Đặt lại biến kiểm tra đăng nhập
+    alert('Đã đăng xuất.');
 });
 
 tableBody.addEventListener('click', function(e) {
