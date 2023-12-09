@@ -930,5 +930,15 @@ function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo,
     table.insertBefore(tr, firstRow);
 }
 
+// Chờ tải xong trang web
+window.addEventListener('load', function () {
+    // Xoá quảng cáo
+    var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
+
+    if (divToRemove) {
+        divToRemove.remove();
+    }
+});
+
 // Gọi hàm để hiển thị dữ liệu ban đầu và cài đặt sự kiện cho input tệp hình ảnh
 displayInventoryData();

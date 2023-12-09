@@ -214,7 +214,7 @@ th:first-child {
     border-radius: 4px;
 }
 
-.login-box button {
+.login-box button, .logout-button {
     background-color: #007bff;
     color: #fff;
     padding: 10px;

@@ -56,8 +56,15 @@ const inputUsername = document.getElementById('username');
 const inputPassword = document.getElementById('password');
 const loginButton = document.getElementById('loginButton');
 const dateFilterDropdown = document.getElementById('dateFilter');
+const loginContainer = document.querySelector('.login-container');
+const loginBox = document.querySelector('.login-box');
+const logoutButton = document.createElement('button');
+const userTypeAdmin = 'admin-111';
+const userTypeMy = 'my-222';
 
 var checkLogin = 0;
+var arrayData = [];
+var arrayDate = [];
 
 ngayck.valueAsDate = new Date();
 
@@ -106,6 +113,8 @@ moneyTransferForm.addEventListener('submit', function(e) {
     const deliveryCell = newRow.insertCell(4);
     const customerInfoCell = newRow.insertCell(5);
     const editCell = newRow.insertCell(6);
+
+    newRow.style.opacity = '1.0';
 
     dateCell.innerText = formattedDate;
     noteCell.innerText = transferNote;
@@ -165,7 +174,25 @@ moneyTransferForm.addEventListener('submit', function(e) {
             });
         }
     })
-	ngayck.valueAsDate = currentDate;
+    ngayck.valueAsDate = currentDate;
+    arrayDate.push(formattedDate);
+
+    arrayDate.sort(function(a, b) {
+        var dateA = parseDate(a);
+        var dateB = parseDate(b);
+        return dateA - dateB;
+    });
+
+    while (dateFilterDropdown.options.length > 1) {
+        dateFilterDropdown.remove(1);
+    }
+
+    for (let i = 0; i < arrayDate.length; i++) {
+        const option = document.createElement('option');
+        option.value = arrayDate[i];
+        option.textContent = arrayDate[i];
+        dateFilterDropdown.appendChild(option);
+    }
 });
 
 const clearDataButton = document.getElementById('clearDataButton');
@@ -188,45 +215,31 @@ transferAmountInput.addEventListener('blur', function() {
 
 loginButton.addEventListener('click', function() {
     if (inputUsername.value === 'admin' && inputPassword.value != null) {
-        collectionRef.doc("admin").get().then(doc => {
-            if (doc.exists) {
-                // Sao chép dữ liệu
-                const data = doc.data(); // Sao chép mảng
-                const matKhau = data["matkhau"];
-
-                if (inputPassword.value === matKhau) {
-                    checkLogin = 1;
-                    // Luu thong tin dang nhap
-                    localStorage.setItem('isLoggedIn', 'true');
-                    localStorage.setItem('userType', 'admin');
-                    alert('Đăng nhập thành công.');
-                    return;
-                } else {
-                    alert('Sai thông tin đăng nhập.');
-                    return;
-                }
-            }
-        })
+        if (inputPassword.value === userTypeAdmin.split('-')[1]) {
+            checkLogin = 1;
+            // Luu thong tin dang nhap
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userType', userTypeAdmin);
+            location.reload();
+            //alert('Đăng nhập thành công.');
+            //return;
+        } else {
+            alert('Sai thông tin đăng nhập.');
+            return;
+        }
     } else if (inputUsername.value === 'my' && inputPassword.value != null) {
-        collectionRef.doc("my").get().then(doc => {
-            if (doc.exists) {
-                // Sao chép dữ liệu
-                const data = doc.data(); // Sao chép mảng
-                const matKhau = data["matkhau"];
-
-                if (inputPassword.value === matKhau) {
-                    checkLogin = 2;
-                    // Luu thong tin dang nhap
-                    localStorage.setItem('isLoggedIn', 'true');
-                    localStorage.setItem('userType', 'my');
-                    alert('Đăng nhập thành công.');
-                    return;
-                } else {
-                    alert('Sai thông tin đăng nhập.');
-                    return;
-                }
-            }
-        })
+        if (inputPassword.value === userTypeMy.split('-')[1]) {
+            checkLogin = 2;
+            // Luu thong tin dang nhap
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userType', userTypeMy);
+            location.reload();
+            //alert('Đăng nhập thành công.');
+            //return;
+        } else {
+            alert('Sai thông tin đăng nhập.');
+            return;
+        }
     } else {
         alert('Sai thông tin đăng nhập.');
         return;
@@ -234,20 +247,43 @@ loginButton.addEventListener('click', function() {
 });
 
 // Luu thong tin dang nhap
-document.addEventListener('DOMContentLoaded', function () {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
+document.addEventListener('DOMContentLoaded', function() {
+    var isLoggedIn = localStorage.getItem('isLoggedIn');
     const userType = localStorage.getItem('userType');
+	
+	if (userType && (userType.includes('admin') && userType != userTypeAdmin)) {
+		isLoggedIn = false;
+		localStorage.removeItem('isLoggedIn');
+	} else if (userType && (userType.includes('my') && userType != userTypeMy)) {
+		isLoggedIn = false;
+		localStorage.removeItem('isLoggedIn');
+	}
 
     if (isLoggedIn === 'true') {
-        checkLogin = userType === 'admin' ? 1 : userType === 'my' ? 2 : 0;
+        checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeMy ? 2 : 0;
+        loginBox.style.display = 'none';
+        document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
+        logoutButton.textContent = 'Đăng xuất';
+        logoutButton.className = 'logout-button';
+        const parentContainer = document.getElementById('parentContainer');
+        parentContainer.style.display = 'flex';
+        parentContainer.style.justifyContent = 'center';
+        parentContainer.style.alignItems = 'center';
+        parentContainer.appendChild(logoutButton);
     }
 });
 
-const logoutButton = document.getElementById('logoutButton');
+function clearLoginForm() {
+    // Đặt lại giá trị của các trường input
+    inputUsername.value = '';
+    inputPassword.value = '';
+}
 
 logoutButton.addEventListener('click', function() {
-    checkLogin = 0;  // Đặt lại biến kiểm tra đăng nhập
-    alert('Đã đăng xuất.');
+    checkLogin = 0; // Đặt lại biến kiểm tra đăng nhập
+    localStorage.removeItem('isLoggedIn');
+    //alert('Đã đăng xuất.');
+    location.reload();
 });
 
 tableBody.addEventListener('click', function(e) {
@@ -435,12 +471,12 @@ tableBody.addEventListener('click', function(e) {
                     alert('Lỗi khi tải document lên.');
                     console.error("Lỗi lấy document:", error);
                 });
-                if (isChecked) {
-                    moveRowToBottom(row);
-                }
+            if (isChecked) {
+                moveRowToBottom(row);
+            }
         } else {
-			e.target.checked = !isChecked;
-		}
+            e.target.checked = !isChecked;
+        }
     }
 });
 
@@ -450,7 +486,7 @@ function numberWithCommas(x) {
 
 function updateTotalAmount(selectedDate) {
     let totalAmount = 0;
-    
+
     // Lấy tất cả các dòng phù hợp với ngày được chọn
     const visibleRows = Array.from(tableBody.rows).filter(row => {
         const date = row.cells[0].innerText;
@@ -490,29 +526,30 @@ dateFilterDropdown.addEventListener('change', function() {
 });
 
 function updateTable() {
-	var tempDate = [];
+    var tempDate = [];
     collectionRef.doc("ck").get()
         .then((doc) => {
             if (doc.exists) {
                 // Sao chép dữ liệu
                 const data = doc.data(); // Sao chép mảng
-				
-				// Sort data based on dateCell before adding rows to table
+
+                // Sort data based on dateCell before adding rows to table
                 data["data"].sort(function(a, b) {
-					var dateDifference = parseInt(a.dateCell) - parseInt(b.dateCell);
+                    var dateDifference = parseInt(a.dateCell) - parseInt(b.dateCell);
 
-					// If both a and b are muted, place them at the bottom
-					if (a.muted && b.muted) {
-						return dateDifference; // Preserve date order for muted items
-					} else if (a.muted) {
-						return 1; // Move muted item to the bottom
-					} else if (b.muted) {
-						return -1; // Move muted item to the bottom
-					}
+                    // If both a and b are muted, place them at the bottom
+                    if (a.muted && b.muted) {
+                        return dateDifference; // Preserve date order for muted items
+                    } else if (a.muted) {
+                        return 1; // Move muted item to the bottom
+                    } else if (b.muted) {
+                        return -1; // Move muted item to the bottom
+                    }
 
-					return dateDifference; // Default behavior for non-muted items
-				});
+                    return dateDifference; // Default behavior for non-muted items
+                });
 
+                arrayData = data["data"];
 
                 for (let i = 0; i < data["data"].length; i++) {
                     // Định dạng ngày tháng năm + giờ phút
@@ -521,7 +558,7 @@ function updateTable() {
                     var formattedTime = formatDate(dateCellConvert);
 
                     const dateFilterDropdown = document.getElementById('dateFilter');
-				
+
                     // folderRef là một tham chiếu tới một thư mục
                     if (!tempDate.includes(formattedTime.replace(/\//g, '-'))) {
                         tempDate.push(formattedTime.replace(/\//g, '-'));
@@ -558,20 +595,22 @@ function updateTable() {
                     editButton.innerText = 'Sửa';
                     editCell.appendChild(editButton);
                 }
-				
-				tempDate.sort(function(a, b) {
-				  var dateA = parseDate(a);
-				  var dateB = parseDate(b);
-				  return dateA - dateB;
-				});
-				
-				for (let i = 0; i < tempDate.length; i++) {
-				const option = document.createElement('option');
+
+                tempDate.sort(function(a, b) {
+                    var dateA = parseDate(a);
+                    var dateB = parseDate(b);
+                    return dateA - dateB;
+                });
+
+                arrayDate = tempDate;
+
+                for (let i = 0; i < tempDate.length; i++) {
+                    const option = document.createElement('option');
                     option.value = tempDate[i];
                     option.textContent = tempDate[i];
                     dateFilterDropdown.appendChild(option);
-				}		
-						
+                }
+
                 updateTotalAmount();
             }
         })
@@ -581,11 +620,11 @@ function updateTable() {
 }
 
 function parseDate(dateString) {
-  var parts = dateString.split('-');
-  var year = parseInt('20' + parts[2]);
-  var month = parseInt(parts[1]) - 1;
-  var day = parseInt(parts[0]);
-  return new Date(year, month, day);
+    var parts = dateString.split('-');
+    var year = parseInt('20' + parts[2]);
+    var month = parseInt(parts[1]) - 1;
+    var day = parseInt(parts[0]);
+    return new Date(year, month, day);
 }
 
 function convertToTimestamp(dateString) {
@@ -595,6 +634,16 @@ function convertToTimestamp(dateString) {
     var timestamp = new Date(formattedDate).getTime();
     return timestamp.toString();
 }
+
+// Chờ tải xong trang web
+window.addEventListener('load', function () {
+    // Xoá quảng cáo
+    var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
+
+    if (divToRemove) {
+        divToRemove.remove();
+    }
+});
 
 updateTable();
 
@@ -628,6 +677,3 @@ updateTable();
 //     XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu');
 //     XLSX.writeFile(wb, 'dulieu.xlsx');
 // }
-
-
-
