@@ -8,10 +8,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-    <link href="./css/ck.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="./css/trangchu.css">
+    <link href="../css/ck.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
     <title>THÔNG TIN CHUYỂN KHOẢN</title>
-    <link rel="shortcut icon" href="./logo.jpg" />
+    <link rel="shortcut icon" href="../logo.jpg" />
     <!-- The core Firebase JS SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <!-- The Firebase storage SDK -->
@@ -63,7 +63,9 @@
         </form>
     </div>
 	
-    <p class="tieude">THÔNG TIN CHUYỂN KHOẢN</p>
+    <div id="parentContainer">
+		<p class="tieude">THÔNG TIN CHUYỂN KHOẢN</p>
+	</div>
 	
 	<div class="login-container">
 		<div class="login-box">
@@ -74,7 +76,6 @@
 			<input type="password" id="password" name="password" placeholder="Nhập mật khẩu">
 
 			<button type="button" id="loginButton">Đăng nhập</button>
-            <button type="button" id="logoutButton">Đăng xuất</button>
 		</div>
 	</div>
 
