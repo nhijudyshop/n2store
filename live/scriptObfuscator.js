@@ -361,15 +361,12 @@ document.addEventListener('DOMContentLoaded', function() {
         dotLiveInput.value = `${yyyy}-${mm}-${dd}`;
     });
 	
-	importImages();
-});
-
-// Chờ tải xong trang web
-window.addEventListener('load', function () {
-    // Xoá quảng cáo
+	// Xoá quảng cáo
     var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
 
     if (divToRemove) {
         divToRemove.remove();
     }
+	
+	importImages();
 });

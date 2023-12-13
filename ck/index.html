@@ -54,7 +54,7 @@
             </select>
 
             <label for="customerInfo">Tên FB + SĐT:</label>
-            <input type="text" id="customerInfo">
+            <input type="text" id="customerInfo" required>
 
             <div class="center-button">
                 <button type="submit" id="addButton">Thêm</button>
@@ -102,6 +102,24 @@
     </div>
 
     <div id="totalAmount">Tổng Tiền: 0</div>
+	
+	<!-- Modal for editing -->
+	<div id="editModal" class="modal">
+	  <div class="modal-content">
+		<span class="close" onclick="closeModal()">&times;</span>
+		<label for="editDate">Ngày:</label>
+		<input type="text" id="editDate">
+		<label for="editNote">Ghi chú:</label>
+		<input type="text" id="editNote">
+		<label for="editAmount">Số tiền:</label>
+		<input type="text" id="editAmount">
+		<label for="editBank">Ngân hàng:</label>
+		<input type="text" id="editBank">
+		<label for="editInfo">FB+SĐT:</label>
+		<input type="text" id="editInfo">
+		<button onclick="saveChanges()">Lưu</button>
+	  </div>
+	</div>
 
     <!-- <button id="exportToExcelButton">Xuất Excel</button> -->
 

@@ -59,6 +59,8 @@ const dateFilterDropdown = document.getElementById('dateFilter');
 const loginContainer = document.querySelector('.login-container');
 const loginBox = document.querySelector('.login-box');
 const logoutButton = document.createElement('button');
+const editModal = document.getElementById('editModal');
+let editingRow;
 const userTypeAdmin = 'admin-111';
 const userTypeMy = 'my-222';
 
@@ -67,6 +69,7 @@ var arrayData = [];
 var arrayDate = [];
 
 ngayck.valueAsDate = new Date();
+editModal.style.display = 'none';
 
 toggleFormButton.addEventListener('click', () => {
     dataForm.style.display = dataForm.style.display === 'none' ? 'block' : 'none';
@@ -137,7 +140,8 @@ moneyTransferForm.addEventListener('submit', function(e) {
     updateTotalAmount();
 
     // Chuyển đổi thành timestamp
-    var timestamp = currentDate.getTime();
+    const tempTimeStamp = new Date();
+    var timestamp = currentDate.getTime() + (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
     dateCell.id = timestamp.toString();
 
     var dataToUpload = {
@@ -250,14 +254,14 @@ loginButton.addEventListener('click', function() {
 document.addEventListener('DOMContentLoaded', function() {
     var isLoggedIn = localStorage.getItem('isLoggedIn');
     const userType = localStorage.getItem('userType');
-	
-	if (userType && (userType.includes('admin') && userType != userTypeAdmin)) {
-		isLoggedIn = false;
-		localStorage.removeItem('isLoggedIn');
-	} else if (userType && (userType.includes('my') && userType != userTypeMy)) {
-		isLoggedIn = false;
-		localStorage.removeItem('isLoggedIn');
-	}
+
+    if (userType && (userType.includes('admin') && userType != userTypeAdmin)) {
+        isLoggedIn = false;
+        localStorage.removeItem('isLoggedIn');
+    } else if (userType && (userType.includes('my') && userType != userTypeMy)) {
+        isLoggedIn = false;
+        localStorage.removeItem('isLoggedIn');
+    }
 
     if (isLoggedIn === 'true') {
         checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeMy ? 2 : 0;
@@ -270,6 +274,13 @@ document.addEventListener('DOMContentLoaded', function() {
         parentContainer.style.justifyContent = 'center';
         parentContainer.style.alignItems = 'center';
         parentContainer.appendChild(logoutButton);
+    }
+	
+	// Xoá quảng cáo
+    var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
+
+    if (divToRemove) {
+        divToRemove.remove();
     }
 });
 
@@ -288,6 +299,15 @@ logoutButton.addEventListener('click', function() {
 
 tableBody.addEventListener('click', function(e) {
     if (e.target.classList.contains('edit-button') && e.target.parentNode.parentNode.style.opacity === '1') {
+
+        document.getElementById('editModal').style.display = 'block';
+
+        const editDate = document.getElementById('editDate');
+        const editNote = document.getElementById('editNote');
+        const editAmount = document.getElementById('editAmount');
+        const editBank = document.getElementById('editBank');
+        const editInfo = document.getElementById('editInfo');
+
         const row = e.target.parentNode.parentNode;
 
         const date = row.cells[0].innerText;
@@ -296,135 +316,30 @@ tableBody.addEventListener('click', function(e) {
         const bank = row.cells[3].innerText;
         const delivery = row.cells[4].innerText;
         const customerInfo = row.cells[5].innerText;
-        const tdRow = row.querySelector("td");
 
         //const editedRow = prompt('Sửa thông tin:', `${date} | ${note} | ${amount} | ${bank} | ${delivery} | ${customerInfo}`);
-        var editedRow = '';
+        var editedData = '';
         if (checkLogin != 0) {
-            editedRow = prompt('Sửa thông tin:', `${date} | ${note} | ${amount} | ${bank} | ${customerInfo}`); //Bỏ date, delivery
+            //editedRow = prompt('Sửa thông tin:', `${date} | ${note} | ${amount} | ${bank} | ${customerInfo}`); //Bỏ date, delivery
+            editDate.disabled = false;
+            editNote.disabled = false;
+            editAmount.disabled = false;
+            editBank.disabled = false;
+            editDate.value = date;
+            editNote.value = note;
+            editAmount.value = amount;
+            editBank.value = bank;
+            editInfo.value = customerInfo;
         } else {
-            editedRow = prompt('Sửa thông tin:', `${customerInfo}`); //Bỏ date, delivery, bank, amount, note
+            //editedRow = prompt('Sửa thông tin:', `${customerInfo}`); //Bỏ date, delivery, bank, amount, note
+            editDate.disabled = true;
+            editNote.disabled = true;
+            editAmount.disabled = true;
+            editBank.disabled = true;
+            editInfo.value = customerInfo;
         }
 
-        if (editedRow) {
-            var editedAmount = 0;
-            var editedData = '';
-            if (checkLogin != 0) {
-                editedData = editedRow.split(' | ');
-                const editedAmount = parseFloat(editedData[1].replace(/,/g, ''));
-            } else {
-                editedData = editedRow;
-            }
-            if (isNaN(editedAmount) && checkLogin != 0) {
-                alert('Vui lòng nhập số tiền chuyển hợp lệ.');
-                return;
-            }
-
-            collectionRef.doc("ck").get()
-                .then((doc) => {
-                    if (doc.exists) {
-                        // Sao chép dữ liệu
-                        const data = doc.data(); // Sao chép mảng
-                        var tempData = '';
-
-                        for (let i = 0; i < data["data"].length; i++) {
-                            if (tdRow.id === data["data"][i].dateCell) {
-                                if (checkLogin != 0) {
-                                    data["data"][i].dateCell = convertToTimestamp(editedData[0]);
-                                    data["data"][i].noteCell = editedData[1];
-                                    data["data"][i].amountCell = editedData[2];
-                                    data["data"][i].bankCell = editedData[3];
-                                    data["data"][i].customerInfoCell = editedData[4];
-                                } else {
-                                    data["data"][i].customerInfoCell = editedData;
-                                }
-                                tempData = data["data"][i];
-                                break; // Kết thúc vòng lặp sau khi xoá
-                            }
-                        }
-
-                        // Kiểm tra xem tài liệu đã tồn tại chưa
-                        collectionRef.doc("ck").get().then(doc => {
-                            if (doc.exists) {
-                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-                                collectionRef.doc("ck").update({
-                                    "data": data["data"]
-                                }).then(function() {
-                                    if (checkLogin != 0) {
-                                        row.cells[0].innerText = editedData[0];
-                                        row.cells[1].innerText = editedData[1];
-                                        row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
-                                        row.cells[3].innerText = editedData[3];
-
-                                        const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
-                                        //checkbox.checked = editedData[4].toLowerCase() === 'true';
-
-                                        row.cells[5].innerText = editedData[4];
-                                    } else {
-                                        row.cells[0].innerText = editedData[0];
-                                        row.cells[1].innerText = tempData.noteCell;
-                                        row.cells[2].innerText = numberWithCommas(parseFloat(tempData.amountCell.replace(/,/g, '')));
-                                        row.cells[3].innerText = tempData.bankCell;
-
-                                        const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
-                                        //checkbox.checked = editedData[4].toLowerCase() === 'true';
-
-                                        row.cells[5].innerText = editedData;
-                                    }
-                                    updateTotalAmount();
-                                    console.log("Document tải lên thành công");
-                                }).catch(function(error) {
-                                    alert('Lỗi khi tải document lên.');
-                                    return;
-                                    console.error("Lỗi khi tải document lên: ", error);
-                                });
-                            } else {
-                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-                                collectionRef.doc("ck").set({
-                                    "data": data["data"]
-                                }).then(function() {
-                                    if (checkLogin != 0) {
-                                        row.cells[0].innerText = editedData[0];
-                                        row.cells[1].innerText = editedData[1];
-                                        row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
-                                        row.cells[3].innerText = editedData[3];
-
-                                        const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
-                                        //checkbox.checked = editedData[4].toLowerCase() === 'true';
-
-                                        row.cells[5].innerText = editedData[4];
-                                    } else {
-                                        //row.cells[0].innerText = editedData[0];
-                                        row.cells[1].innerText = tempData.noteCell;
-                                        row.cells[2].innerText = numberWithCommas(parseFloat(tempData.amountCell.replace(/,/g, '')));
-                                        row.cells[3].innerText = tempData.bankCell;
-
-                                        const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
-                                        //checkbox.checked = editedData[4].toLowerCase() === 'true';
-
-                                        row.cells[5].innerText = editedData;
-                                    }
-                                    updateTotalAmount();
-                                    console.log("Document tải lên thành công");
-                                }).catch(function(error) {
-                                    alert('Lỗi khi tải document lên.');
-                                    return;
-                                    console.error("Lỗi khi tải document lên: ", error);
-                                });
-                            }
-                        }).catch(function(error) {
-                            alert('Lỗi khi tải document lên.');
-                            return;
-                            console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
-                        });
-                    }
-                })
-                .catch((error) => {
-                    alert('Lỗi khi tải document lên.');
-                    return;
-                    console.error("Lỗi lấy document:", error);
-                });
-        }
+        editingRow = row;
     } else if (e.target.type === 'checkbox') {
         if (checkLogin != 1) {
             alert('Không đủ quyền thực hiện chức năng này.');
@@ -553,7 +468,7 @@ function updateTable() {
 
                 for (let i = 0; i < data["data"].length; i++) {
                     // Định dạng ngày tháng năm + giờ phút
-                    var timestamp = parseInt(data["data"][i].dateCell); // Chuyển đổi chuỗi thành số nguyên
+                    var timestamp = parseFloat(data["data"][i].dateCell); // Chuyển đổi chuỗi thành số nguyên
                     var dateCellConvert = new Date(timestamp);
                     var formattedTime = formatDate(dateCellConvert);
 
@@ -628,22 +543,147 @@ function parseDate(dateString) {
 }
 
 function convertToTimestamp(dateString) {
+    const tempTimeStamp = new Date();
     var parts = dateString.split("-");
     var year = parts[2].length === 2 ? "20" + parts[2] : parts[2];
     var formattedDate = year + "-" + parts[1] + "-" + parts[0];
-    var timestamp = new Date(formattedDate).getTime();
+    var timestamp = new Date(formattedDate).getTime() + (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
     return timestamp.toString();
 }
 
-// Chờ tải xong trang web
-window.addEventListener('load', function () {
-    // Xoá quảng cáo
-    var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
+function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
 
-    if (divToRemove) {
-        divToRemove.remove();
+function saveChanges() {
+    const editDate = document.getElementById('editDate').value;
+    const editNote = document.getElementById('editNote').value;
+    const editAmount = document.getElementById('editAmount').value;
+    const editBank = document.getElementById('editBank').value;
+    const editInfo = document.getElementById('editInfo').value;
+	
+	const row = editingRow;
+	const tdRow = row.querySelector("td");
+
+    var editedAmount = 0;
+    var editedData = [editDate, editNote, editAmount, editBank, editInfo];
+    if (checkLogin != 0) {
+        const editedAmount = parseFloat(editedData[1].replace(/,/g, ''));
+    } else {
+        editedData = [editInfo];
     }
-});
+    if (isNaN(editedAmount) && checkLogin != 0) {
+        alert('Vui lòng nhập số tiền chuyển hợp lệ.');
+        return;
+    }
+	
+    collectionRef.doc("ck").get()
+        .then((doc) => {
+            if (doc.exists) {
+                // Sao chép dữ liệu
+                const data = doc.data(); // Sao chép mảng
+                var tempData = '';
+
+                for (let i = 0; i < data["data"].length; i++) {
+                    if (tdRow.id === data["data"][i].dateCell) {
+                        if (checkLogin != 0) {
+                            data["data"][i].dateCell = convertToTimestamp(editedData[0]);
+                            data["data"][i].noteCell = editedData[1];
+                            data["data"][i].amountCell = editedData[2];
+                            data["data"][i].bankCell = editedData[3];
+                            data["data"][i].customerInfoCell = editedData[4];
+                        } else {
+                            data["data"][i].customerInfoCell = editedData[0];
+                        }
+                        tempData = data["data"][i];
+                        break; // Kết thúc vòng lặp sau khi xoá
+                    }
+                }
+
+                // Kiểm tra xem tài liệu đã tồn tại chưa
+                collectionRef.doc("ck").get().then(doc => {
+                    if (doc.exists) {
+                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                        collectionRef.doc("ck").update({
+                            "data": data["data"]
+                        }).then(function() {
+                            if (checkLogin != 0) {
+                                row.cells[0].innerText = editedData[0];
+                                row.cells[1].innerText = editedData[1];
+                                row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
+                                row.cells[3].innerText = editedData[3];
+
+                                const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
+                                //checkbox.checked = editedData[4].toLowerCase() === 'true';
+
+                                row.cells[5].innerText = editedData[4];
+                            } else {
+                                row.cells[0].innerText = formatDate(new Date(parseFloat(tdRow.id)));
+                                row.cells[1].innerText = tempData.noteCell;
+                                row.cells[2].innerText = numberWithCommas(parseFloat(tempData.amountCell.replace(/,/g, '')));
+                                row.cells[3].innerText = tempData.bankCell;
+
+                                const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
+                                //checkbox.checked = editedData[4].toLowerCase() === 'true';
+
+                                row.cells[5].innerText = editedData[0];
+                            }
+                            updateTotalAmount();
+                            console.log("Document tải lên thành công");
+                        }).catch(function(error) {
+							alert('Lỗi khi tải document lên.');
+							return;
+							console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+						});
+                    } else {
+                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                        collectionRef.doc("ck").set({
+                            "data": data["data"]
+                        }).then(function() {
+                            if (checkLogin != 0) {
+                                row.cells[0].innerText = editedData[0];
+                                row.cells[1].innerText = editedData[1];
+                                row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
+                                row.cells[3].innerText = editedData[3];
+
+                                const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
+                                //checkbox.checked = editedData[4].toLowerCase() === 'true';
+
+                                row.cells[5].innerText = editedData[4];
+                            } else {
+                                row.cells[0].innerText = formatDate(new Date(parseFloat(tdRow.id)));
+                                row.cells[1].innerText = tempData.noteCell;
+                                row.cells[2].innerText = numberWithCommas(parseFloat(tempData.amountCell.replace(/,/g, '')));
+                                row.cells[3].innerText = tempData.bankCell;
+
+                                const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
+                                //checkbox.checked = editedData[4].toLowerCase() === 'true';
+
+                                row.cells[5].innerText = editedData[0];
+                            }
+                            updateTotalAmount();
+                            console.log("Document tải lên thành công");
+                        }).catch(function(error) {
+							alert('Lỗi khi tải document lên.');
+							return;
+							console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+						});
+                    }
+                }).catch(function(error) {
+                    alert('Lỗi khi tải document lên.');
+                    return;
+                    console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                });
+            }
+        }).catch((error) => {
+            alert('Lỗi khi tải document lên 3.');
+            return;
+            console.error("Lỗi lấy document:", error);
+        });
+
+    // Close the modal
+    closeModal();
+}
 
 updateTable();
 
