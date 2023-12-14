@@ -608,6 +608,7 @@ function saveChanges() {
                             "data": data["data"]
                         }).then(function() {
                             if (checkLogin != 0) {
+                                row.cells[0].id = convertToTimestamp(editedData[0]);
                                 row.cells[0].innerText = editedData[0];
                                 row.cells[1].innerText = editedData[1];
                                 row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
@@ -618,14 +619,6 @@ function saveChanges() {
 
                                 row.cells[5].innerText = editedData[4];
                             } else {
-                                row.cells[0].innerText = formatDate(new Date(parseFloat(tdRow.id)));
-                                row.cells[1].innerText = tempData.noteCell;
-                                row.cells[2].innerText = numberWithCommas(parseFloat(tempData.amountCell.replace(/,/g, '')));
-                                row.cells[3].innerText = tempData.bankCell;
-
-                                const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
-                                //checkbox.checked = editedData[4].toLowerCase() === 'true';
-
                                 row.cells[5].innerText = editedData[0];
                             }
                             updateTotalAmount();
@@ -641,6 +634,7 @@ function saveChanges() {
                             "data": data["data"]
                         }).then(function() {
                             if (checkLogin != 0) {
+								row.cells[0].id = convertToTimestamp(editedData[0]);
                                 row.cells[0].innerText = editedData[0];
                                 row.cells[1].innerText = editedData[1];
                                 row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
@@ -651,14 +645,6 @@ function saveChanges() {
 
                                 row.cells[5].innerText = editedData[4];
                             } else {
-                                row.cells[0].innerText = formatDate(new Date(parseFloat(tdRow.id)));
-                                row.cells[1].innerText = tempData.noteCell;
-                                row.cells[2].innerText = numberWithCommas(parseFloat(tempData.amountCell.replace(/,/g, '')));
-                                row.cells[3].innerText = tempData.bankCell;
-
-                                const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
-                                //checkbox.checked = editedData[4].toLowerCase() === 'true';
-
                                 row.cells[5].innerText = editedData[0];
                             }
                             updateTotalAmount();
@@ -680,40 +666,45 @@ function saveChanges() {
             return;
             console.error("Lỗi lấy document:", error);
         });
-
+	
     // Close the modal
     closeModal();
 }
 
 updateTable();
 
-// document.getElementById('exportToExcelButton').addEventListener('click', function() {
-//     exportToExcel();
-// });
+function exportToExcel() {
+    const wsData = [['Ngày', 'Ghi chú chuyển khoản', 'Số tiền chuyển', 'Ngân hàng', 'Đi đơn', 'Tên FB + SĐT']];
 
-// function exportToExcel() {
-//     var wsData = [['Ngày', 'Ghi chú chuyển khoản', 'Số tiền chuyển', 'Ngân hàng', 'Đi đơn', 'Tên FB + SĐT']];
+    // Lấy dữ liệu từ bảng (bắt đầu từ dòng thứ 2)
+    const tableRows = document.querySelectorAll('#tableBody tr');
+    tableRows.forEach(function(row) {
+        // Bỏ qua dòng tiêu đề (dòng thứ 1)
+        if (row.rowIndex !== 0) {
+            const rowData = [];
+            row.querySelectorAll('td').forEach(function(cell, index) {
+                if (index === 4) { // Kiểm tra nếu là cột "Đi đơn"
+                    const checkbox = cell.querySelector('input[type="checkbox"]');
+                    if (checkbox.checked) {
+                        rowData.push('1'); // Nếu được tích, giá trị là 1
+                    } else {
+                        rowData.push(''); // Nếu không được tích, giữ nguyên giá trị ô
+                    }
+                } else {
+                    rowData.push(cell.innerText);
+                }
+            });
+            wsData.push(rowData);
+        }
+    });
 
-//     // headers
-//     var tableHeaders = document.querySelectorAll('#tableBody th');
-//     var headerRow = [];
-//     tableHeaders.forEach(function(th) {
-//         headerRow.push(th.innerText);
-//     });
-//     wsData.unshift(headerRow);
+    // Tạo một sheet từ dữ liệu
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-//     // data
-//     var tableRows = document.querySelectorAll('#tableBody tr');
-//     tableRows.forEach(function(row) {
-//         var rowData = [];
-//         row.querySelectorAll('td').forEach(function(cell) {
-//             rowData.push(cell.innerText);
-//         });
-//         wsData.push(rowData);
-//     });
+    // Tạo một workbook và thêm sheet vào workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu');
 
-//     var ws = XLSX.utils.aoa_to_sheet(wsData);
-//     var wb = XLSX.utils.book_new();
-//     XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu');
-//     XLSX.writeFile(wb, 'dulieu.xlsx');
-// }
+    // Lưu workbook xuống tệp Excel
+    XLSX.writeFile(wb, 'dulieu.xlsx');
+}

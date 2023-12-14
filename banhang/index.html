@@ -4,8 +4,8 @@
 	<meta http-equiv="Cache-Control" content="public, max-age=31536000">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KHÁCH HÀNG DỰ BỊ</title>
-    <link href="../css/dubi.css" rel="stylesheet">
+    <title>INBOX</title>
+    <link href="../css/banhang.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
     <link rel="shortcut icon" href="../logo.jpg" />
     <!-- The core Firebase JS SDK -->
@@ -20,10 +20,10 @@
       <ul class="nav-list">
         <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
         <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
-        <li class="nav-item"><a id="current-page-link" href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
+        <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
         <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
         <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
-        <!-- <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG</a></li> -->
+        <li class="nav-item"><a id="current-page-link" href="../banhang/index.html">BÁN HÀNG</a></li>
       </ul>
     </div>
     <!-- Nút để ẩn/hiện biểu mẫu -->
@@ -31,7 +31,7 @@
     <!-- Thẻ div chứa biểu mẫu -->
     <div id="dataForm" style="display: none;">
       <h1>Thêm Sản Phẩm</h1>
-      <form>		<!--
+      <form>
         <label for="phanLoai">Phân loại:</label>
         <select id="phanLoai" required>
           <option value="Áo" selected>Áo</option>
@@ -39,7 +39,6 @@
           <option value="Set và Đầm">Set và Đầm</option>
           <option value="PKGD">Phụ kiện và Giày dép</option>
         </select>
-		-->
         <p>Hình ảnh sản phẩm:</p>
         <div id="radioButtonsContainer">
           <input type="radio" name="inputType" id="inputClipboard" checked>
@@ -61,7 +60,7 @@
         <div id="hinhAnhContainer"></div>
         <label for="tenSanPham">Tên sản phẩm:</label>
         <input type="text" id="tenSanPham" required>
-        <p>Ảnh khách hàng:</p>
+        <p>Hình ảnh khách hàng:</p>
 		<div id="radioButtonsContainer">
           <input type="radio" name="inputTypeKH" id="inputClipboardKH" checked>
           <label for="inputClipboardKH">Copy Paste</label>
@@ -71,9 +70,9 @@
         <div id="containerKH">
           <p>Dán ảnh khách hàng ở đây…</p>
         </div>
-		<div id="hinhAnhContainerKH"></div>
+        <div id="hinhAnhContainerKH"></div>
 		<div id="inputFileContainerKH">
-          <input type="file" id="hinhAnhInputFileKH" multiple>
+          <input type="file" id="hinhAnhInputFileKH" accept="image/*" multiple>
         </div>
         <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
         <div class="center-button">
@@ -82,11 +81,24 @@
         </div>
       </form>
     </div>
-    <p class="tieude">KHÁCH LIVE DỰ BỊ</p>
+    <p class="tieude">CHECK INBOX KHÁCH HÀNG</p>
+    <!-- Thêm dropdown menu, date picker và nút áp dụng bộ lọc -->
+    <label for="filterCategory">Chọn phân loại:</label>
+    <select id="filterCategory">
+      <option value="all">Tất cả</option>
+      <option value="Áo">Áo</option>
+      <option value="Quần">Quần</option>
+      <option value="Set và Đầm">Set và Đầm</option>
+      <option value="PKGD">Phụ kiện và Giày dép</option>
+    </select>
+    <!-- <label for="uploadDate">Chọn ngày upload:</label><input type="date" id="uploadDate"> -->
+    <!-- <button onclick="applyCategoryFilter()">Áp dụng bộ lọc</button> -->
     <table>
       <thead>
         <tr>
-          <th>STT</th>
+          <th>Thứ tự</th>
+          <th>Thời gian upload</th>
+          <th>Phân loại</th>
           <th>Hình ảnh sản phẩm</th>
           <th>Tên sản phẩm</th>
           <th>Ảnh khách hàng</th>
