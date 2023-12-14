@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com/">
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
     <link href="../css/ck.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
     <title>THÔNG TIN CHUYỂN KHOẢN</title>
@@ -20,6 +19,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 	<!-- Load jQuery from a CDN -->
 	<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -30,6 +30,7 @@
             <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
             <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
             <li class="nav-item"><a id="current-page-link" href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
+            <!-- <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG</a></li> -->
         </ul>
     </div>
 
@@ -121,7 +122,7 @@
 	  </div>
 	</div>
 
-    <!-- <button id="exportToExcelButton">Xuất Excel</button> -->
+    <button onclick="exportToExcel()">Xuất Excel</button>
 
     <script src="scriptObfuscator.js"></script>
 </body>

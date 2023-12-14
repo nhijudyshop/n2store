@@ -1,0 +1,216 @@
+/* Điều chỉnh menu cho các thiết bị di động */
+@media (max-width: 768px) {
+    .nav-list {
+        text-align: center;
+    }
+    .nav-item {
+        display: block;
+        margin: 0 0 30px;
+    }
+}
+
+#radioButtonsContainer {
+  display: flex;
+  align-items: center;
+}
+
+#radioButtonsContainer input[type="radio"] {
+  margin-right: 10px;
+}
+
+body {
+    font-family: 'Times New Roman', Times, serif;
+    margin: 20px;
+    background: #FFF;
+}
+
+#toggleFormButton {
+    background-color: #007bff; /* Màu nền */
+    color: #fff; /* Màu văn bản */
+    border: none; /* Bỏ viền */
+    padding: 5px 8px; /* Kích thước nút */
+    cursor: pointer; /* Con trỏ thay đổi khi di chuột vào nút */
+    border-radius: 5px; /* Bo góc */
+}
+
+#toggleFormButton:hover {
+    background-color: #0056b3; /* Màu nền khi di chuột vào */
+}
+
+#toggleFormButton:focus {
+    outline: none; /* Loại bỏ đường viền khi nút được chọn */
+}
+
+#toggleFormButton:active {
+    transform: scale(0.95); /* Hiệu ứng nhỏ lại khi nút được nhấn */
+}
+
+h1 {
+    text-align: center;
+}
+
+p.tieude {
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 36px;
+    font-weight: bold;
+    color: #0e5cad;
+    margin: 0;
+    padding: 10px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 20px;
+    table-layout: fixed;
+}
+
+th, td {
+    word-wrap: break-word;
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+    vertical-align: center; /* Căn ảnh giữa theo chiều dọc */
+    font-size: 24px;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+
+th:first-child {
+    width: 75px; /* Độ rộng mới cho cột "Thứ tự" */
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+.clipboard-image {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+    transition: transform 0.3s;
+    cursor: pointer;
+}
+
+.product-image {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+    transition: transform 0.3s;
+    cursor: pointer;
+}
+
+.product-image:hover {
+    transform: scale(5);
+}
+
+input[type="number"] {
+    width: 50px;
+    text-align: center;
+}
+
+button.toggle-visibility {
+    background-color: #00f;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#dataForm {
+    border: 1px solid #ccc;
+    padding: 20px;
+    width: 300px;
+    margin: 0 auto;
+}
+
+#dataForm label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+#dataForm select,
+#dataForm input[type="text"] {
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 10px;
+}
+
+#dataForm button[type="submit"] {
+    background-color: green;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* Thêm CSS để căn giữa nút "Thêm dữ liệu" */
+.center-button {
+    text-align: center;
+}
+
+.center-button button {
+    margin-top: 10px;
+}
+
+#clearDataButton {
+    background-color: red; /* Màu đỏ */
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.customer-image-cell {
+    text-align: center;
+}
+
+.customer-image-cell img {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+    transition: transform 0.3s;
+    cursor: pointer;
+}
+
+.customer-image-cell img:hover {
+    transform: scale(7); /* Thay đổi tỷ lệ khi hover */
+}
+
+.popup {
+    display: none;
+    position: fixed;
+    top: 10%;
+    right: 0%;
+    transform: translate(-50%, -50%);
+    background-color: #4ca0af;
+    color: #fff;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.popup-content {
+    text-align: center;
+}
+
+.popup-message {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.popup-show {
+    display: block;
+}
