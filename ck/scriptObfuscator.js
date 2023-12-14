@@ -97,7 +97,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
     const formattedDate = formatDate(currentDate);
 
     const transferNote = document.getElementById('transferNote').value;
-    let transferAmount = transferAmountInput.value.replace(/,/g, '');
+    let transferAmount = transferAmountInput.value.replace(/[,\.]/g, '');
     transferAmount = parseFloat(transferAmount);
 
     const selectedBank = document.getElementById('bank').value;
@@ -209,7 +209,7 @@ clearDataButton.addEventListener('click', function() {
 });
 
 transferAmountInput.addEventListener('blur', function() {
-    let value = this.value.replace(/,/g, '');
+    let value = this.value.replace(/[,\.]/g, '');
     value = parseFloat(value);
 
     if (!isNaN(value)) {
@@ -410,7 +410,7 @@ function updateTotalAmount(selectedDate) {
 
     // Tính tổng số tiền cho các dòng hiển thị
     for (let i = 0; i < visibleRows.length; i++) {
-        const amount = parseFloat(visibleRows[i].cells[2].innerText.replace(/,/g, ''));
+        const amount = parseFloat(visibleRows[i].cells[2].innerText.replace(/[,\.]/g, ''));
         if (!isNaN(amount)) {
             totalAmount += amount;
         }
@@ -491,7 +491,7 @@ function updateTable() {
                     dateCell.innerText = formattedTime.replace(/\//g, '-');
                     dateCell.id = data["data"][i].dateCell;
                     noteCell.innerText = data["data"][i].noteCell;
-                    amountCell.innerText = numberWithCommas(data["data"][i].amountCell.replace(/,/g, ''));
+                    amountCell.innerText = numberWithCommas(data["data"][i].amountCell.replace(/[,\.]/g, ''));
                     bankCell.innerText = data["data"][i].bankCell;
                     customerInfoCell.innerText = data["data"][i].customerInfoCell;
 
@@ -568,7 +568,7 @@ function saveChanges() {
     var editedAmount = 0;
     var editedData = [editDate, editNote, editAmount, editBank, editInfo];
     if (checkLogin != 0) {
-        const editedAmount = parseFloat(editedData[1].replace(/,/g, ''));
+        const editedAmount = parseFloat(editedData[1].replace(/[,\.]/g, ''));
     } else {
         editedData = [editInfo];
     }
@@ -611,7 +611,7 @@ function saveChanges() {
                                 row.cells[0].id = convertToTimestamp(editedData[0]);
                                 row.cells[0].innerText = editedData[0];
                                 row.cells[1].innerText = editedData[1];
-                                row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
+                                row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/[,\.]/g, '')));
                                 row.cells[3].innerText = editedData[3];
 
                                 const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
@@ -637,7 +637,7 @@ function saveChanges() {
 								row.cells[0].id = convertToTimestamp(editedData[0]);
                                 row.cells[0].innerText = editedData[0];
                                 row.cells[1].innerText = editedData[1];
-                                row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/,/g, '')));
+                                row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/[,\.]/g, '')));
                                 row.cells[3].innerText = editedData[3];
 
                                 const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
