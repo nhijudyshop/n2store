@@ -683,15 +683,17 @@ function exportToExcel() {
         if (row.rowIndex !== 0) {
             const rowData = [];
             row.querySelectorAll('td').forEach(function(cell, index) {
-                if (index === 4) { // Kiểm tra nếu là cột "Đi đơn"
-                    const checkbox = cell.querySelector('input[type="checkbox"]');
-                    if (checkbox.checked) {
-                        rowData.push('1'); // Nếu được tích, giá trị là 1
+                if (index !== 6) { // Loại bỏ cột "Sửa" (cột thứ 7)
+                    if (index === 4) { // Kiểm tra nếu là cột "Đi đơn"
+                        const checkbox = cell.querySelector('input[type="checkbox"]');
+                        if (checkbox.checked) {
+                            rowData.push('1'); // Nếu được tích, giá trị là 1
+                        } else {
+                            rowData.push(''); // Nếu không được tích, giữ nguyên giá trị ô
+                        }
                     } else {
-                        rowData.push(''); // Nếu không được tích, giữ nguyên giá trị ô
+                        rowData.push(cell.innerText);
                     }
-                } else {
-                    rowData.push(cell.innerText);
                 }
             });
             wsData.push(rowData);
@@ -708,3 +710,4 @@ function exportToExcel() {
     // Lưu workbook xuống tệp Excel
     XLSX.writeFile(wb, 'dulieu.xlsx');
 }
+

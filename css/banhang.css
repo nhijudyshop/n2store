@@ -9,15 +9,6 @@
     }
 }
 
-#radioButtonsContainer {
-  display: flex;
-  align-items: center;
-}
-
-#radioButtonsContainer input[type="radio"] {
-  margin-right: 10px;
-}
-
 body {
     font-family: 'Times New Roman', Times, serif;
     margin: 20px;
@@ -25,24 +16,24 @@ body {
 }
 
 #toggleFormButton {
-    background-color: #007bff; /* Màu nền */
-    color: #fff; /* Màu văn bản */
-    border: none; /* Bỏ viền */
-    padding: 5px 8px; /* Kích thước nút */
-    cursor: pointer; /* Con trỏ thay đổi khi di chuột vào nút */
-    border-radius: 5px; /* Bo góc */
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 5px 8px;
+    cursor: pointer;
+    border-radius: 5px;
 }
 
 #toggleFormButton:hover {
-    background-color: #0056b3; /* Màu nền khi di chuột vào */
+    background-color: #0056b3;
 }
 
 #toggleFormButton:focus {
-    outline: none; /* Loại bỏ đường viền khi nút được chọn */
+    outline: none;
 }
 
 #toggleFormButton:active {
-    transform: scale(0.95); /* Hiệu ứng nhỏ lại khi nút được nhấn */
+    transform: scale(0.95);
 }
 
 h1 {
@@ -59,6 +50,11 @@ p.tieude {
     padding: 10px;
 }
 
+div.live {
+    text-align: center;
+    margin: 20px auto;
+}
+
 table {
     border-collapse: collapse;
     width: 100%;
@@ -71,7 +67,7 @@ th, td {
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: center; /* Căn ảnh giữa theo chiều dọc */
+    vertical-align: top;
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -80,47 +76,25 @@ th {
     background-color: #f2f2f2;
 }
 
-
 th:first-child {
-    width: 75px; /* Độ rộng mới cho cột "Thứ tự" */
+    width: auto;
 }
 
-th {
-    background-color: #f2f2f2;
-}
-
-.clipboard-image {
-    width: 100%;
-    max-width: 200px;
-    height: auto;
-    transition: transform 0.3s;
-    cursor: pointer;
-}
-
+/* Thêm quy tắc CSS cho hình ảnh sản phẩm */
 .product-image {
     width: 100%;
-    max-width: 200px;
-    height: auto;
+    height: 100%;
+    max-width: 150px;
+    max-height: 180px;
     transition: transform 0.3s;
-    cursor: pointer;
+    margin: 1px 3px;
+    cursor: pointer; /* Thêm con trỏ chỉ vào để làm nổi bật */
 }
 
+/* Thêm hiệu ứng phóng to khi rê vào */
 .product-image:hover {
-    transform: scale(5);
-}
-
-input[type="number"] {
-    width: 50px;
-    text-align: center;
-}
-
-button.toggle-visibility {
-    background-color: #00f;
-    color: #fff;
-    border: none;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-weight: bold;
+    transform: scale(3); /* Đổi giá trị để phóng to theo mong muốn của bạn */
+    z-index: 1;
 }
 
 #dataForm {
@@ -136,7 +110,8 @@ button.toggle-visibility {
 }
 
 #dataForm select,
-#dataForm input[type="text"] {
+#dataForm input[type="text"],
+#dataForm input[type="number"] {
     width: 100%;
     padding: 5px;
     margin-bottom: 10px;
@@ -151,7 +126,6 @@ button.toggle-visibility {
     font-weight: bold;
 }
 
-/* Thêm CSS để căn giữa nút "Thêm dữ liệu" */
 .center-button {
     text-align: center;
 }
@@ -161,56 +135,53 @@ button.toggle-visibility {
 }
 
 #clearDataButton {
-    background-color: red; /* Màu đỏ */
+    background-color: red;
     color: #fff;
     border: none;
     padding: 10px 20px;
-    margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
+    margin-left: 10px;
     cursor: pointer;
     font-weight: bold;
 }
 
-.customer-image-cell {
+.delete-checkbox {
+    width: 20px;
+    height: 20px;
+}
+
+.login-container {
     text-align: center;
+    margin-top: 20px;
 }
 
-.customer-image-cell img {
-    width: 100%;
-    max-width: 200px;
-    height: auto;
-    transition: transform 0.3s;
-    cursor: pointer;
-}
-
-.customer-image-cell img:hover {
-    transform: scale(7); /* Thay đổi tỷ lệ khi hover */
-}
-
-.popup {
-    display: none;
-    position: fixed;
-    top: 10%;
-    right: 0%;
-    transform: translate(-50%, -50%);
-    background-color: #4ca0af;
-    color: #fff;
-    font-weight: bold;
+.login-box {
+    width: 300px;
+    margin: 0 auto;
+    background-color: #fff;
+    padding: 20px;
     border: 1px solid #ccc;
-    padding: 10px 20px;
-    border-radius: 5px;
-    z-index: 1000;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-.popup-content {
-    text-align: center;
-}
-
-.popup-message {
-    font-size: 24px;
-    font-weight: bold;
-}
-
-.popup-show {
+.login-box label {
     display: block;
+    margin-bottom: 10px;
+}
+
+.login-box input {
+    width: calc(100% - 20px);
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.login-box button, .logout-button {
+    background-color: #007bff;
+    color: #fff;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
 }

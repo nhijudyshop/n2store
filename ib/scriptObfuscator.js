@@ -224,46 +224,6 @@ inputClipboardContainerKH.addEventListener('paste', async function(e) {
     }
 });
 
-/*
-// Thêm một sự kiện click vào phần tử inputClipboardContainerKH
-inputClipboardContainer.addEventListener('click', function(e) {
-    // Kiểm tra xem phần tử được click có phải là một phần tử <img> không
-    if (e.target.tagName === 'IMG') {
-        // Xoá phần tử img khỏi mảng imgArray
-        var index = imgArray.indexOf(e.target);
-        if (index !== -1) {
-            imgArray.splice(index, 1);
-        }
-
-        // Xoá phần tử img khỏi inputClipboardContainerKH
-        e.target.parentNode.removeChild(e.target);
-
-        var newElement = document.createElement('p')
-        newElement.textContent = 'Dán ảnh sản phẩm ở đây…';
-        inputClipboardContainer.appendChild(newElement);
-    }
-});
-
-// Thêm một sự kiện click vào phần tử inputClipboardContainerKH
-inputClipboardContainerKH.addEventListener('click', function(e) {
-    // Kiểm tra xem phần tử được click có phải là một phần tử <img> không
-    if (e.target.tagName === 'IMG') {
-        // Xoá phần tử img khỏi mảng imgArrayKH
-        var index = imgArrayKH.indexOf(e.target);
-        if (index !== -1) {
-            imgArrayKH.splice(index, 1);
-        }
-
-        // Xoá phần tử img khỏi inputClipboardContainerKH
-        e.target.parentNode.removeChild(e.target);
-		
-        var newElement = document.createElement('p')
-        newElement.textContent = 'Dán ảnh sản phẩm ở đây…';
-        inputClipboardContainerKH.appendChild(newElement);
-    }
-});
-*/
-
 document.getElementById('hinhAnhInputLink').addEventListener('click', function(event) {
     const inputValue = event.target.value;
 
@@ -518,25 +478,6 @@ dataForm.addEventListener('submit', function(e) {
                     });
                 };
 
-                // Function to upload a compressed image
-                const uploadCompressedImage = async (compressedFile) => {
-                    return new Promise((resolve, reject) => {
-                        var imageRef = imagesRef.child(compressedFile.name);
-                        // Tải tệp hình ảnh lên Firebase Storage
-                        var uploadTask = imageRef.put(compressedFile, newMetadata);
-                        // Theo dõi tiến trình tải lên
-                        uploadTask.on('state_changed', function(snapshot) {
-                            // Cập nhật tiến trình tải lên nếu cần
-                        }, function(error) {
-                            // Xử lý lỗi tải lên (nếu có)
-                            reject(error);
-                        }, function() {
-                            // Xử lý khi tải lên thành công
-                            resolve();
-                        });
-                    });
-                };
-
                 // Sử dụng Promise.all để theo dõi tất cả các tải lên
                 const uploadPromises = [];
 
@@ -544,7 +485,6 @@ dataForm.addEventListener('submit', function(e) {
                     return new Promise(async (resolve, reject) => {
                         try {
                             const compressedFile = await compressImage(file);
-                            await uploadCompressedImage(compressedFile);
 
                             var imageRef = imagesRef.child(file.name + generateUniqueFileName());
                             var uploadTask = imageRef.put(compressedFile, newMetadata);
@@ -693,25 +633,6 @@ dataForm.addEventListener('submit', function(e) {
             });
         };
 
-        // Function to upload a compressed image
-        const uploadCompressedImage = async (compressedFile) => {
-            return new Promise((resolve, reject) => {
-                var imageRef = imagesRef.child(compressedFile.name);
-                // Tải tệp hình ảnh lên Firebase Storage
-                var uploadTask = imageRef.put(compressedFile, newMetadata);
-                // Theo dõi tiến trình tải lên
-                uploadTask.on('state_changed', function(snapshot) {
-                    // Cập nhật tiến trình tải lên nếu cần
-                }, function(error) {
-                    // Xử lý lỗi tải lên (nếu có)
-                    reject(error);
-                }, function() {
-                    // Xử lý khi tải lên thành công
-                    resolve();
-                });
-            });
-        };
-
         // Sử dụng Promise.all để theo dõi tất cả các tải lên
         const uploadPromises = [];
 
@@ -719,7 +640,6 @@ dataForm.addEventListener('submit', function(e) {
             return new Promise(async (resolve, reject) => {
                 try {
                     const compressedFile = await compressImage(file);
-                    await uploadCompressedImage(compressedFile);
 
                     var imageRef = imagesRef.child(file.name + generateUniqueFileName());
                     var uploadTask = imageRef.put(compressedFile, newMetadata);
@@ -890,25 +810,6 @@ dataForm.addEventListener('submit', function(e) {
                         });
                     };
 
-                    // Function to upload a compressed image
-                    const uploadCompressedImage = async (compressedFile) => {
-                        return new Promise((resolve, reject) => {
-                            var imageRef = imagesRef.child(compressedFile.name);
-                            // Tải tệp hình ảnh lên Firebase Storage
-                            var uploadTask = imageRef.put(compressedFile, newMetadata);
-                            // Theo dõi tiến trình tải lên
-                            uploadTask.on('state_changed', function(snapshot) {
-                                // Cập nhật tiến trình tải lên nếu cần
-                            }, function(error) {
-                                // Xử lý lỗi tải lên (nếu có)
-                                reject(error);
-                            }, function() {
-                                // Xử lý khi tải lên thành công
-                                resolve();
-                            });
-                        });
-                    };
-
                     // Sử dụng Promise.all để theo dõi tất cả các tải lên
                     const uploadPromises = [];
 
@@ -916,7 +817,6 @@ dataForm.addEventListener('submit', function(e) {
                         return new Promise(async (resolve, reject) => {
                             try {
                                 const compressedFile = await compressImage(file);
-                                await uploadCompressedImage(compressedFile);
 
                                 var imageRef = imagesRef.child(file.name + generateUniqueFileName());
                                 var uploadTask = imageRef.put(compressedFile, newMetadata);
@@ -1181,25 +1081,6 @@ dataForm.addEventListener('submit', function(e) {
                                     });
                                 };
 
-                                // Function to upload a compressed image
-                                const uploadCompressedImage = async (compressedFile) => {
-                                    return new Promise((resolve, reject) => {
-                                        var imageRef = imagesRef.child(compressedFile.name);
-                                        // Tải tệp hình ảnh lên Firebase Storage
-                                        var uploadTask = imageRef.put(compressedFile, newMetadata);
-                                        // Theo dõi tiến trình tải lên
-                                        uploadTask.on('state_changed', function(snapshot) {
-                                            // Cập nhật tiến trình tải lên nếu cần
-                                        }, function(error) {
-                                            // Xử lý lỗi tải lên (nếu có)
-                                            reject(error);
-                                        }, function() {
-                                            // Xử lý khi tải lên thành công
-                                            resolve();
-                                        });
-                                    });
-                                };
-
                                 // Sử dụng Promise.all để theo dõi tất cả các tải lên
                                 const uploadPromises = [];
 
@@ -1207,7 +1088,6 @@ dataForm.addEventListener('submit', function(e) {
                                     return new Promise(async (resolve, reject) => {
                                         try {
                                             const compressedFile = await compressImage(file);
-                                            await uploadCompressedImage(compressedFile);
 
                                             var imageRef = imagesRef.child(file.name + generateUniqueFileName());
                                             var uploadTask = imageRef.put(compressedFile, newMetadata);

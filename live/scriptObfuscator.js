@@ -115,30 +115,10 @@ document.addEventListener('DOMContentLoaded', function() {
 			});
 		};
 
-		// Function to upload a compressed image
-		const uploadCompressedImage = async (compressedFile) => {
-			return new Promise((resolve, reject) => {
-				var imageRef = imagesRef.child(compressedFile.name);
-				// Tải tệp hình ảnh lên Firebase Storage
-				var uploadTask = imageRef.put(compressedFile, newMetadata);
-				// Theo dõi tiến trình tải lên
-				uploadTask.on('state_changed', function (snapshot) {
-					// Cập nhật tiến trình tải lên nếu cần
-				}, function (error) {
-					// Xử lý lỗi tải lên (nếu có)
-					reject(error);
-				}, function () {
-					// Xử lý khi tải lên thành công
-					resolve();
-				});
-			});
-		};
-
 		// Loop through each image file, compress and upload
 		for (const hinhAnh of hinhAnhFiles) {
 			try {
 				const compressedFile = await compressImage(hinhAnh);
-				await uploadCompressedImage(compressedFile);
 				uploadedCount++;
 				if (uploadedCount === hinhAnhFiles.length) {
 					// Nếu đã tải lên tất cả các tệp, hãy reload trang

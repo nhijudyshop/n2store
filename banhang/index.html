@@ -1,119 +1,73 @@
 <!DOCTYPE html>
 <html lang="vi">
-  <head>
-	<meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INBOX</title>
-    <link href="../css/banhang.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
-    <link rel="shortcut icon" href="../logo.jpg" />
-    <!-- The core Firebase JS SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <!-- The Firebase storage SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <!-- The Firebase firestore SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-  </head>
-  <body>
-    <div class="nav-container">
-      <ul class="nav-list">
-        <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
-        <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
-        <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
-        <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
-        <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
-        <li class="nav-item"><a id="current-page-link" href="../banhang/index.html">BÁN HÀNG</a></li>
-      </ul>
-    </div>
-    <!-- Nút để ẩn/hiện biểu mẫu -->
-    <button id="toggleFormButton">Hiện biểu mẫu</button>
-    <!-- Thẻ div chứa biểu mẫu -->
-    <div id="dataForm" style="display: none;">
-      <h1>Thêm Sản Phẩm</h1>
-      <form>
-        <label for="phanLoai">Phân loại:</label>
-        <select id="phanLoai" required>
-          <option value="Áo" selected>Áo</option>
-          <option value="Quần">Quần</option>
-          <option value="Set và Đầm">Set và Đầm</option>
-          <option value="PKGD">Phụ kiện và Giày dép</option>
-        </select>
-        <p>Hình ảnh sản phẩm:</p>
-        <div id="radioButtonsContainer">
-          <input type="radio" name="inputType" id="inputClipboard" checked>
-          <label for="inputClipboard">Copy Paste</label>
-          <input type="radio" name="inputType" id="inputFile">
-          <label for="inputFile">Nhập file</label>
-          <input type="radio" name="inputType" id="inputLink">
-          <label for="inputLink">Nhập link</label>
-        </div>
-        <div id="container">
-          <p>Dán ảnh sản phẩm ở đây…</p>
-        </div>
-        <div id="inputFileContainer">
-          <input type="file" id="hinhAnhInputFile" accept="image/*" multiple>
-        </div>
-        <div id="inputLinkContainer">
-          <input type="button" id="hinhAnhInputLink" value="Thêm link">
-        </div>
-        <div id="hinhAnhContainer"></div>
-        <label for="tenSanPham">Tên sản phẩm:</label>
-        <input type="text" id="tenSanPham" required>
-        <p>Hình ảnh khách hàng:</p>
-		<div id="radioButtonsContainer">
-          <input type="radio" name="inputTypeKH" id="inputClipboardKH" checked>
-          <label for="inputClipboardKH">Copy Paste</label>
-          <input type="radio" name="inputTypeKH" id="inputFileKH">
-          <label for="inputFileKH">Nhập file</label>
-        </div>
-        <div id="containerKH">
-          <p>Dán ảnh khách hàng ở đây…</p>
-        </div>
-        <div id="hinhAnhContainerKH"></div>
-		<div id="inputFileContainerKH">
-          <input type="file" id="hinhAnhInputFileKH" accept="image/*" multiple>
-        </div>
-        <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
-        <div class="center-button">
-          <button type="submit" id="addButton">Thêm</button>
-          <button type="button" id="clearDataButton">Reset</button>
-        </div>
-      </form>
-    </div>
-    <p class="tieude">CHECK INBOX KHÁCH HÀNG</p>
-    <!-- Thêm dropdown menu, date picker và nút áp dụng bộ lọc -->
-    <label for="filterCategory">Chọn phân loại:</label>
-    <select id="filterCategory">
-      <option value="all">Tất cả</option>
-      <option value="Áo">Áo</option>
-      <option value="Quần">Quần</option>
-      <option value="Set và Đầm">Set và Đầm</option>
-      <option value="PKGD">Phụ kiện và Giày dép</option>
-    </select>
-    <!-- <label for="uploadDate">Chọn ngày upload:</label><input type="date" id="uploadDate"> -->
-    <!-- <button onclick="applyCategoryFilter()">Áp dụng bộ lọc</button> -->
-    <table>
-      <thead>
-        <tr>
-          <th>Thứ tự</th>
-          <th>Thời gian upload</th>
-          <th>Phân loại</th>
-          <th>Hình ảnh sản phẩm</th>
-          <th>Tên sản phẩm</th>
-          <th>Ảnh khách hàng</th>
-          <th>Ẩn</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Dữ liệu sản phẩm và thông tin khách hàng sẽ được thêm bằng JavaScript -->
-      </tbody>
-    </table>
-	<div id="popup" class="popup">
-      <div class="popup-content">
-        <span id="popup-message">Đã sao chép</span>
+   <head>
+      <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>BÁN HÀNG</title>
+      <link href="../css/banhang.css" rel="stylesheet">
+      <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
+      <link rel="shortcut icon" href="../logo.jpg" />
+      <!-- The core Firebase JS SDK -->
+      <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+      <!-- The Firebase storage SDK -->
+      <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+      <!-- The Firebase firestore SDK -->
+      <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+   </head>
+   <body>
+      <div class="nav-container">
+         <ul class="nav-list">
+            <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
+            <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
+            <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
+            <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
+            <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
+            <li class="nav-item"><a id="current-page-link"  href="../banhang/index.html">BÁN HÀNG</a></li>
+         </ul>
       </div>
-    </div>
-    <script src="scriptObfuscator.js"></script>
-  </body>
+      <!-- Nút để ẩn/hiện biểu mẫu -->
+      <button id="toggleFormButton">Hiện biểu mẫu</button>
+      <!-- Thẻ div chứa biểu mẫu -->
+      <div id="dataForm" style="display: none;">
+         <h1>Thêm Thông Tin</h1>
+         <form id="productForm">
+            <label for="ttkh">Tên Khách + SĐT</label>
+            <input type="text" id="ttkh" required>
+            <label for="hasp">Hình ảnh sản phẩm:</label>
+            <input type="file" id="hinhAnhInputFile" accept="image/*" multiple>
+            <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
+            <div class="center-button">
+               <button type="submit" id="addButton">Thêm</button>
+               <button type="button" id="clearDataButton">Reset</button>
+            </div>
+         </form>
+      </div>
+      <div id="parentContainer">
+         <p class="tieude">BÁN HÀNG</p>
+      </div>
+      <div class="login-container">
+         <div class="login-box">
+            <input type="text" id="username" name="username" placeholder="Nhập tài khoản">
+            <input type="password" id="password" name="password" placeholder="Nhập mật khẩu">
+            <button type="button" id="loginButton">Đăng nhập</button>
+         </div>
+      </div>
+      <table>
+         <thead>
+            <tr>
+               <th>Thứ tự</th>
+               <th>Thời gian</th>
+               <th>Tên Khách + SĐT</th>
+               <th>Hình ảnh sản phẩm</th>
+               <th>Chỉnh sửa hình ảnh</th>
+			   <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" />
+            </tr>
+         </thead>
+         <tbody>
+            <!-- Dữ liệu sản phẩm và thông tin khách hàng sẽ được thêm bằng JavaScript -->
+         </tbody>
+      </table>
+      <script src="scriptObfuscator.js"></script>
+   </body>
 </html>
