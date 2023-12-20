@@ -72,6 +72,12 @@ th, td {
     font-family: 'Times New Roman', Times, serif;
 }
 
+td:nth-child(3) {
+    font-size: 48px;
+    font-weight: bold;
+}
+
+
 th {
     background-color: #f2f2f2;
 }
@@ -184,4 +190,37 @@ th:first-child {
     border: none;
     border-radius: 4px;
     cursor: pointer;
+}
+
+/* CSS cho nút Thêm */
+.add-button {
+    background-color: #0000FF; /* Màu xanh dương */
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: transform 0.3s;
+}
+
+.delete-button {
+    background-color: #FF0000; /* Màu xanh dương */
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: transform 0.3s;
+}
+
+.add-button:hover, .delete-button:hover {
+    transform: scale(1.2);
 }

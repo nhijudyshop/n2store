@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const db = firebase.firestore();
     const storageRef = firebase.storage().ref();
     const collectionRef = db.collection("banhang");
+	const tableBody = document.getElementById('tableBody');
     const toggleFormButton = document.getElementById('toggleFormButton');
     const dataForm = document.getElementById('dataForm');
     const productForm = document.getElementById('productForm');
@@ -64,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginButton = document.getElementById('loginButton');
     const deleteCheckImg = document.getElementById('delete-button');
     const addButtonImg = document.getElementById('add-button');
+	const nameFilterDropdown = document.getElementById('nameFilter');
     const userTypes = {
         admin: {
             password: 'admin',
@@ -94,6 +96,11 @@ document.addEventListener('DOMContentLoaded', function() {
         //     checkLogin: 1
         // },
     };
+	
+	document.querySelector('.nameFilter').style.display = 'none';
+	nameFilterDropdown.style.display = 'none';
+	
+	const tempNameFilterDropdown = ['my', 'lai', 'huyen', 'ngoc', 'truc'];
 
     let editingRow;
     var checkLogin = 0;
@@ -117,6 +124,17 @@ document.addEventListener('DOMContentLoaded', function() {
         parentContainer.style.justifyContent = 'center';
         parentContainer.style.alignItems = 'center';
         parentContainer.appendChild(logoutButton);
+		
+		if (checkLogin == 1) {
+			document.querySelector('.nameFilter').style.display = 'block';
+			nameFilterDropdown.style.display = 'block';
+			for (let i = 0; i < tempNameFilterDropdown.length; i++) {
+				const option = document.createElement('option');
+				option.value = tempNameFilterDropdown[i];
+				option.textContent = tempNameFilterDropdown[i];
+				nameFilterDropdown.appendChild(option);
+			}
+		}
     }
 
     // Xử lý khi nút "Hiện biểu mẫu" được click
@@ -663,6 +681,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function generateUniqueFileName() {
         return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.png';
     }
+	
+	nameFilterDropdown.addEventListener('change', function() {
+		var selectedName = nameFilterDropdown.value;
+
+		var rows = tableBody.getElementsByTagName("tr");
+
+		for (var i = 0; i < rows.length; i++) {
+			var cells = rows[i].getElementsByTagName("td");
+
+			if (cells.length > 0) {
+				var firstTdInnerText = cells[1].innerText.split(' ')[2];
+				if (selectedName === firstTdInnerText || selectedName === "all") {
+					rows[i].style.display = 'table-row';
+				} else {
+					rows[i].style.display = 'none'; // Ẩn các đợt live khác
+				}
+			}
+		}
+	});
 
     document.getElementById('fileInput').addEventListener('change', function(event) {
         var hinhAnhFiles = event.target.files;

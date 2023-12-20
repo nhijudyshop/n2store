@@ -61,8 +61,8 @@ const loginBox = document.querySelector('.login-box');
 const logoutButton = document.createElement('button');
 const editModal = document.getElementById('editModal');
 let editingRow;
-const userTypeAdmin = 'admin-111';
-const userTypeMy = 'my-222';
+const userTypeAdmin = 'admin-admin';
+const userTypeMy = 'my-my2804';
 
 var checkLogin = 0;
 var arrayData = [];
@@ -137,7 +137,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
     editCell.appendChild(editButton);
 
     moneyTransferForm.reset();
-    updateTotalAmount();
+    //updateTotalAmount();
 
     // Chuyển đổi thành timestamp
     const tempTimeStamp = new Date();
@@ -205,7 +205,7 @@ clearDataButton.addEventListener('click', function() {
     const currentDate = new Date(ngayck.value);
     ngayck.valueAsDate = currentDate;
     moneyTransferForm.reset();
-    updateTotalAmount();
+    //updateTotalAmount();
 });
 
 transferAmountInput.addEventListener('blur', function() {
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (isLoggedIn === 'true') {
         checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeMy ? 2 : 0;
         loginBox.style.display = 'none';
-        document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
+        document.querySelector('.tieude').innerText += 'Tài khoản ' + userType.split('-')[0];
         logoutButton.textContent = 'Đăng xuất';
         logoutButton.className = 'logout-button';
         const parentContainer = document.getElementById('parentContainer');
@@ -275,8 +275,8 @@ document.addEventListener('DOMContentLoaded', function() {
         parentContainer.style.alignItems = 'center';
         parentContainer.appendChild(logoutButton);
     }
-	
-	// Xoá quảng cáo
+
+    // Xoá quảng cáo
     var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
 
     if (divToRemove) {
@@ -373,8 +373,9 @@ tableBody.addEventListener('click', function(e) {
                         collectionRef.doc("ck").update({
                             "data": data["data"]
                         }).then(function() {
-
-                            updateTotalAmount();
+                            tableBody.innerText = '';
+                            updateTable();
+                            //updateTotalAmount();
                             console.log("Document tải lên thành công");
                         }).catch(function(error) {
                             alert('Lỗi khi tải document lên.');
@@ -386,9 +387,9 @@ tableBody.addEventListener('click', function(e) {
                     alert('Lỗi khi tải document lên.');
                     console.error("Lỗi lấy document:", error);
                 });
-            if (isChecked) {
-                moveRowToBottom(row);
-            }
+            //if (isChecked) {
+            //    moveRowToBottom(row);
+            //}
         } else {
             e.target.checked = !isChecked;
         }
@@ -526,7 +527,7 @@ function updateTable() {
                     dateFilterDropdown.appendChild(option);
                 }
 
-                updateTotalAmount();
+                //updateTotalAmount();
             }
         })
         .catch((error) => {
@@ -561,9 +562,10 @@ function saveChanges() {
     const editAmount = document.getElementById('editAmount').value;
     const editBank = document.getElementById('editBank').value;
     const editInfo = document.getElementById('editInfo').value;
-	
-	const row = editingRow;
-	const tdRow = row.querySelector("td");
+
+    const row = editingRow;
+    const rawDate = row.cells[0].innerText;
+    const tdRow = row.querySelector("td");
 
     var editedAmount = 0;
     var editedData = [editDate, editNote, editAmount, editBank, editInfo];
@@ -576,7 +578,7 @@ function saveChanges() {
         alert('Vui lòng nhập số tiền chuyển hợp lệ.');
         return;
     }
-	
+
     collectionRef.doc("ck").get()
         .then((doc) => {
             if (doc.exists) {
@@ -587,7 +589,9 @@ function saveChanges() {
                 for (let i = 0; i < data["data"].length; i++) {
                     if (tdRow.id === data["data"][i].dateCell) {
                         if (checkLogin != 0) {
-                            data["data"][i].dateCell = convertToTimestamp(editedData[0]);
+                            if (rawDate != editDate) {
+                                data["data"][i].dateCell = convertToTimestamp(editedData[0]);
+                            }
                             data["data"][i].noteCell = editedData[1];
                             data["data"][i].amountCell = editedData[2];
                             data["data"][i].bankCell = editedData[3];
@@ -608,7 +612,9 @@ function saveChanges() {
                             "data": data["data"]
                         }).then(function() {
                             if (checkLogin != 0) {
-                                row.cells[0].id = convertToTimestamp(editedData[0]);
+                                if (rawDate != editDate) {
+                                    row.cells[0].id = convertToTimestamp(editedData[0]);
+                                }
                                 row.cells[0].innerText = editedData[0];
                                 row.cells[1].innerText = editedData[1];
                                 row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/[,\.]/g, '')));
@@ -621,20 +627,23 @@ function saveChanges() {
                             } else {
                                 row.cells[5].innerText = editedData[0];
                             }
-                            updateTotalAmount();
+                            //updateTotalAmount();
                             console.log("Document tải lên thành công");
                         }).catch(function(error) {
-							alert('Lỗi khi tải document lên.');
-							return;
-							console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
-						});
+                            alert('Lỗi khi tải document lên.');
+                            return;
+                            console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                        });
                     } else {
                         // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                         collectionRef.doc("ck").set({
                             "data": data["data"]
                         }).then(function() {
                             if (checkLogin != 0) {
-								row.cells[0].id = convertToTimestamp(editedData[0]);
+                                if (rawDate != editDate) {
+                                    row.cells[0].id = convertToTimestamp(editedData[0]);
+                                }
+
                                 row.cells[0].innerText = editedData[0];
                                 row.cells[1].innerText = editedData[1];
                                 row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/[,\.]/g, '')));
@@ -647,13 +656,13 @@ function saveChanges() {
                             } else {
                                 row.cells[5].innerText = editedData[0];
                             }
-                            updateTotalAmount();
+                            //updateTotalAmount();
                             console.log("Document tải lên thành công");
                         }).catch(function(error) {
-							alert('Lỗi khi tải document lên.');
-							return;
-							console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
-						});
+                            alert('Lỗi khi tải document lên.');
+                            return;
+                            console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                        });
                     }
                 }).catch(function(error) {
                     alert('Lỗi khi tải document lên.');
@@ -666,48 +675,49 @@ function saveChanges() {
             return;
             console.error("Lỗi lấy document:", error);
         });
-	
+
     // Close the modal
     closeModal();
 }
 
 updateTable();
 
-function exportToExcel() {
-    const wsData = [['Ngày', 'Ghi chú chuyển khoản', 'Số tiền chuyển', 'Ngân hàng', 'Đi đơn', 'Tên FB + SĐT']];
+// function exportToExcel() {
+//     const wsData = [
+//         ['Ngày', 'Ghi chú chuyển khoản', 'Số tiền chuyển', 'Ngân hàng', 'Đi đơn', 'Tên FB + SĐT']
+//     ];
 
-    // Lấy dữ liệu từ bảng (bắt đầu từ dòng thứ 2)
-    const tableRows = document.querySelectorAll('#tableBody tr');
-    tableRows.forEach(function(row) {
-        // Bỏ qua dòng tiêu đề (dòng thứ 1)
-        if (row.rowIndex !== 0) {
-            const rowData = [];
-            row.querySelectorAll('td').forEach(function(cell, index) {
-                if (index !== 6) { // Loại bỏ cột "Sửa" (cột thứ 7)
-                    if (index === 4) { // Kiểm tra nếu là cột "Đi đơn"
-                        const checkbox = cell.querySelector('input[type="checkbox"]');
-                        if (checkbox.checked) {
-                            rowData.push('1'); // Nếu được tích, giá trị là 1
-                        } else {
-                            rowData.push(''); // Nếu không được tích, giữ nguyên giá trị ô
-                        }
-                    } else {
-                        rowData.push(cell.innerText);
-                    }
-                }
-            });
-            wsData.push(rowData);
-        }
-    });
+//     // Lấy dữ liệu từ bảng (bắt đầu từ dòng thứ 2)
+//     const tableRows = document.querySelectorAll('#tableBody tr');
+//     tableRows.forEach(function(row) {
+//         // Bỏ qua dòng tiêu đề (dòng thứ 1)
+//         if (row.rowIndex !== 0) {
+//             const rowData = [];
+//             row.querySelectorAll('td').forEach(function(cell, index) {
+//                 if (index !== 6) { // Loại bỏ cột "Sửa" (cột thứ 7)
+//                     if (index === 4) { // Kiểm tra nếu là cột "Đi đơn"
+//                         const checkbox = cell.querySelector('input[type="checkbox"]');
+//                         if (checkbox.checked) {
+//                             rowData.push('1'); // Nếu được tích, giá trị là 1
+//                         } else {
+//                             rowData.push(''); // Nếu không được tích, giữ nguyên giá trị ô
+//                         }
+//                     } else {
+//                         rowData.push(cell.innerText);
+//                     }
+//                 }
+//             });
+//             wsData.push(rowData);
+//         }
+//     });
 
-    // Tạo một sheet từ dữ liệu
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
+//     // Tạo một sheet từ dữ liệu
+//     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    // Tạo một workbook và thêm sheet vào workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu');
+//     // Tạo một workbook và thêm sheet vào workbook
+//     const wb = XLSX.utils.book_new();
+//     XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu');
 
-    // Lưu workbook xuống tệp Excel
-    XLSX.writeFile(wb, 'dulieu.xlsx');
-}
-
+//     // Lưu workbook xuống tệp Excel
+//     XLSX.writeFile(wb, 'dulieu.xlsx');
+// }
