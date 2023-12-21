@@ -3,6 +3,7 @@
     .nav-list {
         text-align: center;
     }
+
     .nav-item {
         display: block;
         margin: 0 0 30px;
@@ -62,7 +63,8 @@ table {
     table-layout: fixed;
 }
 
-th, td {
+th,
+td {
     word-wrap: break-word;
     border: 1px solid #ccc;
     padding: 10px;
@@ -94,12 +96,14 @@ th:first-child {
     max-height: 180px;
     transition: transform 0.3s;
     margin: 1px 3px;
-    cursor: pointer; /* Thêm con trỏ chỉ vào để làm nổi bật */
+    cursor: pointer;
+    /* Thêm con trỏ chỉ vào để làm nổi bật */
 }
 
 /* Thêm hiệu ứng phóng to khi rê vào */
 .product-image:hover {
-    transform: scale(3); /* Đổi giá trị để phóng to theo mong muốn của bạn */
+    transform: scale(3);
+    /* Đổi giá trị để phóng to theo mong muốn của bạn */
     z-index: 1;
 }
 
@@ -183,7 +187,8 @@ th:first-child {
     border-radius: 4px;
 }
 
-.login-box button, .logout-button {
+.login-box button,
+.logout-button {
     background-color: #007bff;
     color: #fff;
     padding: 10px;
@@ -194,7 +199,8 @@ th:first-child {
 
 /* CSS cho nút Thêm */
 .add-button {
-    background-color: #0000FF; /* Màu xanh dương */
+    background-color: #0000FF;
+    /* Màu xanh dương */
     color: white;
     padding: 10px 20px;
     text-align: center;
@@ -208,7 +214,8 @@ th:first-child {
 }
 
 .delete-button {
-    background-color: #FF0000; /* Màu xanh dương */
+    background-color: #FF0000;
+    /* Màu xanh dương */
     color: white;
     padding: 10px 20px;
     text-align: center;
@@ -221,6 +228,7 @@ th:first-child {
     transition: transform 0.3s;
 }
 
-.add-button:hover, .delete-button:hover {
+.add-button:hover,
+.delete-button:hover {
     transform: scale(1.2);
 }

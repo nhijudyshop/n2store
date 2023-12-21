@@ -3,6 +3,7 @@
     .nav-list {
         text-align: center;
     }
+
     .nav-item {
         display: block;
         margin: 0 0 30px;
@@ -16,73 +17,75 @@ body {
 }
 
 #editModal {
-  display: none;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  animation: fadeInOut 0.3s ease-out;
-  width: 300px; /* Điều chỉnh chiều rộng theo ý muốn */
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    animation: fadeInOut 0.3s ease-out;
+    width: 300px;
+    /* Điều chỉnh chiều rộng theo ý muốn */
 }
 
 /* Keyframes cho animation */
 @keyframes fadeInOut {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.8);
-  }
-  100% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 .close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  cursor: pointer;
-  font-size: 15px;
-  color: #888;
-  border: 1px solid #0056b3;
-  padding: 5px;
-  border-radius: 1px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    font-size: 15px;
+    color: #888;
+    border: 1px solid #0056b3;
+    padding: 5px;
+    border-radius: 1px;
 }
 
 .close:hover {
-  color: #4caf50;
-  background-color: #4caf50;
+    color: #4caf50;
+    background-color: #4caf50;
 }
 
 /* Input và Label trong modal */
 .modal-content label {
-  display: block;
-  margin-bottom: 5px;
+    display: block;
+    margin-bottom: 5px;
 }
 
 .modal-content input {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 10px;
-  box-sizing: border-box;
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
 }
 
 /* Nút lưu trong modal */
 .modal-content button {
-  background-color: #4caf50;
-  color: #fff;
-  padding: 10px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+    background-color: #4caf50;
+    color: #fff;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .modal-content button:hover {
-  background-color: #45a049;
+    background-color: #45a049;
 }
 
 #toggleFormButton {
@@ -132,7 +135,8 @@ table {
     table-layout: fixed;
 }
 
-th, td {
+th,
+td {
     word-wrap: break-word;
     border: 2px solid #000;
     padding: 10px;
@@ -195,9 +199,12 @@ th:first-child {
 }
 
 #totalAmount {
-    text-align: center; /* Center the text */
-    margin-top: 20px; /* Add some top margin for spacing */
-    font-size: 24px; /* Adjust the font size if needed */
+    text-align: center;
+    /* Center the text */
+    margin-top: 20px;
+    /* Add some top margin for spacing */
+    font-size: 24px;
+    /* Adjust the font size if needed */
     font-weight: bold;
 }
 
@@ -214,11 +221,13 @@ th:first-child {
 }
 
 #clearDataButton {
-    background-color: red; /* Màu đỏ */
+    background-color: red;
+    /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 10px 20px;
-    margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
+    margin-left: 10px;
+    /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
     font-weight: bold;
 }
@@ -284,7 +293,8 @@ th:first-child {
     border-radius: 4px;
 }
 
-.login-box button, .logout-button {
+.login-box button,
+.logout-button {
     background-color: #007bff;
     color: #fff;
     padding: 10px;
@@ -297,17 +307,17 @@ thead {
     position: sticky;
     top: 0;
     z-index: 1;
-    background-color: #FFFF66; 
-    color: red; 
+    background-color: #FFFF66;
+    color: red;
 }
 
 th {
-    position: -webkit-sticky; 
+    position: -webkit-sticky;
     word-wrap: break-word;
     border: 2px solid #000;
     padding: 10px;
     text-align: center;
-    vertical-align: middle; 
+    vertical-align: middle;
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -328,7 +338,8 @@ td {
     border: 2px solid #000;
     padding: 10px;
     text-align: center;
-    vertical-align: top; /* Căn ảnh trên theo chiều dọc */
+    vertical-align: top;
+    /* Căn ảnh trên theo chiều dọc */
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -368,7 +379,8 @@ td:nth-child(7) {
     width: 6%;
 }
 
-td:nth-child(2), td:nth-child(6){
+td:nth-child(2),
+td:nth-child(6) {
     text-align: justify;
 }
 

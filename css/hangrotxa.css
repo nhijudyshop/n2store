@@ -3,6 +3,7 @@
     .nav-list {
         text-align: center;
     }
+
     .nav-item {
         display: block;
         margin: 0 0 30px;
@@ -10,17 +11,18 @@
 }
 
 #radioButtonsContainer {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 #radioButtonsContainer input[type="radio"] {
-  margin-right: 10px;
+    margin-right: 10px;
 }
 
 /* CSS để làm cho số trong cột "Số lượng" to lên */
 td:nth-child(7) input[type="number"] {
-    font-size: 24px; /* Điều chỉnh kích thước chữ số trong cột "Số lượng" */
+    font-size: 24px;
+    /* Điều chỉnh kích thước chữ số trong cột "Số lượng" */
 }
 
 body {
@@ -30,24 +32,33 @@ body {
 }
 
 #toggleFormButton {
-    background-color: #007bff; /* Màu nền */
-    color: #fff; /* Màu văn bản */
-    border: none; /* Bỏ viền */
-    padding: 5px 8px; /* Kích thước nút */
-    cursor: pointer; /* Con trỏ thay đổi khi di chuột vào nút */
-    border-radius: 5px; /* Bo góc */
+    background-color: #007bff;
+    /* Màu nền */
+    color: #fff;
+    /* Màu văn bản */
+    border: none;
+    /* Bỏ viền */
+    padding: 5px 8px;
+    /* Kích thước nút */
+    cursor: pointer;
+    /* Con trỏ thay đổi khi di chuột vào nút */
+    border-radius: 5px;
+    /* Bo góc */
 }
 
 #toggleFormButton:hover {
-    background-color: #0056b3; /* Màu nền khi di chuột vào */
+    background-color: #0056b3;
+    /* Màu nền khi di chuột vào */
 }
 
 #toggleFormButton:focus {
-    outline: none; /* Loại bỏ đường viền khi nút được chọn */
+    outline: none;
+    /* Loại bỏ đường viền khi nút được chọn */
 }
 
 #toggleFormButton:active {
-    transform: scale(0.95); /* Hiệu ứng nhỏ lại khi nút được nhấn */
+    transform: scale(0.95);
+    /* Hiệu ứng nhỏ lại khi nút được nhấn */
 }
 
 h1 {
@@ -71,12 +82,14 @@ table {
     table-layout: fixed;
 }
 
-th, td {
+th,
+td {
     word-wrap: break-word;
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: center; /* Căn ảnh giữa theo chiều dọc */
+    vertical-align: center;
+    /* Căn ảnh giữa theo chiều dọc */
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -86,7 +99,8 @@ th {
 }
 
 th:first-child {
-    width: 75px; /* Độ rộng mới cho cột "Thứ tự" */
+    width: 75px;
+    /* Độ rộng mới cho cột "Thứ tự" */
 }
 
 th {
@@ -111,7 +125,7 @@ input[type="number"] {
     font-family: 'Times New Roman', Times, serif;
 }
 
-button{
+button {
     background-color: #f00;
     color: #fff;
     border: none;
@@ -169,11 +183,13 @@ button.decrement {
 }
 
 #clearDataButton {
-    background-color: red; /* Màu đỏ */
+    background-color: red;
+    /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 10px 20px;
-    margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
+    margin-left: 10px;
+    /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
     font-weight: bold;
 }

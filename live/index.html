@@ -1,89 +1,92 @@
 <!DOCTYPE html>
 <html>
-  <head>
-	<meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com/">
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="../css/live.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
-    <title>HÌNH ẢNH LIVE</title>
-    <link rel="shortcut icon" href="../logo.jpg" />
-    <!-- The core Firebase JS SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <!-- The Firebase storage SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-  </head>
-  <body>
-    <div class="nav-container">
-      <ul class="nav-list">
-        <li class="nav-item"><a id="current-page-link" href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
-        <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
-        <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
-        <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
-        <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
-        <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG</a></li>
-      </ul>
-    </div>
-    <!-- Nút để ẩn/hiện biểu mẫu -->
-    <button id="toggleFormButton">Hiện biểu mẫu</button>
-    <!-- Thẻ div chứa biểu mẫu -->
-    <div id="dataForm" style="display: none;">
-      <h1>Thêm Hình Ảnh Live</h1>
-      <form id="productForm">
-        <label for="dotLive">Đợt Live:</label>
-        <input type="date" id="dotLive" required>
-        <label for="phanLoai">Phân loại:</label>
-        <select id="phanLoai" required>
-          <option value="Áo" selected>Áo</option>
-          <option value="Quần">Quần</option>
-          <option value="Set và Đầm">Set và Đầm</option>
-          <option value="PKGD">Phụ kiện và Giày dép</option>
-        </select>
-        <!--<label for="hinhAnh">Hình ảnh sản phẩm:</label>-->
-        <input type="file" id="hinhAnhInput" accept="image/*" multiple required>
-        <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
-        <div class="center-button">
-          <button type="submit" id="addButton">Thêm</button>
-          <button type="button" id="clearDataButton">Reset</button>
-        </div>
-      </form>
-    </div>
-    <p class="tieude">HÌNH ẢNH LIVE ĐẦY ĐỦ</p>
-    <!-- Dropdown để lọc đợt live -->
-    <label for="dateFilter">Lọc Đợt Live:</label>
-    <select id="dateFilter" size="5">
-      <option disabled selected>Chọn ngày</option>
-    </select>
-    <div class="live">
-      <table>
-        <tr>
-          <th>ĐỢT LIVE</th>
-          <th>Áo</th>
-          <th>Quần</th>
-          <th>Set và Đầm</th>
-          <th>Phụ kiện và Giày Dép</th>
-        </tr>
-        <tr>
-          <td id="liveDate"></td>
-          <td class="aoproduct-row"></td>
-          <td class="quanproduct-row"></td>
-          <td class="setvadamproduct-row"></td>
-          <td class="pkgdproduct-row"></td>
-        </tr>
-      </table>
-    </div>
-    <div id="popup" class="popup">
-      <div class="popup-content">
-        <span id="popup-message">Đã sao chép</span>
+
+<head>
+  <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com/">
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="../css/live.css" rel="stylesheet">
+  <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
+  <title>HÌNH ẢNH LIVE</title>
+  <link rel="shortcut icon" href="../logo.jpg" />
+  <!-- The core Firebase JS SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <!-- The Firebase storage SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+</head>
+
+<body>
+  <div class="nav-container">
+    <ul class="nav-list">
+      <li class="nav-item"><a id="current-page-link" href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
+      <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
+      <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li>
+      <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
+      <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
+      <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG</a></li>
+    </ul>
+  </div>
+  <!-- Nút để ẩn/hiện biểu mẫu -->
+  <button id="toggleFormButton">Hiện biểu mẫu</button>
+  <!-- Thẻ div chứa biểu mẫu -->
+  <div id="dataForm" style="display: none;">
+    <h1>Thêm Hình Ảnh Live</h1>
+    <form id="productForm">
+      <label for="dotLive">Đợt Live:</label>
+      <input type="date" id="dotLive" required>
+      <label for="phanLoai">Phân loại:</label>
+      <select id="phanLoai" required>
+        <option value="Áo" selected>Áo</option>
+        <option value="Quần">Quần</option>
+        <option value="Set và Đầm">Set và Đầm</option>
+        <option value="PKGD">Phụ kiện và Giày dép</option>
+      </select>
+      <!--<label for="hinhAnh">Hình ảnh sản phẩm:</label>-->
+      <input type="file" id="hinhAnhInput" accept="image/*" multiple required>
+      <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
+      <div class="center-button">
+        <button type="submit" id="addButton">Thêm</button>
+        <button type="button" id="clearDataButton">Reset</button>
       </div>
+    </form>
+  </div>
+  <p class="tieude">HÌNH ẢNH LIVE ĐẦY ĐỦ</p>
+  <!-- Dropdown để lọc đợt live -->
+  <label for="dateFilter">Lọc Đợt Live:</label>
+  <select id="dateFilter" size="5">
+    <option disabled selected>Chọn ngày</option>
+  </select>
+  <div class="live">
+    <table>
+      <tr>
+        <th>ĐỢT LIVE</th>
+        <th>Áo</th>
+        <th>Quần</th>
+        <th>Set và Đầm</th>
+        <th>Phụ kiện và Giày Dép</th>
+      </tr>
+      <tr>
+        <td id="liveDate"></td>
+        <td class="aoproduct-row"></td>
+        <td class="quanproduct-row"></td>
+        <td class="setvadamproduct-row"></td>
+        <td class="pkgdproduct-row"></td>
+      </tr>
+    </table>
+  </div>
+  <div id="popup" class="popup">
+    <div class="popup-content">
+      <span id="popup-message">Đã sao chép</span>
     </div>
-    <script type="module">
-      import {
-        initializeApp
-      } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-    </script>
-    <script src="scriptObfuscator.js"></script>
-  </body>
+  </div>
+  <script type="module">
+    import {
+      initializeApp
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+  </script>
+  <script src="scriptObfuscator.js"></script>
+</body>
+
 </html>

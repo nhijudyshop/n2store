@@ -3,6 +3,7 @@
     .nav-list {
         text-align: center;
     }
+
     .nav-item {
         display: block;
         margin: 0 0 30px;
@@ -62,12 +63,14 @@ table {
     table-layout: fixed;
 }
 
-th, td {
+th,
+td {
     word-wrap: break-word;
     border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
-    vertical-align: top; /* Căn ảnh trên theo chiều dọc */
+    vertical-align: top;
+    /* Căn ảnh trên theo chiều dọc */
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -136,11 +139,13 @@ th:first-child {
 }
 
 #clearDataButton {
-    background-color: red; /* Màu đỏ */
+    background-color: red;
+    /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 10px 20px;
-    margin-left: 10px; /* Khoảng cách với nút "Thêm dữ liệu" */
+    margin-left: 10px;
+    /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
     font-weight: bold;
 }
