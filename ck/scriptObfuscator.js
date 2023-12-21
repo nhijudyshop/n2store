@@ -682,42 +682,42 @@ function saveChanges() {
 
 updateTable();
 
-// function exportToExcel() {
-//     const wsData = [
-//         ['Ngày', 'Ghi chú chuyển khoản', 'Số tiền chuyển', 'Ngân hàng', 'Đi đơn', 'Tên FB + SĐT']
-//     ];
+function exportToExcel() {
+    const wsData = [
+        ['Ngày', 'Ghi chú chuyển khoản', 'Số tiền chuyển', 'Ngân hàng', 'Đi đơn', 'Tên FB + SĐT']
+    ];
 
-//     // Lấy dữ liệu từ bảng (bắt đầu từ dòng thứ 2)
-//     const tableRows = document.querySelectorAll('#tableBody tr');
-//     tableRows.forEach(function(row) {
-//         // Bỏ qua dòng tiêu đề (dòng thứ 1)
-//         if (row.rowIndex !== 0) {
-//             const rowData = [];
-//             row.querySelectorAll('td').forEach(function(cell, index) {
-//                 if (index !== 6) { // Loại bỏ cột "Sửa" (cột thứ 7)
-//                     if (index === 4) { // Kiểm tra nếu là cột "Đi đơn"
-//                         const checkbox = cell.querySelector('input[type="checkbox"]');
-//                         if (checkbox.checked) {
-//                             rowData.push('1'); // Nếu được tích, giá trị là 1
-//                         } else {
-//                             rowData.push(''); // Nếu không được tích, giữ nguyên giá trị ô
-//                         }
-//                     } else {
-//                         rowData.push(cell.innerText);
-//                     }
-//                 }
-//             });
-//             wsData.push(rowData);
-//         }
-//     });
+    // Lấy dữ liệu từ bảng (bắt đầu từ dòng thứ 2)
+    const tableRows = document.querySelectorAll('#tableBody tr');
+    tableRows.forEach(function(row) {
+        // Bỏ qua dòng tiêu đề (dòng thứ 1)
+        if (row.rowIndex !== 0) {
+            const rowData = [];
+            row.querySelectorAll('td').forEach(function(cell, index) {
+                if (index !== 6) { // Loại bỏ cột "Sửa" (cột thứ 7)
+                    if (index === 4) { // Kiểm tra nếu là cột "Đi đơn"
+                        const checkbox = cell.querySelector('input[type="checkbox"]');
+                        if (checkbox.checked) {
+                            rowData.push('1'); // Nếu được tích, giá trị là 1
+                        } else {
+                            rowData.push(''); // Nếu không được tích, giữ nguyên giá trị ô
+                        }
+                    } else {
+                        rowData.push(cell.innerText);
+                    }
+                }
+            });
+            wsData.push(rowData);
+        }
+    });
 
-//     // Tạo một sheet từ dữ liệu
-//     const ws = XLSX.utils.aoa_to_sheet(wsData);
+    // Tạo một sheet từ dữ liệu
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-//     // Tạo một workbook và thêm sheet vào workbook
-//     const wb = XLSX.utils.book_new();
-//     XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu');
+    // Tạo một workbook và thêm sheet vào workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu');
 
-//     // Lưu workbook xuống tệp Excel
-//     XLSX.writeFile(wb, 'dulieu.xlsx');
-// }
+    // Lưu workbook xuống tệp Excel
+    XLSX.writeFile(wb, 'dulieu.xlsx');
+}
