@@ -1,8 +1,8 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     function _0x1ab2(_0x36a23b, _0x52223b) {
         const _0x2e058f = _0x2e05();
-        return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
+        return _0x1ab2 = function (_0x1ab212, _0x4110aa) {
             _0x1ab212 = _0x1ab212 - 0x162;
             let _0x120a0e = _0x2e058f[_0x1ab212];
             return _0x120a0e;
@@ -11,13 +11,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function _0x2e05() {
         const _0x5a5dc7 = ['1235460FrnjKH', '22977963vpMYJv', 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM', 'n2shop-69e37-ne0q1', 'G-TEJH3S2T1D', '1345047lnZTNJ', '366711YpKMry', '13142736zaWdgA', '598906493303', '3756921uppNah', '25XRvqCS', 'n2shop-69e37', '14dthlHY', 'n2shop-69e37.firebaseapp.com', '10009662EXBqRi'];
-        _0x2e05 = function() {
+        _0x2e05 = function () {
             return _0x5a5dc7;
         };
         return _0x2e05();
     }
     const _0x3a343d = _0x1ab2;
-    (function(_0x46d1e0, _0x1a2442) {
+    (function (_0x46d1e0, _0x1a2442) {
         const _0x1acdbc = _0x1ab2,
             _0x2a2d1c = _0x46d1e0();
         while (!![]) {
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const dd = String(today.getDate()).padStart(2, '0');
 
     dotLiveInput.value = `${yyyy}-${mm}-${dd}`; // Đặt giá trị mặc định là ngày hôm nay
-    dotLiveInput.addEventListener('input', function() {
+    dotLiveInput.addEventListener('input', function () {
         // Kiểm tra nếu người dùng nhập ngày trong tương lai, thì đặt giá trị về ngày hôm nay
         const enteredDate = new Date(dotLiveInput.value);
         if (enteredDate > today) {
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    toggleFormButton.addEventListener('click', function() {
+    toggleFormButton.addEventListener('click', function () {
         if (dataForm.style.display === 'none' || dataForm.style.display === '') {
             dataForm.style.display = 'block';
             toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    productForm.addEventListener('submit', async function(e) {
+    productForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         document.getElementById("addButton").disabled = true;
         const phanLoai = document.getElementById('phanLoai').value;
@@ -124,10 +124,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const maxWidth = 500; // Set kích thước tối đa mong muốn
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = function(event) {
+                reader.onload = function (event) {
                     const img = new Image();
                     img.src = event.target.result;
-                    img.onload = function() {
+                    img.onload = function () {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
                         const width = img.width;
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
 
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        canvas.toBlob(function(blob) {
+                        canvas.toBlob(function (blob) {
                             const compressedFile = new File([blob], file.name, {
                                 type: file.type,
                                 lastModified: Date.now()
@@ -167,12 +167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Tải tệp hình ảnh lên Firebase Storage
                 var uploadTask = imageRef.put(file, newMetadata);
                 // Theo dõi tiến trình tải lên
-                uploadTask.on('state_changed', function(snapshot) {
+                uploadTask.on('state_changed', function (snapshot) {
                     // Cập nhật tiến trình tải lên nếu cần
-                }, function(error) {
+                }, function (error) {
                     // Xử lý lỗi tải lên (nếu có)
                     createPopup('Lỗi tải ảnh lên!', 30000);
-                }, function() {
+                }, function () {
                     uploadedCount++;
                     if (uploadedCount === hinhAnhFiles.length) {
                         // Nếu đã tải lên tất cả các tệp, hãy reload trang
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // Sửa mã JavaScript để xử lý sự kiện thay đổi dropdown
-    dateFilterDropdown.addEventListener('change', function() {
+    dateFilterDropdown.addEventListener('change', function () {
         var selectedDate = dateFilterDropdown.value;
         var liveDate = document.getElementById('liveDate');
 
@@ -242,8 +242,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var allDates = [];
         var selectedDate = dateFilterDropdown.value;
         // Lấy danh sách tất cả các thư mục con trong thư mục "live/"
-        storageRef.child('live/').listAll().then(function(result) {
-            result.prefixes.forEach(function(folderRef) {
+        storageRef.child('live/').listAll().then(function (result) {
+            result.prefixes.forEach(function (folderRef) {
                 var folderPath = folderRef.fullPath; // Đường dẫn đầy đủ của thư mục con
                 var subDate = folderPath.split('/'); // Tách đường dẫn để lấy ngày
                 var folderDate = subDate[subDate.length - 1];
@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 imageContainer.appendChild(imgElement);
 
                 // Thêm sự kiện click cho nút "Copy" để copy url ảnh
-                imgElement.addEventListener('click', function() {
+                imgElement.addEventListener('click', function () {
                     copyToClipboard(url);
                 });
             });
@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
         popupMessage.textContent = message;
         popup.classList.add('popup-show');
 
-        setTimeout(function() {
+        setTimeout(function () {
             popup.classList.remove('popup-show');
         }, time); // Tắt thông báo sau 1.5 giây
     }
@@ -362,15 +362,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Lấy danh sách tất cả các thư mục trong thư mục gốc
-        storageRef.child('live/').listAll().then(function(result) {
-            result.prefixes.forEach(function(folderRef) {
+        storageRef.child('live/').listAll().then(function (result) {
+            result.prefixes.forEach(function (folderRef) {
                 // folderRef là một tham chiếu tới một thư mục
                 const option = document.createElement('option');
                 option.value = folderRef.name;
                 option.textContent = folderRef.name;
                 dateFilterDropdown.appendChild(option);
             });
-        }).catch(function(error) {
+        }).catch(function (error) {
             console.error("Lỗi khi lấy danh sách thư mục: " + error);
         });
     }
@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateDateFilterDropdown();
 
     // Lắng nghe sự kiện click trên nút "Xoá dữ liệu"
-    clearDataButton.addEventListener('click', function() {
+    clearDataButton.addEventListener('click', function () {
 
         // Lấy tham chiếu đến biểu mẫu
         const productForm = document.getElementById('productForm');
