@@ -92,8 +92,8 @@ th:first-child {
 .product-image {
     width: 100%;
     height: 100%;
-    max-width: 150px;
-    max-height: 180px;
+    max-width: 60px;
+    max-height: 90px;
     transition: transform 0.3s;
     margin: 1px 3px;
     cursor: pointer;
@@ -102,7 +102,7 @@ th:first-child {
 
 /* Thêm hiệu ứng phóng to khi rê vào */
 .product-image:hover {
-    transform: scale(3);
+    transform: scale(5);
     /* Đổi giá trị để phóng to theo mong muốn của bạn */
     z-index: 1;
 }
