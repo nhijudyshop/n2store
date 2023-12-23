@@ -114,47 +114,47 @@ inputClipboardContainer.addEventListener('paste', async function(e) {
 
             // Thêm phần tử img vào phần tử <div>
             inputClipboardContainer.appendChild(imgElement);
-			
-			// Function to compress an image
-                const compressImage = async (file) => {
-                    return new Promise((resolve) => {
-                        const maxWidth = 500; // Set kích thước tối đa mong muốn
-                        const reader = new FileReader();
-                        reader.readAsDataURL(file);
-                        reader.onload = function(event) {
-                            const img = new Image();
-                            img.src = event.target.result;
-                            img.onload = function() {
-                                const canvas = document.createElement('canvas');
-                                const ctx = canvas.getContext('2d');
-                                const width = img.width;
-                                const height = img.height;
 
-                                // Kiểm tra xem có cần resize hay không
-                                if (width > maxWidth) {
-                                    const ratio = maxWidth / width;
-                                    canvas.width = maxWidth;
-                                    canvas.height = height * ratio;
-                                } else {
-                                    canvas.width = width;
-                                    canvas.height = height;
-                                }
+            // Function to compress an image
+            const compressImage = async (file) => {
+                return new Promise((resolve) => {
+                    const maxWidth = 500; // Set kích thước tối đa mong muốn
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = function(event) {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            const width = img.width;
+                            const height = img.height;
 
-                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                canvas.toBlob(function(blob) {
-                                    const compressedFile = new File([blob], file.name, {
-                                        type: file.type,
-                                        lastModified: Date.now()
-                                    });
-                                    resolve(compressedFile);
-                                }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
-                            };
+                            // Kiểm tra xem có cần resize hay không
+                            if (width > maxWidth) {
+                                const ratio = maxWidth / width;
+                                canvas.width = maxWidth;
+                                canvas.height = height * ratio;
+                            } else {
+                                canvas.width = width;
+                                canvas.height = height;
+                            }
+
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            canvas.toBlob(function(blob) {
+                                const compressedFile = new File([blob], file.name, {
+                                    type: file.type,
+                                    lastModified: Date.now()
+                                });
+                                resolve(compressedFile);
+                            }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
                         };
-                    });
-                };
-			
-			const compressedFile = await compressImage(file);
-			
+                    };
+                });
+            };
+
+            const compressedFile = await compressImage(file);
+
             imgArray.push(compressedFile);
         }
     }
@@ -178,47 +178,47 @@ inputClipboardContainerKH.addEventListener('paste', async function(e) {
 
             // Thêm phần tử img vào phần tử <div>
             inputClipboardContainerKH.appendChild(imgElement);
-			
-			// Function to compress an image
-                const compressImage = async (file) => {
-                    return new Promise((resolve) => {
-                        const maxWidth = 500; // Set kích thước tối đa mong muốn
-                        const reader = new FileReader();
-                        reader.readAsDataURL(file);
-                        reader.onload = function(event) {
-                            const img = new Image();
-                            img.src = event.target.result;
-                            img.onload = function() {
-                                const canvas = document.createElement('canvas');
-                                const ctx = canvas.getContext('2d');
-                                const width = img.width;
-                                const height = img.height;
 
-                                // Kiểm tra xem có cần resize hay không
-                                if (width > maxWidth) {
-                                    const ratio = maxWidth / width;
-                                    canvas.width = maxWidth;
-                                    canvas.height = height * ratio;
-                                } else {
-                                    canvas.width = width;
-                                    canvas.height = height;
-                                }
+            // Function to compress an image
+            const compressImage = async (file) => {
+                return new Promise((resolve) => {
+                    const maxWidth = 500; // Set kích thước tối đa mong muốn
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = function(event) {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            const width = img.width;
+                            const height = img.height;
 
-                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                canvas.toBlob(function(blob) {
-                                    const compressedFile = new File([blob], file.name, {
-                                        type: file.type,
-                                        lastModified: Date.now()
-                                    });
-                                    resolve(compressedFile);
-                                }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
-                            };
+                            // Kiểm tra xem có cần resize hay không
+                            if (width > maxWidth) {
+                                const ratio = maxWidth / width;
+                                canvas.width = maxWidth;
+                                canvas.height = height * ratio;
+                            } else {
+                                canvas.width = width;
+                                canvas.height = height;
+                            }
+
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            canvas.toBlob(function(blob) {
+                                const compressedFile = new File([blob], file.name, {
+                                    type: file.type,
+                                    lastModified: Date.now()
+                                });
+                                resolve(compressedFile);
+                            }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
                         };
-                    });
-                };
-			
-			const compressedFile = await compressImage(file);
-			
+                    };
+                });
+            };
+
+            const compressedFile = await compressImage(file);
+
             imgArrayKH.push(compressedFile);
         }
     }
@@ -1293,8 +1293,8 @@ document.addEventListener('DOMContentLoaded', function() {
             toggleFormButton.textContent = 'Hiện biểu mẫu';
         }
     });
-	
-	// Xoá quảng cáo
+
+    // Xoá quảng cáo
     var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
 
     if (divToRemove) {
@@ -1465,7 +1465,7 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham, thoiGianUpload, phanL
 }
 
 // Chờ tải xong trang web
-window.addEventListener('load', function () {
+window.addEventListener('load', function() {
     // Xoá quảng cáo
     var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
 

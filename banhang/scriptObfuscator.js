@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 	function _0x1ab2(_0x36a23b, _0x52223b) {
 		const _0x2e058f = _0x2e05();
-		return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
+		return _0x1ab2 = function (_0x1ab212, _0x4110aa) {
 			_0x1ab212 = _0x1ab212 - 0x162;
 			let _0x120a0e = _0x2e058f[_0x1ab212];
 			return _0x120a0e;
@@ -11,13 +11,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 	function _0x2e05() {
 		const _0x5a5dc7 = ['1235460FrnjKH', '22977963vpMYJv', 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM', 'n2shop-69e37-ne0q1', 'G-TEJH3S2T1D', '1345047lnZTNJ', '366711YpKMry', '13142736zaWdgA', '598906493303', '3756921uppNah', '25XRvqCS', 'n2shop-69e37', '14dthlHY', 'n2shop-69e37.firebaseapp.com', '10009662EXBqRi'];
-		_0x2e05 = function() {
+		_0x2e05 = function () {
 			return _0x5a5dc7;
 		};
 		return _0x2e05();
 	}
 	const _0x3a343d = _0x1ab2;
-	(function(_0x46d1e0, _0x1a2442) {
+	(function (_0x46d1e0, _0x1a2442) {
 		const _0x1acdbc = _0x1ab2,
 			_0x2a2d1c = _0x46d1e0();
 		while (!![]) {
@@ -50,11 +50,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const db = firebase.firestore();
     const storageRef = firebase.storage().ref();
     const collectionRef = db.collection("banhang");
-	const tableBody = document.getElementById('tableBody');
+    const tableBody = document.getElementById('tableBody');
     const toggleFormButton = document.getElementById('toggleFormButton');
     const dataForm = document.getElementById('dataForm');
+    const dataEditForm = document.getElementById('dataEditForm');
     const productForm = document.getElementById('productForm');
+    const productEditForm = document.getElementById('productEditForm');
     const addButton = document.getElementById('addButton');
+    const addEditButton = document.getElementById('addEditButton');
     const clearDataButton = document.getElementById('clearDataButton');
     const dataTable = document.querySelector('table tbody');
     const loginContainer = document.querySelector('.login-container');
@@ -63,9 +66,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputUsername = document.getElementById('username');
     const inputPassword = document.getElementById('password');
     const loginButton = document.getElementById('loginButton');
+    const exitButton = document.getElementById('exitButton');
     const deleteCheckImg = document.getElementById('delete-button');
     const addButtonImg = document.getElementById('add-button');
-	const nameFilterDropdown = document.getElementById('nameFilter');
+    const nameFilterDropdown = document.getElementById('nameFilter');
+    const inputFileRadio = document.getElementById('inputFile');
+    const inputClipboardRadio = document.getElementById('inputClipboard');
+    const inputFileContainer = document.getElementById('inputFileContainer');
+    const inputClipboardContainer = document.getElementById('container');
+    const hinhAnhInputFile = document.getElementById('hinhAnhInputFile');
+    const hinhAnhContainer = document.getElementById('hinhAnhContainer');
+
+    const inputEditFileRadio = document.getElementById('inputEditFile');
+    const inputEditClipboardRadio = document.getElementById('inputEditClipboard');
+    const inputEditFileContainer = document.getElementById('inputEditFileContainer');
+    const inputEditClipboardContainer = document.getElementById('editContainer');
+    const hinhAnhEditInputFile = document.getElementById('hinhAnhEditInputFile');
+    const hinhAnhEditContainer = document.getElementById('hinhAnhEditContainer');
     const userTypes = {
         admin: {
             password: 'admin',
@@ -96,15 +113,20 @@ document.addEventListener('DOMContentLoaded', function() {
         //     checkLogin: 1
         // },
     };
-	
-	document.querySelector('.nameFilter').style.display = 'none';
-	nameFilterDropdown.style.display = 'none';
-	
-	const tempNameFilterDropdown = ['my', 'lai', 'huyen', 'ngoc', 'truc'];
+
+    // Ẩn trường nhập liệu link ban đầu
+    document.querySelector('.nameFilter').style.display = 'none';
+    nameFilterDropdown.style.display = 'none';
+    inputFileContainer.style.display = 'none';
+    inputEditFileContainer.style.display = 'none';
+
+    const tempNameFilterDropdown = ['my', 'lai', 'huyen', 'ngoc', 'truc'];
 
     let editingRow;
     var checkLogin = 0;
     var imageUrlFile = []; // Mảng để lưu trữ URL tải về
+    var imgArray = [];
+    var imgEditArray = [];
     var isLoggedIn = localStorage.getItem('isLoggedIn');
     const userType = localStorage.getItem('userType');
 
@@ -124,18 +146,190 @@ document.addEventListener('DOMContentLoaded', function() {
         parentContainer.style.justifyContent = 'center';
         parentContainer.style.alignItems = 'center';
         parentContainer.appendChild(logoutButton);
-		
-		if (checkLogin == 1) {
-			document.querySelector('.nameFilter').style.display = 'block';
-			nameFilterDropdown.style.display = 'block';
-			for (let i = 0; i < tempNameFilterDropdown.length; i++) {
-				const option = document.createElement('option');
-				option.value = tempNameFilterDropdown[i];
-				option.textContent = tempNameFilterDropdown[i];
-				nameFilterDropdown.appendChild(option);
-			}
-		}
+
+        if (checkLogin == 1) {
+            document.querySelector('.nameFilter').style.display = 'block';
+            nameFilterDropdown.style.display = 'block';
+            for (let i = 0; i < tempNameFilterDropdown.length; i++) {
+                const option = document.createElement('option');
+                option.value = tempNameFilterDropdown[i];
+                option.textContent = tempNameFilterDropdown[i];
+                nameFilterDropdown.appendChild(option);
+            }
+        }
     }
+
+    inputFileRadio.addEventListener('change', function() {
+        inputFileContainer.style.display = 'block';
+        inputClipboardContainer.style.display = 'none';
+        hinhAnhContainer.style.display = 'none';
+    });
+
+    inputClipboardRadio.addEventListener('change', function() {
+        inputFileContainer.style.display = 'none';
+        inputClipboardContainer.style.display = 'block';
+        hinhAnhContainer.style.display = 'none';
+    });
+
+    // Add a paste event listener to the document
+    inputClipboardContainer.addEventListener('paste', async function(e) {
+        if (inputClipboardRadio.checked) {
+            // Create a temporary file input element
+
+            e.preventDefault();
+            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                    var blob = items[i].getAsFile(); // Tạo một Blob từ dữ liệu hình ảnh
+                    var file = new File([blob], "image.jpg"); // Tạo một File từ Blob
+
+                    // Tạo một phần tử img
+                    var imgElement = document.createElement("img");
+
+                    // Đặt thuộc tính src cho phần tử img bằng URL của tệp
+                    imgElement.src = URL.createObjectURL(file);
+
+                    imgElement.classList.add('clipboard-image');
+
+                    imgElement.width = 150;
+                    imgElement.height = 200;
+
+                    // Thêm phần tử img vào phần tử <div>
+                    inputClipboardContainer.appendChild(imgElement);
+
+                    // Function to compress an image
+                    const compressImage = async (file) => {
+                        return new Promise((resolve) => {
+                            const maxWidth = 500; // Set kích thước tối đa mong muốn
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = function(event) {
+                                const img = new Image();
+                                img.src = event.target.result;
+                                img.onload = function() {
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
+                                    const width = img.width;
+                                    const height = img.height;
+
+                                    // Kiểm tra xem có cần resize hay không
+                                    if (width > maxWidth) {
+                                        const ratio = maxWidth / width;
+                                        canvas.width = maxWidth;
+                                        canvas.height = height * ratio;
+                                    } else {
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                    }
+
+                                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                    canvas.toBlob(function(blob) {
+                                        const compressedFile = new File([blob], file.name, {
+                                            type: file.type,
+                                            lastModified: Date.now()
+                                        });
+                                        resolve(compressedFile);
+                                    }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                                };
+                            };
+                        });
+                    };
+
+                    const compressedFile = await compressImage(file);
+
+                    imgArray.push(compressedFile);
+                }
+            }
+        }
+    });
+
+    inputEditFileRadio.addEventListener('change', function() {
+        inputEditFileContainer.style.display = 'block';
+        inputEditClipboardContainer.style.display = 'none';
+        hinhAnhEditContainer.style.display = 'none';
+        addEditButton.disabled = true;
+    });
+
+    inputEditClipboardRadio.addEventListener('change', function() {
+        inputEditFileContainer.style.display = 'none';
+        inputEditClipboardContainer.style.display = 'block';
+        hinhAnhEditContainer.style.display = 'none';
+        addEditButton.disabled = false;
+    });
+
+    // Add a paste event listener to the document
+    inputEditClipboardContainer.addEventListener('paste', async function(e) {
+        if (inputEditClipboardRadio.checked) {
+            // Create a temporary file input element
+
+            e.preventDefault();
+            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                    var blob = items[i].getAsFile(); // Tạo một Blob từ dữ liệu hình ảnh
+                    var file = new File([blob], "image.jpg"); // Tạo một File từ Blob
+
+                    // Tạo một phần tử img
+                    var imgElement = document.createElement("img");
+
+                    // Đặt thuộc tính src cho phần tử img bằng URL của tệp
+                    imgElement.src = URL.createObjectURL(file);
+
+                    imgElement.classList.add('clipboard-image');
+
+                    imgElement.width = 150;
+                    imgElement.height = 200;
+
+                    // Thêm phần tử img vào phần tử <div>
+                    inputEditClipboardContainer.appendChild(imgElement);
+
+                    // Function to compress an image
+                    const compressImage = async (file) => {
+                        return new Promise((resolve) => {
+                            const maxWidth = 500; // Set kích thước tối đa mong muốn
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = function(event) {
+                                const img = new Image();
+                                img.src = event.target.result;
+                                img.onload = function() {
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
+                                    const width = img.width;
+                                    const height = img.height;
+
+                                    // Kiểm tra xem có cần resize hay không
+                                    if (width > maxWidth) {
+                                        const ratio = maxWidth / width;
+                                        canvas.width = maxWidth;
+                                        canvas.height = height * ratio;
+                                    } else {
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                    }
+
+                                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                    canvas.toBlob(function(blob) {
+                                        const compressedFile = new File([blob], file.name, {
+                                            type: file.type,
+                                            lastModified: Date.now()
+                                        });
+                                        resolve(compressedFile);
+                                    }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                                };
+                            };
+                        });
+                    };
+
+                    const compressedFile = await compressImage(file);
+
+                    imgEditArray.push(compressedFile);
+                }
+            }
+        }
+    });
 
     // Xử lý khi nút "Hiện biểu mẫu" được click
     toggleFormButton.addEventListener('click', function() {
@@ -244,143 +438,263 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById("addButton").disabled = true;
 
             const ttkh = document.getElementById('ttkh').value;
-            const hinhAnhInput = document.getElementById('hinhAnhInputFile');
-            const hinhAnhFiles = hinhAnhInput.files;
 
             var imagesRef = storageRef.child('banhang/sp');
 
-            // Function to compress an image
-            const compressImage = async (file) => {
-                return new Promise((resolve) => {
-                    const maxWidth = 500; // Set kích thước tối đa mong muốn
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = function(event) {
-                        const img = new Image();
-                        img.src = event.target.result;
-                        img.onload = function() {
-                            const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d');
-                            const width = img.width;
-                            const height = img.height;
+            if (inputFileRadio.checked) {
 
-                            // Kiểm tra xem có cần resize hay không
-                            if (width > maxWidth) {
-                                const ratio = maxWidth / width;
-                                canvas.width = maxWidth;
-                                canvas.height = height * ratio;
-                            } else {
-                                canvas.width = width;
-                                canvas.height = height;
-                            }
+                createPopup('Đang tải ảnh lên', 10000);
 
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            canvas.toBlob(function(blob) {
-                                const compressedFile = new File([blob], file.name, {
-                                    type: file.type,
-                                    lastModified: Date.now()
-                                });
-                                resolve(compressedFile);
-                            }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
-                        };
-                    };
-                });
-            };
+                const hinhAnhFiles = hinhAnhInputFile.files;
 
-            // Sử dụng Promise.all để theo dõi tất cả các tải lên
-            const uploadPromises = [];
+                // Function to compress an image
+                const compressImage = async (file) => {
+                    return new Promise((resolve) => {
+                        const maxWidth = 500; // Set kích thước tối đa mong muốn
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.src = event.target.result;
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                const width = img.width;
+                                const height = img.height;
 
-            function uploadImage(file) {
-                return new Promise(async (resolve, reject) => {
-                    try {
-                        const compressedFile = await compressImage(file);
+                                // Kiểm tra xem có cần resize hay không
+                                if (width > maxWidth) {
+                                    const ratio = maxWidth / width;
+                                    canvas.width = maxWidth;
+                                    canvas.height = height * ratio;
+                                } else {
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                }
 
-                        var imageRef = imagesRef.child(file.name + generateUniqueFileName());
-                        var uploadTask = imageRef.put(compressedFile, newMetadata);
-
-                        uploadTask.on(
-                            'state_changed',
-                            function(snapshot) {
-                                // Xử lý tiến trình tải lên (nếu cần)
-                            },
-                            function(error) {
-                                // Xử lý lỗi tải lên (nếu có)
-                                reject(error);
-                            },
-                            function() {
-                                // Xử lý khi tải lên thành công
-                                uploadTask.snapshot.ref
-                                    .getDownloadURL()
-                                    .then(function(downloadURL) {
-                                        imageUrlFile.push(downloadURL);
-                                        resolve();
-                                    })
-                                    .catch(function(error) {
-                                        // Xử lý lỗi lấy URL tải về (nếu có)
-                                        reject(error);
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                canvas.toBlob(function(blob) {
+                                    const compressedFile = new File([blob], file.name, {
+                                        type: file.type,
+                                        lastModified: Date.now()
                                     });
-                            }
-                        );
-                    } catch (error) {
-                        // Handle errors during compression or upload
-                        //createPopup('Lỗi tải ảnh lên!', 30000);
-                        console.error(error);
-                        reject(error);
-                    }
-                });
-            }
+                                    resolve(compressedFile);
+                                }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                            };
+                        };
+                    });
+                };
 
-            for (const hinhAnh of hinhAnhFiles) {
-                uploadPromises.push(uploadImage(hinhAnh));
-            }
+                // Sử dụng Promise.all để theo dõi tất cả các tải lên
+                const uploadPromises = [];
 
-            Promise.all(uploadPromises)
-                .then(() => {
-                    // Tất cả các tác vụ tải lên đã hoàn thành, imageUrlFile bây giờ chứa các URL
+                function uploadImage(file) {
+                    return new Promise(async (resolve, reject) => {
+                        try {
+                            const compressedFile = await compressImage(file);
 
-                    const imageUrl = imageUrlFile; // Đặt URL của hình ảnh tải lên
-                    // Chuyển đổi thành timestamp
-                    const thoiGian = new Date();
-                    var timestamp = thoiGian.getTime();
+                            var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                            var uploadTask = imageRef.put(compressedFile, newMetadata);
 
-                    var dataToUpload = {
-                        user: userType.split('-')[0],
-                        hinhAnh: imageUrl,
-                        thoiGian: timestamp,
-                        ttkh: ttkh
-                    };
-
-                    // Kiểm tra xem tài liệu đã tồn tại chưa
-                    collectionRef.doc("banhang").get().then(doc => {
-                        if (doc.exists) {
-                            // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-                            collectionRef.doc("banhang").update({
-                                ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
-                            }).then(function() {
-                                addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, userType.split('-')[0]);
-                                imageUrlFile = [];
-                            }).catch(function(error) {
-                                //createPopup('Lỗi khi tải ảnh lên...', 2000);
-                                console.error("Lỗi khi tải document lên: ", error);
-                            });
-                        } else {
-                            // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-                            collectionRef.doc("banhang").set({
-                                ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
-                            }).then(function() {
-                                addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, userType.split('-')[0]);
-                                imageUrlFile = [];
-                            }).catch(function(error) {
-                                //createPopup('Lỗi khi tải ảnh lên...', 2000);
-                                console.error("Lỗi khi tải document lên: ", error);
-                            });
+                            uploadTask.on(
+                                'state_changed',
+                                function(snapshot) {
+                                    // Xử lý tiến trình tải lên (nếu cần)
+                                },
+                                function(error) {
+                                    // Xử lý lỗi tải lên (nếu có)
+                                    reject(error);
+                                },
+                                function() {
+                                    // Xử lý khi tải lên thành công
+                                    uploadTask.snapshot.ref
+                                        .getDownloadURL()
+                                        .then(function(downloadURL) {
+                                            imageUrlFile.push(downloadURL);
+                                            resolve();
+                                        })
+                                        .catch(function(error) {
+                                            // Xử lý lỗi lấy URL tải về (nếu có)
+                                            reject(error);
+                                        });
+                                }
+                            );
+                        } catch (error) {
+                            // Handle errors during compression or upload
+                            //createPopup('Lỗi tải ảnh lên!', 30000);
+                            console.error(error);
+                            reject(error);
                         }
-                    })
+                    });
+                }
 
-                })
-                .catch((error) => {
-                    console.error("Lỗi trong quá trình tải lên ảnh:", error);
-                });
+                for (const hinhAnh of hinhAnhFiles) {
+                    uploadPromises.push(uploadImage(hinhAnh));
+                }
+
+                Promise.all(uploadPromises)
+                    .then(() => {
+                        // Tất cả các tác vụ tải lên đã hoàn thành, imageUrlFile bây giờ chứa các URL
+
+                        const imageUrl = imageUrlFile; // Đặt URL của hình ảnh tải lên
+                        // Chuyển đổi thành timestamp
+                        const thoiGian = new Date();
+                        var timestamp = thoiGian.getTime();
+
+                        var dataToUpload = {
+                            user: userType.split('-')[0],
+                            hinhAnh: imageUrl,
+                            thoiGian: timestamp,
+                            ttkh: ttkh
+                        };
+
+                        // Kiểm tra xem tài liệu đã tồn tại chưa
+                        collectionRef.doc("banhang").get().then(doc => {
+                            if (doc.exists) {
+                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                collectionRef.doc("banhang").update({
+                                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                                }).then(function() {
+                                    addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, userType.split('-')[0]);
+                                    imageUrlFile = [];
+                                    inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
+                                    hinhAnhInputFile.value = '';
+                                    popup.classList.remove('popup-show');
+                                }).catch(function(error) {
+                                    //createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    console.error("Lỗi khi tải document lên: ", error);
+                                });
+                            } else {
+                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                collectionRef.doc("banhang").set({
+                                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                                }).then(function() {
+                                    addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, userType.split('-')[0]);
+                                    imageUrlFile = [];
+                                    inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
+                                    hinhAnhInputFile.value = '';
+                                    popup.classList.remove('popup-show');
+                                }).catch(function(error) {
+                                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    console.error("Lỗi khi tải document lên: ", error);
+                                });
+                            }
+                        })
+
+                    })
+                    .catch((error) => {
+                        console.error("Lỗi trong quá trình tải lên ảnh:", error);
+                    });
+            } else if (inputClipboardRadio.checked) {
+                createPopup('Đang tải ảnh lên', 10000);
+
+                const hinhAnhFiles = imgArray;
+
+                imgArray = [];
+
+                // Sử dụng Promise.all để theo dõi tất cả các tải lên
+                const uploadPromises = [];
+
+                function uploadImage(file) {
+                    return new Promise(async (resolve, reject) => {
+                        try {
+                            const compressedFile = file;
+
+                            var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                            var uploadTask = imageRef.put(compressedFile, newMetadata);
+
+                            uploadTask.on(
+                                'state_changed',
+                                function(snapshot) {
+                                    // Xử lý tiến trình tải lên (nếu cần)
+                                },
+                                function(error) {
+                                    // Xử lý lỗi tải lên (nếu có)
+                                    reject(error);
+                                },
+                                function() {
+                                    // Xử lý khi tải lên thành công
+                                    uploadTask.snapshot.ref
+                                        .getDownloadURL()
+                                        .then(function(downloadURL) {
+                                            imageUrlFile.push(downloadURL);
+                                            resolve();
+                                        })
+                                        .catch(function(error) {
+                                            // Xử lý lỗi lấy URL tải về (nếu có)
+                                            reject(error);
+                                        });
+                                }
+                            );
+                        } catch (error) {
+                            // Handle errors during compression or upload
+                            createPopup('Lỗi tải ảnh lên!', 30000);
+                            console.error(error);
+                            reject(error);
+                        }
+                    });
+                }
+
+                for (const hinhAnh of hinhAnhFiles) {
+                    uploadPromises.push(uploadImage(hinhAnh));
+                }
+
+                Promise.all(uploadPromises)
+                    .then(() => {
+                        // Tất cả các tác vụ tải lên đã hoàn thành, imageUrlFile bây giờ chứa các URL
+
+                        const imageUrl = imageUrlFile; // Đặt URL của hình ảnh tải lên
+                        // Chuyển đổi thành timestamp
+                        const thoiGian = new Date();
+                        var timestamp = thoiGian.getTime();
+
+                        var dataToUpload = {
+                            user: userType.split('-')[0],
+                            hinhAnh: imageUrl,
+                            thoiGian: timestamp,
+                            ttkh: ttkh
+                        };
+
+                        // Kiểm tra xem tài liệu đã tồn tại chưa
+                        collectionRef.doc("banhang").get().then(doc => {
+                            if (doc.exists) {
+                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                collectionRef.doc("banhang").update({
+                                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                                }).then(function() {
+                                    addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, userType.split('-')[0]);
+                                    imageUrlFile = [];
+                                    inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
+                                    hinhAnhInputFile.value = '';
+                                    popup.classList.remove('popup-show');
+                                }).catch(function(error) {
+                                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    console.error("Lỗi khi tải document lên: ", error);
+                                });
+                            } else {
+                                // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                collectionRef.doc("banhang").set({
+                                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
+                                }).then(function() {
+                                    addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, userType.split('-')[0]);
+                                    imageUrlFile = [];
+                                    inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
+                                    hinhAnhInputFile.value = '';
+                                    popup.classList.remove('popup-show');
+                                }).catch(function(error) {
+                                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    console.error("Lỗi khi tải document lên: ", error);
+                                });
+                            }
+                        })
+
+                    })
+                    .catch((error) => {
+                        console.error("Lỗi trong quá trình tải lên ảnh:", error);
+                    });
+            }
+
+
         } else {
             alert('Vui lòng đăng nhập.');
             return;
@@ -389,7 +703,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     clearDataButton.addEventListener('click', function() {
         document.getElementById('ttkh').value = '';
-        document.getElementById('hinhAnhInputFile').value = '';
+        inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
+        hinhAnhInputFile.value = '';
+    });
+
+    exitButton.addEventListener('click', function() {
+        inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
+        document.getElementById('fileEditInputFile').value = '';
+        dataEditForm.style.display = 'none';
     });
 
     loginButton.addEventListener('click', function() {
@@ -464,7 +785,7 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteCheckImg.addEventListener('click', function() {
             var targetDelete = event.target;
             var rowDelete = targetDelete.closest('tr');
-			const thoiGianElement = rowDelete.querySelector("td[id]").id.toString();
+            const thoiGianElement = rowDelete.querySelector("td[id]").id.toString();
 
             if (row) {
                 var confirmed = true; // Giả sử mặc định đã xác nhận
@@ -530,10 +851,15 @@ document.addEventListener('DOMContentLoaded', function() {
         addButtonImg.className = 'add-button';
 
         addButtonImg.addEventListener('click', function() {
+            dataEditForm.style.display = 'block';
+            dataForm.style.display = 'none';
+
             var targetAdd = event.target;
             var rowAdd = targetAdd.closest('tr');
             editingRow = rowAdd;
+            /*
             document.getElementById('fileInput').click();
+			*/
         });
 
         deleteCell.appendChild(deleteCheckImg);
@@ -660,10 +986,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             addButtonImg.className = 'add-button';
 
                             addButtonImg.addEventListener('click', function() {
+                                dataForm.style.display = 'none';
+                                dataEditForm.style.display = 'block';
+
                                 var targetAdd = event.target;
                                 var rowAdd = targetAdd.closest('tr');
                                 editingRow = rowAdd;
+
+                                /*
                                 document.getElementById('fileInput').click();
+								*/
                             });
 
                             deleteCell.appendChild(deleteCheckImg);
@@ -681,29 +1013,42 @@ document.addEventListener('DOMContentLoaded', function() {
     function generateUniqueFileName() {
         return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.png';
     }
-	
-	nameFilterDropdown.addEventListener('change', function() {
-		var selectedName = nameFilterDropdown.value;
 
-		var rows = tableBody.getElementsByTagName("tr");
+    nameFilterDropdown.addEventListener('change', function() {
+        var selectedName = nameFilterDropdown.value;
 
-		for (var i = 0; i < rows.length; i++) {
-			var cells = rows[i].getElementsByTagName("td");
+        var rows = tableBody.getElementsByTagName("tr");
 
-			if (cells.length > 0) {
-				var firstTdInnerText = cells[1].innerText.split(' ')[2];
-				if (selectedName === firstTdInnerText || selectedName === "all") {
-					rows[i].style.display = 'table-row';
-				} else {
-					rows[i].style.display = 'none'; // Ẩn các đợt live khác
-				}
-			}
-		}
-	});
+        for (var i = 0; i < rows.length; i++) {
+            var cells = rows[i].getElementsByTagName("td");
 
-    document.getElementById('fileInput').addEventListener('change', function(event) {
-        var hinhAnhFiles = event.target.files;
+            if (cells.length > 0) {
+                var firstTdInnerText = cells[1].innerText.split(' ')[2];
+                if (selectedName === firstTdInnerText || selectedName === "all") {
+                    rows[i].style.display = 'table-row';
+                } else {
+                    rows[i].style.display = 'none'; // Ẩn các đợt live khác
+                }
+            }
+        }
+    });
 
+    // Xử lý khi nút "Thêm" được click
+    productEditForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (inputEditFileRadio.checked) {
+            createPopup('Đang tải ảnh lên', 10000);
+            document.getElementById('fileEditInputFile').click();
+        } else if (inputEditClipboardRadio.checked) {
+            createPopup('Đang tải ảnh lên', 10000);
+            inputEditClipboardRadioChecked();
+        }
+    });
+
+    // Hàm để tạo tên tệp động duy nhất
+    function inputEditClipboardRadioChecked() {
+        var hinhAnhFiles = imgEditArray;
+        imgEditArray = [];
         // Đảm bảo rằng có tệp tin được chọn
         if (hinhAnhFiles.length > 0) {
             imageUrlFile = [];
@@ -787,7 +1132,165 @@ document.addEventListener('DOMContentLoaded', function() {
                         );
                     } catch (error) {
                         // Handle errors during compression or upload
-                        //createPopup('Lỗi tải ảnh lên!', 30000);
+                        createPopup('Lỗi tải ảnh lên!', 30000);
+                        console.error(error);
+                        reject(error);
+                    }
+                });
+            }
+
+            for (const hinhAnh of hinhAnhFiles) {
+                uploadPromises.push(uploadImage(hinhAnh));
+            }
+
+            Promise.all(uploadPromises)
+                .then(() => {
+                    // Tất cả các tác vụ tải lên đã hoàn thành, imageUrlFile bây giờ chứa các URL
+                    for (const imageUrl of imageUrlFile) {
+
+                        collectionRef.doc("banhang").get()
+                            .then((doc) => {
+                                if (doc.exists) {
+                                    const data = doc.data();
+
+                                    for (let i = 0; i < data["data"].length; i++) {
+                                        if (thoiGianElement === data["data"][i].thoiGian.toString()) {
+                                            // Tạo một bản sao của mảng hình ảnh
+                                            const updatedHinhAnhArray = [...data["data"][i].hinhAnh, imageUrl];
+
+                                            // Tạo một bản sao của dữ liệu
+                                            const updatedData = [...data["data"]];
+                                            updatedData[i] = {
+                                                ...updatedData[i],
+                                                hinhAnh: updatedHinhAnhArray
+                                            };
+
+                                            // Cập nhật toàn bộ mảng
+                                            collectionRef.doc("banhang").update({
+                                                "data": updatedData
+                                            }).then(function() {
+                                                // Cập nhật hình ảnh trong cell của hàng đang chỉnh sửa
+                                                var imageCell = editingRow.querySelector('.imageCell');
+
+                                                // Tạo một thẻ img mới
+                                                var img = document.createElement('img');
+                                                img.className = 'product-image';
+                                                img.src = imageUrl;
+
+                                                // Thêm thẻ img vào cell
+                                                imageCell.appendChild(img);
+                                                dataEditForm.style.display = 'none';
+                                                document.getElementById('fileEditInputFile').value = '';
+                                                inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
+                                                popup.classList.remove('popup-show');
+                                                console.log("Document tải lên thành công");
+                                            }).catch(function(error) {
+                                                popup.classList.remove('popup-show');
+                                                alert('Lỗi khi tải document lên.');
+                                                dataEditForm.style.display = 'none';
+                                                document.getElementById('fileEditInputFile').value = '';
+                                                inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
+                                                return;
+                                                console.error("Lỗi khi cập nhật tài liệu: ", error);
+                                            });
+
+                                            break;
+                                        }
+                                    }
+                                }
+                            });
+                    }
+                });
+        }
+    }
+
+
+    document.getElementById('fileEditInputFile').addEventListener('change', function(event) {
+        var hinhAnhFiles = event.target.files;
+        // Đảm bảo rằng có tệp tin được chọn
+        if (hinhAnhFiles.length > 0) {
+            imageUrlFile = [];
+            // Cập nhật hình ảnh trong cell của hàng đang chỉnh sửa
+            var imageCell = editingRow.querySelector('.imageCell');
+            const thoiGianElement = editingRow.querySelector("td[id]").id.toString();
+
+            var imagesRef = storageRef.child('banhang/sp');
+
+            // Function to compress an image
+            const compressImage = async (file) => {
+                return new Promise((resolve) => {
+                    const maxWidth = 500; // Set kích thước tối đa mong muốn
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = function(event) {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            const width = img.width;
+                            const height = img.height;
+
+                            // Kiểm tra xem có cần resize hay không
+                            if (width > maxWidth) {
+                                const ratio = maxWidth / width;
+                                canvas.width = maxWidth;
+                                canvas.height = height * ratio;
+                            } else {
+                                canvas.width = width;
+                                canvas.height = height;
+                            }
+
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            canvas.toBlob(function(blob) {
+                                const compressedFile = new File([blob], file.name, {
+                                    type: file.type,
+                                    lastModified: Date.now()
+                                });
+                                resolve(compressedFile);
+                            }, file.type, 0.8); // 0.8 là chất lượng của ảnh sau khi được nén (từ 0.1 đến 1.0)
+                        };
+                    };
+                });
+            };
+
+            // Sử dụng Promise.all để theo dõi tất cả các tải lên
+            const uploadPromises = [];
+
+            function uploadImage(file) {
+                return new Promise(async (resolve, reject) => {
+                    try {
+                        const compressedFile = await compressImage(file);
+
+                        var imageRef = imagesRef.child(file.name + generateUniqueFileName());
+                        var uploadTask = imageRef.put(compressedFile, newMetadata);
+
+                        uploadTask.on(
+                            'state_changed',
+                            function(snapshot) {
+                                // Xử lý tiến trình tải lên (nếu cần)
+                            },
+                            function(error) {
+                                // Xử lý lỗi tải lên (nếu có)
+                                reject(error);
+                            },
+                            function() {
+                                // Xử lý khi tải lên thành công
+                                uploadTask.snapshot.ref
+                                    .getDownloadURL()
+                                    .then(function(downloadURL) {
+                                        imageUrlFile.push(downloadURL);
+                                        resolve();
+                                    })
+                                    .catch(function(error) {
+                                        // Xử lý lỗi lấy URL tải về (nếu có)
+                                        reject(error);
+                                    });
+                            }
+                        );
+                    } catch (error) {
+                        // Handle errors during compression or upload
+                        createPopup('Lỗi tải ảnh lên!', 30000);
                         console.error(error);
                         reject(error);
                     }
@@ -834,9 +1337,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
                                             // Thêm thẻ img vào cell
                                             imageCell.appendChild(img);
+                                            dataEditForm.style.display = 'none';
+                                            document.getElementById('fileEditInputFile').value = '';
+                                            inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
+                                            popup.classList.remove('popup-show');
                                             console.log("Document tải lên thành công");
                                         }).catch(function(error) {
+                                            popup.classList.remove('popup-show');
                                             alert('Lỗi khi tải document lên.');
+                                            dataEditForm.style.display = 'none';
+                                            document.getElementById('fileEditInputFile').value = '';
+                                            inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
                                             return;
                                             console.error("Lỗi khi cập nhật tài liệu: ", error);
                                         });
@@ -849,6 +1360,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         }
     });
+
+    function createPopup(message, time = 1500) {
+        var popup = document.getElementById('popup');
+        var popupMessage = document.getElementById('popup-message');
+        popup.classList.remove('popup-show');
+        popupMessage.textContent = message;
+        popup.classList.add('popup-show');
+
+        setTimeout(function() {
+            popup.classList.remove('popup-show');
+        }, time); // Tắt thông báo sau 1.5 giây
+    }
 
     // Xoá quảng cáo
     var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');
