@@ -10,6 +10,15 @@
     }
 }
 
+#radioButtonsContainer {
+    display: flex;
+    align-items: center;
+}
+
+#radioButtonsContainer input[type="radio"] {
+    margin-right: 10px;
+}
+
 body {
     font-family: 'Times New Roman', Times, serif;
     margin: 20px;
@@ -114,7 +123,23 @@ th:first-child {
     margin: 0 auto;
 }
 
-#dataForm label {
+#dataEditForm {
+    border: 1px solid #ccc;
+    padding: 20px;
+    width: 300px;
+    margin: 0 auto;
+	display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+#dataForm, #dataEditForm label {
     display: block;
     margin-bottom: 10px;
 }
@@ -127,7 +152,7 @@ th:first-child {
     margin-bottom: 10px;
 }
 
-#dataForm button[type="submit"] {
+#dataForm button[type="submit"], #dataEditForm button[type="submit"] {
     background-color: green;
     color: #fff;
     border: none;
@@ -144,7 +169,7 @@ th:first-child {
     margin-top: 10px;
 }
 
-#clearDataButton {
+#clearDataButton, #exitButton {
     background-color: red;
     color: #fff;
     border: none;
@@ -231,4 +256,33 @@ th:first-child {
 .add-button:hover,
 .delete-button:hover {
     transform: scale(1.2);
+}
+
+.popup {
+    display: none;
+    position: fixed;
+    top: 10%;
+    right: 0%;
+    transform: translate(-50%, -50%);
+    background-color: #4ca0af;
+    color: #fff;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.popup-content {
+    text-align: center;
+}
+
+.popup-message {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.popup-show {
+    display: block;
 }
