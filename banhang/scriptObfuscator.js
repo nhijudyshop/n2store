@@ -83,6 +83,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputEditClipboardContainer = document.getElementById('editContainer');
     const hinhAnhEditInputFile = document.getElementById('hinhAnhEditInputFile');
     const hinhAnhEditContainer = document.getElementById('hinhAnhEditContainer');
+
+    const editModal = document.getElementById('editModal');
+    const editModalSaveButton = document.getElementById('saveChanges');
+    const editModalInfomation = document.getElementById('editInfo');
+
     const userTypes = {
         admin: {
             password: 'admin',
@@ -119,6 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nameFilterDropdown.style.display = 'none';
     inputFileContainer.style.display = 'none';
     inputEditFileContainer.style.display = 'none';
+    editModal.style.display = 'none';
 
     const tempNameFilterDropdown = ['my', 'lai', 'huyen', 'ngoc', 'truc'];
 
@@ -178,6 +184,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             e.preventDefault();
             var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+			
+			inputClipboardContainer.innerText = '';
 
             for (var i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf("image") !== -1) {
@@ -265,6 +273,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             e.preventDefault();
             var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+			
+			inputEditClipboardContainer.innerText = '';
 
             for (var i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf("image") !== -1) {
@@ -713,6 +723,45 @@ document.addEventListener('DOMContentLoaded', function() {
         dataEditForm.style.display = 'none';
     });
 
+    editModalSaveButton.addEventListener('click', function() {
+        const thoiGianElement = editingRow.querySelector("td[id]").id.toString();
+        collectionRef.doc("banhang").get()
+            .then((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+
+                    for (let i = 0; i < data["data"].length; i++) {
+                        if (thoiGianElement === data["data"][i].thoiGian.toString()) {
+                            // Tạo một bản sao của dữ liệu
+                            const updatedData = [...data["data"]];
+                            updatedData[i] = {
+                                ...updatedData[i],
+                                ttkh: editModalInfomation.value
+                            };
+
+                            // Cập nhật toàn bộ mảng
+                            collectionRef.doc("banhang").update({
+                                "data": updatedData
+                            }).then(function() {
+                                editModal.style.display = 'none';
+                                popup.classList.remove('popup-show');
+                                editingRow.querySelectorAll("td")[2].innerText = editModalInfomation.value;
+                                console.log("Document tải lên thành công");
+                            }).catch(function(error) {
+                                popup.classList.remove('popup-show');
+                                alert('Lỗi khi tải document lên.');
+                                editModal.style.display = 'none';
+                                return;
+                                console.error("Lỗi khi cập nhật tài liệu: ", error);
+                            });
+
+                            break;
+                        }
+                    }
+                }
+            });
+    });
+
     loginButton.addEventListener('click', function() {
         const username = inputUsername.value.trim();
         const password = inputPassword.value.trim();
@@ -852,18 +901,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
         addButtonImg.addEventListener('click', function() {
             dataEditForm.style.display = 'block';
+            editModal.style.display = 'none';
             dataForm.style.display = 'none';
 
             var targetAdd = event.target;
             var rowAdd = targetAdd.closest('tr');
             editingRow = rowAdd;
-            /*
-            document.getElementById('fileInput').click();
-			*/
+        });
+
+        var editInfomation = document.createElement('button');
+        editInfomation.textContent = 'Sửa';
+        editInfomation.className = 'add-button';
+        editInfomation.style.backgroundColor = 'green';
+
+        editInfomation.addEventListener('click', function() {
+            editModal.style.display = 'block';
+            dataEditForm.style.display = 'none';
+            dataForm.style.display = 'none';
+
+            var targetAdd = event.target;
+            var rowAdd = targetAdd.closest('tr');
+            editingRow = rowAdd;
+
+            editModalInfomation.value = editingRow.querySelectorAll("td")[2].innerText;
         });
 
         deleteCell.appendChild(deleteCheckImg);
         deleteCell.appendChild(addButtonImg);
+        deleteCell.appendChild(editInfomation);
     }
 
     function updateTable() {
@@ -998,8 +1063,25 @@ document.addEventListener('DOMContentLoaded', function() {
 								*/
                             });
 
-                            deleteCell.appendChild(deleteCheckImg);
+                            var editInfomation = document.createElement('button');
+                            editInfomation.textContent = 'Sửa';
+                            editInfomation.className = 'add-button';
+                            editInfomation.style.backgroundColor = 'green';
+
+                            editInfomation.addEventListener('click', function() {
+                                editModal.style.display = 'block';
+                                dataForm.style.display = 'none';
+
+                                var targetAdd = event.target;
+                                var rowAdd = targetAdd.closest('tr');
+                                editingRow = rowAdd;
+
+                                editModalInfomation.value = editingRow.querySelectorAll("td")[2].innerText;
+                            });
+                            
                             deleteCell.appendChild(addButtonImg);
+                            deleteCell.appendChild(editInfomation);
+                            deleteCell.appendChild(deleteCheckImg);
                         }
                     }
                 }
