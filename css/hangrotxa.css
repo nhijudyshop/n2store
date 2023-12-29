@@ -184,12 +184,10 @@ button.decrement {
 
 #clearDataButton {
     background-color: red;
-    /* Màu đỏ */
     color: #fff;
     border: none;
     padding: 10px 20px;
     margin-left: 10px;
-    /* Khoảng cách với nút "Thêm dữ liệu" */
     cursor: pointer;
     font-weight: bold;
 }
