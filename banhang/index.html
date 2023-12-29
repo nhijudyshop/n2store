@@ -67,8 +67,17 @@
         </div>
       </form>
     </div>
+    <!-- Modal for editing -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="editModal.style.display = 'none';">&times;</span>
+        <label for="editInfo">FB+SĐT:</label>
+        <input type="text" id="editInfo">
+        <button id="saveChanges">Lưu</button>
+      </div>
+    </div>
     <div id="dataEditForm" style="display: none;">
-      <h1>Sửa Thông Tin</h1>
+      <h1>Thêm ảnh sản phẩm</h1>
       <form id="productEditForm">
         <p>Hình ảnh sản phẩm:</p>
         <div id="radioButtonsContainer">
@@ -112,7 +121,7 @@
           <th style="width: 10%;">Thời gian</th>
           <th style="width: 25%;">Tên Khách + SĐT</th>
           <th style="width: 40%;">Hình ảnh sản phẩm</th>
-          <th style="width: 15%;">Chỉnh sửa hình ảnh</th>
+          <th style="width: 15%;">Tuỳ chọn</th>
           <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" />
         </tr>
       </thead>
