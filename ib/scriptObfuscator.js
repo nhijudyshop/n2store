@@ -58,9 +58,6 @@ const CATEGORY_PKGD = 'PKGD';
 
 const tbody = document.querySelector('tbody');
 
-// Trích xuất giá trị của tham số "id" từ URL
-const idParam = getURLParameter("id");
-
 const inputFileRadio = document.getElementById('inputFile');
 const inputLinkRadio = document.getElementById('inputLink');
 const inputClipboardRadio = document.getElementById('inputClipboard');
@@ -92,9 +89,28 @@ inputFileContainer.style.display = 'none';
 
 inputFileContainerKH.style.display = 'none';
 
+const userTypes = {};
+
 // Create a temporary file input element
 var imgArray = [];
 var imgArrayKH = [];
+var isLoggedIn = localStorage.getItem('isLoggedIn');
+const userType = localStorage.getItem('userType');
+
+if (userType && Object.keys(userTypes).some(type => userType.includes(type) && userType !== `${type}-${userTypes[type].password}`)) {
+    isLoggedIn = false;
+    localStorage.removeItem('isLoggedIn');
+}
+
+if (isLoggedIn === 'true') {
+    document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
+    const parentContainer = document.getElementById('parentContainer');
+    parentContainer.style.display = 'flex';
+    parentContainer.style.justifyContent = 'center';
+    parentContainer.style.alignItems = 'center';
+} else {
+    window.location.href = '../index.html';
+}
 
 // Add a paste event listener to the document
 inputClipboardContainer.addEventListener('paste', async function(e) {
@@ -264,7 +280,7 @@ function applyCategoryFilter() {
 }
 
 function toggleRowVisibility(row, button) {
-    if (idParam === "admin") {
+    if (userType === "admin-admin") {
         const cellsToHide = row.querySelectorAll('td:not(:last-child)');
         // Lấy tài liệu "ib" từ Firestore
         collectionRef.doc("ib").get()
@@ -1285,13 +1301,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleFormButton = document.getElementById('toggleFormButton');
     const dataForm = document.getElementById('dataForm');
     toggleFormButton.addEventListener('click', function() {
-        if (dataForm.style.display === 'none' || dataForm.style.display === '') {
-            dataForm.style.display = 'block';
-            toggleFormButton.textContent = 'Ẩn biểu mẫu';
-        } else {
-            dataForm.style.display = 'none';
-            toggleFormButton.textContent = 'Hiện biểu mẫu';
-        }
+		if (userType != "khach-777") {
+			if (dataForm.style.display === 'none' || dataForm.style.display === '') {
+				dataForm.style.display = 'block';
+				toggleFormButton.textContent = 'Ẩn biểu mẫu';
+			} else {
+				dataForm.style.display = 'none';
+				toggleFormButton.textContent = 'Hiện biểu mẫu';
+			}
+		}
     });
 
     // Xoá quảng cáo
