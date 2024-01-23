@@ -280,7 +280,7 @@ function applyCategoryFilter() {
 }
 
 function toggleRowVisibility(row, button) {
-    if (userType === "admin-admin") {
+    if (userType === "admin-admin" || userType === "my-my2804") {
         const cellsToHide = row.querySelectorAll('td:not(:last-child)');
         // Lấy tài liệu "ib" từ Firestore
         collectionRef.doc("ib").get()
