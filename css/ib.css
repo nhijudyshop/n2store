@@ -27,32 +27,33 @@ body {
 
 #toggleFormButton {
     background-color: #007bff;
-    /* Màu nền */
     color: #fff;
-    /* Màu văn bản */
     border: none;
-    /* Bỏ viền */
     padding: 5px 8px;
-    /* Kích thước nút */
     cursor: pointer;
-    /* Con trỏ thay đổi khi di chuột vào nút */
     border-radius: 5px;
-    /* Bo góc */
 }
 
-#toggleFormButton:hover {
+#toggleFormButton:hover, #toggleLogoutButton:hover {
     background-color: #0056b3;
-    /* Màu nền khi di chuột vào */
 }
 
-#toggleFormButton:focus {
+#toggleFormButton:focus, #toggleLogoutButton:focus {
     outline: none;
-    /* Loại bỏ đường viền khi nút được chọn */
 }
 
-#toggleFormButton:active {
+#toggleFormButton:active, #toggleLogoutButton:active {
     transform: scale(0.95);
-    /* Hiệu ứng nhỏ lại khi nút được nhấn */
+}
+
+#toggleLogoutButton {
+	float: right;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 5px 8px;
+    cursor: pointer;
+    border-radius: 5px;
 }
 
 h1 {

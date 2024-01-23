@@ -696,6 +696,23 @@ function saveChanges() {
     closeModal();
 }
 
+// Đăng xuất
+function handleLogout() {
+    // Đặt lại biến kiểm tra đăng nhập
+    checkLogin = 0;
+
+    // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userType');
+
+    // Tải lại trang để áp dụng các thay đổi
+    location.reload();
+}
+
+// Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng
+var toggleLogoutButton = document.getElementById('toggleLogoutButton');
+toggleLogoutButton.addEventListener('click', handleLogout);
+
 updateTable();
 
 function exportToExcel() {
