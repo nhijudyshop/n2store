@@ -25,16 +25,26 @@ body {
     border-radius: 5px;
 }
 
-#toggleFormButton:hover {
+#toggleFormButton:hover, #toggleLogoutButton:hover {
     background-color: #0056b3;
 }
 
-#toggleFormButton:focus {
+#toggleFormButton:focus, #toggleLogoutButton:focus {
     outline: none;
 }
 
-#toggleFormButton:active {
+#toggleFormButton:active, #toggleLogoutButton:active {
     transform: scale(0.95);
+}
+
+#toggleLogoutButton {
+	float: right;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 5px 8px;
+    cursor: pointer;
+    border-radius: 5px;
 }
 
 h1 {
