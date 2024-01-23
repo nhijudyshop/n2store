@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const dataTable = document.querySelector('table tbody');
     const loginContainer = document.querySelector('.login-container');
     const loginBox = document.querySelector('.login-box');
-    const logoutButton = document.createElement('button');
+    // const logoutButton = document.createElement('button');
     const inputUsername = document.getElementById('username');
     const inputPassword = document.getElementById('password');
     const loginButton = document.getElementById('loginButton');
@@ -117,13 +117,13 @@ document.addEventListener('DOMContentLoaded', function () {
         checkLogin = userTypes[userType.split('-')[0]].checkLogin;
         loginBox.style.display = 'none';
         document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
-        logoutButton.textContent = 'Đăng xuất';
-        logoutButton.className = 'logout-button';
+        // logoutButton.textContent = 'Đăng xuất';
+        // logoutButton.className = 'logout-button';
         const parentContainer = document.getElementById('parentContainer');
         parentContainer.style.display = 'flex';
         parentContainer.style.justifyContent = 'center';
         parentContainer.style.alignItems = 'center';
-        parentContainer.appendChild(logoutButton);
+        // parentContainer.appendChild(logoutButton);
 
         if (checkLogin == 1) {
             document.querySelector('.nameFilter').style.display = 'block';
@@ -760,13 +760,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    logoutButton.addEventListener('click', function () {
-        checkLogin = 0; // Đặt lại biến kiểm tra đăng nhập
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userType');
-        //alert('Đã đăng xuất.');
-        location.reload();
-    });
+    // logoutButton.addEventListener('click', function () {
+    //     checkLogin = 0; // Đặt lại biến kiểm tra đăng nhập
+    //     localStorage.removeItem('isLoggedIn');
+    //     localStorage.removeItem('userType');
+    //     //alert('Đã đăng xuất.');
+    //     location.reload();
+    // });
 
     function addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, user) {
         console.log("Document tải lên thành công");

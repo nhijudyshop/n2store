@@ -58,7 +58,7 @@ const loginButton = document.getElementById('loginButton');
 const dateFilterDropdown = document.getElementById('dateFilter');
 const loginContainer = document.querySelector('.login-container');
 const loginBox = document.querySelector('.login-box');
-const logoutButton = document.createElement('button');
+// const logoutButton = document.createElement('button');
 const editModal = document.getElementById('editModal');
 let editingRow;
 const userTypeAdmin = 'admin-admin';
@@ -275,13 +275,13 @@ document.addEventListener('DOMContentLoaded', function() {
         checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeMy ? 2 : 0;
         loginBox.style.display = 'none';
         document.querySelector('.tieude').innerText += 'Tài khoản ' + userType.split('-')[0];
-        logoutButton.textContent = 'Đăng xuất';
-        logoutButton.className = 'logout-button';
+        // logoutButton.textContent = 'Đăng xuất';
+        // logoutButton.className = 'logout-button';
         const parentContainer = document.getElementById('parentContainer');
         parentContainer.style.display = 'flex';
         parentContainer.style.justifyContent = 'center';
         parentContainer.style.alignItems = 'center';
-        parentContainer.appendChild(logoutButton);
+        // parentContainer.appendChild(logoutButton);
     } else {
         window.location.href = '../index.html';
     }
@@ -294,18 +294,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function clearLoginForm() {
-    // Đặt lại giá trị của các trường input
-    inputUsername.value = '';
-    inputPassword.value = '';
-}
+// function clearLoginForm() {
+//     // Đặt lại giá trị của các trường input
+//     inputUsername.value = '';
+//     inputPassword.value = '';
+// }
 
-logoutButton.addEventListener('click', function() {
-    checkLogin = 0; // Đặt lại biến kiểm tra đăng nhập
-    localStorage.removeItem('isLoggedIn');
-    //alert('Đã đăng xuất.');
-    location.reload();
-});
+// logoutButton.addEventListener('click', function() {
+//     checkLogin = 0; // Đặt lại biến kiểm tra đăng nhập
+//     localStorage.removeItem('isLoggedIn');
+//     //alert('Đã đăng xuất.');
+//     location.reload();
+// });
 
 tableBody.addEventListener('click', function(e) {
 	if (userType != "khach-777") {
