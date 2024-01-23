@@ -74,7 +74,13 @@ editModal.style.display = 'none';
 
 toggleFormButton.addEventListener('click', () => {
 	if (userType != "khach-777") {
-		dataForm.style.display = dataForm.style.display === 'none' ? 'block' : 'none';
+		if (dataForm.style.display === 'none' || dataForm.style.display === '') {
+            dataForm.style.display = 'block';
+            toggleFormButton.textContent = 'Ẩn biểu mẫu';
+        } else {
+            dataForm.style.display = 'none';
+            toggleFormButton.textContent = 'Hiện biểu mẫu';
+        }
 	}
 });
 
