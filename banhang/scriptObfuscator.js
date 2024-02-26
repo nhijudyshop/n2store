@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function () {
     inputEditFileContainer.style.display = 'none';
     editModal.style.display = 'none';
 
-    const tempNameFilterDropdown = ['my', 'lai', 'huyen', 'ngoc', 'truc'];
+    const tempNameFilterDropdown = ['my', 'lai', 'huyen', 'truc'];
 
     let editingRow;
     var checkLogin = 0;
