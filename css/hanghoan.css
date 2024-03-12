@@ -97,20 +97,23 @@ body {
     border-radius: 5px;
 }
 
-#toggleFormButton:hover, #toggleLogoutButton:hover {
+#toggleFormButton:hover,
+#toggleLogoutButton:hover {
     background-color: #0056b3;
 }
 
-#toggleFormButton:focus, #toggleLogoutButton:focus {
+#toggleFormButton:focus,
+#toggleLogoutButton:focus {
     outline: none;
 }
 
-#toggleFormButton:active, #toggleLogoutButton:active {
+#toggleFormButton:active,
+#toggleLogoutButton:active {
     transform: scale(0.95);
 }
 
 #toggleLogoutButton {
-	float: right;
+    float: right;
     background-color: #007bff;
     color: #fff;
     border: none;
@@ -208,15 +211,15 @@ th:first-child {
     font-weight: bold;
 }
 
-#totalAmount {
-    text-align: center;
-    /* Center the text */
-    margin-top: 20px;
-    /* Add some top margin for spacing */
-    font-size: 24px;
-    /* Adjust the font size if needed */
-    font-weight: bold;
-}
+/* #totalAmount { */
+/* text-align: center; */
+/* Center the text */
+/* margin-top: 20px; */
+/* Add some top margin for spacing */
+/* font-size: 24px; */
+/* Adjust the font size if needed */
+/* font-weight: bold; */
+/* } */
 
 /* #dataForm button[type="submit"]:hover {
     background-color: #0056b3;
@@ -361,21 +364,24 @@ td:nth-child(1) {
 
 th:nth-child(2),
 td:nth-child(2) {
-    width: 30%;
+    width: 32%;
 }
 
 th:nth-child(3),
 td:nth-child(3) {
-    width: 9%;
+    width: 6%;
 }
 
 th:nth-child(4),
 td:nth-child(4) {
-    width: 35%;
+    width: 32%;
 }
 
 th:nth-child(5),
-td:nth-child(5),
+td:nth-child(5) {
+    width: 6%;
+}
+
 th:nth-child(6),
 td:nth-child(6) {
     width: 6%;
@@ -386,6 +392,11 @@ td:nth-child(7) {
     width: 6%;
 }
 
+th:nth-child(8),
+td:nth-child(8) {
+    width: 6%;
+}
+
 td:nth-child(2),
 td:nth-child(4) {
     text-align: justify;
@@ -393,4 +404,15 @@ td:nth-child(4) {
 
 tr:hover {
     background-color: #fd1e1e52;
+}
+
+/* Thêm hiệu ứng làm mờ cho dòng có lớp 'fade' */
+tr.fade {
+    opacity: 0.5; /* Bạn có thể điều chỉnh mức độ làm mờ tùy ý */
+    transition: opacity 0.3s ease-in-out; /* Thêm hiệu ứng chuyển động */
+}
+
+/* Định dạng cho checkbox bị disabled */
+.received-checkbox[disabled] {
+    cursor: not-allowed; /* Thay đổi con trỏ chuột khi hover */
 }
