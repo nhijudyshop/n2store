@@ -53,16 +53,12 @@
     	let editingRow;
     	const loginContainer = document.querySelector('.login-container');
     	const loginBox = document.querySelector('.login-box');
-    	const userTypeAdmin = 'admin-admin';
-    	const userTypeLai = 'lai-lai2506';
     	const userType = localStorage.getItem('userType');
-
-    	var checkLogin = 0;
 
     	editModal.style.display = 'none';
 
     	toggleFormButton.addEventListener('click', () => {
-    		if (userType != "khach-777") {
+    		if (userType == "admin-admin" || userType == "lai-lai2506") {
     			if (dataForm.style.display === 'none' || dataForm.style.display === '') {
     				dataForm.style.display = 'block';
     				toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -75,16 +71,7 @@
 
     	var isLoggedIn = localStorage.getItem('isLoggedIn');
 
-    	if (userType && (userType.includes('admin') && userType != userTypeAdmin)) {
-    		isLoggedIn = false;
-    		localStorage.removeItem('isLoggedIn');
-    	} else if (userType && (userType.includes('lai') && userType != userTypeLai)) {
-    		isLoggedIn = false;
-    		localStorage.removeItem('isLoggedIn');
-    	}
-
-    	if (isLoggedIn === 'true') {
-    		checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeMy ? 2 : 0;
+    	if (isLoggedIn === 'true') {    	
     		loginBox.style.display = 'none';
     		document.querySelector('.tieude').innerText += 'Tài khoản ' + userType.split('-')[0];
     		// logoutButton.textContent = 'Đăng xuất';
@@ -410,31 +397,33 @@
 
     	tableBody.addEventListener('click', function(e) {
     		if (e.target.classList.contains('edit-button') && e.target.parentNode.parentNode.style.opacity === '1') {
-    			document.getElementById('editModal').style.display = 'block';
+				if (userType == "admin-admin" || userType == "lai-lai2506") {
+					document.getElementById('editModal').style.display = 'block';
 
-    			const editDelivery = document.getElementById('editDelivery');
-    			const editInfo = document.getElementById('editInfo');
-    			const editAmount = document.getElementById('editAmount');
-    			const editNote = document.getElementById('editNote');
-    			const editDate = document.getElementById('editDate');
+					const editDelivery = document.getElementById('editDelivery');
+					const editInfo = document.getElementById('editInfo');
+					const editAmount = document.getElementById('editAmount');
+					const editNote = document.getElementById('editNote');
+					const editDate = document.getElementById('editDate');
 
-    			const row = e.target.parentNode.parentNode;
+					const row = e.target.parentNode.parentNode;
 
-    			const delivery = row.cells[0].innerText;
-    			const info = row.cells[1].innerText;
-    			const amount = row.cells[2].innerText;
-    			const note = row.cells[3].innerText;
-    			const date = row.cells[4].innerText;
+					const delivery = row.cells[0].innerText;
+					const info = row.cells[1].innerText;
+					const amount = row.cells[2].innerText;
+					const note = row.cells[3].innerText;
+					const date = row.cells[4].innerText;
 
-    			editDelivery.value = delivery;
-    			editInfo.value = info;
-    			editAmount.value = amount;
-    			editNote.value = note;
-    			editDate.value = date;
+					editDelivery.value = delivery;
+					editInfo.value = info;
+					editAmount.value = amount;
+					editNote.value = note;
+					editDate.value = date;
 
-    			editingRow = row;
+					editingRow = row;
+				}
     		} else if (e.target.type === 'checkbox') {
-    			if (checkLogin != 1) {
+    			if (userType != "admin-admin") {
     				alert('Không đủ quyền thực hiện chức năng này.');
     				e.target.checked = !e.target.checked;
     				return;
