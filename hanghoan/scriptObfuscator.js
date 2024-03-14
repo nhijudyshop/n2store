@@ -54,7 +54,7 @@
     	const loginContainer = document.querySelector('.login-container');
     	const loginBox = document.querySelector('.login-box');
     	const userTypeAdmin = 'admin-admin';
-    	const userTypeMy = 'my-my2804';
+    	const userTypeLai = 'lai-lai2506';
     	const userType = localStorage.getItem('userType');
 
     	var checkLogin = 0;
@@ -78,7 +78,7 @@
     	if (userType && (userType.includes('admin') && userType != userTypeAdmin)) {
     		isLoggedIn = false;
     		localStorage.removeItem('isLoggedIn');
-    	} else if (userType && (userType.includes('my') && userType != userTypeMy)) {
+    	} else if (userType && (userType.includes('lai') && userType != userTypeLai)) {
     		isLoggedIn = false;
     		localStorage.removeItem('isLoggedIn');
     	}
