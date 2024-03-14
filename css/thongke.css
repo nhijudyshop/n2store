@@ -53,6 +53,12 @@ body {
         margin: 10px 10px 30px;
     }
 }
+
+#current-page-link {
+    background-color: #fff;
+    color: #333;
+}
+
 iframe {
     display: block;
     width: 100%;
