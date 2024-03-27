@@ -9,7 +9,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <link href="../css/hanghoan.css" rel="stylesheet">
    <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
-   <title>THÔNG TIN HÀNG HOÀN</title>
+   <title>THÔNG TIN SỬA COD</title>
    <link rel="shortcut icon" href="../logo.jpg" />
    <!-- The core Firebase JS SDK -->
    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -32,9 +32,9 @@
          <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
          <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
          <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG KHÁCH VIP</a></li>
-         <li class="nav-item"><a id="current-page-link" href="../hanghoan/index.html">HÀNG HOÀN</a></li>
+         <li class="nav-item"><a href="../hanghoan/index.html">HÀNG HOÀN</a></li>
          <li class="nav-item"><a href="../thongke/index.html">THỐNG KÊ LIVE</a></li>
-         <li class="nav-item"><a href="../suacod/index.html">SỬA COD</a></li>
+         <li class="nav-item"><a id="current-page-link" href="../suacod/index.html">SỬA COD</a></li>
       </ul>
    </div>
    <button id="toggleFormButton">Hiện biểu mẫu</button>
@@ -54,8 +54,6 @@
          <input type="text" id="totalAmount" required>
          <label for="cause">Lý do:</label>
          <input type="text" id="cause" required>
-         <label for="ngaydidon">Ngày đi đơn:</label>
-         <input type="date" id="ngaydidon">
          <div class="center-button">
             <button type="submit" id="addButton">Thêm</button>
             <button type="button" id="clearDataButton">Reset</button>
@@ -63,7 +61,7 @@
       </form>
    </div>
    <div id="parentContainer">
-      <p class="tieude">THÔNG TIN HÀNG HOÀN<br>
+      <p class="tieude">THÔNG TIN SỬA COD<br>
    </div>
    <div class="login-container">
       <div class="login-box">
@@ -76,7 +74,7 @@
    <select id="dateFilter" size="3">
       <option value="all">Tất cả</option>
    </select>
-   <div class="ck">
+   <div class="cod">
       <table>
          <thead>
             <tr>
@@ -84,21 +82,19 @@
                <th>Tên FB + SĐT</th>
                <th>Số tiền</th>
                <th>Lý do</th>
-               <th>Ngày đi đơn</th>
-               <th>Đã nhận</th>
-               <th>Ngày duyệt hoàn</th>
-               <th>Sửa thông tin</th>
+               <th>Tên NV</th>
+               <th>Đã duyệt</th>
+			      <!-- <th>Sửa thông tin</th> -->
             </tr>
          </thead>
          <tbody id="tableBody"></tbody>
       </table>
    </div>
-   <!-- <div id="totalAmount">Tổng Tiền: 0</div> -->
    <!-- Modal for editing -->
    <div id="editModal" class="modal">
       <div class="modal-content">
          <span class="close" onclick="closeModal()">&times;</span>
-         <label for="editDelivery">Kênh:</label>
+		 <label for="editDelivery">Kênh:</label>
          <select id="editDelivery" required>
             <option value="J&T">J&T</option>
             <option value="TP">TP</option>
@@ -110,8 +106,6 @@
          <input type="text" id="editAmount">
          <label for="editNote">Lý do:</label>
          <input type="text" id="editNote">
-         <label for="editDate">Ngày đi đơn:</label>
-         <input type="text" id="editDate">
          <button id="saveButton">Lưu</button>
       </div>
    </div>
@@ -120,8 +114,8 @@
         var modal = document.getElementById('editModal');
         modal.style.display = 'none';
     }
-	</script>
-   <script src="scriptObfuscator.js"></script>
+   </script>
+   <script src="script.js"></script>
 </body>
 
 </html>
