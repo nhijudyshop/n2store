@@ -137,7 +137,7 @@
     					const causeCell = newRow.insertCell(3);
     					const nameCell = newRow.insertCell(4);
     					const checkboxCell = newRow.insertCell(5);
-    					// const editCell = newRow.insertCell(6);
+    					const editCell = newRow.insertCell(6);
 
     					// Gán giá trị từ biến vào ô trong bảng
     					shipCell.innerText = shipValue;
