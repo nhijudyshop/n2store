@@ -52,6 +52,7 @@
     	const editModal = document.getElementById("editModal");
     	let editingRow;
 		let tenNV;
+		let tempSTT=0;
     	const loginContainer = document.querySelector('.login-container');
     	const loginBox = document.querySelector('.login-box');
     	const userType = localStorage.getItem('userType');
@@ -131,15 +132,18 @@
     				}).then(function() {
     					console.log("Document tải lên thành công");
     					const newRow = tableBody.insertRow();
-    					const shipCell = newRow.insertCell(0);
-    					const customerInfoCell = newRow.insertCell(1);
-    					const totalAmountCell = newRow.insertCell(2);
-    					const causeCell = newRow.insertCell(3);
-    					const nameCell = newRow.insertCell(4);
-    					const checkboxCell = newRow.insertCell(5);
-    					const editCell = newRow.insertCell(6);
+    					const STT = newRow.insertCell(0);
+    					const shipCell = newRow.insertCell(1);
+    					const customerInfoCell = newRow.insertCell(2);
+    					const totalAmountCell = newRow.insertCell(3);
+    					const causeCell = newRow.insertCell(4);
+    					const nameCell = newRow.insertCell(5);
+    					const checkboxCell = newRow.insertCell(6);
+    					const editCell = newRow.insertCell(7);
 
     					// Gán giá trị từ biến vào ô trong bảng
+						tempSTT+=1
+    					STT.innerText = tempSTT;
     					shipCell.innerText = shipValue;
     					customerInfoCell.innerText = customerInfoValue;
     					totalAmountCell.innerText = totalAmountValue;
@@ -171,15 +175,18 @@
     				}).then(function() {
     					console.log("Document tải lên thành công");
     					const newRow = tableBody.insertRow();
-    					const shipCell = newRow.insertCell(0);
-    					const customerInfoCell = newRow.insertCell(1);
-    					const totalAmountCell = newRow.insertCell(2);
-    					const causeCell = newRow.insertCell(3);
-    					const nameCell = newRow.insertCell(4);
-    					const checkboxCell = newRow.insertCell(5);
-    					const editCell = newRow.insertCell(6);
+    					const STT = newRow.insertCell(0);
+    					const shipCell = newRow.insertCell(1);
+    					const customerInfoCell = newRow.insertCell(2);
+    					const totalAmountCell = newRow.insertCell(3);
+    					const causeCell = newRow.insertCell(4);
+    					const nameCell = newRow.insertCell(5);
+    					const checkboxCell = newRow.insertCell(6);
+    					const editCell = newRow.insertCell(7);
 
     					// Gán giá trị từ biến vào ô trong bảng
+						tempSTT+=1
+    					STT.innerText = tempSTT;
     					shipCell.innerText = shipValue;
     					customerInfoCell.innerText = customerInfoValue;
     					totalAmountCell.innerText = totalAmountValue;
@@ -338,14 +345,16 @@
     						}
 
     						const newRow = tableBody.insertRow();
-    						const shipValue = newRow.insertCell(0);
-    						const customerInfoValue = newRow.insertCell(1);
-    						const totalAmountValue = newRow.insertCell(2);
-    						const causeValue = newRow.insertCell(3);
-    						const nameValue = newRow.insertCell(4);
-    						const checkboxRow = newRow.insertCell(5);
-    						const editCell = newRow.insertCell(6);
+    						const STT = newRow.insertCell(0);
+    						const shipValue = newRow.insertCell(1);
+    						const customerInfoValue = newRow.insertCell(2);
+    						const totalAmountValue = newRow.insertCell(3);
+    						const causeValue = newRow.insertCell(4);
+    						const nameValue = newRow.insertCell(5);
+    						const checkboxRow = newRow.insertCell(6);
+    						const editCell = newRow.insertCell(7);
 
+    						STT.innerText=i+1;
     						shipValue.innerText = data["data"][i].shipValue;
     						customerInfoValue.innerText = data["data"][i].customerInfoValue;
     						totalAmountValue.innerText = data["data"][i].totalAmountValue;
