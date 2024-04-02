@@ -51,6 +51,7 @@
     	const toggleFormButton = document.getElementById("toggleFormButton");
     	const editModal = document.getElementById("editModal");
     	let editingRow;
+		let tempSTT = 0;
     	const loginContainer = document.querySelector('.login-container');
     	const loginBox = document.querySelector('.login-box');
     	const userType = localStorage.getItem('userType');
@@ -102,14 +103,9 @@
     		const customerInfoValue = form.querySelector("#customerInfo").value;
     		const totalAmountValue = form.querySelector("#totalAmount").value;
     		const causeValue = form.querySelector("#cause").value;
-    		const didonValue = form.querySelector("#ngaydidon").value;
-
-    		const currentDate = new Date(didonValue);
 
     		// Chuyển đổi thành timestamp
     		const tempTimeStamp = new Date();
-    		var timestamp = currentDate.getTime() + (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
-    		//dateCell.id = timestamp.toString();
 
     		var formattedTime = formatDate(tempTimeStamp);
 
@@ -118,7 +114,6 @@
     			customerInfoValue: customerInfoValue,
     			totalAmountValue: totalAmountValue,
     			causeValue: causeValue,
-    			didonValue: timestamp.toString(),
     			duyetHoanValue: tempTimeStamp.getTime().toString()
     		};
 
@@ -131,17 +126,18 @@
     				}).then(function() {
     					console.log("Document tải lên thành công");
     					const newRow = tableBody.insertRow();
-    					const shipCell = newRow.insertCell(0);
-    					const customerInfoCell = newRow.insertCell(1);
-    					const totalAmountCell = newRow.insertCell(2);
-    					const causeCell = newRow.insertCell(3);
-    					const didonCell = newRow.insertCell(4);
+    					const STT = newRow.insertCell(0);
+    					const shipCell = newRow.insertCell(1);
+    					const customerInfoCell = newRow.insertCell(2);
+    					const totalAmountCell = newRow.insertCell(3);
+    					const causeCell = newRow.insertCell(4);
     					const checkboxCell = newRow.insertCell(5);
     					const getCurrentDateCell = newRow.insertCell(6);
     					const editCell = newRow.insertCell(7);
 
     					// Gán giá trị từ biến vào ô trong bảng
-    					didonCell.innerText = didonValue;
+						tempSTT+=1
+						STT.innerText = tempSTT;
     					shipCell.innerText = shipValue;
     					customerInfoCell.innerText = customerInfoValue;
     					totalAmountCell.innerText = totalAmountValue;
@@ -172,17 +168,18 @@
     				}).then(function() {
     					console.log("Document tải lên thành công");
     					const newRow = tableBody.insertRow();
-    					const shipCell = newRow.insertCell(0);
-    					const customerInfoCell = newRow.insertCell(1);
-    					const totalAmountCell = newRow.insertCell(2);
-    					const causeCell = newRow.insertCell(3);
-    					const didonCell = newRow.insertCell(4);
+    					const STT = newRow.insertCell(0);
+    					const shipCell = newRow.insertCell(1);
+    					const customerInfoCell = newRow.insertCell(2);
+    					const totalAmountCell = newRow.insertCell(3);
+    					const causeCell = newRow.insertCell(4);
     					const checkboxCell = newRow.insertCell(5);
     					const getCurrentDateCell = newRow.insertCell(6);
     					const editCell = newRow.insertCell(7);
 
     					// Gán giá trị từ biến vào ô trong bảng
-    					didonCell.innerText = didonValue;
+						tempSTT+=1
+						STT.innerText = tempSTT;
     					shipCell.innerText = shipValue;
     					customerInfoCell.innerText = customerInfoValue;
     					totalAmountCell.innerText = totalAmountValue;
@@ -216,7 +213,6 @@
     		//    <td>${customerInfoValue}</td>
     		//    <td>${totalAmountValue}</td>
     		//    <td>${causeValue}</td>
-    		//    <td>${didonValue}</td>
     		//    <td><input type="checkbox" style="width: 20px; height: 20px;" class="received-checkbox"></td>
     		//    <td>${getCurrentDate()}</td>
     		//    <td><button onclick="openEditModal(this)">Sửa</button></td>
@@ -248,7 +244,6 @@
     							data["data"][i].customerInfoValue = editInfo.value;
     							data["data"][i].totalAmountValue = editAmount.value;
     							data["data"][i].causeValue = editNote.value;
-    							data["data"][i].didonValue = convertToTimestamp(editDate.value);
     							break; // Kết thúc vòng lặp sau khi xoá
     						}
     					}
@@ -331,11 +326,8 @@
     					for (let i = 0; i < data["data"].length; i++) {
     						// Định dạng ngày tháng năm + giờ phút
     						var timestamp = parseFloat(data["data"][i].duyetHoanValue); // Chuyển đổi chuỗi thành số nguyên
-    						var timestampDiDon = parseFloat(data["data"][i].didonValue); // Chuyển đổi chuỗi thành số nguyên
     						var dateCellConvert = new Date(timestamp);
-    						var dateCellConvertDiDon = new Date(timestampDiDon);
     						var formattedTime = formatDate(dateCellConvert);
-    						var formattedTimeDiDon = formatDate(dateCellConvertDiDon);
 
     						const dateFilterDropdown = document.getElementById('dateFilter');
 
@@ -345,16 +337,17 @@
     						}
 
     						const newRow = tableBody.insertRow();
-    						const shipValue = newRow.insertCell(0);
-    						const customerInfoValue = newRow.insertCell(1);
-    						const totalAmountValue = newRow.insertCell(2);
-    						const causeValue = newRow.insertCell(3);
-    						const didonValue = newRow.insertCell(4);
+    						const STT = newRow.insertCell(0);
+    						const shipValue = newRow.insertCell(1);
+    						const customerInfoValue = newRow.insertCell(2);
+    						const totalAmountValue = newRow.insertCell(3);
+    						const causeValue = newRow.insertCell(4);
     						const checkboxRow = newRow.insertCell(5);
     						const getCurrentDate = newRow.insertCell(6);
     						const editCell = newRow.insertCell(7);
-
-    						didonValue.innerText = formattedTimeDiDon.replace(/\//g, '-');
+							
+							tempSTT+=1
+							STT.innerText=i+1;
     						shipValue.innerText = data["data"][i].shipValue;
     						customerInfoValue.innerText = data["data"][i].customerInfoValue;
     						totalAmountValue.innerText = data["data"][i].totalAmountValue;

@@ -364,22 +364,23 @@ td:nth-child(1) {
 
 th:nth-child(2),
 td:nth-child(2) {
-    width: 32%;
+    width: 6%;
 }
 
 th:nth-child(3),
 td:nth-child(3) {
-    width: 6%;
+    width: 32%;
 }
 
 th:nth-child(4),
 td:nth-child(4) {
-    width: 32%;
+    width: 6%;
 }
 
 th:nth-child(5),
 td:nth-child(5) {
-    width: 6%;
+    width: 32%;
+    text-align: justify;
 }
 
 th:nth-child(6),
@@ -397,8 +398,8 @@ td:nth-child(8) {
     width: 6%;
 }
 
-td:nth-child(2),
-td:nth-child(4) {
+td:nth-child(1),
+td:nth-child(3) {
     text-align: justify;
 }
 
