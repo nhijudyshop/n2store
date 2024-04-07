@@ -360,6 +360,7 @@ td {
 th:nth-child(1),
 td:nth-child(1) {
     width: 6%;
+    text-align: center;
 }
 
 th:nth-child(2),
