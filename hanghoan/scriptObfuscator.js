@@ -125,7 +125,7 @@
     					["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
     				}).then(function() {
     					console.log("Document tải lên thành công");
-    					const newRow = tableBody.insertRow();
+    					const newRow = tableBody.insertRow(0);
     					const STT = newRow.insertCell(0);
     					const shipCell = newRow.insertCell(1);
     					const customerInfoCell = newRow.insertCell(2);
@@ -167,7 +167,7 @@
     					["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
     				}).then(function() {
     					console.log("Document tải lên thành công");
-    					const newRow = tableBody.insertRow();
+    					const newRow = tableBody.insertRow(0);
     					const STT = newRow.insertCell(0);
     					const shipCell = newRow.insertCell(1);
     					const customerInfoCell = newRow.insertCell(2);
@@ -336,7 +336,7 @@
     							tempDate.push(formattedTime.replace(/\//g, '-'));
     						}
 
-    						const newRow = tableBody.insertRow();
+    						const newRow = tableBody.insertRow(0);
     						const STT = newRow.insertCell(0);
     						const shipValue = newRow.insertCell(1);
     						const customerInfoValue = newRow.insertCell(2);
