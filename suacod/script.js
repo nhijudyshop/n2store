@@ -46,7 +46,7 @@
     const collectionRef = db.collection("suacod");
 
     document.addEventListener("DOMContentLoaded", function() {
-    	const form = document.getElementById("return-product");
+    	const form = document.getElementById("fix-cod");
     	const tableBody = document.getElementById("tableBody");
     	const toggleFormButton = document.getElementById("toggleFormButton");
     	const editModal = document.getElementById("editModal");
@@ -267,11 +267,11 @@
     			.then(() => {
     				console.log("Document tải lên thành công");
 
-    				editingRow.cells[0].innerText = editDelivery.value;
-    				editingRow.cells[1].innerText = editInfo.value;
-    				editingRow.cells[2].innerText = editAmount.value;
+    				editingRow.cells[1].innerText = editDelivery.value;
+    				editingRow.cells[2].innerText = editInfo.value;
+    				editingRow.cells[3].innerText = editAmount.value;
     				// Thêm các dòng sau để tránh lỗi undefined
-    				editingRow.cells[3].innerText = editNote.value;
+    				editingRow.cells[4].innerText = editNote.value;
     			})
     			.catch((error) => {
     				alert('Lỗi khi tải document lên.');
@@ -407,10 +407,10 @@
 
 					const row = e.target.parentNode.parentNode;
 
-					const delivery = row.cells[0].innerText;
-					const info = row.cells[1].innerText;
-					const amount = row.cells[2].innerText;
-					const note = row.cells[3].innerText;
+					const delivery = row.cells[1].innerText;
+					const info = row.cells[2].innerText;
+					const amount = row.cells[3].innerText;
+					const note = row.cells[4].innerText;
 
 					editDelivery.value = delivery;
 					editInfo.value = info;
