@@ -59,7 +59,7 @@
     	editModal.style.display = 'none';
 
     	toggleFormButton.addEventListener('click', () => {
-    		if (userType == "admin-admin" || userType == "lai-lai2506") {
+    		if (userType == "admin-admin" || userType == "lai-lai2506" || userType == "my-my2804") {
     			if (dataForm.style.display === 'none' || dataForm.style.display === '') {
     				dataForm.style.display = 'block';
     				toggleFormButton.textContent = 'Ẩn biểu mẫu';
