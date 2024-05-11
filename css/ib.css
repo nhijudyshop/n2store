@@ -129,7 +129,7 @@ input[type="number"] {
 }
 
 button.toggle-visibility {
-    background-color: #00f;
+    background-color: #f00;
     color: #fff;
     border: none;
     padding: 5px 10px;
