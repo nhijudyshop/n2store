@@ -80,6 +80,8 @@ const hinhAnhInputFileKH = document.getElementById('hinhAnhInputFileKH');
 const hinhAnhContainer = document.getElementById('hinhAnhContainer');
 const hinhAnhContainerKH = document.getElementById('hinhAnhContainerKH');
 
+const thuTuHeader = document.getElementById('thuTuHeader');
+
 var imageUrlFile = []; // Mảng để lưu trữ URL tải về
 var imageUrlFileKH = []; // Mảng để lưu trữ URL tải về
 
@@ -281,38 +283,46 @@ function applyCategoryFilter() {
 
 function toggleRowVisibility(row, button) {
     if (userType === "admin-admin" || userType === "my-my2804" || userType === "lai-lai2506") {
-        const cellsToHide = row.querySelectorAll('td:not(:last-child)');
-        // Lấy tài liệu "ib" từ Firestore
-        collectionRef.doc("ib").get()
-            .then((doc) => {
-                if (doc.exists) {
-                    // Sao chép dữ liệu
-                    const data = doc.data().data.slice(); // Sao chép mảng
+		const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
+        if (confirmDelete) {
+			const cellsToHide = row.querySelectorAll('td:not(:last-child)');
+			// Lấy tài liệu "ib" từ Firestore
+			collectionRef.doc("ib").get()
+				.then((doc) => {
+					if (doc.exists) {
+						// Sao chép dữ liệu
+						const data = doc.data().data.slice(); // Sao chép mảng
 
-                    // Vị trí của mục cần cập nhật
-                    const indexToUpdate = cellsToHide[0].textContent - 1; // Đổi index thành vị trí muốn cập nhật
+						// Vị trí của mục cần cập nhật
+						const indexToUpdate = cellsToHide[0].textContent - 1; // Đổi index thành vị trí muốn cập nhật
 
-                    // Cập nhật dữ liệu tại vị trí cụ thể
-                    if (cellsToHide[0].style.display !== 'none') {
-                        cellsToHide.forEach(cell => cell.style.display = 'none');
-                        button.innerText = 'Hiện';
-                        data[indexToUpdate].cellShow = false;
-                    } else {
-                        cellsToHide.forEach(cell => cell.style.display = '');
-                        button.innerText = 'Ẩn';
-                        updateRowIndexes();
-                        data[indexToUpdate].cellShow = true;
-                    }
+						// Cập nhật dữ liệu tại vị trí cụ thể
+						if (cellsToHide[0].style.display !== 'none') {
+							cellsToHide.forEach(cell => cell.style.display = 'none');
+							//button.innerText = 'Hiện';
+							data[indexToUpdate].cellShow = false;
+						} else {
+							cellsToHide.forEach(cell => cell.style.display = '');
+							button.innerText = 'Xoá';
+							updateRowIndexes();
+							data[indexToUpdate].cellShow = true;
+						}
 
-                    // Cập nhật dữ liệu trong Firestore
-                    collectionRef.doc("ib").update({
-                            data
-                        })
-                        .then(function() {})
-                        .catch(function(error) {});
-                }
-            })
-            .catch((error) => {});
+						// Cập nhật dữ liệu trong Firestore
+						collectionRef.doc("ib").update({
+							data
+						})
+						.then(function() {
+							// Nếu cập nhật thành công, reload trang
+							location.reload();
+						})
+						.catch(function(error) {
+							console.error("Lỗi khi cập nhật dữ liệu:", error);
+						});
+					}
+				})
+				.catch((error) => {});
+		}
     } else {
         alert("Bạn không đủ quyền để thực hiện thao tác này");
     }
@@ -1331,10 +1341,9 @@ function addImagesFromStorage() {
     collectionRef.doc("ib").get()
         .then((doc) => {
             if (doc.exists) {
-                // Tài liệu tồn tại, truy cập dữ liệu bằng cách sử dụng doc.data()
                 const data = doc.data();
                 tbody.innerHTML = '';
-                let rowIndex = data.data.length + 1;
+                let rowIndex = 1; // Bắt đầu với số thứ tự là 1
                 if (data && Array.isArray(data.data)) {
                     for (let i = data.data.length - 1; i >= 0; i--) {
                         const row = tbody.insertRow();
@@ -1346,66 +1355,51 @@ function addImagesFromStorage() {
                         const thongTinKhachHangCell = row.insertCell();
                         const toggleVisibilityCell = row.insertCell();
                         if (data["data"][i]) {
-                            rowIndex--;
-                            thuTuCell.textContent = rowIndex;
-                            thoiGianUploadCell.textContent = data["data"][i].thoiGianUpload; // Sử dụng formatDateTime
-                            phanLoaiCell.textContent = data["data"][i].phanLoai;
-
-                            if (Array.isArray(data["data"][i].sp)) {
-                                for (let j = 0; j < data["data"][i].sp.length; j++) {
-                                    const productImage = document.createElement('img');
-                                    productImage.src = data["data"][i].sp[j];
-                                    productImage.alt = data["data"][i].tenSanPham;
-                                    productImage.classList.add('product-image');
-
-                                    // Thêm sản phẩm vào ô hinhAnhCell
-                                    hinhAnhCell.appendChild(productImage);
-
-                                    // Thêm dấu cách giữa các hình
-                                    if (j < data["data"][i].sp.length - 1) {
-                                        hinhAnhCell.appendChild(document.createTextNode(' '));
-                                    }
-                                }
-                            } else {
-                                hinhAnhCell.innerHTML = `<img src="${data["data"][i].sp}" alt="${data["data"][i].tenSanPham}" class="product-image">`;
-                            }
-
-                            tenSanPhamCell.textContent = data["data"][i].tenSanPham;
-
-                            if (Array.isArray(data["data"][i].kh)) {
-                                for (let j = 0; j < data["data"][i].kh.length; j++) {
-                                    const productImage = document.createElement('img');
-                                    productImage.src = data["data"][i].kh[j];
-                                    productImage.alt = "Hình ảnh khách hàng";
-                                    productImage.classList.add('product-image');
-
-                                    // Thêm sản phẩm vào ô thongTinKhachHangCell
-                                    thongTinKhachHangCell.appendChild(productImage);
-
-                                    // Thêm dấu cách giữa các hình
-                                    if (j < data["data"][i].kh.length - 1) {
-                                        thongTinKhachHangCell.appendChild(document.createTextNode(' '));
-                                    }
-                                }
-                            } else {
-                                thongTinKhachHangCell.innerHTML = `<img src="${data["data"][i].kh}" alt="Hình ảnh khách hàng">`;
-                            }
-
-                            const hideButton = document.createElement('button');
-                            hideButton.className = 'toggle-visibility';
-                            hideButton.onclick = () => toggleRowVisibility(row, hideButton);
-                            toggleVisibilityCell.appendChild(hideButton);
-
                             if (data["data"][i].cellShow == false) {
-                                hideButton.innerText = 'Hiện';
-                                thuTuCell.style.display = 'none';
-                                thoiGianUploadCell.style.display = 'none';
-                                phanLoaiCell.style.display = 'none';
-                                hinhAnhCell.style.display = 'none';
-                                tenSanPhamCell.style.display = 'none';
-                                thongTinKhachHangCell.style.display = 'none';
+                                row.remove();
+                                continue;
                             } else {
-                                hideButton.innerText = 'Ẩn';
+                                thuTuCell.textContent = rowIndex;
+                                thoiGianUploadCell.textContent = data["data"][i].thoiGianUpload;
+                                phanLoaiCell.textContent = data["data"][i].phanLoai;
+
+                                if (Array.isArray(data["data"][i].sp)) {
+                                    for (let j = 0; j < data["data"][i].sp.length; j++) {
+                                        const productImage = document.createElement('img');
+                                        productImage.src = data["data"][i].sp[j];
+                                        productImage.alt = data["data"][i].tenSanPham;
+                                        productImage.classList.add('product-image');
+                                        hinhAnhCell.appendChild(productImage);
+                                        if (j < data["data"][i].sp.length - 1) {
+                                            hinhAnhCell.appendChild(document.createTextNode(' '));
+                                        }
+                                    }
+                                } else {
+                                    hinhAnhCell.innerHTML = `<img src="${data["data"][i].sp}" alt="${data["data"][i].tenSanPham}" class="product-image">`;
+                                }
+
+                                tenSanPhamCell.textContent = data["data"][i].tenSanPham;
+
+                                if (Array.isArray(data["data"][i].kh)) {
+                                    for (let j = 0; j < data["data"][i].kh.length; j++) {
+                                        const productImage = document.createElement('img');
+                                        productImage.src = data["data"][i].kh[j];
+                                        productImage.alt = "Hình ảnh khách hàng";
+                                        productImage.classList.add('product-image');
+                                        thongTinKhachHangCell.appendChild(productImage);
+                                        if (j < data["data"][i].kh.length - 1) {
+                                            thongTinKhachHangCell.appendChild(document.createTextNode(' '));
+                                        }
+                                    }
+                                } else {
+                                    thongTinKhachHangCell.innerHTML = `<img src="${data["data"][i].kh}" alt="Hình ảnh khách hàng">`;
+                                }
+
+                                const hideButton = document.createElement('button');
+                                hideButton.className = 'toggle-visibility';
+                                hideButton.onclick = () => toggleRowVisibility(row, hideButton);
+                                toggleVisibilityCell.appendChild(hideButton);
+                                hideButton.innerText = 'Xoá';
                                 thuTuCell.style.display = '';
                                 thoiGianUploadCell.style.display = '';
                                 phanLoaiCell.style.display = '';
@@ -1413,6 +1407,8 @@ function addImagesFromStorage() {
                                 tenSanPhamCell.style.display = '';
                                 thongTinKhachHangCell.style.display = '';
                             }
+                            rowIndex++; // Tăng số thứ tự cho hàng tiếp theo
+							thuTuHeader.textContent = "STT (" + tbody.rows.length + ")";
                         } else {
                             thuTuCell.textContent = '';
                             thoiGianUploadCell.textContent = '';
@@ -1477,7 +1473,7 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham, thoiGianUpload, phanL
 
     const hideButton = document.createElement('button');
     hideButton.className = 'toggle-visibility';
-    hideButton.textContent = 'Ẩn';
+    hideButton.textContent = 'Xoá';
     hideButton.onclick = () => toggleRowVisibility(row, hideButton);
     toggleVisibilityCell.appendChild(hideButton);
 }
