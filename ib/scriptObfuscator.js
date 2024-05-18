@@ -297,9 +297,10 @@ function toggleRowVisibility(row, button) {
 						const indexToUpdate = cellsToHide[0].textContent - 1; // Đổi index thành vị trí muốn cập nhật
 
 						// Cập nhật dữ liệu tại vị trí cụ thể
-						if (cellsToHide[0].style.display !== 'none') {
+						if (cellsToHide[0].style.display !== 'none' || userType.split('-')[0] == 'admin') {
+							console.log('1');
 							cellsToHide.forEach(cell => cell.style.display = 'none');
-							//button.innerText = 'Hiện';
+							button.innerText = 'Hiện';
 							data[indexToUpdate].cellShow = false;
 						} else {
 							cellsToHide.forEach(cell => cell.style.display = '');
@@ -1343,7 +1344,7 @@ function addImagesFromStorage() {
             if (doc.exists) {
                 const data = doc.data();
                 tbody.innerHTML = '';
-                let rowIndex = 1; // Bắt đầu với số thứ tự là 1
+                let rowIndex = data.data.length; // Bắt đầu với số thứ tự là 1
                 if (data && Array.isArray(data.data)) {
                     for (let i = data.data.length - 1; i >= 0; i--) {
                         const row = tbody.insertRow();
@@ -1355,10 +1356,22 @@ function addImagesFromStorage() {
                         const thongTinKhachHangCell = row.insertCell();
                         const toggleVisibilityCell = row.insertCell();
                         if (data["data"][i]) {
-                            if (data["data"][i].cellShow == false) {
+                            if (data["data"][i].cellShow == false && userType.split('-')[0] != 'admin') {
                                 row.remove();
                                 continue;
-                            } else {
+                            } else if (data["data"][i].cellShow == false && userType.split('-')[0] == 'admin') {
+								const hideButton = document.createElement('button');
+                                hideButton.className = 'toggle-visibility';
+                                hideButton.onclick = () => toggleRowVisibility(row, hideButton);
+                                toggleVisibilityCell.appendChild(hideButton);
+								hideButton.innerText = 'Hiện';
+                                thuTuCell.style.display = 'none';
+                                thoiGianUploadCell.style.display = 'none';
+                                phanLoaiCell.style.display = 'none';
+                                hinhAnhCell.style.display = 'none';
+                                tenSanPhamCell.style.display = 'none';
+                                thongTinKhachHangCell.style.display = 'none';
+							} else {
                                 thuTuCell.textContent = rowIndex;
                                 thoiGianUploadCell.textContent = data["data"][i].thoiGianUpload;
                                 phanLoaiCell.textContent = data["data"][i].phanLoai;
@@ -1407,7 +1420,7 @@ function addImagesFromStorage() {
                                 tenSanPhamCell.style.display = '';
                                 thongTinKhachHangCell.style.display = '';
                             }
-                            rowIndex++; // Tăng số thứ tự cho hàng tiếp theo
+                            rowIndex--; // Tăng số thứ tự cho hàng tiếp theo
 							thuTuHeader.textContent = "STT (" + tbody.rows.length + ")";
                         } else {
                             thuTuCell.textContent = '';
