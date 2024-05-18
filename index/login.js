@@ -4,9 +4,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	  'admin': {'password': 'admin', 'checkLogin': '1'},
 	  'my': {'password': 'my2804', 'checkLogin': '2'},
 	  'lai': {'password': 'lai2506', 'checkLogin': '3'},
-	  'huyen': {'password': '333', 'checkLogin': '4'},
-	  'ngoc': {'password': '444', 'checkLogin': '5'},
-	  'truc': {'password': '555', 'checkLogin': '6'},
+	  'huyen': {'password': 'huyen2307', 'checkLogin': '4'},
+	  'cam': {'password': 'cam1604', 'checkLogin': '5'},
+	  'duyen': {'password': 'duyen3009', 'checkLogin': '6'},
 	  'khach': {'password': '777', 'checkLogin': '777'}
 	};
 	
