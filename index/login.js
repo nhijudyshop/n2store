@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	  'huyen': {'password': 'huyen2307', 'checkLogin': '4'},
 	  'cam': {'password': 'cam1604', 'checkLogin': '5'},
 	  'duyen': {'password': 'duyen3009', 'checkLogin': '6'},
+      'man': {'password': 'man1505', 'checkLogin': '7'},
 	  'khach': {'password': '777', 'checkLogin': '777'}
 	};
 	
