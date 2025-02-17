@@ -48,6 +48,13 @@
             <option value="TP">TP</option>
             <option value="BM">BM</option>
          </select>
+         <label for="scenario">Trường hợp:</label>
+         <select id="scenario" required>
+            <option value="BOOM">BOOM</option>
+            <option value="Sửa COD">Sửa COD</option>
+            <option value="Thu về">Thu về</option>
+            <option value="Thay đổi thông">Thay đổi thông tin</option>
+         </select>
          <label for="customerInfo">Tên FB + SĐT:</label>
          <input type="text" id="customerInfo" required>
          <label for="totalAmount">Giá tiền:</label>
@@ -70,16 +77,34 @@
          <button type="button" id="loginButton">Đăng nhập</button>
       </div>
    </div>
-   <label for="dateFilter">Lọc Ngày:</label>
-   <select id="dateFilter" size="3">
-      <option value="all">Tất cả</option>
-   </select>
+   <label for="channelFilter">Lọc Kênh:</label>
+    <select id="channelFilter">
+        <option value="all">Tất cả</option>
+        <option value="J&T">J&T</option>
+        <option value="TP">TP</option>
+        <option value="BM">BM</option>
+    </select>
+
+    <label for="scenarioFilter">Lọc Trường hợp:</label>
+    <select id="scenarioFilter">
+        <option value="all">Tất cả</option>
+        <option value="BOOM">BOOM</option>
+        <option value="Sửa COD">Sửa COD</option>
+        <option value="Thu về">Thu về</option>
+        <option value="Thay đổi thông tin">Thay đổi thông tin</option>
+    </select>
+    <label for="startDate">Ngày bắt đầu:</label>
+    <input type="date" id="startDate">
+    
+    <label for="endDate">Ngày kết thúc:</label>
+    <input type="date" id="endDate">
    <div class="ck">
       <table>
          <thead>
             <tr>
-			      <th>STT</th>
+               <th>STT</th>
                <th>Kênh</th>
+               <th>Trường hợp</th>
                <th>Tên FB + SĐT</th>
                <th>Số tiền</th>
                <th>Lý do</th>
@@ -103,6 +128,13 @@
             <option value="TP">TP</option>
             <option value="BM">BM</option>
          </select>
+         <label for="eidtScenario">Trường hợp:</label>
+         <select id="eidtScenario" required>
+            <option value="BOOM">BOOM</option>
+            <option value="Sửa COD">Sửa COD</option>
+            <option value="thuve">Thu về</option>
+            <option value="tdtt">Thay đổi thông tin</option>
+         </select>
          <label for="editInfo">FB+SĐT:</label>
          <input type="text" id="editInfo">
          <label for="editAmount">Số tiền:</label>
@@ -115,11 +147,11 @@
       </div>
    </div>
    <script>
-    function closeModal() {
-        var modal = document.getElementById('editModal');
-        modal.style.display = 'none';
-    }
-	</script>
+      function closeModal() {
+         var modal = document.getElementById('editModal');
+         modal.style.display = 'none';
+      }
+   </script>
    <script src="scriptObfuscator.js"></script>
 </body>
 

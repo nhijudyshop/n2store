@@ -361,7 +361,7 @@ td:nth-child(1) {
 
 th:nth-child(2),
 td:nth-child(2) {
-    width: 35%;
+    width: 29%;
 }
 
 th:nth-child(3),
@@ -386,6 +386,11 @@ td:nth-child(6) {
 
 th:nth-child(7),
 td:nth-child(7) {
+    width: 6%;
+}
+
+th:nth-child(8),
+td:nth-child(8) {
     width: 6%;
 }
 

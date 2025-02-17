@@ -125,6 +125,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
     const deliveryCell = newRow.insertCell(4);
     const customerInfoCell = newRow.insertCell(5);
     const editCell = newRow.insertCell(6);
+    const deleteCell = newRow.insertCell(7);
 
     newRow.style.opacity = '1.0';
 
@@ -144,6 +145,12 @@ moneyTransferForm.addEventListener('submit', function(e) {
     editButton.className = 'edit-button';
     editButton.innerText = 'Sửa';
     editCell.appendChild(editButton);
+
+    // Thêm nút xoá vào ô deleteCell
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'delete-button';
+    deleteButton.innerText = 'Xoá';
+    deleteCell.appendChild(deleteButton);
 
     moneyTransferForm.reset();
     //updateTotalAmount();
@@ -504,6 +511,7 @@ function updateTable() {
                     const deliveryCell = newRow.insertCell(4);
                     const customerInfoCell = newRow.insertCell(5);
                     const editCell = newRow.insertCell(6);
+                    const deleteCell = newRow.insertCell(7);
 
                     dateCell.innerText = formattedTime.replace(/\//g, '-');
                     dateCell.id = data["data"][i].dateCell;
@@ -526,6 +534,11 @@ function updateTable() {
                     editButton.className = 'edit-button';
                     editButton.innerText = 'Sửa';
                     editCell.appendChild(editButton);
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'delete-button';
+                    deleteButton.innerText = 'Xoá';
+                    deleteCell.appendChild(deleteButton);
                 }
 
                 tempDate.sort(function(a, b) {

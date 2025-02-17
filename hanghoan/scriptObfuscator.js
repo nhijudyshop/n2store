@@ -1,7 +1,7 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 function _0x1ab2(_0x36a23b, _0x52223b) {
     const _0x2e058f = _0x2e05();
-    return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
+    return _0x1ab2 = function (_0x1ab212, _0x4110aa) {
         _0x1ab212 = _0x1ab212 - 0x162;
         let _0x120a0e = _0x2e058f[_0x1ab212];
         return _0x120a0e;
@@ -10,13 +10,13 @@ function _0x1ab2(_0x36a23b, _0x52223b) {
 
 function _0x2e05() {
     const _0x5a5dc7 = ['1235460FrnjKH', '22977963vpMYJv', 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM', 'n2shop-69e37-ne0q1', 'G-TEJH3S2T1D', '1345047lnZTNJ', '366711YpKMry', '13142736zaWdgA', '598906493303', '3756921uppNah', '25XRvqCS', 'n2shop-69e37', '14dthlHY', 'n2shop-69e37.firebaseapp.com', '10009662EXBqRi'];
-    _0x2e05 = function() {
+    _0x2e05 = function () {
         return _0x5a5dc7;
     };
     return _0x2e05();
 }
 const _0x3a343d = _0x1ab2;
-(function(_0x46d1e0, _0x1a2442) {
+(function (_0x46d1e0, _0x1a2442) {
     const _0x1acdbc = _0x1ab2,
         _0x2a2d1c = _0x46d1e0();
     while (!![]) {
@@ -45,7 +45,17 @@ const db = firebase.firestore();
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("hanghoan");
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
+
+    updateTable();  // Tải và hiển thị dữ liệu ban đầu
+
+    // Lắng nghe sự kiện thay đổi bộ lọc
+    document.getElementById('channelFilter').addEventListener('change', updateTable);
+    document.getElementById('scenarioFilter').addEventListener('change', updateTable);
+    document.getElementById('startDate').addEventListener('change', updateTable);
+    document.getElementById('endDate').addEventListener('change', updateTable);
+
+
     const form = document.getElementById("return-product");
     const tableBody = document.getElementById("tableBody");
     const toggleFormButton = document.getElementById("toggleFormButton");
@@ -96,18 +106,19 @@ document.addEventListener("DOMContentLoaded", function() {
     var saveButton = document.getElementById('saveButton');
     saveButton.addEventListener('click', saveChanges);
 
-    form.addEventListener("submit", function(event) {
+    form.addEventListener("submit", function (event) {
         event.preventDefault();
-		
-		const firstRow = tableBody.rows[0];
 
-		if (firstRow) {
-			tempSTT = parseInt(firstRow.innerText);
-		} else {
-			console.error("Không tìm thấy hàng đầu tiên trong bảng.");
-		}
+        const firstRow = tableBody.rows[0];
+
+        if (firstRow) {
+            tempSTT = parseInt(firstRow.innerText);
+        } else {
+            console.error("Không tìm thấy hàng đầu tiên trong bảng.");
+        }
 
         const shipValue = form.querySelector("#ship").value;
+        const scenarioValue = form.querySelector('#scenario').value
         const customerInfoValue = form.querySelector("#customerInfo").value;
         const totalAmountValue = form.querySelector("#totalAmount").value;
         const causeValue = form.querySelector("#cause").value;
@@ -119,6 +130,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         var dataToUpload = {
             shipValue: shipValue,
+            scenarioValue: scenarioValue,
             customerInfoValue: customerInfoValue,
             totalAmountValue: totalAmountValue,
             causeValue: causeValue,
@@ -131,23 +143,25 @@ document.addEventListener("DOMContentLoaded", function() {
                 // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                 collectionRef.doc("hanghoan").update({
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
-                }).then(function() {
+                }).then(function () {
                     console.log("Document tải lên thành công");
                     const newRow = tableBody.insertRow(0);
                     const STT = newRow.insertCell(0);
                     const shipCell = newRow.insertCell(1);
-                    const customerInfoCell = newRow.insertCell(2);
-                    const totalAmountCell = newRow.insertCell(3);
-                    const causeCell = newRow.insertCell(4);
-                    const checkboxCell = newRow.insertCell(5);
-                    const getCurrentDateCell = newRow.insertCell(6);
-                    const editCell = newRow.insertCell(7);
-                    const deleteCell = newRow.insertCell(8);
+                    const scenarioCell = newRow.insertCell(2);
+                    const customerInfoCell = newRow.insertCell(3);
+                    const totalAmountCell = newRow.insertCell(4);
+                    const causeCell = newRow.insertCell(5);
+                    const checkboxCell = newRow.insertCell(6);
+                    const getCurrentDateCell = newRow.insertCell(7);
+                    const editCell = newRow.insertCell(8);
+                    const deleteCell = newRow.insertCell(9);
 
                     // Gán giá trị từ biến vào ô trong bảng
                     tempSTT += 1
                     STT.innerText = tempSTT;
                     shipCell.innerText = shipValue;
+                    scenarioCell.innerText = scenarioValue;
                     customerInfoCell.innerText = customerInfoValue;
                     totalAmountCell.innerText = totalAmountValue;
                     causeCell.innerText = causeValue;
@@ -172,7 +186,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     deleteButton.className = 'delete-button';
                     deleteButton.innerText = 'Xoá';
                     deleteCell.appendChild(deleteButton);
-                }).catch(function(error) {
+                }).catch(function (error) {
                     //alert('Lỗi khi tải document lên.');
                     return;
                     console.error("Lỗi khi tải document lên: ", error);
@@ -181,23 +195,25 @@ document.addEventListener("DOMContentLoaded", function() {
                 // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                 collectionRef.doc("hanghoan").set({
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
-                }).then(function() {
+                }).then(function () {
                     console.log("Document tải lên thành công");
                     const newRow = tableBody.insertRow(0);
                     const STT = newRow.insertCell(0);
                     const shipCell = newRow.insertCell(1);
-                    const customerInfoCell = newRow.insertCell(2);
-                    const totalAmountCell = newRow.insertCell(3);
-                    const causeCell = newRow.insertCell(4);
-                    const checkboxCell = newRow.insertCell(5);
-                    const getCurrentDateCell = newRow.insertCell(6);
-                    const editCell = newRow.insertCell(7);
-                    const deleteCell = newRow.insertCell(8);
+                    const scenarioCell = newRow.insertCell(2);
+                    const customerInfoCell = newRow.insertCell(3);
+                    const totalAmountCell = newRow.insertCell(4);
+                    const causeCell = newRow.insertCell(5);
+                    const checkboxCell = newRow.insertCell(6);
+                    const getCurrentDateCell = newRow.insertCell(7);
+                    const editCell = newRow.insertCell(8);
+                    const deleteCell = newRow.insertCell(9);
 
                     // Gán giá trị từ biến vào ô trong bảng
                     tempSTT += 1
                     STT.innerText = tempSTT;
                     shipCell.innerText = shipValue;
+                    scenarioCell.innerText = scenarioValue;
                     customerInfoCell.innerText = customerInfoValue;
                     totalAmountCell.innerText = totalAmountValue;
                     causeCell.innerText = causeValue;
@@ -222,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     deleteButton.className = 'delete-button';
                     deleteButton.innerText = 'Xoá';
                     deleteCell.appendChild(deleteButton);
-                }).catch(function(error) {
+                }).catch(function (error) {
                     //alert('Lỗi khi tải document lên.');
                     return;
                     console.error("Lỗi khi tải document lên: ", error);
@@ -249,13 +265,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function saveChanges() {
         const editDelivery = document.getElementById('editDelivery');
+        const eidtScenario = document.getElementById('eidtScenario');
         const editInfo = document.getElementById('editInfo');
         const editAmount = document.getElementById('editAmount');
         const editNote = document.getElementById('editNote');
         const editDate = document.getElementById('editDate');
 
         const row = editingRow;
-        const rawDate = row.cells[6].innerText;
+        const rawDate = row.cells[7].innerText;
         const tdRow = row.querySelector("td");
 
         collectionRef.doc("hanghoan").get()
@@ -265,10 +282,11 @@ document.addEventListener("DOMContentLoaded", function() {
                     for (let i = 0; i < data["data"].length; i++) {
                         if (tdRow.id == data["data"][i].duyetHoanValue) {
                             data["data"][i].shipValue = editDelivery.value;
+                            data["data"][i].scenarioValue = eidtScenario.value;
                             data["data"][i].customerInfoValue = editInfo.value;
                             data["data"][i].totalAmountValue = editAmount.value;
                             data["data"][i].causeValue = editNote.value;
-                            break; // Kết thúc vòng lặp sau khi xoá
+                            // break; // Kết thúc vòng lặp sau khi xoá
                         }
                     }
 
@@ -282,10 +300,11 @@ document.addEventListener("DOMContentLoaded", function() {
                 console.log("Document tải lên thành công");
 
                 editingRow.cells[1].innerText = editDelivery.value;
-                editingRow.cells[2].innerText = editInfo.value;
-                editingRow.cells[3].innerText = editAmount.value;
+                editingRow.cells[2].innerText = eidtScenario.value;
+                editingRow.cells[3].innerText = editInfo.value;
+                editingRow.cells[4].innerText = editAmount.value;
                 // Thêm các dòng sau để tránh lỗi undefined
-                editingRow.cells[4].innerText = editNote.value;
+                editingRow.cells[5].innerText = editNote.value;
                 editingRow.cells[6].innerText = editDate.value;
             })
             .catch((error) => {
@@ -298,11 +317,11 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Sự kiện khi checkbox thay đổi
-    document.addEventListener("change", function(event) {
+    document.addEventListener("change", function (event) {
         const target = event.target;
         if (target.classList.contains("received-checkbox")) {
             const row = target.closest("tr");
-            const dateCell = row.cells[6];
+            const dateCell = row.cells[7];
 
             if (target.checked) {
                 // Dời dòng xuống cuối cùng của bảng
@@ -323,86 +342,148 @@ document.addEventListener("DOMContentLoaded", function() {
         return `${day}-${month}-${year}`;
     }
 
+
+
+    // Hàm lọc dữ liệu
+    function filterData() {
+        const channelFilter = document.getElementById('channelFilter').value;
+        const scenarioFilter = document.getElementById('scenarioFilter').value;
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+
+        let filteredData = tableData;
+
+        // Lọc theo kênh
+        if (channelFilter !== 'all') {
+            filteredData = filteredData.filter(item => item.channel === channelFilter);
+        }
+
+        // Lọc theo trường hợp
+        if (scenarioFilter !== 'all') {
+            filteredData = filteredData.filter(item => item.scenario === scenarioFilter);
+        }
+
+        // Lọc theo ngày bắt đầu và ngày kết thúc
+        if (startDate) {
+            filteredData = filteredData.filter(item => {
+                const itemDate = new Date(item.date);
+                return itemDate >= new Date(startDate);
+            });
+        }
+
+        if (endDate) {
+            filteredData = filteredData.filter(item => {
+                const itemDate = new Date(item.date);
+                return itemDate <= new Date(endDate);
+            });
+        }
+
+        // Cập nhật bảng sau khi lọc
+        updateTable(filteredData);
+    }
+
+
     function updateTable() {
         var tempDate = [];
         collectionRef.doc("hanghoan").get()
             .then((doc) => {
                 if (doc.exists) {
-                    // Sao chép dữ liệu
                     const data = doc.data(); // Sao chép mảng
-
+    
                     // Sort data based on dateCell before adding rows to table
-                    data["data"].sort(function(a, b) {
+                    data["data"].sort(function (a, b) {
                         var dateDifference = parseInt(a.dateCell) - parseInt(b.dateCell);
-
-                        // If both a and b are muted, place them at the bottom
+    
                         if (a.muted && b.muted) {
-                            return dateDifference; // Preserve date order for muted items
+                            return dateDifference;
                         } else if (a.muted) {
-                            return -1; // Move muted item to the bottom
+                            return -1;
                         } else if (b.muted) {
-                            return 1; // Move muted item to the bottom
+                            return 1;
                         }
-
-                        return dateDifference; // Default behavior for non-muted items
+    
+                        return dateDifference;
                     });
-
+    
+                    // Lấy giá trị bộ lọc từ các dropdown
+                    const channelFilter = document.getElementById('channelFilter').value;
+                    const scenarioFilter = document.getElementById('scenarioFilter').value;
+                    const startDate = document.getElementById('startDate').value;
+                    const endDate = document.getElementById('endDate').value;
+    
                     for (let i = 0; i < data["data"].length; i++) {
-                        // Định dạng ngày tháng năm + giờ phút
-                        var timestamp = parseFloat(data["data"][i].duyetHoanValue); // Chuyển đổi chuỗi thành số nguyên
+                        const row = data["data"][i];
+    
+                        // Chuyển đổi và định dạng ngày tháng
+                        var timestamp = parseFloat(row.duyetHoanValue); // Chuyển đổi chuỗi thành số nguyên
                         var dateCellConvert = new Date(timestamp);
                         var formattedTime = formatDate(dateCellConvert);
-
-                        const dateFilterDropdown = document.getElementById('dateFilter');
-
-                        // folderRef là một tham chiếu tới một thư mục
-                        if (!tempDate.includes(formattedTime.replace(/\//g, '-'))) {
-                            tempDate.push(formattedTime.replace(/\//g, '-'));
+    
+                        // Kiểm tra điều kiện lọc
+                        let showRow = true;
+    
+                        // Lọc theo Kênh
+                        if (channelFilter !== 'all' && row.shipValue !== channelFilter) {
+                            showRow = false;
                         }
-
+    
+                        // Lọc theo Trường hợp
+                        if (scenarioFilter !== 'all' && row.scenarioValue !== scenarioFilter) {
+                            showRow = false;
+                        }
+    
+                        // Lọc theo ngày bắt đầu và ngày kết thúc
+                        if (startDate && new Date(formattedTime) < new Date(startDate)) {
+                            showRow = false;
+                        }
+                        if (endDate && new Date(formattedTime) > new Date(endDate)) {
+                            showRow = false;
+                        }
+    
+                        // Nếu không thỏa mãn điều kiện lọc, bỏ qua dòng này
+                        if (!showRow) continue;
+    
+                        // Thêm dòng mới vào bảng
                         const newRow = tableBody.insertRow(0);
                         const STT = newRow.insertCell(0);
                         const shipValue = newRow.insertCell(1);
-                        const customerInfoValue = newRow.insertCell(2);
-                        const totalAmountValue = newRow.insertCell(3);
-                        const causeValue = newRow.insertCell(4);
-                        const checkboxRow = newRow.insertCell(5);
-                        const getCurrentDate = newRow.insertCell(6);
-                        const editCell = newRow.insertCell(7);
-                        const deleteCell = newRow.insertCell(8);
-
-                        tempSTT += 1
+                        const scenarioValue = newRow.insertCell(2);
+                        const customerInfoValue = newRow.insertCell(3);
+                        const totalAmountValue = newRow.insertCell(4);
+                        const causeValue = newRow.insertCell(5);
+                        const checkboxRow = newRow.insertCell(6);
+                        const getCurrentDate = newRow.insertCell(7);
+                        const editCell = newRow.insertCell(8);
+                        const deleteCell = newRow.insertCell(9);
+    
                         STT.innerText = i + 1;
-                        shipValue.innerText = data["data"][i].shipValue;
-                        customerInfoValue.innerText = data["data"][i].customerInfoValue;
-                        totalAmountValue.innerText = data["data"][i].totalAmountValue;
-                        causeValue.innerText = data["data"][i].causeValue;
+                        shipValue.innerText = row.shipValue;
+                        scenarioValue.innerText = row.scenarioValue;
+                        customerInfoValue.innerText = row.customerInfoValue;
+                        totalAmountValue.innerText = row.totalAmountValue;
+                        causeValue.innerText = row.causeValue;
                         getCurrentDate.innerText = formattedTime.replace(/\//g, '-');
-                        STT.id = data["data"][i].duyetHoanValue;
-
+                        STT.id = row.duyetHoanValue;
+    
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
                         checkbox.style.width = '20px';
                         checkbox.style.height = '20px';
-
-                        checkbox.checked = data["data"][i].muted;
-                        newRow.style.opacity = data["data"][i].muted ? '0.5' : '1.0';
-
+                        checkbox.checked = row.muted;
+                        newRow.style.opacity = row.muted ? '0.5' : '1.0';
                         checkboxRow.appendChild(checkbox);
-
+    
                         const editButton = document.createElement('button');
                         editButton.className = 'edit-button';
                         editButton.innerText = 'Sửa';
                         editCell.appendChild(editButton);
-
+    
                         // Thêm nút xoá vào ô deleteCell
                         const deleteButton = document.createElement('button');
                         deleteButton.className = 'delete-button';
                         deleteButton.innerText = 'Xoá';
                         deleteCell.appendChild(deleteButton);
                     }
-
-                    //updateTotalAmount();
                 }
             })
             .catch((error) => {
@@ -419,12 +500,13 @@ document.addEventListener("DOMContentLoaded", function() {
         return formattedDate;
     }
 
-    tableBody.addEventListener('click', function(e) {
+    tableBody.addEventListener('click', function (e) {
         if (e.target.classList.contains('edit-button') && e.target.parentNode.parentNode.style.opacity === '1') {
             if (userType == "admin-admin" || userType == "lai-lai2506") {
                 document.getElementById('editModal').style.display = 'block';
 
                 const editDelivery = document.getElementById('editDelivery');
+                const eidtScenario = document.getElementById('eidtScenario');
                 const editInfo = document.getElementById('editInfo');
                 const editAmount = document.getElementById('editAmount');
                 const editNote = document.getElementById('editNote');
@@ -433,12 +515,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 const row = e.target.parentNode.parentNode;
 
                 const selectedDelivery = row.cells[1].innerText;
-                const info = row.cells[2].innerText;
-                const amount = row.cells[3].innerText;
-                const note = row.cells[4].innerText;
-                const date = row.cells[6].innerText;
+                const selectScenario = row.cells[2].innerText;
+                const info = row.cells[3].innerText;
+                const amount = row.cells[4].innerText;
+                const note = row.cells[5].innerText;
+                const date = row.cells[7].innerText;
 
                 editDelivery.value = selectedDelivery;
+                eidtScenario.value = selectScenario;
                 editInfo.value = info;
                 editAmount.value = amount;
                 editNote.value = note;
@@ -467,7 +551,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                     for (let i = 0; i < data["data"].length; i++) {
                                         if (tdRow.id === data["data"][i].duyetHoanValue) {
                                             data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
-                                            break; // Kết thúc vòng lặp sau khi xoá
+                                            // break; // Kết thúc vòng lặp sau khi xoá
                                         }
                                     }
 
@@ -477,24 +561,24 @@ document.addEventListener("DOMContentLoaded", function() {
                                             // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                                             collectionRef.doc("hanghoan").update({
                                                 "data": data["data"]
-                                            }).then(function() {
+                                            }).then(function () {
                                                 console.log("Document tải lên thành công");
-                                                location.reload();
-                                            }).catch(function(error) {
+                                                // location.reload();
+                                            }).catch(function (error) {
                                                 console.error("Lỗi khi tải document lên: ", error);
                                             });
                                         } else {
                                             // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                                             collectionRef.doc("hanghoan").set({
                                                 "data": data["data"]
-                                            }).then(function() {
+                                            }).then(function () {
                                                 console.log("Document tải lên thành công");
-                                                location.reload();
-                                            }).catch(function(error) {
+                                                // location.reload();
+                                            }).catch(function (error) {
                                                 console.error("Lỗi khi tải document lên: ", error);
                                             });
                                         }
-                                    }).catch(function(error) {
+                                    }).catch(function (error) {
                                         console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
                                     });
                                 }
@@ -530,19 +614,19 @@ document.addEventListener("DOMContentLoaded", function() {
                                     // Thay đổi trạng thái của dữ liệu (ví dụ: làm mờ)
                                     data["data"][i].muted = !data["data"][i].muted;
                                     row.style.opacity = data["data"][i].muted ? 0.5 : 1.0;
-                                    break;
+                                    // break;
                                 }
                             }
 
                             // Cập nhật dữ liệu Firestore
                             collectionRef.doc("hanghoan").update({
                                 "data": data["data"]
-                            }).then(function() {
+                            }).then(function () {
                                 tableBody.innerText = '';
                                 updateTable();
                                 //updateTotalAmount();
                                 console.log("Document tải lên thành công");
-                            }).catch(function(error) {
+                            }).catch(function (error) {
                                 alert('Lỗi khi tải document lên.');
                                 console.error("Lỗi khi tải document lên: ", error);
                             });
@@ -570,6 +654,11 @@ document.addEventListener("DOMContentLoaded", function() {
         return timestamp.toString();
     }
 
+    // Gọi hàm lấy dữ liệu từ Firestore ngay khi trang tải
+    window.onload = function () {
+        getDataFromFirestore();
+    };
+
     // Đăng xuất
     function handleLogout() {
         // Đặt lại biến kiểm tra đăng nhập
@@ -580,7 +669,7 @@ document.addEventListener("DOMContentLoaded", function() {
         localStorage.removeItem('userType');
 
         // Tải lại trang để áp dụng các thay đổi
-        location.reload();
+        // location.reload();
     }
 
     // Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng
