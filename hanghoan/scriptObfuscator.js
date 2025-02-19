@@ -49,13 +49,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateTable();  // Tải và hiển thị dữ liệu ban đầu
 
-    // Lắng nghe sự kiện thay đổi bộ lọc
-    document.getElementById('channelFilter').addEventListener('change', updateTable);
-    document.getElementById('scenarioFilter').addEventListener('change', updateTable);
-    document.getElementById('startDate').addEventListener('change', updateTable);
-    document.getElementById('endDate').addEventListener('change', updateTable);
-
-
     const form = document.getElementById("return-product");
     const tableBody = document.getElementById("tableBody");
     const toggleFormButton = document.getElementById("toggleFormButton");
@@ -173,6 +166,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     checkbox.type = 'checkbox';
                     checkbox.style.width = '20px';
                     checkbox.style.height = '20px';
+					checkbox.className = 'received-checkbox'
                     checkboxCell.appendChild(checkbox);
 
                     // Thêm nút sửa vào ô editCell
@@ -225,6 +219,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     checkbox.type = 'checkbox';
                     checkbox.style.width = '20px';
                     checkbox.style.height = '20px';
+					checkbox.className = 'received-checkbox'
                     checkboxCell.appendChild(checkbox);
 
                     // Thêm nút sửa vào ô editCell
@@ -305,7 +300,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 editingRow.cells[4].innerText = editAmount.value;
                 // Thêm các dòng sau để tránh lỗi undefined
                 editingRow.cells[5].innerText = editNote.value;
-                editingRow.cells[6].innerText = editDate.value;
+                editingRow.cells[7].innerText = editDate.value;
             })
             .catch((error) => {
                 alert('Lỗi khi tải document lên.');
@@ -315,25 +310,8 @@ document.addEventListener("DOMContentLoaded", function () {
         // Close the modal
         closeModal();
     }
-
-    // Sự kiện khi checkbox thay đổi
-    document.addEventListener("change", function (event) {
-        const target = event.target;
-        if (target.classList.contains("received-checkbox")) {
-            const row = target.closest("tr");
-            const dateCell = row.cells[7];
-
-            if (target.checked) {
-                // Dời dòng xuống cuối cùng của bảng
-                tableBody.appendChild(row);
-            } else {
-                // Đặt dòng lại vị trí gốc (đầu tiên của bảng)
-                tableBody.insertBefore(row, tableBody.firstChild);
-            }
-        }
-    });
-
-    // Hàm lấy ngày hiện tại
+	
+	// Hàm lấy ngày hiện tại
     function getCurrentDate() {
         const currentDate = new Date();
         const day = currentDate.getDate().toString().padStart(2, '0');
@@ -341,47 +319,90 @@ document.addEventListener("DOMContentLoaded", function () {
         const year = currentDate.getFullYear();
         return `${day}-${month}-${year}`;
     }
+	
+//---------------------------------------------------------------------------------------------------------------------
+    // Sự kiện khi checkbox thay đổi
+	document.addEventListener("change", function (event) {
+		const target = event.target;
+		if (target.classList.contains("received-checkbox")) {
+			const tableBody = document.querySelector("tbody");
+			const row = target.closest("tr");
 
+			if (target.checked) {
+				// Dời dòng xuống cuối bảng
+				tableBody.appendChild(row);
+			} else {
+				// Chèn dòng lên đầu nhưng vẫn giữ thứ tự ban đầu của các dòng chưa checked
+				const firstUncheckedRow = [...tableBody.rows].find(r => !r.querySelector(".received-checkbox").checked);
+				if (firstUncheckedRow) {
+					tableBody.insertBefore(row, firstUncheckedRow);
+				} else {
+					tableBody.insertBefore(row, tableBody.firstElementChild);
+				}
+			}
+		}
+	});
 
+   function parseDateText(dateText) {
+		const parts = dateText.split('-'); // Tách theo dấu '-'
+		if (parts.length !== 3) return NaN; // Kiểm tra lỗi định dạng
+		
+		let day = parseInt(parts[0], 10);
+		let month = parseInt(parts[1], 10) - 1; // Tháng trong JS tính từ 0 (0 = Jan, 1 = Feb,...)
+		let year = parseInt(parts[2], 10);
 
-    // Hàm lọc dữ liệu
-    function filterData() {
-        const channelFilter = document.getElementById('channelFilter').value;
-        const scenarioFilter = document.getElementById('scenarioFilter').value;
-        const startDate = document.getElementById('startDate').value;
-        const endDate = document.getElementById('endDate').value;
+		// Xử lý năm nếu chỉ có 2 chữ số (yy → 20yy)
+		year += (year < 100) ? 2000 : 0;
 
-        let filteredData = tableData;
+		return new Date(year, month, day).getTime() / 1000; // Chuyển thành timestamp (giây)
+	}
 
-        // Lọc theo kênh
-        if (channelFilter !== 'all') {
-            filteredData = filteredData.filter(item => item.channel === channelFilter);
-        }
+	function filterData() {
+		const channelFilter = document.getElementById('channelFilter').value.trim().toLowerCase();
+		const scenarioFilter = document.getElementById('scenarioFilter').value.trim().toLowerCase();
+		const startDate = document.getElementById('startDate').value;
+		const endDate = document.getElementById('endDate').value;
 
-        // Lọc theo trường hợp
-        if (scenarioFilter !== 'all') {
-            filteredData = filteredData.filter(item => item.scenario === scenarioFilter);
-        }
+		const timestampstartDate = startDate ? new Date(startDate).getTime() / 1000 : null;
+		const timestampendDate = endDate ? new Date(endDate).getTime() / 1000 : null;
 
-        // Lọc theo ngày bắt đầu và ngày kết thúc
-        if (startDate) {
-            filteredData = filteredData.filter(item => {
-                const itemDate = new Date(item.date);
-                return itemDate >= new Date(startDate);
-            });
-        }
+		const rowsArray = Array.from(document.querySelectorAll('#tableBody tr'));
 
-        if (endDate) {
-            filteredData = filteredData.filter(item => {
-                const itemDate = new Date(item.date);
-                return itemDate <= new Date(endDate);
-            });
-        }
+		rowsArray.forEach(row => {
+			const channelText = row.children[1].textContent.trim().toLowerCase();
+			const scenarioText = row.children[2].textContent.trim().toLowerCase();
+			const dateText = row.children[7].textContent.trim(); // Cột chứa ngày
 
-        // Cập nhật bảng sau khi lọc
-        updateTable(filteredData);
-    }
+			const timestampdateText = parseDateText(dateText); // Chuyển dateText thành timestamp
 
+			// Kiểm tra điều kiện lọc
+			const channelMatch = (channelFilter === "all" || channelText === channelFilter || channelFilter === "");
+			const scenarioMatch = (scenarioFilter === "all" || scenarioText === scenarioFilter || scenarioFilter === "");
+			
+			// Chỉ lọc theo ngày khi cả startDate và endDate được chọn
+			const dateMatch = (!isNaN(timestampdateText) && 
+							   ((timestampstartDate === null && timestampendDate === null) || 
+							   (timestampstartDate !== null && timestampendDate !== null && 
+								timestampdateText >= timestampstartDate && timestampdateText <= timestampendDate)));
+
+			row.style.display = (channelMatch && scenarioMatch && dateMatch) ? '' : 'none';
+		});
+	}
+
+	// Lắng nghe sự kiện thay đổi trên cả 4 bộ lọc
+	document.getElementById('channelFilter').addEventListener('change', filterData);
+	document.getElementById('scenarioFilter').addEventListener('change', filterData);
+	document.getElementById('startDate').addEventListener('change', handleDateChange);
+	document.getElementById('endDate').addEventListener('change', handleDateChange);
+	function handleDateChange() {
+		const startDate = document.getElementById('startDate').value;
+		const endDate = document.getElementById('endDate').value;
+
+		if (startDate && endDate) { // Chỉ gọi filterData() khi cả hai ô có giá trị
+			filterData();
+		}
+	}
+//-------------------------------------------------------------------------------------------------------------------
 
     function updateTable() {
         var tempDate = [];
@@ -469,6 +490,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         checkbox.type = 'checkbox';
                         checkbox.style.width = '20px';
                         checkbox.style.height = '20px';
+						checkbox.className = 'received-checkbox'
                         checkbox.checked = row.muted;
                         newRow.style.opacity = row.muted ? '0.5' : '1.0';
                         checkboxRow.appendChild(checkbox);
@@ -531,7 +553,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 editingRow = row;
             }
         } else if (e.target.classList.contains('delete-button') && e.target.parentNode.parentNode.style.opacity === '1') {
-            if (userType != "admin-admin") {
+            if (userType != "admin-admin" ||  userType != "coi-coi") {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;
@@ -590,7 +612,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         } else if (e.target.type === 'checkbox') {
-            if (userType != "admin-admin") {
+            if (userType != "admin-admin" || userType != "coi-coi") {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;
@@ -655,9 +677,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Gọi hàm lấy dữ liệu từ Firestore ngay khi trang tải
-    window.onload = function () {
-        getDataFromFirestore();
-    };
+    //window.onload = function () {
+    //    getDataFromFirestore();
+    //};
 
     // Đăng xuất
     function handleLogout() {
