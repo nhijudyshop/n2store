@@ -553,7 +553,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 editingRow = row;
             }
         } else if (e.target.classList.contains('delete-button') && e.target.parentNode.parentNode.style.opacity === '1') {
-            if (userType != "admin-admin" ||  userType != "coi-coi") {
+            if (userType != "admin-admin" ||  userType != "coi-coi2806") {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;
@@ -612,7 +612,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         } else if (e.target.type === 'checkbox') {
-            if (userType != "admin-admin" || userType != "coi-coi") {
+            if (userType != "admin-admin" || userType != "coi-coi2806") {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;

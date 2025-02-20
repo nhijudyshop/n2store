@@ -62,6 +62,7 @@ const loginBox = document.querySelector('.login-box');
 const editModal = document.getElementById('editModal');
 let editingRow;
 const userTypeAdmin = 'admin-admin';
+const userTypeCoi = 'coi-coi';
 const userTypeMy = 'my-my2804';
 const userType = localStorage.getItem('userType');
 
@@ -117,7 +118,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
         return;
     }
 
-    const newRow = tableBody.insertRow();
+    const newRow = tableBody.insertRow(0);
     const dateCell = newRow.insertCell(0);
     const noteCell = newRow.insertCell(1);
     const amountCell = newRow.insertCell(2);
@@ -175,6 +176,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
             collectionRef.doc("ck").update({
                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
             }).then(function() {
+				showFloatingAlert("Đã tải dữ liệu lên!");
                 console.log("Document tải lên thành công");
             }).catch(function(error) {
                 alert('Lỗi khi tải document lên.');
@@ -186,6 +188,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
             collectionRef.doc("ck").set({
                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
             }).then(function() {
+				showFloatingAlert("Đã tải dữ liệu lên!");
                 console.log("Document tải lên thành công");
             }).catch(function(error) {
                 alert('Lỗi khi tải document lên.');
@@ -247,9 +250,22 @@ loginButton.addEventListener('click', function() {
             alert('Sai thông tin đăng nhập.');
             return;
         }
+    } else if (inputUsername.value === 'coi' && inputPassword.value != null) {
+        if (inputPassword.value === userTypeCoi.split('-')[1]) {
+            checkLogin = 2;
+            // Luu thong tin dang nhap
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userType', userTypeCoi);
+            location.reload();
+            //alert('Đăng nhập thành công.');
+            //return;
+        } else {
+            alert('Sai thông tin đăng nhập.');
+            return;
+        }
     } else if (inputUsername.value === 'my' && inputPassword.value != null) {
         if (inputPassword.value === userTypeMy.split('-')[1]) {
-            checkLogin = 2;
+            checkLogin = 3;
             // Luu thong tin dang nhap
             localStorage.setItem('isLoggedIn', 'true');
             localStorage.setItem('userType', userTypeMy);
@@ -273,13 +289,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (userType && (userType.includes('admin') && userType != userTypeAdmin)) {
         isLoggedIn = false;
         localStorage.removeItem('isLoggedIn');
+    } else if (userType && (userType.includes('coi') && userType != userTypeCoi)) {
+        isLoggedIn = false;
+        localStorage.removeItem('isLoggedIn');
     } else if (userType && (userType.includes('my') && userType != userTypeMy)) {
         isLoggedIn = false;
         localStorage.removeItem('isLoggedIn');
     }
 
     if (isLoggedIn === 'true') {
-        checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeMy ? 2 : 0;
+        checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeCoi ? 2 : userType === userTypeMy ? 3 : 0;
         loginBox.style.display = 'none';
         document.querySelector('.tieude').innerText += 'Tài khoản ' + userType.split('-')[0];
         // logoutButton.textContent = 'Đăng xuất';
@@ -358,8 +377,72 @@ tableBody.addEventListener('click', function(e) {
 			}
 
 			editingRow = row;
-		} else if (e.target.type === 'checkbox') {
-			if (checkLogin != 1) {
+		} if (e.target.classList.contains('delete-button') && e.target.parentNode.parentNode.style.opacity === '1') {
+            if (checkLogin != 1) {
+                alert('Không đủ quyền thực hiện chức năng này.');
+                e.target.checked = !e.target.checked;
+                return;
+            } else {
+                const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
+                const row = event.target.closest("tr");
+                const tdRow = row.querySelector("td");
+                if (confirmDelete) {
+					showFloatingAlert("Đang xóa dữ liệu!");
+                    if (row) {
+                        // Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
+                        collectionRef.doc("ck").get()
+                            .then((doc) => {
+                                if (doc.exists) {
+                                    // Sao chép dữ liệu
+                                    const data = doc.data(); // Sao chép mảng
+
+                                    for (let i = 0; i < data["data"].length; i++) {
+                                        if (tdRow.id === data["data"][i].dateCell) {
+                                            data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
+                                            // break; // Kết thúc vòng lặp sau khi xoá
+                                        }
+                                    }
+
+                                    // Kiểm tra xem tài liệu đã tồn tại chưa
+                                    collectionRef.doc("ck").get().then(doc => {
+                                        if (doc.exists) {
+                                            // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                            collectionRef.doc("ck").update({
+                                                "data": data["data"]
+                                            }).then(function () {
+                                                console.log("Document tải lên thành công");
+												tableBody.innerText = '';
+												updateTable();
+                                                // location.reload();
+                                            }).catch(function (error) {
+                                                console.error("Lỗi khi tải document lên: ", error);
+                                            });
+                                        } else {
+                                            // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                            collectionRef.doc("ck").set({
+                                                "data": data["data"]
+                                            }).then(function () {
+                                                console.log("Document tải lên thành công");
+												tableBody.innerText = '';
+												updateTable();
+                                                // location.reload();
+                                            }).catch(function (error) {
+                                                console.error("Lỗi khi tải document lên: ", error);
+                                            });
+                                        }
+                                    }).catch(function (error) {
+                                        console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                                    });
+                                }
+                            })
+                            .catch((error) => {
+                                console.error("Lỗi lấy document:", error);
+                            });
+                    }
+                }
+            }
+        } else if (e.target.type === 'checkbox') {
+			if (checkLogin != 1 || checkLogin != 2) {
 				alert('Không đủ quyền thực hiện chức năng này.');
 				e.target.checked = !e.target.checked;
 				return;
@@ -372,6 +455,7 @@ tableBody.addEventListener('click', function(e) {
 			const tdRow = row.querySelector("td");
 
 			if (confirm(confirmationMessage)) {
+				showFloatingAlert("Đang sữa dữ liệu!");
 				// Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
 				collectionRef.doc("ck").get()
 					.then((doc) => {
