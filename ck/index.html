@@ -110,6 +110,39 @@
          <button onclick="saveChanges()">Lưu</button>
       </div>
    </div>
+   
+   <!-- Thêm thông báo cho dễ tương tác -->
+   <div id="floatingAlert">Thông báo hiển thị!</div>
+   <style>
+	  #floatingAlert {
+		position: fixed;
+		top: 20px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.7);
+		color: white;
+		padding: 10px 20px;
+		border-radius: 8px;
+		font-size: 16px;
+		opacity: 0;
+		transition: opacity 0.5s;
+		pointer-events: none; /* Không chặn chuột */
+	  }
+	</style>
+
+	<script>
+	  function showFloatingAlert(message) {
+		const alertBox = document.getElementById('floatingAlert');
+		alertBox.innerText = message;
+		alertBox.style.opacity = '1';
+
+		setTimeout(() => {
+		  alertBox.style.opacity = '0';
+		}, 3000); // Ẩn sau 3 giây
+	  }
+	</script>
+	<!-- Thêm thông báo cho dễ tương tác -->
+
    <script src="scriptObfuscator.js"></script>
 </body>
 
