@@ -386,7 +386,7 @@ td:nth-child(5) {
 th:nth-child(6),
 td:nth-child(6) {
     width: 29%;
-    /* text-align: justify; */
+    text-align: justify;
 }
 
 th:nth-child(7),
@@ -409,8 +409,8 @@ td:nth-child(10) {
     width: 6%;
 }
 
-td:nth-child(4),
-td:nth-child(6) {
+td:nth-child(1),
+td:nth-child(4) {
     text-align: justify;
 }
 
