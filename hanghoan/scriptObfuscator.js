@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         form.reset();
     });
-
+	
     function saveChanges() {
         const editDelivery = document.getElementById('editDelivery');
         const eidtScenario = document.getElementById('eidtScenario');

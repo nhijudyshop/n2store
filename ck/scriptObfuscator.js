@@ -570,117 +570,121 @@ function updateTable() {
             if (doc.exists) {
                 // Sao chép dữ liệu
                 const data = doc.data(); // Sao chép mảng
+				
+				if (!Array.isArray(data["data"])) {
+					console.error("Lỗi: data['data'] không phải là một mảng hoặc chưa được khởi tạo.", data);
+				} else {
+					// Sort data based on dateCell before adding rows to table
+					data["data"].sort(function(a, b) {
+						var dateDifference = parseInt(a.dateCell) - parseInt(b.dateCell);
 
-                // Sort data based on dateCell before adding rows to table
-                data["data"].sort(function(a, b) {
-                    var dateDifference = parseInt(a.dateCell) - parseInt(b.dateCell);
-
-                    // If both a and b are muted, place them at the bottom
-                    if (a.muted && b.muted) {
-                        return dateDifference; // Preserve date order for muted items
-                    } else if (a.muted) {
-                        return 1; // Move muted item to the bottom
-                    } else if (b.muted) {
-                        return -1; // Move muted item to the bottom
-                    }
-
-                    return dateDifference; // Default behavior for non-muted items
-                });
-
-                arrayData = data["data"];
-
-                for (let i = 0; i < data["data"].length; i++) {
-                    // Định dạng ngày tháng năm + giờ phút
-                    var timestamp = parseFloat(data["data"][i].dateCell); // Chuyển đổi chuỗi thành số nguyên
-                    var dateCellConvert = new Date(timestamp);
-                    var formattedTime = formatDate(dateCellConvert);
-
-                    const dateFilterDropdown = document.getElementById('dateFilter');
-
-                    // folderRef là một tham chiếu tới một thư mục
-                    if (!tempDate.includes(formattedTime.replace(/\//g, '-'))) {
-                        tempDate.push(formattedTime.replace(/\//g, '-'));
-                    }
-
-                    const newRow = tableBody.insertRow();
-                    const dateCell = newRow.insertCell(0);
-                    const noteCell = newRow.insertCell(1);
-                    const amountCell = newRow.insertCell(2);
-                    const bankCell = newRow.insertCell(3);
-                    const deliveryCell = newRow.insertCell(4);
-                    const customerInfoCell = newRow.insertCell(5);
-                    const editCell = newRow.insertCell(6);
-                    const deleteCell = newRow.insertCell(7);
-
-                    dateCell.innerText = formattedTime.replace(/\//g, '-');
-                    dateCell.id = data["data"][i].dateCell;
-                    noteCell.innerText = data["data"][i].noteCell;
-                    amountCell.innerText = numberWithCommas(data["data"][i].amountCell.replace(/[,\.]/g, ''));
-                    bankCell.innerText = data["data"][i].bankCell;
-                    customerInfoCell.innerText = data["data"][i].customerInfoCell;
-
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.style.width = '20px';
-                    checkbox.style.height = '20px';
-
-                    checkbox.checked = data["data"][i].muted;
-					
-					if (checkLogin != 1) {
-						newRow.style.opacity = data["data"][i].muted ? '0.5' : '1.0';
-						deleteCell.style.visibility  = 'hidden';
-						if (checkLogin == 2) {
-							deliveryCell.style.visibility  = 'visible';	
-						} else {
-							editCell.style.visibility  = 'hidden';
-							deliveryCell.style.visibility  = 'hidden';
+						// If both a and b are muted, place them at the bottom
+						if (a.muted && b.muted) {
+							return dateDifference; // Preserve date order for muted items
+						} else if (a.muted) {
+							return 1; // Move muted item to the bottom
+						} else if (b.muted) {
+							return -1; // Move muted item to the bottom
 						}
-					} else {
-						const elements = [
-						  dateCell, noteCell, amountCell, 
-						  bankCell, deliveryCell, customerInfoCell, 
-						  editCell
-						];
 
-						const isMuted = data["data"][i].muted;
-						const opacityValue = isMuted ? '0.5' : '1.0';
+						return dateDifference; // Default behavior for non-muted items
+					});
 
-						elements.forEach(element => {
-						  element.style.opacity = opacityValue;
-						});
+					arrayData = data["data"];
 
-						deleteCell.style.pointerEvents = "auto"; // Đảm bảo có thể click
+					for (let i = 0; i < data["data"].length; i++) {
+						// Định dạng ngày tháng năm + giờ phút
+						var timestamp = parseFloat(data["data"][i].dateCell); // Chuyển đổi chuỗi thành số nguyên
+						var dateCellConvert = new Date(timestamp);
+						var formattedTime = formatDate(dateCellConvert);
+
+						const dateFilterDropdown = document.getElementById('dateFilter');
+
+						// folderRef là một tham chiếu tới một thư mục
+						if (!tempDate.includes(formattedTime.replace(/\//g, '-'))) {
+							tempDate.push(formattedTime.replace(/\//g, '-'));
+						}
+
+						const newRow = tableBody.insertRow();
+						const dateCell = newRow.insertCell(0);
+						const noteCell = newRow.insertCell(1);
+						const amountCell = newRow.insertCell(2);
+						const bankCell = newRow.insertCell(3);
+						const deliveryCell = newRow.insertCell(4);
+						const customerInfoCell = newRow.insertCell(5);
+						const editCell = newRow.insertCell(6);
+						const deleteCell = newRow.insertCell(7);
+
+						dateCell.innerText = formattedTime.replace(/\//g, '-');
+						dateCell.id = data["data"][i].dateCell;
+						noteCell.innerText = data["data"][i].noteCell;
+						amountCell.innerText = numberWithCommas(data["data"][i].amountCell.replace(/[,\.]/g, ''));
+						bankCell.innerText = data["data"][i].bankCell;
+						customerInfoCell.innerText = data["data"][i].customerInfoCell;
+
+						const checkbox = document.createElement('input');
+						checkbox.type = 'checkbox';
+						checkbox.style.width = '20px';
+						checkbox.style.height = '20px';
+
+						checkbox.checked = data["data"][i].muted;
+						
+						if (checkLogin != 1) {
+							newRow.style.opacity = data["data"][i].muted ? '0.5' : '1.0';
+							deleteCell.style.visibility  = 'hidden';
+							if (checkLogin == 2) {
+								deliveryCell.style.visibility  = 'visible';	
+							} else {
+								editCell.style.visibility  = 'hidden';
+								deliveryCell.style.visibility  = 'hidden';
+							}
+						} else {
+							const elements = [
+							  dateCell, noteCell, amountCell, 
+							  bankCell, deliveryCell, customerInfoCell, 
+							  editCell
+							];
+
+							const isMuted = data["data"][i].muted;
+							const opacityValue = isMuted ? '0.5' : '1.0';
+
+							elements.forEach(element => {
+							  element.style.opacity = opacityValue;
+							});
+
+							deleteCell.style.pointerEvents = "auto"; // Đảm bảo có thể click
+						}
+
+						deliveryCell.appendChild(checkbox);
+
+						const editButton = document.createElement('button');
+						editButton.className = 'edit-button';
+						editButton.innerText = 'Sửa';
+						editCell.appendChild(editButton);
+						
+						const deleteButton = document.createElement('button');
+						deleteButton.className = 'delete-button';
+						deleteButton.innerText = 'Xoá';
+						deleteCell.appendChild(deleteButton);
 					}
 
-                    deliveryCell.appendChild(checkbox);
+					tempDate.sort(function(a, b) {
+						var dateA = parseDate(a);
+						var dateB = parseDate(b);
+						return dateA - dateB;
+					});
 
-                    const editButton = document.createElement('button');
-                    editButton.className = 'edit-button';
-                    editButton.innerText = 'Sửa';
-                    editCell.appendChild(editButton);
-                    
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-button';
-                    deleteButton.innerText = 'Xoá';
-                    deleteCell.appendChild(deleteButton);
-                }
+					arrayDate = tempDate;
 
-                tempDate.sort(function(a, b) {
-                    var dateA = parseDate(a);
-                    var dateB = parseDate(b);
-                    return dateA - dateB;
-                });
+					for (let i = 0; i < tempDate.length; i++) {
+						const option = document.createElement('option');
+						option.value = tempDate[i];
+						option.textContent = tempDate[i];
+						dateFilterDropdown.appendChild(option);
+					}
 
-                arrayDate = tempDate;
-
-                for (let i = 0; i < tempDate.length; i++) {
-                    const option = document.createElement('option');
-                    option.value = tempDate[i];
-                    option.textContent = tempDate[i];
-                    dateFilterDropdown.appendChild(option);
-                }
-
-                //updateTotalAmount();
+					//updateTotalAmount();
+				}
             }
         })
         .catch((error) => {
