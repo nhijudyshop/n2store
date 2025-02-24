@@ -62,7 +62,7 @@ const loginBox = document.querySelector('.login-box');
 const editModal = document.getElementById('editModal');
 let editingRow;
 const userTypeAdmin = 'admin-admin';
-const userTypeCoi = 'coi-coi';
+const userTypeCoi = 'coi-coi2806';
 const userTypeMy = 'my-my2804';
 const userType = localStorage.getItem('userType');
 
@@ -455,7 +455,7 @@ tableBody.addEventListener('click', function(e) {
 			const tdRow = row.querySelector("td");
 
 			if (confirm(confirmationMessage)) {
-				showFloatingAlert("Đang sữa dữ liệu!");
+				showFloatingAlert("Đang sửa dữ liệu!");
 				// Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
 				collectionRef.doc("ck").get()
 					.then((doc) => {
