@@ -56,11 +56,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Đặt giá trị max cho trường input ngày là ngày hôm nay
     const dotLiveInput = document.getElementById('dotLive');
-    const liveDate = document.getElementById('liveDate');
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
 
     const userTypes = {};
 
@@ -81,15 +76,6 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         window.location.href = '../index.html';
     }
-
-    dotLiveInput.value = `${yyyy}-${mm}-${dd}`; // Đặt giá trị mặc định là ngày hôm nay
-    dotLiveInput.addEventListener('input', function () {
-        // Kiểm tra nếu người dùng nhập ngày trong tương lai, thì đặt giá trị về ngày hôm nay
-        const enteredDate = new Date(dotLiveInput.value);
-        if (enteredDate > today) {
-            dotLiveInput.value = `${yyyy}-${mm}-${dd}`;
-        }
-    });
 
     toggleFormButton.addEventListener('click', function () {
         if (userType != "khach-777") {
@@ -115,23 +101,19 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const dotLiveDate = new Date(dotLiveValue);
-        const dd = String(dotLiveDate.getDate()).padStart(2, '0');
-        const mm = String(dotLiveDate.getMonth() + 1).padStart(2, '0');
-        const yy = String(dotLiveDate.getFullYear()).slice(-2);
-        const formattedDotLive = yy + '-' + mm + '-' + dd;
+        const dotLiveDate = dotLiveValue;
 
         if (phanLoai == "Áo") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/ao/";
+            uploadPhanLoai = "live/" + dotLiveDate + "/ao/";
         } else if (phanLoai == "Quần") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/quan/";
+            uploadPhanLoai = "live/" + dotLiveDate + "/quan/";
         } else if (phanLoai == "Set và Đầm") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/setvadam/";
+            uploadPhanLoai = "live/" + dotLiveDate + "/setvadam/";
         } else if (phanLoai == "PKGD") {
-            uploadPhanLoai = "live/" + formattedDotLive + "/pkgd/";
+            uploadPhanLoai = "live/" + dotLiveDate + "/pkgd/";
         }
 
-        createPopup('Đang tải ảnh lên...', 10000);
+        showFloatingAlert("Loading...");
 
         const hinhAnhInput = document.getElementById('hinhAnhInput');
         const hinhAnhFiles = hinhAnhInput.files;
@@ -193,19 +175,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Cập nhật tiến trình tải lên nếu cần
                 }, function (error) {
                     // Xử lý lỗi tải lên (nếu có)
-                    createPopup('Lỗi tải ảnh lên!', 30000);
+                    showFloatingAlert("Lỗi khi tải ảnh lên...");
                 }, function () {
                     uploadedCount++;
                     if (uploadedCount === hinhAnhFiles.length) {
                         // Nếu đã tải lên tất cả các tệp, hãy reload trang
-                        popup.classList.remove('popup-show');
+                        showFloatingAlert("Done!");
                         document.getElementById("addButton").disabled = false;
                         location.reload();
                     }
                 });
             } catch (error) {
                 // Handle errors during compression or upload
-                createPopup('Lỗi tải ảnh lên!', 30000);
+                showFloatingAlert("Lỗi khi tải ảnh lên...");
                 console.error(error);
             }
         }
@@ -329,18 +311,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function createPopup(message, time = 1500) { // ------------------Code mới---------------------- //
-        var popup = document.getElementById('popup');
-        var popupMessage = document.getElementById('popup-message');
-        popup.classList.remove('popup-show');
-        popupMessage.textContent = message;
-        popup.classList.add('popup-show');
-
-        setTimeout(function () {
-            popup.classList.remove('popup-show');
-        }, time); // Tắt thông báo sau 1.5 giây
-    }
-
     function copyToClipboard(text) { // ------------------Code mới---------------------- //
         // Tạo một phần tử textarea ẩn
         var textArea = document.createElement('textarea');
@@ -356,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Loại bỏ textarea
         document.body.removeChild(textArea);
 
-        createPopup('Đã sao chép');
+        showFloatingAlert('Đã sao chép...');
     }
 
     // Hàm để xác định chỉ số của ô trong hàng dựa trên phân loại sản phẩm
@@ -391,6 +361,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 option.value = folderRef.name;
                 option.textContent = folderRef.name;
                 dateFilterDropdown.appendChild(option);
+				if (dateFilterDropdown.length > 0) {
+					const columnCount = dateFilterDropdown.options.length;
+					dotLiveInput.value = columnCount - 1;
+				} else {
+					dotLiveInput.value = 1;
+				}
             });
         }).catch(function (error) {
             console.error("Lỗi khi lấy danh sách thư mục: " + error);
@@ -408,14 +384,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Đặt lại giá trị của tất cả các trường trong biểu mẫu về giá trị mặc định hoặc rỗng
         productForm.reset();
-
-        // Đặt lại giá trị của trường ngày là ngày hôm nay
-        const dotLiveInput = document.getElementById('dotLive');
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        dotLiveInput.value = `${yyyy}-${mm}-${dd}`;
     });
 
     // Đăng xuất

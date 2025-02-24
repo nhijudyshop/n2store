@@ -114,20 +114,23 @@
    <!-- Thêm thông báo cho dễ tương tác -->
    <div id="floatingAlert">Thông báo hiển thị!</div>
    <style>
-	  #floatingAlert {
-		position: fixed;
-		top: 20px;
-		left: 50%;
-		transform: translateX(-50%);
-		background: rgba(0, 0, 0, 0.7);
-		color: white;
-		padding: 10px 20px;
-		border-radius: 8px;
-		font-size: 16px;
-		opacity: 0;
-		transition: opacity 0.5s;
-		pointer-events: none; /* Không chặn chuột */
-	  }
+	#floatingAlert {
+	  position: fixed;
+	  top: 50%;
+	  left: 50%;
+	  transform: translate(-50%, -50%);
+	  background: rgba(0, 0, 0, 0.8);
+	  color: white;
+	  padding: 30px 50px; /* Tăng padding để alert lớn hơn */
+	  border-radius: 12px;
+	  font-size: 20px; /* Tăng kích thước chữ */
+	  width: 50%; /* Tăng độ rộng của alert */
+	  max-width: 500px; /* Giới hạn tối đa */
+	  text-align: center;
+	  opacity: 0;
+	  transition: opacity 0.5s;
+	  pointer-events: none;
+	}
 	</style>
 
 	<script>

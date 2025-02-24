@@ -53,6 +53,7 @@
             <option value="BOOM">BOOM</option>
             <option value="Sửa COD">Sửa COD</option>
             <option value="Thu về">Thu về</option>
+            <option value="Khách gửi">Khách gửi</option>
             <option value="Thay đổi thông">Thay đổi thông tin</option>
          </select>
          <label for="customerInfo">Tên FB + SĐT:</label>
@@ -91,8 +92,8 @@
         <option value="BOOM">BOOM</option>
         <option value="Sửa COD">Sửa COD</option>
         <option value="Thu về">Thu về</option>
+        <option value="Khách gửi">Khách gửi</option>
         <option value="Thay đổi thông tin">Thay đổi thông tin</option>
-        <option value="Hàng khách gửi lên">Hàng khách gửi lên</option>
     </select>
     <label for="startDate">Ngày bắt đầu:</label>
     <input type="date" id="startDate">
@@ -134,8 +135,8 @@
             <option value="BOOM">BOOM</option>
             <option value="Sửa COD">Sửa COD</option>
             <option value="thuve">Thu về</option>
+            <option value="khachgui">Khách gửi</option>
             <option value="tdtt">Thay đổi thông tin</option>
-            <option value="hkgl">Hàng khách gửi lên</option>
          </select>
          <label for="editInfo">FB+SĐT:</label>
          <input type="text" id="editInfo">
@@ -148,6 +149,42 @@
          <button id="saveButton">Lưu</button>
       </div>
    </div>
+   
+   <!-- Thêm thông báo cho dễ tương tác -->
+   <div id="floatingAlert">Thông báo hiển thị!</div>
+   <style>
+	#floatingAlert {
+	  position: fixed;
+	  top: 50%;
+	  left: 50%;
+	  transform: translate(-50%, -50%);
+	  background: rgba(0, 0, 0, 0.8);
+	  color: white;
+	  padding: 30px 50px; /* Tăng padding để alert lớn hơn */
+	  border-radius: 12px;
+	  font-size: 20px; /* Tăng kích thước chữ */
+	  width: 50%; /* Tăng độ rộng của alert */
+	  max-width: 500px; /* Giới hạn tối đa */
+	  text-align: center;
+	  opacity: 0;
+	  transition: opacity 0.5s;
+	  pointer-events: none;
+	}
+	</style>
+
+	<script>
+	  function showFloatingAlert(message) {
+		const alertBox = document.getElementById('floatingAlert');
+		alertBox.innerText = message;
+		alertBox.style.opacity = '1';
+
+		setTimeout(() => {
+		  alertBox.style.opacity = '0';
+		}, 3000); // Ẩn sau 3 giây
+	  }
+	</script>
+	<!-- Thêm thông báo cho dễ tương tác -->
+   
    <script>
       function closeModal() {
          var modal = document.getElementById('editModal');

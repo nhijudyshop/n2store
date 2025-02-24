@@ -130,6 +130,8 @@
 	            name: tenNV,
 	            timestamp: timestamp.toString()
 	        };
+			
+			showFloatingAlert("Loading...");
 
 	        // Kiểm tra xem tài liệu đã tồn tại chưa
 	        collectionRef.doc("suacod").get().then(doc => {
@@ -138,6 +140,7 @@
 	                collectionRef.doc("suacod").update({
 	                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
 	                }).then(function() {
+						showFloatingAlert("Done!");
 	                    console.log("Document tải lên thành công");
 	                    const newRow = tableBody.insertRow(0);
 	                    const STT = newRow.insertCell(0);
@@ -178,6 +181,16 @@
 	                    deleteButton.className = 'delete-button';
 	                    deleteButton.innerText = 'Xoá';
 	                    deleteCell.appendChild(deleteButton);
+						
+						if (userType != "admin-admin") {
+							deleteCell.style.visibility = 'hidden';
+							/*if (userType == "coi-coi2806") {
+								deliveryCell.style.visibility = 'visible';
+							} else {
+								editCell.style.visibility = 'hidden';
+								deliveryCell.style.visibility = 'hidden';
+							}*/
+						}
 	                }).catch(function(error) {
 	                    //alert('Lỗi khi tải document lên.');
 	                    return;
@@ -188,6 +201,7 @@
 	                collectionRef.doc("suacod").set({
 	                    ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
 	                }).then(function() {
+						showFloatingAlert("Done!");
 	                    console.log("Document tải lên thành công");
 	                    const newRow = tableBody.insertRow(0);
 	                    const STT = newRow.insertCell(0);
@@ -228,6 +242,16 @@
 	                    deleteButton.className = 'delete-button';
 	                    deleteButton.innerText = 'Xoá';
 	                    deleteCell.appendChild(deleteButton);
+						
+						if (userType != "admin-admin") {
+							deleteCell.style.visibility = 'hidden';
+							/*if (userType == "coi-coi2806") {
+								deliveryCell.style.visibility = 'visible';
+							} else {
+								editCell.style.visibility = 'hidden';
+								deliveryCell.style.visibility = 'hidden';
+							}*/
+						}
 	                }).catch(function(error) {
 	                    //alert('Lỗi khi tải document lên.');
 	                    return;
@@ -262,7 +286,7 @@
 
 	        const row = editingRow;
 	        const tdRow = row.querySelector("td");
-
+			
 	        collectionRef.doc("suacod").get()
 	            .then((doc) => {
 	                if (doc.exists) {
@@ -284,6 +308,7 @@
 	                }
 	            })
 	            .then(() => {
+					showFloatingAlert("Done!");
 	                console.log("Document tải lên thành công");
 
 	                editingRow.cells[1].innerText = editDelivery.value;
@@ -402,6 +427,16 @@
 	                        deleteButton.className = 'delete-button';
 	                        deleteButton.innerText = 'Xoá';
 	                        deleteCell.appendChild(deleteButton);
+							
+							if (userType != "admin-admin") {
+								deleteCell.style.visibility = 'hidden';
+								/*if (userType == "coi-coi2806") {
+									deliveryCell.style.visibility = 'visible';
+								} else {
+									editCell.style.visibility = 'hidden';
+									deliveryCell.style.visibility = 'hidden';
+								}*/
+							}
 	                    }
 
 	                    //updateTotalAmount();
@@ -422,7 +457,7 @@
 	    }
 
 	    tableBody.addEventListener('click', function(e) {
-	        if (e.target.classList.contains('edit-button') && e.target.parentNode.parentNode.style.opacity === '1') {
+	        if (e.target.classList.contains('edit-button')) {
 	            if (userType == "admin-admin" || userType == "lai-lai2506" || userType == "my-my2804") {
 	                document.getElementById('editModal').style.display = 'block';
 
@@ -444,10 +479,12 @@
 	                editNote.value = note;
 
 	                editingRow = row;
-	            }
-	        } else if (e.target.classList.contains('delete-button') && e.target.parentNode.parentNode.style.opacity === '1') {
+	            } else {
+					showFloatingAlert("Không đủ quyền!");	
+				}
+	        } else if (e.target.classList.contains('delete-button')) {
 	            if (userType != "admin-admin") {
-	                alert('Không đủ quyền thực hiện chức năng này.');
+	                showFloatingAlert('Không đủ quyền!');
 	                e.target.checked = !e.target.checked;
 	                return;
 	            } else {
@@ -456,6 +493,7 @@
 	                const tdRow = row.querySelector("td");
 	                if (confirmDelete) {
 	                    if (row) {
+							showFloatingAlert("Loading...");
 	                        // Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
 	                        collectionRef.doc("suacod").get()
 	                            .then((doc) => {
@@ -477,6 +515,7 @@
 	                                            collectionRef.doc("suacod").update({
 	                                                "data": data["data"]
 	                                            }).then(function() {
+													showFloatingAlert("Done!");
 	                                                console.log("Document tải lên thành công");
 	                                                location.reload();
 	                                            }).catch(function(error) {
@@ -487,6 +526,7 @@
 	                                            collectionRef.doc("suacod").set({
 	                                                "data": data["data"]
 	                                            }).then(function() {
+													showFloatingAlert("Done!");
 	                                                console.log("Document tải lên thành công");
 	                                                location.reload();
 	                                            }).catch(function(error) {
@@ -506,7 +546,7 @@
 	            }
 	        } else if (e.target.type === 'checkbox') {
 	            if (userType != "admin-admin") {
-	                alert('Không đủ quyền thực hiện chức năng này.');
+	                showFloatingAlert('Không đủ quyền!');
 	                e.target.checked = !e.target.checked;
 	                return;
 	            }

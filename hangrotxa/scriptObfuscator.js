@@ -531,7 +531,7 @@ function addProduct(event) {
     const soLuong = parseInt(document.getElementById('soLuong').value);
 
     if (soLuong < 1) {
-        alert('Số lượng phải lớn hơn hoặc bằng 1');
+        showFloatingAlert('Số lượng phải lớn hơn hoặc bằng 1');
         return;
     }
 
@@ -561,11 +561,11 @@ function addProduct(event) {
 
     if (inputLinkRadio.checked) {
         if (!hinhAnhInput.value.startsWith("https://")) {
-            alert('Sai định dạng link');
+            showFloatingAlert('Sai định dạng link!');
             return;
         }
 
-        createPopup('Đang tải ảnh lên', 5000);
+        showFloatingAlert("Loading...");
 
         const imageUrl = hinhAnhInput.value; // Đặt URL của hình ảnh tải lên
 
@@ -586,12 +586,12 @@ function addProduct(event) {
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                 }).then(function() {
                     console.log("Document tải lên thành công");
-                    popup.classList.remove('popup-show');
+                    showFloatingAlert("Loading...");
                     addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                     document.getElementById("addButton").disabled = false;
                     clearData();
                 }).catch(function(error) {
-                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                    showFloatingAlert("Lỗi khi tải ảnh lên...");
                     console.error("Lỗi khi tải document lên: ", error);
                 });
             } else {
@@ -600,19 +600,19 @@ function addProduct(event) {
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                 }).then(function() {
                     console.log("Document tải lên thành công");
-                    popup.classList.remove('popup-show');
+                    showFloatingAlert("Loading...");
                     addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                     document.getElementById("addButton").disabled = false;
                     clearData();
                 }).catch(function(error) {
-                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                    showFloatingAlert("Lỗi khi tải ảnh lên...");
                     console.error("Lỗi khi tải document lên: ", error);
                 });
             }
         })
 
     } else if (inputFileRadio.checked) {
-        createPopup('Đang tải ảnh lên', 5000);
+        showFloatingAlert("Loading...");
 
         const hinhAnhFiles = hinhAnhInputFile.files;
 
@@ -692,7 +692,7 @@ function addProduct(event) {
                     );
                 } catch (error) {
                     // Handle errors during compression or upload
-                    createPopup('Lỗi tải ảnh lên!', 30000);
+                    showFloatingAlert("Lỗi khi tải ảnh lên...");
                     console.error(error);
                     reject(error);
                 }
@@ -726,12 +726,12 @@ function addProduct(event) {
                             ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                         }).then(function() {
                             console.log("Document tải lên thành công");
-                            popup.classList.remove('popup-show');
+                            showFloatingAlert("Loading...");
                             addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                             document.getElementById("addButton").disabled = false;
                             clearData();
                         }).catch(function(error) {
-                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                            showFloatingAlert("Lỗi khi tải ảnh lên...");
                             console.error("Lỗi khi tải document lên: ", error);
                         });
                     } else {
@@ -740,12 +740,12 @@ function addProduct(event) {
                             ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                         }).then(function() {
                             console.log("Document tải lên thành công");
-                            popup.classList.remove('popup-show');
+                            showFloatingAlert("Loading...");
                             addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                             document.getElementById("addButton").disabled = false;
                             clearData();
                         }).catch(function(error) {
-                            createPopup('Lỗi khi tải ảnh lên...', 2000);
+                            showFloatingAlert("Lỗi khi tải ảnh lên...");
                             console.error("Lỗi khi tải document lên: ", error);
                         });
                     }
@@ -756,7 +756,7 @@ function addProduct(event) {
                 console.error("Lỗi trong quá trình tải lên ảnh:", error);
             });
     } else if (inputClipboardRadio.checked) {
-        createPopup('Đang tải ảnh lên', 10000);
+        showFloatingAlert("Loading...");
 
         var imageName = generateUniqueFileName(); // Đặt tên cho tệp tin trên Firebase Storage
 
@@ -795,12 +795,12 @@ function addProduct(event) {
                                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                             }).then(function() {
                                 console.log("Document tải lên thành công");
-                                popup.classList.remove('popup-show');
+                                showFloatingAlert("Loading...");
                                 addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                                 document.getElementById("addButton").disabled = false;
                                 clearData();
                             }).catch(function(error) {
-                                createPopup('Lỗi khi tải ảnh lên...', 30000);
+                                showFloatingAlert("Lỗi khi tải ảnh lên...");
                                 console.error("Lỗi khi tải document lên: ", error);
                             });
                         } else {
@@ -809,12 +809,12 @@ function addProduct(event) {
                                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                             }).then(function() {
                                 console.log("Document tải lên thành công");
-                                popup.classList.remove('popup-show');
+                                showFloatingAlert("Loading...");
                                 addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                                 document.getElementById("addButton").disabled = false;
                                 clearData();
                             }).catch(function(error) {
-                                createPopup('Lỗi khi tải ảnh lên...', 30000);
+                                showFloatingAlert("Lỗi khi tải ảnh lên...");
                                 console.error("Lỗi khi tải document lên: ", error);
                             });
                         }
@@ -872,18 +872,6 @@ function clearData() {
         inputClipboardContainer.appendChild(paragraph);
     }
 
-}
-
-function createPopup(message, time = 1500) {
-    var popup = document.getElementById('popup');
-    var popupMessage = document.getElementById('popup-message');
-    popup.classList.remove('popup-show');
-    popupMessage.textContent = message;
-    popup.classList.add('popup-show');
-
-    setTimeout(function() {
-        popup.classList.remove('popup-show');
-    }, time); // Tắt thông báo sau 1.5 giây
 }
 
 function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo, soLuong) {

@@ -435,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (inputFileRadio.checked) {
 
-                createPopup('Đang tải ảnh lên', 10000);
+                showFloatingAlert("Loading...");
 
                 const hinhAnhFiles = hinhAnhInputFile.files;
 
@@ -513,7 +513,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             );
                         } catch (error) {
                             // Handle errors during compression or upload
-                            //createPopup('Lỗi tải ảnh lên!', 30000);
+                            //showFloatingAlert("Lỗi khi tải ảnh lên...");
                             console.error(error);
                             reject(error);
                         }
@@ -551,9 +551,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                     imageUrlFile = [];
                                     inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
                                     hinhAnhInputFile.value = '';
-                                    popup.classList.remove('popup-show');
+                                    showFloatingAlert("Done!");
                                 }).catch(function (error) {
-                                    //createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    //showFloatingAlert("Lỗi khi tải ảnh lên...");
                                     console.error("Lỗi khi tải document lên: ", error);
                                 });
                             } else {
@@ -565,9 +565,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                     imageUrlFile = [];
                                     inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
                                     hinhAnhInputFile.value = '';
-                                    popup.classList.remove('popup-show');
+                                    showFloatingAlert("Done!");
                                 }).catch(function (error) {
-                                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    showFloatingAlert("Lỗi khi tải ảnh lên...");
                                     console.error("Lỗi khi tải document lên: ", error);
                                 });
                             }
@@ -578,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         console.error("Lỗi trong quá trình tải lên ảnh:", error);
                     });
             } else if (inputClipboardRadio.checked) {
-                createPopup('Đang tải ảnh lên', 10000);
+                showFloatingAlert("Loading...");
 
                 const hinhAnhFiles = imgArray;
 
@@ -620,7 +620,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             );
                         } catch (error) {
                             // Handle errors during compression or upload
-                            createPopup('Lỗi tải ảnh lên!', 30000);
+                            showFloatingAlert("Lỗi khi tải ảnh lên...");
                             console.error(error);
                             reject(error);
                         }
@@ -658,9 +658,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                     imageUrlFile = [];
                                     inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
                                     hinhAnhInputFile.value = '';
-                                    popup.classList.remove('popup-show');
+                                    showFloatingAlert("Done!");
                                 }).catch(function (error) {
-                                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    showFloatingAlert("Lỗi khi tải ảnh lên...");
                                     console.error("Lỗi khi tải document lên: ", error);
                                 });
                             } else {
@@ -672,9 +672,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                     imageUrlFile = [];
                                     inputClipboardContainer.innerText = 'Dán ảnh ở đây…';
                                     hinhAnhInputFile.value = '';
-                                    popup.classList.remove('popup-show');
+                                    showFloatingAlert("Done!");
                                 }).catch(function (error) {
-                                    createPopup('Lỗi khi tải ảnh lên...', 2000);
+                                    showFloatingAlert("Lỗi khi tải ảnh lên...");
                                     console.error("Lỗi khi tải document lên: ", error);
                                 });
                             }
@@ -726,11 +726,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                 "data": updatedData
                             }).then(function () {
                                 editModal.style.display = 'none';
-                                popup.classList.remove('popup-show');
+                                showFloatingAlert("Done!");
                                 editingRow.querySelectorAll("td")[2].innerText = editModalInfomation.value;
                                 console.log("Document tải lên thành công");
                             }).catch(function (error) {
-                                popup.classList.remove('popup-show');
+                                showFloatingAlert("Done!");
                                 alert('Lỗi khi tải document lên.');
                                 editModal.style.display = 'none';
                                 return;
@@ -770,7 +770,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function addArgumentSubmitForm(ttkh, imageUrl, thoiGian, timestamp, user) {
         console.log("Document tải lên thành công");
-        //popup.classList.remove('popup-show');
+        //showFloatingAlert("Done!");
         document.getElementById("addButton").disabled = false;
         clearDataButton.click();
 
@@ -1103,10 +1103,10 @@ document.addEventListener('DOMContentLoaded', function () {
     productEditForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         if (inputEditFileRadio.checked) {
-            createPopup('Đang tải ảnh lên', 10000);
+            showFloatingAlert("Loading...");
             document.getElementById('fileEditInputFile').click();
         } else if (inputEditClipboardRadio.checked) {
-            createPopup('Đang tải ảnh lên', 10000);
+            showFloatingAlert("Loading...");
             inputEditClipboardRadioChecked();
         }
     });
@@ -1198,7 +1198,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         );
                     } catch (error) {
                         // Handle errors during compression or upload
-                        createPopup('Lỗi tải ảnh lên!', 30000);
+                        showFloatingAlert("Lỗi khi tải ảnh lên...");
                         console.error(error);
                         reject(error);
                     }
@@ -1248,10 +1248,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                                 dataEditForm.style.display = 'none';
                                                 document.getElementById('fileEditInputFile').value = '';
                                                 inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
-                                                popup.classList.remove('popup-show');
+                                                showFloatingAlert("Done!");
                                                 console.log("Document tải lên thành công");
                                             }).catch(function (error) {
-                                                popup.classList.remove('popup-show');
+                                                showFloatingAlert("Done!");
                                                 alert('Lỗi khi tải document lên.');
                                                 dataEditForm.style.display = 'none';
                                                 document.getElementById('fileEditInputFile').value = '';
@@ -1356,7 +1356,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         );
                     } catch (error) {
                         // Handle errors during compression or upload
-                        createPopup('Lỗi tải ảnh lên!', 30000);
+                        showFloatingAlert("Lỗi khi tải ảnh lên...");
                         console.error(error);
                         reject(error);
                     }
@@ -1406,10 +1406,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                             dataEditForm.style.display = 'none';
                                             document.getElementById('fileEditInputFile').value = '';
                                             inputEditClipboardContainer.innerText = 'Dán ảnh ở đây…';
-                                            popup.classList.remove('popup-show');
+                                            showFloatingAlert("Done!");
                                             console.log("Document tải lên thành công");
                                         }).catch(function (error) {
-                                            popup.classList.remove('popup-show');
+                                            showFloatingAlert("Done!");
                                             alert('Lỗi khi tải document lên.');
                                             dataEditForm.style.display = 'none';
                                             document.getElementById('fileEditInputFile').value = '';
@@ -1426,18 +1426,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         }
     });
-
-    function createPopup(message, time = 1500) {
-        var popup = document.getElementById('popup');
-        var popupMessage = document.getElementById('popup-message');
-        popup.classList.remove('popup-show');
-        popupMessage.textContent = message;
-        popup.classList.add('popup-show');
-
-        setTimeout(function () {
-            popup.classList.remove('popup-show');
-        }, time); // Tắt thông báo sau 1.5 giây
-    }
 
     // Đăng xuất
     function handleLogout() {

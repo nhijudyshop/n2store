@@ -168,6 +168,18 @@ moneyTransferForm.addEventListener('submit', function(e) {
         bankCell: selectedBank,
         customerInfoCell: customerInfo
     };
+	
+	if (checkLogin != 1) {
+		deleteCell.style.visibility  = 'hidden';
+		if (checkLogin == 2) {
+			deliveryCell.style.visibility  = 'visible';	
+		} else {
+			editCell.style.visibility  = 'hidden';
+			deliveryCell.style.visibility  = 'hidden';
+		}
+	}
+	
+	showFloatingAlert("Loading...");
 
     // Kiểm tra xem tài liệu đã tồn tại chưa
     collectionRef.doc("ck").get().then(doc => {
@@ -176,7 +188,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
             collectionRef.doc("ck").update({
                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
             }).then(function() {
-				showFloatingAlert("Đã tải dữ liệu lên!");
+				showFloatingAlert("Done!");
                 console.log("Document tải lên thành công");
             }).catch(function(error) {
                 alert('Lỗi khi tải document lên.');
@@ -188,7 +200,7 @@ moneyTransferForm.addEventListener('submit', function(e) {
             collectionRef.doc("ck").set({
                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
             }).then(function() {
-				showFloatingAlert("Đã tải dữ liệu lên!");
+				showFloatingAlert("Done!");
                 console.log("Document tải lên thành công");
             }).catch(function(error) {
                 alert('Lỗi khi tải document lên.');
@@ -335,7 +347,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 tableBody.addEventListener('click', function(e) {
 	if (userType != "khach-777") {
-		if (e.target.classList.contains('edit-button') && e.target.parentNode.parentNode.style.opacity === '1') {
+		if (e.target.classList.contains('edit-button')) {
 
 			document.getElementById('editModal').style.display = 'block';
 
@@ -377,7 +389,7 @@ tableBody.addEventListener('click', function(e) {
 			}
 
 			editingRow = row;
-		} if (e.target.classList.contains('delete-button') && e.target.parentNode.parentNode.style.opacity === '1') {
+		} if (e.target.classList.contains('delete-button')) {
             if (checkLogin != 1) {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
@@ -387,7 +399,7 @@ tableBody.addEventListener('click', function(e) {
                 const row = event.target.closest("tr");
                 const tdRow = row.querySelector("td");
                 if (confirmDelete) {
-					showFloatingAlert("Đang xóa dữ liệu!");
+					showFloatingAlert("Loading...");
                     if (row) {
                         // Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
                         collectionRef.doc("ck").get()
@@ -411,6 +423,7 @@ tableBody.addEventListener('click', function(e) {
                                                 "data": data["data"]
                                             }).then(function () {
                                                 console.log("Document tải lên thành công");
+												showFloatingAlert("Done!");
 												tableBody.innerText = '';
 												updateTable();
                                                 // location.reload();
@@ -423,6 +436,7 @@ tableBody.addEventListener('click', function(e) {
                                                 "data": data["data"]
                                             }).then(function () {
                                                 console.log("Document tải lên thành công");
+												showFloatingAlert("Done!");
 												tableBody.innerText = '';
 												updateTable();
                                                 // location.reload();
@@ -442,7 +456,7 @@ tableBody.addEventListener('click', function(e) {
                 }
             }
         } else if (e.target.type === 'checkbox') {
-			if (checkLogin != 1 || checkLogin != 2) {
+			if (checkLogin != 1 && checkLogin != 2) {
 				alert('Không đủ quyền thực hiện chức năng này.');
 				e.target.checked = !e.target.checked;
 				return;
@@ -455,7 +469,7 @@ tableBody.addEventListener('click', function(e) {
 			const tdRow = row.querySelector("td");
 
 			if (confirm(confirmationMessage)) {
-				showFloatingAlert("Đang sửa dữ liệu!");
+				showFloatingAlert("Loading...");
 				// Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
 				collectionRef.doc("ck").get()
 					.then((doc) => {
@@ -478,6 +492,7 @@ tableBody.addEventListener('click', function(e) {
 								tableBody.innerText = '';
 								updateTable();
 								//updateTotalAmount();
+								showFloatingAlert("Done!");
 								console.log("Document tải lên thành công");
 							}).catch(function(error) {
 								alert('Lỗi khi tải document lên.');
@@ -610,7 +625,32 @@ function updateTable() {
                     checkbox.style.height = '20px';
 
                     checkbox.checked = data["data"][i].muted;
-                    newRow.style.opacity = data["data"][i].muted ? '0.5' : '1.0';
+					
+					if (checkLogin != 1) {
+						newRow.style.opacity = data["data"][i].muted ? '0.5' : '1.0';
+						deleteCell.style.visibility  = 'hidden';
+						if (checkLogin == 2) {
+							deliveryCell.style.visibility  = 'visible';	
+						} else {
+							editCell.style.visibility  = 'hidden';
+							deliveryCell.style.visibility  = 'hidden';
+						}
+					} else {
+						const elements = [
+						  dateCell, noteCell, amountCell, 
+						  bankCell, deliveryCell, customerInfoCell, 
+						  editCell
+						];
+
+						const isMuted = data["data"][i].muted;
+						const opacityValue = isMuted ? '0.5' : '1.0';
+
+						elements.forEach(element => {
+						  element.style.opacity = opacityValue;
+						});
+
+						deleteCell.style.pointerEvents = "auto"; // Đảm bảo có thể click
+					}
 
                     deliveryCell.appendChild(checkbox);
 
@@ -691,6 +731,8 @@ function saveChanges() {
         alert('Vui lòng nhập số tiền chuyển hợp lệ.');
         return;
     }
+	
+	showFloatingAlert("Loading...");
 
     collectionRef.doc("ck").get()
         .then((doc) => {
@@ -741,6 +783,7 @@ function saveChanges() {
                                 row.cells[5].innerText = editedData[0];
                             }
                             //updateTotalAmount();
+							showFloatingAlert("Done!");
                             console.log("Document tải lên thành công");
                         }).catch(function(error) {
                             alert('Lỗi khi tải document lên.');
@@ -770,6 +813,7 @@ function saveChanges() {
                                 row.cells[5].innerText = editedData[0];
                             }
                             //updateTotalAmount();
+							showFloatingAlert("Done!");
                             console.log("Document tải lên thành công");
                         }).catch(function(error) {
                             alert('Lỗi khi tải document lên.');

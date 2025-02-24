@@ -1,7 +1,7 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 function _0x1ab2(_0x36a23b, _0x52223b) {
     const _0x2e058f = _0x2e05();
-    return _0x1ab2 = function (_0x1ab212, _0x4110aa) {
+    return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
         _0x1ab212 = _0x1ab212 - 0x162;
         let _0x120a0e = _0x2e058f[_0x1ab212];
         return _0x120a0e;
@@ -10,13 +10,13 @@ function _0x1ab2(_0x36a23b, _0x52223b) {
 
 function _0x2e05() {
     const _0x5a5dc7 = ['1235460FrnjKH', '22977963vpMYJv', 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM', 'n2shop-69e37-ne0q1', 'G-TEJH3S2T1D', '1345047lnZTNJ', '366711YpKMry', '13142736zaWdgA', '598906493303', '3756921uppNah', '25XRvqCS', 'n2shop-69e37', '14dthlHY', 'n2shop-69e37.firebaseapp.com', '10009662EXBqRi'];
-    _0x2e05 = function () {
+    _0x2e05 = function() {
         return _0x5a5dc7;
     };
     return _0x2e05();
 }
 const _0x3a343d = _0x1ab2;
-(function (_0x46d1e0, _0x1a2442) {
+(function(_0x46d1e0, _0x1a2442) {
     const _0x1acdbc = _0x1ab2,
         _0x2a2d1c = _0x46d1e0();
     while (!![]) {
@@ -45,16 +45,16 @@ const db = firebase.firestore();
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("hanghoan");
 
-document.addEventListener("DOMContentLoaded", function () {
-
-    updateTable();  // Tải và hiển thị dữ liệu ban đầu
+document.addEventListener("DOMContentLoaded", function() {
 
     const form = document.getElementById("return-product");
     const tableBody = document.getElementById("tableBody");
     const toggleFormButton = document.getElementById("toggleFormButton");
+    const dataForm = document.getElementById('dataForm');
     const editModal = document.getElementById("editModal");
     let editingRow;
     let tempSTT = 0;
+    let isSubmitting = false; // Biến kiểm tra trạng thái gửi form
     const loginContainer = document.querySelector('.login-container');
     const loginBox = document.querySelector('.login-box');
     const userType = localStorage.getItem('userType');
@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", function () {
     editModal.style.display = 'none';
 
     toggleFormButton.addEventListener('click', () => {
-        if (userType == "admin-admin" || userType == "lai-lai2506" || userType == "my-my2804") {
+        if (userType == "admin-admin" || userType == "lai-lai2506" || userType == "my-my2804" || userType == "coi-coi2806") {
             if (dataForm.style.display === 'none' || dataForm.style.display === '') {
                 dataForm.style.display = 'block';
                 toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -96,10 +96,7 @@ document.addEventListener("DOMContentLoaded", function () {
         divToRemove.remove();
     }
 
-    var saveButton = document.getElementById('saveButton');
-    saveButton.addEventListener('click', saveChanges);
-
-    form.addEventListener("submit", function (event) {
+    form.addEventListener("submit", function(event) {
         event.preventDefault();
 
         const firstRow = tableBody.rows[0];
@@ -130,57 +127,17 @@ document.addEventListener("DOMContentLoaded", function () {
             duyetHoanValue: tempTimeStamp.getTime().toString()
         };
 
+        showFloatingAlert("Loading...");
         // Kiểm tra xem tài liệu đã tồn tại chưa
         collectionRef.doc("hanghoan").get().then(doc => {
             if (doc.exists) {
                 // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                 collectionRef.doc("hanghoan").update({
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
-                }).then(function () {
+                }).then(function() {
+                    showFloatingAlert("Done!");
                     console.log("Document tải lên thành công");
-                    const newRow = tableBody.insertRow(0);
-                    const STT = newRow.insertCell(0);
-                    const shipCell = newRow.insertCell(1);
-                    const scenarioCell = newRow.insertCell(2);
-                    const customerInfoCell = newRow.insertCell(3);
-                    const totalAmountCell = newRow.insertCell(4);
-                    const causeCell = newRow.insertCell(5);
-                    const checkboxCell = newRow.insertCell(6);
-                    const getCurrentDateCell = newRow.insertCell(7);
-                    const editCell = newRow.insertCell(8);
-                    const deleteCell = newRow.insertCell(9);
-
-                    // Gán giá trị từ biến vào ô trong bảng
-                    tempSTT += 1
-                    STT.innerText = tempSTT;
-                    shipCell.innerText = shipValue;
-                    scenarioCell.innerText = scenarioValue;
-                    customerInfoCell.innerText = customerInfoValue;
-                    totalAmountCell.innerText = totalAmountValue;
-                    causeCell.innerText = causeValue;
-                    getCurrentDateCell.innerText = formattedTime; // hoặc currentDate.toString() tùy theo định dạng mong muốn
-                    STT.id = data["data"][i].duyetHoanValue;
-
-                    // Thêm checkbox vào ô checkboxCell
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.style.width = '20px';
-                    checkbox.style.height = '20px';
-					checkbox.className = 'received-checkbox'
-                    checkboxCell.appendChild(checkbox);
-
-                    // Thêm nút sửa vào ô editCell
-                    const editButton = document.createElement('button');
-                    editButton.className = 'edit-button';
-                    editButton.innerText = 'Sửa';
-                    editCell.appendChild(editButton);
-
-                    // Thêm nút xoá vào ô deleteCell
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-button';
-                    deleteButton.innerText = 'Xoá';
-                    deleteCell.appendChild(deleteButton);
-                }).catch(function (error) {
+                }).catch(function(error) {
                     //alert('Lỗi khi tải document lên.');
                     return;
                     console.error("Lỗi khi tải document lên: ", error);
@@ -189,51 +146,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                 collectionRef.doc("hanghoan").set({
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
-                }).then(function () {
+                }).then(function() {
+                    showFloatingAlert("Done!");
                     console.log("Document tải lên thành công");
-                    const newRow = tableBody.insertRow(0);
-                    const STT = newRow.insertCell(0);
-                    const shipCell = newRow.insertCell(1);
-                    const scenarioCell = newRow.insertCell(2);
-                    const customerInfoCell = newRow.insertCell(3);
-                    const totalAmountCell = newRow.insertCell(4);
-                    const causeCell = newRow.insertCell(5);
-                    const checkboxCell = newRow.insertCell(6);
-                    const getCurrentDateCell = newRow.insertCell(7);
-                    const editCell = newRow.insertCell(8);
-                    const deleteCell = newRow.insertCell(9);
-
-                    // Gán giá trị từ biến vào ô trong bảng
-                    tempSTT += 1
-                    STT.innerText = tempSTT;
-                    shipCell.innerText = shipValue;
-                    scenarioCell.innerText = scenarioValue;
-                    customerInfoCell.innerText = customerInfoValue;
-                    totalAmountCell.innerText = totalAmountValue;
-                    causeCell.innerText = causeValue;
-                    getCurrentDateCell.innerText = formattedTime; // hoặc currentDate.toString() tùy theo định dạng mong muốn
-                    STT.id = data["data"][i].duyetHoanValue;
-
-                    // Thêm checkbox vào ô checkboxCell
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.style.width = '20px';
-                    checkbox.style.height = '20px';
-					checkbox.className = 'received-checkbox'
-                    checkboxCell.appendChild(checkbox);
-
-                    // Thêm nút sửa vào ô editCell
-                    const editButton = document.createElement('button');
-                    editButton.className = 'edit-button';
-                    editButton.innerText = 'Sửa';
-                    editCell.appendChild(editButton);
-
-                    // Thêm nút xoá vào ô deleteCell
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-button';
-                    deleteButton.innerText = 'Xoá';
-                    deleteCell.appendChild(deleteButton);
-                }).catch(function (error) {
+                }).catch(function(error) {
                     //alert('Lỗi khi tải document lên.');
                     return;
                     console.error("Lỗi khi tải document lên: ", error);
@@ -241,19 +157,58 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         })
 
-        //const newRow = document.createElement("tr");
-        //newRow.setAttribute("id", timestamp.toString());
-        //newRow.innerHTML = `
-        //    <td>${shipValue}</td>
-        //    <td>${customerInfoValue}</td>
-        //    <td>${totalAmountValue}</td>
-        //    <td>${causeValue}</td>
-        //    <td><input type="checkbox" style="width: 20px; height: 20px;" class="received-checkbox"></td>
-        //    <td>${getCurrentDate()}</td>
-        //    <td><button onclick="openEditModal(this)">Sửa</button></td>
-        //`;
+        const newRow = tableBody.insertRow(0);
+        const STT = newRow.insertCell(0);
+        const shipCell = newRow.insertCell(1);
+        const scenarioCell = newRow.insertCell(2);
+        const customerInfoCell = newRow.insertCell(3);
+        const totalAmountCell = newRow.insertCell(4);
+        const causeCell = newRow.insertCell(5);
+        const checkboxCell = newRow.insertCell(6);
+        const getCurrentDateCell = newRow.insertCell(7);
+        const editCell = newRow.insertCell(8);
+        const deleteCell = newRow.insertCell(9);
 
-        //tableBody.appendChild(newRow);
+        // Gán giá trị từ biến vào ô trong bảng
+        tempSTT += 1
+        STT.innerText = tempSTT;
+        shipCell.innerText = shipValue;
+        scenarioCell.innerText = scenarioValue;
+        customerInfoCell.innerText = customerInfoValue;
+        totalAmountCell.innerText = totalAmountValue;
+        causeCell.innerText = causeValue;
+        getCurrentDateCell.innerText = formattedTime; // hoặc currentDate.toString() tùy theo định dạng mong muốn
+        STT.id = dataToUpload.duyetHoanValue;
+
+        // Thêm checkbox vào ô checkboxCell
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.style.width = '20px';
+        checkbox.style.height = '20px';
+        checkbox.className = 'received-checkbox'
+        checkboxCell.appendChild(checkbox);
+
+        // Thêm nút sửa vào ô editCell
+        const editButton = document.createElement('button');
+        editButton.className = 'edit-button';
+        editButton.innerText = 'Sửa';
+        editCell.appendChild(editButton);
+
+        // Thêm nút xoá vào ô deleteCell
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-button';
+        deleteButton.innerText = 'Xoá';
+        deleteCell.appendChild(deleteButton);
+		
+		if (userType != "admin-admin") {
+            deleteCell.style.visibility = 'hidden';
+            if (userType == "coi-coi2806") {
+                deliveryCell.style.visibility = 'visible';
+            } else {
+                editCell.style.visibility = 'hidden';
+                deliveryCell.style.visibility = 'hidden';
+            }
+        }
 
         form.reset();
     });
@@ -269,7 +224,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const row = editingRow;
         const rawDate = row.cells[7].innerText;
         const tdRow = row.querySelector("td");
-
+        showFloatingAlert("Loading...");
         collectionRef.doc("hanghoan").get()
             .then((doc) => {
                 if (doc.exists) {
@@ -292,6 +247,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             })
             .then(() => {
+                showFloatingAlert("Done!");
                 console.log("Document tải lên thành công");
 
                 editingRow.cells[1].innerText = editDelivery.value;
@@ -310,8 +266,8 @@ document.addEventListener("DOMContentLoaded", function () {
         // Close the modal
         closeModal();
     }
-	
-	// Hàm lấy ngày hiện tại
+
+    // Hàm lấy ngày hiện tại
     function getCurrentDate() {
         const currentDate = new Date();
         const day = currentDate.getDate().toString().padStart(2, '0');
@@ -319,90 +275,91 @@ document.addEventListener("DOMContentLoaded", function () {
         const year = currentDate.getFullYear();
         return `${day}-${month}-${year}`;
     }
-	
-//---------------------------------------------------------------------------------------------------------------------
+
+    //---------------------------------------------------------------------------------------------------------------------
     // Sự kiện khi checkbox thay đổi
-	document.addEventListener("change", function (event) {
-		const target = event.target;
-		if (target.classList.contains("received-checkbox")) {
-			const tableBody = document.querySelector("tbody");
-			const row = target.closest("tr");
+    document.addEventListener("change", function(event) {
+        const target = event.target;
+        if (target.classList.contains("received-checkbox")) {
+            const tableBody = document.querySelector("tbody");
+            const row = target.closest("tr");
 
-			if (target.checked) {
-				// Dời dòng xuống cuối bảng
-				tableBody.appendChild(row);
-			} else {
-				// Chèn dòng lên đầu nhưng vẫn giữ thứ tự ban đầu của các dòng chưa checked
-				const firstUncheckedRow = [...tableBody.rows].find(r => !r.querySelector(".received-checkbox").checked);
-				if (firstUncheckedRow) {
-					tableBody.insertBefore(row, firstUncheckedRow);
-				} else {
-					tableBody.insertBefore(row, tableBody.firstElementChild);
-				}
-			}
-		}
-	});
+            if (target.checked) {
+                // Dời dòng xuống cuối bảng
+                tableBody.appendChild(row);
+            } else {
+                // Chèn dòng lên đầu nhưng vẫn giữ thứ tự ban đầu của các dòng chưa checked
+                const firstUncheckedRow = [...tableBody.rows].find(r => !r.querySelector(".received-checkbox").checked);
+                if (firstUncheckedRow) {
+                    tableBody.insertBefore(row, firstUncheckedRow);
+                } else {
+                    tableBody.insertBefore(row, tableBody.firstElementChild);
+                }
+            }
+        }
+    });
 
-   function parseDateText(dateText) {
-		const parts = dateText.split('-'); // Tách theo dấu '-'
-		if (parts.length !== 3) return NaN; // Kiểm tra lỗi định dạng
-		
-		let day = parseInt(parts[0], 10);
-		let month = parseInt(parts[1], 10) - 1; // Tháng trong JS tính từ 0 (0 = Jan, 1 = Feb,...)
-		let year = parseInt(parts[2], 10);
+    function parseDateText(dateText) {
+        const parts = dateText.split('-'); // Tách theo dấu '-'
+        if (parts.length !== 3) return NaN; // Kiểm tra lỗi định dạng
 
-		// Xử lý năm nếu chỉ có 2 chữ số (yy → 20yy)
-		year += (year < 100) ? 2000 : 0;
+        let day = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10) - 1; // Tháng trong JS tính từ 0 (0 = Jan, 1 = Feb,...)
+        let year = parseInt(parts[2], 10);
 
-		return new Date(year, month, day).getTime() / 1000; // Chuyển thành timestamp (giây)
-	}
+        // Xử lý năm nếu chỉ có 2 chữ số (yy → 20yy)
+        year += (year < 100) ? 2000 : 0;
 
-	function filterData() {
-		const channelFilter = document.getElementById('channelFilter').value.trim().toLowerCase();
-		const scenarioFilter = document.getElementById('scenarioFilter').value.trim().toLowerCase();
-		const startDate = document.getElementById('startDate').value;
-		const endDate = document.getElementById('endDate').value;
+        return new Date(year, month, day).getTime() / 1000; // Chuyển thành timestamp (giây)
+    }
 
-		const timestampstartDate = startDate ? new Date(startDate).getTime() / 1000 : null;
-		const timestampendDate = endDate ? new Date(endDate).getTime() / 1000 : null;
+    function filterData() {
+        const channelFilter = document.getElementById('channelFilter').value.trim().toLowerCase();
+        const scenarioFilter = document.getElementById('scenarioFilter').value.trim().toLowerCase();
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
 
-		const rowsArray = Array.from(document.querySelectorAll('#tableBody tr'));
+        const timestampstartDate = startDate ? new Date(startDate).getTime() / 1000 : null;
+        const timestampendDate = endDate ? new Date(endDate).getTime() / 1000 : null;
 
-		rowsArray.forEach(row => {
-			const channelText = row.children[1].textContent.trim().toLowerCase();
-			const scenarioText = row.children[2].textContent.trim().toLowerCase();
-			const dateText = row.children[7].textContent.trim(); // Cột chứa ngày
+        const rowsArray = Array.from(document.querySelectorAll('#tableBody tr'));
 
-			const timestampdateText = parseDateText(dateText); // Chuyển dateText thành timestamp
+        rowsArray.forEach(row => {
+            const channelText = row.children[1].textContent.trim().toLowerCase();
+            const scenarioText = row.children[2].textContent.trim().toLowerCase();
+            const dateText = row.children[7].textContent.trim(); // Cột chứa ngày
 
-			// Kiểm tra điều kiện lọc
-			const channelMatch = (channelFilter === "all" || channelText === channelFilter || channelFilter === "");
-			const scenarioMatch = (scenarioFilter === "all" || scenarioText === scenarioFilter || scenarioFilter === "");
-			
-			// Chỉ lọc theo ngày khi cả startDate và endDate được chọn
-			const dateMatch = (!isNaN(timestampdateText) && 
-							   ((timestampstartDate === null && timestampendDate === null) || 
-							   (timestampstartDate !== null && timestampendDate !== null && 
-								timestampdateText >= timestampstartDate && timestampdateText <= timestampendDate)));
+            const timestampdateText = parseDateText(dateText); // Chuyển dateText thành timestamp
 
-			row.style.display = (channelMatch && scenarioMatch && dateMatch) ? '' : 'none';
-		});
-	}
+            // Kiểm tra điều kiện lọc
+            const channelMatch = (channelFilter === "all" || channelText === channelFilter || channelFilter === "");
+            const scenarioMatch = (scenarioFilter === "all" || scenarioText === scenarioFilter || scenarioFilter === "");
 
-	// Lắng nghe sự kiện thay đổi trên cả 4 bộ lọc
-	document.getElementById('channelFilter').addEventListener('change', filterData);
-	document.getElementById('scenarioFilter').addEventListener('change', filterData);
-	document.getElementById('startDate').addEventListener('change', handleDateChange);
-	document.getElementById('endDate').addEventListener('change', handleDateChange);
-	function handleDateChange() {
-		const startDate = document.getElementById('startDate').value;
-		const endDate = document.getElementById('endDate').value;
+            // Chỉ lọc theo ngày khi cả startDate và endDate được chọn
+            const dateMatch = (!isNaN(timestampdateText) &&
+                ((timestampstartDate === null && timestampendDate === null) ||
+                    (timestampstartDate !== null && timestampendDate !== null &&
+                        timestampdateText >= timestampstartDate && timestampdateText <= timestampendDate)));
 
-		if (startDate && endDate) { // Chỉ gọi filterData() khi cả hai ô có giá trị
-			filterData();
-		}
-	}
-//-------------------------------------------------------------------------------------------------------------------
+            row.style.display = (channelMatch && scenarioMatch && dateMatch) ? '' : 'none';
+        });
+    }
+
+    // Lắng nghe sự kiện thay đổi trên cả 4 bộ lọc
+    document.getElementById('channelFilter').addEventListener('change', filterData);
+    document.getElementById('scenarioFilter').addEventListener('change', filterData);
+    document.getElementById('startDate').addEventListener('change', handleDateChange);
+    document.getElementById('endDate').addEventListener('change', handleDateChange);
+
+    function handleDateChange() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+
+        if (startDate && endDate) { // Chỉ gọi filterData() khi cả hai ô có giá trị
+            filterData();
+        }
+    }
+    //-------------------------------------------------------------------------------------------------------------------
 
     function updateTable() {
         var tempDate = [];
@@ -410,11 +367,11 @@ document.addEventListener("DOMContentLoaded", function () {
             .then((doc) => {
                 if (doc.exists) {
                     const data = doc.data(); // Sao chép mảng
-    
+
                     // Sort data based on dateCell before adding rows to table
-                    data["data"].sort(function (a, b) {
+                    data["data"].sort(function(a, b) {
                         var dateDifference = parseInt(a.dateCell) - parseInt(b.dateCell);
-    
+
                         if (a.muted && b.muted) {
                             return dateDifference;
                         } else if (a.muted) {
@@ -422,48 +379,24 @@ document.addEventListener("DOMContentLoaded", function () {
                         } else if (b.muted) {
                             return 1;
                         }
-    
+
                         return dateDifference;
                     });
-    
+
                     // Lấy giá trị bộ lọc từ các dropdown
                     const channelFilter = document.getElementById('channelFilter').value;
                     const scenarioFilter = document.getElementById('scenarioFilter').value;
                     const startDate = document.getElementById('startDate').value;
                     const endDate = document.getElementById('endDate').value;
-    
-                    for (let i = 0; i < data["data"].length; i++) {
+
+                    for (let i = 0; i < data["data"].length - 1; i++) {
                         const row = data["data"][i];
-    
+
                         // Chuyển đổi và định dạng ngày tháng
                         var timestamp = parseFloat(row.duyetHoanValue); // Chuyển đổi chuỗi thành số nguyên
                         var dateCellConvert = new Date(timestamp);
                         var formattedTime = formatDate(dateCellConvert);
-    
-                        // Kiểm tra điều kiện lọc
-                        let showRow = true;
-    
-                        // Lọc theo Kênh
-                        if (channelFilter !== 'all' && row.shipValue !== channelFilter) {
-                            showRow = false;
-                        }
-    
-                        // Lọc theo Trường hợp
-                        if (scenarioFilter !== 'all' && row.scenarioValue !== scenarioFilter) {
-                            showRow = false;
-                        }
-    
-                        // Lọc theo ngày bắt đầu và ngày kết thúc
-                        if (startDate && new Date(formattedTime) < new Date(startDate)) {
-                            showRow = false;
-                        }
-                        if (endDate && new Date(formattedTime) > new Date(endDate)) {
-                            showRow = false;
-                        }
-    
-                        // Nếu không thỏa mãn điều kiện lọc, bỏ qua dòng này
-                        if (!showRow) continue;
-    
+
                         // Thêm dòng mới vào bảng
                         const newRow = tableBody.insertRow(0);
                         const STT = newRow.insertCell(0);
@@ -476,7 +409,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         const getCurrentDate = newRow.insertCell(7);
                         const editCell = newRow.insertCell(8);
                         const deleteCell = newRow.insertCell(9);
-    
+
                         STT.innerText = i + 1;
                         shipValue.innerText = row.shipValue;
                         scenarioValue.innerText = row.scenarioValue;
@@ -485,21 +418,44 @@ document.addEventListener("DOMContentLoaded", function () {
                         causeValue.innerText = row.causeValue;
                         getCurrentDate.innerText = formattedTime.replace(/\//g, '-');
                         STT.id = row.duyetHoanValue;
-    
+
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
                         checkbox.style.width = '20px';
                         checkbox.style.height = '20px';
-						checkbox.className = 'received-checkbox'
+                        checkbox.className = 'received-checkbox'
                         checkbox.checked = row.muted;
-                        newRow.style.opacity = row.muted ? '0.5' : '1.0';
+
+                        if (userType != "admin-admin") {
+                            newRow.style.opacity = row.muted ? '0.5' : '1.0';
+                            deleteCell.style.visibility = 'hidden';
+                            if (userType == "coi-coi2806") {
+                                checkboxRow.style.visibility = 'visible';
+                            } else {
+                                editCell.style.visibility = 'hidden';
+                                checkboxRow.style.visibility = 'hidden';
+                            }
+                        } else {
+                            const elements = [
+                                STT, shipValue, scenarioValue, customerInfoValue,
+                                totalAmountValue, causeValue, checkboxRow,
+                                getCurrentDate, editCell
+                            ];
+
+                            const opacityValue = row.muted ? '0.5' : '1.0';
+
+                            elements.forEach(element => {
+                                element.style.opacity = opacityValue;
+                            });
+                            deleteCell.style.pointerEvents = "auto"; // Đảm bảo có thể click
+                        }
                         checkboxRow.appendChild(checkbox);
-    
+
                         const editButton = document.createElement('button');
                         editButton.className = 'edit-button';
                         editButton.innerText = 'Sửa';
                         editCell.appendChild(editButton);
-    
+
                         // Thêm nút xoá vào ô deleteCell
                         const deleteButton = document.createElement('button');
                         deleteButton.className = 'delete-button';
@@ -522,9 +478,9 @@ document.addEventListener("DOMContentLoaded", function () {
         return formattedDate;
     }
 
-    tableBody.addEventListener('click', function (e) {
-        if (e.target.classList.contains('edit-button') && e.target.parentNode.parentNode.style.opacity === '1') {
-            if (userType == "admin-admin" || userType == "lai-lai2506") {
+    tableBody.addEventListener('click', function(e) {
+        if (e.target.classList.contains('edit-button')) {
+            if (userType == "admin-admin" || userType == "coi-coi2806") {
                 document.getElementById('editModal').style.display = 'block';
 
                 const editDelivery = document.getElementById('editDelivery');
@@ -552,9 +508,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 editingRow = row;
             }
-        } else if (e.target.classList.contains('delete-button') && e.target.parentNode.parentNode.style.opacity === '1') {
-            if (userType != "admin-admin" ||  userType != "coi-coi2806") {
-                alert('Không đủ quyền thực hiện chức năng này.');
+        } else if (e.target.classList.contains('delete-button')) {
+            if (userType != "admin-admin") {
+                showFloatingAlert('Không đủ quyền!');
                 e.target.checked = !e.target.checked;
                 return;
             } else {
@@ -563,6 +519,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const tdRow = row.querySelector("td");
                 if (confirmDelete) {
                     if (row) {
+						showFloatingAlert("Loading...");
                         // Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
                         collectionRef.doc("hanghoan").get()
                             .then((doc) => {
@@ -583,24 +540,30 @@ document.addEventListener("DOMContentLoaded", function () {
                                             // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                                             collectionRef.doc("hanghoan").update({
                                                 "data": data["data"]
-                                            }).then(function () {
+                                            }).then(function() {
+												showFloatingAlert("Done!");
+												tableBody.innerText = '';
+												updateTable();
                                                 console.log("Document tải lên thành công");
                                                 // location.reload();
-                                            }).catch(function (error) {
+                                            }).catch(function(error) {
                                                 console.error("Lỗi khi tải document lên: ", error);
                                             });
                                         } else {
                                             // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
                                             collectionRef.doc("hanghoan").set({
                                                 "data": data["data"]
-                                            }).then(function () {
+                                            }).then(function() {
+												showFloatingAlert("Done!");
+												tableBody.innerText = '';
+												updateTable();
                                                 console.log("Document tải lên thành công");
                                                 // location.reload();
-                                            }).catch(function (error) {
+                                            }).catch(function(error) {
                                                 console.error("Lỗi khi tải document lên: ", error);
                                             });
                                         }
-                                    }).catch(function (error) {
+                                    }).catch(function(error) {
                                         console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
                                     });
                                 }
@@ -612,8 +575,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         } else if (e.target.type === 'checkbox') {
-            if (userType != "admin-admin" || userType != "coi-coi2806") {
-                alert('Không đủ quyền thực hiện chức năng này.');
+            if (userType != "admin-admin" && userType != "coi-coi2806") {
+                showFloatingAlert('Không đủ quyền!');
                 e.target.checked = !e.target.checked;
                 return;
             }
@@ -625,6 +588,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const tdRow = row.querySelector("td");
 
             if (confirm(confirmationMessage)) {
+				showFloatingAlert("Loading...");
                 // Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
                 collectionRef.doc("hanghoan").get()
                     .then((doc) => {
@@ -643,12 +607,13 @@ document.addEventListener("DOMContentLoaded", function () {
                             // Cập nhật dữ liệu Firestore
                             collectionRef.doc("hanghoan").update({
                                 "data": data["data"]
-                            }).then(function () {
+                            }).then(function() {
+								showFloatingAlert("Done!");
                                 tableBody.innerText = '';
                                 updateTable();
                                 //updateTotalAmount();
                                 console.log("Document tải lên thành công");
-                            }).catch(function (error) {
+                            }).catch(function(error) {
                                 alert('Lỗi khi tải document lên.');
                                 console.error("Lỗi khi tải document lên: ", error);
                             });
@@ -682,21 +647,24 @@ document.addEventListener("DOMContentLoaded", function () {
     //};
 
     // Đăng xuất
-    function handleLogout() {
-        // Đặt lại biến kiểm tra đăng nhập
-        checkLogin = 0;
+	function handleLogout() {
+		// Đặt lại biến kiểm tra đăng nhập
+		checkLogin = 0;
 
-        // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userType');
+		// Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
+		localStorage.removeItem('isLoggedIn');
+		localStorage.removeItem('userType');
 
-        // Tải lại trang để áp dụng các thay đổi
-        // location.reload();
-    }
+		// Tải lại trang để áp dụng các thay đổi
+		location.reload();
+	}
 
-    // Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng
-    var toggleLogoutButton = document.getElementById('toggleLogoutButton');
-    toggleLogoutButton.addEventListener('click', handleLogout);
+	// Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng
+	var toggleLogoutButton = document.getElementById('toggleLogoutButton');
+	toggleLogoutButton.addEventListener('click', handleLogout);
+
+    var saveButton = document.getElementById('saveButton');
+    saveButton.addEventListener('click', saveChanges);
 
     updateTable();
 });
