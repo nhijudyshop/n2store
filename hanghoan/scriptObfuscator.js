@@ -236,6 +236,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             data["data"][i].customerInfoValue = editInfo.value;
                             data["data"][i].totalAmountValue = editAmount.value;
                             data["data"][i].causeValue = editNote.value;
+                            data["data"][i].duyetHoanValue = convertToTimestamp(editDate.value).toString();
                             // break; // Kết thúc vòng lặp sau khi xoá
                         }
                     }
@@ -633,13 +634,43 @@ document.addEventListener("DOMContentLoaded", function() {
     })
 
     function convertToTimestamp(dateString) {
-        const tempTimeStamp = new Date();
-        var parts = dateString.split("-");
-        var year = parts[2].length === 2 ? "20" + parts[2] : parts[2];
-        var formattedDate = year + "-" + parts[1] + "-" + parts[0];
-        var timestamp = new Date(formattedDate).getTime() + (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
-        return timestamp.toString();
-    }
+		const months = {
+			"Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", "May": "05", "Jun": "06",
+			"Jul": "07", "Aug": "08", "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
+		};
+
+		var parts = dateString.split("-");
+		if (parts.length !== 3) {
+			showFloatingAlert("Sai định dạng!");
+			return null;
+		}
+
+		var day = isNaN(parts[0]) ? null : parts[0].padStart(2, '0');
+		var month = months[parts[1]] || (isNaN(parts[1]) ? null : parts[1].padStart(2, '0'));
+		var year = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+
+		if (!day || !month || isNaN(parseInt(year))) {
+			showFloatingAlert("Sai định dạng!");
+			return null;
+		}
+
+		// Kiểm tra ngày hợp lệ với tháng
+		var maxDays = new Date(year, month, 0).getDate(); // Lấy số ngày tối đa của tháng
+		if (parseInt(day) < 1 || parseInt(day) > maxDays) {
+			showFloatingAlert(`Ngày ${day} không hợp lệ cho tháng ${month}`);
+			return null;
+		}
+
+		var formattedDate = `${year}-${month}-${day}T00:00:00Z`;
+		var timestamp = new Date(formattedDate).getTime();
+
+		if (isNaN(timestamp)) {
+			showFloatingAlert("Sai định dạng!");
+			return null;
+		}
+
+		return timestamp.toString();
+	}
 
     // Gọi hàm lấy dữ liệu từ Firestore ngay khi trang tải
     //window.onload = function () {
