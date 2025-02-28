@@ -48,7 +48,8 @@
                 <option value="Set và Đầm">Set và Đầm</option>
                 <option value="PKGD">Phụ kiện và Giày dép</option>
             </select>
-
+            <label for="dotLive">Đợt Live:</label>
+            <input type="number" id="dotLive" required>
             <p>Hình ảnh sản phẩm:</p>
             <div id="radioButtonsContainer">
                 <input type="radio" name="inputType" id="inputClipboard" checked>
@@ -102,12 +103,13 @@
         </form>
     </div>
 
-	<div id="parentContainer">
-		<p class="tieude">HÀNG RỚT - XẢ</p>
-	</div>
+    <div id="parentContainer">
+        <p class="tieude">HÀNG RỚT - XẢ</p>
+    </div>
 
     <!-- Thêm dropdown menu và nút áp dụng bộ lọc -->
     <label for="filterCategory">Chọn phân loại:</label>
+
     <select id="filterCategory">
         <option value="all">Tất cả</option>
         <option value="Áo">Áo</option>
@@ -116,61 +118,71 @@
         <option value="PKGD">Phụ kiện và Giày dép</option>
     </select>
 
-    <!-- Bảng sản phẩm tồn kho -->
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 5%;">Thứ tự</th>
-                <th style="width: 10%;">Thời gian Upload</th>
-                <th style="width: 10%;">Phân loại</th>
-                <th style="width: 20%;">Hình ảnh</th>
-                <th style="width: 30%;">Tên sản phẩm</th>
-                <th style="width: 10%;">Kích cỡ</th>
-                <th style="width: 15%;">Số lượng</th>
-                <th style="width: 5%;">Xoá</th>
-            </tr>
-        </thead>
-        <tbody id="productTableBody">
-            <!-- Dữ liệu sản phẩm tồn kho sẽ được thêm bằng JavaScript -->
-        </tbody>
-    </table>
-    
-	<!-- Thêm thông báo cho dễ tương tác -->
-   <div id="floatingAlert">Thông báo hiển thị!</div>
-   <style>
-	#floatingAlert {
-	  position: fixed;
-	  top: 50%;
-	  left: 50%;
-	  transform: translate(-50%, -50%);
-	  background: rgba(0, 0, 0, 0.8);
-	  color: white;
-	  padding: 30px 50px; /* Tăng padding để alert lớn hơn */
-	  border-radius: 12px;
-	  font-size: 20px; /* Tăng kích thước chữ */
-	  width: 50%; /* Tăng độ rộng của alert */
-	  max-width: 500px; /* Giới hạn tối đa */
-	  text-align: center;
-	  opacity: 0;
-	  transition: opacity 0.5s;
-	  pointer-events: none;
-	}
-	</style>
+    <label for="dateFilter">Lọc Đợt Live:</label>
+    <select id="dateFilter" size="5">
+        <option value="all">Tất cả</option>
+    </select>
 
-	<script>
-	  function showFloatingAlert(message) {
-		const alertBox = document.getElementById('floatingAlert');
-		alertBox.innerText = message;
-		alertBox.style.opacity = '1';
+        <!-- Bảng sản phẩm tồn kho -->
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 5%;">Thứ tự</th>
+                    <th style="width: 5%;">Đợt Live</th>
+                    <th style="width: 10%;">Thời gian Upload</th>
+                    <th style="width: 10%;">Phân loại</th>
+                    <th style="width: 20%;">Hình ảnh</th>
+                    <th style="width: 25%;">Tên sản phẩm</th>
+                    <th style="width: 10%;">Kích cỡ</th>
+                    <th style="width: 15%;">Số lượng</th>
+                    <th style="width: 5%;">Xoá</th>
+                </tr>
+            </thead>
+            <tbody id="productTableBody">
+                <!-- Dữ liệu sản phẩm tồn kho sẽ được thêm bằng JavaScript -->
+            </tbody>
+        </table>
 
-		setTimeout(() => {
-		  alertBox.style.opacity = '0';
-		}, 3000); // Ẩn sau 3 giây
-	  }
-	</script>
-	<!-- Thêm thông báo cho dễ tương tác -->
-	
-    <script src="scriptObfuscator.js"></script>
+        <!-- Thêm thông báo cho dễ tương tác -->
+        <div id="floatingAlert">Thông báo hiển thị!</div>
+        <style>
+            #floatingAlert {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 30px 50px;
+                /* Tăng padding để alert lớn hơn */
+                border-radius: 12px;
+                font-size: 20px;
+                /* Tăng kích thước chữ */
+                width: 50%;
+                /* Tăng độ rộng của alert */
+                max-width: 500px;
+                /* Giới hạn tối đa */
+                text-align: center;
+                opacity: 0;
+                transition: opacity 0.5s;
+                pointer-events: none;
+            }
+        </style>
+
+        <script>
+            function showFloatingAlert(message) {
+                const alertBox = document.getElementById('floatingAlert');
+                alertBox.innerText = message;
+                alertBox.style.opacity = '1';
+
+                setTimeout(() => {
+                    alertBox.style.opacity = '0';
+                }, 3000); // Ẩn sau 3 giây
+            }
+        </script>
+        <!-- Thêm thông báo cho dễ tương tác -->
+
+        <script src="scriptObfuscator.js"></script>
 </body>
 
 </html>

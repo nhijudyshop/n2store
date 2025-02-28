@@ -62,6 +62,8 @@ const inputClipboardContainer = document.getElementById('container');
 const hinhAnhInputFile = document.getElementById('hinhAnhInputFile');
 const hinhAnhInputLink = document.getElementById('hinhAnhInputLink');
 const hinhAnhContainer = document.getElementById('hinhAnhContainer');
+const dotLiveInput = document.getElementById('dotLive');
+const dateFilterDropdown = document.getElementById('dateFilter');
 
 const userTypes = {};
 
@@ -211,8 +213,10 @@ function generateUniqueFileName() {
 // Lấy thẻ select
 const filterCategorySelect = document.getElementById('filterCategory');
 
-// Sử dụng sự kiện 'change' để tự động áp dụng bộ lọc khi người dùng thay đổi giá trị
-filterCategorySelect.addEventListener('change', applyCategoryFilter);
+// Gán sự kiện cho cả hai dropdown
+filterCategorySelect.addEventListener('change', applyFilters);
+dateFilterDropdown.addEventListener('change', applyFilters);
+
 
 // Lấy thẻ form và xử lý sự kiện nút "Thêm dữ liệu"
 const productForm = document.getElementById('productForm');
@@ -229,7 +233,7 @@ async function displayInventoryData() {
             // Check if data is defined and data.data is an array
             if (data && Array.isArray(data.data)) {
                 var tableElement = document.getElementById('productTableBody');
-
+				var arrCountDotLive = [];
                 for (let i = data.data.length - 1; i >= 0; i--) {
                     const product = data.data[i];
                     // Tạo các phần tử
@@ -242,19 +246,22 @@ async function displayInventoryData() {
                     var td6 = document.createElement('td');
                     var td7 = document.createElement('td');
                     var td8 = document.createElement('td');
+                    var td9 = document.createElement('td');
                     var img = document.createElement('img');
                     var input = document.createElement('input');
                     var button = document.createElement('button');
 
                     // Đặt nội dung cho các phần tử
                     td1.textContent = i + 1;
-                    td2.textContent = product.thoiGianUpload;
-                    td3.textContent = product.phanLoai;
+					if (!product.dotLive) {td2.textContent = "Chưa nhập";} else {td2.textContent = product.dotLive;}
+					arrCountDotLive.push(product.dotLive);
+                    td3.textContent = product.thoiGianUpload;
+                    td4.textContent = product.phanLoai;
                     img.src = product.hinhAnh;
                     img.alt = 'Hình sản phẩm';
-                    td4.appendChild(img);
-                    td5.textContent = product.tenSanPham;
-                    td6.textContent = product.kichCo;
+                    td5.appendChild(img);
+                    td6.textContent = product.tenSanPham;
+                    td7.textContent = product.kichCo;
                     input.type = 'number';
                     input.value = product.soLuong;
                     input.min = '0';
@@ -262,7 +269,7 @@ async function displayInventoryData() {
                     input.addEventListener('change', function() {
                         updateInventory();
                     });
-                    td7.appendChild(input);
+                    td8.appendChild(input);
                     button.textContent = 'Xoá';
                     button.class = 'deleteButton';
                     button.addEventListener('click', deleteInventory);
@@ -276,12 +283,34 @@ async function displayInventoryData() {
                     tr.appendChild(td6);
                     tr.appendChild(td7);
                     tr.appendChild(td8);
-                    td8.appendChild(button);
+                    tr.appendChild(td9);
+                    td9.appendChild(button);
 
                     // Lấy bảng trong trang web và chèn phần tử tr vào bảng
                     var table = document.getElementById('productTableBody');
                     table.appendChild(tr);
                 }
+				// Chuyển đổi tất cả phần tử về số, lọc bỏ giá trị NaN
+				const numericValues = arrCountDotLive.map(Number).filter(num => !isNaN(num));
+				const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : null;
+				if (dateFilterDropdown && maxValue !== null) {
+					while (dateFilterDropdown.children.length > 1) {
+						dateFilterDropdown.removeChild(dateFilterDropdown.lastChild);
+					} // Xóa nội dung cũ (nếu có)
+					
+					for (let i = 1; i <= maxValue; i++) {
+						const option = document.createElement('option');
+						option.value = i;
+						option.textContent = i;
+						dateFilterDropdown.appendChild(option);
+					}
+					if (maxValue > 0) {
+						const columnCount = maxValue;
+						dotLiveInput.value = columnCount;
+					} else {
+						dotLiveInput.value = 1;
+					}
+				}
             }
         }
     } catch (error) {
@@ -299,24 +328,6 @@ function getFormattedDate() {
     const month = (currentDate.getMonth() + 1).toString().padStart(2, '0'); // Tháng bắt đầu từ 0
     const year = currentDate.getFullYear();
     return `${day}-${month}-${year}`;
-}
-
-// Hàm áp dụng bộ lọc phân loại
-function applyCategoryFilter() {
-    const filterCategory = filterCategorySelect.value;
-
-    // Lặp qua từng hàng của bảng và xử lý việc ẩn/cuộn hàng dựa trên phân loại
-    const rows = document.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-        const categoryCell = row.querySelector('td:nth-child(3)'); // Lấy cột phân loại
-        const category = categoryCell.textContent.trim();
-
-        if (filterCategory === 'all' || category === filterCategory) {
-            row.style.display = ''; // Hiển thị hàng nếu phân loại khớp hoặc đang chọn "Tất cả"
-        } else {
-            row.style.display = 'none'; // Ẩn hàng nếu phân loại không khớp
-        }
-    });
 }
 
 const soLuongInput = document.getElementById('soLuong');
@@ -529,6 +540,8 @@ function addProduct(event) {
     const tenSanPham = document.getElementById('tenSanPham').value;
     const kichCo = document.getElementById('kichCo').value;
     const soLuong = parseInt(document.getElementById('soLuong').value);
+	const dotLiveInput = document.getElementById('dotLive');
+    const dotLive = dotLiveInput.value;
 
     if (soLuong < 1) {
         showFloatingAlert('Số lượng phải lớn hơn hoặc bằng 1');
@@ -570,6 +583,7 @@ function addProduct(event) {
         const imageUrl = hinhAnhInput.value; // Đặt URL của hình ảnh tải lên
 
         var dataToUpload = {
+			dotLive: dotLive,
             thoiGianUpload: formattedTime,
             phanLoai: phanLoai,
             hinhAnh: imageUrl,
@@ -587,7 +601,7 @@ function addProduct(event) {
                 }).then(function() {
                     console.log("Document tải lên thành công");
                     showFloatingAlert("Loading...");
-                    addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
+                    addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                     document.getElementById("addButton").disabled = false;
                     clearData();
                 }).catch(function(error) {
@@ -601,7 +615,7 @@ function addProduct(event) {
                 }).then(function() {
                     console.log("Document tải lên thành công");
                     showFloatingAlert("Loading...");
-                    addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
+                    addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                     document.getElementById("addButton").disabled = false;
                     clearData();
                 }).catch(function(error) {
@@ -710,6 +724,7 @@ function addProduct(event) {
                 const imageUrl = imageUrlFile; // Đặt URL của hình ảnh tải lên
 
                 var dataToUpload = {
+					dotLive: dotLive,
                     thoiGianUpload: formattedTime,
                     phanLoai: phanLoai,
                     hinhAnh: imageUrl,
@@ -727,7 +742,7 @@ function addProduct(event) {
                         }).then(function() {
                             console.log("Document tải lên thành công");
                             showFloatingAlert("Loading...");
-                            addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
+                            addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                             document.getElementById("addButton").disabled = false;
                             clearData();
                         }).catch(function(error) {
@@ -741,7 +756,7 @@ function addProduct(event) {
                         }).then(function() {
                             console.log("Document tải lên thành công");
                             showFloatingAlert("Loading...");
-                            addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
+                            addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                             document.getElementById("addButton").disabled = false;
                             clearData();
                         }).catch(function(error) {
@@ -779,6 +794,7 @@ function addProduct(event) {
                     const imageUrl = downloadURL;
 
                     var dataToUpload = {
+						dotLive: dotLive,
                         thoiGianUpload: formattedTime,
                         phanLoai: phanLoai,
                         hinhAnh: imageUrl,
@@ -796,7 +812,7 @@ function addProduct(event) {
                             }).then(function() {
                                 console.log("Document tải lên thành công");
                                 showFloatingAlert("Loading...");
-                                addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
+                                addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                                 document.getElementById("addButton").disabled = false;
                                 clearData();
                             }).catch(function(error) {
@@ -810,7 +826,7 @@ function addProduct(event) {
                             }).then(function() {
                                 console.log("Document tải lên thành công");
                                 showFloatingAlert("Loading...");
-                                addProducToTable(formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
+                                addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                                 document.getElementById("addButton").disabled = false;
                                 clearData();
                             }).catch(function(error) {
@@ -874,7 +890,7 @@ function clearData() {
 
 }
 
-function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo, soLuong) {
+function addProducToTable(dotLive, thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo, soLuong) {
     var tr = document.createElement('tr');
     var td1 = document.createElement('td');
     var td2 = document.createElement('td');
@@ -884,19 +900,21 @@ function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo,
     var td6 = document.createElement('td');
     var td7 = document.createElement('td');
     var td8 = document.createElement('td');
+    var td9 = document.createElement('td');
     var img = document.createElement('img');
     var input = document.createElement('input');
     var button = document.createElement('button');
 
     // Đặt nội dung cho các phần tử
     td1.textContent = tbody.querySelectorAll("tr").length + 1;
-    td2.textContent = thoiGianUpload;
-    td3.textContent = phanLoai;
+	if (!dotLive) {td2.textContent = "Chưa nhập";} else {td2.textContent = dotLive;}
+    td3.textContent = thoiGianUpload;
+    td4.textContent = phanLoai;
     img.src = hinhAnh;
     img.alt = 'Hình sản phẩm';
-    td4.appendChild(img);
-    td5.textContent = tenSanPham;
-    td6.textContent = kichCo;
+    td5.appendChild(img);
+    td6.textContent = tenSanPham;
+    td7.textContent = kichCo;
     input.type = 'number';
     input.value = soLuong;
     input.min = '0';
@@ -904,7 +922,7 @@ function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo,
     input.addEventListener('change', function() {
         updateInventory();
     });
-    td7.appendChild(input);
+    td8.appendChild(input);
     button.textContent = 'Xoá';
     button.class = 'deleteButton';
     button.addEventListener('click', deleteInventory);
@@ -918,12 +936,32 @@ function addProducToTable(thoiGianUpload, phanLoai, hinhAnh, tenSanPham, kichCo,
     tr.appendChild(td6);
     tr.appendChild(td7);
     tr.appendChild(td8);
-    td8.appendChild(button);
+    tr.appendChild(td9);
+    td9.appendChild(button);
 
     // Lấy bảng trong trang web và chèn phần tử tr vào bảng
     var table = document.getElementById('productTableBody');
     var firstRow = table.querySelector('tr:first-child'); // Lấy dòng đầu tiên
     table.insertBefore(tr, firstRow);
+}
+
+function applyFilters() {
+    const filterCategory = filterCategorySelect.value;
+    const selectedDotlive = dateFilterDropdown.value;
+
+    const rows = document.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const categoryCell = row.querySelector('td:nth-child(4)'); // Lấy cột phân loại
+        const category = categoryCell.textContent.trim();
+        const rowDate = row.cells[1].textContent.trim(); // Lấy giá trị đợt live từ cột thứ 2
+
+        // Kiểm tra điều kiện hiển thị
+        const matchCategory = (filterCategory === 'all' || category === filterCategory);
+        const matchDate = (selectedDotlive === 'all' || rowDate === selectedDotlive);
+
+        // Nếu cả hai điều kiện đều đúng thì hiển thị, ngược lại ẩn
+        row.style.display = (matchCategory && matchDate) ? '' : 'none';
+    });
 }
 
 // Đăng xuất
