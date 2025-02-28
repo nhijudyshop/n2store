@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KHÁCH HÀNG DỰ BỊ</title>
+  <link href="../css/dubi.css" rel="stylesheet">
+  <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
+  <link rel="shortcut icon" href="../logo.jpg" />
+  <!-- The core Firebase JS SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <!-- The Firebase storage SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+  <!-- The Firebase firestore SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+</head>
+
+<body>
+  <div class="nav-container">
+    <ul class="nav-list">
+      <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
+      <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
+      <!-- <li class="nav-item"><a id="current-page-link" href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li> -->
+      <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
+      <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
+      <!-- <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG KHÁCH VIP</a></li> -->
+      <li class="nav-item"><a href="../thongke/index.html">THỐNG KÊ LIVE</a></li>
+      <li class="nav-item"><a href="../order/index.html">ORDER</a></li>
+    </ul>
+  </div>
+  <!-- Nút để ẩn/hiện biểu mẫu -->
+  <button id="toggleFormButton">Hiện biểu mẫu</button>
+  <button id="toggleLogoutButton">Đăng xuất</button>
+  <!-- Thẻ div chứa biểu mẫu -->
+  <div id="dataForm" style="display: none;">
+    <h1>Thêm Sản Phẩm</h1>
+    <form> <!--
+        <label for="phanLoai">Phân loại:</label>
+        <select id="phanLoai" required>
+          <option value="Áo" selected>Áo</option>
+          <option value="Quần">Quần</option>
+          <option value="Set và Đầm">Set và Đầm</option>
+          <option value="PKGD">Phụ kiện và Giày dép</option>
+        </select>
+		-->
+      <p>Hình ảnh sản phẩm:</p>
+      <div id="radioButtonsContainer">
+        <input type="radio" name="inputType" id="inputClipboard" checked>
+        <label for="inputClipboard">Copy Paste</label>
+        <input type="radio" name="inputType" id="inputFile">
+        <label for="inputFile">Nhập file</label>
+        <input type="radio" name="inputType" id="inputLink">
+        <label for="inputLink">Nhập link</label>
+      </div>
+      <div id="container">
+        <p>Dán ảnh sản phẩm ở đây…</p>
+      </div>
+      <div id="inputFileContainer">
+        <input type="file" id="hinhAnhInputFile" accept="image/*" multiple>
+      </div>
+      <div id="inputLinkContainer">
+        <input type="button" id="hinhAnhInputLink" value="Thêm link">
+      </div>
+      <div id="hinhAnhContainer"></div>
+      <label for="tenSanPham">Tên sản phẩm:</label>
+      <input type="text" id="tenSanPham" required>
+      <p>Ảnh khách hàng:</p>
+      <div id="radioButtonsContainer">
+        <input type="radio" name="inputTypeKH" id="inputClipboardKH" checked>
+        <label for="inputClipboardKH">Copy Paste</label>
+        <input type="radio" name="inputTypeKH" id="inputFileKH">
+        <label for="inputFileKH">Nhập file</label>
+      </div>
+      <div id="containerKH">
+        <p>Dán ảnh khách hàng ở đây…</p>
+      </div>
+      <div id="hinhAnhContainerKH"></div>
+      <div id="inputFileContainerKH">
+        <input type="file" id="hinhAnhInputFileKH" multiple>
+      </div>
+      <!-- Thêm thẻ div để nhóm nút "Thêm dữ liệu" và "Xóa dữ liệu" -->
+      <div class="center-button">
+        <button type="submit" id="addButton">Thêm</button>
+        <button type="button" id="clearDataButton">Reset</button>
+      </div>
+    </form>
+  </div>
+  <div id="parentContainer">
+    <p class="tieude">KHÁCH LIVE DỰ BỊ</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>STT</th>
+        <th>Hình ảnh sản phẩm</th>
+        <th>Tên sản phẩm</th>
+        <th>Ảnh khách hàng</th>
+        <th>Ẩn</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Dữ liệu sản phẩm và thông tin khách hàng sẽ được thêm bằng JavaScript -->
+    </tbody>
+  </table>
+  
+  <!-- Thêm thông báo cho dễ tương tác -->
+   <div id="floatingAlert">Thông báo hiển thị!</div>
+   <style>
+	#floatingAlert {
+	  position: fixed;
+	  top: 50%;
+	  left: 50%;
+	  transform: translate(-50%, -50%);
+	  background: rgba(0, 0, 0, 0.8);
+	  color: white;
+	  padding: 30px 50px; /* Tăng padding để alert lớn hơn */
+	  border-radius: 12px;
+	  font-size: 20px; /* Tăng kích thước chữ */
+	  width: 50%; /* Tăng độ rộng của alert */
+	  max-width: 500px; /* Giới hạn tối đa */
+	  text-align: center;
+	  opacity: 0;
+	  transition: opacity 0.5s;
+	  pointer-events: none;
+	}
+	</style>
+
+	<script>
+	  function showFloatingAlert(message) {
+		const alertBox = document.getElementById('floatingAlert');
+		alertBox.innerText = message;
+		alertBox.style.opacity = '1';
+
+		setTimeout(() => {
+		  alertBox.style.opacity = '0';
+		}, 3000); // Ẩn sau 3 giây
+	  }
+	</script>
+	<!-- Thêm thông báo cho dễ tương tác -->
+  
+  <script src="scriptObfuscator.js"></script>
+</body>
+
+</html>
