@@ -390,7 +390,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     const startDate = document.getElementById('startDate').value;
                     const endDate = document.getElementById('endDate').value;
 
-                    for (let i = 0; i < data["data"].length - 1; i++) {
+                    for (let i = 0; i < data["data"].length; i++) {
                         const row = data["data"][i];
 
                         // Chuyển đổi và định dạng ngày tháng
