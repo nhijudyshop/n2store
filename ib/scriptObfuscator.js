@@ -281,53 +281,43 @@ function applyCategoryFilter() {
     });
 }
 
-function toggleRowVisibility(row, button) {
+function deleteRow(row, button) {
     if (userType === "admin-admin" || userType === "my-my2804" || userType === "lai-lai2506") {
-		const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
+        const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
         if (confirmDelete) {
-			const cellsToHide = row.querySelectorAll('td:not(:last-child)');
-			// Lấy tài liệu "ib" từ Firestore
-			collectionRef.doc("ib").get()
-				.then((doc) => {
-					if (doc.exists) {
-						// Sao chép dữ liệu
-						const data = doc.data().data.slice(); // Sao chép mảng
+            // Lấy tài liệu "ib" từ Firestore
+			showFloatingAlert("Loading...");
+            collectionRef.doc("ib").get()
+                .then((doc) => {
+                    if (doc.exists) {
+                        let data = doc.data().data.slice(); // Sao chép mảng
+                        const indexToDelete = parseInt(row.cells[0].textContent) - 1; // Lấy vị trí
 
-						// Vị trí của mục cần cập nhật
-						const indexToUpdate = cellsToHide[0].textContent - 1; // Đổi index thành vị trí muốn cập nhật
+                        if (indexToDelete >= 0 && indexToDelete < data.length) {
+                            data.splice(indexToDelete, 1); // Xóa phần tử khỏi mảng
 
-						// Cập nhật dữ liệu tại vị trí cụ thể
-						if (cellsToHide[0].style.display !== 'none' || userType.split('-')[0] == 'admin') {
-							console.log('1');
-							cellsToHide.forEach(cell => cell.style.display = 'none');
-							button.innerText = 'Hiện';
-							data[indexToUpdate].cellShow = false;
-						} else {
-							cellsToHide.forEach(cell => cell.style.display = '');
-							button.innerText = 'Xoá';
-							updateRowIndexes();
-							data[indexToUpdate].cellShow = true;
-						}
-
-						// Cập nhật dữ liệu trong Firestore
-						collectionRef.doc("ib").update({
-							data
-						})
-						.then(function() {
-							// Nếu cập nhật thành công, reload trang
-							location.reload();
-						})
-						.catch(function(error) {
-							console.error("Lỗi khi cập nhật dữ liệu:", error);
-						});
-					}
-				})
-				.catch((error) => {});
-		}
+                            // Cập nhật Firestore với mảng mới đã xóa phần tử
+                            collectionRef.doc("ib").update({
+                                data
+                            }).then(() => {
+                                location.reload(); // Làm mới trang sau khi xóa thành công
+                            }).catch((error) => {
+                                console.error("Lỗi khi cập nhật dữ liệu:", error);
+                            });
+                        } else {
+                            console.error("Không tìm thấy phần tử để xóa");
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error("Lỗi khi lấy dữ liệu:", error);
+                });
+        }
     } else {
         alert("Bạn không đủ quyền để thực hiện thao tác này");
     }
 }
+
 
 function updateRowIndexes() {
     let visibleRows = Array.from(tbody.querySelectorAll('tr[style="display: ;"]'));
@@ -1361,7 +1351,7 @@ function addImagesFromStorage() {
                             } else if (data["data"][i].cellShow == false && userType.split('-')[0] == 'admin') {
 								const hideButton = document.createElement('button');
                                 hideButton.className = 'toggle-visibility';
-                                hideButton.onclick = () => toggleRowVisibility(row, hideButton);
+                                hideButton.onclick = () => deleteRow(row, hideButton);
                                 toggleVisibilityCell.appendChild(hideButton);
 								hideButton.innerText = 'Hiện';
                                 thuTuCell.style.display = 'none';
@@ -1409,7 +1399,7 @@ function addImagesFromStorage() {
 
                                 const hideButton = document.createElement('button');
                                 hideButton.className = 'toggle-visibility';
-                                hideButton.onclick = () => toggleRowVisibility(row, hideButton);
+                                hideButton.onclick = () => deleteRow(row, hideButton);
                                 toggleVisibilityCell.appendChild(hideButton);
                                 hideButton.innerText = 'Xoá';
                                 thuTuCell.style.display = '';
@@ -1474,7 +1464,7 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham, thoiGianUpload, phanL
     const hideButton = document.createElement('button');
     hideButton.className = 'toggle-visibility';
     hideButton.textContent = 'Xoá';
-    hideButton.onclick = () => toggleRowVisibility(row, hideButton);
+    hideButton.onclick = () => deleteRow(row, hideButton);
     toggleVisibilityCell.appendChild(hideButton);
 }
 

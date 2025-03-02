@@ -354,11 +354,12 @@ function updateInventory() {
 		const imgElement = row.querySelector("img");
 		const imgSrc = imgElement.src;;
 		const quantity = event.target.value;
-		const size = row.getElementsByTagName("td")[5].textContent;
+		const size = row.getElementsByTagName("td")[6].textContent;
 
 		if (quantity < 1) {
 			if (row) {
 				if (imgElement) {
+					showFloatingAlert("Loading...");
 					const imgSrc = imgElement.src;
 					collectionRef.doc("hangrotxa").get()
 						.then((doc) => {
@@ -387,6 +388,7 @@ function updateInventory() {
 										collectionRef.doc("hangrotxa").update({
 											"data": data["data"]
 										}).then(function() {
+											showFloatingAlert("Done!");
 											console.log("Document tải lên thành công");
 										}).catch(function(error) {
 											console.error("Lỗi khi tải document lên: ", error);
@@ -396,6 +398,7 @@ function updateInventory() {
 										collectionRef.doc("hangrotxa").set({
 											"data": data["data"]
 										}).then(function() {
+											showFloatingAlert("Done!");
 											console.log("Document tải lên thành công");
 										}).catch(function(error) {
 											console.error("Lỗi khi tải document lên: ", error);
@@ -415,6 +418,7 @@ function updateInventory() {
 		} else {
 			if (row) {
 				if (imgElement) {
+					showFloatingAlert("Loading...");
 					collectionRef.doc("hangrotxa").get()
 						.then((doc) => {
 							if (doc.exists) {
@@ -423,6 +427,7 @@ function updateInventory() {
 
 								for (let i = 0; i < data["data"].length; i++) {
 									if (Array.isArray(data["data"][i].hinhAnh)) {
+										console.log("1");
 										if (imgSrc === data["data"][i].hinhAnh[0] && size === data["data"][i].kichCo) {
 											data["data"][i].soLuong = quantity;
 											break; // Kết thúc vòng lặp sau khi xoá
@@ -444,6 +449,7 @@ function updateInventory() {
 										collectionRef.doc("hangrotxa").update({
 											"data": data["data"]
 										}).then(function() {
+											showFloatingAlert("Done!");
 											console.log("Document tải lên thành công");
 										}).catch(function(error) {
 											console.error("Lỗi khi tải document lên: ", error);
@@ -453,6 +459,7 @@ function updateInventory() {
 										collectionRef.doc("hangrotxa").set({
 											"data": data["data"]
 										}).then(function() {
+											showFloatingAlert("Done!");
 											console.log("Document tải lên thành công");
 										}).catch(function(error) {
 											console.error("Lỗi khi tải document lên: ", error);
@@ -481,6 +488,7 @@ function deleteInventory() {
 			if (row) {
 				const imgElement = row.querySelector("img");
 				if (imgElement) {
+					showFloatingAlert("Loading...");
 					const imgSrc = imgElement.src;
 					collectionRef.doc("hangrotxa").get()
 						.then((doc) => {
@@ -502,6 +510,7 @@ function deleteInventory() {
 										collectionRef.doc("hangrotxa").update({
 											"data": data["data"]
 										}).then(function() {
+											showFloatingAlert("Done!");
 											console.log("Document tải lên thành công");
 										}).catch(function(error) {
 											console.error("Lỗi khi tải document lên: ", error);
@@ -511,6 +520,7 @@ function deleteInventory() {
 										collectionRef.doc("hangrotxa").set({
 											"data": data["data"]
 										}).then(function() {
+											showFloatingAlert("Done!");
 											console.log("Document tải lên thành công");
 										}).catch(function(error) {
 											console.error("Lỗi khi tải document lên: ", error);
@@ -600,7 +610,7 @@ function addProduct(event) {
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                 }).then(function() {
                     console.log("Document tải lên thành công");
-                    showFloatingAlert("Loading...");
+                    showFloatingAlert("Done!");
                     addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                     document.getElementById("addButton").disabled = false;
                     clearData();
@@ -614,7 +624,7 @@ function addProduct(event) {
                     ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                 }).then(function() {
                     console.log("Document tải lên thành công");
-                    showFloatingAlert("Loading...");
+                    showFloatingAlert("Done!");
                     addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                     document.getElementById("addButton").disabled = false;
                     clearData();
@@ -741,7 +751,7 @@ function addProduct(event) {
                             ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                         }).then(function() {
                             console.log("Document tải lên thành công");
-                            showFloatingAlert("Loading...");
+                            showFloatingAlert("Done!");
                             addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                             document.getElementById("addButton").disabled = false;
                             clearData();
@@ -755,7 +765,7 @@ function addProduct(event) {
                             ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                         }).then(function() {
                             console.log("Document tải lên thành công");
-                            showFloatingAlert("Loading...");
+                            showFloatingAlert("Done!");
                             addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                             document.getElementById("addButton").disabled = false;
                             clearData();
@@ -811,7 +821,7 @@ function addProduct(event) {
                                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                             }).then(function() {
                                 console.log("Document tải lên thành công");
-                                showFloatingAlert("Loading...");
+                                showFloatingAlert("Done!");
                                 addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                                 document.getElementById("addButton").disabled = false;
                                 clearData();
@@ -825,7 +835,7 @@ function addProduct(event) {
                                 ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
                             }).then(function() {
                                 console.log("Document tải lên thành công");
-                                showFloatingAlert("Loading...");
+                                showFloatingAlert("Done!");
                                 addProducToTable(dotLive, formattedTime, phanLoai, imageUrl, tenSanPham, kichCo, soLuong);
                                 document.getElementById("addButton").disabled = false;
                                 clearData();
