@@ -481,7 +481,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     tableBody.addEventListener('click', function(e) {
         if (e.target.classList.contains('edit-button')) {
-            if (userType == "admin-admin" || userType == "coi-coi2806" || userType == "lai-lai2506") {
+            if (userType == "admin-admin" || userType == "coi-coi2806") {
                 document.getElementById('editModal').style.display = 'block';
 
                 const editDelivery = document.getElementById('editDelivery');
