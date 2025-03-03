@@ -233,7 +233,7 @@ async function displayInventoryData() {
             // Check if data is defined and data.data is an array
             if (data && Array.isArray(data.data)) {
                 var tableElement = document.getElementById('productTableBody');
-				var arrCountDotLive = [];
+                var arrCountDotLive = [];
                 for (let i = data.data.length - 1; i >= 0; i--) {
                     const product = data.data[i];
                     // Tạo các phần tử
@@ -253,8 +253,12 @@ async function displayInventoryData() {
 
                     // Đặt nội dung cho các phần tử
                     td1.textContent = i + 1;
-					if (!product.dotLive) {td2.textContent = "Chưa nhập";} else {td2.textContent = product.dotLive;}
-					arrCountDotLive.push(product.dotLive);
+                    if (!product.dotLive) {
+                        td2.textContent = "Chưa nhập";
+                    } else {
+                        td2.textContent = product.dotLive;
+                    }
+                    arrCountDotLive.push(product.dotLive);
                     td3.textContent = product.thoiGianUpload;
                     td4.textContent = product.phanLoai;
                     img.src = product.hinhAnh;
@@ -290,28 +294,29 @@ async function displayInventoryData() {
                     var table = document.getElementById('productTableBody');
                     table.appendChild(tr);
                 }
-				// Chuyển đổi tất cả phần tử về số, lọc bỏ giá trị NaN
-				const numericValues = arrCountDotLive.map(Number).filter(num => !isNaN(num));
-				const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : null;
-				if (dateFilterDropdown && maxValue !== null) {
-					while (dateFilterDropdown.children.length > 1) {
-						dateFilterDropdown.removeChild(dateFilterDropdown.lastChild);
-					} // Xóa nội dung cũ (nếu có)
-					
-					for (let i = 1; i <= maxValue; i++) {
-						const option = document.createElement('option');
-						option.value = i;
-						option.textContent = i;
-						dateFilterDropdown.appendChild(option);
-					}
-					if (maxValue > 0) {
-						const columnCount = maxValue;
-						dotLiveInput.value = columnCount;
-					} else {
-						dotLiveInput.value = 1;
-					}
-				}
+                // Chuyển đổi tất cả phần tử về số, lọc bỏ giá trị NaN
+                const numericValues = arrCountDotLive.map(Number).filter(num => !isNaN(num));
+                const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : null;
+                if (dateFilterDropdown && maxValue !== null) {
+                    while (dateFilterDropdown.children.length > 1) {
+                        dateFilterDropdown.removeChild(dateFilterDropdown.lastChild);
+                    } // Xóa nội dung cũ (nếu có)
+
+                    for (let i = 1; i <= maxValue; i++) {
+                        const option = document.createElement('option');
+                        option.value = i;
+                        option.textContent = i;
+                        dateFilterDropdown.appendChild(option);
+                    }
+                    if (maxValue > 0) {
+                        const columnCount = maxValue;
+                        dotLiveInput.value = columnCount;
+                    } else {
+                        dotLiveInput.value = 1;
+                    }
+                }
             }
+            updateSuggestions();
         }
     } catch (error) {
         // Xử lý lỗi ở đây nếu có
@@ -334,211 +339,211 @@ const soLuongInput = document.getElementById('soLuong');
 
 soLuongInput.addEventListener('input', function() {
     const enteredValue = parseInt(soLuongInput.value);
-	
-	if (userType != "khach-777") {
-		if (enteredValue < 1) {
-			alert('Số lượng phải lớn hơn hoặc bằng 1');
-			soLuongInput.value = '1'; // Đặt lại giá trị thành 1 nếu người dùng nhập số nhỏ hơn 1
-		}
-	} else {
-		alert('Không đủ quyền!');
-		soLuongInput.value = enteredValue;
-	}
+
+    if (userType != "khach-777") {
+        if (enteredValue < 1) {
+            alert('Số lượng phải lớn hơn hoặc bằng 1');
+            soLuongInput.value = '1'; // Đặt lại giá trị thành 1 nếu người dùng nhập số nhỏ hơn 1
+        }
+    } else {
+        alert('Không đủ quyền!');
+        soLuongInput.value = enteredValue;
+    }
 });
 
 // Cập nhật số lượng sản phẩm khi người dùng thay đổi giá trị
 function updateInventory() {
     // Lắng nghe sự kiện khi giá trị cột số lượng thay đổi
-	if (userType != "khach-777") {
-		const row = event.target.closest("tr");
-		const imgElement = row.querySelector("img");
-		const imgSrc = imgElement.src;;
-		const quantity = event.target.value;
-		const size = row.getElementsByTagName("td")[6].textContent;
+    if (userType != "khach-777") {
+        const row = event.target.closest("tr");
+        const imgElement = row.querySelector("img");
+        const imgSrc = imgElement.src;;
+        const quantity = event.target.value;
+        const size = row.getElementsByTagName("td")[6].textContent;
 
-		if (quantity < 1) {
-			if (row) {
-				if (imgElement) {
-					showFloatingAlert("Loading...");
-					const imgSrc = imgElement.src;
-					collectionRef.doc("hangrotxa").get()
-						.then((doc) => {
-							if (doc.exists) {
-								// Sao chép dữ liệu
-								const data = doc.data(); // Sao chép mảng
+        if (quantity < 1) {
+            if (row) {
+                if (imgElement) {
+                    showFloatingAlert("Loading...");
+                    const imgSrc = imgElement.src;
+                    collectionRef.doc("hangrotxa").get()
+                        .then((doc) => {
+                            if (doc.exists) {
+                                // Sao chép dữ liệu
+                                const data = doc.data(); // Sao chép mảng
 
-								for (let i = 0; i < data["data"].length; i++) {
-									if (Array.isArray(data["data"][i].hinhAnh)) {
-										if (imgSrc === data["data"][i].hinhAnh[0] && size === data["data"][i].kichCo) {
-											data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
-											break; // Kết thúc vòng lặp sau khi xoá
-										}
-									} else {
-										if (imgSrc === data["data"][i].hinhAnh && size === data["data"][i].kichCo) {
-											data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
-											break; // Kết thúc vòng lặp sau khi xoá
-										}
-									}
-								}
+                                for (let i = 0; i < data["data"].length; i++) {
+                                    if (Array.isArray(data["data"][i].hinhAnh)) {
+                                        if (imgSrc === data["data"][i].hinhAnh[0] && size === data["data"][i].kichCo) {
+                                            data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
+                                            break; // Kết thúc vòng lặp sau khi xoá
+                                        }
+                                    } else {
+                                        if (imgSrc === data["data"][i].hinhAnh && size === data["data"][i].kichCo) {
+                                            data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
+                                            break; // Kết thúc vòng lặp sau khi xoá
+                                        }
+                                    }
+                                }
 
-								// Kiểm tra xem tài liệu đã tồn tại chưa
-								collectionRef.doc("hangrotxa").get().then(doc => {
-									if (doc.exists) {
-										// Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-										collectionRef.doc("hangrotxa").update({
-											"data": data["data"]
-										}).then(function() {
-											showFloatingAlert("Done!");
-											console.log("Document tải lên thành công");
-										}).catch(function(error) {
-											console.error("Lỗi khi tải document lên: ", error);
-										});
-									} else {
-										// Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-										collectionRef.doc("hangrotxa").set({
-											"data": data["data"]
-										}).then(function() {
-											showFloatingAlert("Done!");
-											console.log("Document tải lên thành công");
-										}).catch(function(error) {
-											console.error("Lỗi khi tải document lên: ", error);
-										});
-									}
-								}).catch(function(error) {
-									console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
-								});
-							}
-						})
-						.catch((error) => {
-							console.error("Lỗi lấy document:", error);
-						});
-				}
-				row.remove();
-			}
-		} else {
-			if (row) {
-				if (imgElement) {
-					showFloatingAlert("Loading...");
-					collectionRef.doc("hangrotxa").get()
-						.then((doc) => {
-							if (doc.exists) {
-								// Sao chép dữ liệu
-								const data = doc.data(); // Sao chép mảng
+                                // Kiểm tra xem tài liệu đã tồn tại chưa
+                                collectionRef.doc("hangrotxa").get().then(doc => {
+                                    if (doc.exists) {
+                                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                        collectionRef.doc("hangrotxa").update({
+                                            "data": data["data"]
+                                        }).then(function() {
+                                            showFloatingAlert("Done!");
+                                            console.log("Document tải lên thành công");
+                                        }).catch(function(error) {
+                                            console.error("Lỗi khi tải document lên: ", error);
+                                        });
+                                    } else {
+                                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                        collectionRef.doc("hangrotxa").set({
+                                            "data": data["data"]
+                                        }).then(function() {
+                                            showFloatingAlert("Done!");
+                                            console.log("Document tải lên thành công");
+                                        }).catch(function(error) {
+                                            console.error("Lỗi khi tải document lên: ", error);
+                                        });
+                                    }
+                                }).catch(function(error) {
+                                    console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                                });
+                            }
+                        })
+                        .catch((error) => {
+                            console.error("Lỗi lấy document:", error);
+                        });
+                }
+                row.remove();
+            }
+        } else {
+            if (row) {
+                if (imgElement) {
+                    showFloatingAlert("Loading...");
+                    collectionRef.doc("hangrotxa").get()
+                        .then((doc) => {
+                            if (doc.exists) {
+                                // Sao chép dữ liệu
+                                const data = doc.data(); // Sao chép mảng
 
-								for (let i = 0; i < data["data"].length; i++) {
-									if (Array.isArray(data["data"][i].hinhAnh)) {
-										console.log("1");
-										if (imgSrc === data["data"][i].hinhAnh[0] && size === data["data"][i].kichCo) {
-											data["data"][i].soLuong = quantity;
-											break; // Kết thúc vòng lặp sau khi xoá
-										}
-									} else {
-										if (imgSrc === data["data"][i].hinhAnh && size === data["data"][i].kichCo) {
-											data["data"][i].soLuong = quantity;
-											break; // Kết thúc vòng lặp sau khi xoá
-										}
-									}
+                                for (let i = 0; i < data["data"].length; i++) {
+                                    if (Array.isArray(data["data"][i].hinhAnh)) {
+                                        console.log("1");
+                                        if (imgSrc === data["data"][i].hinhAnh[0] && size === data["data"][i].kichCo) {
+                                            data["data"][i].soLuong = quantity;
+                                            break; // Kết thúc vòng lặp sau khi xoá
+                                        }
+                                    } else {
+                                        if (imgSrc === data["data"][i].hinhAnh && size === data["data"][i].kichCo) {
+                                            data["data"][i].soLuong = quantity;
+                                            break; // Kết thúc vòng lặp sau khi xoá
+                                        }
+                                    }
 
 
-								}
+                                }
 
-								// Kiểm tra xem tài liệu đã tồn tại chưa
-								collectionRef.doc("hangrotxa").get().then(doc => {
-									if (doc.exists) {
-										// Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-										collectionRef.doc("hangrotxa").update({
-											"data": data["data"]
-										}).then(function() {
-											showFloatingAlert("Done!");
-											console.log("Document tải lên thành công");
-										}).catch(function(error) {
-											console.error("Lỗi khi tải document lên: ", error);
-										});
-									} else {
-										// Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-										collectionRef.doc("hangrotxa").set({
-											"data": data["data"]
-										}).then(function() {
-											showFloatingAlert("Done!");
-											console.log("Document tải lên thành công");
-										}).catch(function(error) {
-											console.error("Lỗi khi tải document lên: ", error);
-										});
-									}
-								}).catch(function(error) {
-									console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
-								});
-							}
-						})
-						.catch((error) => {
-							console.error("Lỗi lấy document:", error);
-						});
-				}
-			}
-		}
-	}
+                                // Kiểm tra xem tài liệu đã tồn tại chưa
+                                collectionRef.doc("hangrotxa").get().then(doc => {
+                                    if (doc.exists) {
+                                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                        collectionRef.doc("hangrotxa").update({
+                                            "data": data["data"]
+                                        }).then(function() {
+                                            showFloatingAlert("Done!");
+                                            console.log("Document tải lên thành công");
+                                        }).catch(function(error) {
+                                            console.error("Lỗi khi tải document lên: ", error);
+                                        });
+                                    } else {
+                                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                        collectionRef.doc("hangrotxa").set({
+                                            "data": data["data"]
+                                        }).then(function() {
+                                            showFloatingAlert("Done!");
+                                            console.log("Document tải lên thành công");
+                                        }).catch(function(error) {
+                                            console.error("Lỗi khi tải document lên: ", error);
+                                        });
+                                    }
+                                }).catch(function(error) {
+                                    console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                                });
+                            }
+                        })
+                        .catch((error) => {
+                            console.error("Lỗi lấy document:", error);
+                        });
+                }
+            }
+        }
+    }
 }
 
 // Xoá sản phẩm khi người dùng ấn nút "Xoá"
 function deleteInventory() {
-	if (userType != "khach-777") {
-		const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
-		const row = event.target.closest("tr");
-		if (confirmDelete) {
-			if (row) {
-				const imgElement = row.querySelector("img");
-				if (imgElement) {
-					showFloatingAlert("Loading...");
-					const imgSrc = imgElement.src;
-					collectionRef.doc("hangrotxa").get()
-						.then((doc) => {
-							if (doc.exists) {
-								// Sao chép dữ liệu
-								const data = doc.data(); // Sao chép mảng
+    if (userType != "khach-777") {
+        const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
+        const row = event.target.closest("tr");
+        if (confirmDelete) {
+            if (row) {
+                const imgElement = row.querySelector("img");
+                if (imgElement) {
+                    showFloatingAlert("Loading...");
+                    const imgSrc = imgElement.src;
+                    collectionRef.doc("hangrotxa").get()
+                        .then((doc) => {
+                            if (doc.exists) {
+                                // Sao chép dữ liệu
+                                const data = doc.data(); // Sao chép mảng
 
-								for (let i = 0; i < data["data"].length; i++) {
-									if (imgSrc === data["data"][i].hinhAnh) {
-										data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
-										break; // Kết thúc vòng lặp sau khi xoá
-									}
-								}
+                                for (let i = 0; i < data["data"].length; i++) {
+                                    if (imgSrc === data["data"][i].hinhAnh) {
+                                        data["data"].splice(i, 1); // Xoá phần tử tại vị trí i
+                                        break; // Kết thúc vòng lặp sau khi xoá
+                                    }
+                                }
 
-								// Kiểm tra xem tài liệu đã tồn tại chưa
-								collectionRef.doc("hangrotxa").get().then(doc => {
-									if (doc.exists) {
-										// Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-										collectionRef.doc("hangrotxa").update({
-											"data": data["data"]
-										}).then(function() {
-											showFloatingAlert("Done!");
-											console.log("Document tải lên thành công");
-										}).catch(function(error) {
-											console.error("Lỗi khi tải document lên: ", error);
-										});
-									} else {
-										// Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
-										collectionRef.doc("hangrotxa").set({
-											"data": data["data"]
-										}).then(function() {
-											showFloatingAlert("Done!");
-											console.log("Document tải lên thành công");
-										}).catch(function(error) {
-											console.error("Lỗi khi tải document lên: ", error);
-										});
-									}
-								}).catch(function(error) {
-									console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
-								});
-							}
-						})
-						.catch((error) => {
-							console.error("Lỗi lấy document:", error);
-						});
-				}
-				row.remove();
-			}
-		}
-	}
+                                // Kiểm tra xem tài liệu đã tồn tại chưa
+                                collectionRef.doc("hangrotxa").get().then(doc => {
+                                    if (doc.exists) {
+                                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                        collectionRef.doc("hangrotxa").update({
+                                            "data": data["data"]
+                                        }).then(function() {
+                                            showFloatingAlert("Done!");
+                                            console.log("Document tải lên thành công");
+                                        }).catch(function(error) {
+                                            console.error("Lỗi khi tải document lên: ", error);
+                                        });
+                                    } else {
+                                        // Thêm dữ liệu vào tài liệu đã tồn tại mà không đè lên
+                                        collectionRef.doc("hangrotxa").set({
+                                            "data": data["data"]
+                                        }).then(function() {
+                                            showFloatingAlert("Done!");
+                                            console.log("Document tải lên thành công");
+                                        }).catch(function(error) {
+                                            console.error("Lỗi khi tải document lên: ", error);
+                                        });
+                                    }
+                                }).catch(function(error) {
+                                    console.error("Lỗi khi kiểm tra tài liệu tồn tại: ", error);
+                                });
+                            }
+                        })
+                        .catch((error) => {
+                            console.error("Lỗi lấy document:", error);
+                        });
+                }
+                row.remove();
+            }
+        }
+    }
 }
 
 // Thêm sản phẩm mới từ biểu mẫu
@@ -550,7 +555,7 @@ function addProduct(event) {
     const tenSanPham = document.getElementById('tenSanPham').value;
     const kichCo = document.getElementById('kichCo').value;
     const soLuong = parseInt(document.getElementById('soLuong').value);
-	const dotLiveInput = document.getElementById('dotLive');
+    const dotLiveInput = document.getElementById('dotLive');
     const dotLive = dotLiveInput.value;
 
     if (soLuong < 1) {
@@ -593,7 +598,7 @@ function addProduct(event) {
         const imageUrl = hinhAnhInput.value; // Đặt URL của hình ảnh tải lên
 
         var dataToUpload = {
-			dotLive: dotLive,
+            dotLive: dotLive,
             thoiGianUpload: formattedTime,
             phanLoai: phanLoai,
             hinhAnh: imageUrl,
@@ -734,7 +739,7 @@ function addProduct(event) {
                 const imageUrl = imageUrlFile; // Đặt URL của hình ảnh tải lên
 
                 var dataToUpload = {
-					dotLive: dotLive,
+                    dotLive: dotLive,
                     thoiGianUpload: formattedTime,
                     phanLoai: phanLoai,
                     hinhAnh: imageUrl,
@@ -804,7 +809,7 @@ function addProduct(event) {
                     const imageUrl = downloadURL;
 
                     var dataToUpload = {
-						dotLive: dotLive,
+                        dotLive: dotLive,
                         thoiGianUpload: formattedTime,
                         phanLoai: phanLoai,
                         hinhAnh: imageUrl,
@@ -855,18 +860,18 @@ function addProduct(event) {
 
 // Thêm hàm để ẩn/hiện biểu mẫu
 function toggleForm() {
-	if (userType != "khach-777") {
-		const dataForm = document.getElementById('dataForm');
-		const toggleFormButton = document.getElementById('toggleFormButton');
+    if (userType != "khach-777") {
+        const dataForm = document.getElementById('dataForm');
+        const toggleFormButton = document.getElementById('toggleFormButton');
 
-		if (dataForm.style.display === 'none' || dataForm.style.display === '') {
-			dataForm.style.display = 'block';
-			toggleFormButton.textContent = 'Ẩn biểu mẫu';
-		} else {
-			dataForm.style.display = 'none';
-			toggleFormButton.textContent = 'Hiện biểu mẫu';
-		}
-	}
+        if (dataForm.style.display === 'none' || dataForm.style.display === '') {
+            dataForm.style.display = 'block';
+            toggleFormButton.textContent = 'Ẩn biểu mẫu';
+        } else {
+            dataForm.style.display = 'none';
+            toggleFormButton.textContent = 'Hiện biểu mẫu';
+        }
+    }
 }
 
 // Lắng nghe sự kiện click trên nút "Thêm Sản Phẩm"
@@ -917,7 +922,11 @@ function addProducToTable(dotLive, thoiGianUpload, phanLoai, hinhAnh, tenSanPham
 
     // Đặt nội dung cho các phần tử
     td1.textContent = tbody.querySelectorAll("tr").length + 1;
-	if (!dotLive) {td2.textContent = "Chưa nhập";} else {td2.textContent = dotLive;}
+    if (!dotLive) {
+        td2.textContent = "Chưa nhập";
+    } else {
+        td2.textContent = dotLive;
+    }
     td3.textContent = thoiGianUpload;
     td4.textContent = phanLoai;
     img.src = hinhAnh;
@@ -999,6 +1008,20 @@ document.addEventListener('DOMContentLoaded', function() {
         divToRemove.remove();
     }
 });
+
+function updateSuggestions() {
+    const tbody = document.getElementById('productTableBody');
+    if (!tbody) return;
+
+    const values = Array.from(tbody.rows)
+        .map(row => row.cells[5]?.textContent.trim())
+        .filter(value => value);
+
+    const uniqueValues = [...new Set(values)];
+
+    const dataList = document.getElementById('suggestions');
+    dataList.innerHTML = uniqueValues.map(value => `<option value="${value}">`).join('');
+}
 
 // Gọi hàm để hiển thị dữ liệu ban đầu và cài đặt sự kiện cho input tệp hình ảnh
 displayInventoryData();
