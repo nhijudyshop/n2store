@@ -124,7 +124,8 @@ document.addEventListener("DOMContentLoaded", function() {
             customerInfoValue: customerInfoValue,
             totalAmountValue: totalAmountValue,
             causeValue: causeValue,
-            duyetHoanValue: tempTimeStamp.getTime().toString()
+            duyetHoanValue: tempTimeStamp.getTime().toString(),
+            user: userType.split('-')[0]
         };
 
         showFloatingAlert("Loading...");
@@ -199,20 +200,22 @@ document.addEventListener("DOMContentLoaded", function() {
         deleteButton.className = 'delete-button';
         deleteButton.innerText = 'Xoá';
         deleteCell.appendChild(deleteButton);
-		
-		if (userType != "admin-admin123") {
+
+        if (userType != "admin-admin123") {
             deleteCell.style.visibility = 'hidden';
             if (userType == "coi-coi2806") {
                 deliveryCell.style.visibility = 'visible';
+                checkbox.style.visibility = 'visible';
             } else {
                 editCell.style.visibility = 'hidden';
                 deliveryCell.style.visibility = 'hidden';
+                checkbox.style.visibility = 'hidden';
             }
         }
 
         form.reset();
     });
-	
+
     function saveChanges() {
         const editDelivery = document.getElementById('editDelivery');
         const eidtScenario = document.getElementById('eidtScenario');
@@ -237,6 +240,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             data["data"][i].totalAmountValue = editAmount.value;
                             data["data"][i].causeValue = editNote.value;
                             data["data"][i].duyetHoanValue = convertToTimestamp(editDate.value).toString();
+                            data["data"][i].user = userType.split('-')[0];
                             // break; // Kết thúc vòng lặp sau khi xoá
                         }
                     }
@@ -461,6 +465,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         const deleteButton = document.createElement('button');
                         deleteButton.className = 'delete-button';
                         deleteButton.innerText = 'Xoá';
+                        deleteButton.id = row.user;
                         deleteCell.appendChild(deleteButton);
                     }
                 }
@@ -520,7 +525,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 const tdRow = row.querySelector("td");
                 if (confirmDelete) {
                     if (row) {
-						showFloatingAlert("Loading...");
+                        showFloatingAlert("Loading...");
                         // Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
                         collectionRef.doc("hanghoan").get()
                             .then((doc) => {
@@ -542,9 +547,9 @@ document.addEventListener("DOMContentLoaded", function() {
                                             collectionRef.doc("hanghoan").update({
                                                 "data": data["data"]
                                             }).then(function() {
-												showFloatingAlert("Done!");
-												tableBody.innerText = '';
-												updateTable();
+                                                showFloatingAlert("Done!");
+                                                tableBody.innerText = '';
+                                                updateTable();
                                                 console.log("Document tải lên thành công");
                                                 // location.reload();
                                             }).catch(function(error) {
@@ -555,9 +560,9 @@ document.addEventListener("DOMContentLoaded", function() {
                                             collectionRef.doc("hanghoan").set({
                                                 "data": data["data"]
                                             }).then(function() {
-												showFloatingAlert("Done!");
-												tableBody.innerText = '';
-												updateTable();
+                                                showFloatingAlert("Done!");
+                                                tableBody.innerText = '';
+                                                updateTable();
                                                 console.log("Document tải lên thành công");
                                                 // location.reload();
                                             }).catch(function(error) {
@@ -589,7 +594,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const tdRow = row.querySelector("td");
 
             if (confirm(confirmationMessage)) {
-				showFloatingAlert("Loading...");
+                showFloatingAlert("Loading...");
                 // Lấy dữ liệu từ Firestore, xử lý và cập nhật lại Firestore
                 collectionRef.doc("hanghoan").get()
                     .then((doc) => {
@@ -609,7 +614,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             collectionRef.doc("hanghoan").update({
                                 "data": data["data"]
                             }).then(function() {
-								showFloatingAlert("Done!");
+                                showFloatingAlert("Done!");
                                 tableBody.innerText = '';
                                 updateTable();
                                 //updateTotalAmount();
@@ -630,47 +635,78 @@ document.addEventListener("DOMContentLoaded", function() {
             } else {
                 e.target.checked = !isChecked;
             }
+        } else {
+            if (userType == "admin-admin123") {
+                const tooltip = document.getElementById("tooltip");
+                const row = e.target.closest("tr"); // Lấy hàng (row) được click
+                if (!row) return; // Nếu không click vào hàng thì thoát
+
+                const deleteButton = row.querySelector(".delete-button"); // Tìm nút delete trong hàng
+                const value = deleteButton ? deleteButton.id : "Không có nút xóa"; // Lấy id của deleteButton
+
+                tooltip.textContent = value;
+                tooltip.style.display = "block";
+
+                // Đặt vị trí tooltip gần con trỏ chuột
+                tooltip.style.top = e.pageY + 10 + "px";
+                tooltip.style.left = e.pageX + 10 + "px";
+
+                // Ẩn tooltip sau 1 giây
+                setTimeout(() => {
+                    tooltip.style.display = "none";
+                }, 1000);
+            }
         }
     })
 
     function convertToTimestamp(dateString) {
-		const months = {
-			"Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", "May": "05", "Jun": "06",
-			"Jul": "07", "Aug": "08", "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
-		};
+        const months = {
+            "Jan": "01",
+            "Feb": "02",
+            "Mar": "03",
+            "Apr": "04",
+            "May": "05",
+            "Jun": "06",
+            "Jul": "07",
+            "Aug": "08",
+            "Sep": "09",
+            "Oct": "10",
+            "Nov": "11",
+            "Dec": "12"
+        };
 
-		var parts = dateString.split("-");
-		if (parts.length !== 3) {
-			showFloatingAlert("Sai định dạng!");
-			return null;
-		}
+        var parts = dateString.split("-");
+        if (parts.length !== 3) {
+            showFloatingAlert("Sai định dạng!");
+            return null;
+        }
 
-		var day = isNaN(parts[0]) ? null : parts[0].padStart(2, '0');
-		var month = months[parts[1]] || (isNaN(parts[1]) ? null : parts[1].padStart(2, '0'));
-		var year = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+        var day = isNaN(parts[0]) ? null : parts[0].padStart(2, '0');
+        var month = months[parts[1]] || (isNaN(parts[1]) ? null : parts[1].padStart(2, '0'));
+        var year = parts[2].length === 2 ? "20" + parts[2] : parts[2];
 
-		if (!day || !month || isNaN(parseInt(year))) {
-			showFloatingAlert("Sai định dạng!");
-			return null;
-		}
+        if (!day || !month || isNaN(parseInt(year))) {
+            showFloatingAlert("Sai định dạng!");
+            return null;
+        }
 
-		// Kiểm tra ngày hợp lệ với tháng
-		var maxDays = new Date(year, month, 0).getDate(); // Lấy số ngày tối đa của tháng
-		if (parseInt(day) < 1 || parseInt(day) > maxDays) {
-			showFloatingAlert(`Ngày ${day} không hợp lệ cho tháng ${month}`);
-			return null;
-		}
+        // Kiểm tra ngày hợp lệ với tháng
+        var maxDays = new Date(year, month, 0).getDate(); // Lấy số ngày tối đa của tháng
+        if (parseInt(day) < 1 || parseInt(day) > maxDays) {
+            showFloatingAlert(`Ngày ${day} không hợp lệ cho tháng ${month}`);
+            return null;
+        }
 
-		var formattedDate = `${year}-${month}-${day}T00:00:00Z`;
-		var timestamp = new Date(formattedDate).getTime();
+        var formattedDate = `${year}-${month}-${day}T00:00:00Z`;
+        var timestamp = new Date(formattedDate).getTime();
 
-		if (isNaN(timestamp)) {
-			showFloatingAlert("Sai định dạng!");
-			return null;
-		}
+        if (isNaN(timestamp)) {
+            showFloatingAlert("Sai định dạng!");
+            return null;
+        }
 
-		return timestamp.toString();
-	}
+        return timestamp.toString();
+    }
 
     // Gọi hàm lấy dữ liệu từ Firestore ngay khi trang tải
     //window.onload = function () {
@@ -678,21 +714,36 @@ document.addEventListener("DOMContentLoaded", function() {
     //};
 
     // Đăng xuất
-	function handleLogout() {
-		// Đặt lại biến kiểm tra đăng nhập
-		checkLogin = 0;
+    function handleLogout() {
+        // Đặt lại biến kiểm tra đăng nhập
+        checkLogin = 0;
 
-		// Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
-		localStorage.removeItem('isLoggedIn');
-		localStorage.removeItem('userType');
+        // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userType');
 
-		// Tải lại trang để áp dụng các thay đổi
-		location.reload();
-	}
+        // Tải lại trang để áp dụng các thay đổi
+        location.reload();
+    }
 
-	// Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng
-	var toggleLogoutButton = document.getElementById('toggleLogoutButton');
-	toggleLogoutButton.addEventListener('click', handleLogout);
+    function showFloatingAlert(message) {
+        const alertBox = document.getElementById('floatingAlert');
+        alertBox.innerText = message;
+        alertBox.style.opacity = '1';
+
+        setTimeout(() => {
+            alertBox.style.opacity = '0';
+        }, 3000); // Ẩn sau 3 giây
+    }
+
+    function closeModal() {
+        var modal = document.getElementById('editModal');
+        modal.style.display = 'none';
+    }
+
+    // Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng
+    var toggleLogoutButton = document.getElementById('toggleLogoutButton');
+    toggleLogoutButton.addEventListener('click', handleLogout);
 
     var saveButton = document.getElementById('saveButton');
     saveButton.addEventListener('click', saveChanges);

@@ -282,11 +282,11 @@ function applyCategoryFilter() {
 }
 
 function deleteRow(row, button) {
-    if (userType === "admin-admin123123" || userType === "my-my2804" || userType === "lai-lai2506") {
+    if (userType === "admin-admin123" || userType === "my-my2804" || userType === "lai-lai2506") {
         const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
         if (confirmDelete) {
             // Lấy tài liệu "ib" từ Firestore
-			showFloatingAlert("Loading...");
+            showFloatingAlert("Loading...");
             collectionRef.doc("ib").get()
                 .then((doc) => {
                     if (doc.exists) {
@@ -401,7 +401,8 @@ dataForm.addEventListener('submit', function(e) {
                                         tenSanPham: tenSanPham,
                                         thoiGianUpload: formattedTime,
                                         sp: imageUrl,
-                                        kh: giaTriKHText
+                                        kh: giaTriKHText,
+                                        user: userType.split('-')[0]
                                     };
 
                                     // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -558,7 +559,8 @@ dataForm.addEventListener('submit', function(e) {
                             tenSanPham: tenSanPham,
                             thoiGianUpload: formattedTime,
                             sp: imageUrl,
-                            kh: imageUrlFileKH
+                            kh: imageUrlFileKH,
+                            user: userType.split('-')[0]
                         };
 
                         // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -733,7 +735,8 @@ dataForm.addEventListener('submit', function(e) {
                                             tenSanPham: tenSanPham,
                                             thoiGianUpload: formattedTime,
                                             sp: imageUrlFile,
-                                            kh: giaTriKHText
+                                            kh: giaTriKHText,
+                                            user: userType.split('-')[0]
                                         };
 
                                         // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -893,7 +896,8 @@ dataForm.addEventListener('submit', function(e) {
                                 tenSanPham: tenSanPham,
                                 thoiGianUpload: formattedTime,
                                 sp: imageUrlFile,
-                                kh: imageUrlFileKH
+                                kh: imageUrlFileKH,
+                                user: userType.split('-')[0]
                             };
 
                             // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -1002,7 +1006,8 @@ dataForm.addEventListener('submit', function(e) {
                                                         tenSanPham: tenSanPham,
                                                         thoiGianUpload: formattedTime,
                                                         sp: giaTriText,
-                                                        kh: giaTriKHText
+                                                        kh: giaTriKHText,
+                                                        user: userType.split('-')[0]
                                                     };
 
                                                     // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -1164,7 +1169,8 @@ dataForm.addEventListener('submit', function(e) {
                                             tenSanPham: tenSanPham,
                                             thoiGianUpload: formattedTime,
                                             sp: giaTriText,
-                                            kh: imageUrlFileKH
+                                            kh: imageUrlFileKH,
+                                            user: userType.split('-')[0]
                                         };
 
                                         // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -1219,7 +1225,6 @@ dataForm.addEventListener('submit', function(e) {
 });
 
 document.getElementById('clearDataButton').addEventListener('click', clearData);
-
 
 function clearData() {
     imgArray = [];
@@ -1300,15 +1305,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleFormButton = document.getElementById('toggleFormButton');
     const dataForm = document.getElementById('dataForm');
     toggleFormButton.addEventListener('click', function() {
-		if (userType != "khach-777") {
-			if (dataForm.style.display === 'none' || dataForm.style.display === '') {
-				dataForm.style.display = 'block';
-				toggleFormButton.textContent = 'Ẩn biểu mẫu';
-			} else {
-				dataForm.style.display = 'none';
-				toggleFormButton.textContent = 'Hiện biểu mẫu';
-			}
-		}
+        if (userType != "khach-777") {
+            if (dataForm.style.display === 'none' || dataForm.style.display === '') {
+                dataForm.style.display = 'block';
+                toggleFormButton.textContent = 'Ẩn biểu mẫu';
+            } else {
+                dataForm.style.display = 'none';
+                toggleFormButton.textContent = 'Hiện biểu mẫu';
+            }
+        }
     });
 
     // Xoá quảng cáo
@@ -1349,18 +1354,18 @@ function addImagesFromStorage() {
                                 row.remove();
                                 continue;
                             } else if (data["data"][i].cellShow == false && userType.split('-')[0] == 'admin') {
-								const hideButton = document.createElement('button');
+                                const hideButton = document.createElement('button');
                                 hideButton.className = 'toggle-visibility';
                                 hideButton.onclick = () => deleteRow(row, hideButton);
                                 toggleVisibilityCell.appendChild(hideButton);
-								hideButton.innerText = 'Hiện';
+                                hideButton.innerText = 'Hiện';
                                 thuTuCell.style.display = 'none';
                                 thoiGianUploadCell.style.display = 'none';
                                 phanLoaiCell.style.display = 'none';
                                 hinhAnhCell.style.display = 'none';
                                 tenSanPhamCell.style.display = 'none';
                                 thongTinKhachHangCell.style.display = 'none';
-							} else {
+                            } else {
                                 thuTuCell.textContent = rowIndex;
                                 thoiGianUploadCell.textContent = data["data"][i].thoiGianUpload;
                                 phanLoaiCell.textContent = data["data"][i].phanLoai;
@@ -1399,6 +1404,7 @@ function addImagesFromStorage() {
 
                                 const hideButton = document.createElement('button');
                                 hideButton.className = 'toggle-visibility';
+                                hideButton.id = data["data"][i].user;
                                 hideButton.onclick = () => deleteRow(row, hideButton);
                                 toggleVisibilityCell.appendChild(hideButton);
                                 hideButton.innerText = 'Xoá';
@@ -1410,7 +1416,7 @@ function addImagesFromStorage() {
                                 thongTinKhachHangCell.style.display = '';
                             }
                             rowIndex--; // Tăng số thứ tự cho hàng tiếp theo
-							thuTuHeader.textContent = "STT (" + tbody.rows.length + ")";
+                            thuTuHeader.textContent = "STT (" + tbody.rows.length + ")";
                         } else {
                             thuTuCell.textContent = '';
                             thoiGianUploadCell.textContent = '';
@@ -1494,5 +1500,38 @@ window.addEventListener('load', function() {
         divToRemove.remove();
     }
 });
+
+tbody.addEventListener('click', function(e) {
+    if (userType == "admin-admin123") {
+        const tooltip = document.getElementById("tooltip");
+        const row = e.target.closest("tr"); // Lấy hàng (row) được click
+        if (!row) return; // Nếu không click vào hàng thì thoát
+
+        const deleteButton = row.querySelector(".toggle-visibility");
+        const value = deleteButton ? deleteButton.id : "Không có nút xóa";
+
+        tooltip.textContent = value;
+        tooltip.style.display = "block";
+
+        // Đặt vị trí tooltip gần con trỏ chuột
+        tooltip.style.top = e.pageY + 10 + "px";
+        tooltip.style.left = e.pageX + 10 + "px";
+
+        // Ẩn tooltip sau 1 giây
+        setTimeout(() => {
+            tooltip.style.display = "none";
+        }, 1000);
+    }
+});
+
+function showFloatingAlert(message) {
+    const alertBox = document.getElementById('floatingAlert');
+    alertBox.innerText = message;
+    alertBox.style.opacity = '1';
+
+    setTimeout(() => {
+        alertBox.style.opacity = '0';
+    }, 3000); // Ẩn sau 3 giây
+}
 
 displayAll();

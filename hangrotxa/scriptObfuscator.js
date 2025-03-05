@@ -204,7 +204,6 @@ inputClipboardContainer.addEventListener('click', function(e) {
 });
 */
 
-
 // Hàm để tạo tên tệp động duy nhất
 function generateUniqueFileName() {
     return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.png';
@@ -275,7 +274,8 @@ async function displayInventoryData() {
                     });
                     td8.appendChild(input);
                     button.textContent = 'Xoá';
-                    button.class = 'deleteButton';
+                    button.className = 'deleteButton';
+                    button.id = product.user;
                     button.addEventListener('click', deleteInventory);
 
                     // Đặt các phần tử con vào phần tử tr
@@ -323,8 +323,6 @@ async function displayInventoryData() {
         console.error(error);
     }
 }
-
-
 
 // Hàm để lấy thời gian hiện tại và định dạng theo dd/mm/yyyy
 function getFormattedDate() {
@@ -604,7 +602,8 @@ function addProduct(event) {
             hinhAnh: imageUrl,
             tenSanPham: tenSanPham,
             kichCo: kichCo,
-            soLuong: soLuong
+            soLuong: soLuong,
+            user: userType.split('-')[0]
         };
 
         // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -745,7 +744,8 @@ function addProduct(event) {
                     hinhAnh: imageUrl,
                     tenSanPham: tenSanPham,
                     kichCo: kichCo,
-                    soLuong: soLuong
+                    soLuong: soLuong,
+                    user: userType.split('-')[0]
                 };
 
                 // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -815,7 +815,8 @@ function addProduct(event) {
                         hinhAnh: imageUrl,
                         tenSanPham: tenSanPham,
                         kichCo: kichCo,
-                        soLuong: soLuong
+                        soLuong: soLuong,
+                        user: userType.split('-')[0]
                     };
 
                     // Kiểm tra xem tài liệu đã tồn tại chưa
@@ -943,7 +944,7 @@ function addProducToTable(dotLive, thoiGianUpload, phanLoai, hinhAnh, tenSanPham
     });
     td8.appendChild(input);
     button.textContent = 'Xoá';
-    button.class = 'deleteButton';
+    button.className = 'deleteButton';
     button.addEventListener('click', deleteInventory);
 
     // Đặt các phần tử con vào phần tử tr
@@ -1022,6 +1023,39 @@ function updateSuggestions() {
     const dataList = document.getElementById('suggestions');
     dataList.innerHTML = uniqueValues.map(value => `<option value="${value}">`).join('');
 }
+
+function showFloatingAlert(message) {
+    const alertBox = document.getElementById('floatingAlert');
+    alertBox.innerText = message;
+    alertBox.style.opacity = '1';
+
+    setTimeout(() => {
+        alertBox.style.opacity = '0';
+    }, 3000); // Ẩn sau 3 giây
+}
+
+tbody.addEventListener('click', function(e) {
+    if (userType == "admin-admin123") {
+        const tooltip = document.getElementById("tooltip");
+        const row = e.target.closest("tr"); // Lấy hàng (row) được click
+        if (!row) return; // Nếu không click vào hàng thì thoát
+
+        const deleteButton = row.querySelector(".deleteButton"); // Tìm nút delete trong hàng
+        const value = deleteButton ? deleteButton.id : "Không có nút xóa"; // Lấy id của deleteButton
+
+        tooltip.textContent = value;
+        tooltip.style.display = "block";
+
+        // Đặt vị trí tooltip gần con trỏ chuột
+        tooltip.style.top = e.pageY + 10 + "px";
+        tooltip.style.left = e.pageX + 10 + "px";
+
+        // Ẩn tooltip sau 1 giây
+        setTimeout(() => {
+            tooltip.style.display = "none";
+        }, 1000);
+    }
+});
 
 // Gọi hàm để hiển thị dữ liệu ban đầu và cài đặt sự kiện cho input tệp hình ảnh
 displayInventoryData();

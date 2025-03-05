@@ -119,46 +119,8 @@
       <!-- Dữ liệu sản phẩm và thông tin khách hàng sẽ được thêm bằng JavaScript -->
     </tbody>
   </table>
-
-  <!-- Thêm thông báo cho dễ tương tác -->
   <div id="floatingAlert">Thông báo hiển thị!</div>
-  <style>
-    #floatingAlert {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 30px 50px;
-      /* Tăng padding để alert lớn hơn */
-      border-radius: 12px;
-      font-size: 20px;
-      /* Tăng kích thước chữ */
-      width: 50%;
-      /* Tăng độ rộng của alert */
-      max-width: 500px;
-      /* Giới hạn tối đa */
-      text-align: center;
-      opacity: 0;
-      transition: opacity 0.5s;
-      pointer-events: none;
-    }
-  </style>
-
-  <script>
-    function showFloatingAlert(message) {
-      const alertBox = document.getElementById('floatingAlert');
-      alertBox.innerText = message;
-      alertBox.style.opacity = '1';
-
-      setTimeout(() => {
-        alertBox.style.opacity = '0';
-      }, 3000); // Ẩn sau 3 giây
-    }
-  </script>
-  <!-- Thêm thông báo cho dễ tương tác -->
-
+  <div id="tooltip" class="tooltip"></div>
   <script src="scriptObfuscator.js"></script>
 </body>
 

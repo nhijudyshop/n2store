@@ -231,3 +231,33 @@ button.toggle-visibility {
 .popup-show {
     display: block;
 }
+/* Tooltip hiển thị thông tin */
+.tooltip {
+	position: absolute;
+    background-color: #333;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    display: none;
+	z-index: 1000;
+}
+
+/* Thông báo */
+#floatingAlert {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: rgba(0, 0, 0, 0.8);
+	color: white;
+	padding: 30px 50px; /* Tăng padding để alert lớn hơn */
+	border-radius: 12px;
+	font-size: 20px; /* Tăng kích thước chữ */
+	width: 50%; /* Tăng độ rộng của alert */
+	max-width: 500px; /* Giới hạn tối đa */
+	text-align: center;
+	opacity: 0;
+	transition: opacity 0.5s;
+	pointer-events: none;
+}
