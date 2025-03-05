@@ -61,7 +61,7 @@ const loginBox = document.querySelector('.login-box');
 // const logoutButton = document.createElement('button');
 const editModal = document.getElementById('editModal');
 let editingRow;
-const userTypeAdmin = 'admin-admin';
+const userTypeAdmin = 'admin-admin123';
 const userTypeCoi = 'coi-coi2806';
 const userTypeMy = 'my-my2804';
 const userType = localStorage.getItem('userType');

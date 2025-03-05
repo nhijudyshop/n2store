@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", function() {
     editModal.style.display = 'none';
 
     toggleFormButton.addEventListener('click', () => {
-        if (userType == "admin-admin" || userType == "lai-lai2506" || userType == "my-my2804" || userType == "coi-coi2806") {
+        if (userType == "admin-admin123" || userType == "lai-lai2506" || userType == "my-my2804" || userType == "coi-coi2806") {
             if (dataForm.style.display === 'none' || dataForm.style.display === '') {
                 dataForm.style.display = 'block';
                 toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", function() {
         deleteButton.innerText = 'Xoá';
         deleteCell.appendChild(deleteButton);
 		
-		if (userType != "admin-admin") {
+		if (userType != "admin-admin123") {
             deleteCell.style.visibility = 'hidden';
             if (userType == "coi-coi2806") {
                 deliveryCell.style.visibility = 'visible';
@@ -427,7 +427,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         checkbox.className = 'received-checkbox'
                         checkbox.checked = row.muted;
 
-                        if (userType != "admin-admin") {
+                        if (userType != "admin-admin123") {
                             newRow.style.opacity = row.muted ? '0.5' : '1.0';
                             deleteCell.style.visibility = 'hidden';
                             if (userType == "coi-coi2806") {
@@ -481,7 +481,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     tableBody.addEventListener('click', function(e) {
         if (e.target.classList.contains('edit-button')) {
-            if (userType == "admin-admin" || userType == "coi-coi2806") {
+            if (userType == "admin-admin123" || userType == "coi-coi2806") {
                 document.getElementById('editModal').style.display = 'block';
 
                 const editDelivery = document.getElementById('editDelivery');
@@ -510,7 +510,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 editingRow = row;
             }
         } else if (e.target.classList.contains('delete-button')) {
-            if (userType != "admin-admin") {
+            if (userType != "admin-admin123") {
                 showFloatingAlert('Không đủ quyền!');
                 e.target.checked = !e.target.checked;
                 return;
@@ -576,7 +576,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             }
         } else if (e.target.type === 'checkbox') {
-            if (userType != "admin-admin" && userType != "coi-coi2806") {
+            if (userType != "admin-admin123" && userType != "coi-coi2806") {
                 showFloatingAlert('Không đủ quyền!');
                 e.target.checked = !e.target.checked;
                 return;

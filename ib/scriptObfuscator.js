@@ -282,7 +282,7 @@ function applyCategoryFilter() {
 }
 
 function deleteRow(row, button) {
-    if (userType === "admin-admin" || userType === "my-my2804" || userType === "lai-lai2506") {
+    if (userType === "admin-admin123123" || userType === "my-my2804" || userType === "lai-lai2506") {
         const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
         if (confirmDelete) {
             // Lấy tài liệu "ib" từ Firestore

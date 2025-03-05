@@ -400,7 +400,7 @@ function toggleCustomerVisibility(row, button) {
     const tenSanPhamCell = row.cells[2];
     const anhKhachHangCell = row.cells[3];
 
-    if (userType === "admin-admin") {
+    if (userType === "admin-admin123") {
         const cellsToHide = row.querySelectorAll('td:not(:last-child)');
         // Lấy tài liệu "dubi" từ Firestore
         collectionRef.doc("dubi").get()
