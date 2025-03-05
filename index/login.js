@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
 	var checkLogin = 0;
 	let userTypes = {
-	  'admin': {'password': 'admin', 'checkLogin': '1'},
+	  'admin': {'password': 'admin123', 'checkLogin': '1'},
 	  'my': {'password': 'my2804', 'checkLogin': '2'},
 	  'lai': {'password': 'lai2506', 'checkLogin': '3'},
 	  'huyen': {'password': 'huyen2307', 'checkLogin': '4'},
