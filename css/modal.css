@@ -1,11 +1,14 @@
+/* modal.css */
 .login-container {
-    text-align: center;
-    margin-top: 20px;
+    display: flex;                    /* Sử dụng Flexbox để sắp xếp nội dung */
+    justify-content: center;          /* Canh giữa theo chiều ngang */
+    align-items: center;              /* Canh giữa theo chiều dọc */
+    min-height: 100vh;                /* Chiều cao container bằng với chiều cao cửa sổ trình duyệt */
+    background-color: rgba(128, 128, 128, 0.5); /* Nền xám với độ trong suốt 50% */
 }
 
 .login-box {
     width: 300px;
-    margin: 0 auto;
     background-color: #fff;
     padding: 20px;
     border: 1px solid #ccc;
@@ -28,6 +31,8 @@
 
 .login-box button,
 .logout-button {
+    display: block;
+    margin: 0 auto;
     background-color: #007bff;
     color: #fff;
     padding: 10px;

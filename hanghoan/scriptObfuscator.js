@@ -110,7 +110,15 @@ document.addEventListener("DOMContentLoaded", function() {
         const shipValue = form.querySelector("#ship").value;
         const scenarioValue = form.querySelector('#scenario').value
         const customerInfoValue = form.querySelector("#customerInfo").value;
-        const totalAmountValue = form.querySelector("#totalAmount").value;
+        // const totalAmountValue = form.querySelector("#totalAmount").value;
+        // Lấy giá trị totalAmount và định dạng nếu cần
+        let totalAmountValue = form.querySelector("#totalAmount").value;
+        // Loại bỏ dấu phẩy nếu có rồi chuyển về số
+        let numericValue = Number(totalAmountValue.replace(/,/g, ''));
+        // Nếu giá trị là số hợp lệ và có 4 số trở lên thì định dạng lại
+        if (!isNaN(numericValue) && numericValue >= 1000) {
+            totalAmountValue = numericValue.toLocaleString('en');
+        }
         const causeValue = form.querySelector("#cause").value;
 
         // Chuyển đổi thành timestamp
@@ -617,7 +625,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                 showFloatingAlert("Done!");
                                 tableBody.innerText = '';
                                 updateTable();
-                                //updateTotalAmount();
+                                // updateTotalAmount();
                                 console.log("Document tải lên thành công");
                             }).catch(function(error) {
                                 alert('Lỗi khi tải document lên.');
