@@ -10,6 +10,13 @@
     }
 }
 
+.ck{
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+}
+
 body {
     font-family: 'Times New Roman', Times, serif;
     margin: 20px;
@@ -357,62 +364,73 @@ td {
     font-family: 'Times New Roman', Times, serif;
 }
 
+/* Chỉ định cho tiêu đề (header) của bảng luôn căn giữa */
+th {
+    text-align: center;
+}
+
+/* Đặt kiểu căn mặc định cho ô dữ liệu (data cells) nếu cần */
+td {
+    text-align: center; /* Mặc định căn trái, bạn có thể thay đổi nếu muốn */
+}
+
+/* Thiết lập chiều rộng cho các cột */
 th:nth-child(1),
 td:nth-child(1) {
-    width: 6%;
-    text-align: center;
+    width: 3%;
 }
 
 th:nth-child(2),
 td:nth-child(2) {
-    width: 6%;
+    width: 5%;
 }
 
 th:nth-child(3),
 td:nth-child(3) {
-    width: 6%;
+    width: 11%;
 }
 
 th:nth-child(4),
 td:nth-child(4) {
-    width: 23%;
+    width: 22%;
 }
 
 th:nth-child(5),
 td:nth-child(5) {
-    width: 6%;
+    width: 4%;
 }
 
 th:nth-child(6),
 td:nth-child(6) {
-    width: 29%;
-    text-align: justify;
+    width: 35%;
 }
 
 th:nth-child(7),
 td:nth-child(7) {
-    width: 6%;
+    width: 4%;
 }
 
 th:nth-child(8),
 td:nth-child(8) {
-    width: 6%;
+    width: 8%;
 }
 
 th:nth-child(9),
 td:nth-child(9) {
-    width: 6%;
+    width: 4%;
 }
 
 th:nth-child(10),
 td:nth-child(10) {
-    width: 6%;
+    width: 4%;
 }
 
-td:nth-child(1),
-td:nth-child(4) {
+/* Căn chỉnh nội dung ô dữ liệu theo từng cột nếu cần */
+td:nth-child(4),
+td:nth-child(6) {
     text-align: justify;
 }
+
 
 tr:hover {
     background-color: #fd1e1e52;
