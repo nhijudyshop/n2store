@@ -161,7 +161,7 @@ td {
     border: 2px solid #000;
     padding: 10px;
     text-align: center;
-    vertical-align: top;
+    vertical-align: middle;
     font-size: 24px;
     font-family: 'Times New Roman', Times, serif;
 }
@@ -372,6 +372,7 @@ th {
 /* Đặt kiểu căn mặc định cho ô dữ liệu (data cells) nếu cần */
 td {
     text-align: center; /* Mặc định căn trái, bạn có thể thay đổi nếu muốn */
+    vertical-align: middle;
 }
 
 /* Thiết lập chiều rộng cho các cột */
@@ -476,4 +477,9 @@ tr.fade {
 	opacity: 0;
 	transition: opacity 0.5s;
 	pointer-events: none;
+}
+
+.delete-button, .edit-button {
+    background: none;  /* Xóa nền */
+    border: none;      /* Xóa viền */
 }

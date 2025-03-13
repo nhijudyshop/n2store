@@ -224,6 +224,10 @@ document.addEventListener("DOMContentLoaded", function() {
         form.reset();
     });
 
+    function closeModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
     function saveChanges() {
         const editDelivery = document.getElementById('editDelivery');
         const eidtScenario = document.getElementById('eidtScenario');
@@ -466,14 +470,32 @@ document.addEventListener("DOMContentLoaded", function() {
 
                         const editButton = document.createElement('button');
                         editButton.className = 'edit-button';
-                        editButton.innerText = 'Sửa';
+                        editButton.id = row.user;
+                        const editIcon = document.createElement('img');
+                        editIcon.src = '../edit.png';
+                        editIcon.alt = 'Sửa';
+                        editIcon.width = 30;
+                        editIcon.height = 30;
+                        editIcon.style.pointerEvents = 'none';
+                        editButton.appendChild(editIcon);
                         editCell.appendChild(editButton);
 
                         // Thêm nút xoá vào ô deleteCell
+                        // const deleteButton = document.createElement('button');
+                        // deleteButton.className = 'delete-button';
+                        // deleteButton.innerText = '🗑️';
+                        // deleteButton.id = row.user;
+                        // deleteCell.appendChild(deleteButton);
                         const deleteButton = document.createElement('button');
                         deleteButton.className = 'delete-button';
-                        deleteButton.innerText = 'Xoá';
                         deleteButton.id = row.user;
+                        const deleteIcon = document.createElement('img');
+                        deleteIcon.src = '../delete.png';
+                        deleteIcon.alt = 'Xóa';
+                        deleteIcon.width = 30;
+                        deleteIcon.height = 30;
+                        deleteIcon.style.pointerEvents = 'none';
+                        deleteButton.appendChild(deleteIcon);
                         deleteCell.appendChild(deleteButton);
                     }
                 }
@@ -556,8 +578,6 @@ document.addEventListener("DOMContentLoaded", function() {
                                                 "data": data["data"]
                                             }).then(function() {
                                                 showFloatingAlert("Done!");
-                                                tableBody.innerText = '';
-                                                updateTable();
                                                 console.log("Document tải lên thành công");
                                                 // location.reload();
                                             }).catch(function(error) {
@@ -569,8 +589,6 @@ document.addEventListener("DOMContentLoaded", function() {
                                                 "data": data["data"]
                                             }).then(function() {
                                                 showFloatingAlert("Done!");
-                                                tableBody.innerText = '';
-                                                updateTable();
                                                 console.log("Document tải lên thành công");
                                                 // location.reload();
                                             }).catch(function(error) {
@@ -585,6 +603,11 @@ document.addEventListener("DOMContentLoaded", function() {
                             .catch((error) => {
                                 console.error("Lỗi lấy document:", error);
                             });
+							row.remove();
+							const rows = tableBody.querySelectorAll("tr");
+							rows.forEach((row, index) => {
+								row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+							});
                     }
                 }
             }
@@ -623,8 +646,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                 "data": data["data"]
                             }).then(function() {
                                 showFloatingAlert("Done!");
-                                tableBody.innerText = '';
-                                updateTable();
+                                row.style.opacity = 0.5;
                                 // updateTotalAmount();
                                 console.log("Document tải lên thành công");
                             }).catch(function(error) {
@@ -742,11 +764,6 @@ document.addEventListener("DOMContentLoaded", function() {
         setTimeout(() => {
             alertBox.style.opacity = '0';
         }, 3000); // Ẩn sau 3 giây
-    }
-
-    function closeModal() {
-        var modal = document.getElementById('editModal');
-        modal.style.display = 'none';
     }
 
     // Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng

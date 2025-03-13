@@ -433,3 +433,8 @@ tr:hover {
 	transition: opacity 0.5s;
 	pointer-events: none;
 }
+
+.delete-button, .edit-button {
+    background: none;  /* Xóa nền */
+    border: none;      /* Xóa viền */
+}

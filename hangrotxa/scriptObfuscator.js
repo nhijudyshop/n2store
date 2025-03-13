@@ -417,6 +417,10 @@ function updateInventory() {
                         });
                 }
                 row.remove();
+				const rows = tableBody.querySelectorAll("tr");
+				rows.forEach((row, index) => {
+					row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+				});
             }
         } else {
             if (row) {
@@ -539,6 +543,10 @@ function deleteInventory() {
                         });
                 }
                 row.remove();
+				const rows = tableBody.querySelectorAll("tr");
+				rows.forEach((row, index) => {
+					row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+				});
             }
         }
     }

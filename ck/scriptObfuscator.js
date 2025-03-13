@@ -426,8 +426,6 @@ tableBody.addEventListener('click', function(e) {
                                             }).then(function() {
                                                 console.log("Document tải lên thành công");
                                                 showFloatingAlert("Done!");
-                                                tableBody.innerText = '';
-                                                updateTable();
                                                 // location.reload();
                                             }).catch(function(error) {
                                                 console.error("Lỗi khi tải document lên: ", error);
@@ -439,8 +437,6 @@ tableBody.addEventListener('click', function(e) {
                                             }).then(function() {
                                                 console.log("Document tải lên thành công");
                                                 showFloatingAlert("Done!");
-                                                tableBody.innerText = '';
-                                                updateTable();
                                                 // location.reload();
                                             }).catch(function(error) {
                                                 console.error("Lỗi khi tải document lên: ", error);
@@ -454,6 +450,11 @@ tableBody.addEventListener('click', function(e) {
                             .catch((error) => {
                                 console.error("Lỗi lấy document:", error);
                             });
+							row.remove();
+							const rows = tableBody.querySelectorAll("tr");
+							rows.forEach((row, index) => {
+								row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+							});
                     }
                 }
             }
@@ -491,8 +492,7 @@ tableBody.addEventListener('click', function(e) {
                             collectionRef.doc("ck").update({
                                 "data": data["data"]
                             }).then(function() {
-                                tableBody.innerText = '';
-                                updateTable();
+                                row.style.opacity = 0.5;
                                 //updateTotalAmount();
                                 showFloatingAlert("Done!");
                                 console.log("Document tải lên thành công");
@@ -682,13 +682,26 @@ function updateTable() {
 
                         const editButton = document.createElement('button');
                         editButton.className = 'edit-button';
-                        editButton.innerText = 'Sửa';
+                        // editButton.id = row.user;
+                        const editIcon = document.createElement('img');
+                        editIcon.src = '../edit.png';
+                        editIcon.alt = 'Sửa';
+                        editIcon.width = 30;
+                        editIcon.height = 30;
+                        editIcon.style.pointerEvents = 'none';
+                        editButton.appendChild(editIcon);
                         editCell.appendChild(editButton);
 
                         const deleteButton = document.createElement('button');
                         deleteButton.className = 'delete-button';
                         deleteButton.id = data["data"][i].user;
-                        deleteButton.innerText = 'Xoá';
+                        const deleteIcon = document.createElement('img');
+                        deleteIcon.src = '../delete.png';
+                        deleteIcon.alt = 'Xóa';
+                        deleteIcon.width = 30;
+                        deleteIcon.height = 30;
+                        deleteIcon.style.pointerEvents = 'none';
+                        deleteButton.appendChild(deleteIcon);
                         deleteCell.appendChild(deleteButton);
                     }
 

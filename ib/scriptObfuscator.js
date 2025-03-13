@@ -300,7 +300,11 @@ function deleteRow(row, button) {
                             collectionRef.doc("ib").update({
                                 data
                             }).then(() => {
-                                location.reload(); // Làm mới trang sau khi xóa thành công
+                                row.remove();
+								const rows = tableBody.querySelectorAll("tr");
+								rows.forEach((row, index) => {
+									row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+								});
                             }).catch((error) => {
                                 console.error("Lỗi khi cập nhật dữ liệu:", error);
                             });
