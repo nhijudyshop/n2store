@@ -470,33 +470,38 @@ document.addEventListener("DOMContentLoaded", function() {
 
                         const editButton = document.createElement('button');
                         editButton.className = 'edit-button';
-                        editButton.id = row.user;
-                        const editIcon = document.createElement('img');
-                        editIcon.src = '../edit.png';
-                        editIcon.alt = 'Sửa';
-                        editIcon.width = 30;
-                        editIcon.height = 30;
-                        editIcon.style.pointerEvents = 'none';
-                        editButton.appendChild(editIcon);
+                        editButton.innerText = 'Sửa';
                         editCell.appendChild(editButton);
+                        
+                        // const editButton = document.createElement('button');
+                        // editButton.className = 'edit-button';
+                        // editButton.id = row.user;
+                        // const editIcon = document.createElement('img');
+                        // editIcon.src = '../edit.png';
+                        // editIcon.alt = 'Sửa';
+                        // editIcon.width = 30;
+                        // editIcon.height = 30;
+                        // editIcon.style.pointerEvents = 'none';
+                        // editButton.appendChild(editIcon);
+                        // editCell.appendChild(editButton);
 
-                        // Thêm nút xoá vào ô deleteCell
-                        // const deleteButton = document.createElement('button');
-                        // deleteButton.className = 'delete-button';
-                        // deleteButton.innerText = '🗑️';
-                        // deleteButton.id = row.user;
-                        // deleteCell.appendChild(deleteButton);
                         const deleteButton = document.createElement('button');
                         deleteButton.className = 'delete-button';
-                        deleteButton.id = row.user;
-                        const deleteIcon = document.createElement('img');
-                        deleteIcon.src = '../delete.png';
-                        deleteIcon.alt = 'Xóa';
-                        deleteIcon.width = 30;
-                        deleteIcon.height = 30;
-                        deleteIcon.style.pointerEvents = 'none';
-                        deleteButton.appendChild(deleteIcon);
+                        deleteButton.innerText = 'Xoá';
                         deleteCell.appendChild(deleteButton);
+
+
+                        // const deleteButton = document.createElement('button');
+                        // deleteButton.className = 'delete-button';
+                        // deleteButton.id = row.user;
+                        // const deleteIcon = document.createElement('img');
+                        // deleteIcon.src = '../delete.png';
+                        // deleteIcon.alt = 'Xóa';
+                        // deleteIcon.width = 30;
+                        // deleteIcon.height = 30;
+                        // deleteIcon.style.pointerEvents = 'none';
+                        // deleteButton.appendChild(deleteIcon);
+                        // deleteCell.appendChild(deleteButton);
                     }
                 }
             })

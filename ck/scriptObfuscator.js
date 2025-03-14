@@ -679,30 +679,40 @@ function updateTable() {
                         }
 
                         deliveryCell.appendChild(checkbox);
-
+                       
                         const editButton = document.createElement('button');
-                        editButton.className = 'edit-button';
-                        // editButton.id = row.user;
-                        const editIcon = document.createElement('img');
-                        editIcon.src = '../edit.png';
-                        editIcon.alt = 'Sửa';
-                        editIcon.width = 30;
-                        editIcon.height = 30;
-                        editIcon.style.pointerEvents = 'none';
-                        editButton.appendChild(editIcon);
-                        editCell.appendChild(editButton);
+						editButton.className = 'edit-button';
+						editButton.innerText = 'Sửa';
+						editCell.appendChild(editButton);
+						
+						const deleteButton = document.createElement('button');
+						deleteButton.className = 'delete-button';
+						deleteButton.innerText = 'Xoá';
+						deleteCell.appendChild(deleteButton);
+                        
+                        // const editButton = document.createElement('button');
+                        // editButton.className = 'edit-button';
+                        // // editButton.id = row.user;
+                        // const editIcon = document.createElement('img');
+                        // editIcon.src = '../edit.png';
+                        // editIcon.alt = 'Sửa';
+                        // editIcon.width = 30;
+                        // editIcon.height = 30;
+                        // editIcon.style.pointerEvents = 'none';
+                        // editButton.appendChild(editIcon);
+                        // editCell.appendChild(editButton);
 
-                        const deleteButton = document.createElement('button');
-                        deleteButton.className = 'delete-button';
-                        deleteButton.id = data["data"][i].user;
-                        const deleteIcon = document.createElement('img');
-                        deleteIcon.src = '../delete.png';
-                        deleteIcon.alt = 'Xóa';
-                        deleteIcon.width = 30;
-                        deleteIcon.height = 30;
-                        deleteIcon.style.pointerEvents = 'none';
-                        deleteButton.appendChild(deleteIcon);
-                        deleteCell.appendChild(deleteButton);
+                        // const deleteButton = document.createElement('button');
+                        // deleteButton.className = 'delete-button';
+                        // deleteButton.id = data["data"][i].user;
+                        // const deleteIcon = document.createElement('img');
+                        // deleteIcon.src = '../delete.png';
+                        // deleteIcon.alt = 'Xóa';
+                        // deleteIcon.width = 30;
+                        // deleteIcon.height = 30;
+                        // deleteIcon.style.pointerEvents = 'none';
+                        // deleteButton.appendChild(deleteIcon);
+                        // deleteCell.appendChild(deleteButton);
                     }
 
                     tempDate.sort(function(a, b) {
