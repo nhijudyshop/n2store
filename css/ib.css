@@ -129,7 +129,7 @@ input[type="number"] {
 }
 
 button.toggle-visibility {
-    background-color: #f00;
+    /* background-color: #f00; */
     color: #fff;
     border: none;
     padding: 5px 10px;
@@ -260,4 +260,16 @@ button.toggle-visibility {
 	opacity: 0;
 	transition: opacity 0.5s;
 	pointer-events: none;
+}
+
+.toggle-visibility { /* Đây là nút xóa */
+    background-image: url('delete.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 40px;  /* Điều chỉnh kích thước */
+    height: 40px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
 }

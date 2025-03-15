@@ -57,11 +57,13 @@
             <option value="Thay đổi thông tin">Thay đổi thông tin</option>
          </select>
          <label for="customerInfo">Tên FB + SĐT:</label>
-         <input type="text" id="customerInfo" required>
+         <input type="text" id="customerInfo" list="suggestionsInfo" required>
+		 <datalist id="suggestionsInfo"></datalist>
          <label for="totalAmount">Giá tiền:</label>
          <input type="text" id="totalAmount" required>
          <label for="cause">Lý do:</label>
-         <input type="text" id="cause" required>
+         <input type="text" id="cause" list="suggestionsCause" required>
+		 <datalist id="suggestionsCause"></datalist>
          <div class="center-button">
             <button type="submit" id="addButton">Thêm</button>
             <button type="button" id="clearDataButton">Reset</button>
