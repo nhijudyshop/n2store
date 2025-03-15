@@ -144,13 +144,13 @@ moneyTransferForm.addEventListener('submit', function(e) {
 
     const editButton = document.createElement('button');
     editButton.className = 'edit-button';
-    editButton.innerText = 'Sửa';
+    // editButton.innerText = 'Sửa';
     editCell.appendChild(editButton);
 
     // Thêm nút xoá vào ô deleteCell
     const deleteButton = document.createElement('button');
     deleteButton.className = 'delete-button';
-    deleteButton.innerText = 'Xoá';
+    // deleteButton.innerText = 'Xoá';
     deleteCell.appendChild(deleteButton);
 
     moneyTransferForm.reset();

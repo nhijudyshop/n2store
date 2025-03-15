@@ -1041,7 +1041,7 @@ tbody.addEventListener('click', function(e) {
         const row = e.target.closest("tr"); // Lấy hàng (row) được click
         if (!row) return; // Nếu không click vào hàng thì thoát
 
-        const deleteButton = row.querySelector(".deleteButton"); // Tìm nút delete trong hàng
+        const deleteButton = row.querySelector(".delete-button"); // Tìm nút delete trong hàng
         const value = deleteButton ? deleteButton.id : "Không có nút xóa"; // Lấy id của deleteButton
 
         tooltip.textContent = value;
