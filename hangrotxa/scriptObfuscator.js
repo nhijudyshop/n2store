@@ -231,7 +231,6 @@ async function displayInventoryData() {
             const data = doc.data(); // Sao chép mảng
             // Check if data is defined and data.data is an array
             if (data && Array.isArray(data.data)) {
-                var tableElement = document.getElementById('productTableBody');
                 var arrCountDotLive = [];
                 for (let i = data.data.length - 1; i >= 0; i--) {
                     const product = data.data[i];
@@ -273,8 +272,7 @@ async function displayInventoryData() {
                         updateInventory();
                     });
                     td8.appendChild(input);
-                    button.textContent = 'Xoá';
-                    button.className = 'deleteButton';
+                    button.className = 'delete-button';
                     button.id = product.user;
                     button.addEventListener('click', deleteInventory);
 
@@ -290,9 +288,7 @@ async function displayInventoryData() {
                     tr.appendChild(td9);
                     td9.appendChild(button);
 
-                    // Lấy bảng trong trang web và chèn phần tử tr vào bảng
-                    var table = document.getElementById('productTableBody');
-                    table.appendChild(tr);
+                    tbody.appendChild(tr);
                 }
                 // Chuyển đổi tất cả phần tử về số, lọc bỏ giá trị NaN
                 const numericValues = arrCountDotLive.map(Number).filter(num => !isNaN(num));
@@ -417,10 +413,10 @@ function updateInventory() {
                         });
                 }
                 row.remove();
-				const rows = tableBody.querySelectorAll("tr");
-				rows.forEach((row, index) => {
-					row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
-				});
+                const rows = tbody.querySelectorAll("tr");
+                rows.forEach((row, index) => {
+                    row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+                });
             }
         } else {
             if (row) {
@@ -543,10 +539,10 @@ function deleteInventory() {
                         });
                 }
                 row.remove();
-				const rows = tableBody.querySelectorAll("tr");
-				rows.forEach((row, index) => {
-					row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
-				});
+                const rows = tbody.querySelectorAll("tr");
+                rows.forEach((row, index) => {
+                    row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+                });
             }
         }
     }
@@ -951,8 +947,7 @@ function addProducToTable(dotLive, thoiGianUpload, phanLoai, hinhAnh, tenSanPham
         updateInventory();
     });
     td8.appendChild(input);
-    button.textContent = 'Xoá';
-    button.className = 'deleteButton';
+    button.className = 'delete-button';
     button.addEventListener('click', deleteInventory);
 
     // Đặt các phần tử con vào phần tử tr
@@ -968,9 +963,8 @@ function addProducToTable(dotLive, thoiGianUpload, phanLoai, hinhAnh, tenSanPham
     td9.appendChild(button);
 
     // Lấy bảng trong trang web và chèn phần tử tr vào bảng
-    var table = document.getElementById('productTableBody');
-    var firstRow = table.querySelector('tr:first-child'); // Lấy dòng đầu tiên
-    table.insertBefore(tr, firstRow);
+    var firstRow = tbody.querySelector('tr:first-child'); // Lấy dòng đầu tiên
+    tbody.insertBefore(tr, firstRow);
 }
 
 function applyFilters() {
@@ -1019,7 +1013,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function updateSuggestions() {
-    const tbody = document.getElementById('productTableBody');
     if (!tbody) return;
 
     const values = Array.from(tbody.rows)

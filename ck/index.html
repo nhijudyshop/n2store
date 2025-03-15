@@ -44,7 +44,8 @@
          <label for="ngayck">Ngày chuyển khoản:</label>
          <input type="date" id="ngayck">
          <label for="transferNote">Ghi chú chuyển khoản:</label>
-         <input type="text" id="transferNote" required>
+         <input type="text" id="transferNote" list="suggestionsNote" required>
+		 <datalist id="suggestionsNote"></datalist>
          <label for="transferAmount">Số tiền chuyển:</label>
          <input type="text" id="transferAmount" required>
          <label for="bank">Ngân hàng:</label>
@@ -53,7 +54,8 @@
             <!-- <option value="Nam Á">Nam Á</option> -->
          </select>
          <label for="customerInfo">Tên FB + SĐT:</label>
-         <input type="text" id="customerInfo" required>
+         <input type="text" id="customerInfo" list="suggestionsInfo" required>
+		 <datalist id="suggestionsInfo"></datalist>
          <div class="center-button">
             <button type="submit" id="addButton">Thêm</button>
             <button type="button" id="clearDataButton">Reset</button>

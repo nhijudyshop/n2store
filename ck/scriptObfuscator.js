@@ -450,11 +450,11 @@ tableBody.addEventListener('click', function(e) {
                             .catch((error) => {
                                 console.error("Lỗi lấy document:", error);
                             });
-							row.remove();
-							const rows = tableBody.querySelectorAll("tr");
-							rows.forEach((row, index) => {
-								row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
-							});
+                        row.remove();
+                        const rows = tableBody.querySelectorAll("tr");
+                        rows.forEach((row, index) => {
+                            row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+                        });
                     }
                 }
             }
@@ -679,40 +679,16 @@ function updateTable() {
                         }
 
                         deliveryCell.appendChild(checkbox);
-                       
-                        const editButton = document.createElement('button');
-						editButton.className = 'edit-button';
-						editButton.innerText = 'Sửa';
-						editCell.appendChild(editButton);
-						
-						const deleteButton = document.createElement('button');
-						deleteButton.className = 'delete-button';
-						deleteButton.innerText = 'Xoá';
-						deleteCell.appendChild(deleteButton);
-                        
-                        // const editButton = document.createElement('button');
-                        // editButton.className = 'edit-button';
-                        // // editButton.id = row.user;
-                        // const editIcon = document.createElement('img');
-                        // editIcon.src = '../edit.png';
-                        // editIcon.alt = 'Sửa';
-                        // editIcon.width = 30;
-                        // editIcon.height = 30;
-                        // editIcon.style.pointerEvents = 'none';
-                        // editButton.appendChild(editIcon);
-                        // editCell.appendChild(editButton);
 
-                        // const deleteButton = document.createElement('button');
-                        // deleteButton.className = 'delete-button';
-                        // deleteButton.id = data["data"][i].user;
-                        // const deleteIcon = document.createElement('img');
-                        // deleteIcon.src = '../delete.png';
-                        // deleteIcon.alt = 'Xóa';
-                        // deleteIcon.width = 30;
-                        // deleteIcon.height = 30;
-                        // deleteIcon.style.pointerEvents = 'none';
-                        // deleteButton.appendChild(deleteIcon);
-                        // deleteCell.appendChild(deleteButton);
+                        const editButton = document.createElement('button');
+                        editButton.className = 'edit-button';
+                        // editButton.id = row.user;
+                        editCell.appendChild(editButton);
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.className = 'delete-button';
+                        deleteButton.id = data["data"][i].user;
+                        deleteCell.appendChild(deleteButton);
                     }
 
                     tempDate.sort(function(a, b) {
@@ -732,6 +708,7 @@ function updateTable() {
 
                     //updateTotalAmount();
                 }
+                updateSuggestions();
             }
         })
         .catch((error) => {
@@ -915,6 +892,42 @@ function showFloatingAlert(message) {
     setTimeout(() => {
         alertBox.style.opacity = '0';
     }, 3000); // Ẩn sau 3 giây
+}
+
+function updateSuggestions() {
+    if (!tableBody || tableBody.rows.length === 0) return;
+
+    const uniqueValuesNote = new Set();
+    const uniqueValuesInfo = new Set();
+
+    for (const row of tableBody.rows) {
+        const note = row.cells[1]?.textContent.trim();
+        const info = row.cells[5]?.textContent.trim();
+        if (note) uniqueValuesNote.add(note);
+        if (info) uniqueValuesInfo.add(info);
+    }
+
+    const createOptionsFragment = (values) => {
+        const fragment = document.createDocumentFragment();
+        values.forEach(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            fragment.appendChild(option);
+        });
+        return fragment;
+    };
+
+    const dataListNote = document.getElementById('suggestionsNote');
+    const dataListInfo = document.getElementById('suggestionsInfo');
+
+    if (dataListNote) {
+        dataListNote.innerHTML = '';
+        dataListNote.appendChild(createOptionsFragment(uniqueValuesNote));
+    }
+    if (dataListInfo) {
+        dataListInfo.innerHTML = '';
+        dataListInfo.appendChild(createOptionsFragment(uniqueValuesInfo));
+    }
 }
 
 updateTable();

@@ -301,10 +301,10 @@ function deleteRow(row, button) {
                                 data
                             }).then(() => {
                                 row.remove();
-								const rows = tableBody.querySelectorAll("tr");
-								rows.forEach((row, index) => {
-									row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
-								});
+                                const rows = tbody.querySelectorAll("tr");
+                                rows.forEach((row, index) => {
+                                    row.cells[0].textContent = rows.length - index; // Gán số thứ tự giảm dần
+                                });
                             }).catch((error) => {
                                 console.error("Lỗi khi cập nhật dữ liệu:", error);
                             });
@@ -1362,7 +1362,6 @@ function addImagesFromStorage() {
                                 hideButton.className = 'toggle-visibility';
                                 hideButton.onclick = () => deleteRow(row, hideButton);
                                 toggleVisibilityCell.appendChild(hideButton);
-                                hideButton.innerText = 'Hiện';
                                 thuTuCell.style.display = 'none';
                                 thoiGianUploadCell.style.display = 'none';
                                 phanLoaiCell.style.display = 'none';
@@ -1411,7 +1410,6 @@ function addImagesFromStorage() {
                                 hideButton.id = data["data"][i].user;
                                 hideButton.onclick = () => deleteRow(row, hideButton);
                                 toggleVisibilityCell.appendChild(hideButton);
-                                hideButton.innerText = 'Xoá';
                                 thuTuCell.style.display = '';
                                 thoiGianUploadCell.style.display = '';
                                 phanLoaiCell.style.display = '';
@@ -1473,7 +1471,6 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham, thoiGianUpload, phanL
 
     const hideButton = document.createElement('button');
     hideButton.className = 'toggle-visibility';
-    hideButton.textContent = 'Xoá';
     hideButton.onclick = () => deleteRow(row, hideButton);
     toggleVisibilityCell.appendChild(hideButton);
 }

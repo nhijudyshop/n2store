@@ -479,7 +479,26 @@ tr.fade {
 	pointer-events: none;
 }
 
-.delete-button, .edit-button {
-    background: none;  /* Xóa nền */
-    border: none;      /* Xóa viền */
+.delete-button {
+    background-image: url('delete.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 40px;  /* Điều chỉnh kích thước */
+    height: 40px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+}
+
+.edit-button {
+    background-image: url('edit.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 40px;  /* Điều chỉnh kích thước */
+    height: 40px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
 }
