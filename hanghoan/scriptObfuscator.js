@@ -60,7 +60,8 @@ const userType = localStorage.getItem('userType');
 editModal.style.display = 'none';
 
 toggleFormButton.addEventListener('click', () => {
-    if (userType == "admin-admin123" || userType == "lai-lai2506" || userType == "my-my2804" || userType == "coi-coi2806") {
+    // if (userType == "admin-admin123" || userType == "lai-lai2506" || userType == "my-my2804" || userType == "coi-coi2806") {
+    if (userType != "khach-777") {
         if (dataForm.style.display === 'none' || dataForm.style.display === '') {
             dataForm.style.display = 'block';
             toggleFormButton.textContent = 'Ẩn biểu mẫu';
