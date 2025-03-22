@@ -91,18 +91,12 @@ inputFileContainer.style.display = 'none';
 
 inputFileContainerKH.style.display = 'none';
 
-const userTypes = {};
-
 // Create a temporary file input element
 var imgArray = [];
 var imgArrayKH = [];
 var isLoggedIn = localStorage.getItem('isLoggedIn');
 const userType = localStorage.getItem('userType');
-
-if (userType && Object.keys(userTypes).some(type => userType.includes(type) && userType !== `${type}-${userTypes[type].password}`)) {
-    isLoggedIn = false;
-    localStorage.removeItem('isLoggedIn');
-}
+const checkLogin = localStorage.getItem('checkLogin');
 
 if (isLoggedIn === 'true') {
     document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
@@ -282,7 +276,7 @@ function applyCategoryFilter() {
 }
 
 function deleteRow(row, button) {
-    if (userType === "admin-admin123" || userType === "my-my2804" || userType === "lai-lai2506") {
+    if (checkLogin == 0) {
         const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
         if (confirmDelete) {
             // Lấy tài liệu "ib" từ Firestore
@@ -1309,7 +1303,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleFormButton = document.getElementById('toggleFormButton');
     const dataForm = document.getElementById('dataForm');
     toggleFormButton.addEventListener('click', function() {
-        if (userType != "khach-777") {
+        if (checkLogin == 0 || checkLogin == 1 || checkLogin == 2) {
             if (dataForm.style.display === 'none' || dataForm.style.display === '') {
                 dataForm.style.display = 'block';
                 toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -1354,14 +1348,7 @@ function addImagesFromStorage() {
                         const thongTinKhachHangCell = row.insertCell();
                         const toggleVisibilityCell = row.insertCell();
                         if (data["data"][i]) {
-                            if (data["data"][i].cellShow == false && userType.split('-')[0] != 'admin') {
-                                row.remove();
-                                continue;
-                            } else if (data["data"][i].cellShow == false && userType.split('-')[0] == 'admin') {
-                                const hideButton = document.createElement('button');
-                                hideButton.className = 'toggle-visibility';
-                                hideButton.onclick = () => deleteRow(row, hideButton);
-                                toggleVisibilityCell.appendChild(hideButton);
+                            if (checkLogin == 777) {
                                 thuTuCell.style.display = 'none';
                                 thoiGianUploadCell.style.display = 'none';
                                 phanLoaiCell.style.display = 'none';
@@ -1404,12 +1391,14 @@ function addImagesFromStorage() {
                                 } else {
                                     thongTinKhachHangCell.innerHTML = `<img src="${data["data"][i].kh}" alt="Hình ảnh khách hàng">`;
                                 }
-
-                                const hideButton = document.createElement('button');
-                                hideButton.className = 'toggle-visibility';
-                                hideButton.id = data["data"][i].user;
-                                hideButton.onclick = () => deleteRow(row, hideButton);
-                                toggleVisibilityCell.appendChild(hideButton);
+								
+								if (checkLogin == 0) {
+									const hideButton = document.createElement('button');
+									hideButton.className = 'toggle-visibility';
+									hideButton.id = data["data"][i].user;
+									hideButton.onclick = () => deleteRow(row, hideButton);
+									toggleVisibilityCell.appendChild(hideButton);
+								}
                                 thuTuCell.style.display = '';
                                 thoiGianUploadCell.style.display = '';
                                 phanLoaiCell.style.display = '';
@@ -1477,12 +1466,10 @@ function addProductToTable(imgSrcSP, imgSrcKH, tenSanPham, thoiGianUpload, phanL
 
 // Đăng xuất
 function handleLogout() {
-    // Đặt lại biến kiểm tra đăng nhập
-    checkLogin = 0;
-
     // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userType');
+    localStorage.removeItem('checkLogin');
 
     // Tải lại trang để áp dụng các thay đổi
     location.reload();
@@ -1503,7 +1490,7 @@ window.addEventListener('load', function() {
 });
 
 tbody.addEventListener('click', function(e) {
-    if (userType == "admin-admin123") {
+    if (checkLogin == 0) {
         const tooltip = document.getElementById("tooltip");
         const row = e.target.closest("tr"); // Lấy hàng (row) được click
         if (!row) return; // Nếu không click vào hàng thì thoát

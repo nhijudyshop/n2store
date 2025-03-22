@@ -57,15 +57,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Đặt giá trị max cho trường input ngày là ngày hôm nay
     const dotLiveInput = document.getElementById('dotLive');
 
-    const userTypes = {};
-
     var isLoggedIn = localStorage.getItem('isLoggedIn');
     const userType = localStorage.getItem('userType');
-
-    if (userType && Object.keys(userTypes).some(type => userType.includes(type) && userType !== `${type}-${userTypes[type].password}`)) {
-        isLoggedIn = false;
-        localStorage.removeItem('isLoggedIn');
-    }
+	const checkLogin = localStorage.getItem('checkLogin');
 
     if (isLoggedIn === 'true') {
         document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
@@ -78,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     toggleFormButton.addEventListener('click', function () {
-        if (userType != "khach-777") {
+        if (checkLogin != 777) {
             if (dataForm.style.display === 'none' || dataForm.style.display === '') {
                 dataForm.style.display = 'block';
                 toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -388,12 +382,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Đăng xuất
     function handleLogout() {
-        // Đặt lại biến kiểm tra đăng nhập
-        checkLogin = 0;
-
         // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('userType');
+        localStorage.removeItem('checkLogin');
 
         // Tải lại trang để áp dụng các thay đổi
         location.reload();

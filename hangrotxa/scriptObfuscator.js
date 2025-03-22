@@ -65,17 +65,11 @@ const hinhAnhContainer = document.getElementById('hinhAnhContainer');
 const dotLiveInput = document.getElementById('dotLive');
 const dateFilterDropdown = document.getElementById('dateFilter');
 
-const userTypes = {};
-
 var imageUrlFile = []; // Mảng để lưu trữ URL tải về
 var imgArray = [];
 var isLoggedIn = localStorage.getItem('isLoggedIn');
 const userType = localStorage.getItem('userType');
-
-if (userType && Object.keys(userTypes).some(type => userType.includes(type) && userType !== `${type}-${userTypes[type].password}`)) {
-    isLoggedIn = false;
-    localStorage.removeItem('isLoggedIn');
-}
+const checkLogin = localStorage.getItem('checkLogin');
 
 if (isLoggedIn === 'true') {
     document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
@@ -334,7 +328,7 @@ const soLuongInput = document.getElementById('soLuong');
 soLuongInput.addEventListener('input', function() {
     const enteredValue = parseInt(soLuongInput.value);
 
-    if (userType != "khach-777") {
+    if (checkLogin != 777) {
         if (enteredValue < 1) {
             alert('Số lượng phải lớn hơn hoặc bằng 1');
             soLuongInput.value = '1'; // Đặt lại giá trị thành 1 nếu người dùng nhập số nhỏ hơn 1
@@ -348,7 +342,7 @@ soLuongInput.addEventListener('input', function() {
 // Cập nhật số lượng sản phẩm khi người dùng thay đổi giá trị
 function updateInventory() {
     // Lắng nghe sự kiện khi giá trị cột số lượng thay đổi
-    if (userType != "khach-777") {
+    if (checkLogin != 777) {
         const row = event.target.closest("tr");
         const imgElement = row.querySelector("img");
         const imgSrc = imgElement.src;;
@@ -484,7 +478,7 @@ function updateInventory() {
 
 // Xoá sản phẩm khi người dùng ấn nút "Xoá"
 function deleteInventory() {
-    if (userType != "khach-777") {
+    if (checkLogin != 777) {
         const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
         const row = event.target.closest("tr");
         if (confirmDelete) {
@@ -865,7 +859,7 @@ function addProduct(event) {
 
 // Thêm hàm để ẩn/hiện biểu mẫu
 function toggleForm() {
-    if (userType != "khach-777") {
+    if (checkLogin != 777) {
         const dataForm = document.getElementById('dataForm');
         const toggleFormButton = document.getElementById('toggleFormButton');
 
@@ -988,12 +982,10 @@ function applyFilters() {
 
 // Đăng xuất
 function handleLogout() {
-    // Đặt lại biến kiểm tra đăng nhập
-    checkLogin = 0;
-
     // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userType');
+    localStorage.removeItem('checkLogin');
 
     // Tải lại trang để áp dụng các thay đổi
     location.reload();
@@ -1036,7 +1028,7 @@ function showFloatingAlert(message) {
 }
 
 tbody.addEventListener('click', function(e) {
-    if (userType == "admin-admin123") {
+    if (checkLogin == 0) {
         const tooltip = document.getElementById("tooltip");
         const row = e.target.closest("tr"); // Lấy hàng (row) được click
         if (!row) return; // Nếu không click vào hàng thì thoát

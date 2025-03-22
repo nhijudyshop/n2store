@@ -56,12 +56,12 @@ let isSubmitting = false; // Biến kiểm tra trạng thái gửi form
 const loginContainer = document.querySelector('.login-container');
 const loginBox = document.querySelector('.login-box');
 const userType = localStorage.getItem('userType');
+const checkLogin = localStorage.getItem('checkLogin');
 
 editModal.style.display = 'none';
 
 toggleFormButton.addEventListener('click', () => {
-    // if (userType == "admin-admin123" || userType == "lai-lai2506" || userType == "my-my2804" || userType == "coi-coi2806") {
-    if (userType != "khach-777") {
+    if (checkLogin != 777) {
         if (dataForm.style.display === 'none' || dataForm.style.display === '') {
             dataForm.style.display = 'block';
             toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -208,9 +208,9 @@ form.addEventListener("submit", function(event) {
     // deleteButton.innerText = 'Xoá';
     deleteCell.appendChild(deleteButton);
 
-    if (userType != "admin-admin123") {
+    if (checkLogin != 0) {
         deleteCell.style.visibility = 'hidden';
-        if (userType == "coi-coi2806") {
+        if (checkLogin == 1) {
             deliveryCell.style.visibility = 'visible';
             checkbox.style.visibility = 'visible';
         } else {
@@ -441,10 +441,10 @@ function updateTable() {
                     checkbox.className = 'received-checkbox'
                     checkbox.checked = row.muted;
 
-                    if (userType != "admin-admin123") {
+                    if (checkLogin != 0) {
                         newRow.style.opacity = row.muted ? '0.5' : '1.0';
                         deleteCell.style.visibility = 'hidden';
-                        if (userType == "coi-coi2806") {
+                        if (checkLogin == 1) {
                             checkboxRow.style.visibility = 'visible';
                         } else {
                             editCell.style.visibility = 'hidden';
@@ -496,7 +496,7 @@ function formatDate(date) {
 
 tableBody.addEventListener('click', function(e) {
     if (e.target.classList.contains('edit-button')) {
-        if (userType == "admin-admin123" || userType == "coi-coi2806") {
+        if (checkLogin == 0 || checkLogin == 1) {
             document.getElementById('editModal').style.display = 'block';
 
             const editDelivery = document.getElementById('editDelivery');
@@ -525,7 +525,7 @@ tableBody.addEventListener('click', function(e) {
             editingRow = row;
         }
     } else if (e.target.classList.contains('delete-button')) {
-        if (userType != "admin-admin123") {
+        if (checkLogin != 0) {
             showFloatingAlert('Không đủ quyền!');
             e.target.checked = !e.target.checked;
             return;
@@ -592,7 +592,7 @@ tableBody.addEventListener('click', function(e) {
             }
         }
     } else if (e.target.type === 'checkbox') {
-        if (userType != "admin-admin123" && userType != "coi-coi2806") {
+        if (checkLogin != 0 && checkLogin != 1) {
             showFloatingAlert('Không đủ quyền!');
             e.target.checked = !e.target.checked;
             return;
@@ -646,7 +646,7 @@ tableBody.addEventListener('click', function(e) {
             e.target.checked = !isChecked;
         }
     } else {
-        if (userType == "admin-admin123") {
+        if (checkLogin == 0) {
             const tooltip = document.getElementById("tooltip");
             const row = e.target.closest("tr"); // Lấy hàng (row) được click
             if (!row) return; // Nếu không click vào hàng thì thoát
@@ -725,12 +725,10 @@ function convertToTimestamp(dateString) {
 
 // Đăng xuất
 function handleLogout() {
-    // Đặt lại biến kiểm tra đăng nhập
-    checkLogin = 0;
-
     // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userType');
+    localStorage.removeItem('checkLogin');
 
     // Tải lại trang để áp dụng các thay đổi
     location.reload();
