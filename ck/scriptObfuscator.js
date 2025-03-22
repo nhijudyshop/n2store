@@ -52,6 +52,8 @@ const dataForm = document.getElementById('dataForm');
 const ngayck = document.getElementById('ngayck');
 const transferAmountInput = document.getElementById('transferAmount');
 const totalAmountElement = document.getElementById('totalAmount');
+const inputUsername = document.getElementById('username');
+const inputPassword = document.getElementById('password');
 const loginButton = document.getElementById('loginButton');
 const dateFilterDropdown = document.getElementById('dateFilter');
 const loginContainer = document.querySelector('.login-container');
@@ -59,9 +61,12 @@ const loginBox = document.querySelector('.login-box');
 // const logoutButton = document.createElement('button');
 const editModal = document.getElementById('editModal');
 let editingRow;
+const userTypeAdmin = 'admin-admin123';
+const userTypeCoi = 'coi-coi2806';
+const userTypeMy = 'my-my2804';
 const userType = localStorage.getItem('userType');
 
-const checkLogin = localStorage.getItem('checkLogin');
+var checkLogin = 0;
 var arrayData = [];
 var arrayDate = [];
 
@@ -69,7 +74,7 @@ ngayck.valueAsDate = new Date();
 editModal.style.display = 'none';
 
 toggleFormButton.addEventListener('click', () => {
-    if (checkLogin == 0 || checkLogin == 1 || checkLogin == 2) {
+    if (userType != "khach-777") {
         if (dataForm.style.display === 'none' || dataForm.style.display === '') {
             dataForm.style.display = 'block';
             toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -165,9 +170,9 @@ moneyTransferForm.addEventListener('submit', function(e) {
         user: userType.split('-')[0]
     };
 
-    if (checkLogin != 0) {
+    if (checkLogin != 1) {
         deleteCell.style.visibility = 'hidden';
-        if (checkLogin == 1) {
+        if (checkLogin == 2) {
             deliveryCell.style.visibility = 'visible';
         } else {
             editCell.style.visibility = 'hidden';
@@ -244,11 +249,69 @@ transferAmountInput.addEventListener('blur', function() {
     }
 });
 
+loginButton.addEventListener('click', function() {
+    if (inputUsername.value === 'admin' && inputPassword.value != null) {
+        if (inputPassword.value === userTypeAdmin.split('-')[1]) {
+            checkLogin = 1;
+            // Luu thong tin dang nhap
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userType', userTypeAdmin);
+            location.reload();
+            //alert('Đăng nhập thành công.');
+            //return;
+        } else {
+            alert('Sai thông tin đăng nhập.');
+            return;
+        }
+    } else if (inputUsername.value === 'coi' && inputPassword.value != null) {
+        if (inputPassword.value === userTypeCoi.split('-')[1]) {
+            checkLogin = 2;
+            // Luu thong tin dang nhap
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userType', userTypeCoi);
+            location.reload();
+            //alert('Đăng nhập thành công.');
+            //return;
+        } else {
+            alert('Sai thông tin đăng nhập.');
+            return;
+        }
+    } else if (inputUsername.value === 'my' && inputPassword.value != null) {
+        if (inputPassword.value === userTypeMy.split('-')[1]) {
+            checkLogin = 3;
+            // Luu thong tin dang nhap
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userType', userTypeMy);
+            location.reload();
+            //alert('Đăng nhập thành công.');
+            //return;
+        } else {
+            alert('Sai thông tin đăng nhập.');
+            return;
+        }
+    } else {
+        alert('Sai thông tin đăng nhập.');
+        return;
+    }
+});
+
 // Luu thong tin dang nhap
 document.addEventListener('DOMContentLoaded', function() {
     var isLoggedIn = localStorage.getItem('isLoggedIn');
 
+    if (userType && (userType.includes('admin') && userType != userTypeAdmin)) {
+        isLoggedIn = false;
+        localStorage.removeItem('isLoggedIn');
+    } else if (userType && (userType.includes('coi') && userType != userTypeCoi)) {
+        isLoggedIn = false;
+        localStorage.removeItem('isLoggedIn');
+    } else if (userType && (userType.includes('my') && userType != userTypeMy)) {
+        isLoggedIn = false;
+        localStorage.removeItem('isLoggedIn');
+    }
+
     if (isLoggedIn === 'true') {
+        checkLogin = userType === userTypeAdmin ? 1 : userType === userTypeCoi ? 2 : userType === userTypeMy ? 3 : 0;
         loginBox.style.display = 'none';
         document.querySelector('.tieude').innerText += 'Tài khoản ' + userType.split('-')[0];
         // logoutButton.textContent = 'Đăng xuất';
@@ -277,13 +340,14 @@ document.addEventListener('DOMContentLoaded', function() {
 // }
 
 // logoutButton.addEventListener('click', function() {
+//     checkLogin = 0; // Đặt lại biến kiểm tra đăng nhập
 //     localStorage.removeItem('isLoggedIn');
 //     //alert('Đã đăng xuất.');
 //     location.reload();
 // });
 
 tableBody.addEventListener('click', function(e) {
-    if (checkLogin != 777) {
+    if (userType != "khach-777") {
         if (e.target.classList.contains('edit-button')) {
 
             document.getElementById('editModal').style.display = 'block';
@@ -305,7 +369,7 @@ tableBody.addEventListener('click', function(e) {
 
             //const editedRow = prompt('Sửa thông tin:', `${date} | ${note} | ${amount} | ${bank} | ${delivery} | ${customerInfo}`);
             var editedData = '';
-            if (checkLogin == 0 || checkLogin == 1) {
+            if (checkLogin != 0) {
                 //editedRow = prompt('Sửa thông tin:', `${date} | ${note} | ${amount} | ${bank} | ${customerInfo}`); //Bỏ date, delivery
                 editDate.disabled = false;
                 editNote.disabled = false;
@@ -328,7 +392,7 @@ tableBody.addEventListener('click', function(e) {
             editingRow = row;
         }
         if (e.target.classList.contains('delete-button')) {
-            if (checkLogin != 0) {
+            if (checkLogin != 1) {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;
@@ -395,7 +459,7 @@ tableBody.addEventListener('click', function(e) {
                 }
             }
         } else if (e.target.type === 'checkbox') {
-            if (checkLogin != 0 && checkLogin != 1) {
+            if (checkLogin != 1 && checkLogin != 2) {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;
@@ -449,7 +513,7 @@ tableBody.addEventListener('click', function(e) {
                 e.target.checked = !isChecked;
             }
         } else {
-            if (checkLogin == 0) {
+            if (userType == "admin-admin123") {
                 const tooltip = document.getElementById("tooltip");
                 const row = e.target.closest("tr"); // Lấy hàng (row) được click
                 if (!row) return; // Nếu không click vào hàng thì thoát
@@ -588,10 +652,10 @@ function updateTable() {
 
                         checkbox.checked = data["data"][i].muted;
 
-                        if (checkLogin != 0) {
+                        if (checkLogin != 1) {
                             newRow.style.opacity = data["data"][i].muted ? '0.5' : '1.0';
                             deleteCell.style.visibility = 'hidden';
-                            if (checkLogin == 1) {
+                            if (checkLogin == 2) {
                                 deliveryCell.style.visibility = 'visible';
                             } else {
                                 editCell.style.visibility = 'hidden';
@@ -707,7 +771,7 @@ function saveChanges() {
 
                 for (let i = 0; i < data["data"].length; i++) {
                     if (tdRow.id === data["data"][i].dateCell) {
-                        if (checkLogin == 0 || checkLogin == 1) {
+                        if (checkLogin != 0) {
                             if (rawDate != editDate) {
                                 data["data"][i].dateCell = convertToTimestamp(editedData[0]);
                             }
@@ -732,7 +796,7 @@ function saveChanges() {
                         collectionRef.doc("ck").update({
                             "data": data["data"]
                         }).then(function() {
-                            if (checkLogin == 0 || checkLogin == 1) {
+                            if (checkLogin != 0) {
                                 if (rawDate != editDate) {
                                     row.cells[0].id = convertToTimestamp(editedData[0]);
                                 }
@@ -761,7 +825,7 @@ function saveChanges() {
                         collectionRef.doc("ck").set({
                             "data": data["data"]
                         }).then(function() {
-                            if (checkLogin == 0 || checkLogin == 1) {
+                            if (checkLogin != 0) {
                                 if (rawDate != editDate) {
                                     row.cells[0].id = convertToTimestamp(editedData[0]);
                                 }
@@ -805,10 +869,12 @@ function saveChanges() {
 
 // Đăng xuất
 function handleLogout() {
+    // Đặt lại biến kiểm tra đăng nhập
+    checkLogin = 0;
+
     // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userType');
-    localStorage.removeItem('checkLogin');
 
     // Tải lại trang để áp dụng các thay đổi
     location.reload();

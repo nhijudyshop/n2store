@@ -58,12 +58,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const loginContainer = document.querySelector('.login-container');
     const loginBox = document.querySelector('.login-box');
     const userType = localStorage.getItem('userType');
-	const checkLogin = localStorage.getItem('checkLogin');
 
     editModal.style.display = 'none';
 
     toggleFormButton.addEventListener('click', () => {
-        if (checkLogin == 0 || checkLogin == 1 || checkLogin == 2) {
+        if (userType == "admin-admin123" || userType == "lai-lai2506" || userType == "my-my2804" || userType == "coi-coi2806") {
             if (dataForm.style.display === 'none' || dataForm.style.display === '') {
                 dataForm.style.display = 'block';
                 toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -493,7 +492,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         checkbox.style.height = '20px';
 						checkbox.className = 'received-checkbox'
                         checkbox.checked = row.muted;
-						if (checkLogin != 0) {
+						if (userType != "admin-admin123") {
 							newRow.style.opacity = row.muted ? '0.5' : '1.0';
 						} else {
 							const elements = [
@@ -540,7 +539,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     tableBody.addEventListener('click', function (e) {
         if (e.target.classList.contains('edit-button') && e.target.parentNode.parentNode.style.opacity === '1') {
-            if (checkLogin == 0 || checkLogin == 1) {
+            if (userType == "admin-admin123" || userType == "coi-coi2806") {
                 document.getElementById('editModal').style.display = 'block';
 
                 const editDelivery = document.getElementById('editDelivery');
@@ -569,7 +568,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 editingRow = row;
             }
         } else if (e.target.classList.contains('delete-button')) {
-            if (checkLogin != 0) {
+            if (userType != "admin-admin123") {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;
@@ -628,7 +627,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
         } else if (e.target.type === 'checkbox') {
-            if (checkLogin != 0 && checkLogin != 1) {
+            if (userType != "admin-admin123" && userType != "coi-coi2806") {
                 alert('Không đủ quyền thực hiện chức năng này.');
                 e.target.checked = !e.target.checked;
                 return;
@@ -699,10 +698,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Đăng xuất
     function handleLogout() {
+        // Đặt lại biến kiểm tra đăng nhập
+        checkLogin = 0;
+
         // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('userType');
-        localStorage.removeItem('checkLogin');
 
         // Tải lại trang để áp dụng các thay đổi
         // location.reload();
