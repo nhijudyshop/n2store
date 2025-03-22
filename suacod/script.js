@@ -56,11 +56,12 @@
 	    const loginContainer = document.querySelector('.login-container');
 	    const loginBox = document.querySelector('.login-box');
 	    const userType = localStorage.getItem('userType');
+		const checkLogin = localStorage.getItem('checkLogin');
 
 	    editModal.style.display = 'none';
 
 	    toggleFormButton.addEventListener('click', () => {
-	        if (userType == "admin-admin" || userType == "lai-lai2506" || userType == "my-my2804") {
+	        if (checkLogin == 0 || checkLogin == 1 || checkLogin == 2) {
 	            if (dataForm.style.display === 'none' || dataForm.style.display === '') {
 	                dataForm.style.display = 'block';
 	                toggleFormButton.textContent = 'Ẩn biểu mẫu';
@@ -182,9 +183,9 @@
 	                    deleteButton.innerText = 'Xoá';
 	                    deleteCell.appendChild(deleteButton);
 						
-						if (userType != "admin-admin") {
+						if (checkLogin != 0) {
 							deleteCell.style.visibility = 'hidden';
-							/*if (userType == "coi-coi2806") {
+							/*if (checkLogin == 1) {
 								deliveryCell.style.visibility = 'visible';
 							} else {
 								editCell.style.visibility = 'hidden';
@@ -243,9 +244,9 @@
 	                    deleteButton.innerText = 'Xoá';
 	                    deleteCell.appendChild(deleteButton);
 						
-						if (userType != "admin-admin") {
+						if (checkLogin != 0) {
 							deleteCell.style.visibility = 'hidden';
-							/*if (userType == "coi-coi2806") {
+							/*if (checkLogin == 1) {
 								deliveryCell.style.visibility = 'visible';
 							} else {
 								editCell.style.visibility = 'hidden';
@@ -428,9 +429,9 @@
 	                        deleteButton.innerText = 'Xoá';
 	                        deleteCell.appendChild(deleteButton);
 							
-							if (userType != "admin-admin") {
+							if (checkLogin != 0) {
 								deleteCell.style.visibility = 'hidden';
-								/*if (userType == "coi-coi2806") {
+								/*if (checkLogin == 1) {
 									deliveryCell.style.visibility = 'visible';
 								} else {
 									editCell.style.visibility = 'hidden';
@@ -458,7 +459,7 @@
 
 	    tableBody.addEventListener('click', function(e) {
 	        if (e.target.classList.contains('edit-button')) {
-	            if (userType == "admin-admin" || userType == "lai-lai2506" || userType == "my-my2804") {
+	            if (checkLogin == 0 || checkLogin == 1 || checkLogin == 2) {
 	                document.getElementById('editModal').style.display = 'block';
 
 	                const editDelivery = document.getElementById('editDelivery');
@@ -483,7 +484,7 @@
 					showFloatingAlert("Không đủ quyền!");	
 				}
 	        } else if (e.target.classList.contains('delete-button')) {
-	            if (userType != "admin-admin") {
+	            if (checkLogin != 0) {
 	                showFloatingAlert('Không đủ quyền!');
 	                e.target.checked = !e.target.checked;
 	                return;
@@ -545,7 +546,7 @@
 	                }
 	            }
 	        } else if (e.target.type === 'checkbox') {
-	            if (userType != "admin-admin") {
+	            if (checkLogin != 0) {
 	                showFloatingAlert('Không đủ quyền!');
 	                e.target.checked = !e.target.checked;
 	                return;
@@ -611,12 +612,10 @@
 
 	    // Đăng xuất
 	    function handleLogout() {
-	        // Đặt lại biến kiểm tra đăng nhập
-	        checkLogin = 0;
-
 	        // Xóa các dữ liệu liên quan đến đăng nhập từ localStorage
 	        localStorage.removeItem('isLoggedIn');
 	        localStorage.removeItem('userType');
+	        localStorage.removeItem('checkLogin');
 
 	        // Tải lại trang để áp dụng các thay đổi
 	        location.reload();
