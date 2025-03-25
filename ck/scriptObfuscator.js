@@ -675,6 +675,13 @@ function closeModal() {
 
 function saveChanges() {
     const editDate = document.getElementById('editDate').value;
+    if (!isValidDateFormat(editDate)) {
+        alert('Nhập đúng ngày-tháng-năm');
+        return;
+    }
+
+    const editDateTimestamp = convertToTimestamp(editDate);
+
     const editNote = document.getElementById('editNote').value;
     const editAmount = document.getElementById('editAmount').value;
     const editBank = document.getElementById('editBank').value;
@@ -685,13 +692,8 @@ function saveChanges() {
     const tdRow = row.querySelector("td");
 
     var editedAmount = 0;
-    var editedData = [editDate, editNote, editAmount, editBank, editInfo];
-    if (checkLogin != 0) {
-        const editedAmount = parseFloat(editedData[1].replace(/[,\.]/g, ''));
-    } else {
-        editedData = [editInfo];
-    }
-    if (isNaN(editedAmount) && checkLogin != 0) {
+    var editedData = [editDateTimestamp, editNote, editAmount, editBank, editInfo];
+    if (isNaN(editedAmount)) {
         alert('Vui lòng nhập số tiền chuyển hợp lệ.');
         return;
     }
@@ -709,7 +711,7 @@ function saveChanges() {
                     if (tdRow.id === data["data"][i].dateCell) {
                         if (checkLogin == 0 || checkLogin == 1) {
                             if (rawDate != editDate) {
-                                data["data"][i].dateCell = convertToTimestamp(editedData[0]);
+                                data["data"][i].dateCell = editedData[0];
                             }
                             data["data"][i].noteCell = editedData[1];
                             data["data"][i].amountCell = editedData[2];
@@ -734,9 +736,9 @@ function saveChanges() {
                         }).then(function() {
                             if (checkLogin == 0 || checkLogin == 1) {
                                 if (rawDate != editDate) {
-                                    row.cells[0].id = convertToTimestamp(editedData[0]);
+                                    row.cells[0].id = editedData[0];
                                 }
-                                row.cells[0].innerText = editedData[0];
+                                row.cells[0].innerText = editDate;
                                 row.cells[1].innerText = editedData[1];
                                 row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/[,\.]/g, '')));
                                 row.cells[3].innerText = editedData[3];
@@ -763,10 +765,10 @@ function saveChanges() {
                         }).then(function() {
                             if (checkLogin == 0 || checkLogin == 1) {
                                 if (rawDate != editDate) {
-                                    row.cells[0].id = convertToTimestamp(editedData[0]);
+                                    row.cells[0].id = editedData[0];
                                 }
 
-                                row.cells[0].innerText = editedData[0];
+                                row.cells[0].innerText = editDate;
                                 row.cells[1].innerText = editedData[1];
                                 row.cells[2].innerText = numberWithCommas(parseFloat(editedData[2].replace(/[,\.]/g, '')));
                                 row.cells[3].innerText = editedData[3];
@@ -794,7 +796,7 @@ function saveChanges() {
                 });
             }
         }).catch((error) => {
-            alert('Lỗi khi tải document lên 3.');
+            alert('Lỗi khi tải document lên.');
             return;
             console.error("Lỗi lấy document:", error);
         });
@@ -826,6 +828,10 @@ function showFloatingAlert(message) {
     setTimeout(() => {
         alertBox.style.opacity = '0';
     }, 3000); // Ẩn sau 3 giây
+}
+
+function isValidDateFormat(dateStr) {
+    return /^\d{2}-\d{2}-\d{2}$/.test(dateStr); // Kiểm tra đúng định dạng "dd-mm-yy"
 }
 
 function updateSuggestions() {
