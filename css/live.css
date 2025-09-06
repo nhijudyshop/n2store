@@ -25,19 +25,19 @@ body {
     border-radius: 5px;
 }
 
-#toggleFormButton:hover, #toggleLogoutButton:hover {
+#toggleFormButton:hover, #toggleLogoutButton:hover, #deleteDotLive:hover {
     background-color: #0056b3;
 }
 
-#toggleFormButton:focus, #toggleLogoutButton:focus {
+#toggleFormButton:focus, #toggleLogoutButton:focus, #deleteDotLive:focus {
     outline: none;
 }
 
-#toggleFormButton:active, #toggleLogoutButton:active {
+#toggleFormButton:active, #toggleLogoutButton:active, #deleteDotLive:active {
     transform: scale(0.95);
 }
 
-#toggleLogoutButton {
+#toggleLogoutButton, #deleteDotLive {
 	float: right;
     background-color: #007bff;
     color: #fff;
