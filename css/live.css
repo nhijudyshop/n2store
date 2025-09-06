@@ -192,3 +192,15 @@ th:first-child {
 .popup-show {
     display: block;
 }
+
+.delete-button {
+    background-image: url('delete.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 40px;  /* Điều chỉnh kích thước */
+    height: 40px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+}
