@@ -16,7 +16,7 @@ body {
     background: #FFF;
 }
 
-#toggleFormButton {
+#toggleFormButton, #deleteDotLive {
     background-color: #007bff;
     color: #fff;
     border: none;
@@ -37,7 +37,7 @@ body {
     transform: scale(0.95);
 }
 
-#toggleLogoutButton, #deleteDotLive {
+#toggleLogoutButton {
 	float: right;
     background-color: #007bff;
     color: #fff;
