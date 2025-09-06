@@ -64,6 +64,10 @@
   <select id="dateFilter">
     <option disabled selected>Tùy chọn</option>
   </select>
+  <label>
+    Xóa
+    <button onclick="deleteDotLive(this)">Xóa</button>
+  </label>
   <div class="live">
     <table>
       <tr>
@@ -72,10 +76,6 @@
         <th>Quần</th>
         <th>Set và Đầm</th>
         <th>Phụ kiện và Giày Dép</th>
-        <th>
-          Xóa
-          <button onclick="deleteDotLive(this)">Xóa</button>
-        </th>
       </tr>
       <tr>
         <td id="liveDate"></td>
