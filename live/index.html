@@ -67,7 +67,10 @@
   <div class="live">
     <table>
       <tr>
-        <th>ĐỢT LIVE</th>
+        <th>
+          ĐỢT LIVE
+          <button onclick="deleteDotLive(this)">Xóa</button> <!-- Nút xóa kế bên "ĐỢT LIVE" -->
+        </th>
         <th>Áo</th>
         <th>Quần</th>
         <th>Set và Đầm</th>
@@ -118,6 +121,11 @@
       setTimeout(() => {
         alertBox.style.opacity = '0';
       }, 3000); // Ẩn sau 3 giây
+    }
+
+    function deleteDotLive(button) {
+      var row = button.closest('tr');
+      showFloatingAlert("Đang code...");
     }
   </script>
   <!-- Thêm thông báo cho dễ tương tác -->
