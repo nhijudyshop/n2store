@@ -1,8 +1,8 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
     // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     function _0x1ab2(_0x36a23b, _0x52223b) {
         const _0x2e058f = _0x2e05();
-        return _0x1ab2 = function (_0x1ab212, _0x4110aa) {
+        return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
             _0x1ab212 = _0x1ab212 - 0x162;
             let _0x120a0e = _0x2e058f[_0x1ab212];
             return _0x120a0e;
@@ -11,13 +11,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function _0x2e05() {
         const _0x5a5dc7 = ['1235460FrnjKH', '22977963vpMYJv', 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM', 'n2shop-69e37-ne0q1', 'G-TEJH3S2T1D', '1345047lnZTNJ', '366711YpKMry', '13142736zaWdgA', '598906493303', '3756921uppNah', '25XRvqCS', 'n2shop-69e37', '14dthlHY', 'n2shop-69e37.firebaseapp.com', '10009662EXBqRi'];
-        _0x2e05 = function () {
+        _0x2e05 = function() {
             return _0x5a5dc7;
         };
         return _0x2e05();
     }
     const _0x3a343d = _0x1ab2;
-    (function (_0x46d1e0, _0x1a2442) {
+    (function(_0x46d1e0, _0x1a2442) {
         const _0x1acdbc = _0x1ab2,
             _0x2a2d1c = _0x46d1e0();
         while (!![]) {
@@ -56,10 +56,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Đặt giá trị max cho trường input ngày là ngày hôm nay
     const dotLiveInput = document.getElementById('dotLive');
-
     var isLoggedIn = localStorage.getItem('isLoggedIn');
     const userType = localStorage.getItem('userType');
-	const checkLogin = localStorage.getItem('checkLogin');
+    const checkLogin = localStorage.getItem('checkLogin');
 
     if (isLoggedIn === 'true') {
         document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
@@ -71,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function () {
         window.location.href = '../index.html';
     }
 
-    toggleFormButton.addEventListener('click', function () {
+    toggleFormButton.addEventListener('click', function() {
         if (checkLogin != 777) {
             if (dataForm.style.display === 'none' || dataForm.style.display === '') {
                 dataForm.style.display = 'block';
@@ -83,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    productForm.addEventListener('submit', async function (e) {
+    productForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         document.getElementById("addButton").disabled = true;
         const phanLoai = document.getElementById('phanLoai').value;
@@ -122,10 +121,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const maxWidth = 500; // Set kích thước tối đa mong muốn
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = function (event) {
+                reader.onload = function(event) {
                     const img = new Image();
                     img.src = event.target.result;
-                    img.onload = function () {
+                    img.onload = function() {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
                         const width = img.width;
@@ -142,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
 
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        canvas.toBlob(function (blob) {
+                        canvas.toBlob(function(blob) {
                             const compressedFile = new File([blob], file.name, {
                                 type: file.type,
                                 lastModified: Date.now()
@@ -165,12 +164,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Tải tệp hình ảnh lên Firebase Storage
                 var uploadTask = imageRef.put(file, newMetadata);
                 // Theo dõi tiến trình tải lên
-                uploadTask.on('state_changed', function (snapshot) {
+                uploadTask.on('state_changed', function(snapshot) {
                     // Cập nhật tiến trình tải lên nếu cần
-                }, function (error) {
+                }, function(error) {
                     // Xử lý lỗi tải lên (nếu có)
                     showFloatingAlert("Lỗi khi tải ảnh lên...");
-                }, function () {
+                }, function() {
                     uploadedCount++;
                     if (uploadedCount === hinhAnhFiles.length) {
                         // Nếu đã tải lên tất cả các tệp, hãy reload trang
@@ -189,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // Sửa mã JavaScript để xử lý sự kiện thay đổi dropdown
-    dateFilterDropdown.addEventListener('change', function () {
+    dateFilterDropdown.addEventListener('change', function() {
         var selectedDate = dateFilterDropdown.value;
         var liveDate = document.getElementById('liveDate');
 
@@ -240,8 +239,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var allDates = [];
         var selectedDate = dateFilterDropdown.value;
         // Lấy danh sách tất cả các thư mục con trong thư mục "live/"
-        storageRef.child('live/').listAll().then(function (result) {
-            result.prefixes.forEach(function (folderRef) {
+        storageRef.child('live/').listAll().then(function(result) {
+            result.prefixes.forEach(function(folderRef) {
                 var folderPath = folderRef.fullPath; // Đường dẫn đầy đủ của thư mục con
                 var subDate = folderPath.split('/'); // Tách đường dẫn để lấy ngày
                 var folderDate = subDate[subDate.length - 1];
@@ -296,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 imageContainer.appendChild(imgElement);
 
                 // Thêm sự kiện click cho nút "Copy" để copy url ảnh
-                imgElement.addEventListener('click', function () {
+                imgElement.addEventListener('click', function() {
                     copyToClipboard(url);
                 });
             });
@@ -348,21 +347,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Lấy danh sách tất cả các thư mục trong thư mục gốc
-        storageRef.child('live/').listAll().then(function (result) {
-            result.prefixes.forEach(function (folderRef) {
+        storageRef.child('live/').listAll().then(function(result) {
+            result.prefixes.forEach(function(folderRef) {
                 // folderRef là một tham chiếu tới một thư mục
                 const option = document.createElement('option');
                 option.value = folderRef.name;
                 option.textContent = folderRef.name;
                 dateFilterDropdown.appendChild(option);
-				if (dateFilterDropdown.length > 0) {
-					const columnCount = dateFilterDropdown.options.length;
-					dotLiveInput.value = columnCount - 1;
-				} else {
-					dotLiveInput.value = 1;
-				}
+                if (dateFilterDropdown.length > 0) {
+                    const columnCount = dateFilterDropdown.options.length;
+                    dotLiveInput.value = columnCount - 1;
+                } else {
+                    dotLiveInput.value = 1;
+                }
             });
-        }).catch(function (error) {
+        }).catch(function(error) {
             console.error("Lỗi khi lấy danh sách thư mục: " + error);
         });
     }
@@ -371,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updateDateFilterDropdown();
 
     // Lắng nghe sự kiện click trên nút "Xoá dữ liệu"
-    clearDataButton.addEventListener('click', function () {
+    clearDataButton.addEventListener('click', function() {
 
         // Lấy tham chiếu đến biểu mẫu
         const productForm = document.getElementById('productForm');
@@ -392,8 +391,65 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Lắng nghe sự kiện click trên nút đăng xuất và gọi hàm xử lý tương ứng
-    var toggleLogoutButton = document.getElementById('toggleLogoutButton');
+    const toggleLogoutButton = document.getElementById('toggleLogoutButton');
     toggleLogoutButton.addEventListener('click', handleLogout);
+
+    const deleteDotLiveButton = document.getElementById('toggleDeleteButton');
+    deleteDotLiveButton.addEventListener('click', function() {
+        if (checkLogin == 0) {
+            const confirmDelete = confirm("Bạn có chắc chắn muốn xóa đợt live?");
+            if (confirmDelete) {
+                var selectedDate = dateFilterDropdown.value;
+                deleteFolder(selectedDate);
+            }
+        } else {
+            showFloatingAlert("Không đủ quyền để xoá!")
+        }
+    });
+
+    // Hàm xoá folder
+    function deleteFolder(selectedDate) {
+        var folderRef = storageRef.child('live/' + selectedDate);
+
+        folderRef.listAll().then(function(result) {
+            // Xoá tất cả file trong folder
+            result.items.forEach(function(fileRef) {
+                fileRef.delete().then(function() {
+                    //showFloatingAlert("Đã xoá...");
+                    location.reload();
+                }).catch(function(error) {
+                    showFloatingAlert("Lỗi!!!");
+                    console.error("Lỗi khi xoá file:", error);
+                });
+            });
+
+            // Nếu có folder con thì xoá tiếp (recursive)
+            result.prefixes.forEach(function(subFolderRef) {
+                deleteSubFolder(subFolderRef);
+            });
+        }).catch(function(error) {
+            showFloatingAlert("Lỗi!!!");
+            console.error("Lỗi khi list folder:", error);
+        });
+    }
+
+    function deleteSubFolder(folderRef) {
+        folderRef.listAll().then(function(result) {
+            result.items.forEach(function(fileRef) {
+                fileRef.delete().then(function() {
+                    //showFloatingAlert("Đã xoá...");
+                    location.reload();
+                }).catch(function(error) {
+                    showFloatingAlert("Lỗi!!!");
+                    console.error("Lỗi khi xoá file:", error);
+                });
+            });
+
+            result.prefixes.forEach(function(subFolderRef) {
+                deleteSubFolder(subFolderRef);
+            });
+        });
+    }
 
     // Xoá quảng cáo
     var divToRemove = document.querySelector('div[style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"]');

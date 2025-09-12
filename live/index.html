@@ -64,7 +64,7 @@
   <select id="dateFilter">
     <option disabled selected>Tùy chọn</option>
   </select>
-  <button id="deleteDotLive" onclick="deleteDotLive(this)">Xóa</button>
+  <button id="toggleDeleteButton">Xóa</button>
   <div class="live">
     <table>
       <tr>
@@ -119,11 +119,6 @@
       setTimeout(() => {
         alertBox.style.opacity = '0';
       }, 3000); // Ẩn sau 3 giây
-    }
-
-    function deleteDotLive(button) {
-      var row = button.closest('tr');
-      showFloatingAlert("Đang code...");
     }
   </script>
   <!-- Thêm thông báo cho dễ tương tác -->
