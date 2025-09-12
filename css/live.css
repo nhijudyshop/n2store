@@ -1,4 +1,4 @@
-﻿/* Điều chỉnh menu cho các thiết bị di động */
+/* Điều chỉnh menu cho các thiết bị di động */
 @media (max-width: 768px) {
     .nav-list {
         text-align: center;
@@ -16,7 +16,7 @@ body {
     background: #FFF;
 }
 
-#toggleFormButton, #deleteDotLive {
+#toggleFormButton, #toggleDeleteButton {
     background-color: #007bff;
     color: #fff;
     border: none;
@@ -25,15 +25,15 @@ body {
     border-radius: 5px;
 }
 
-#toggleFormButton:hover, #toggleLogoutButton:hover, #deleteDotLive:hover {
+#toggleFormButton:hover, #toggleLogoutButton:hover, #toggleDeleteButton:hover {
     background-color: #0056b3;
 }
 
-#toggleFormButton:focus, #toggleLogoutButton:focus, #deleteDotLive:focus {
+#toggleFormButton:focus, #toggleLogoutButton:focus, #toggleDeleteButton:focus {
     outline: none;
 }
 
-#toggleFormButton:active, #toggleLogoutButton:active, #deleteDotLive:active {
+#toggleFormButton:active, #toggleLogoutButton:active, #toggleDeleteButton:active {
     transform: scale(0.95);
 }
 
