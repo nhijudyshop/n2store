@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Nhập Hàng</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        textarea,
+        input,
+        select {
+            padding: 8px;
+            margin: 5px 5px 5px 0;
+        }
+
+        textarea {
+            width: 400px;
+            height: 120px;
+        }
+
+        button {
+            padding: 8px 12px;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+
+        table {
+            margin-top: 20px;
+            border-collapse: collapse;
+            width: 95%;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <link href="../css/ck.css" rel="stylesheet"> -->
+    <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
+    <title>THÔNG TIN CHUYỂN KHOẢN</title>
+    <link rel="shortcut icon" href="../logo.jpg" />
+    <!-- The core Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- The Firebase storage SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <!-- The Firebase firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Load jQuery from a CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+</head>
+
+<body>
+    <div class="nav-container">
+       <ul class="nav-list">
+          <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
+          <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
+          <!-- <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li> -->
+          <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
+          <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
+          <!-- <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG KHÁCH VIP</a></li> -->
+          <li class="nav-item"><a href="../hanghoan/index.html">HÀNG HOÀN</a></li>
+          <li class="nav-item"><a id="current-page-link" href="../nhaphang/index.html">NHẬP HÀNG</a></li>
+       </ul>
+    </div>
+    <h2>Nhập dữ liệu sản phẩm</h2>
+    <textarea id="productInput" placeholder="Ví dụ:
+Gấu - 1 - 100
+Thỏ - 3 - 200
+Cá - 5 - 100
+Kéo bảng nhập liệu ở dưới góc phải"></textarea>
+    <input type="date" id="dateInput">
+    <button onclick="addProducts()">Xác nhận</button>
+
+    <div style="margin-top:20px;">
+        <label>Lọc theo ngày: </label>
+        <input type="date" id="filterDate">
+        <button onclick="applyFilter()">Lọc</button>
+        <button onclick="clearFilter()">Tất cả</button>
+        <button onclick="deleteByFilter()">Xoá hết theo lọc</button>
+    </div>
+
+    <table id="productTable">
+        <thead>
+            <tr>
+                <th>Tên sản phẩm</th>
+                <th>Số lượng</th>
+                <th>Giá tiền</th>
+                <th>Thành tiền</th>
+                <th>Ngày nhập</th>
+                <th>Hành động</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        // 🔹 TODO: thay bằng config Firebase của bạn
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        function _0x1ab2(_0x36a23b, _0x52223b) {
+            const _0x2e058f = _0x2e05();
+            return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
+                _0x1ab212 = _0x1ab212 - 0x162;
+                let _0x120a0e = _0x2e058f[_0x1ab212];
+                return _0x120a0e;
+            }, _0x1ab2(_0x36a23b, _0x52223b);
+        }
+
+        function _0x2e05() {
+            const _0x5a5dc7 = ['1235460FrnjKH', '22977963vpMYJv', 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM', 'n2shop-69e37-ne0q1', 'G-TEJH3S2T1D', '1345047lnZTNJ', '366711YpKMry', '13142736zaWdgA', '598906493303', '3756921uppNah', '25XRvqCS', 'n2shop-69e37', '14dthlHY', 'n2shop-69e37.firebaseapp.com', '10009662EXBqRi'];
+            _0x2e05 = function() {
+                return _0x5a5dc7;
+            };
+            return _0x2e05();
+        }
+        const _0x3a343d = _0x1ab2;
+        (function(_0x46d1e0, _0x1a2442) {
+            const _0x1acdbc = _0x1ab2,
+                _0x2a2d1c = _0x46d1e0();
+            while (!![]) {
+                try {
+                    const _0x1aa040 = parseInt(_0x1acdbc(0x168)) / 0x1 + -parseInt(_0x1acdbc(0x16f)) / 0x2 * (-parseInt(_0x1acdbc(0x169)) / 0x3) + parseInt(_0x1acdbc(0x163)) / 0x4 * (-parseInt(_0x1acdbc(0x16d)) / 0x5) + parseInt(_0x1acdbc(0x162)) / 0x6 + -parseInt(_0x1acdbc(0x16c)) / 0x7 + parseInt(_0x1acdbc(0x16a)) / 0x8 + -parseInt(_0x1acdbc(0x164)) / 0x9;
+                    if (_0x1aa040 === _0x1a2442) break;
+                    else _0x2a2d1c['push'](_0x2a2d1c['shift']());
+                } catch (_0x3223ad) {
+                    _0x2a2d1c['push'](_0x2a2d1c['shift']());
+                }
+            }
+        }(_0x2e05, 0xd647a));
+        const firebaseConfig = {
+            'apiKey': _0x3a343d(0x165),
+            'authDomain': _0x3a343d(0x170),
+            'projectId': _0x3a343d(0x16e),
+            'storageBucket': _0x3a343d(0x166),
+            'messagingSenderId': _0x3a343d(0x16b),
+            'appId': '1:598906493303:web:46d6236a1fdc2eff33e972',
+            'measurementId': _0x3a343d(0x167)
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let unsubscribe = null;
+        const today = new Date().toISOString().split("T")[0];
+        document.getElementById("dateInput").value = today;
+        document.getElementById("filterDate").value = today;
+
+        // 🔹 Thêm nhiều sản phẩm (có kiểm tra trùng)
+        async function addProducts() {
+            const inputText = document.getElementById("productInput").value.trim();
+            const date = document.getElementById("dateInput").value;
+
+            if (!inputText) {
+                alert("Vui lòng nhập dữ liệu!");
+                return;
+            }
+
+            const lines = inputText.split("\n").map(line => line.trim()).filter(line => line);
+            let products = [];
+
+            for (let line of lines) {
+                let parts = line.split("-").map(p => p.trim());
+                if (parts.length < 3) continue;
+
+                let ten = parts[0];
+                let soLuong = parseInt(parts[1]) || 0;
+                let gia = parseInt(parts[2]) || 0;
+                let thanhTien = soLuong * gia;
+
+                products.push({ ten, soLuong, gia, thanhTien, ngay: date });
+            }
+
+            if (products.length === 0) {
+                alert("Không có dữ liệu hợp lệ!");
+                return;
+            }
+
+            if (!confirm(`Xác nhận thêm ${products.length} sản phẩm vào ngày ${date}?`)) return;
+
+            for (let p of products) {
+                // kiểm tra trùng (tên + ngày)
+                let existing = await db.collection("nhaphang")
+                    .where("ten", "==", p.ten)
+                    .where("ngay", "==", p.ngay)
+                    .get();
+
+                if (!existing.empty) {
+                    alert(`❌ Lỗi: Sản phẩm "${p.ten}" đã tồn tại trong ngày ${p.ngay}, không thể thêm trùng!`);
+                } else {
+                    await db.collection("nhaphang").add({
+                        ...p,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            }
+
+            document.getElementById("productInput").value = "";
+        }
+
+        // 🔹 Lắng nghe và hiển thị dữ liệu
+        function listenProducts(filterDate = null) {
+            if (unsubscribe) unsubscribe();
+
+            let query = db.collection("nhaphang").orderBy("createdAt", "asc");
+            if (filterDate) query = query.where("ngay", "==", filterDate);
+
+            unsubscribe = query.onSnapshot(snapshot => {
+                const tbody = document.getElementById("productTable").querySelector("tbody");
+                tbody.innerHTML = "";
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    let row = tbody.insertRow();
+                    row.insertCell(0).textContent = data.ten;
+                    row.insertCell(1).textContent = data.soLuong;
+                    row.insertCell(2).textContent = data.gia;
+                    row.insertCell(3).textContent = data.thanhTien;
+                    row.insertCell(4).textContent = data.ngay;
+
+                    let actionsCell = row.insertCell(5);
+                    let btnDelete = document.createElement("button");
+                    btnDelete.textContent = "Xoá";
+                    btnDelete.onclick = () => deleteProduct(doc.id);
+                    actionsCell.appendChild(btnDelete);
+                });
+            });
+        }
+
+        // 🔹 Xoá 1 sản phẩm
+        async function deleteProduct(id) {
+            if (confirm("Bạn có chắc muốn xoá sản phẩm này?")) {
+                await db.collection("nhaphang").doc(id).delete();
+            }
+        }
+
+        // 🔹 Lọc dữ liệu theo ngày
+        function applyFilter() {
+            const date = document.getElementById("filterDate").value;
+            listenProducts(date);
+        }
+
+        // 🔹 Xem tất cả
+        function clearFilter() {
+            listenProducts(null);
+        }
+
+        // 🔹 Xoá theo filter
+        async function deleteByFilter() {
+            const date = document.getElementById("filterDate").value;
+            const isAll = !date;
+            if (!confirm(isAll ? "Xoá tất cả sản phẩm?" : `Xoá tất cả sản phẩm ngày ${date}?`)) return;
+
+            let query = db.collection("nhaphang");
+            if (!isAll) query = query.where("ngay", "==", date);
+
+            const snapshot = await query.get();
+            let batch = db.batch();
+            snapshot.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+        }
+
+        // 🔹 Mặc định hiển thị hôm nay
+        listenProducts(today);
+    </script>
+</body>
+
+</html>
