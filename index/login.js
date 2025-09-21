@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Hash passwords (in production, use proper hashing like bcrypt)
     const userTypes = {
-        'admin': { password: 'admin@@', checkLogin: USER_ROLES.ADMIN },
+        'admin': { password: 'admin123', checkLogin: USER_ROLES.ADMIN },
         'coi': { password: 'coi2806', checkLogin: USER_ROLES.COI },
         'my': { password: 'my2804', checkLogin: USER_ROLES.LIMITED },
         'lai': { password: 'lai2506', checkLogin: USER_ROLES.LIMITED },
