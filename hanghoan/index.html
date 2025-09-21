@@ -2,157 +2,1058 @@
 <html>
 
 <head>
-   <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-   <link rel="preconnect" href="https://fonts.googleapis.com/">
-   <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <link rel="stylesheet" type="text/css" href="../css/hanghoan.css">
-   <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
-   <title>THÔNG TIN HÀNG HOÀN</title>
-   <link rel="shortcut icon" href="../logo.jpg" />
-   <!-- The core Firebase JS SDK -->
-   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-   <!-- The Firebase storage SDK -->
-   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-   <!-- The Firebase firestore SDK -->
-   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-   <!-- Load jQuery from a CDN -->
-   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <meta charset="UTF-8">
+    <title>Hàng Hoàn</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="../logo.jpg" />
+    
+    <!-- The core Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- The Firebase storage SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <!-- The Firebase firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Load jQuery from a CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <!-- Navigation Manager -->
+    <script src="../navigation.js"></script>
+    
+    <style>
+        /* CSS được nhúng trực tiếp */
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden;
+          font-size: 14px;
+          line-height: 1.5;
+          color: #2c3e50;
+          font-weight: 400;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+          position: fixed;
+          left: -300px;
+          top: 0;
+          width: 300px;
+          height: 100vh;
+          background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+          box-shadow: 2px 0 15px rgba(0, 0, 0, 0.2);
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1000;
+          overflow-y: auto;
+        }
+
+        .sidebar.open {
+          left: 0;
+        }
+
+        .sidebar-header {
+          padding: 30px 20px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-align: center;
+          position: relative;
+        }
+
+        .sidebar-header h3 {
+          margin: 0;
+          font-size: 1.2rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .close-btn {
+          position: absolute;
+          right: 15px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          width: 35px;
+          height: 35px;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 18px;
+          transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-50%) scale(1.1);
+        }
+
+        .nav-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .nav-item {
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-item:last-child {
+          border-bottom: none;
+        }
+
+        .nav-item a {
+          display: flex;
+          align-items: center;
+          padding: 18px 25px;
+          text-decoration: none;
+          color: #ecf0f1;
+          font-weight: 500;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .nav-item a .icon {
+          margin-right: 15px;
+          font-size: 18px;
+          width: 24px;
+          text-align: center;
+          transition: transform 0.3s ease;
+        }
+
+        .nav-item a:hover .icon {
+          transform: scale(1.2);
+        }
+
+        .nav-item a::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 4px;
+          height: 100%;
+          background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+          transform: scaleY(0);
+          transition: transform 0.3s ease;
+        }
+
+        .nav-item a:hover::before {
+          transform: scaleY(1);
+        }
+
+        .nav-item a:hover {
+          background: rgba(255, 255, 255, 0.08);
+          padding-left: 35px;
+        }
+
+        #current-page-link {
+          background: linear-gradient(90deg, #e74c3c, #c0392b) !important;
+          font-weight: 600;
+        }
+
+        #current-page-link::before {
+          transform: scaleY(1) !important;
+          background: #fff !important;
+        }
+
+        /* Menu Toggle Button */
+        .menu-toggle {
+          position: fixed;
+          top: 20px;
+          left: 20px;
+          width: 50px;
+          height: 50px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          z-index: 1001;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          transition: all 0.3s ease;
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(0);
+        }
+
+        .menu-toggle.hidden {
+          opacity: 0;
+          visibility: hidden;
+          transform: translateX(-100px);
+        }
+
+        .menu-toggle:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .menu-toggle.hidden:hover {
+          transform: translateX(-100px) scale(1.05);
+        }
+
+        .hamburger {
+          position: relative;
+          width: 24px;
+          height: 2px;
+          background: white;
+          margin: 0 auto;
+          transition: all 0.3s ease;
+        }
+
+        .hamburger::before,
+        .hamburger::after {
+          content: "";
+          position: absolute;
+          width: 24px;
+          height: 2px;
+          background: white;
+          transition: all 0.3s ease;
+        }
+
+        .hamburger::before {
+          top: -8px;
+        }
+
+        .hamburger::after {
+          bottom: -8px;
+        }
+
+        .menu-toggle.active .hamburger {
+          background: transparent;
+        }
+
+        .menu-toggle.active .hamburger::before {
+          top: 0;
+          transform: rotate(45deg);
+        }
+
+        .menu-toggle.active .hamburger::after {
+          bottom: 0;
+          transform: rotate(-45deg);
+        }
+
+        /* Overlay */
+        .overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          z-index: 999;
+        }
+
+        .overlay.active {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        /* Main content */
+        .main-content {
+          padding: 40px;
+          width: 100%;
+          background: rgba(255, 255, 255, 0.95);
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          margin: 20px;
+          backdrop-filter: blur(10px);
+        }
+
+        .header h1, .tieude {
+          color: #2c3e50;
+          font-size: 2.5rem;
+          font-weight: 300;
+          margin-bottom: 30px;
+          text-align: center;
+          background: linear-gradient(90deg, #667eea, #764ba2);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        /* Form sections */
+        .form-section {
+          background: white;
+          padding: 30px;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          margin-bottom: 30px;
+          border: 1px solid #e9ecef;
+        }
+
+        .form-group {
+          display: flex;
+          gap: 20px;
+          align-items: center;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+
+        label {
+          font-weight: 500;
+          color: #2c3e50;
+          min-width: 120px;
+        }
+
+        input, select {
+          padding: 12px 15px;
+          border: 2px solid #e9ecef;
+          border-radius: 10px;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          background: white;
+          flex: 1;
+          min-width: 160px;
+        }
+
+        input:focus, select:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn, button {
+          padding: 12px 25px;
+          border: none;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          margin: 5px;
+        }
+
+        button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .center-button {
+          text-align: center;
+          margin-top: 20px;
+        }
+
+        /* Table styling - Updated for responsive */
+        .table-container {
+          background: white;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          border: 1px solid #e9ecef;
+          margin-top: 30px;
+          max-height: 70vh;
+          overflow-y: auto;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 14px;
+          position: relative;
+        }
+
+        /* Sticky header cho table */
+        thead {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+        }
+
+        th {
+          background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+          color: white;
+          padding: 15px 8px;
+          text-align: center;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 12px;
+          position: relative;
+          z-index: 51;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+          font-family: "Inter", sans-serif;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          min-width: 80px;
+        }
+
+        /* Thêm min-width cho các cột quan trọng */
+        th:nth-child(1) { min-width: 40px; }   /* STT */
+        th:nth-child(2) { min-width: 60px; }   /* Kênh */
+        th:nth-child(3) { min-width: 100px; }  /* Trường hợp */
+        th:nth-child(4) { min-width: 150px; }  /* Tên FB + SĐT */
+        th:nth-child(5) { min-width: 80px; }   /* Số tiền */
+        th:nth-child(6) { min-width: 120px; }  /* Lý do */
+        th:nth-child(7) { min-width: 70px; }   /* Đã nhận */
+        th:nth-child(8) { min-width: 100px; }  /* Ngày duyệt hoàn */
+        th:nth-child(9) { min-width: 50px; }   /* Sửa */
+        th:nth-child(10) { min-width: 50px; }  /* Xóa */
+
+        td {
+          padding: 10px 6px;
+          text-align: center;
+          border-bottom: 1px solid #f8f9fa;
+          transition: background-color 0.3s ease;
+          font-size: 12px;
+          font-weight: 400;
+          color: #495057;
+          vertical-align: top;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+          line-height: 1.4;
+        }
+
+        /* Thêm overflow cho container trên mobile để có thể scroll ngang khi cần */
+        @media (max-width: 768px) {
+          .table-container {
+            overflow-x: auto;
+          }
+
+          table {
+            font-size: 10px;
+            min-width: 700px;
+          }
+
+          th, td {
+            padding: 6px 3px;
+            font-size: 10px;
+          }
+
+          th {
+            letter-spacing: 0.2px;
+          }
+          
+          /* Điều chỉnh min-width cho mobile */
+          th:nth-child(1) { min-width: 35px; }   /* STT */
+          th:nth-child(2) { min-width: 50px; }   /* Kênh */
+          th:nth-child(3) { min-width: 80px; }   /* Trường hợp */
+          th:nth-child(4) { min-width: 120px; }  /* Tên FB + SĐT */
+          th:nth-child(5) { min-width: 70px; }   /* Số tiền */
+          th:nth-child(6) { min-width: 100px; }  /* Lý do */
+          th:nth-child(7) { min-width: 60px; }   /* Đã nhận */
+          th:nth-child(8) { min-width: 80px; }   /* Ngày duyệt hoàn */
+          th:nth-child(9) { min-width: 40px; }   /* Sửa */
+          th:nth-child(10) { min-width: 40px; }  /* Xóa */
+        }
+
+        /* Responsive cho tablet */
+        @media (max-width: 1024px) and (min-width: 769px) {
+          th, td {
+            padding: 8px 5px;
+            font-size: 11px;
+          }
+        }
+
+        tbody tr:hover {
+          background-color: #f8f9fa;
+        }
+
+        tbody tr:nth-child(even) {
+          background-color: #fafafa;
+        }
+
+        tbody tr:nth-child(even):hover {
+          background-color: #f1f3f4;
+        }
+
+        /* Cải thiện hiển thị cho các cột hành động */
+        td:nth-child(9),
+        td:nth-child(10) {
+          font-size: 16px;
+          cursor: pointer;
+        }
+
+        td:nth-child(9):hover,
+        td:nth-child(10):hover {
+          background-color: #e9ecef !important;
+          border-radius: 4px;
+        }
+
+        /* Login container */
+        .login-container {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.8);
+          display: none;
+          justify-content: center;
+          align-items: center;
+          z-index: 2000;
+        }
+
+        .login-container.show {
+          display: flex;
+        }
+
+        .login-box {
+          background: white;
+          padding: 40px;
+          border-radius: 15px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          text-align: center;
+          min-width: 350px;
+        }
+
+        /* Modal styling */
+        .modal {
+          display: none;
+          position: fixed;
+          z-index: 2000;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+          background-color: white;
+          margin: 5% auto;
+          padding: 30px;
+          border-radius: 15px;
+          width: 90%;
+          max-width: 500px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .close {
+          color: #aaa;
+          float: right;
+          font-size: 28px;
+          font-weight: bold;
+          cursor: pointer;
+        }
+
+        .close:hover {
+          color: #000;
+        }
+
+        /* Top buttons - scroll theo nội dung */
+        .top-buttons {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          z-index: 100;
+          display: flex;
+          gap: 10px;
+        }
+
+        .top-buttons button {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .top-buttons button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Filter section */
+        .filter-section {
+          background: white;
+          padding: 25px;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          margin-bottom: 30px;
+          border: 1px solid #e9ecef;
+        }
+
+        .filter-group {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        /* Thông báo floating alert - chặn tương tác khi cần */
+        #floatingAlert {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(44, 62, 80, 0.9) 100%);
+          color: white;
+          padding: 20px 30px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 500;
+          width: auto;
+          min-width: 200px;
+          max-width: 350px;
+          text-align: center;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          pointer-events: none;
+          z-index: 10000;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+          letter-spacing: 0.3px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          backdrop-filter: blur(10px);
+        }
+
+        #floatingAlert.show {
+          opacity: 1;
+          visibility: visible;
+          transform: translate(-50%, -50%) scale(1.02);
+        }
+
+        /* Overlay chặn tương tác khi loading */
+        #blockingOverlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.3);
+          z-index: 9999;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          pointer-events: none;
+        }
+
+        #blockingOverlay.active {
+          opacity: 1;
+          visibility: visible;
+          pointer-events: all;
+        }
+
+        /* Loading animation cho alert */
+        .alert-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          border-top-color: white;
+          animation: spin 0.8s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        /* Success alert */
+        #floatingAlert.success {
+          background: linear-gradient(135deg, rgba(40, 167, 69, 0.9) 0%, rgba(34, 139, 58, 0.9) 100%);
+        }
+
+        /* Error alert */
+        #floatingAlert.error {
+          background: linear-gradient(135deg, rgba(220, 53, 69, 0.9) 0%, rgba(176, 42, 55, 0.9) 100%);
+        }
+
+        /* Loading alert */
+        #floatingAlert.loading {
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
+        }
+
+        /* Tooltip hiển thị thông tin */
+        .tooltip {
+          position: absolute;
+          background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+          color: white;
+          padding: 8px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 500;
+          display: none;
+          z-index: 1500;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+          white-space: nowrap;
+          letter-spacing: 0.3px;
+        }
+
+        .tooltip::after {
+          content: "";
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          margin-left: -5px;
+          border-width: 5px;
+          border-style: solid;
+          border-color: #2c3e50 transparent transparent transparent;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+          .sidebar {
+            width: 280px;
+            left: -280px;
+          }
+          
+          .main-content {
+            margin: 10px;
+            padding: 20px;
+          }
+
+          .form-group {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .filter-group {
+            justify-content: center;
+          }
+
+          .menu-toggle {
+            top: 15px;
+            left: 15px;
+            width: 45px;
+            height: 45px;
+          }
+
+          .top-buttons {
+            top: 15px;
+            right: 15px;
+          }
+        }
+
+        /* Hide original nav-container */
+        .nav-container {
+          display: none;
+        }
+
+        /* Improved scrollbar */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+        }
+    </style>
 </head>
 
 <body>
-   <div class="nav-container">
-      <ul class="nav-list">
-         <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
-         <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
-         <!-- <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li> -->
-         <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
-         <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
-         <!-- <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG KHÁCH VIP</a></li> -->
-         <li class="nav-item"><a id="current-page-link" href="../hanghoan/index.html">HÀNG HOÀN</a></li>
-		 <li class="nav-item"><a href="../nhaphang/index.html">NHẬP HÀNG</a></li>
-      </ul>
-   </div>
-   <button id="toggleFormButton">Hiện biểu mẫu</button>
-   <button id="toggleLogoutButton">Đăng xuất</button>
-   <div id="dataForm" style="display: none;">
-      <h1>Thêm Thông tin</h1>
-      <form id="return-product">
-         <label for="ship">Kênh:</label>
-         <select id="ship" required>
-            <option value="J&T">J&T</option>
-            <option value="TP">TP</option>
-            <option value="BM">BM</option>
-         </select>
-         <label for="scenario">Trường hợp:</label>
-         <select id="scenario" required>
-            <option value="BOOM">BOOM</option>
-            <option value="Sửa COD">Sửa COD</option>
-            <option value="Thu về">Thu về</option>
-            <option value="Khách gửi">Khách gửi</option>
-            <option value="Thay đổi thông tin">Thay đổi thông tin</option>
-         </select>
-         <label for="customerInfo">Tên FB + SĐT:</label>
-         <input type="text" id="customerInfo" list="suggestionsInfo" required>
-		 <datalist id="suggestionsInfo"></datalist>
-         <label for="totalAmount">Giá tiền:</label>
-         <input type="text" id="totalAmount" required>
-         <label for="cause">Lý do:</label>
-         <input type="text" id="cause" list="suggestionsCause" required>
-		 <datalist id="suggestionsCause"></datalist>
-         <div class="center-button">
-            <button type="submit" id="addButton">Thêm</button>
-            <button type="button" id="clearDataButton">Reset</button>
-         </div>
-      </form>
-   </div>
-   <div id="parentContainer">
-      <p class="tieude">THÔNG TIN HÀNG HOÀN<br>
-   </div>
-   <div class="login-container">
-      <div class="login-box">
-         <input type="text" id="username" name="username" placeholder="Nhập tài khoản">
-         <input type="password" id="password" name="password" placeholder="Nhập mật khẩu">
-         <button type="button" id="loginButton">Đăng nhập</button>
-      </div>
-   </div>
-   <label for="channelFilter">Lọc Kênh:</label>
-    <select id="channelFilter">
-        <option value="all">Tất cả</option>
-        <option value="J&T">J&T</option>
-        <option value="TP">TP</option>
-        <option value="BM">BM</option>
-    </select>
+    <!-- Menu Toggle Button -->
+    <button class="menu-toggle" onclick="toggleSidebar()">
+        <div class="hamburger"></div>
+    </button>
 
-    <label for="scenarioFilter">Lọc Trường hợp:</label>
-    <select id="scenarioFilter">
-        <option value="all">Tất cả</option>
-        <option value="BOOM">BOOM</option>
-        <option value="Sửa COD">Sửa COD</option>
-        <option value="Thu về">Thu về</option>
-        <option value="Khách gửi">Khách gửi</option>
-        <option value="Thay đổi thông tin">Thay đổi thông tin</option>
-    </select>
-    <label for="startDate">Ngày bắt đầu:</label>
-    <input type="date" id="startDate">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Menu Điều Hướng</h3>
+            <button class="close-btn" onclick="toggleSidebar()">&times;</button>
+        </div>
+        <ul class="nav-list">
+            <li class="nav-item">
+                <a href="../live/index.html">
+                    <i class="icon">📸</i>
+                    <span>HÌNH ẢNH LIVE ĐẦY ĐỦ</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../hangrotxa/index.html">
+                    <i class="icon">📦</i>
+                    <span>HÀNG RỚT - XẢ</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../ib/index.html">
+                    <i class="icon">💬</i>
+                    <span>CHECK INBOX KHÁCH HÀNG</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../ck/index.html">
+                    <i class="icon">💳</i>
+                    <span>THÔNG TIN CHUYỂN KHOẢN</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a id="current-page-link" href="../hanghoan/index.html">
+                    <i class="icon">↩️</i>
+                    <span>HÀNG HOÀN</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../nhaphang/index.html">
+                    <i class="icon">📋</i>
+                    <span>NHẬP HÀNG</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../lichsuchinhsua/index.html">
+                    <i class="icon">📊</i>
+                    <span>LỊCH SỬ CHỈNH SỬA</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Top buttons -->
+    <div class="top-buttons">
+        <button id="toggleFormButton">Hiện biểu mẫu</button>
+        <button id="toggleLogoutButton">Đăng xuất</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="main-content">
+        <div class="header">
+            <div id="parentContainer">
+                <p class="tieude">THÔNG TIN HÀNG HOÀN</p>
+            </div>
+        </div>
+
+        <!-- Data Form -->
+        <div id="dataForm" class="form-section" style="display: none;">
+            <h1>Thêm Thông tin</h1>
+            <form id="return-product">
+                <div class="form-group">
+                    <label for="ship">Kênh:</label>
+                    <select id="ship" required>
+                        <option value="J&T">J&T</option>
+                        <option value="TP">TP</option>
+                        <option value="BM">BM</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="scenario">Trường hợp:</label>
+                    <select id="scenario" required>
+                        <option value="BOOM">BOOM</option>
+                        <option value="Sửa COD">Sửa COD</option>
+                        <option value="Thu về">Thu về</option>
+                        <option value="Khách gửi">Khách gửi</option>
+                        <option value="Thay đổi thông tin">Thay đổi thông tin</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="customerInfo">Tên FB + SĐT:</label>
+                    <input type="text" id="customerInfo" list="suggestionsInfo" required>
+                    <datalist id="suggestionsInfo"></datalist>
+                </div>
+                
+                <div class="form-group">
+                    <label for="totalAmount">Giá tiền:</label>
+                    <input type="text" id="totalAmount" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cause">Lý do:</label>
+                    <input type="text" id="cause" list="suggestionsCause" required>
+                    <datalist id="suggestionsCause"></datalist>
+                </div>
+                
+                <div class="center-button">
+                    <button type="submit" id="addButton">Thêm</button>
+                    <button type="button" id="clearDataButton">Reset</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <label for="channelFilter">Lọc Kênh:</label>
+                <select id="channelFilter">
+                    <option value="all">Tất cả</option>
+                    <option value="J&T">J&T</option>
+                    <option value="TP">TP</option>
+                    <option value="BM">BM</option>
+                </select>
+
+                <label for="scenarioFilter">Lọc Trường hợp:</label>
+                <select id="scenarioFilter">
+                    <option value="all">Tất cả</option>
+                    <option value="BOOM">BOOM</option>
+                    <option value="Sửa COD">Sửa COD</option>
+                    <option value="Thu về">Thu về</option>
+                    <option value="Khách gửi">Khách gửi</option>
+                    <option value="Thay đổi thông tin">Thay đổi thông tin</option>
+                </select>
+                
+                <label for="startDate">Ngày bắt đầu:</label>
+                <input type="date" id="startDate">
+                
+                <label for="endDate">Ngày kết thúc:</label>
+                <input type="date" id="endDate">
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <div class="table-wrapper">
+                <div class="ck">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Kênh</th>
+                                <th>Trường hợp</th>
+                                <th>Tên FB + SĐT</th>
+                                <th>Số tiền</th>
+                                <th>Lý do</th>
+                                <th>Đã nhận</th>
+                                <th>Ngày<br>duyệt hoàn</th>
+                                <th>✏️ Sửa</th>
+                                <th>🗑️ Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Container -->
+    <div class="login-container">
+        <div class="login-box">
+            <input type="text" id="username" name="username" placeholder="Nhập tài khoản">
+            <input type="password" id="password" name="password" placeholder="Nhập mật khẩu">
+            <button type="button" id="loginButton">Đăng nhập</button>
+        </div>
+    </div>
+
+    <!-- Modal for editing -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="form-group">
+                <label for="editDelivery">Kênh:</label>
+                <select id="editDelivery" required>
+                    <option value="J&T">J&T</option>
+                    <option value="TP">TP</option>
+                    <option value="BM">BM</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="eidtScenario">Trường hợp:</label>
+                <select id="eidtScenario" required>
+                    <option value="BOOM">BOOM</option>
+                    <option value="Sửa COD">Sửa COD</option>
+                    <option value="Thu về">Thu về</option>
+                    <option value="Khách gửi">Khách gửi</option>
+                    <option value="Thay đổi thông tin">Thay đổi thông tin</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="editInfo">FB+SĐT:</label>
+                <input type="text" id="editInfo">
+            </div>
+            
+            <div class="form-group">
+                <label for="editAmount">Số tiền:</label>
+                <input type="text" id="editAmount">
+            </div>
+            
+            <div class="form-group">
+                <label for="editNote">Lý do:</label>
+                <input type="text" id="editNote">
+            </div>
+            
+            <div class="form-group">
+                <label for="editDate">Ngày đi đơn:</label>
+                <input type="text" id="editDate">
+            </div>
+            
+            <button id="saveButton">Lưu</button>
+        </div>
+    </div>
+
+    <!-- Floating Alert -->
+    <div id="floatingAlert">Thông báo hiển thị!</div>
     
-    <label for="endDate">Ngày kết thúc:</label>
-    <input type="date" id="endDate">
-   <div class="ck">
-      <table>
-         <thead>
-            <tr>
-               <th>STT</th>
-               <th>Kênh</th>
-               <th>Trường hợp</th>
-               <th>Tên FB + SĐT</th>
-               <th>Số tiền</th>
-               <th>Lý do</th>
-               <th>Đã nhận</th>
-               <th>Ngày<br>duyệt hoàn</th>
-               <th>Sửa</th>
-               <th>Xóa</th>
-            </tr>
-         </thead>
-         <tbody id="tableBody"></tbody>
-      </table>
-   </div>
-   <!-- <div id="totalAmount">Tổng Tiền: 0</div> -->
-   <!-- Modal for editing -->
-   <div id="editModal" class="modal">
-      <div class="modal-content">
-         <span class="close" onclick="closeModal()">&times;</span>
-         <label for="editDelivery">Kênh:</label>
-         <select id="editDelivery" required>
-            <option value="J&T">J&T</option>
-            <option value="TP">TP</option>
-            <option value="BM">BM</option>
-         </select>
-         <label for="eidtScenario">Trường hợp:</label>
-         <select id="eidtScenario" required>
-            <option value="BOOM">BOOM</option>
-            <option value="Sửa COD">Sửa COD</option>
-            <option value="Thu về">Thu về</option>
-            <option value="Khách gửi">Khách gửi</option>
-            <option value="Thay đổi thông tin">Thay đổi thông tin</option>
-         </select>
-         <label for="editInfo">FB+SĐT:</label>
-         <input type="text" id="editInfo">
-         <label for="editAmount">Số tiền:</label>
-         <input type="text" id="editAmount">
-         <label for="editNote">Lý do:</label>
-         <input type="text" id="editNote">
-         <label for="editDate">Ngày đi đơn:</label>
-         <input type="text" id="editDate">
-         <button id="saveButton">Lưu</button>
-      </div>
-   </div>
-   <div id="floatingAlert">Thông báo hiển thị!</div>
-   <div id="tooltip" class="tooltip"></div>
-   <script src="scriptObfuscator.js"></script>
+    <!-- Blocking Overlay -->
+    <div id="blockingOverlay"></div>
+    
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // Toggle Sidebar function
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            const menuToggle = document.querySelector('.menu-toggle');
+            
+            const isOpen = sidebar.classList.contains('open');
+            
+            if (isOpen) {
+                // Đóng sidebar
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                menuToggle.classList.remove('active');
+                menuToggle.classList.remove('hidden');
+            } else {
+                // Mở sidebar
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                menuToggle.classList.add('active');
+                menuToggle.classList.add('hidden');
+            }
+        }
+
+        // Override logout function để redirect về trang chính
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutButton = document.getElementById('toggleLogoutButton');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', function() {
+                    // Xóa dữ liệu đăng nhập
+                    localStorage.removeItem('isLoggedIn');
+                    localStorage.removeItem('userType');
+                    localStorage.removeItem('checkLogin');
+                    
+                    // Redirect về trang chính
+                    window.location.href = '../index.html';
+                });
+            }
+        });
+    </script>
+    
+    <!-- Original JavaScript file -->
+    <script src="scriptObfuscator.js"></script>
 </body>
 
 </html>

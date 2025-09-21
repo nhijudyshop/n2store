@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>LỊCH SỬ CHỈNH SỬA</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="../logo.jpg" />
+    
+    <!-- The core Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- The Firebase storage SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <!-- The Firebase firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Load jQuery from a CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <!-- Navigation Manager -->
+    <script src="../navigation.js"></script>
+    
+    <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", Arial, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden;
+          font-size: 14px;
+          line-height: 1.5;
+          color: #2c3e50;
+          font-weight: 400;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+          position: fixed;
+          left: -300px;
+          top: 0;
+          width: 300px;
+          height: 100vh;
+          background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+          box-shadow: 2px 0 15px rgba(0, 0, 0, 0.2);
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1000;
+          overflow-y: auto;
+        }
+
+        .sidebar.open {
+          left: 0;
+        }
+
+        .sidebar-header {
+          padding: 30px 20px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-align: center;
+          position: relative;
+        }
+
+        .sidebar-header h3 {
+          margin: 0;
+          font-size: 1.2rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .close-btn {
+          position: absolute;
+          right: 15px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          width: 35px;
+          height: 35px;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 18px;
+          transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-50%) scale(1.1);
+        }
+
+        .nav-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .nav-item {
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-item:last-child {
+          border-bottom: none;
+        }
+
+        .nav-item a {
+          display: flex;
+          align-items: center;
+          padding: 18px 25px;
+          text-decoration: none;
+          color: #ecf0f1;
+          font-weight: 500;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .nav-item a .icon {
+          margin-right: 15px;
+          font-size: 18px;
+          width: 24px;
+          text-align: center;
+          transition: transform 0.3s ease;
+        }
+
+        .nav-item a:hover .icon {
+          transform: scale(1.2);
+        }
+
+        .nav-item a::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 4px;
+          height: 100%;
+          background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+          transform: scaleY(0);
+          transition: transform 0.3s ease;
+        }
+
+        .nav-item a:hover::before {
+          transform: scaleY(1);
+        }
+
+        .nav-item a:hover {
+          background: rgba(255, 255, 255, 0.08);
+          padding-left: 35px;
+        }
+
+        #current-page-link {
+          background: linear-gradient(90deg, #e74c3c, #c0392b) !important;
+          font-weight: 600;
+        }
+
+        #current-page-link::before {
+          transform: scaleY(1) !important;
+          background: #fff !important;
+        }
+
+        /* Menu Toggle Button */
+        .menu-toggle {
+          position: fixed;
+          top: 20px;
+          left: 20px;
+          width: 50px;
+          height: 50px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          z-index: 1001;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          transition: all 0.3s ease;
+        }
+
+        .menu-toggle:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .hamburger {
+          position: relative;
+          width: 24px;
+          height: 2px;
+          background: white;
+          margin: 0 auto;
+          transition: all 0.3s ease;
+        }
+
+        .hamburger::before,
+        .hamburger::after {
+          content: "";
+          position: absolute;
+          width: 24px;
+          height: 2px;
+          background: white;
+          transition: all 0.3s ease;
+        }
+
+        .hamburger::before {
+          top: -8px;
+        }
+
+        .hamburger::after {
+          bottom: -8px;
+        }
+
+        /* Overlay */
+        .overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          z-index: 999;
+        }
+
+        .overlay.active {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        /* Main content */
+        .main-content {
+          padding: 40px;
+          width: 100%;
+          background: rgba(255, 255, 255, 0.95);
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          margin: 20px;
+          backdrop-filter: blur(10px);
+        }
+
+        .header h1, .tieude {
+          color: #2c3e50;
+          font-size: 2.5rem;
+          font-weight: 300;
+          margin-bottom: 30px;
+          text-align: center;
+          background: linear-gradient(90deg, #667eea, #764ba2);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        /* Top buttons */
+        .top-buttons {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          z-index: 100;
+          display: flex;
+          gap: 10px;
+        }
+
+        .top-buttons button {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .top-buttons button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Filter section */
+        .filter-section {
+          background: white;
+          padding: 25px;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          margin-bottom: 30px;
+          border: 1px solid #e9ecef;
+        }
+
+        .filter-group {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        label {
+          font-weight: 500;
+          color: #2c3e50;
+          min-width: 120px;
+        }
+
+        input, select {
+          padding: 12px 15px;
+          border: 2px solid #e9ecef;
+          border-radius: 10px;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          background: white;
+          flex: 1;
+          min-width: 160px;
+        }
+
+        input:focus, select:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+          padding: 12px 25px;
+          border: none;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          margin: 5px;
+        }
+
+        button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Table styling */
+        .table-container {
+          background: white;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          border: 1px solid #e9ecef;
+          margin-top: 30px;
+          max-height: 70vh;
+          overflow-y: auto;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 14px;
+          position: relative;
+        }
+
+        thead {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+        }
+
+        th {
+          background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+          color: white;
+          padding: 15px 8px;
+          text-align: center;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 12px;
+          position: relative;
+          z-index: 51;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+          font-family: "Inter", sans-serif;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          min-width: 80px;
+        }
+
+        td {
+          padding: 10px 6px;
+          text-align: center;
+          border-bottom: 1px solid #f8f9fa;
+          transition: background-color 0.3s ease;
+          font-size: 12px;
+          font-weight: 400;
+          color: #495057;
+          vertical-align: top;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+          line-height: 1.4;
+        }
+
+        tbody tr:hover {
+          background-color: #f8f9fa;
+        }
+
+        tbody tr:nth-child(even) {
+          background-color: #fafafa;
+        }
+
+        tbody tr:nth-child(even):hover {
+          background-color: #f1f3f4;
+        }
+
+        /* Stats section */
+        .stats-section {
+          background: white;
+          padding: 25px;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          margin-bottom: 30px;
+          border: 1px solid #e9ecef;
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 20px;
+        }
+
+        .stat-card {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 20px;
+          border-radius: 10px;
+          text-align: center;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-number {
+          font-size: 2rem;
+          font-weight: 700;
+          margin-bottom: 5px;
+        }
+
+        .stat-label {
+          font-size: 0.9rem;
+          opacity: 0.9;
+        }
+
+        /* Action type badges */
+        .action-badge {
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .action-add {
+          background: #d4edda;
+          color: #155724;
+        }
+
+        .action-edit {
+          background: #fff3cd;
+          color: #856404;
+        }
+
+        .action-delete {
+          background: #f8d7da;
+          color: #721c24;
+        }
+
+        .action-update {
+          background: #d1ecf1;
+          color: #0c5460;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+          .main-content {
+            margin: 10px;
+            padding: 20px;
+          }
+
+          .filter-group {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .stats-grid {
+            grid-template-columns: 1fr;
+          }
+
+          th, td {
+            padding: 6px 3px;
+            font-size: 10px;
+          }
+        }
+
+        /* Floating Alert */
+        #floatingAlert {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(44, 62, 80, 0.9) 100%);
+          color: white;
+          padding: 20px 30px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 500;
+          width: auto;
+          min-width: 200px;
+          max-width: 350px;
+          text-align: center;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          pointer-events: none;
+          z-index: 9999;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+          letter-spacing: 0.3px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+        }
+
+        #floatingAlert.show {
+          opacity: 1;
+          visibility: visible;
+          transform: translate(-50%, -50%) scale(1.02);
+        }
+
+        /* Improved scrollbar */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+        }
+
+        .clear-history-btn {
+          background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        .clear-history-btn:hover {
+          background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+        }
+
+        /* Detail Modal */
+        .detail-modal {
+          display: none;
+          position: fixed;
+          z-index: 2000;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.5);
+          justify-content: center;
+          align-items: center;
+        }
+
+        .detail-modal.show {
+          display: flex;
+        }
+
+        .detail-modal-content {
+          background-color: white;
+          padding: 30px;
+          border-radius: 15px;
+          width: 90%;
+          max-width: 800px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          position: relative;
+        }
+
+        .detail-modal-close {
+          position: absolute;
+          top: 15px;
+          right: 20px;
+          color: #aaa;
+          font-size: 28px;
+          font-weight: bold;
+          cursor: pointer;
+        }
+
+        .detail-modal-close:hover {
+          color: #000;
+        }
+
+        .detail-section {
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          border-left: 4px solid #667eea;
+        }
+
+        .detail-section h3 {
+          color: #2c3e50;
+          margin-bottom: 15px;
+          font-size: 1.5rem;
+        }
+
+        .detail-section h4 {
+          color: #667eea;
+          margin-bottom: 10px;
+          font-size: 1.1rem;
+        }
+
+        .data-preview {
+          background: #2c3e50;
+          color: #ecf0f1;
+          padding: 15px;
+          border-radius: 8px;
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          overflow-x: auto;
+          white-space: pre-wrap;
+          max-height: 200px;
+          overflow-y: auto;
+        }
+
+        .change-item {
+          margin-bottom: 10px;
+          padding: 8px;
+          background: white;
+          border-radius: 5px;
+          border-left: 3px solid #ddd;
+        }
+
+        .added {
+          color: #28a745;
+          font-weight: 600;
+        }
+
+        .removed {
+          color: #dc3545;
+          font-weight: 600;
+        }
+
+        /* Page badge styling */
+        .page-badge {
+          background: #e8f4f8;
+          color: #0c5460;
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        tbody tr:hover {
+          background-color: #e3f2fd;
+          cursor: pointer;
+        }
+
+        tbody tr:nth-child(even):hover {
+          background-color: #e1f5fe;
+        }
+
+        /* Filter info display */
+        .filter-info {
+          background: #e3f2fd;
+          padding: 10px 15px;
+          border-radius: 8px;
+          margin: 10px 0;
+          font-size: 13px;
+          color: #1976d2;
+          display: none;
+        }
+
+        .filter-info.active {
+          display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Menu Toggle Button -->
+    <button class="menu-toggle" onclick="toggleSidebar()">
+        <div class="hamburger"></div>
+    </button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Menu Điều Hướng</h3>
+            <button class="close-btn" onclick="toggleSidebar()">&times;</button>
+        </div>
+        <ul class="nav-list">
+            <li class="nav-item">
+                <a href="../live/index.html">
+                    <i class="icon">📸</i>
+                    <span>HÌNH ẢNH LIVE ĐẦY ĐỦ</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../hangrotxa/index.html">
+                    <i class="icon">📦</i>
+                    <span>HÀNG RỚT - XẢ</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../ib/index.html">
+                    <i class="icon">💬</i>
+                    <span>CHECK INBOX KHÁCH HÀNG</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../ck/index.html">
+                    <i class="icon">💳</i>
+                    <span>THÔNG TIN CHUYỂN KHOẢN</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../hanghoan/index.html">
+                    <i class="icon">↩️</i>
+                    <span>HÀNG HOÀN</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../nhaphang/index.html">
+                    <i class="icon">📋</i>
+                    <span>NHẬP HÀNG</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a id="current-page-link" href="../lichsuchinhsua/index.html">
+                    <i class="icon">📊</i>
+                    <span>LỊCH SỬ CHỈNH SỬA</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Top buttons -->
+    <div class="top-buttons">
+        <button id="refreshButton">Làm mới</button>
+        <button id="toggleLogoutButton">Đăng xuất</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="main-content">
+        <div class="header">
+            <div id="parentContainer">
+                <p class="tieude">LỊCH SỬ CHỈNH SỬA DỮ LIỆU</p>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalLogs">0</div>
+                    <div class="stat-label">Tổng hoạt động</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="todayLogs">0</div>
+                    <div class="stat-label">Hôm nay</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="activeUsers">0</div>
+                    <div class="stat-label">Người dùng hoạt động</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="currentUserLogs">0</div>
+                    <div class="stat-label">Hoạt động của bạn</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <label for="userFilter">Lọc theo người dùng:</label>
+                <select id="userFilter">
+                    <option value="all">Tất cả</option>
+                </select>
+
+                <label for="actionFilter">Lọc theo hành động:</label>
+                <select id="actionFilter">
+                    <option value="all">Tất cả</option>
+                    <option value="add">Thêm</option>
+                    <option value="edit">Sửa</option>
+                    <option value="delete">Xóa</option>
+                    <option value="update">Cập nhật</option>
+                </select>
+                
+                <label for="startDate">Từ ngày:</label>
+                <input type="date" id="startDate">
+                
+                <label for="endDate">Đến ngày:</label>
+                <input type="date" id="endDate">
+
+                <button onclick="applyFilters()">Áp dụng bộ lọc</button>
+                <button onclick="showAllData()">Hiện tất cả</button>
+                <button class="clear-history-btn" onclick="clearFilteredHistory()">Xóa lịch sử đã lọc</button>
+            </div>
+            
+            <!-- Filter info display -->
+            <div class="filter-info" id="filterInfo">
+                Đang hiển thị <span id="filteredCount">0</span> kết quả theo bộ lọc
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Thời gian</th>
+                        <th>Người dùng</th>
+                        <th>Trang</th>
+                        <th>Hành động</th>
+                        <th>Mô tả</th>
+                        <th>Dữ liệu cũ</th>
+                        <th>Dữ liệu mới</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <!-- Dữ liệu lịch sử sẽ được thêm bằng JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Floating Alert -->
+    <div id="floatingAlert">Thông báo hiển thị!</div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="detail-modal">
+        <div class="detail-modal-content">
+            <span class="detail-modal-close" onclick="closeDetailModal()">&times;</span>
+            <div id="modalDetailContent">
+                <!-- Content sẽ được thêm bằng JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+            authDomain: "n2shop-69e37.firebaseapp.com",
+            projectId: "n2shop-69e37",
+            storageBucket: "n2shop-69e37-ne0q1",
+            messagingSenderId: "598906493303",
+            appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+            measurementId: "G-TEJH3S2T1D"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const historyCollectionRef = db.collection("edit_history");
+
+        // Get elements
+        const tbody = document.getElementById('historyTableBody');
+        const userFilter = document.getElementById('userFilter');
+        const actionFilter = document.getElementById('actionFilter');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const filterInfo = document.getElementById('filterInfo');
+        const filteredCount = document.getElementById('filteredCount');
+
+        // Global variables
+        let allHistoryData = [];
+        let filteredData = [];
+
+        // User authentication
+        var isLoggedIn = localStorage.getItem('isLoggedIn');
+        const userType = localStorage.getItem('userType');
+        const checkLogin = localStorage.getItem('checkLogin');
+
+        if (isLoggedIn === 'true') {
+            document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
+            const parentContainer = document.getElementById('parentContainer');
+            parentContainer.style.display = 'flex';
+            parentContainer.style.justifyContent = 'center';
+            parentContainer.style.alignItems = 'center';
+        } else {
+            window.location.href = '../index.html';
+        }
+
+        // Kiểm tra quyền truy cập trang lịch sử
+        if (checkLogin != 0) {
+            // Nếu không phải admin (checkLogin != 0), chuyển hướng về trang chính
+            alert('Bạn không có quyền truy cập trang này!');
+            window.location.href = '../index.html';
+        }
+
+        // Utility function to log actions
+        function logAction(action, description, oldData = null, newData = null, pageName = null) {
+            // Auto-detect page name if not provided
+            if (!pageName) {
+                const currentPath = window.location.pathname;
+                const pathParts = currentPath.split('/');
+                const currentDir = pathParts[pathParts.length - 2] || 'unknown';
+                
+                const pageNames = {
+                    'live': 'Hình ảnh Live',
+                    'hangrotxa': 'Hàng rớt - xả',
+                    'ib': 'Check Inbox',
+                    'ck': 'Chuyển khoản',
+                    'hanghoan': 'Hàng hoàn',
+                    'nhaphang': 'Nhập hàng',
+                    'lichsuchinhsua': 'Lịch sử chỉnh sửa'
+                };
+                
+                pageName = pageNames[currentDir] || currentDir;
+            }
+
+            const logEntry = {
+                timestamp: new Date(),
+                user: userType ? userType.split('-')[0] : 'Unknown',
+                page: pageName,
+                action: action,
+                description: description,
+                oldData: oldData,
+                newData: newData,
+                id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+            };
+
+            // Save to Firebase
+            historyCollectionRef.add(logEntry)
+                .then(() => {
+                    console.log("Log entry saved successfully");
+                })
+                .catch((error) => {
+                    console.error("Error saving log entry: ", error);
+                });
+        }
+
+        // Toggle Sidebar function
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            const menuToggle = document.querySelector('.menu-toggle');
+            
+            const isOpen = sidebar.classList.contains('open');
+            
+            if (isOpen) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                menuToggle.classList.remove('active');
+            } else {
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                menuToggle.classList.add('active');
+            }
+        }
+
+        // Load and display history data
+        async function loadHistoryData() {
+            showFloatingAlert("Đang tải dữ liệu...");
+            
+            try {
+                const snapshot = await historyCollectionRef.orderBy('timestamp', 'desc').get();
+                
+                allHistoryData = [];
+                const users = new Set();
+                let todayCount = 0;
+                let currentUserCount = 0;
+                const today = new Date().toDateString();
+                const currentUser = userType ? userType.split('-')[0] : '';
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    data.docId = doc.id; // Store document ID for deletion
+                    allHistoryData.push(data);
+                    users.add(data.user);
+                    
+                    // Count today's logs
+                    if (data.timestamp.toDate().toDateString() === today) {
+                        todayCount++;
+                    }
+                    
+                    // Count current user's logs
+                    if (data.user === currentUser) {
+                        currentUserCount++;
+                    }
+                });
+
+                // Update stats
+                document.getElementById('totalLogs').textContent = allHistoryData.length;
+                document.getElementById('todayLogs').textContent = todayCount;
+                document.getElementById('activeUsers').textContent = users.size;
+                document.getElementById('currentUserLogs').textContent = currentUserCount;
+
+                // Update user filter
+                updateUserFilter(users);
+                
+                // Display all data initially
+                displayFilteredData(allHistoryData);
+                
+                showFloatingAlert("Tải dữ liệu thành công!");
+                
+            } catch (error) {
+                console.error("Error loading history data: ", error);
+                showFloatingAlert("Lỗi khi tải dữ liệu!");
+            }
+        }
+
+        // Display filtered data in table
+        function displayFilteredData(data) {
+            tbody.innerHTML = '';
+            filteredData = data;
+            
+            data.forEach((item, index) => {
+                addRowToTable(item, index + 1);
+            });
+            
+            // Update filter info
+            if (data.length !== allHistoryData.length) {
+                filterInfo.classList.add('active');
+                filteredCount.textContent = data.length;
+            } else {
+                filterInfo.classList.remove('active');
+            }
+        }
+
+        // Add row to table
+        function addRowToTable(data, stt) {
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.title = 'Click để xem chi tiết';
+            tr.setAttribute('data-doc-id', data.docId); // Store doc ID for filtering
+            
+            const timestamp = data.timestamp.toDate();
+            const formattedTime = timestamp.toLocaleString('vi-VN');
+            
+            tr.innerHTML = `
+                <td>${stt}</td>
+                <td>${formattedTime}</td>
+                <td>${data.user}</td>
+                <td><span class="page-badge">${data.page || 'Không xác định'}</span></td>
+                <td><span class="action-badge action-${data.action}">${getActionText(data.action)}</span></td>
+                <td>${data.description}</td>
+                <td>${renderSummary(data.oldData)}</td>
+                <td>${renderSummary(data.newData)}</td>
+            `;
+            
+            // Add click event to show detail modal
+            tr.addEventListener('click', () => {
+                showDetailModal(data);
+            });
+            
+            tbody.appendChild(tr);
+        }
+
+        
+// Render object thành bảng key-value
+function renderObjectAsTable(obj) {
+    if (!obj || typeof obj !== "object") return "<i>Không có dữ liệu</i>";
+    let html = "<table style='width:100%; border-collapse:collapse; font-size:13px;'>";
+    html += "<tr><th style='border:1px solid #ddd; padding:6px;'>Trường</th><th style='border:1px solid #ddd; padding:6px;'>Giá trị</th></tr>";
+    for (let key in obj) {
+        html += `<tr>
+                    <td style='border:1px solid #ddd; padding:6px; font-weight:600;'>${key}</td>
+                    <td style='border:1px solid #ddd; padding:6px;'>${JSON.stringify(obj[key])}</td>
+                 </tr>`;
+    }
+    html += "</table>";
+    return html;
+}
+
+        
+// Render dữ liệu chủ đạo cho bảng chính
+function renderSummary(data) {
+    if (!data || typeof data !== "object") return "-";
+
+    // Nếu có trường hình ảnh
+    if (data.image || data.img || data.hinh) {
+        let imgUrl = data.image || data.img || data.hinh;
+        return `<div style="text-align:center; vertical-align:middle;">
+                    <img src="${imgUrl}" alt="Hình ảnh" style="max-width:50px; max-height:50px; border-radius:5px;">
+                </div>`;
+    }
+
+    // Nếu có tên sản phẩm và đợt live
+    let ten = data.tenSanPham || data.name || data.title || "";
+    let dot = data.dotLive || data.liveBatch || data.dot || "";
+    if (ten || dot) {
+        return `<div style="text-align:center; vertical-align:middle;">
+                    ${ten ? `<div><b>${ten}</b></div>` : ""}
+                    ${dot ? `<div>Đợt: ${dot}</div>` : ""}
+                </div>`;
+    }
+	if (data.soLuong || data.quantity) {
+        return `<div style="text-align:center; vertical-align:middle;">
+                    Số lượng: ${data.soLuong || data.quantity}
+                </div>`;
+    }
+
+    // fallback: JSON rút gọn
+    return `<div style="text-align:center; vertical-align:middle;">
+                ${JSON.stringify(data).substring(0, 50)}...
+            </div>`;
+}
+
+
+        // Show detail modal
+        function showDetailModal(data) {
+            const modal = document.getElementById('detailModal');
+            const modalContent = document.getElementById('modalDetailContent');
+            
+            modalContent.innerHTML = `
+                <h3>Chi tiết thay đổi</h3>
+                <div class="detail-section">
+                    <p><strong>Thời gian:</strong> ${data.timestamp.toDate().toLocaleString('vi-VN')}</p>
+                    <p><strong>Người dùng:</strong> ${data.user}</p>
+                    <p><strong>Trang:</strong> ${data.page || 'Không xác định'}</p>
+                    <p><strong>Hành động:</strong> ${getActionText(data.action)}</p>
+                    <p><strong>Mô tả:</strong> ${data.description}</p>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Dữ liệu trước khi thay đổi:</h4>
+                    ${renderObjectAsTable(data.oldData)}
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Dữ liệu sau khi thay đổi:</h4>
+                    ${renderObjectAsTable(data.newData)}
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Thay đổi cụ thể:</h4>
+                    <div id="changesDiff">${generateChangeDiff(data.oldData, data.newData)}</div>
+                </div>
+            `;
+            
+            modal.classList.add('show');
+        }
+
+        // Generate change diff
+        function generateChangeDiff(oldData, newData) {
+            if (!oldData && !newData) return 'Không có thay đổi';
+            if (!oldData) return '<span class="added">+ Tạo mới toàn bộ dữ liệu</span>';
+            if (!newData) return '<span class="removed">- Xóa toàn bộ dữ liệu</span>';
+            
+            let diff = '';
+            const allKeys = new Set([...Object.keys(oldData || {}), ...Object.keys(newData || {})]);
+            
+            allKeys.forEach(key => {
+                const oldValue = oldData[key];
+                const newValue = newData[key];
+                
+                if (oldValue !== newValue) {
+                    if (oldValue === undefined) {
+                        diff += `<div class="change-item"><strong>${key}:</strong> <span class="added">+ ${JSON.stringify(newValue)}</span></div>`;
+                    } else if (newValue === undefined) {
+                        diff += `<div class="change-item"><strong>${key}:</strong> <span class="removed">- ${JSON.stringify(oldValue)}</span></div>`;
+                    } else {
+                        diff += `<div class="change-item"><strong>${key}:</strong><br/>
+                                 <span class="removed">- ${JSON.stringify(oldValue)}</span><br/>
+                                 <span class="added">+ ${JSON.stringify(newValue)}</span></div>`;
+                    }
+                }
+            });
+            
+            return diff || 'Không có thay đổi';
+        }
+
+        // Close detail modal
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            modal.classList.remove('show');
+        }
+
+        // Get action text in Vietnamese
+        function getActionText(action) {
+            const actionMap = {
+                'add': 'Thêm',
+                'edit': 'Sửa',
+                'delete': 'Xóa',
+                'update': 'Cập nhật'
+            };
+            return actionMap[action] || action;
+        }
+
+        // Update user filter dropdown
+        function updateUserFilter(users) {
+            // Clear existing options except "Tất cả"
+            userFilter.innerHTML = '<option value="all">Tất cả</option>';
+            
+            // Add user options
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = user;
+                userFilter.appendChild(option);
+            });
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const selectedUser = userFilter.value;
+            const selectedAction = actionFilter.value;
+            const startDateValue = startDate.value;
+            const endDateValue = endDate.value;
+
+            // Check if all filters are set to default (show all)
+            const isShowingAll = selectedUser === 'all' && selectedAction === 'all' && !startDateValue && !endDateValue;
+            
+            if (isShowingAll) {
+                displayFilteredData(allHistoryData);
+                showFloatingAlert("Hiển thị tất cả dữ liệu!");
+                return;
+            }
+
+            let filtered = allHistoryData.filter(item => {
+                // Filter by user
+                if (selectedUser !== 'all' && item.user !== selectedUser) {
+                    return false;
+                }
+
+                // Filter by action
+                if (selectedAction !== 'all' && item.action !== selectedAction) {
+                    return false;
+                }
+
+                // Filter by date range
+                const itemDate = item.timestamp.toDate();
+                if (startDateValue && itemDate < new Date(startDateValue)) {
+                    return false;
+                }
+                if (endDateValue && itemDate > new Date(endDateValue + ' 23:59:59')) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            displayFilteredData(filtered);
+            showFloatingAlert(`Đã áp dụng bộ lọc! Hiển thị ${filtered.length} kết quả.`);
+        }
+
+        // Clear filtered history function
+        function clearFilteredHistory() {
+            if (checkLogin != 777) {
+                if (filteredData.length === 0) {
+                    showFloatingAlert("Không có dữ liệu để xóa!");
+                    return;
+                }
+
+                const confirmMessage = filteredData.length === allHistoryData.length 
+                    ? `Bạn có chắc chắn muốn xóa toàn bộ ${filteredData.length} bản ghi lịch sử? Hành động này không thể hoàn tác!`
+                    : `Bạn có chắc chắn muốn xóa ${filteredData.length} bản ghi lịch sử đã lọc? Hành động này không thể hoàn tác!`;
+                
+                const confirmClear = confirm(confirmMessage);
+                
+                if (confirmClear) {
+                    showFloatingAlert("Đang xóa lịch sử...");
+                    
+                    // Delete filtered documents
+                    const batch = db.batch();
+                    filteredData.forEach((item) => {
+                        if (item.docId) {
+                            const docRef = historyCollectionRef.doc(item.docId);
+                            batch.delete(docRef);
+                        }
+                    });
+                    
+                    batch.commit().then(() => {
+                        // Log the clear action
+                        const actionDescription = filteredData.length === allHistoryData.length 
+                            ? 'Xóa toàn bộ lịch sử chỉnh sửa'
+                            : `Xóa ${filteredData.length} bản ghi lịch sử đã lọc`;
+                        
+                        logAction('delete', actionDescription);
+                        
+                        // Refresh the display
+                        loadHistoryData();
+                        
+                        showFloatingAlert(`Đã xóa ${filteredData.length} bản ghi thành công!`);
+                    }).catch((error) => {
+                        console.error("Error clearing filtered history: ", error);
+                        showFloatingAlert("Lỗi khi xóa lịch sử!");
+                    });
+                }
+            } else {
+                showFloatingAlert("Không đủ quyền thực hiện hành động này!");
+            }
+        }
+
+        // Reset filters
+        function resetFilters() {
+            userFilter.value = 'all';
+            actionFilter.value = 'all';
+            startDate.value = '';
+            endDate.value = '';
+            displayFilteredData(allHistoryData);
+            showFloatingAlert("Đã reset bộ lọc!");
+        }
+
+        // Clear all filters and show all data
+        function showAllData() {
+            userFilter.value = 'all';
+            actionFilter.value = 'all';
+            startDate.value = '';
+            endDate.value = '';
+            displayFilteredData(allHistoryData);
+        }
+
+        // Refresh data
+        function refreshData() {
+            loadHistoryData();
+        }
+
+        // Logout function
+        function handleLogout() {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userType');
+            localStorage.removeItem('checkLogin');
+            location.reload();
+        }
+
+        // Show floating alert
+        function showFloatingAlert(message) {
+            const alertBox = document.getElementById('floatingAlert');
+            alertBox.innerText = message;
+            alertBox.classList.add('show');
+
+            setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 3000);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            loadHistoryData();
+            
+            // Don't set default date range - let users see all data initially
+            // const today = new Date();
+            // const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+            // endDate.value = today.toISOString().split('T')[0];
+            // startDate.value = thirtyDaysAgo.toISOString().split('T')[0];
+        });
+
+        document.getElementById('refreshButton').addEventListener('click', refreshData);
+        document.getElementById('toggleLogoutButton').addEventListener('click', handleLogout);
+
+        // Add event listeners for filter changes
+        userFilter.addEventListener('change', applyFilters);
+        actionFilter.addEventListener('change', applyFilters);
+        startDate.addEventListener('change', applyFilters);
+        endDate.addEventListener('change', applyFilters);
+
+        // Auto-refresh every 5 minutes
+        setInterval(refreshData, 5 * 60 * 1000);
+
+    </script>
+</body>
+
+</html>

@@ -4,62 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Nhập Hàng</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-
-        textarea,
-        input,
-        select {
-            padding: 8px;
-            margin: 5px 5px 5px 0;
-        }
-
-        textarea {
-            width: 400px;
-            height: 120px;
-        }
-
-        button {
-            padding: 8px 12px;
-            margin-right: 5px;
-            cursor: pointer;
-        }
-
-        table {
-            margin-top: 20px;
-            border-collapse: collapse;
-            width: 95%;
-        }
-
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-
-        th {
-            background: #f2f2f2;
-        }
-
-        .error {
-            color: red;
-            font-weight: bold;
-        }
-    </style>
-
     <meta http-equiv="Cache-Control" content="public, max-age=31536000">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <link rel="preconnect" href="https://fonts.googleapis.com/">
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <link href="../css/ck.css" rel="stylesheet"> -->
-    <link rel="stylesheet" type="text/css" href="../css/trangchu.css">
-    <title>THÔNG TIN CHUYỂN KHOẢN</title>
     <link rel="shortcut icon" href="../logo.jpg" />
+    
     <!-- The core Firebase JS SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <!-- The Firebase storage SDK -->
@@ -69,56 +20,639 @@
     <!-- Load jQuery from a CDN -->
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="../navigation.js"></script>
+	
+    <style>
+        /* CSS được nhúng trực tiếp */
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden;
+        }
+
+        .container {
+          display: flex;
+          min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+          position: fixed;
+          left: -300px;
+          top: 0;
+          width: 300px;
+          height: 100vh;
+          background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+          box-shadow: 2px 0 15px rgba(0, 0, 0, 0.2);
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 1000;
+          overflow-y: auto;
+        }
+
+        .sidebar.open {
+          left: 0;
+        }
+
+        .sidebar-header {
+          padding: 30px 20px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-align: center;
+          position: relative;
+        }
+
+        .sidebar-header h3 {
+          margin: 0;
+          font-size: 1.2rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .close-btn {
+          position: absolute;
+          right: 15px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          width: 35px;
+          height: 35px;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 18px;
+          transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-50%) scale(1.1);
+        }
+
+        .nav-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .nav-item {
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-item:last-child {
+          border-bottom: none;
+        }
+
+        .nav-item a {
+          display: flex;
+          align-items: center;
+          padding: 18px 25px;
+          text-decoration: none;
+          color: #ecf0f1;
+          font-weight: 500;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .nav-item a .icon {
+          margin-right: 15px;
+          font-size: 18px;
+          width: 24px;
+          text-align: center;
+          transition: transform 0.3s ease;
+        }
+
+        .nav-item a:hover .icon {
+          transform: scale(1.2);
+        }
+
+        .nav-item a::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 4px;
+          height: 100%;
+          background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+          transform: scaleY(0);
+          transition: transform 0.3s ease;
+        }
+
+        .nav-item a:hover::before {
+          transform: scaleY(1);
+        }
+
+        .nav-item a:hover {
+          background: rgba(255, 255, 255, 0.08);
+          padding-left: 35px;
+        }
+
+        #current-page-link {
+          background: linear-gradient(90deg, #e74c3c, #c0392b) !important;
+          font-weight: 600;
+        }
+
+        #current-page-link::before {
+          transform: scaleY(1) !important;
+          background: #fff !important;
+        }
+
+        /* Menu Toggle Button */
+        .menu-toggle {
+          position: fixed;
+          top: 20px;
+          left: 20px;
+          width: 50px;
+          height: 50px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          z-index: 1001;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          transition: all 0.3s ease;
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(0);
+        }
+
+        .menu-toggle.hidden {
+          opacity: 0;
+          visibility: hidden;
+          transform: translateX(-100px);
+        }
+
+        .menu-toggle:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .menu-toggle.hidden:hover {
+          transform: translateX(-100px) scale(1.05);
+        }
+
+        .hamburger {
+          position: relative;
+          width: 24px;
+          height: 2px;
+          background: white;
+          margin: 0 auto;
+          transition: all 0.3s ease;
+        }
+
+        .hamburger::before,
+        .hamburger::after {
+          content: "";
+          position: absolute;
+          width: 24px;
+          height: 2px;
+          background: white;
+          transition: all 0.3s ease;
+        }
+
+        .hamburger::before {
+          top: -8px;
+        }
+
+        .hamburger::after {
+          bottom: -8px;
+        }
+
+        .menu-toggle.active .hamburger {
+          background: transparent;
+        }
+
+        .menu-toggle.active .hamburger::before {
+          top: 0;
+          transform: rotate(45deg);
+        }
+
+        .menu-toggle.active .hamburger::after {
+          bottom: 0;
+          transform: rotate(-45deg);
+        }
+
+        /* Overlay */
+        .overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          z-index: 999;
+        }
+
+        .overlay.active {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        /* Main content */
+        .main-content {
+          padding: 40px;
+          width: 100%;
+          background: rgba(255, 255, 255, 0.95);
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          margin: 20px;
+          backdrop-filter: blur(10px);
+        }
+
+        .header h2 {
+          color: #2c3e50;
+          font-size: 2.5rem;
+          font-weight: 300;
+          margin-bottom: 30px;
+          text-align: center;
+          background: linear-gradient(90deg, #667eea, #764ba2);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .input-section {
+          background: white;
+          padding: 30px;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          margin-bottom: 30px;
+          border: 1px solid #e9ecef;
+        }
+
+        .input-group {
+          display: flex;
+          gap: 20px;
+          align-items: flex-start;
+          margin-bottom: 20px;
+        }
+
+        textarea {
+          flex: 1;
+          padding: 15px;
+          border: 2px solid #e9ecef;
+          border-radius: 10px;
+          font-size: 14px;
+          font-family: "Consolas", monospace;
+          resize: vertical;
+          min-height: 120px;
+          transition: all 0.3s ease;
+          background: #fafafa;
+        }
+
+        textarea:focus {
+          outline: none;
+          border-color: #667eea;
+          background: white;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea::placeholder {
+          color: #6c757d;
+          font-style: italic;
+        }
+
+        input[type="date"] {
+          padding: 12px 15px;
+          border: 2px solid #e9ecef;
+          border-radius: 10px;
+          font-size: 14px;
+          transition: all 0.3s ease;
+          background: white;
+          min-width: 160px;
+        }
+
+        input[type="date"]:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn, button {
+          padding: 12px 25px;
+          border: none;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .filter-section {
+          background: white;
+          padding: 25px;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          margin-bottom: 30px;
+          border: 1px solid #e9ecef;
+        }
+
+        .filter-group {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .filter-group label {
+          font-weight: 500;
+          color: #2c3e50;
+          margin-right: 10px;
+        }
+
+        .table-container {
+          background: white;
+          border-radius: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          overflow: hidden;
+          border: 1px solid #e9ecef;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 14px;
+        }
+
+        th {
+          background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+          color: white;
+          padding: 20px 15px;
+          text-align: center;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-size: 13px;
+        }
+
+        td {
+          padding: 15px;
+          text-align: center;
+          border-bottom: 1px solid #f8f9fa;
+          transition: background-color 0.3s ease;
+        }
+
+        tbody tr:hover {
+          background-color: #f8f9fa;
+        }
+
+        tbody tr:nth-child(even) {
+          background-color: #fafafa;
+        }
+
+        tbody tr:nth-child(even):hover {
+          background-color: #f1f3f4;
+        }
+
+        .btn-delete {
+          padding: 8px 15px;
+          background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+          transition: all 0.3s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .btn-delete:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .btn-export {
+          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+          margin-left: 10px;
+        }
+
+        .btn-export:hover {
+          background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+          .sidebar {
+            width: 280px;
+            left: -280px;
+          }
+          
+          .main-content {
+            margin: 10px;
+            padding: 20px;
+          }
+
+          .input-group {
+            flex-direction: column;
+          }
+
+          .filter-group {
+            justify-content: center;
+          }
+
+          table {
+            font-size: 12px;
+          }
+
+          th, td {
+            padding: 10px 8px;
+          }
+
+          .menu-toggle {
+            top: 15px;
+            left: 15px;
+            width: 45px;
+            height: 45px;
+          }
+        }
+
+        /* Improved scrollbar */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+        }
+
+        /* Floating Alert */
+        #floatingAlert {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(44, 62, 80, 0.9) 100%);
+          color: white;
+          padding: 20px 30px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 500;
+          width: auto;
+          min-width: 200px;
+          max-width: 350px;
+          text-align: center;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          pointer-events: none;
+          z-index: 9999;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+          letter-spacing: 0.3px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+        }
+
+        #floatingAlert.show {
+          opacity: 1;
+          visibility: visible;
+          transform: translate(-50%, -50%) scale(1.02);
+        }
+    </style>
 </head>
 
 <body>
-    <div class="nav-container">
-       <ul class="nav-list">
-          <li class="nav-item"><a href="../live/index.html">HÌNH ẢNH LIVE ĐẦY ĐỦ</a></li>
-          <li class="nav-item"><a href="../hangrotxa/index.html">HÀNG RỚT - XẢ</a></li>
-          <!-- <li class="nav-item"><a href="../dubi/index.html">KHÁCH LIVE DỰ BỊ</a></li> -->
-          <li class="nav-item"><a href="../ib/index.html">CHECK INBOX KHÁCH HÀNG</a></li>
-          <li class="nav-item"><a href="../ck/index.html">THÔNG TIN CHUYỂN KHOẢN</a></li>
-          <!-- <li class="nav-item"><a href="../banhang/index.html">BÁN HÀNG KHÁCH VIP</a></li> -->
-          <li class="nav-item"><a href="../hanghoan/index.html">HÀNG HOÀN</a></li>
-          <li class="nav-item"><a id="current-page-link" href="../nhaphang/index.html">NHẬP HÀNG</a></li>
-       </ul>
-    </div>
-    <h2>Nhập dữ liệu sản phẩm</h2>
-    <textarea id="productInput" placeholder="Ví dụ:
+    <!-- Menu Toggle Button -->
+    <button class="menu-toggle" onclick="toggleSidebar()">
+        <div class="hamburger"></div>
+    </button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Menu Điều Hướng</h3>
+            <button class="close-btn" onclick="toggleSidebar()">&times;</button>
+        </div>
+        <ul class="nav-list">
+            <li class="nav-item">
+                <a href="../live/index.html">
+                    <i class="icon">📸</i>
+                    <span>HÌNH ẢNH LIVE ĐẦY ĐỦ</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../hangrotxa/index.html">
+                    <i class="icon">📦</i>
+                    <span>HÀNG RỚT - XẢ</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../ib/index.html">
+                    <i class="icon">💬</i>
+                    <span>CHECK INBOX KHÁCH HÀNG</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../ck/index.html">
+                    <i class="icon">💳</i>
+                    <span>THÔNG TIN CHUYỂN KHOẢN</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../hanghoan/index.html">
+                    <i class="icon">↩️</i>
+                    <span>HÀNG HOÀN</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a id="current-page-link" href="../nhaphang/index.html">
+                    <i class="icon">📋</i>
+                    <span>NHẬP HÀNG</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2>Nhập dữ liệu sản phẩm</h2>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <textarea id="productInput" placeholder="Ví dụ:
 Gấu - 1 - 100
 Thỏ - 3 - 200
 Cá - 5 - 100
 Chọn 'Tất cả' để xem toàn bộ dữ liệu
 Kéo bảng nhập liệu ở dưới góc phải"></textarea>
-    <input type="date" id="dateInput">
-    <button onclick="addProducts()">Xác nhận</button>
+                <input type="date" id="dateInput">
+                <button onclick="addProducts()">Xác nhận</button>
+            </div>
+        </div>
 
-    <div style="margin-top:20px;">
-        <label>Lọc theo ngày: </label>
-        <input type="date" id="filterDate">
-        <button onclick="applyFilter()">Lọc</button>
-        <button onclick="clearFilter()">Tất cả</button>
-        <button onclick="deleteByFilter()">Xoá hết theo lọc</button>
+        <div class="filter-section">
+            <div class="filter-group">
+                <label>Lọc theo ngày: </label>
+                <input type="date" id="filterDate">
+                <button onclick="applyFilter()">Lọc</button>
+                <button onclick="clearFilter()">Tất cả</button>
+                <button onclick="deleteByFilter()">Xoá hết theo lọc</button>
+                <button class="btn-export" onclick="exportToExcel()">📥 Xuất Excel</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="productTable">
+                <thead>
+                    <tr>
+                        <th>Tên sản phẩm</th>
+                        <th>Số lượng</th>
+                        <th>Giá tiền</th>
+                        <th>Thành tiền</th>
+                        <th>Ngày nhập</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 
-    <table id="productTable">
-        <thead>
-            <tr>
-                <th>Tên sản phẩm</th>
-                <th>Số lượng</th>
-                <th>Giá tiền</th>
-                <th>Thành tiền</th>
-                <th>Ngày nhập</th>
-                <th>Hành động</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <!-- Floating Alert -->
+    <div id="floatingAlert">Thông báo hiển thị!</div>
 
     <script>
         // 🔹 TODO: thay bằng config Firebase của bạn
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         function _0x1ab2(_0x36a23b, _0x52223b) {
             const _0x2e058f = _0x2e05();
             return _0x1ab2 = function(_0x1ab212, _0x4110aa) {
@@ -161,19 +695,120 @@ Kéo bảng nhập liệu ở dưới góc phải"></textarea>
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const historyCollectionRef = db.collection("edit_history");
 
         let unsubscribe = null;
+        let currentProductData = []; // Store current displayed data for export
         const today = new Date().toISOString().split("T")[0];
+        
+        // User info for logging
+        const userType = localStorage.getItem('userType');
+        const currentUser = userType ? userType.split('-')[0] : 'Unknown';
+        
         document.getElementById("dateInput").value = today;
         document.getElementById("filterDate").value = today;
 
+        // 🔹 Logging function
+        function logAction(action, description, oldData = null, newData = null, pageName = 'Nhập hàng') {
+            const logEntry = {
+                timestamp: new Date(),
+                user: currentUser,
+                page: pageName,
+                action: action,
+                description: description,
+                oldData: oldData,
+                newData: newData,
+                id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+            };
+
+            // Save to Firebase
+            historyCollectionRef.add(logEntry)
+                .then(() => {
+                    console.log("Log entry saved successfully");
+                })
+                .catch((error) => {
+                    console.error("Error saving log entry: ", error);
+                });
+        }
+
+        // 🔹 Show floating alert
+        function showFloatingAlert(message) {
+            const alertBox = document.getElementById('floatingAlert');
+            alertBox.innerText = message;
+            alertBox.classList.add('show');
+
+            setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 3000);
+        }
+
+        // 🔹 Export to Excel function
+        function exportToExcel() {
+            if (currentProductData.length === 0) {
+                showFloatingAlert("Không có dữ liệu để xuất!");
+                return;
+            }
+
+            try {
+                // Prepare data for export
+                const exportData = currentProductData.map((item, index) => ({
+                    'STT': index + 1,
+                    'Tên sản phẩm': item.ten,
+                    'Số lượng': item.soLuong,
+                    'Giá tiền': item.gia,
+                    'Thành tiền': item.thanhTien,
+                    'Ngày nhập': item.ngay
+                }));
+
+                // Create workbook and worksheet
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.json_to_sheet(exportData);
+
+                // Set column widths
+                const wscols = [
+                    {wch: 5},   // STT
+                    {wch: 30},  // Tên sản phẩm
+                    {wch: 12},  // Số lượng
+                    {wch: 15},  // Giá tiền
+                    {wch: 15},  // Thành tiền
+                    {wch: 15}   // Ngày nhập
+                ];
+                ws['!cols'] = wscols;
+
+                // Add worksheet to workbook
+                XLSX.utils.book_append_sheet(wb, ws, "Nhập hàng");
+
+                // Generate filename with current date
+                const currentDate = new Date().toISOString().split('T')[0];
+                const filterDate = document.getElementById("filterDate").value;
+                const filename = filterDate ? 
+                    `NhapHang_${filterDate}.xlsx` : 
+                    `NhapHang_TatCa_${currentDate}.xlsx`;
+
+                // Write file
+                XLSX.writeFile(wb, filename);
+
+                // Log the export action
+                logAction('export', `Xuất dữ liệu nhập hàng ra Excel (${currentProductData.length} sản phẩm)`, null, {
+                    filename: filename,
+                    recordCount: currentProductData.length,
+                    filterDate: filterDate || 'Tất cả'
+                });
+
+                showFloatingAlert(`Đã xuất ${currentProductData.length} sản phẩm ra file ${filename}!`);
+            } catch (error) {
+                console.error("Error exporting to Excel:", error);
+                showFloatingAlert("Lỗi khi xuất file Excel!");
+            }
+        }
+
         // 🔹 Thêm nhiều sản phẩm (có kiểm tra trùng)
-        async function addProducts() {
+        function addProducts() {
             const inputText = document.getElementById("productInput").value.trim();
             const date = document.getElementById("dateInput").value;
 
             if (!inputText) {
-                alert("Vui lòng nhập dữ liệu!");
+                showFloatingAlert("Vui lòng nhập dữ liệu!");
                 return;
             }
 
@@ -193,11 +828,19 @@ Kéo bảng nhập liệu ở dưới góc phải"></textarea>
             }
 
             if (products.length === 0) {
-                alert("Không có dữ liệu hợp lệ!");
+                showFloatingAlert("Không có dữ liệu hợp lệ!");
                 return;
             }
 
             if (!confirm(`Xác nhận thêm ${products.length} sản phẩm vào ngày ${date}?`)) return;
+
+            processProducts(products);
+        }
+
+        // 🔹 Process products with duplicate checking
+        async function processProducts(products) {
+            let addedCount = 0;
+            let duplicateCount = 0;
 
             for (let p of products) {
                 // kiểm tra trùng (tên + ngày)
@@ -207,16 +850,28 @@ Kéo bảng nhập liệu ở dưới góc phải"></textarea>
                     .get();
 
                 if (!existing.empty) {
-                    alert(`❌ Lỗi: Sản phẩm "${p.ten}" đã tồn tại trong ngày ${p.ngay}, không thể thêm trùng!`);
+                    duplicateCount++;
+                    showFloatingAlert(`❌ Lỗi: Sản phẩm "${p.ten}" đã tồn tại trong ngày ${p.ngay}, không thể thêm trùng!`);
                 } else {
                     await db.collection("nhaphang").add({
                         ...p,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    addedCount++;
+
+                    // Log the add action
+                    logAction('add', `Thêm sản phẩm: ${p.ten}`, null, p);
                 }
             }
 
-            document.getElementById("productInput").value = "";
+            if (addedCount > 0) {
+                showFloatingAlert(`✅ Đã thêm ${addedCount} sản phẩm thành công!`);
+                document.getElementById("productInput").value = "";
+            }
+
+            if (duplicateCount > 0) {
+                showFloatingAlert(`⚠️ Có ${duplicateCount} sản phẩm bị trùng không thể thêm!`);
+            }
         }
 
         // 🔹 Lắng nghe và hiển thị dữ liệu
@@ -229,8 +884,12 @@ Kéo bảng nhập liệu ở dưới góc phải"></textarea>
             unsubscribe = query.onSnapshot(snapshot => {
                 const tbody = document.getElementById("productTable").querySelector("tbody");
                 tbody.innerHTML = "";
+                currentProductData = []; // Reset current data for export
+
                 snapshot.forEach(doc => {
                     const data = doc.data();
+                    currentProductData.push(data); // Store for export
+
                     let row = tbody.insertRow();
                     row.insertCell(0).textContent = data.ten;
                     row.insertCell(1).textContent = data.soLuong;
@@ -241,16 +900,22 @@ Kéo bảng nhập liệu ở dưới góc phải"></textarea>
                     let actionsCell = row.insertCell(5);
                     let btnDelete = document.createElement("button");
                     btnDelete.textContent = "Xoá";
-                    btnDelete.onclick = () => deleteProduct(doc.id);
+                    btnDelete.className = "btn-delete";
+                    btnDelete.onclick = () => deleteProduct(doc.id, data);
                     actionsCell.appendChild(btnDelete);
                 });
             });
         }
 
         // 🔹 Xoá 1 sản phẩm
-        async function deleteProduct(id) {
+        async function deleteProduct(id, productData) {
             if (confirm("Bạn có chắc muốn xoá sản phẩm này?")) {
                 await db.collection("nhaphang").doc(id).delete();
+                
+                // Log the delete action
+                logAction('delete', `Xóa sản phẩm: ${productData.ten}`, productData, null);
+                
+                showFloatingAlert("Đã xóa sản phẩm thành công!");
             }
         }
 
@@ -258,30 +923,100 @@ Kéo bảng nhập liệu ở dưới góc phải"></textarea>
         function applyFilter() {
             const date = document.getElementById("filterDate").value;
             listenProducts(date);
+            
+            // Log filter action
+            logAction('filter', `Lọc dữ liệu theo ngày: ${date || 'Tất cả'}`, null, { filterDate: date });
+            
+            showFloatingAlert(date ? `Đã lọc dữ liệu ngày ${date}` : "Hiển thị tất cả dữ liệu");
         }
 
         // 🔹 Xem tất cả
         function clearFilter() {
+            document.getElementById("filterDate").value = "";
             listenProducts(null);
+            showFloatingAlert("Hiển thị tất cả dữ liệu");
         }
 
         // 🔹 Xoá theo filter
         async function deleteByFilter() {
             const date = document.getElementById("filterDate").value;
             const isAll = !date;
+            
             if (!confirm(isAll ? "Xoá tất cả sản phẩm?" : `Xoá tất cả sản phẩm ngày ${date}?`)) return;
 
             let query = db.collection("nhaphang");
             if (!isAll) query = query.where("ngay", "==", date);
 
             const snapshot = await query.get();
+            const deleteCount = snapshot.size;
+            
+            if (deleteCount === 0) {
+                showFloatingAlert("Không có dữ liệu để xóa!");
+                return;
+            }
+
+            // Store data for logging before deletion
+            const deletedProducts = [];
+            snapshot.forEach(doc => {
+                deletedProducts.push(doc.data());
+            });
+
             let batch = db.batch();
             snapshot.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
+
+            // Log bulk delete action
+            logAction('delete', isAll ? 
+                `Xóa tất cả sản phẩm (${deleteCount} sản phẩm)` : 
+                `Xóa tất cả sản phẩm ngày ${date} (${deleteCount} sản phẩm)`,
+                { deletedProducts: deletedProducts, count: deleteCount },
+                null
+            );
+
+            showFloatingAlert(`Đã xóa ${deleteCount} sản phẩm thành công!`);
         }
 
-        // 🔹 Mặc định hiển thị hôm nay
-        listenProducts(today);
+        // 🔹 Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            const menuToggle = document.querySelector('.menu-toggle');
+            
+            const isOpen = sidebar.classList.contains('open');
+            
+            if (isOpen) {
+                // Đóng sidebar
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                menuToggle.classList.remove('active');
+                menuToggle.classList.remove('hidden');
+            } else {
+                // Mở sidebar
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                menuToggle.classList.add('active');
+                menuToggle.classList.add('hidden');
+            }
+        }
+
+        // 🔹 Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hiển thị tất cả dữ liệu thay vì chỉ hôm nay
+			listenProducts(null);
+			
+			// Nhưng vẫn set ngày hôm nay cho các input
+			document.getElementById("dateInput").value = today;
+			document.getElementById("filterDate").value = today;
+        });
+
+        // 🔹 Make functions globally available
+        window.addProducts = addProducts;
+        window.deleteProduct = deleteProduct;
+        window.applyFilter = applyFilter;
+        window.clearFilter = clearFilter;
+        window.deleteByFilter = deleteByFilter;
+        window.exportToExcel = exportToExcel;
+        window.toggleSidebar = toggleSidebar;
     </script>
 </body>
 
