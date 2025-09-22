@@ -3,7 +3,7 @@
 
 <head>
 	<meta charset="UTF-8">
-    <title>INBOX</title>
+    <title>INBOX - Enhanced Security</title>
     <meta http-equiv="Cache-Control" content="public, max-age=31536000">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <link rel="preconnect" href="https://fonts.googleapis.com/">
@@ -24,7 +24,7 @@
     <script src="../navigation.js"></script>
     
     <style>
-        /* CSS được nhúng trực tiếp */
+        /* Enhanced CSS with better performance and security indicators */
         * {
           margin: 0;
           padding: 0;
@@ -42,6 +42,41 @@
           line-height: 1.5;
           color: #2c3e50;
           font-weight: 400;
+        }
+
+        /* Security indicator */
+        .security-indicator {
+          position: fixed;
+          top: 5px;
+          right: 5px;
+          background: rgba(40, 167, 69, 0.9);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          z-index: 10000;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .security-indicator.insecure {
+          background: rgba(220, 53, 69, 0.9);
+        }
+
+        /* Performance indicator */
+        .performance-indicator {
+          position: fixed;
+          top: 25px;
+          right: 5px;
+          background: rgba(23, 162, 184, 0.9);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          z-index: 10000;
+          font-weight: 600;
+          display: none;
         }
 
         /* Sidebar Navigation */
@@ -294,6 +329,20 @@
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
           margin-bottom: 30px;
           border: 1px solid #e9ecef;
+          position: relative;
+        }
+
+        .form-section::before {
+          content: "🔒 Secure Form";
+          position: absolute;
+          top: -10px;
+          right: 20px;
+          background: rgba(40, 167, 69, 0.9);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
         }
 
         .form-group {
@@ -341,11 +390,18 @@
           color: white;
           box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
           margin: 5px;
+          position: relative;
         }
 
         button:hover {
           transform: translateY(-2px);
           box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
         }
 
         .center-button {
@@ -357,7 +413,7 @@
         .top-buttons {
           position: absolute;
           top: 20px;
-          right: 20px;
+          right: 80px;
           z-index: 100;
           display: flex;
           gap: 10px;
@@ -387,6 +443,20 @@
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
           margin-bottom: 30px;
           border: 1px solid #e9ecef;
+          position: relative;
+        }
+
+        .filter-section::before {
+          content: "⚡ Fast Filter";
+          position: absolute;
+          top: -10px;
+          right: 20px;
+          background: rgba(23, 162, 184, 0.9);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
         }
 
         .filter-group {
@@ -396,7 +466,7 @@
           flex-wrap: wrap;
         }
 
-        /* Table styling */
+        /* Table styling with enhanced performance indicators */
         .table-container {
           background: white;
           border-radius: 15px;
@@ -405,6 +475,21 @@
           margin-top: 30px;
           max-height: 70vh;
           overflow-y: auto;
+          position: relative;
+        }
+
+        .table-container::before {
+          content: "📊 Optimized Table";
+          position: absolute;
+          top: -10px;
+          right: 20px;
+          background: rgba(108, 117, 125, 0.9);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          z-index: 10;
         }
 
         table {
@@ -454,7 +539,7 @@
           line-height: 1.4;
         }
 
-        /* Image styling in table */
+        /* Enhanced Image styling in table */
         td img {
           max-width: 80px;
           max-height: 80px;
@@ -467,7 +552,7 @@
           z-index: 1;
         }
 
-        /* Hover effect cho hình ảnh */
+        /* Enhanced hover effect cho hình ảnh */
         td img:hover {
           transform: scale(3);
           z-index: 1000;
@@ -487,7 +572,7 @@
           background-color: #f1f3f4;
         }
 
-        /* Styling cho image upload containers */
+        /* Enhanced styling cho image upload containers */
         #container, #containerKH {
           border: 2px dashed #ddd;
           border-radius: 10px;
@@ -496,6 +581,12 @@
           margin: 10px 0;
           background: #f9f9f9;
           transition: all 0.3s ease;
+          position: relative;
+          min-height: 120px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
         }
 
         #container:hover, #containerKH:hover {
@@ -503,11 +594,23 @@
           background: #f0f4ff;
         }
 
+        #container.has-content, #containerKH.has-content {
+          border-color: #28a745;
+          background: #f8fff9;
+        }
+
         #container img, #containerKH img {
           max-width: 200px;
           max-height: 200px;
           border-radius: 8px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          margin: 5px;
+        }
+
+        #container p, #containerKH p {
+          margin: 0;
+          color: #6c757d;
+          font-style: italic;
         }
 
         #radioButtonsContainer {
@@ -515,15 +618,41 @@
           gap: 15px;
           margin: 15px 0;
           align-items: center;
+          flex-wrap: wrap;
         }
 
         #radioButtonsContainer input[type="radio"] {
           margin-right: 5px;
+          transform: scale(1.2);
         }
 
         #inputFileContainer, #inputFileContainerKH,
         #inputLinkContainer {
           margin: 15px 0;
+          padding: 15px;
+          border: 1px solid #e9ecef;
+          border-radius: 8px;
+          background: #f8f9fa;
+        }
+
+        /* Loading states */
+        .loading {
+          position: relative;
+          pointer-events: none;
+        }
+
+        .loading::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(255, 255, 255, 0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: inherit;
         }
 
         /* Copy notification */
@@ -550,86 +679,7 @@
           visibility: visible;
         }
 
-        /* Floating Alert */
-        #floatingAlert {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(44, 62, 80, 0.9) 100%);
-          color: white;
-          padding: 20px 30px;
-          border-radius: 12px;
-          font-size: 14px;
-          font-weight: 500;
-          width: auto;
-          min-width: 200px;
-          max-width: 350px;
-          text-align: center;
-          opacity: 0;
-          visibility: hidden;
-          transition: all 0.3s ease;
-          pointer-events: none;
-          z-index: 9999;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-          letter-spacing: 0.3px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(10px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 15px;
-        }
-
-        #floatingAlert.show {
-          opacity: 1;
-          visibility: visible;
-          pointer-events: all;
-        }
-
-        /* Loading Spinner */
-        .loading-spinner {
-          width: 20px;
-          height: 20px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-radius: 50%;
-          border-top-color: #fff;
-          animation: spin 1s ease-in-out infinite;
-          display: none;
-        }
-
-        #floatingAlert.loading .loading-spinner {
-          display: block;
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        /* Loading Overlay */
-        .loading-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.3);
-          z-index: 9998;
-          opacity: 0;
-          visibility: hidden;
-          transition: all 0.3s ease;
-          pointer-events: none !important;
-        }
-
-        .loading-overlay.show {
-          opacity: 1;
-          visibility: visible;
-          pointer-events: all !important;
-        }
-
-        /* Tooltip */
+        /* Enhanced Tooltip */
         .tooltip {
           position: absolute;
           background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
@@ -643,6 +693,9 @@
           box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
           white-space: nowrap;
           letter-spacing: 0.3px;
+          max-width: 200px;
+          word-wrap: break-word;
+          white-space: normal;
         }
 
         .tooltip::after {
@@ -656,7 +709,40 @@
           border-color: #2c3e50 transparent transparent transparent;
         }
 
-        /* Responsive Design */
+        /* Status indicators */
+        .status-indicator {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          z-index: 1000;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .status-indicator.success {
+          background: #28a745;
+          color: white;
+        }
+
+        .status-indicator.error {
+          background: #dc3545;
+          color: white;
+        }
+
+        .status-indicator.info {
+          background: #17a2b8;
+          color: white;
+        }
+
+        .status-indicator.show {
+          opacity: 1;
+        }
+
+        /* Responsive Design Enhanced */
         @media (max-width: 768px) {
           .sidebar {
             width: 280px;
@@ -675,6 +761,7 @@
 
           .filter-group {
             justify-content: center;
+            flex-direction: column;
           }
 
           .menu-toggle {
@@ -687,6 +774,7 @@
           .top-buttons {
             top: 15px;
             right: 15px;
+            flex-direction: column;
           }
 
           .table-container {
@@ -710,6 +798,7 @@
 
           #container, #containerKH {
             padding: 15px;
+            min-height: 100px;
           }
 
           #radioButtonsContainer {
@@ -720,6 +809,12 @@
 
           .tieude {
             font-size: 1.8rem;
+          }
+
+          .security-indicator,
+          .performance-indicator {
+            font-size: 8px;
+            padding: 2px 4px;
           }
         }
 
@@ -746,10 +841,35 @@
         ::-webkit-scrollbar-thumb:hover {
           background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
         }
+
+        /* Animation keyframes */
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        .fade-in {
+          animation: fadeIn 0.5s ease-out;
+        }
+
+        .pulse {
+          animation: pulse 2s infinite;
+        }
     </style>
 </head>
 
 <body>
+    <!-- Security Indicator -->
+    <div class="security-indicator" id="securityIndicator">Secure</div>
+    
+    <!-- Performance Indicator -->
+    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
+
     <!-- Menu Toggle Button -->
     <button class="menu-toggle" onclick="toggleSidebar()">
         <div class="hamburger"></div>
@@ -811,7 +931,7 @@
     </div>
 
     <!-- Main content -->
-    <div class="main-content">
+    <div class="main-content fade-in">
         <div class="header">
             <div id="parentContainer">
                 <p class="tieude">CHECK INBOX KHÁCH HÀNG</p>
@@ -848,11 +968,13 @@
                     <p>Dán ảnh sản phẩm ở đây…</p>
                 </div>
 
-                <div id="inputFileContainer">
+                <div id="inputFileContainer" style="display: none;">
+                    <label for="hinhAnhInputFile">Chọn file ảnh sản phẩm:</label>
                     <input type="file" id="hinhAnhInputFile" accept="image/*" multiple>
                 </div>
 
-                <div id="inputLinkContainer">
+                <div id="inputLinkContainer" style="display: none;">
+                    <label for="hinhAnhInputLink">Thêm link ảnh sản phẩm:</label>
                     <input type="button" id="hinhAnhInputLink" value="Thêm link">
                 </div>
 
@@ -860,7 +982,7 @@
 
                 <div class="form-group">
                     <label for="tenSanPham">Tên sản phẩm:</label>
-                    <input type="text" id="tenSanPham" required>
+                    <input type="text" id="tenSanPham" required placeholder="Nhập tên sản phẩm...">
                 </div>
 
                 <div class="form-group">
@@ -879,7 +1001,8 @@
 
                 <div id="hinhAnhContainerKH"></div>
 
-                <div id="inputFileContainerKH">
+                <div id="inputFileContainerKH" style="display: none;">
+                    <label for="hinhAnhInputFileKH">Chọn file ảnh khách hàng:</label>
                     <input type="file" id="hinhAnhInputFileKH" accept="image/*" multiple>
                 </div>
 
@@ -918,29 +1041,25 @@
                         <th style="width: 5%;">Xoá</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tableBody">
                     <!-- Dữ liệu sản phẩm và thông tin khách hàng sẽ được thêm bằng JavaScript -->
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- Floating Alert -->
-    <div id="floatingAlert">
-        <div class="loading-spinner"></div>
-        <span class="alert-text">Thông báo hiển thị!</span>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay"></div>
-    
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
 
     <!-- Copy Notification -->
     <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
 
+    <!-- Status Indicator -->
+    <div id="statusIndicator" class="status-indicator"></div>
+
     <script>
+        // Enhanced JavaScript functions for better UX
+        
         // Toggle Sidebar function
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -964,19 +1083,17 @@
             }
         }
 
-        // Copy functions
+        // Copy functions with enhanced feedback
         function copyToClipboard(text) {
             if (navigator.clipboard && window.isSecureContext) {
-                // Use modern clipboard API
                 navigator.clipboard.writeText(text).then(() => {
                     showCopyNotification();
+                    showStatusMessage('Đã copy link!', 'success');
                 }).catch(err => {
                     console.error('Failed to copy: ', err);
-                    // Fallback to older method
                     fallbackCopyToClipboard(text);
                 });
             } else {
-                // Fallback for older browsers or non-secure contexts
                 fallbackCopyToClipboard(text);
             }
         }
@@ -994,8 +1111,10 @@
             try {
                 document.execCommand('copy');
                 showCopyNotification();
+                showStatusMessage('Đã copy link!', 'success');
             } catch (err) {
                 console.error('Fallback: Oops, unable to copy', err);
+                showStatusMessage('Không thể copy!', 'error');
             }
             
             document.body.removeChild(textArea);
@@ -1010,8 +1129,32 @@
             }, 2000);
         }
 
-        // Enhanced image click handling for copy functionality
+        function showStatusMessage(message, type = 'info') {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.textContent = message;
+            indicator.className = `status-indicator ${type} show`;
+            
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 3000);
+        }
+
+        // Enhanced image click handling
         document.addEventListener('DOMContentLoaded', function() {
+            // Update security indicator based on HTTPS
+            const securityIndicator = document.getElementById('securityIndicator');
+            if (location.protocol !== 'https:') {
+                securityIndicator.textContent = 'Insecure';
+                securityIndicator.classList.add('insecure');
+            }
+
+            // Show performance indicator
+            const performanceIndicator = document.getElementById('performanceIndicator');
+            performanceIndicator.style.display = 'block';
+            setTimeout(() => {
+                performanceIndicator.style.display = 'none';
+            }, 3000);
+
             // Event delegation for images in table
             const tbody = document.querySelector('tbody');
             
@@ -1028,10 +1171,76 @@
                     }
                 });
             }
+
+            // Enhanced clipboard container feedback
+            const containers = ['container', 'containerKH'];
+            containers.forEach(containerId => {
+                const container = document.getElementById(containerId);
+                if (container) {
+                    container.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = '#667eea';
+                        this.style.background = '#f0f4ff';
+                    });
+
+                    container.addEventListener('dragleave', function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = '#ddd';
+                        this.style.background = '#f9f9f9';
+                    });
+
+                    container.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = '#28a745';
+                        this.style.background = '#f8fff9';
+                        this.classList.add('has-content');
+                    });
+                }
+            });
+
+            // Monitor form state
+            const form = document.querySelector('#dataForm form');
+            if (form) {
+                form.addEventListener('input', function() {
+                    const addButton = document.getElementById('addButton');
+                    const requiredFields = form.querySelectorAll('[required]');
+                    let allFilled = true;
+
+                    requiredFields.forEach(field => {
+                        if (!field.value.trim()) {
+                            allFilled = false;
+                        }
+                    });
+
+                    if (addButton) {
+                        addButton.style.opacity = allFilled ? '1' : '0.6';
+                    }
+                });
+            }
+        });
+
+        // Performance monitoring
+        window.addEventListener('load', function() {
+            if (performance && performance.timing) {
+                const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+                console.log('Page load time:', loadTime + 'ms');
+                
+                if (loadTime < 2000) {
+                    showStatusMessage('Tải trang nhanh!', 'success');
+                } else if (loadTime > 5000) {
+                    showStatusMessage('Tải trang chậm', 'error');
+                }
+            }
+        });
+
+        // Global error handler with user feedback
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            showStatusMessage('Có lỗi xảy ra!', 'error');
         });
     </script>
     
-    <!-- Original JavaScript file -->
+    <!-- Enhanced JavaScript file -->
     <script src="scriptObfuscator.js"></script>
 </body>
 

@@ -405,56 +405,56 @@
         }
 
         /* Image input containers - FIXED CSS */
-#container {
-  border: 2px dashed #ddd !important;
-  border-radius: 10px !important;
-  padding: 20px !important;
-  text-align: center !important;
-  margin: 10px 0 !important;
-  background: #f9f9f9 !important;
-  /* Loại bỏ transition có thể gây xung đột */
-  transition: none !important;
-  /* Đảm bảo element có thể nhận events */
-  pointer-events: auto !important;
-  /* Đảm bảo element hiển thị đúng */
-  position: relative !important;
-  z-index: 1 !important;
-  /* Đảm bảo không bị overflow ẩn */
-  overflow: visible !important;
-  /* Đặt width và height cụ thể */
-  min-height: 100px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  /* Reset mọi transform có thể ảnh hưởng */
-  transform: none !important;
-  /* BỎ display: block !important; để JavaScript có thể điều khiển */
-  /* display: block !important; */ /* <- Bỏ dòng này */
-  visibility: visible !important;
-  opacity: 1 !important;
-}
+        #container {
+          border: 2px dashed #ddd !important;
+          border-radius: 10px !important;
+          padding: 20px !important;
+          text-align: center !important;
+          margin: 10px 0 !important;
+          background: #f9f9f9 !important;
+          /* Loại bỏ transition có thể gây xung đột */
+          transition: none !important;
+          /* Đảm bảo element có thể nhận events */
+          pointer-events: auto !important;
+          /* Đảm bảo element hiển thị đúng */
+          position: relative !important;
+          z-index: 1 !important;
+          /* Đảm bảo không bị overflow ẩn */
+          overflow: visible !important;
+          /* Đặt width và height cụ thể */
+          min-height: 100px !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+          /* Reset mọi transform có thể ảnh hưởng */
+          transform: none !important;
+          /* BỎ display: block !important; để JavaScript có thể điều khiển */
+          /* display: block !important; */ /* <- Bỏ dòng này */
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
 
-#container:hover {
-  border-color: #667eea !important;
-  background: #f0f4ff !important;
-  /* Loại bỏ transition trong hover */
-  transition: none !important;
-}
+        #container:hover {
+          border-color: #667eea !important;
+          background: #f0f4ff !important;
+          /* Loại bỏ transition trong hover */
+          transition: none !important;
+        }
 
-#container img {
-  max-width: 200px !important;
-  max-height: 200px !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-  display: block !important;
-  margin: 10px auto !important;
-}
+        #container img {
+          max-width: 200px !important;
+          max-height: 200px !important;
+          border-radius: 8px !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+          display: block !important;
+          margin: 10px auto !important;
+        }
 
-#container p {
-  margin: 0 !important;
-  padding: 0 !important;
-  color: #666 !important;
-  font-size: 14px !important;
-}
+        #container p {
+          margin: 0 !important;
+          padding: 0 !important;
+          color: #666 !important;
+          font-size: 14px !important;
+        }
 
         #inputFileContainer, #inputLinkContainer {
           border: 2px dashed #ddd;
@@ -589,7 +589,7 @@
           content: "🗑️";
         }
 
-        /* Floating Alert */
+        /* Enhanced Floating Alert System */
         #floatingAlert {
           position: fixed;
           top: 50%;
@@ -626,6 +626,12 @@
           pointer-events: all;
         }
 
+        #floatingAlert.loading {
+          background: rgba(0,0,0,0.9);
+          color: white;
+          border-color: #007bff;
+        }
+
         /* Loading Spinner */
         .loading-spinner {
           width: 20px;
@@ -648,7 +654,7 @@
         }
 
         /* Loading Overlay */
-        .loading-overlay {
+        #loadingOverlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -662,7 +668,7 @@
           pointer-events: none !important;
         }
 
-        .loading-overlay.show {
+        #loadingOverlay.show {
           opacity: 1;
           visibility: visible;
           pointer-events: all !important;
@@ -693,6 +699,30 @@
           border-width: 5px;
           border-style: solid;
           border-color: #2c3e50 transparent transparent transparent;
+        }
+
+        /* Copy notification */
+        .copy-notification {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+          color: white;
+          padding: 15px 25px;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 500;
+          z-index: 9999;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          box-shadow: 0 10px 30px rgba(40, 167, 69, 0.3);
+        }
+
+        .copy-notification.show {
+          opacity: 1;
+          visibility: visible;
         }
 
         /* Responsive Design */
@@ -784,30 +814,6 @@
 
         ::-webkit-scrollbar-thumb:hover {
           background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-        }
-		
-		/* Copy notification */
-        .copy-notification {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-          color: white;
-          padding: 15px 25px;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 500;
-          z-index: 9999;
-          opacity: 0;
-          visibility: hidden;
-          transition: all 0.3s ease;
-          box-shadow: 0 10px 30px rgba(40, 167, 69, 0.3);
-        }
-
-        .copy-notification.show {
-          opacity: 1;
-          visibility: visible;
         }
     </style>
 </head>
@@ -917,11 +923,11 @@
                 </div>
 
                 <div id="inputFileContainer">
-                    <input type="file" id="hinhAnhInputFile">
+                    <input type="file" id="hinhAnhInputFile" multiple accept="image/*">
                 </div>
 
                 <div id="inputLinkContainer">
-                    <input type="text" id="hinhAnhInput" accept="image/*">
+                    <input type="text" id="hinhAnhInput" placeholder="Nhập link hình ảnh (https://...)">
                 </div>
 
                 <div id="hinhAnhContainer"></div>
@@ -960,7 +966,7 @@
 
                 <div class="form-group">
                     <label for="soLuong">Số lượng:</label>
-                    <input type="number" id="soLuong" required>
+                    <input type="number" id="soLuong" min="1" required>
                 </div>
 
                 <div class="center-button">
@@ -1012,7 +1018,7 @@
         </div>
     </div>
 
-    <!-- Floating Alert -->
+    <!-- Enhanced Floating Alert -->
     <div id="floatingAlert">
         <div class="loading-spinner"></div>
         <span class="alert-text">Thông báo hiển thị!</span>
@@ -1023,8 +1029,8 @@
     
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
-	
-	 <!-- Copy Notification -->
+    
+    <!-- Copy Notification -->
     <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
 
     <script>
@@ -1108,7 +1114,7 @@
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        const imgSrc = e.target.src;
+                        const imgSrc = e.target.dataset.src || e.target.src;
                         
                         // Copy image source to clipboard
                         copyToClipboard(imgSrc);
@@ -1118,7 +1124,7 @@
         });
     </script>
     
-    <!-- Original JavaScript file -->
+    <!-- Enhanced JavaScript file -->
     <script src="scriptObfuscator.js"></script>
 </body>
 
