@@ -71,11 +71,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize login system
     function initializeLogin() {
         // Check if already logged in
-        if (isAlreadyLoggedIn()) {
-            console.log('User already logged in, redirecting...');
-            redirectToMainApp();
-            return;
-        }
+        //if (isAlreadyLoggedIn()) {
+        //    console.log('User already logged in, redirecting...');
+        //    redirectToMainApp();
+        //    return;
+        //}
 
         // Set up event listeners
         setupEventListeners();
