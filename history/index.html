@@ -480,6 +480,51 @@
           color: #0c5460;
         }
 
+        /* Change indicator styles - updated for compact display */
+        .change-indicator {
+          background: #f8f9fa;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+          margin: 1px 0;
+          border-left: 2px solid #6c757d;
+          display: inline-block;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .change-added {
+          background: #d4edda;
+          color: #155724;
+          border-left-color: #28a745;
+        }
+
+        .change-removed {
+          background: #f8d7da;
+          color: #721c24;
+          border-left-color: #dc3545;
+        }
+
+        .change-modified {
+          background: #fff3cd;
+          color: #856404;
+          border-left-color: #ffc107;
+        }
+
+        .deleted-indicator {
+          background: #f8d7da;
+          color: #721c24;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-weight: 600;
+          text-align: center;
+          border: 1px solid #f5c6cb;
+          font-size: 11px;
+          display: inline-block;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
           .main-content {
@@ -1060,8 +1105,8 @@
                 <td><span class="page-badge">${data.page || 'Không xác định'}</span></td>
                 <td><span class="action-badge action-${data.action}">${getActionText(data.action)}</span></td>
                 <td>${data.description}</td>
-                <td>${renderSummary(data.oldData)}</td>
-                <td>${renderSummary(data.newData)}</td>
+                <td>${renderDataCell(data.oldData, data.action, 'old', data.oldData, data.newData)}</td>
+                <td>${renderDataCell(data.newData, data.action, 'new', data.oldData, data.newData)}</td>
             `;
             
             // Add click event to show detail modal
@@ -1072,61 +1117,215 @@
             tbody.appendChild(tr);
         }
 
+        // Enhanced render function for data cells based on action type
+        function renderDataCell(data, action, cellType, oldData = null, newData = null) {
+            // Check if this is a mark/unmark action (no data needed)
+            if (isMarkAction(action)) {
+                return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
+            }
+            
+            if (action === 'delete') {
+                if (cellType === 'old') {
+                    // For delete actions, old data shows "-"
+                    return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
+                } else {
+                    // For delete actions, new data shows "Đã Xóa"
+                    return `<span class="deleted-indicator" style="font-size:11px; padding:4px 8px;">Đã Xóa</span>`;
+                }
+            } else if (action === 'edit' || action === 'update') {
+                // For edit/update actions, show only changed fields
+                return renderChangedFields(oldData, newData, cellType);
+            } else if (action === 'add') {
+                if (cellType === 'old') {
+                    // For add actions, old data shows "-"
+                    return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
+                } else {
+                    // For add actions, new data shows "Tạo Mới"
+                    return `<span class="added-indicator" style="font-size:11px; padding:4px 8px; background:#d4edda; color:#155724; border-radius:4px; display:inline-block; border:1px solid #c3e6cb;">Tạo Mới</span>`;
+                }
+            }
+            
+            // Fallback to compact summary
+            return renderCompactSummary(data, 'normal');
+        }
+
+        // Function to render only changed fields by comparing old and new data
+        function renderChangedFields(oldData, newData, cellType) {
+            if (!oldData || !newData) return '-';
+            
+            const changedFields = {};
+            const allKeys = new Set([...Object.keys(oldData), ...Object.keys(newData)]);
+            
+            // Find changed fields
+            allKeys.forEach(key => {
+                const oldValue = oldData[key];
+                const newValue = newData[key];
+                
+                if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+                    if (cellType === 'old') {
+                        changedFields[key] = oldValue;
+                    } else {
+                        changedFields[key] = newValue;
+                    }
+                }
+            });
+            
+            // If no changes found, return dash
+            if (Object.keys(changedFields).length === 0) {
+                return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
+            }
+            
+            // Render changed fields compactly
+            return renderCompactChangedFields(changedFields, cellType);
+        }
+
+        // Function to render changed fields in a compact format
+        function renderCompactChangedFields(changedFields, cellType) {
+            const keys = Object.keys(changedFields);
+            if (keys.length === 0) return '-';
+            
+            let html = '<div style="font-size:11px;">';
+            let fieldsShown = 0;
+            const maxFields = 2; // Show max 2 fields to keep compact
+            
+            keys.forEach(key => {
+                if (fieldsShown >= maxFields) return;
+                
+                let value = changedFields[key];
+                let displayValue = '';
+                
+                if (value === null || value === undefined) {
+                    displayValue = cellType === 'old' ? 'Có giá trị' : 'Đã xóa';
+                } else if (typeof value === 'string') {
+                    displayValue = value.length > 20 ? value.substring(0, 20) + '...' : value;
+                } else if (typeof value === 'object') {
+                    displayValue = JSON.stringify(value).substring(0, 20) + '...';
+                } else {
+                    displayValue = String(value);
+                }
+                
+                const className = cellType === 'old' ? 'change-removed' : 'change-added';
+                html += `<div class="${className}" style="margin:1px 0; padding:2px 4px; font-size:10px; border-radius:3px;">
+                            <strong>${key}:</strong> ${displayValue}
+                         </div>`;
+                fieldsShown++;
+            });
+            
+            if (keys.length > maxFields) {
+                html += `<div style="color:#6c757d; font-size:10px;">+${keys.length - maxFields} thay đổi khác</div>`;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        // Check if action is mark/unmark type
+        function isMarkAction(action) {
+            const markActions = ['mark', 'unmark', 'check', 'uncheck', 'toggle', 'flag', 'unflag'];
+            return markActions.includes(action.toLowerCase());
+        }
+
+        // Function to render compact summary that doesn't expand table height
+        function renderCompactSummary(data, type) {
+            if (!data || typeof data !== "object") return "-";
+
+            // For images, show small preview
+            if (data.image || data.img || data.hinh) {
+                let imgUrl = data.image || data.img || data.hinh;
+                return `<img src="${imgUrl}" alt="Img" style="max-width:40px; max-height:40px; border-radius:4px;">`;
+            }
+
+            // Priority fields to show
+            const priorityFields = ['tenSanPham', 'name', 'title', 'dotLive', 'soLuong', 'quantity'];
+            let displayText = '';
+            
+            // Find the most important field to display
+            for (let field of priorityFields) {
+                if (data[field]) {
+                    displayText = String(data[field]);
+                    if (displayText.length > 25) {
+                        displayText = displayText.substring(0, 25) + '...';
+                    }
+                    break;
+                }
+            }
+            
+            // If no priority field found, use first available field
+            if (!displayText) {
+                const keys = Object.keys(data);
+                if (keys.length > 0) {
+                    displayText = String(data[keys[0]]);
+                    if (displayText.length > 25) {
+                        displayText = displayText.substring(0, 25) + '...';
+                    }
+                }
+            }
+            
+            // Apply styling based on type
+            let className = '';
+            if (type === 'deleted') className = 'change-removed';
+            else if (type === 'added') className = 'change-added';
+            else if (type === 'changed') className = 'change-modified';
+            
+            return `<span class="${className}" style="font-size:11px; padding:2px 6px; border-radius:4px; display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${JSON.stringify(data).replace(/"/g, '&quot;')}">${displayText || 'Dữ liệu'}</span>`;
+        }
         
-// Render object thành bảng key-value
-function renderObjectAsTable(obj) {
-    if (!obj || typeof obj !== "object") return "<i>Không có dữ liệu</i>";
-    let html = "<table style='width:100%; border-collapse:collapse; font-size:13px;'>";
-    html += "<tr><th style='border:1px solid #ddd; padding:6px;'>Trường</th><th style='border:1px solid #ddd; padding:6px;'>Giá trị</th></tr>";
-    for (let key in obj) {
-        html += `<tr>
-                    <td style='border:1px solid #ddd; padding:6px; font-weight:600;'>${key}</td>
-                    <td style='border:1px solid #ddd; padding:6px;'>${JSON.stringify(obj[key])}</td>
-                 </tr>`;
-    }
-    html += "</table>";
-    return html;
-}
+        // Render object thành bảng key-value
+        function renderObjectAsTable(obj) {
+            if (!obj || typeof obj !== "object") return "<i>Không có dữ liệu</i>";
+            let html = "<table style='width:100%; border-collapse:collapse; font-size:13px;'>";
+            html += "<tr><th style='border:1px solid #ddd; padding:6px;'>Trường</th><th style='border:1px solid #ddd; padding:6px;'>Giá trị</th></tr>";
+            for (let key in obj) {
+                html += `<tr>
+                            <td style='border:1px solid #ddd; padding:6px; font-weight:600;'>${key}</td>
+                            <td style='border:1px solid #ddd; padding:6px;'>${JSON.stringify(obj[key])}</td>
+                         </tr>`;
+            }
+            html += "</table>";
+            return html;
+        }
 
-        
-// Render dữ liệu chủ đạo cho bảng chính
-function renderSummary(data) {
-    if (!data || typeof data !== "object") return "-";
+        // Render dữ liệu chủ đạo cho bảng chính
+        function renderSummary(data) {
+            if (!data || typeof data !== "object") return "-";
 
-    // Nếu có trường hình ảnh
-    if (data.image || data.img || data.hinh) {
-        let imgUrl = data.image || data.img || data.hinh;
-        return `<div style="text-align:center; vertical-align:middle;">
-                    <img src="${imgUrl}" alt="Hình ảnh" style="max-width:50px; max-height:50px; border-radius:5px;">
-                </div>`;
-    }
+            // Nếu có trường hình ảnh
+            if (data.image || data.img || data.hinh) {
+                let imgUrl = data.image || data.img || data.hinh;
+                return `<div style="text-align:center; vertical-align:middle;">
+                            <img src="${imgUrl}" alt="Hình ảnh" style="max-width:50px; max-height:50px; border-radius:5px;">
+                        </div>`;
+            }
 
-    // Nếu có tên sản phẩm và đợt live
-    let ten = data.tenSanPham || data.name || data.title || "";
-    let dot = data.dotLive || data.liveBatch || data.dot || "";
-    if (ten || dot) {
-        return `<div style="text-align:center; vertical-align:middle;">
-                    ${ten ? `<div><b>${ten}</b></div>` : ""}
-                    ${dot ? `<div>Đợt: ${dot}</div>` : ""}
-                </div>`;
-    }
-	if (data.soLuong || data.quantity) {
-        return `<div style="text-align:center; vertical-align:middle;">
-                    Số lượng: ${data.soLuong || data.quantity}
-                </div>`;
-    }
+            // Nếu có tên sản phẩm và đợt live
+            let ten = data.tenSanPham || data.name || data.title || "";
+            let dot = data.dotLive || data.liveBatch || data.dot || "";
+            if (ten || dot) {
+                return `<div style="text-align:center; vertical-align:middle;">
+                            ${ten ? `<div><b>${ten}</b></div>` : ""}
+                            ${dot ? `<div>Đợt: ${dot}</div>` : ""}
+                        </div>`;
+            }
+            
+            if (data.soLuong || data.quantity) {
+                return `<div style="text-align:center; vertical-align:middle;">
+                            Số lượng: ${data.soLuong || data.quantity}
+                        </div>`;
+            }
 
-    // fallback: JSON rút gọn
-    return `<div style="text-align:center; vertical-align:middle;">
-                ${JSON.stringify(data).substring(0, 50)}...
-            </div>`;
-}
-
+            // fallback: JSON rút gọn
+            return `<div style="text-align:center; vertical-align:middle;">
+                        ${JSON.stringify(data).substring(0, 50)}...
+                    </div>`;
+        }
 
         // Show detail modal
         function showDetailModal(data) {
             const modal = document.getElementById('detailModal');
             const modalContent = document.getElementById('modalDetailContent');
+            
+            // Check if this is a mark/unmark action
+            const isMarkActionType = isMarkAction(data.action);
             
             modalContent.innerHTML = `
                 <h3>Chi tiết thay đổi</h3>
@@ -1138,6 +1337,7 @@ function renderSummary(data) {
                     <p><strong>Mô tả:</strong> ${data.description}</p>
                 </div>
                 
+                ${!isMarkActionType ? `
                 <div class="detail-section">
                     <h4>Dữ liệu trước khi thay đổi:</h4>
                     ${renderObjectAsTable(data.oldData)}
@@ -1145,20 +1345,30 @@ function renderSummary(data) {
                 
                 <div class="detail-section">
                     <h4>Dữ liệu sau khi thay đổi:</h4>
-                    ${renderObjectAsTable(data.newData)}
+                    ${data.action === 'delete' ? '<div class="deleted-indicator" style="padding:12px; font-size:14px;">Đã Xóa</div>' : renderObjectAsTable(data.newData)}
                 </div>
                 
                 <div class="detail-section">
                     <h4>Thay đổi cụ thể:</h4>
-                    <div id="changesDiff">${generateChangeDiff(data.oldData, data.newData)}</div>
+                    <div id="changesDiff">${generateChangeDiff(data.oldData, data.newData, data.action)}</div>
                 </div>
+                ` : `
+                <div class="detail-section">
+                    <h4>Thông tin:</h4>
+                    <p style="color:#667eea; font-style:italic;">Đây là hành động đánh dấu/bỏ đánh dấu, không có dữ liệu thay đổi cụ thể.</p>
+                </div>
+                `}
             `;
             
             modal.classList.add('show');
         }
 
-        // Generate change diff
-        function generateChangeDiff(oldData, newData) {
+        // Generate change diff with action-specific handling
+        function generateChangeDiff(oldData, newData, action) {
+            if (action === 'delete') {
+                return '<span class="removed">- Xóa toàn bộ dữ liệu</span>';
+            }
+            
             if (!oldData && !newData) return 'Không có thay đổi';
             if (!oldData) return '<span class="added">+ Tạo mới toàn bộ dữ liệu</span>';
             if (!newData) return '<span class="removed">- Xóa toàn bộ dữ liệu</span>';
@@ -1192,15 +1402,22 @@ function renderSummary(data) {
             modal.classList.remove('show');
         }
 
-        // Get action text in Vietnamese
+        // Get action text in Vietnamese with mark actions
         function getActionText(action) {
             const actionMap = {
                 'add': 'Thêm',
                 'edit': 'Sửa',
                 'delete': 'Xóa',
-                'update': 'Cập nhật'
+                'update': 'Cập nhật',
+                'mark': 'Đánh dấu',
+                'unmark': 'Bỏ đánh dấu',
+                'check': 'Đánh dấu',
+                'uncheck': 'Bỏ đánh dấu',
+                'toggle': 'Chuyển đổi',
+                'flag': 'Gắn cờ',
+                'unflag': 'Bỏ cờ'
             };
-            return actionMap[action] || action;
+            return actionMap[action.toLowerCase()] || action;
         }
 
         // Update user filter dropdown
@@ -1354,12 +1571,6 @@ function renderSummary(data) {
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             loadHistoryData();
-            
-            // Don't set default date range - let users see all data initially
-            // const today = new Date();
-            // const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
-            // endDate.value = today.toISOString().split('T')[0];
-            // startDate.value = thirtyDaysAgo.toISOString().split('T')[0];
         });
 
         document.getElementById('refreshButton').addEventListener('click', refreshData);
