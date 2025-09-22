@@ -701,9 +701,18 @@ Kéo bảng nhập liệu ở dưới góc phải"></textarea>
         let currentProductData = []; // Store current displayed data for export
         const today = new Date().toISOString().split("T")[0];
         
-        // User info for logging
-        const userType = localStorage.getItem('userType');
-        const currentUser = userType ? userType.split('-')[0] : 'Unknown';
+        // Check both localStorage and sessionStorage for login status
+		var isLoggedIn = localStorage.getItem('isLoggedIn') || sessionStorage.getItem('isLoggedIn') || 'false';
+		const userType = localStorage.getItem('userType') || sessionStorage.getItem('userType') || null;
+		const checkLogin = localStorage.getItem('checkLogin') || sessionStorage.getItem('checkLogin');
+
+		if (isLoggedIn === 'true') {
+			
+		} else {
+			// Comment out redirect for development/testing
+			window.location.href = '../index.html';
+			console.log('User not logged in - redirect to index.html disabled for development');
+		}
         
         document.getElementById("dateInput").value = today;
         document.getElementById("filterDate").value = today;

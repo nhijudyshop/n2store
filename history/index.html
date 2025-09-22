@@ -936,20 +936,22 @@
         let allHistoryData = [];
         let filteredData = [];
 
-        // User authentication
-        var isLoggedIn = localStorage.getItem('isLoggedIn');
-        const userType = localStorage.getItem('userType');
-        const checkLogin = localStorage.getItem('checkLogin');
+        // Check both localStorage and sessionStorage for login status
+		var isLoggedIn = localStorage.getItem('isLoggedIn') || sessionStorage.getItem('isLoggedIn') || 'false';
+		const userType = localStorage.getItem('userType') || sessionStorage.getItem('userType') || null;
+		const checkLogin = localStorage.getItem('checkLogin') || sessionStorage.getItem('checkLogin');
 
-        if (isLoggedIn === 'true') {
-            document.querySelector('.tieude').innerText += ' - Tài khoản ' + userType.split('-')[0];
-            const parentContainer = document.getElementById('parentContainer');
-            parentContainer.style.display = 'flex';
-            parentContainer.style.justifyContent = 'center';
-            parentContainer.style.alignItems = 'center';
-        } else {
-            window.location.href = '../index.html';
-        }
+		if (isLoggedIn === 'true') {
+			document.querySelector('.tieude').innerText += ' - ' + userType.split('-')[0];
+			const parentContainer = document.getElementById('parentContainer');
+			parentContainer.style.display = 'flex';
+			parentContainer.style.justifyContent = 'center';
+			parentContainer.style.alignItems = 'center';
+		} else {
+			// Comment out redirect for development/testing
+			window.location.href = '../index.html';
+			console.log('User not logged in - redirect to index.html disabled for development');
+		}
 
         // Kiểm tra quyền truy cập trang lịch sử
         if (checkLogin != 0) {
