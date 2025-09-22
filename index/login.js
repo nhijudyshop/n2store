@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Authentication storage key (matches the main app)
-    const AUTH_STORAGE_KEY = 'moneyTransfer_auth';
+    const AUTH_STORAGE_KEY = 'loginindex_auth';
 
     // User credentials (in production, use proper authentication system)
     // Passwords should be hashed and validated server-side
