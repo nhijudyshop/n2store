@@ -13,10 +13,10 @@ const MENU_CONFIG = [
         pageIdentifier: 'live'
     },
 	{ 
-        href: '../baocaolive/index.html', 
+        href: '../livestream/index.html', 
         icon: '📺', 
         text: 'BÁO CÁO LIVESTREAM',
-        pageIdentifier: 'baocaolive'
+        pageIdentifier: 'livestream'
     },
     { 
         href: '../hangrotxa/index.html', 
