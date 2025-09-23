@@ -560,7 +560,8 @@
           border: 1px solid rgba(255, 255, 255, 0.1);
           backdrop-filter: blur(10px);
         }
-
+		
+		<!-- 
         /* Tooltip */
         .tooltip {
           position: absolute;
@@ -587,6 +588,7 @@
           border-style: solid;
           border-color: #2c3e50 transparent transparent transparent;
         }
+		-->
 
         /* Filter System Styles */
         .filter-system {
@@ -950,7 +952,7 @@
                 
                 <div class="form-group">
                     <label for="mauLive">Mẫu live:</label>
-                    <textarea id="mauLive" placeholder="Mô tả mẫu sản phẩm livestream..." required></textarea>
+                    <textarea id="mauLive" placeholder="VD: 20 mẫu" required></textarea>
                 </div>
                 
                 <div class="form-group">
@@ -965,12 +967,12 @@
                 
                 <div class="form-group">
                     <label for="soMonLive">Số món trên live:</label>
-                    <input type="text" id="soMonLive" placeholder="VD: 50 món hoặc nhiều sản phẩm">
+                    <input type="text" id="soMonLive" placeholder="VD: 50 món">
                 </div>
                 
                 <div class="form-group">
                     <label for="soMonInbox">Số món inbox:</label>
-                    <input type="text" id="soMonInbox" placeholder="VD: 30 đơn hoặc ít đơn">
+                    <input type="text" id="soMonInbox" placeholder="VD: 30 đơn">
                 </div>
                 
                 <div class="center-button">
@@ -1029,9 +1031,22 @@
                 <input type="text" id="editTienQC">
             </div>
             <div class="form-group">
-                <label for="editThoiGian">Thời gian:</label>
-                <input type="text" id="editThoiGian">
-            </div>
+			  <label for="editTimeInputs">Thời gian:</label>
+			  <div id="thoiGianContainer" style="display: flex; flex-direction: column; gap: 8px;">
+				<div style="display:flex; gap:5px; align-items:center;">
+				  <span style="width:40px;">Từ</span>
+				  <input type="number" id="editHh1" min="0" max="23" placeholder="HH" style="width:55px;">
+				  :
+				  <input type="number" id="editMm1" min="0" max="59" placeholder="MM" style="width:55px;">
+				</div>
+				<div style="display:flex; gap:5px; align-items:center;">
+				  <span style="width:40px;">Đến</span>
+				  <input type="number" id="editHh2" min="0" max="23" placeholder="HH" style="width:55px;">
+				  :
+				  <input type="number" id="editMm2" min="0" max="59" placeholder="MM" style="width:55px;">
+				</div>
+			  </div>
+			</div>
             <div class="form-group">
                 <label for="editSoMonLive">Số món trên live:</label>
                 <input type="text" id="editSoMonLive">
@@ -1040,7 +1055,7 @@
                 <label for="editSoMonInbox">Số món inbox:</label>
                 <input type="text" id="editSoMonInbox">
             </div>
-            <button onclick="saveChanges()">Lưu</button>
+            <button onclick="saveUpdatedChanges()">Lưu</button>
         </div>
     </div>
 

@@ -168,54 +168,171 @@ function showEditHistoryTooltip(event, editHistory, row) {
     tooltip.id = 'editHistoryTooltip';
     tooltip.className = 'edit-history-tooltip';
     
-    let historyContent = '<div class="tooltip-header">📝 Lịch sử chỉnh sửa</div>';
+    // Get main table and measure column widths
+    const mainTable = document.querySelector('#tableBody').closest('table');
+    const mainTableRect = mainTable.getBoundingClientRect();
+    
+    // Get actual column widths from the main table header
+    const mainTableHeaders = mainTable.querySelectorAll('thead th');
+    const columnWidths = [];
+    
+    // Measure each column width from the main table
+    for (let i = 0; i < mainTableHeaders.length; i++) {
+        const headerRect = mainTableHeaders[i].getBoundingClientRect();
+        columnWidths.push(headerRect.width);
+    }
+    
+    // If no headers found, get from first row cells
+    if (columnWidths.length === 0) {
+        const firstRowCells = mainTable.querySelectorAll('tbody tr:first-child td');
+        for (let i = 0; i < firstRowCells.length; i++) {
+            const cellRect = firstRowCells[i].getBoundingClientRect();
+            columnWidths.push(cellRect.width);
+        }
+    }
+    
+    // Calculate width for action columns (edit + delete columns combined)
+    const actionColumnsWidth = (columnWidths[6] || 50) + (columnWidths[7] || 50);
+    const singleActionColumnWidth = actionColumnsWidth / 3; // Divide by 3 for our 3 new columns
     
     // Sort edit history by timestamp (newest first)
     const sortedHistory = [...editHistory].sort((a, b) => 
         new Date(b.timestamp) - new Date(a.timestamp)
     );
     
+    // Build tooltip content as table with exact column widths
+    let tooltipContent = `
+        <div class="tooltip-header">Lịch sử chỉnh sửa</div>
+        <div class="tooltip-table-container">
+            <table class="history-table">
+                <thead>
+                    <tr class="history-header-row">
+                        <th style="width: ${columnWidths[0] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Ngày</th>
+                        <th style="width: ${columnWidths[1] || 200}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Mẫu live</th>
+                        <th style="width: ${columnWidths[2] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Tiền QC</th>
+                        <th style="width: ${columnWidths[3] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Thời gian</th>
+                        <th style="width: ${columnWidths[4] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Số món live</th>
+                        <th style="width: ${columnWidths[5] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Số món inbox</th>
+                        <th style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Lần sửa</th>
+                        <th style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Người sửa</th>
+                        <th style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Thời điểm sửa</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    // Get current data from the row for comparison
+    const currentData = {
+        dateCell: row.cells[0].textContent,
+        mauLive: row.cells[1].textContent.replace(' ✨', '').replace(/\s*<span[^>]*>.*?<\/span>\s*/g, ''), // Remove edit indicator
+        tienQC: row.cells[2].textContent,
+        thoiGian: row.cells[3].textContent,
+        soMonLive: row.cells[4].textContent,
+        soMonInbox: row.cells[5].textContent
+    };
+    
+    // Don't add current version row - we'll start directly with edit history
+    
+    // Add edit history rows first (starting from newest #1, #2, #3...)
     sortedHistory.forEach((history, index) => {
         const editDate = new Date(history.timestamp).toLocaleString('vi-VN', {
             year: 'numeric',
-            month: '2-digit',
+            month: '2-digit', 
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
+            minute: '2-digit'
         });
         
-        historyContent += `
-            <div class="history-entry">
-                <div class="history-header">
-                    <span class="history-index">#${sortedHistory.length - index}</span>
-                    <span class="history-user">${history.editedBy || 'Unknown'}</span>
-                    <span class="history-date">${editDate}</span>
-                </div>
-                <div class="history-changes">
-                    ${renderEditChanges(history.oldData, history.newData)}
-                </div>
-            </div>
+        // Edit number starts from 1 (after the original #0)
+        const editNumber = sortedHistory.length - index;
+        
+        const currentHistoryData = history.newData || {};
+        const oldHistoryData = history.oldData || {};
+        
+        // Determine what actually changed in THIS specific edit
+        const changes = {
+            dateCell: compareValues(oldHistoryData.dateCell, currentHistoryData.dateCell, 'dateCell'),
+            mauLive: compareValues(oldHistoryData.mauLive, currentHistoryData.mauLive, 'mauLive'),
+            tienQC: compareValues(oldHistoryData.tienQC, currentHistoryData.tienQC, 'tienQC'),
+            thoiGian: compareValues(oldHistoryData.thoiGian, currentHistoryData.thoiGian, 'thoiGian'),
+            soMonLive: compareValues(oldHistoryData.soMonLive, currentHistoryData.soMonLive, 'soMonLive'),
+            soMonInbox: compareValues(oldHistoryData.soMonInbox, currentHistoryData.soMonInbox, 'soMonInbox')
+        };
+        
+        // Debug logging
+        console.log('Edit #' + editNumber + ':', {
+            oldData: oldHistoryData,
+            newData: currentHistoryData,
+            changes: changes
+        });
+        
+        tooltipContent += `
+            <tr class="history-row">
+                <td class="data-cell ${changes.dateCell ? 'changed' : ''}" style="width: ${columnWidths[0] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;" title="${changes.dateCell ? 'Đã thay đổi trong lần sửa này' : ''}">${formatHistoryDate(currentHistoryData.dateCell) || '-'}</td>
+                <td class="data-cell ${changes.mauLive ? 'changed' : ''}" style="width: ${columnWidths[1] || 200}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;" title="${changes.mauLive ? 'Đã thay đổi trong lần sửa này' : ''}">${currentHistoryData.mauLive || '-'}</td>
+                <td class="data-cell ${changes.tienQC ? 'changed' : ''}" style="width: ${columnWidths[2] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;" title="${changes.tienQC ? 'Đã thay đổi trong lần sửa này' : ''}">${currentHistoryData.tienQC || '-'}</td>
+                <td class="data-cell ${changes.thoiGian ? 'changed' : ''}" style="width: ${columnWidths[3] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;" title="${changes.thoiGian ? 'Đã thay đổi trong lần sửa này' : ''}">${currentHistoryData.thoiGian || '-'}</td>
+                <td class="data-cell ${changes.soMonLive ? 'changed' : ''}" style="width: ${columnWidths[4] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;" title="${changes.soMonLive ? 'Đã thay đổi trong lần sửa này' : ''}">${currentHistoryData.soMonLive || '-'}</td>
+                <td class="data-cell ${changes.soMonInbox ? 'changed' : ''}" style="width: ${columnWidths[5] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;" title="${changes.soMonInbox ? 'Đã thay đổi trong lần sửa này' : ''}">${currentHistoryData.soMonInbox || '-'}</td>
+                <td class="edit-number" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">#${editNumber}</td>
+                <td class="data-cell user-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${history.editedBy || 'Unknown'}</td>
+                <td class="data-cell timestamp-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${editDate}</td>
+            </tr>
         `;
     });
     
-    // If no history available
-    if (editHistory.length === 0) {
-        historyContent += '<div class="no-history">Không có lịch sử chỉnh sửa</div>';
+    // Finally, add the original data row (#0) at the bottom
+    if (sortedHistory.length > 0) {
+        const oldestEdit = sortedHistory[sortedHistory.length - 1];
+        const originalData = oldestEdit.oldData || {};
+        
+        tooltipContent += `
+            <tr class="history-row original-row">
+                <td class="data-cell" style="width: ${columnWidths[0] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${formatHistoryDate(originalData.dateCell) || '-'}</td>
+                <td class="data-cell" style="width: ${columnWidths[1] || 200}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.mauLive || '-'}</td>
+                <td class="data-cell" style="width: ${columnWidths[2] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.tienQC || '-'}</td>
+                <td class="data-cell" style="width: ${columnWidths[3] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.thoiGian || '-'}</td>
+                <td class="data-cell" style="width: ${columnWidths[4] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonLive || '-'}</td>
+                <td class="data-cell" style="width: ${columnWidths[5] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonInbox || '-'}</td>
+                <td class="edit-number original" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">#0</td>
+                <td class="data-cell user-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Gốc</td>
+                <td class="data-cell timestamp-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">-</td>
+            </tr>
+        `;
     }
     
-    tooltip.innerHTML = historyContent;
+    // If no history available
+    if (editHistory.length === 0) {
+        tooltipContent += `
+            <tr class="no-history-row">
+                <td colspan="9" class="no-history">Không có lịch sử chỉnh sửa</td>
+            </tr>
+        `;
+    }
     
-    // Style the tooltip
+    tooltipContent += `
+                </tbody>
+            </table>
+        </div>
+        <div class="tooltip-footer">
+            <small>Các ô được tô đỏ là dữ liệu đã thay đổi so với lần sửa trước</small>
+        </div>
+    `;
+    
+    tooltip.innerHTML = tooltipContent;
+    
+    // Style the tooltip to match main table width and position
+    const totalWidth = columnWidths.slice(0, 6).reduce((sum, width) => sum + width, 0) + actionColumnsWidth + 20; // Main columns + action columns + padding
+    
     tooltip.style.cssText = `
         position: absolute;
         background: white;
         border: 2px solid #667eea;
         border-radius: 12px;
         padding: 0;
-        max-width: 450px;
+        width: ${Math.max(totalWidth, mainTableRect.width)}px;
         max-height: 400px;
-        overflow-y: auto;
+        overflow: hidden;
         box-shadow: 0 8px 32px rgba(0,0,0,0.15);
         z-index: 10000;
         font-size: 12px;
@@ -225,19 +342,23 @@ function showEditHistoryTooltip(event, editHistory, row) {
     
     document.body.appendChild(tooltip);
     
-    // Position tooltip
+    // Position tooltip below the row, aligned with main table
     const rect = row.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
+    const tableRect = mainTable.getBoundingClientRect();
     
-    let left = rect.left + window.scrollX;
+    // Calculate precise alignment with main table columns
+    const mainTableCells = mainTable.querySelector('tbody tr td');
+    const firstCellRect = mainTableCells ? mainTableCells.getBoundingClientRect() : tableRect;
+    
+    let left = firstCellRect.left + window.scrollX; // Align with first data column, not table edge
     let top = rect.bottom + window.scrollY + 5;
     
     // Adjust if tooltip goes off screen
-    if (left + tooltipRect.width > window.innerWidth) {
-        left = window.innerWidth - tooltipRect.width - 10;
+    if (left + totalWidth > window.innerWidth) {
+        left = window.innerWidth - totalWidth - 10;
     }
-    if (top + tooltipRect.height > window.innerHeight + window.scrollY) {
-        top = rect.top + window.scrollY - tooltipRect.height - 5;
+    if (top + 400 > window.innerHeight + window.scrollY) {
+        top = rect.top + window.scrollY - 405;
     }
     
     tooltip.style.left = left + 'px';
@@ -248,6 +369,282 @@ function showEditHistoryTooltip(event, editHistory, row) {
         document.addEventListener('click', handleTooltipClickOutside);
         document.addEventListener('keydown', handleTooltipKeydown);
     }, 100);
+}
+
+// Helper function to format date from timestamp
+function formatHistoryDate(dateCell) {
+    if (!dateCell || isNaN(dateCell)) return '';
+    
+    const date = new Date(parseInt(dateCell));
+    if (isNaN(date.getTime())) return '';
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    
+    return `${day}-${month}-${year}`;
+}
+
+// Helper function to compare values and detect changes
+function compareValues(oldValue, newValue, fieldName = '') {
+    // Handle null/undefined/empty values
+    const normalizeValue = (val) => {
+        if (val === null || val === undefined) return '';
+        // Convert to string and trim whitespace
+        return String(val).trim();
+    };
+    
+    const normalizedOld = normalizeValue(oldValue);
+    const normalizedNew = normalizeValue(newValue);
+    
+    // Special handling for date fields (timestamps)
+    if (fieldName === 'dateCell' && !isNaN(oldValue) && !isNaN(newValue) && oldValue && newValue) {
+        const oldFormatted = formatHistoryDate(oldValue);
+        const newFormatted = formatHistoryDate(newValue);
+        if (oldFormatted && newFormatted) {
+            return oldFormatted !== newFormatted;
+        }
+    }
+    
+    // For all other fields, do simple string comparison
+    return normalizedOld !== normalizedNew;
+}
+
+// Enhanced CSS injection for the new table-style tooltip
+function injectEnhancedEditHistoryStyles() {
+    if (document.getElementById('enhancedEditHistoryStyles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'enhancedEditHistoryStyles';
+    style.textContent = `
+        .edit-history-tooltip .tooltip-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            margin: 0;
+            border-radius: 10px 10px 0 0;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .edit-history-tooltip .tooltip-table-container {
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .edit-history-tooltip .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin: 0;
+            table-layout: fixed; /* This ensures fixed column widths */
+        }
+
+        .edit-history-tooltip .history-table th:first-child,
+        .edit-history-tooltip .history-table td:first-child {
+            text-align: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        .edit-history-tooltip .history-table th:nth-child(2),
+        .edit-history-tooltip .history-table td:nth-child(2) {
+            text-align: center;
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+
+        .edit-history-tooltip .history-table th:nth-child(3),
+        .edit-history-tooltip .history-table td:nth-child(3) {
+            text-align: center;
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+
+        .edit-history-tooltip .history-table th:nth-child(4),
+        .edit-history-tooltip .history-table td:nth-child(4) {
+            text-align: center;
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+
+        .edit-history-tooltip .history-table th:nth-child(5),
+        .edit-history-tooltip .history-table td:nth-child(5) {
+            text-align: center;
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+
+        .edit-history-tooltip .history-table th:nth-child(6),
+        .edit-history-tooltip .history-table td:nth-child(6) {
+            text-align: center;
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+
+        .edit-history-tooltip .history-header-row {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .edit-history-tooltip .history-table th {
+            padding: 8px 6px;
+            border: 1px solid #dee2e6;
+            font-weight: 600;
+            text-align: center;
+            font-size: 10px;
+            background: #e9ecef;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .edit-history-tooltip .history-table td {
+            padding: 6px 4px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 0;
+        }
+
+        .edit-history-tooltip .current-version {
+            background: #d1ecf1;
+            font-weight: 600;
+        }
+
+        .edit-history-tooltip .current-version .edit-number.current {
+            background: #17a2b8;
+            color: white;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        .edit-history-tooltip .history-row:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .edit-history-tooltip .history-row:nth-child(odd) {
+            background: white;
+        }
+
+        .edit-history-tooltip .edit-number.original {
+            background: #6c757d !important;
+            color: white;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-weight: 600;
+            font-size: 9px;
+            text-align: center;
+        }
+
+        .edit-history-tooltip .data-cell.changed {
+            background-color: #ffebee !important;
+            border: 2px solid #f44336 !important;
+            color: #c62828 !important;
+            font-weight: 700 !important;
+            position: relative;
+            animation: highlight-pulse 2s ease-in-out;
+        }
+
+        @keyframes highlight-pulse {
+            0% { background-color: #ff5252; }
+            50% { background-color: #ffebee; }
+            100% { background-color: #ffebee; }
+        }
+
+        .edit-history-tooltip .data-cell.changed::before {
+            content: '🔴';
+            font-size: 8px;
+            position: absolute;
+            top: 2px;
+            right: 3px;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .edit-history-tooltip .user-cell {
+            background: #e8f5e8 !important;
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        .edit-history-tooltip .timestamp-cell {
+            background: #fff3e0 !important;
+            color: #f57c00;
+            font-size: 9px;
+        }
+
+        .edit-history-tooltip .no-history {
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .edit-history-tooltip .tooltip-footer {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 0 0 10px 10px;
+            border-top: 1px solid #dee2e6;
+            text-align: center;
+        }
+
+        .edit-history-tooltip .tooltip-footer small {
+            color: #6c757d;
+            font-size: 10px;
+        }
+
+        /* Scrollbar styling */
+        .edit-history-tooltip .tooltip-table-container::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .edit-history-tooltip .tooltip-table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .edit-history-tooltip .tooltip-table-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .edit-history-tooltip .tooltip-table-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            .edit-history-tooltip .history-table th,
+            .edit-history-tooltip .history-table td {
+                font-size: 9px;
+                padding: 4px 2px;
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+}
+
+// Initialize enhanced styles
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectEnhancedEditHistoryStyles);
+} else {
+    injectEnhancedEditHistoryStyles();
 }
 
 function renderEditChanges(oldData, newData) {
@@ -1100,10 +1497,25 @@ function updateTable() {
 // FORM HANDLING
 // =====================================================
 
-function initializeForm() {
+function initializeUpdatedForm() {
     if (ngayLive) {
         ngayLive.valueAsDate = new Date();
     }
+    
+    // Update HTML structure for time inputs
+	const thoiGianContainer = document.querySelector('[for="thoiGian"]').parentNode;
+	thoiGianContainer.innerHTML = `
+		<label for="thoiGian">Thời gian:</label>
+		<div id="thoiGianContainer" style="display: flex; gap: 5px; align-items: center;">
+		  <input type="number" id="hh1" min="0" max="23" placeholder="HH" style="width:50px;">
+		  :
+		  <input type="number" id="mm1" min="0" max="59" placeholder="MM" style="width:50px;">
+		  <span>đến</span>
+		  <input type="number" id="hh2" min="0" max="23" placeholder="HH" style="width:50px;">
+		  :
+		  <input type="number" id="mm2" min="0" max="59" placeholder="MM" style="width:50px;">
+		</div>
+	`;
     
     // Toggle form button
     if (toggleFormButton) {
@@ -1124,18 +1536,89 @@ function initializeForm() {
     
     // Form submit handler
     if (livestreamForm) {
-        livestreamForm.addEventListener('submit', handleFormSubmit);
+        livestreamForm.addEventListener('submit', handleUpdatedFormSubmit);
     }
     
-    // Amount input formatting
+    // Amount input formatting (only numbers)
     const tienQCInput = document.getElementById('tienQC');
     if (tienQCInput) {
+        tienQCInput.addEventListener('input', function() {
+            // Only allow numbers and commas
+            this.value = this.value.replace(/[^\d,]/g, '');
+        });
+        
         tienQCInput.addEventListener('blur', function() {
             let value = this.value.replace(/[,\.]/g, '');
             value = parseFloat(value);
 
             if (!isNaN(value) && value > 0) {
                 this.value = numberWithCommas(value);
+            } else {
+                this.value = '';
+                showError('Tiền QC phải là số hợp lệ');
+            }
+        });
+    }
+    
+    // Mau live input - only numbers
+    const mauLiveInput = document.getElementById('mauLive');
+    if (mauLiveInput) {
+        mauLiveInput.addEventListener('input', function() {
+            // Only allow numbers and commas
+            this.value = this.value.replace(/[^\d,]/g, '');
+        });
+        
+        mauLiveInput.addEventListener('blur', function() {
+            let value = this.value.replace(/[,\.]/g, '');
+            value = parseFloat(value);
+
+            if (!isNaN(value) && value > 0) {
+                this.value = numberWithCommas(value);
+            } else {
+                this.value = '';
+                showError('Mẫu live phải là số hợp lệ');
+            }
+        });
+    }
+    
+    // Số món live - only numbers
+    const soMonLiveInput = document.getElementById('soMonLive');
+    if (soMonLiveInput) {
+        soMonLiveInput.addEventListener('input', function() {
+            // Only allow numbers and commas
+            this.value = this.value.replace(/[^\d,]/g, '');
+        });
+        
+        soMonLiveInput.addEventListener('blur', function() {
+            let value = this.value.replace(/[,\.]/g, '');
+            value = parseFloat(value);
+
+            if (!isNaN(value) && value > 0) {
+                this.value = numberWithCommas(value);
+            } else {
+                this.value = '';
+                showError('Số món live phải là số hợp lệ');
+            }
+        });
+    }
+    
+    // Số món inbox - only numbers  
+    const soMonInboxInput = document.getElementById('soMonInbox');
+    if (soMonInboxInput) {
+        soMonInboxInput.addEventListener('input', function() {
+            // Only allow numbers and commas
+            this.value = this.value.replace(/[^\d,]/g, '');
+        });
+        
+        soMonInboxInput.addEventListener('blur', function() {
+            let value = this.value.replace(/[,\.]/g, '');
+            value = parseFloat(value);
+
+            if (!isNaN(value) && value > 0) {
+                this.value = numberWithCommas(value);
+            } else {
+                this.value = '';
+                showError('Số món inbox phải là số hợp lệ');
             }
         });
     }
@@ -1149,6 +1632,162 @@ function initializeForm() {
             livestreamForm.reset();
         });
     }
+}
+
+function handleUpdatedFormSubmit(e) {
+    e.preventDefault();
+
+    if (!hasPermission(2)) {
+        showError('Không có quyền thêm báo cáo');
+        return;
+    }
+
+    const currentDate = new Date(ngayLive.value);
+    const formattedDate = formatDate(currentDate);
+    
+    // Get and validate mau live (must be number)
+    const mauLiveValue = document.getElementById('mauLive').value.trim();
+    if (!mauLiveValue || isNaN(mauLiveValue) || parseInt(mauLiveValue) <= 0) {
+        showError('Mẫu live phải là số nguyên dương.');
+        return;
+    }
+    const mauLive = parseInt(mauLiveValue) + ' mẫu';
+    
+    // Get and validate tien QC (must be number)
+    let tienQC = document.getElementById('tienQC').value.replace(/[,\.]/g, '');
+    tienQC = parseFloat(tienQC);
+    if (isNaN(tienQC) || tienQC <= 0) {
+        showError('Vui lòng nhập số tiền QC hợp lệ.');
+        return;
+    }
+    
+    // Get and validate time
+	const hh1 = document.getElementById("hh1").value.padStart(2, "0");
+    const mm1 = document.getElementById("mm1").value.padStart(2, "0");
+    const hh2 = document.getElementById("hh2").value.padStart(2, "0");
+    const mm2 = document.getElementById("mm2").value.padStart(2, "0");
+    const startTime = `${hh1}:${mm1}`;
+    const endTime = `${hh2}:${mm1}`;
+    
+    if (!startTime || !endTime) {
+        showError('Vui lòng nhập đầy đủ thời gian bắt đầu và kết thúc.');
+        return;
+    }
+    
+    const thoiGian = formatTimeRange(startTime, endTime);
+    if (!thoiGian) {
+        showError('Thời gian kết thúc phải sau thời gian bắt đầu.');
+        return;
+    }
+    
+    // Get and validate số món live (must be number)
+    const soMonLiveValue = document.getElementById('soMonLive').value.trim();
+    if (!soMonLiveValue || isNaN(soMonLiveValue) || parseInt(soMonLiveValue) < 0) {
+        showError('Số món trên live phải là số không âm.');
+        return;
+    }
+    const soMonLive = parseInt(soMonLiveValue) + ' món';
+    
+    // Get and validate số món inbox (must be number)
+    const soMonInboxValue = document.getElementById('soMonInbox').value.trim();
+    if (!soMonInboxValue || isNaN(soMonInboxValue) || parseInt(soMonInboxValue) < 0) {
+        showError('Số món inbox phải là số không âm.');
+        return;
+    }
+    const soMonInbox = parseInt(soMonInboxValue) + ' món';
+
+    // Generate timestamp and unique ID
+    const tempTimeStamp = new Date();
+    const timestamp = currentDate.getTime() + (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
+    const uniqueId = generateUniqueId();
+
+    const auth = getAuthState();
+    const userName = auth ? (auth.userType ? auth.userType.split('-')[0] : 'Unknown') : 'Unknown';
+    
+    const dataToUpload = {
+        id: uniqueId,
+        dateCell: timestamp.toString(),
+        mauLive: mauLive,
+        tienQC: numberWithCommas(tienQC),
+        thoiGian: thoiGian,
+        soMonLive: soMonLive,
+        soMonInbox: soMonInbox,
+        user: userName,
+        createdBy: userName,
+        createdAt: new Date().toISOString(),
+        editHistory: []
+    };
+
+    // Add row to table immediately
+    const newRow = createTableRow(dataToUpload, formattedDate);
+    tableBody.insertRow(0).replaceWith(newRow);
+
+    // Reset form
+    livestreamForm.reset();
+    ngayLive.valueAsDate = currentDate;
+
+    showLoading("Đang lưu báo cáo...");
+
+    // Upload to Firebase
+    collectionRef.doc("reports").get().then(doc => {
+        const updateData = doc.exists ? 
+            { ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload) } :
+            { ["data"]: [dataToUpload] };
+
+        const operation = doc.exists ? 
+            collectionRef.doc("reports").update(updateData) : 
+            collectionRef.doc("reports").set(updateData);
+
+        return operation;
+    }).then(() => {
+        logAction('add', `Thêm báo cáo livestream: ${mauLive}`, null, dataToUpload);
+        invalidateCache();
+        showSuccess("Đã thêm báo cáo thành công!");
+        console.log("Document uploaded successfully");
+    }).catch((error) => {
+        console.error("Error uploading document: ", error);
+        newRow.remove();
+        showError('Lỗi khi tải document lên.');
+    });
+}
+
+// Function to format time range and calculate duration
+function formatTimeRange(startTime, endTime) {
+    if (!startTime || !endTime) return null;
+    
+    const start = new Date(`2000-01-01T${startTime}:00`);
+    const end = new Date(`2000-01-01T${endTime}:00`);
+    
+    // Handle overnight time (end time is next day)
+    if (end <= start) {
+        end.setDate(end.getDate() + 1);
+    }
+    
+    const diffMs = end.getTime() - start.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins <= 0) {
+        return null; // Invalid time range
+    }
+    
+    const hours = Math.floor(diffMins / 60);
+    const minutes = diffMins % 60;
+    
+    const startFormatted = `${start.getHours().toString().padStart(2, "0")}h${start.getMinutes().toString().padStart(2, "0")}m`;
+	const endFormatted   = `${end.getHours().toString().padStart(2, "0")}h${end.getMinutes().toString().padStart(2, "0")}m`;
+    
+    let duration = '';
+    if (hours > 0) {
+        duration += `${hours}h`;
+    }
+    if (minutes > 0) {
+        duration += `${minutes}m`;
+    }
+    if (!duration) {
+        duration = '0m';
+    }
+    
+    return `Từ ${startFormatted} đến ${endFormatted} - ${duration}`;
 }
 
 function handleFormSubmit(e) {
@@ -1263,9 +1902,14 @@ function handleEditButton(e) {
     const editDate = document.getElementById('editDate');
     const editMauLive = document.getElementById('editMauLive');
     const editTienQC = document.getElementById('editTienQC');
-    const editThoiGian = document.getElementById('editThoiGian');
     const editSoMonLive = document.getElementById('editSoMonLive');
     const editSoMonInbox = document.getElementById('editSoMonInbox');
+    
+    // Lấy các trường thời gian mới
+    const hh1 = document.getElementById('editHh1');
+    const mm1 = document.getElementById('editMm1');
+    const hh2 = document.getElementById('editHh2');
+    const mm2 = document.getElementById('editMm2');
 
     const row = e.target.parentNode.parentNode;
     const date = row.cells[0].innerText;
@@ -1293,16 +1937,66 @@ function handleEditButton(e) {
                 editDate.value = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
             }
         }
-        if (editMauLive) { editMauLive.disabled = false; editMauLive.value = mauLive; }
+        
+        // Xử lý các trường khác
+        if (editMauLive) { 
+            editMauLive.disabled = false; 
+            // Loại bỏ " mẫu" và edit indicator nếu có
+            let cleanMauLive = mauLive.replace(' mẫu', '').replace(' ✨', '').replace(/\s*<span[^>]*>.*?<\/span>\s*/g, '');
+            editMauLive.value = cleanMauLive;
+        }
+        
         if (editTienQC) { editTienQC.disabled = false; editTienQC.value = tienQC; }
-        if (editThoiGian) { editThoiGian.disabled = false; editThoiGian.value = thoiGian; }
-        if (editSoMonLive) { editSoMonLive.disabled = false; editSoMonLive.value = soMonLive; }
-        if (editSoMonInbox) { editSoMonInbox.disabled = false; editSoMonInbox.value = soMonInbox; }
+        
+        // Xử lý thời gian - parse từ format "Từ 20h00m đến 22h00m - 2h0m"
+        if (thoiGian && thoiGian.trim()) {
+            // Parse thời gian từ format: "Từ 20h00m đến 22h00m - 2h0m"
+            const timePattern = /Từ\s+(\d{1,2})h(\d{1,2})m\s+đến\s+(\d{1,2})h(\d{1,2})m/;
+            const match = thoiGian.match(timePattern);
+            
+            if (match) {
+                const [, startHour, startMin, endHour, endMin] = match;
+                if (hh1) { hh1.disabled = false; hh1.value = startHour; }
+                if (mm1) { mm1.disabled = false; mm1.value = startMin; }
+                if (hh2) { hh2.disabled = false; hh2.value = endHour; }
+                if (mm2) { mm2.disabled = false; mm2.value = endMin; }
+            } else {
+                // Nếu không parse được, để trống các trường
+                if (hh1) { hh1.disabled = false; hh1.value = ''; }
+                if (mm1) { mm1.disabled = false; mm1.value = ''; }
+                if (hh2) { hh2.disabled = false; hh2.value = ''; }
+                if (mm2) { mm2.disabled = false; mm2.value = ''; }
+            }
+        } else {
+            // Nếu không có thời gian, để trống
+            if (hh1) { hh1.disabled = false; hh1.value = ''; }
+            if (mm1) { mm1.disabled = false; mm1.value = ''; }
+            if (hh2) { hh2.disabled = false; hh2.value = ''; }
+            if (mm2) { mm2.disabled = false; mm2.value = ''; }
+        }
+        
+        if (editSoMonLive) { 
+            editSoMonLive.disabled = false; 
+            // Loại bỏ " món"
+            let cleanSoMonLive = soMonLive.replace(' món', '');
+            editSoMonLive.value = cleanSoMonLive;
+        }
+        
+        if (editSoMonInbox) { 
+            editSoMonInbox.disabled = false; 
+            // Loại bỏ " món"
+            let cleanSoMonInbox = soMonInbox.replace(' món', '');
+            editSoMonInbox.value = cleanSoMonInbox;
+        }
     } else {
+        // Disable tất cả các trường nếu không có quyền
         if (editDate) editDate.disabled = true;
         if (editMauLive) editMauLive.disabled = true;
         if (editTienQC) editTienQC.disabled = true;
-        if (editThoiGian) editThoiGian.disabled = true;
+        if (hh1) hh1.disabled = true;
+        if (mm1) mm1.disabled = true;
+        if (hh2) hh2.disabled = true;
+        if (mm2) mm2.disabled = true;
         if (editSoMonLive) editSoMonLive.disabled = true;
         if (editSoMonInbox) editSoMonInbox.disabled = true;
     }
@@ -1377,25 +2071,25 @@ function closeModal() {
     editingRow = null;
 }
 
-function saveChanges() {
+function saveUpdatedChanges() {
     const editDate = document.getElementById('editDate');
     const editMauLive = document.getElementById('editMauLive');
     const editTienQC = document.getElementById('editTienQC');
-    const editThoiGian = document.getElementById('editThoiGian');
     const editSoMonLive = document.getElementById('editSoMonLive');
     const editSoMonInbox = document.getElementById('editSoMonInbox');
     
-    if (!editDate || !editMauLive || !editTienQC || !editThoiGian || !editSoMonLive || !editSoMonInbox) {
-        showError('Các trường nhập liệu không tồn tại.');
-        return;
-    }
+    // Lấy các trường thời gian
+    const hh1 = document.getElementById('editHh1');
+    const mm1 = document.getElementById('editMm1');
+    const hh2 = document.getElementById('editHh2');
+    const mm2 = document.getElementById('editMm2');
     
+    // Validate inputs
     const dateValue = editDate.value;
-    const mauLiveValue = sanitizeInput(editMauLive.value.trim());
+    const mauLiveValue = editMauLive.value.trim();
     const tienQCValue = editTienQC.value.trim();
-    const thoiGianValue = sanitizeInput(editThoiGian.value.trim());
-    const soMonLiveValue = sanitizeInput(editSoMonLive.value.trim());
-    const soMonInboxValue = sanitizeInput(editSoMonInbox.value.trim());
+    const soMonLiveValue = editSoMonLive.value.trim();
+    const soMonInboxValue = editSoMonInbox.value.trim();
 
     // Validation
     if (!dateValue || !mauLiveValue || !tienQCValue) {
@@ -1403,10 +2097,45 @@ function saveChanges() {
         return;
     }
 
+    // Validate mau live is number
+    if (isNaN(mauLiveValue) || parseInt(mauLiveValue) <= 0) {
+        showError('Mẫu live phải là số nguyên dương.');
+        return;
+    }
+
     const cleanAmount = tienQCValue.replace(/[,\.]/g, '');
     const numAmount = parseFloat(cleanAmount);
     if (isNaN(numAmount) || numAmount <= 0) {
         showError('Số tiền QC không hợp lệ.');
+        return;
+    }
+
+    // Validate và format time
+    let formattedTime = '';
+    const startHour = hh1.value.trim();
+    const startMin = mm1.value.trim();
+    const endHour = hh2.value.trim();
+    const endMin = mm2.value.trim();
+    
+    if (startHour && startMin && endHour && endMin) {
+        const startTime = `${startHour.padStart(2, '0')}:${startMin.padStart(2, '0')}`;
+        const endTime = `${endHour.padStart(2, '0')}:${endMin.padStart(2, '0')}`;
+        formattedTime = formatTimeRange(startTime, endTime);
+        
+        if (!formattedTime) {
+            showError('Thời gian không hợp lệ.');
+            return;
+        }
+    }
+
+    // Validate số món
+    if (isNaN(soMonLiveValue) || parseInt(soMonLiveValue) < 0) {
+        showError('Số món trên live phải là số không âm.');
+        return;
+    }
+
+    if (isNaN(soMonInboxValue) || parseInt(soMonInboxValue) < 0) {
+        showError('Số món inbox phải là số không âm.');
         return;
     }
 
@@ -1434,6 +2163,11 @@ function saveChanges() {
         const dateObj = new Date(dateValue);
         const editDateTimestamp = dateObj.getTime() + (new Date().getMinutes() * 60 + new Date().getSeconds()) * 1000;
         
+        // Format data with suffixes
+        const finalMauLive = parseInt(mauLiveValue) + ' mẫu';
+        const finalSoMonLive = parseInt(soMonLiveValue) + ' món';
+        const finalSoMonInbox = parseInt(soMonInboxValue) + ' món';
+        
         collectionRef.doc("reports").get()
             .then((doc) => {
                 if (!doc.exists) {
@@ -1457,11 +2191,11 @@ function saveChanges() {
                     const newData = {
                         ...oldData,
                         dateCell: editDateTimestamp.toString(),
-                        mauLive: mauLiveValue,
+                        mauLive: finalMauLive,
                         tienQC: numberWithCommas(numAmount),
-                        thoiGian: thoiGianValue,
-                        soMonLive: soMonLiveValue,
-                        soMonInbox: soMonInboxValue
+                        thoiGian: formattedTime || oldData.thoiGian,
+                        soMonLive: finalSoMonLive,
+                        soMonInbox: finalSoMonInbox
                     };
                     
                     // Create comprehensive edit history entry
@@ -1504,20 +2238,29 @@ function saveChanges() {
                     const formattedDisplayDate = formatDate(new Date(editDateTimestamp));
                     editingRow.cells[0].textContent = formattedDisplayDate;
                     editingRow.cells[0].setAttribute('data-id', recordId);
-                    editingRow.cells[1].innerHTML = mauLiveValue + ' <span class="edit-indicator"></span>';
+                    editingRow.cells[1].innerHTML = finalMauLive + ' <span class="edit-indicator"></span>';
                     editingRow.cells[2].textContent = numberWithCommas(numAmount);
-                    editingRow.cells[3].textContent = thoiGianValue;
-                    editingRow.cells[4].textContent = soMonLiveValue;
-                    editingRow.cells[5].textContent = soMonInboxValue;
+                    editingRow.cells[3].textContent = formattedTime || editingRow.cells[3].textContent;
+                    editingRow.cells[4].textContent = finalSoMonLive;
+                    editingRow.cells[5].textContent = finalSoMonInbox;
                     
                     // Add visual indicators for edited row
                     editingRow.classList.add('edited-row');
                     editingRow.style.borderLeft = '4px solid #ffc107';
                     editingRow.style.backgroundColor = '#fff3cd';
                     editingRow.title = 'Hàng này đã được chỉnh sửa - Click để xem lịch sử (Admin only)';
+                    
+                    // Update stored data attributes
+                    editingRow.setAttribute('data-row-data', JSON.stringify({
+                        mauLive: finalMauLive,
+                        tienQC: numberWithCommas(numAmount),
+                        thoiGian: formattedTime || editingRow.cells[3].textContent,
+                        soMonLive: finalSoMonLive,
+                        soMonInbox: finalSoMonInbox
+                    }));
                 }
                 
-                logAction('edit', `Sửa báo cáo livestream: ${mauLiveValue}`, null, null);
+                logAction('edit', `Sửa báo cáo livestream: ${finalMauLive}`, null, null);
                 invalidateCache();
                 showSuccess("Đã lưu thay đổi thành công!");
                 closeModal();
@@ -1528,7 +2271,7 @@ function saveChanges() {
             });
             
     } catch (error) {
-        console.error('Error in saveChanges:', error);
+        console.error('Error in saveUpdatedChanges:', error);
         showError('Lỗi: ' + error.message);
     }
 }
@@ -1808,7 +2551,7 @@ document.addEventListener('DOMContentLoaded', function() {
     injectEditHistoryStyles();
 
     // Initialize components
-    initializeForm();
+    initializeUpdatedForm();
     initializeTableEvents();
     updateTable();
     
@@ -1835,7 +2578,7 @@ window.addEventListener('error', function(e) {
 
 // Export functions for global use
 window.closeModal = closeModal;
-window.saveChanges = saveChanges;
+window.saveUpdatedChanges = saveUpdatedChanges;
 window.exportToExcel = exportToExcel;
 window.toggleSidebar = toggleSidebar;
 
@@ -2109,325 +2852,6 @@ function removeEditHistoryModal() {
         document.removeEventListener('keydown', handleModalKeydown);
     }
 }
-
-// =====================================================
-// ENHANCED TABLE ROW CREATION WITH DEBUG
-// =====================================================
-
-function createTableRowWithEditHistory(item, dateStr) {
-    console.log('Creating row for item:', item); // Debug log
-    
-    const newRow = document.createElement('tr');
-    
-    // Check if item has edit history
-    const hasEditHistory = item.editHistory && item.editHistory.length > 0;
-    console.log('Has edit history:', hasEditHistory, item.editHistory); // Debug log
-    
-    // Add visual indicator for edited rows
-    if (hasEditHistory) {
-        newRow.classList.add('edited-row');
-        newRow.style.borderLeft = '4px solid #ffc107';
-        newRow.style.backgroundColor = '#fff3cd';
-        newRow.title = 'Hàng này đã được chỉnh sửa - Click để xem lịch sử (Admin only)';
-    }
-
-    const cells = [
-        { content: sanitizeInput(dateStr), id: item.id },
-        { 
-            content: sanitizeInput(item.mauLive || '') + 
-                    (hasEditHistory ? ' <span class="edit-indicator"></span>' : '') 
-        },
-        { content: item.tienQC ? numberWithCommas(sanitizeInput(item.tienQC.toString()).replace(/[,\.]/g, '')) : '0' },
-        { content: sanitizeInput(item.thoiGian || '') },
-        { content: sanitizeInput(item.soMonLive || '0') },
-        { content: sanitizeInput(item.soMonInbox || '0') },
-        { content: null, type: 'edit' },
-        { content: null, type: 'delete', userId: item.user || 'Unknown' }
-    ];
-
-    cells.forEach((cellData, index) => {
-        const cell = document.createElement('td');
-        
-        if (cellData.type === 'edit') {
-            const editButton = document.createElement('button');
-            editButton.className = 'edit-button';
-            editButton.innerHTML = '✏️';
-            editButton.style.cssText = `
-                cursor: pointer; 
-                padding: 5px; 
-                border: none; 
-                background: transparent; 
-                font-size: 16px;
-                border-radius: 4px;
-                transition: background-color 0.2s;
-            `;
-            editButton.title = 'Chỉnh sửa';
-            cell.appendChild(editButton);
-        } else if (cellData.type === 'delete') {
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'delete-button';
-            deleteButton.innerHTML = '🗑️';
-            deleteButton.style.cssText = `
-                cursor: pointer; 
-                padding: 5px; 
-                border: none; 
-                background: transparent; 
-                font-size: 16px;
-                border-radius: 4px;
-                transition: background-color 0.2s;
-            `;
-            deleteButton.title = 'Xóa';
-            deleteButton.setAttribute('data-user', cellData.userId);
-            cell.appendChild(deleteButton);
-        } else {
-            if (cellData.content && cellData.content.includes('<span class="edit-indicator">')) {
-                cell.innerHTML = cellData.content;
-            } else {
-                cell.textContent = cellData.content;
-            }
-            if (cellData.id) cell.setAttribute('data-id', cellData.id);
-        }
-        
-        newRow.appendChild(cell);
-    });
-
-    // Store complete item data on the row
-    if (hasEditHistory) {
-        newRow.setAttribute('data-edit-history', JSON.stringify(item.editHistory));
-        newRow.setAttribute('data-row-data', JSON.stringify({
-            mauLive: item.mauLive,
-            tienQC: item.tienQC,
-            thoiGian: item.thoiGian,
-            soMonLive: item.soMonLive,
-            soMonInbox: item.soMonInbox
-        }));
-    }
-
-    // Add click event for ADMIN to view edit history
-    const auth = getAuthState();
-    console.log('Auth state:', auth); // Debug log
-    
-    if (auth && hasEditHistory && parseInt(auth.checkLogin) === 0) {
-        console.log('Adding click event for admin user'); // Debug log
-        newRow.style.cursor = 'pointer';
-        
-        // Add click event with better event handling
-        newRow.addEventListener('click', function(e) {
-            console.log('Row clicked!', e.target); // Debug log
-            
-            // Don't trigger on button clicks
-            if (e.target.classList.contains('edit-button') || 
-                e.target.classList.contains('delete-button') ||
-                e.target.closest('button')) {
-                console.log('Button clicked, ignoring'); // Debug log
-                return;
-            }
-            
-            // Get data from attributes
-            const editHistoryData = JSON.parse(newRow.getAttribute('data-edit-history') || '[]');
-            const rowData = JSON.parse(newRow.getAttribute('data-row-data') || '{}');
-            
-            console.log('Showing modal with data:', editHistoryData, rowData); // Debug log
-            showEditHistoryModal(editHistoryData, rowData);
-        });
-        
-        // Add visual feedback
-        newRow.addEventListener('mouseenter', () => {
-            if (!document.getElementById('editHistoryModalOverlay')) {
-                newRow.style.backgroundColor = '#ffeaa7';
-            }
-        });
-        
-        newRow.addEventListener('mouseleave', () => {
-            if (!document.getElementById('editHistoryModalOverlay')) {
-                newRow.style.backgroundColor = hasEditHistory ? '#fff3cd' : '';
-            }
-        });
-    }
-
-    // Apply role-based permissions
-    const authForPermissions = getAuthState();
-    if (authForPermissions) {
-        applyRowPermissions(newRow, parseInt(authForPermissions.checkLogin));
-    }
-    
-    return newRow;
-}
-
-// =====================================================
-// UPDATED SAVE CHANGES WITH BETTER EDIT HISTORY
-// =====================================================
-
-function saveChangesWithEditHistory() {
-    const editDate = document.getElementById('editDate');
-    const editMauLive = document.getElementById('editMauLive');
-    const editTienQC = document.getElementById('editTienQC');
-    const editThoiGian = document.getElementById('editThoiGian');
-    const editSoMonLive = document.getElementById('editSoMonLive');
-    const editSoMonInbox = document.getElementById('editSoMonInbox');
-    
-    if (!editDate || !editMauLive || !editTienQC || !editThoiGian || !editSoMonLive || !editSoMonInbox) {
-        showError('Các trường nhập liệu không tồn tại.');
-        return;
-    }
-    
-    const dateValue = editDate.value;
-    const mauLiveValue = sanitizeInput(editMauLive.value.trim());
-    const tienQCValue = editTienQC.value.trim();
-    const thoiGianValue = sanitizeInput(editThoiGian.value.trim());
-    const soMonLiveValue = sanitizeInput(editSoMonLive.value.trim());
-    const soMonInboxValue = sanitizeInput(editSoMonInbox.value.trim());
-
-    // Validation
-    if (!dateValue || !mauLiveValue || !tienQCValue) {
-        showError('Vui lòng điền đầy đủ thông tin bắt buộc.');
-        return;
-    }
-
-    const cleanAmount = tienQCValue.replace(/[,\.]/g, '');
-    const numAmount = parseFloat(cleanAmount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-        showError('Số tiền QC không hợp lệ.');
-        return;
-    }
-
-    if (!editingRow) {
-        showError('Không tìm thấy hàng cần chỉnh sửa.');
-        return;
-    }
-    
-    const firstCell = editingRow.querySelector("td");
-    if (!firstCell) {
-        showError('Không tìm thấy cell đầu tiên.');
-        return;
-    }
-
-    const recordId = firstCell.getAttribute('data-id');
-    if (!recordId) {
-        showError('Không tìm thấy ID của báo cáo.');
-        return;
-    }
-
-    showLoading("Đang lưu thay đổi...");
-
-    try {
-        // Convert date back to timestamp
-        const dateObj = new Date(dateValue);
-        const editDateTimestamp = dateObj.getTime() + (new Date().getMinutes() * 60 + new Date().getSeconds()) * 1000;
-        
-        collectionRef.doc("reports").get()
-            .then((doc) => {
-                if (!doc.exists) {
-                    throw new Error('Document does not exist');
-                }
-
-                const data = doc.data();
-                const dataArray = data["data"] || [];
-                
-                const itemIndex = dataArray.findIndex(item => item.id === recordId);
-                if (itemIndex === -1) {
-                    throw new Error('Report not found');
-                }
-
-                const oldData = { ...dataArray[itemIndex] };
-                const auth = getAuthState();
-                const currentUser = auth ? (auth.userType ? auth.userType.split('-')[0] : 'Unknown') : 'Unknown';
-                
-                if (hasPermission(1)) {
-                    // Prepare new data
-                    const newData = {
-                        ...oldData,
-                        dateCell: editDateTimestamp.toString(),
-                        mauLive: mauLiveValue,
-                        tienQC: numberWithCommas(numAmount),
-                        thoiGian: thoiGianValue,
-                        soMonLive: soMonLiveValue,
-                        soMonInbox: soMonInboxValue
-                    };
-                    
-                    // Create comprehensive edit history entry
-                    const editHistoryEntry = {
-                        timestamp: new Date().toISOString(),
-                        editedBy: currentUser,
-                        oldData: {
-                            dateCell: oldData.dateCell,
-                            mauLive: oldData.mauLive,
-                            tienQC: oldData.tienQC,
-                            thoiGian: oldData.thoiGian,
-                            soMonLive: oldData.soMonLive,
-                            soMonInbox: oldData.soMonInbox
-                        },
-                        newData: {
-                            dateCell: newData.dateCell,
-                            mauLive: newData.mauLive,
-                            tienQC: newData.tienQC,
-                            thoiGian: newData.thoiGian,
-                            soMonLive: newData.soMonLive,
-                            soMonInbox: newData.soMonInbox
-                        }
-                    };
-                    
-                    // Initialize or update edit history
-                    if (!newData.editHistory) {
-                        newData.editHistory = [];
-                    }
-                    newData.editHistory.push(editHistoryEntry);
-                    
-                    console.log('Saving edit history:', newData.editHistory); // Debug log
-                    
-                    // Update the item in array
-                    dataArray[itemIndex] = newData;
-                }
-                
-                return collectionRef.doc("reports").update({ "data": dataArray });
-            })
-            .then(() => {
-                // Update the row in the table with edit indicators
-                if (hasPermission(1)) {
-                    const formattedDisplayDate = formatDate(new Date(editDateTimestamp));
-                    editingRow.cells[0].textContent = formattedDisplayDate;
-                    editingRow.cells[0].setAttribute('data-id', recordId);
-                    editingRow.cells[1].innerHTML = mauLiveValue + ' <span class="edit-indicator"></span>';
-                    editingRow.cells[2].textContent = numberWithCommas(numAmount);
-                    editingRow.cells[3].textContent = thoiGianValue;
-                    editingRow.cells[4].textContent = soMonLiveValue;
-                    editingRow.cells[5].textContent = soMonInboxValue;
-                    
-                    // Add visual indicators for edited row
-                    editingRow.classList.add('edited-row');
-                    editingRow.style.borderLeft = '4px solid #ffc107';
-                    editingRow.style.backgroundColor = '#fff3cd';
-                    editingRow.title = 'Hàng này đã được chỉnh sửa - Click để xem lịch sử (Admin only)';
-                    
-                    // Update stored data attributes
-                    editingRow.setAttribute('data-row-data', JSON.stringify({
-                        mauLive: mauLiveValue,
-                        tienQC: numberWithCommas(numAmount),
-                        thoiGian: thoiGianValue,
-                        soMonLive: soMonLiveValue,
-                        soMonInbox: soMonInboxValue
-                    }));
-                }
-                
-                logAction('edit', `Sửa báo cáo livestream: ${mauLiveValue}`, null, null);
-                invalidateCache();
-                showSuccess("Đã lưu thay đổi thành công!");
-                closeModal();
-            })
-            .catch((error) => {
-                console.error("Error updating document:", error);
-                showError('Lỗi khi cập nhật dữ liệu: ' + error.message);
-            });
-            
-    } catch (error) {
-        console.error('Error in saveChanges:', error);
-        showError('Lỗi: ' + error.message);
-    }
-}
-
-// Export functions for global use
-window.removeEditHistoryModal = removeEditHistoryModal;
-window.saveChangesWithEditHistory = saveChangesWithEditHistory;
 
 // Inject CSS for edit indicators
 function injectEditHistoryCSS() {
