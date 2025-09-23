@@ -285,7 +285,10 @@ function showEditHistoryTooltip(event, editHistory, row) {
     if (sortedHistory.length > 0) {
         const oldestEdit = sortedHistory[sortedHistory.length - 1];
         const originalData = oldestEdit.oldData || {};
-        
+		const recordId = row.cells[0].getAttribute('data-id');
+		const itemData = arrayData.find(item => item.id === recordId);
+        const creatorName = itemData ? (itemData.createdBy || itemData.user || 'Unknown') : 'Unknown';
+	
         tooltipContent += `
             <tr class="history-row original-row">
                 <td class="data-cell" style="width: ${columnWidths[0] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${formatHistoryDate(originalData.dateCell) || '-'}</td>
@@ -295,7 +298,7 @@ function showEditHistoryTooltip(event, editHistory, row) {
                 <td class="data-cell" style="width: ${columnWidths[4] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonLive || '-'}</td>
                 <td class="data-cell" style="width: ${columnWidths[5] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonInbox || '-'}</td>
                 <td class="edit-number original" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">#0</td>
-                <td class="data-cell user-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">Gốc</td>
+                <td class="data-cell user-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${creatorName}</td>
                 <td class="data-cell timestamp-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">-</td>
             </tr>
         `;
