@@ -873,33 +873,6 @@
                 menuToggle.classList.add('hidden');
             }
         }
-
-        // Modal functions
-        function closeModal() {
-            document.getElementById('editModal').style.display = 'none';
-        }
-
-        function saveChanges() {
-            // This function will be handled by the original JavaScript
-            // Just close modal for now
-            closeModal();
-        }
-
-        // Override logout function để redirect về trang chính
-        document.addEventListener('DOMContentLoaded', function() {
-            const logoutButton = document.getElementById('toggleLogoutButton');
-            if (logoutButton) {
-                logoutButton.addEventListener('click', function() {
-                    // Xóa dữ liệu đăng nhập
-                    localStorage.removeItem('isLoggedIn');
-                    localStorage.removeItem('userType');
-                    localStorage.removeItem('checkLogin');
-                    
-                    // Redirect về trang chính
-                    window.location.href = '../index.html';
-                });
-            }
-        });
     </script>
     
     <!-- Original JavaScript file -->
