@@ -1670,7 +1670,7 @@ function handleUpdatedFormSubmit(e) {
     const hh2 = document.getElementById("hh2").value.padStart(2, "0");
     const mm2 = document.getElementById("mm2").value.padStart(2, "0");
     const startTime = `${hh1}:${mm1}`;
-    const endTime = `${hh2}:${mm1}`;
+    const endTime = `${hh2}:${mm2}`;
     
     if (!startTime || !endTime) {
         showError('Vui lòng nhập đầy đủ thời gian bắt đầu và kết thúc.');
