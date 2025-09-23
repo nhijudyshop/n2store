@@ -36,17 +36,17 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         'huyen': { 
             password: 'huyen2307', 
-            checkLogin: USER_ROLES.BASIC,
+            checkLogin: USER_ROLES.LIMITED,
             displayName: 'Huyền User'
         },
         'hanh': { 
             password: 'hanh1206', 
-            checkLogin: USER_ROLES.BASIC,
+            checkLogin: USER_ROLES.LIMITED,
             displayName: 'Hạnh User'
         },
         'duyen': { 
             password: 'duyen3009', 
-            checkLogin: USER_ROLES.BASIC,
+            checkLogin: USER_ROLES.LIMITED,
             displayName: 'Duyên User'
         },
         'khach': { 
