@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ADMIN: 0,      // Full access
         COI: 1,        // All except delete
         LIMITED: 2,    // CK, inbox access
-        BASIC: 666,    // Limited access
+        BASIC: 3,    // Limited access
         GUEST: 777     // Read-only
     };
 
