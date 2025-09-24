@@ -940,19 +940,12 @@ function createNavigationMenu() {
         </div>
         <div class="settings-dropdown">
             <div class="settings-dropdown-item">
-                <h4>🎨 Cài đặt giao diện</h4>
+                <h4>🎨 Cài đặt cỡ chữ</h4>
                 
                 <div class="font-size-controls">
                     <button class="font-size-btn" id="sidebarDecreaseFont" title="Giảm cỡ chữ" type="button">−</button>
                     <div class="font-size-display" id="sidebarFontSizeDisplay">100%</div>
                     <button class="font-size-btn" id="sidebarIncreaseFont" title="Tăng cỡ chữ" type="button">+</button>
-                </div>
-                
-                <div class="preset-buttons">
-                    <button class="sidebar-preset-btn" data-scale="0.8" type="button">Nhỏ</button>
-                    <button class="sidebar-preset-btn active" data-scale="1" type="button">Vừa</button>
-                    <button class="sidebar-preset-btn" data-scale="1.2" type="button">To</button>
-                    <button class="sidebar-preset-btn" data-scale="1.4" type="button">Rất to</button>
                 </div>
             </div>
             
