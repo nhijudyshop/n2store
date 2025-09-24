@@ -7,6 +7,10 @@
     <link rel="shortcut icon" href="logo.jpg" />
     
     <style>
+        :root {
+            --font-scale: 1;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -24,6 +28,100 @@
             padding: 20px;
             overflow-x: hidden;
             position: relative;
+            font-size: calc(14px * var(--font-scale));
+        }
+
+        /* Font Size Settings Panel */
+        .font-settings {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 200px;
+        }
+
+        .font-settings h4 {
+            color: #2c3e50;
+            font-size: calc(14px * var(--font-scale));
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .font-size-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+        }
+
+        .font-size-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: calc(16px * var(--font-scale));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .font-size-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .font-size-display {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: calc(13px * var(--font-scale));
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .preset-btn {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            color: #495057;
+            padding: 5px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: calc(11px * var(--font-scale));
+            flex: 1;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .preset-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
         }
 
         /* Background Animation */
@@ -49,14 +147,14 @@
             position: relative;
             z-index: 10;
             background: rgba(255, 255, 255, 0.95);
-            padding: 60px 50px;
+            padding: calc(60px * var(--font-scale)) calc(50px * var(--font-scale));
             border-radius: 25px;
-            box-shadow: 
+            box-shadow:
                 0 25px 50px rgba(0, 0, 0, 0.15),
                 0 0 0 1px rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
             width: 100%;
-            max-width: 450px;
+            max-width: calc(450px * var(--font-scale));
             text-align: center;
             animation: slideUp 0.8s ease-out;
         }
@@ -74,23 +172,23 @@
 
         /* Logo/Brand */
         .brand {
-            margin-bottom: 40px;
+            margin-bottom: calc(40px * var(--font-scale));
         }
 
         .brand h1 {
-            font-size: 2.5rem;
+            font-size: calc(2.5rem * var(--font-scale));
             font-weight: 300;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 10px;
+            margin-bottom: calc(10px * var(--font-scale));
             letter-spacing: -1px;
         }
 
         .brand p {
             color: #6c757d;
-            font-size: 1rem;
+            font-size: calc(1rem * var(--font-scale));
             font-weight: 400;
         }
 
@@ -100,16 +198,16 @@
         }
 
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: calc(25px * var(--font-scale));
             text-align: left;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: calc(8px * var(--font-scale));
             color: #2c3e50;
             font-weight: 500;
-            font-size: 14px;
+            font-size: calc(14px * var(--font-scale));
         }
 
         .input-wrapper {
@@ -118,10 +216,10 @@
 
         .input-wrapper input {
             width: 100%;
-            padding: 18px 20px;
+            padding: calc(18px * var(--font-scale)) calc(20px * var(--font-scale));
             border: 2px solid #e9ecef;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: calc(16px * var(--font-scale));
             transition: all 0.3s ease;
             background: white;
             color: #2c3e50;
@@ -143,11 +241,11 @@
         .input-wrapper::before {
             content: '';
             position: absolute;
-            left: 20px;
+            left: calc(20px * var(--font-scale));
             top: 50%;
             transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
+            width: calc(20px * var(--font-scale));
+            height: calc(20px * var(--font-scale));
             background-size: contain;
             opacity: 0.5;
             z-index: 1;
@@ -163,25 +261,25 @@
 
         .input-wrapper.username input,
         .input-wrapper.password input {
-            padding-left: 55px;
+            padding-left: calc(55px * var(--font-scale));
         }
 
         /* Login Button */
         #loginButton {
             width: 100%;
-            padding: 18px 25px;
+            padding: calc(18px * var(--font-scale)) calc(25px * var(--font-scale));
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: calc(16px * var(--font-scale));
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-            margin-top: 10px;
+            margin-top: calc(10px * var(--font-scale));
         }
 
         #loginButton:hover {
@@ -205,9 +303,9 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 20px;
-            height: 20px;
-            margin: -10px 0 0 -10px;
+            width: calc(20px * var(--font-scale));
+            height: calc(20px * var(--font-scale));
+            margin: calc(-10px * var(--font-scale)) 0 0 calc(-10px * var(--font-scale));
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             border-top-color: white;
@@ -222,10 +320,10 @@
         .error-message {
             background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
             color: white;
-            padding: 12px 20px;
+            padding: calc(12px * var(--font-scale)) calc(20px * var(--font-scale));
             border-radius: 8px;
-            margin-top: 20px;
-            font-size: 14px;
+            margin-top: calc(20px * var(--font-scale));
+            font-size: calc(14px * var(--font-scale));
             font-weight: 500;
             opacity: 0;
             transform: translateY(-10px);
@@ -241,10 +339,10 @@
         .success-message {
             background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
             color: white;
-            padding: 12px 20px;
+            padding: calc(12px * var(--font-scale)) calc(20px * var(--font-scale));
             border-radius: 8px;
-            margin-top: 20px;
-            font-size: 14px;
+            margin-top: calc(20px * var(--font-scale));
+            font-size: calc(14px * var(--font-scale));
             font-weight: 500;
             opacity: 0;
             transform: translateY(-10px);
@@ -258,26 +356,26 @@
 
         /* Footer */
         .login-footer {
-            margin-top: 30px;
-            padding-top: 25px;
+            margin-top: calc(30px * var(--font-scale));
+            padding-top: calc(25px * var(--font-scale));
             border-top: 1px solid #e9ecef;
             color: #6c757d;
-            font-size: 13px;
+            font-size: calc(13px * var(--font-scale));
         }
 
         .version-info {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 15px;
+            margin-top: calc(15px * var(--font-scale));
         }
 
         .version-badge {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 4px 12px;
+            padding: calc(4px * var(--font-scale)) calc(12px * var(--font-scale));
             border-radius: 20px;
-            font-size: 11px;
+            font-size: calc(11px * var(--font-scale));
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -289,45 +387,52 @@
                 padding: 15px;
             }
 
+            .font-settings {
+                top: 10px;
+                right: 10px;
+                padding: 10px;
+                min-width: 180px;
+            }
+
             .login-container {
-                padding: 40px 30px;
+                padding: calc(40px * var(--font-scale)) calc(30px * var(--font-scale));
                 max-width: 100%;
                 border-radius: 20px;
             }
 
             .brand h1 {
-                font-size: 2rem;
+                font-size: calc(2rem * var(--font-scale));
             }
 
             .input-wrapper input {
-                padding: 16px 18px;
-                font-size: 16px;
+                padding: calc(16px * var(--font-scale)) calc(18px * var(--font-scale));
+                font-size: calc(16px * var(--font-scale));
             }
 
             .input-wrapper.username input,
             .input-wrapper.password input {
-                padding-left: 50px;
+                padding-left: calc(50px * var(--font-scale));
             }
 
             #loginButton {
-                padding: 16px 25px;
-                font-size: 15px;
+                padding: calc(16px * var(--font-scale)) calc(25px * var(--font-scale));
+                font-size: calc(15px * var(--font-scale));
             }
         }
 
         @media (max-width: 480px) {
             .login-container {
-                padding: 30px 20px;
+                padding: calc(30px * var(--font-scale)) calc(20px * var(--font-scale));
                 border-radius: 15px;
             }
 
             .brand h1 {
-                font-size: 1.8rem;
+                font-size: calc(1.8rem * var(--font-scale));
             }
 
             .version-info {
                 flex-direction: column;
-                gap: 10px;
+                gap: calc(10px * var(--font-scale));
                 text-align: center;
             }
         }
@@ -357,6 +462,22 @@
 </head>
 
 <body>
+    <!-- Font Size Settings Panel -->
+    <div class="font-settings">
+        <h4>Cỡ chữ</h4>
+        <div class="font-size-controls">
+            <button class="font-size-btn" id="decreaseFont" title="Giảm cỡ chữ">−</button>
+            <div class="font-size-display" id="fontSizeDisplay">100%</div>
+            <button class="font-size-btn" id="increaseFont" title="Tăng cỡ chữ">+</button>
+        </div>
+        <div class="preset-buttons">
+            <button class="preset-btn" data-scale="0.8">Nhỏ</button>
+            <button class="preset-btn active" data-scale="1">Vừa</button>
+            <button class="preset-btn" data-scale="1.2">To</button>
+            <button class="preset-btn" data-scale="1.4">Rất to</button>
+        </div>
+    </div>
+
     <div class="login-container" id="loginContainer">
         <!-- Brand Section -->
         <div class="brand">
@@ -402,8 +523,201 @@
     </div>
 
     <script>
+        // Font Size Management System
+        class FontSizeManager {
+            constructor() {
+                this.currentScale = parseFloat(localStorage.getItem('fontScale')) || 1;
+                this.minScale = 0.7;
+                this.maxScale = 2.0;
+                this.step = 0.1;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.applyFontSize();
+                this.updateDisplay();
+            }
+
+            initializeElements() {
+                this.decreaseBtn = document.getElementById('decreaseFont');
+                this.increaseBtn = document.getElementById('increaseFont');
+                this.display = document.getElementById('fontSizeDisplay');
+                this.presetBtns = document.querySelectorAll('.preset-btn');
+            }
+
+            setupEventListeners() {
+                this.decreaseBtn.addEventListener('click', () => this.changeFontSize(-this.step));
+                this.increaseBtn.addEventListener('click', () => this.changeFontSize(this.step));
+                
+                this.presetBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const scale = parseFloat(btn.dataset.scale);
+                        this.setFontSize(scale);
+                        this.updatePresetButtons(scale);
+                    });
+                });
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        if (e.key === '=' || e.key === '+') {
+                            e.preventDefault();
+                            this.changeFontSize(this.step);
+                        } else if (e.key === '-') {
+                            e.preventDefault();
+                            this.changeFontSize(-this.step);
+                        } else if (e.key === '0') {
+                            e.preventDefault();
+                            this.setFontSize(1);
+                            this.updatePresetButtons(1);
+                        }
+                    }
+                });
+            }
+
+            changeFontSize(delta) {
+                const newScale = Math.round((this.currentScale + delta) * 10) / 10;
+                this.setFontSize(Math.max(this.minScale, Math.min(this.maxScale, newScale)));
+                this.updatePresetButtons();
+            }
+
+            setFontSize(scale) {
+                this.currentScale = scale;
+                this.applyFontSize();
+                this.updateDisplay();
+                this.saveFontSize();
+            }
+
+            applyFontSize() {
+                document.documentElement.style.setProperty('--font-scale', this.currentScale);
+                
+                // Apply to all pages by setting a global CSS variable that other pages can inherit
+                const globalStyle = document.getElementById('globalFontStyle') || document.createElement('style');
+                globalStyle.id = 'globalFontStyle';
+                globalStyle.textContent = `
+                    html {
+                        --global-font-scale: ${this.currentScale};
+                    }
+                `;
+                if (!document.getElementById('globalFontStyle')) {
+                    document.head.appendChild(globalStyle);
+                }
+            }
+
+            updateDisplay() {
+                this.display.textContent = `${Math.round(this.currentScale * 100)}%`;
+                
+                // Update button states
+                this.decreaseBtn.disabled = this.currentScale <= this.minScale;
+                this.increaseBtn.disabled = this.currentScale >= this.maxScale;
+            }
+
+            updatePresetButtons(activeScale = null) {
+                const currentScale = activeScale || this.currentScale;
+                
+                this.presetBtns.forEach(btn => {
+                    const btnScale = parseFloat(btn.dataset.scale);
+                    if (Math.abs(btnScale - currentScale) < 0.05) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            saveFontSize() {
+                try {
+                    localStorage.setItem('fontScale', this.currentScale.toString());
+                    
+                    // Also save to a global key that other pages can access
+                    localStorage.setItem('globalFontScale', this.currentScale.toString());
+                    
+                    console.log('Font size saved:', this.currentScale);
+                } catch (error) {
+                    console.error('Error saving font size:', error);
+                }
+            }
+
+            // Static method to get current font scale for other pages
+            static getCurrentScale() {
+                return parseFloat(localStorage.getItem('globalFontScale')) || 1;
+            }
+
+            // Static method to apply font scale on other pages
+            static applyToPage() {
+                const scale = FontSizeManager.getCurrentScale();
+                document.documentElement.style.setProperty('--font-scale', scale);
+                
+                // Create or update global style
+                const globalStyle = document.getElementById('globalFontStyle') || document.createElement('style');
+                globalStyle.id = 'globalFontStyle';
+                globalStyle.textContent = `
+                    :root {
+                        --global-font-scale: ${scale};
+                        --font-scale: ${scale};
+                    }
+                    
+                    /* Apply to common elements */
+                    body {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                    }
+                    
+                    .main-content {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                    }
+                    
+                    .ck table {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                    }
+                    
+                    .ck th, .ck td {
+                        font-size: calc(12px * var(--font-scale)) !important;
+                        padding: calc(10px * var(--font-scale)) calc(6px * var(--font-scale)) !important;
+                    }
+                    
+                    input, select, textarea, button {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                        padding: calc(12px * var(--font-scale)) calc(15px * var(--font-scale)) !important;
+                    }
+                    
+                    .tieude, h1 {
+                        font-size: calc(2.5rem * var(--font-scale)) !important;
+                    }
+                    
+                    .form-group label {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                    }
+                    
+                    .nav-item a {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                        padding: calc(18px * var(--font-scale)) calc(25px * var(--font-scale)) !important;
+                    }
+                    
+                    .modal-content {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                    }
+                    
+                    .filter-system {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                    }
+                    
+                    .filter-system label, .filter-system input, .filter-system select, .filter-system button {
+                        font-size: calc(14px * var(--font-scale)) !important;
+                    }
+                `;
+                
+                if (!document.getElementById('globalFontStyle')) {
+                    document.head.appendChild(globalStyle);
+                }
+                
+                return scale;
+            }
+        }
+
         // Enhanced login functionality
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize font size manager
+            const fontManager = new FontSizeManager();
+            
             const loginForm = document.getElementById('loginForm');
             const loginButton = document.getElementById('loginButton');
             const usernameInput = document.getElementById('username');
@@ -484,6 +798,9 @@
                 });
             });
         });
+
+        // Export FontSizeManager to global scope for use in other pages
+        window.FontSizeManager = FontSizeManager;
     </script>
 
     <!-- Include your existing login.js if needed -->
