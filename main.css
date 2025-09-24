@@ -170,6 +170,7 @@ body {
 }
 
 /* ==================== MENU TOGGLE BUTTON ==================== */
+/* ===== MENU TOGGLE (hamburger ↔ X with smooth animation) ===== */
 .menu-toggle {
   position: fixed;
   top: 20px;
@@ -182,10 +183,12 @@ body {
   cursor: pointer;
   z-index: 1001;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-  transition: var(--transition-fast);
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(0);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: visible;
 }
 
 .menu-toggle.hidden {
@@ -194,32 +197,26 @@ body {
   transform: translateX(-100px);
 }
 
-.menu-toggle:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-.menu-toggle.hidden:hover {
-  transform: translateX(-100px) scale(1.05);
-}
-
 .hamburger {
   position: relative;
   width: 24px;
   height: 2px;
   background: white;
-  margin: 0 auto;
-  transition: var(--transition-fast);
+  transition: background 0.3s ease;
+  transform-origin: center;
 }
 
+/* thanh trên và dưới */
 .hamburger::before,
 .hamburger::after {
   content: "";
   position: absolute;
-  width: 24px;
+  left: 0;
+  width: 100%;
   height: 2px;
   background: white;
-  transition: var(--transition-fast);
+  transform-origin: center;
+  transition: top 0.3s ease, transform 0.3s ease;
 }
 
 .hamburger::before {
@@ -227,11 +224,12 @@ body {
 }
 
 .hamburger::after {
-  bottom: -8px;
+  top: 8px;
 }
 
+/* khi active -> thành X */
 .menu-toggle.active .hamburger {
-  background: transparent;
+  background: transparent; /* ẩn thanh giữa */
 }
 
 .menu-toggle.active .hamburger::before {
@@ -240,9 +238,19 @@ body {
 }
 
 .menu-toggle.active .hamburger::after {
-  bottom: 0;
+  top: 0;
   transform: rotate(-45deg);
 }
+
+/* hover */
+.menu-toggle:hover {
+  transform: scale(1.05);
+}
+
+.menu-toggle.hidden:hover {
+  transform: translateX(-100px) scale(1.05);
+}
+
 
 /* ==================== OVERLAY ==================== */
 .overlay {

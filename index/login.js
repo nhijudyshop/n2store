@@ -3,8 +3,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const USER_ROLES = {
         ADMIN: 0,      // Full access
         COI: 1,        // All except delete
-        LIMITED: 2,    // CK, inbox access
-        BASIC: 3,    // Limited access
+        LIMITED: 2,    // Limited access
+        BASIC: 3,    // Basic access
         GUEST: 777     // Read-only
     };
 

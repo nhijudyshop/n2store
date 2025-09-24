@@ -879,6 +879,7 @@ function closeSidebar() {
         sidebar.classList.remove('open');
         overlay.classList.remove('active');
         menuToggle.classList.remove('active');
+		menuToggle.classList.remove('hidden');
         // Đóng settings dropdown
         const settingsItem = document.querySelector('.settings-item');
         const dropdown = document.querySelector('.settings-dropdown');
