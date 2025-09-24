@@ -61,6 +61,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const passwordInput = document.getElementById('password');
     const loginButton = document.getElementById('loginButton');
     const loginForm = document.getElementById('loginForm');
+	const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
 
     // Security: Rate limiting for login attempts
     let loginAttempts = 0;
@@ -320,26 +322,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Handle failed login
     function handleFailedLogin() {
-        loginAttempts++;
-        lastAttemptTime = Date.now();
+		loginAttempts++;
+		lastAttemptTime = Date.now();
 
-        // Clear password for security
-        if (passwordInput) {
-            passwordInput.value = '';
-            passwordInput.focus();
-        }
+		// Clear password cho an toàn
+		if (passwordInput) {
+			passwordInput.value = '';
+			passwordInput.focus();
+		}
 
-        // Show appropriate error message
-        const remainingAttempts = MAX_LOGIN_ATTEMPTS - loginAttempts;
-        if (remainingAttempts > 0) {
-            showError(`Thông tin đăng nhập không chính xác. Còn lại ${remainingAttempts} lần thử.`);
-        } else {
-            showError(`Quá nhiều lần đăng nhập sai. Tài khoản bị khóa ${LOCKOUT_DURATION / 60000} phút.`);
-        }
+		// Show thông báo lỗi
+		const remainingAttempts = MAX_LOGIN_ATTEMPTS - loginAttempts;
+		if (remainingAttempts > 0) {
+			showNotification(`Thông tin đăng nhập không chính xác. Còn lại ${remainingAttempts} lần thử.`);
+			showError(`Thông tin đăng nhập không chính xác. Còn lại ${remainingAttempts} lần thử.`);
+		} else {
+			showNotification(`Quá nhiều lần đăng nhập sai. Tài khoản bị khóa ${LOCKOUT_DURATION / 60000} phút.`);
+			showError(`Quá nhiều lần đăng nhập sai. Tài khoản bị khóa ${LOCKOUT_DURATION / 60000} phút.`);
+		}
 
-        // Log the failed attempt
-        logLoginAttempt(usernameInput ? usernameInput.value : 'unknown', false);
-    }
+		logLoginAttempt(usernameInput ? usernameInput.value : 'unknown', false);
+	}
 
     // Redirect to main application
     function redirectToMainApp() {
@@ -366,14 +369,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Enhanced notification system
     function showError(message) {
-        showNotification(message, 'error');
-        console.error('Login error:', message);
-    }
+		const errorElement = document.getElementById('errorMessage');
+		if (errorElement) {
+			errorElement.textContent = message;
+			errorElement.classList.add('show');
+		}
+		console.error('Login error:', message);
+	}
 
     function showSuccess(message) {
-        showNotification(message, 'success');
-        console.log('Login success:', message);
-    }
+		const successElement = document.getElementById('successMessage');
+		if (successElement) {
+			successElement.textContent = message;
+			successElement.classList.add('show');
+		}
+		console.log('Login success:', message);
+	}
 
     function showNotification(message, type) {
         // Try to use existing error element first
