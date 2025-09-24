@@ -31,22 +31,22 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         'lai': { 
             password: 'lai2506', 
-            checkLogin: USER_ROLES.LIMITED,
+            checkLogin: USER_ROLES.BASIC,
             displayName: 'Lai User'
         },
         'huyen': { 
             password: 'huyen2307', 
-            checkLogin: USER_ROLES.LIMITED,
+            checkLogin: USER_ROLES.BASIC,
             displayName: 'Huyền User'
         },
         'hanh': { 
             password: 'hanh1206', 
-            checkLogin: USER_ROLES.LIMITED,
+            checkLogin: USER_ROLES.BASIC,
             displayName: 'Hạnh User'
         },
         'duyen': { 
             password: 'duyen3009', 
-            checkLogin: USER_ROLES.LIMITED,
+            checkLogin: USER_ROLES.BASIC,
             displayName: 'Duyên User'
         },
         'khach': { 
