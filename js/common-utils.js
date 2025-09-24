@@ -381,3 +381,10 @@ if (typeof module !== 'undefined' && module.exports) {
         initializeCommonUtils
     };
 }
+
+window.addEventListener("load", function() {
+    const overlay = document.getElementById("loadingOverlay");
+    if (overlay) {
+        overlay.classList.remove("show");
+    }
+});

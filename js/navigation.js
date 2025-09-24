@@ -51,10 +51,10 @@ const MENU_CONFIG = [
         pageIdentifier: 'hanghoan'
     },
     {
-        href: '../nhaphang/index.html',
+        href: '../hangdat/index.html',
         icon: '📋',
-        text: 'NHẬP HÀNG',
-        pageIdentifier: 'nhaphang'
+        text: 'HÀNG ĐẶT',
+        pageIdentifier: 'hangdat'
     },
     {
         href: '../history/index.html',

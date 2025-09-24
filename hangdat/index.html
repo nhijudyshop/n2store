@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Đặt Hàng</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="../logo.jpg" />
+    
+    <!-- The core Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- The Firebase storage SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <!-- The Firebase firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Load jQuery from a CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="../main.css">
+    
+    <!-- Navigation Manager -->
+    <script src="../js/navigation.js"></script>
+    <script src="../js/common-utils.js"></script>
+    
+    <style>
+        /* Custom styles for order management */
+        .form-section {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: auto;
+        }
+        
+        .image-upload-group {
+            grid-column: 1 / -1;
+        }
+        
+        .image-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .invoice-images, .product-images {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        
+        .radio-group input[type="radio"] {
+            margin-right: 5px;
+        }
+        
+        .image-display-area {
+            border: 2px dashed #ddd;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: var(--bg-light);
+            transition: var(--transition-fast);
+        }
+        
+        .image-display-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .image-display-area.has-content {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        
+        .image-display-area img {
+            max-width: 150px;
+            max-height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .image-display-area p {
+            color: var(--text-muted);
+            font-style: italic;
+            margin: 0;
+        }
+        
+        .supplier-suggestions {
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            margin-top: 5px;
+            display: none;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .supplier-suggestion {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--bg-light);
+            transition: background-color 0.2s;
+        }
+        
+        .supplier-suggestion:hover {
+            background: var(--bg-light);
+        }
+        
+        .supplier-suggestion:last-child {
+            border-bottom: none;
+        }
+        
+        .notes-textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        /* Hide file inputs by default */
+        #invoiceFileInput, #productFileInput,
+        #invoiceLinkInput, #productLinkInput {
+            display: none;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .image-container {
+                flex-direction: column;
+            }
+            
+            .radio-group {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .invoice-images, .product-images {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Security Indicator -->
+    <div class="security-indicator" id="securityIndicator">Secure</div>
+    
+    <!-- Performance Indicator -->
+    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
+    
+    <!-- Menu Toggle Button -->
+    <button class="menu-toggle">
+        <div class="hamburger"></div>
+    </button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Menu Điều Hướng</h3>
+            <button class="close-btn">&times;</button>
+        </div>
+        <ul class="nav-list"></ul>
+    </nav>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Top buttons -->
+    <div class="top-buttons">
+        <button id="toggleFormButton">Hiện biểu mẫu</button>
+        <button onclick="exportToExcel()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">Xuất Excel</button>
+        <button id="toggleLogoutButton">Đăng xuất</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="main-content">
+        <div class="header">
+            <div id="parentContainer">
+                <p class="tieude">THỐNG KÊ HÀNG ĐẶT</p>
+            </div>
+        </div>
+
+        <!-- Data Form -->
+        <div id="dataForm" class="form-section" style="display: none;">
+            <h1></h1>
+            <form id="orderForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ngayDatHang">Ngày đặt hàng:</label>
+                        <input type="date" id="ngayDatHang" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nhaCungCap">Nhà cung cấp:</label>
+                        <input type="text" id="nhaCungCap" placeholder="Nhập tên nhà cung cấp..." required>
+                        <div class="supplier-suggestions" id="supplierSuggestions"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="hoaDon">Hóa đơn:</label>
+                        <input type="text" id="hoaDon" placeholder="Số hóa đơn..." required>
+                    </div>
+                </div>
+
+                <div class="form-row image-upload-group">
+                    <div class="image-container">
+                        <div class="invoice-images">
+                            <h3>Ảnh hóa đơn:</h3>
+                            <div class="radio-group">
+                                <label><input type="radio" name="invoiceInputType" value="clipboard" checked> Copy Paste</label>
+                                <label><input type="radio" name="invoiceInputType" value="file"> Nhập file</label>
+                                <label><input type="radio" name="invoiceInputType" value="link"> Nhập link</label>
+                            </div>
+                            
+                            <div id="invoiceClipboardContainer" class="image-display-area">
+                                <p>Dán ảnh hóa đơn ở đây...</p>
+                            </div>
+                            
+                            <input type="file" id="invoiceFileInput" multiple accept="image/*">
+                            <input type="text" id="invoiceLinkInput" placeholder="Nhập link ảnh hóa đơn (https://...)">
+                        </div>
+                        
+                        <div class="product-images">
+                            <h3>Ảnh sản phẩm - giá nhập:</h3>
+                            <div class="radio-group">
+                                <label><input type="radio" name="productInputType" value="clipboard" checked> Copy Paste</label>
+                                <label><input type="radio" name="productInputType" value="file"> Nhập file</label>
+                                <label><input type="radio" name="productInputType" value="link"> Nhập link</label>
+                            </div>
+                            
+                            <div id="productClipboardContainer" class="image-display-area">
+                                <p>Dán ảnh sản phẩm ở đây...</p>
+                            </div>
+                            
+                            <input type="file" id="productFileInput" multiple accept="image/*">
+                            <input type="text" id="productLinkInput" placeholder="Nhập link ảnh sản phẩm (https://...)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tenSanPham">Tên sản phẩm:</label>
+                        <input type="text" id="tenSanPham" list="productSuggestions" placeholder="Nhập tên sản phẩm..." required>
+                        <datalist id="productSuggestions"></datalist>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maSanPham">Mã sản phẩm:</label>
+                        <input type="text" id="maSanPham" placeholder="Nhập mã sản phẩm...">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bienThe">Biến thể:</label>
+                        <input type="text" id="bienThe" placeholder="Màu sắc, kích thước...">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="soLuong">Số lượng:</label>
+                        <input type="number" id="soLuong" min="1" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="giaNhap">Giá nhập (VNĐ):</label>
+                        <input type="number" id="giaNhap" min="0" step="1000" placeholder="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ghiChu">Ghi chú:</label>
+                        <textarea id="ghiChu" class="notes-textarea" placeholder="Ghi chú thêm về đơn hàng..."></textarea>
+                    </div>
+                </div>
+
+                <div class="center-button">
+                    <button type="submit" id="addButton">Thêm Đơn Hàng</button>
+                    <button type="button" id="clearDataButton">Reset</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <label for="filterSupplier">Chọn nhà cung cấp:</label>
+                <select id="filterSupplier">
+                    <option value="all">Tất cả</option>
+                </select>
+
+                <label for="dateFilter">Lọc ngày đặt hàng:</label>
+                <select id="dateFilter">
+                    <option value="all">Tất cả</option>
+                    <option value="today">Hôm nay</option>
+                    <option value="week">Tuần này</option>
+                    <option value="month">Tháng này</option>
+                </select>
+
+                <label for="filterProduct">Lọc sản phẩm:</label>
+                <input type="text" id="filterProduct" placeholder="Tìm kiếm sản phẩm...">
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 4%;">STT</th>
+                        <th style="width: 8%;">Ngày đặt</th>
+                        <th style="width: 10%;">Thời gian upload</th>
+                        <th style="width: 10%;">Nhà cung cấp</th>
+                        <th style="width: 8%;">Hóa đơn</th>
+                        <th style="width: 12%;">Ảnh hóa đơn</th>
+                        <th style="width: 12%;">Tên sản phẩm</th>
+                        <th style="width: 6%;">Mã SP</th>
+                        <th style="width: 8%;">Biến thể</th>
+                        <th style="width: 6%;">Số lượng</th>
+                        <th style="width: 8%;">Giá nhập</th>
+                        <th style="width: 12%;">Ảnh SP</th>
+                        <th style="width: 8%;">Ghi chú</th>
+                        <th style="width: 4%;">Xóa</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTableBody">
+                    <!-- Dữ liệu đơn đặt hàng sẽ được thêm bằng JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Enhanced Floating Alert -->
+    <div id="floatingAlert">
+        <div class="alert-content">
+            <div class="loading-spinner" style="display: none;">
+                <div class="spinner"></div>
+            </div>
+            <div class="alert-text">Thông báo hiển thị!</div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay"></div>
+    
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
+    
+    <!-- Blocking Overlay -->
+    <div id="blockingOverlay"></div>
+    
+    <!-- Copy Notification -->
+    <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
+
+    <script>
+        // Enhanced image click handling for copy functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Event delegation for images in table
+            const tbody = document.querySelector('tbody');
+            
+            if (tbody) {
+                tbody.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'IMG') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const imgSrc = e.target.dataset.src || e.target.src;
+                        
+                        // Copy image source to clipboard
+                        copyToClipboard(imgSrc);
+                    }
+                });
+            }
+        });
+    </script>
+    
+    <!-- Order Management JavaScript -->
+    <script src="scriptObfuscator.js"></script>
+</body>
+
+</html>
