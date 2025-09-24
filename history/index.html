@@ -942,7 +942,7 @@
 		const checkLogin = localStorage.getItem('checkLogin') || sessionStorage.getItem('checkLogin');
 
 		if (isLoggedIn === 'true') {
-			document.querySelector('.tieude').innerText += ' - ' + userType.split('-')[0];
+			document.querySelector('.tieude').innerText += ' - Administrator';
 			const parentContainer = document.getElementById('parentContainer');
 			parentContainer.style.display = 'flex';
 			parentContainer.style.justifyContent = 'center';

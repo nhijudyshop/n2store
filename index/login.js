@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Passwords should be hashed and validated server-side
     const userCredentials = {
         'admin': { 
-            password: 'admin123', 
+            password: 'admin@@', 
             checkLogin: USER_ROLES.ADMIN,
             displayName: 'Administrator' 
         },

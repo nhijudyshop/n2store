@@ -282,27 +282,27 @@ function showEditHistoryTooltip(event, editHistory, row) {
     });
     
     // Finally, add the original data row (#0) at the bottom
-    if (sortedHistory.length > 0) {
-        const oldestEdit = sortedHistory[sortedHistory.length - 1];
-        const originalData = oldestEdit.oldData || {};
+        if (sortedHistory.length > 0) {
+            const oldestEdit = sortedHistory[sortedHistory.length - 1];
+            const originalData = oldestEdit.oldData || {};
 		const recordId = row.cells[0].getAttribute('data-id');
 		const itemData = arrayData.find(item => item.id === recordId);
-        const creatorName = itemData ? (itemData.createdBy || itemData.user || 'Unknown') : 'Unknown';
+            const creatorName = itemData ? (itemData.createdBy || itemData.user || 'Unknown') : 'Unknown';
 	
-        tooltipContent += `
-            <tr class="history-row original-row">
-                <td class="data-cell" style="width: ${columnWidths[0] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${formatHistoryDate(originalData.dateCell) || '-'}</td>
-                <td class="data-cell" style="width: ${columnWidths[1] || 200}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.mauLive || '-'}</td>
-                <td class="data-cell" style="width: ${columnWidths[2] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.tienQC || '-'}</td>
-                <td class="data-cell" style="width: ${columnWidths[3] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.thoiGian || '-'}</td>
-                <td class="data-cell" style="width: ${columnWidths[4] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonLive || '-'}</td>
-                <td class="data-cell" style="width: ${columnWidths[5] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonInbox || '-'}</td>
-                <td class="edit-number original" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">#0</td>
-                <td class="data-cell user-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${creatorName}</td>
-                <td class="data-cell timestamp-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">-</td>
-            </tr>
-        `;
-    }
+            tooltipContent += `
+                <tr class="history-row original-row">
+                    <td class="data-cell" style="width: ${columnWidths[0] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${formatHistoryDate(originalData.dateCell) || '-'}</td>
+                    <td class="data-cell" style="width: ${columnWidths[1] || 200}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.mauLive || '-'}</td>
+                    <td class="data-cell" style="width: ${columnWidths[2] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.tienQC || '-'}</td>
+                    <td class="data-cell" style="width: ${columnWidths[3] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.thoiGian || '-'}</td>
+                    <td class="data-cell" style="width: ${columnWidths[4] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonLive || '-'}</td>
+                    <td class="data-cell" style="width: ${columnWidths[5] || 100}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${originalData.soMonInbox || '-'}</td>
+                    <td class="edit-number original" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">#0</td>
+                    <td class="data-cell user-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${creatorName}</td>
+                    <td class="data-cell timestamp-cell" style="width: ${singleActionColumnWidth}px; text-align: center !important; vertical-align: middle !important; padding: 8px 4px !important;">${itemData && itemData.createdAt ? new Date(itemData.createdAt).toLocaleString('vi-VN', {year: 'numeric',month: '2-digit',day: '2-digit',hour: '2-digit',minute: '2-digit'}) : (itemData && itemData.dateCell ? new Date(parseInt(itemData.dateCell)).toLocaleString('vi-VN', {year: 'numeric',month: '2-digit',day: '2-digit',hour: '2-digit',minute: '2-digit'}) : 'Không rõ')}</td>
+                </tr>
+            `;
+        }
     
     // If no history available
     if (editHistory.length === 0) {
@@ -1679,7 +1679,7 @@ function handleUpdatedFormSubmit(e) {
     
     const thoiGian = formatTimeRange(startTime, endTime);
     if (!thoiGian) {
-        showError('Thời gian kết thúc phải sau thời gian bắt đầu.');
+        showError('Thời gian kết thúc phải lớn hơn thời gian bắt đầu.');
         return;
     }
     
@@ -1763,7 +1763,9 @@ function formatTimeRange(startTime, endTime) {
     
     // Handle overnight time (end time is next day)
     if (end <= start) {
-        end.setDate(end.getDate() + 1);
+		showError('Thời gian kết thúc phải lớn hơn thời gian bắt đầu.');
+		return null;
+        //end.setDate(end.getDate() + 1);
     }
     
     const diffMs = end.getTime() - start.getTime();
@@ -2538,7 +2540,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (auth.userType) {
         const titleElement = document.querySelector('.tieude');
         if (titleElement) {
-            titleElement.textContent += ' - ' + auth.userType.split('-')[0];
+            titleElement.textContent += ' - ' + auth.displayName;
         }
     }
 

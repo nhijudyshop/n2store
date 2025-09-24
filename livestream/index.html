@@ -862,6 +862,51 @@
           font-size: 12px;
           margin-left: 5px;
         }
+		
+		#loadingOverlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0,0,0,0.5);
+			z-index: 10000;
+			display: none;
+		}
+
+		#loadingOverlay.show {
+			display: block;
+		}
+
+		#floatingAlert.loading {
+			background: rgba(0,0,0,0.9);
+			color: white;
+			border-color: #007bff;
+		}
+
+		#floatingAlert.show {
+			opacity: 1 !important;
+			visibility: visible !important;
+		}
+
+		.loading-spinner {
+			margin-bottom: 10px;
+		}
+
+		.spinner {
+			width: 20px;
+			height: 20px;
+			border: 2px solid #f3f3f3;
+			border-top: 2px solid #007bff;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+			margin: 0 auto;
+		}
+
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
     </style>
 </head>
 
@@ -1059,8 +1104,14 @@
         </div>
     </div>
 
-    <!-- Floating Alert -->
-    <div id="floatingAlert">Thông báo hiển thị!</div>
+    <div id="floatingAlert">
+		<div class="alert-content">
+			<div class="loading-spinner" style="display: none;">
+				<div class="spinner"></div>
+			</div>
+			<div class="alert-text">Thông báo hiển thị!</div>
+		</div>
+	</div>
     
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
