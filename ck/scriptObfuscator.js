@@ -99,12 +99,13 @@ function blockInteraction(operationType) {
     isOperationInProgress = true;
     currentOperationType = operationType;
     
-    // Disable form inputs
+    // Disable form inputs but preserve their original disabled state
     if (moneyTransferForm) {
         const inputs = moneyTransferForm.querySelectorAll('input, select, button, textarea');
         inputs.forEach(input => {
+            // Store original disabled state
+            input.setAttribute('data-original-disabled', input.disabled);
             input.disabled = true;
-            input.setAttribute('data-was-disabled', input.disabled);
         });
     }
     
@@ -117,15 +118,15 @@ function blockInteraction(operationType) {
     // Disable modal buttons if open
     const modalButtons = document.querySelectorAll('#editModal button');
     modalButtons.forEach(btn => {
+        btn.setAttribute('data-original-disabled', btn.disabled);
         btn.disabled = true;
-        btn.setAttribute('data-was-disabled', btn.disabled);
     });
     
     // Disable export and other action buttons
     const actionButtons = document.querySelectorAll('.filter-btn, #toggleFormButton, #toggleLogoutButton');
     actionButtons.forEach(btn => {
+        btn.setAttribute('data-original-disabled', btn.disabled);
         btn.disabled = true;
-        btn.setAttribute('data-was-disabled', btn.disabled);
     });
     
     console.log(`Interactions blocked for operation: ${operationType}`);
@@ -135,13 +136,14 @@ function unblockInteraction() {
     isOperationInProgress = false;
     currentOperationType = null;
     
-    // Re-enable form inputs
+    // Re-enable form inputs based on their original state
     if (moneyTransferForm) {
         const inputs = moneyTransferForm.querySelectorAll('input, select, button, textarea');
         inputs.forEach(input => {
-            const wasDisabled = input.getAttribute('data-was-disabled') === 'true';
-            input.disabled = wasDisabled;
-            input.removeAttribute('data-was-disabled');
+            // Restore original disabled state
+            const originalDisabled = input.getAttribute('data-original-disabled');
+            input.disabled = originalDisabled === 'true';
+            input.removeAttribute('data-original-disabled');
         });
     }
     
@@ -154,17 +156,17 @@ function unblockInteraction() {
     // Re-enable modal buttons
     const modalButtons = document.querySelectorAll('#editModal button');
     modalButtons.forEach(btn => {
-        const wasDisabled = btn.getAttribute('data-was-disabled') === 'true';
-        btn.disabled = wasDisabled;
-        btn.removeAttribute('data-was-disabled');
+        const originalDisabled = btn.getAttribute('data-original-disabled');
+        btn.disabled = originalDisabled === 'true';
+        btn.removeAttribute('data-original-disabled');
     });
     
     // Re-enable action buttons
     const actionButtons = document.querySelectorAll('.filter-btn, #toggleFormButton, #toggleLogoutButton');
     actionButtons.forEach(btn => {
-        const wasDisabled = btn.getAttribute('data-was-disabled') === 'true';
-        btn.disabled = wasDisabled;
-        btn.removeAttribute('data-was-disabled');
+        const originalDisabled = btn.getAttribute('data-original-disabled');
+        btn.disabled = originalDisabled === 'true';
+        btn.removeAttribute('data-original-disabled');
     });
     
     console.log('Interactions unblocked');
@@ -1408,6 +1410,14 @@ function initializeForm() {
                 if (dataForm.style.display === 'none' || dataForm.style.display === '') {
                     dataForm.style.display = 'block';
                     toggleFormButton.textContent = 'Ẩn biểu mẫu';
+                    
+                    // Auto-focus on first input when form opens
+                    setTimeout(() => {
+                        const firstInput = document.getElementById('transferNote');
+                        if (firstInput) {
+                            firstInput.focus();
+                        }
+                    }, 100);
                 } else {
                     dataForm.style.display = 'none';
                     toggleFormButton.textContent = 'Hiện biểu mẫu';
@@ -1421,6 +1431,15 @@ function initializeForm() {
     // Form submit handler
     if (moneyTransferForm) {
         moneyTransferForm.addEventListener('submit', handleFormSubmit);
+        
+        // Add keyboard shortcuts for faster entry
+        moneyTransferForm.addEventListener('keydown', function(e) {
+            // Ctrl + Enter to submit form
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                handleFormSubmit(e);
+            }
+        });
     }
     
     // Amount input formatting
@@ -1433,7 +1452,36 @@ function initializeForm() {
                 this.value = numberWithCommas(value);
             }
         });
+        
+        // Auto-advance to next field on Enter
+        transferAmountInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const bankSelect = document.getElementById('bank');
+                if (bankSelect) {
+                    bankSelect.focus();
+                }
+            }
+        });
     }
+    
+    // Add Enter key navigation for all form fields
+    const formFields = ['transferNote', 'transferAmount', 'bank', 'customerInfo'];
+    formFields.forEach((fieldId, index) => {
+        const field = document.getElementById(fieldId);
+        if (field && fieldId !== 'transferAmount') { // transferAmount already handled above
+            field.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const nextIndex = (index + 1) % formFields.length;
+                    const nextField = document.getElementById(formFields[nextIndex]);
+                    if (nextField) {
+                        nextField.focus();
+                    }
+                }
+            });
+        }
+    });
     
     // Clear form button
     const clearDataButton = document.getElementById('clearDataButton');
@@ -1443,9 +1491,17 @@ function initializeForm() {
                 showError('Có thao tác đang thực hiện, vui lòng đợi...');
                 return;
             }
-            const currentDate = new Date(ngayck.value);
-            ngayck.valueAsDate = currentDate;
+            const currentDate = new Date();
             moneyTransferForm.reset();
+            ngayck.valueAsDate = currentDate;
+            
+            // Focus on first input after clearing
+            setTimeout(() => {
+                const firstInput = document.getElementById('transferNote');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            }, 100);
         });
     }
 }
@@ -1489,7 +1545,7 @@ function handleFormSubmit(e) {
 
     const auth = getAuthState();
     const dataToUpload = {
-        uniqueId: generateUniqueId(), // Add unique ID
+        uniqueId: generateUniqueId(),
         dateCell: timestamp.toString(),
         noteCell: transferNote,
         amountCell: numberWithCommas(transferAmount),
@@ -1506,18 +1562,27 @@ function handleFormSubmit(e) {
     const newRow = createTableRow(dataToUpload, formattedDate);
     tableBody.insertBefore(newRow, tableBody.firstChild);
 
-    // Reset form
+    // Store form data before reset for potential restore
+    const formData = {
+        transferNote: transferNote,
+        transferAmount: transferAmount,
+        selectedBank: selectedBank,
+        customerInfo: customerInfo,
+        currentDate: currentDate
+    };
+
+    // Reset form IMMEDIATELY after getting data
     moneyTransferForm.reset();
-    ngayck.valueAsDate = currentDate;
+    ngayck.valueAsDate = new Date(); // Set to current date for next entry
 
     // Upload to Firebase
     collectionRef.doc("ck").get().then(doc => {
-        const updateData = doc.exists ? 
+        const updateData = doc.exists ?
             { ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload) } :
             { ["data"]: [dataToUpload] };
 
-        const operation = doc.exists ? 
-            collectionRef.doc("ck").update(updateData) : 
+        const operation = doc.exists ?
+            collectionRef.doc("ck").update(updateData) :
             collectionRef.doc("ck").set(updateData);
 
         return operation;
@@ -1548,10 +1613,27 @@ function handleFormSubmit(e) {
         
         updateTotalAmount();
         hideOperationLoading("Đã thêm giao dịch thành công!");
+        
+        // Focus on the first input field for continuous entry
+        setTimeout(() => {
+            const firstInput = document.getElementById('transferNote');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+        
         console.log("Document uploaded successfully");
     }).catch((error) => {
         console.error("Error uploading document: ", error);
         newRow.remove(); // Remove the row if upload fails
+        
+        // Restore form data on error
+        document.getElementById('transferNote').value = formData.transferNote;
+        transferAmountInput.value = numberWithCommas(formData.transferAmount);
+        document.getElementById('bank').value = formData.selectedBank;
+        document.getElementById('customerInfo').value = formData.customerInfo;
+        ngayck.valueAsDate = formData.currentDate;
+        
         hideOperationLoading();
         showError('Lỗi khi tải document lên.');
     });
