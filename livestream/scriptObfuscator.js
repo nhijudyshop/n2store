@@ -2035,7 +2035,7 @@ function handleEditButton(e) {
     const mm1 = document.getElementById('editMm1');
     const hh2 = document.getElementById('editHh2');
     const mm2 = document.getElementById('editMm2');
-
+    
     const row = e.target.parentNode.parentNode;
     const date = row.cells[0].innerText;
     const mauLive = row.cells[1].innerText;
@@ -2090,6 +2090,10 @@ function handleEditButton(e) {
             if (mm1) mm1.value = startMin;
             if (hh2) hh2.value = endHour;
             if (mm2) mm2.value = endMin;
+            if (hh1.value < 12) {
+                editModal.style.display = 'none';
+                return;
+            };
         } else {
             // Nếu không parse được, để trống các trường
             if (hh1) hh1.value = '';
