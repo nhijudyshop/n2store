@@ -12,7 +12,7 @@
     document.head.appendChild(script);
 })();
 
-// Cấu hình menu items - Đã thêm trang quản lý tài khoản cho admin
+// Cấu hình menu items - Đã thêm trang Nhận Hàng
 const MENU_CONFIG = [
     {
         href: '../live/index.html',
@@ -27,8 +27,14 @@ const MENU_CONFIG = [
         pageIdentifier: 'livestream'
     },
     {
-        href: '../hangrotxa/index.html',
+        href: '../nhanhang/index.html',
         icon: '📦',
+        text: 'NHẬN HÀNG',
+        pageIdentifier: 'nhanhang'
+    },
+    {
+        href: '../hangrotxa/index.html',
+        icon: '📋',
         text: 'HÀNG RỚT - XẢ',
         pageIdentifier: 'hangrotxa'
     },
@@ -52,12 +58,12 @@ const MENU_CONFIG = [
     },
     {
         href: '../hangdat/index.html',
-        icon: '📋',
+        icon: '📝',
         text: 'HÀNG ĐẶT',
         pageIdentifier: 'hangdat',
         adminOnly: true
     },
-	{
+    {
         href: '../bangkiemhang/index.html',
         icon: '✅',
         text: 'BẢNG KIỂM HÀNG',

@@ -381,6 +381,12 @@ textarea::placeholder {
   font-style: italic;
 }
 
+input[type="text"],
+input[type="number"],
+textarea {
+    text-align: center;
+}
+
 /* ==================== BUTTON COMPONENTS ==================== */
 .btn,
 button {
