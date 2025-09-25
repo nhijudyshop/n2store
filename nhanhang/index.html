@@ -805,29 +805,8 @@
     </div>
 
     <script>
-        // Global Variables
-        let mockData = [
-            {
-                id: '1',
-                tenNguoiNhan: 'Nguyễn Văn A',
-                soKg: 15.5,
-                soKien: 3,
-                thoiGianNhan: '25/09/2025, 14:30',
-                ghiChu: 'Hàng dễ vỡ',
-                hinhAnh: 'https://picsum.photos/200/150?random=1'
-            },
-            {
-                id: '2',
-                tenNguoiNhan: 'Trần Thị B',
-                soKg: 28.2,
-                soKien: 5,
-                thoiGianNhan: '25/09/2025, 10:15',
-                ghiChu: 'Hàng điện tử',
-                hinhAnh: 'https://picsum.photos/200/150?random=2'
-            }
-        ];
-
-        let allReceipts = [...mockData];
+        // Global Variables - Removed demo data
+        let allReceipts = []; // Empty array instead of mockData
         let capturedImageBlob = null;
         let capturedImageUrl = null;
         let cameraStream = null;
@@ -1059,8 +1038,7 @@
                     hinhAnh: capturedImageUrl
                 };
 
-                mockData.unshift(receipt);
-                allReceipts = [...mockData];
+                allReceipts.unshift(receipt);
                 
                 renderTable(allReceipts);
                 updateFilterOptions();
@@ -1190,10 +1168,9 @@
                 showAlert('Đang xóa phiếu...', 'loading');
                 
                 setTimeout(() => {
-                    const index = mockData.findIndex(r => r.id === id);
+                    const index = allReceipts.findIndex(r => r.id === id);
                     if (index > -1) {
-                        mockData.splice(index, 1);
-                        allReceipts = [...mockData];
+                        allReceipts.splice(index, 1);
                         filterTable();
                         updateFilterOptions();
                         showAlert('Đã xóa phiếu thành công!', 'success');
@@ -1263,7 +1240,7 @@
             toggleFormBtn.addEventListener('click', () => {
                 const isVisible = formSection.classList.contains('show');
                 formSection.classList.toggle('show');
-                toggleFormBtn.textContent = isVisible ? 'Hiện Biểu Mâũ' : 'Ẩn Biếu Mãu';
+                toggleFormBtn.textContent = isVisible ? 'Hiện Biểu Mẫu' : 'Ẩn Biểu Mẫu';
             });
 
             // Form submission
@@ -1343,6 +1320,3 @@
         // Global functions for onclick
         window.editReceipt = editReceipt;
         window.deleteReceipt = deleteReceipt;
-    </script>
-</body>
-</html>
