@@ -222,7 +222,7 @@ async function addReceipt(event) {
     // Get form values
     const tenNguoiNhan = sanitizeInput(tenNguoiNhanInput.value.trim());
     const soKg = parseFloat(soKgInput.value);
-    const soKien = parseFloat(soKienInput.value.trim());
+    const soKien = parseFloat(soKienInput.value);
 
     // Validation
     if (!tenNguoiNhan) {
@@ -398,7 +398,7 @@ async function updateReceipt(event) {
     const receiptId = editReceiptId.value;
     const tenNguoiNhan = sanitizeInput(editTenNguoiNhanInput.value.trim());
     const soKg = parseFloat(editSoKgInput.value);
-    const soKien = sanitizeInput(editSoKienInput.value.trim());
+    const soKien = parseFloat(editSoKienInput.value);
 
     // Validation
     if (!tenNguoiNhan) {
@@ -728,19 +728,12 @@ function renderDataToTable(dataArray) {
         
         cells[0].textContent = sanitizeInput(receipt.tenNguoiNhan || '');
         
+        cells[1].textContent = parseFloat(receipt.soKg);
+
+        cells[2].textContent = parseFloat(receipt.soKien);
+
         const weightInput = document.createElement('input');
-        weightInput.type = 'number';
-        weightInput.value = receipt.soKg || 0;
-        weightInput.min = '0';
-        weightInput.step = 'any';
-        weightInput.className = 'quantity-input';
-        weightInput.setAttribute('data-receipt-id', receipt.id || '');
-        weightInput.defaultValue = receipt.soKg || 0;
-        weightInput.addEventListener('change', updateReceiptByID);
-        weightInput.addEventListener('wheel', function(e) { e.preventDefault(); });
-        cells[1].appendChild(weightInput);
-        
-        cells[4].textContent = receipt.thoiGianNhan || "Chưa nhập";
+        const quantInput = document.createElement('input');
         
         if (receipt.anhNhanHang) {
             const img = document.createElement('img');
@@ -761,18 +754,8 @@ function renderDataToTable(dataArray) {
         } else {
             cells[3].textContent = 'Không có ảnh';
         }
-        
-        const quanlityInput = document.createElement('input');
-        quanlityInput.type = 'number';
-        quanlityInput.value = receipt.soKien || 0;
-        quanlityInput.min = '0';
-        quanlityInput.step = 'any';
-        quanlityInput.className = 'quantity-input';
-        quanlityInput.setAttribute('data-receipt-id', receipt.id || '');
-        quanlityInput.defaultValue = receipt.soKien || 0;
-        quanlityInput.addEventListener('change', updateReceiptByID);
-        quanlityInput.addEventListener('wheel', function(e) { e.preventDefault(); });
-        cells[2].appendChild(quanlityInput);
+
+        cells[4].textContent = receipt.thoiGianNhan || "Chưa nhập";
         
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button';
@@ -780,14 +763,13 @@ function renderDataToTable(dataArray) {
         deleteButton.setAttribute("data-receipt-info", `${sanitizeInput(receipt.tenNguoiNhan || '')} - ${formatCurrency(receipt.soKg || 0)}`);
         deleteButton.addEventListener('click', deleteReceiptByID);
         
-        //const editButton = document.createElement('button');
-        //editButton.className = 'edit-button';
-        //editButton.setAttribute("data-receipt-id", receipt.id || '');
-        //editButton.addEventListener('click', openEditModal);
+        const editButton = document.createElement('button');
+        editButton.className = 'edit-button';
+        editButton.addEventListener('click', openEditModal);
         
         const actionContainer = document.createElement('div');
         actionContainer.className = 'action-buttons';
-        //actionContainer.appendChild(editButton);
+        actionContainer.appendChild(editButton);
         actionContainer.appendChild(deleteButton);
         cells[5].appendChild(actionContainer);
 

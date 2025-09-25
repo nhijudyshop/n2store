@@ -16,7 +16,7 @@ const firebaseConfig = {
 };
 
 // Cache configuration - using in-memory storage instead of localStorage
-const CACHE_KEY = 'hangrotxa_data_cache';
+const CACHE_KEY = 'loginindex_auth';
 const CACHE_EXPIRY = 10 * 60 * 1000; // 10 minutes
 const BATCH_SIZE = 50; // Smaller batch size for better performance
 const MAX_VISIBLE_ROWS = 500; // Reduced limit

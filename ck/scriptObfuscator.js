@@ -69,7 +69,7 @@ let isOperationInProgress = false;
 let currentOperationType = null;
 
 // User authentication state - using consistent storage
-const AUTH_STORAGE_KEY = 'ckindex_auth';
+const AUTH_STORAGE_KEY = 'loginindex_auth';
 let authState = null;
 
 // =====================================================

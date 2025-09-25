@@ -79,7 +79,7 @@ const filterCategoryDropdown = document.getElementById('filterCategory');
 const dataForm = document.getElementById('dataForm');
 
 // User authentication state - using consistent storage
-const AUTH_STORAGE_KEY = 'inboxindex_auth';
+const AUTH_STORAGE_KEY = 'loginindex_auth';
 let authState = null;
 
 // =====================================================

@@ -487,7 +487,7 @@
 
                     <div class="form-group">
                         <label for="">Số kiện:</label>
-                        <input type="number" id="" min="0" step="any" placeholder="0" required>
+                        <input type="number" id="soKien" min="0" step="any" placeholder="0" required>
                     </div>
                 </div>
 
@@ -585,12 +585,9 @@
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
     
-    <!-- Blocking Overlay -->
-    <div id="blockingOverlay"></div>
+    //<!-- Blocking Overlay -->
+    //<div id="blockingOverlay"></div>
     
-    <!-- Copy Notification -->
-    <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
-
     <!-- Edit Modal -->
     <div id="editModal" class="modal">
         <div class="modal-content">
@@ -665,28 +662,6 @@
             </form>
         </div>
     </div>
-
-    <script>
-        // Enhanced image click handling for copy functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            // Event delegation for images in table
-            const tbody = document.querySelector('tbody');
-            
-            if (tbody) {
-                tbody.addEventListener('click', function(e) {
-                    if (e.target.tagName === 'IMG') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const imgSrc = e.target.dataset.src || e.target.src;
-                        
-                        // Copy image source to clipboard
-                        copyToClipboard(imgSrc);
-                    }
-                });
-            }
-        });
-    </script>
     
     <!-- Receipt Management JavaScript -->
     <script src="utility.js"></script>

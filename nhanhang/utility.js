@@ -202,7 +202,7 @@ const tbody = document.getElementById('receiptTableBody');
 const receiptForm = document.getElementById('receiptForm');
 const tenNguoiNhanInput = document.getElementById('tenNguoiNhan');
 const soKgInput = document.getElementById('soKg');
-const ghiChuInput = document.getElementById('ghiChu');
+const soKienInput = document.getElementById('soKien');
 
 // Camera elements
 const cameraPreview = document.getElementById('cameraPreview');
@@ -219,7 +219,7 @@ const editForm = document.getElementById('editForm');
 const editReceiptId = document.getElementById('editReceiptId');
 const editTenNguoiNhanInput = document.getElementById('editTenNguoiNhan');
 const editSoKgInput = document.getElementById('editSoKg');
-const editGhiChuInput = document.getElementById('editGhiChu');
+const editSoKienInput = document.getElementById('editSoKien');
 const closeEditModal = document.getElementById('closeEditModal');
 const cancelEditButton = document.getElementById('cancelEditButton');
 const updateButton = document.getElementById('updateButton');
@@ -239,6 +239,7 @@ const currentImageContainer = document.getElementById('currentImageContainer');
 const filterUserSelect = document.getElementById('filterUser');
 const dateFilterSelect = document.getElementById('dateFilter');
 const filterWeightInput = document.getElementById('filterWeight');
+const filterQuantInput = document.getElementById('filterQuant');
 
 // Global variables
 var capturedImageUrl = null;
@@ -263,7 +264,7 @@ let isFilteringInProgress = false;
 // =====================================================
 
 // User authentication state - using consistent storage
-const AUTH_STORAGE_KEY = 'nhanhangindex_auth';
+const AUTH_STORAGE_KEY = 'loginindex_auth';
 let authState = null;
 
 function getAuthState() {
