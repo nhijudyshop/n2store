@@ -132,23 +132,26 @@
     </div>
 
     <!-- Modal for editing -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>Chỉnh sửa báo cáo livestream</h2>
-            <div class="form-group">
-                <label for="editDate">Ngày:</label>
-                <input type="date" id="editDate">
-            </div>
-            <div class="form-group">
-                <label for="editMauLive">Mẫu live:</label>
-                <textarea id="editMauLive"></textarea>
-            </div>
-            <div class="form-group">
-                <label for="editTienQC">Tiền QC:</label>
-                <input type="text" id="editTienQC">
-            </div>
-            <div class="form-group">
+	<div id="editModal" class="modal">
+		<div class="modal-content" style="position: relative; max-height: 80vh; overflow-y: auto; padding: 20px;">
+			<span class="close" onclick="closeModal()" 
+				  style="position: sticky; top: 0; right: 0; float: right; font-size: 24px; cursor: pointer; background: white; z-index: 10; padding: 5px;">
+				  &times;
+			</span>
+			<h2>Chỉnh sửa báo cáo livestream</h2>
+			<div class="form-group">
+				<label for="editDate">Ngày:</label>
+				<input type="date" id="editDate">
+			</div>
+			<div class="form-group">
+				<label for="editMauLive">Mẫu live:</label>
+				<textarea id="editMauLive"></textarea>
+			</div>
+			<div class="form-group">
+				<label for="editTienQC">Tiền QC:</label>
+				<input type="text" id="editTienQC">
+			</div>
+			<div class="form-group">
 			  <label for="editTimeInputs">Thời gian:</label>
 			  <div id="thoiGianContainer" style="display: flex; flex-direction: column; gap: 8px;">
 				<div style="display:flex; gap:5px; align-items:center;">
@@ -165,17 +168,17 @@
 				</div>
 			  </div>
 			</div>
-            <div class="form-group">
-                <label for="editSoMonLive">Số món trên live:</label>
-                <input type="text" id="editSoMonLive">
-            </div>
-            <div class="form-group">
-                <label for="editSoMonInbox">Số món inbox:</label>
-                <input type="text" id="editSoMonInbox">
-            </div>
-            <button onclick="saveUpdatedChanges()">Lưu</button>
-        </div>
-    </div>
+			<div class="form-group">
+				<label for="editSoMonLive">Số món trên live:</label>
+				<input type="text" id="editSoMonLive">
+			</div>
+			<div class="form-group">
+				<label for="editSoMonInbox">Số món inbox:</label>
+				<input type="text" id="editSoMonInbox">
+			</div>
+			<button onclick="saveUpdatedChanges()">Lưu</button>
+		</div>
+	</div>
 
     <!-- Enhanced Floating Alert -->
     <div id="floatingAlert">

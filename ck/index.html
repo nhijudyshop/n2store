@@ -135,7 +135,10 @@
     <!-- Modal for editing -->
     <div id="editModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
+            <span class="close" onclick="closeModal()" 
+				  style="position: sticky; top: 0; right: 0; float: right; font-size: 24px; cursor: pointer; background: white; z-index: 10; padding: 5px;">
+				  &times;
+			</span>
             <div class="form-group">
                 <label for="editDate">Ngày:</label>
                 <input type="text" id="editDate">
