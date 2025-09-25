@@ -67,7 +67,6 @@ const MENU_CONFIG = [
         icon: '👥',
         text: 'QUẢN LÝ TÀI KHOẢN',
         pageIdentifier: 'user-management',
-        adminOnly: true
     },
     {
         href: '../history/index.html',
