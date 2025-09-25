@@ -337,6 +337,12 @@ if (typeof window !== 'undefined') {
     window.setupErrorHandling = setupErrorHandling;
     window.setupCommonEventHandlers = setupCommonEventHandlers;
     window.initializeCommonUtils = initializeCommonUtils;
+	
+	// Export Role
+	window.getRoleInfo = getRoleInfo;
+	window.updateTitleWithRole = updateTitleWithRole;
+	window.initializePageTitle = initializePageTitle;
+	window.displayUserInfo = displayUserInfo;
     
     // Export as CommonUtils namespace
     window.CommonUtils = {
@@ -381,6 +387,168 @@ if (typeof module !== 'undefined' && module.exports) {
         initializeCommonUtils
     };
 }
+
+/**
+ * Hàm lấy icon và tên role dựa trên checkLogin
+ * @param {number} checkLogin - Mã quyền hạn (0, 1, 2, 3, 777)
+ * @returns {object} - Object chứa icon và text
+ */
+function getRoleInfo(checkLogin) {
+    const roleMap = {
+        0: { icon: '👑', text: 'Admin' },
+        1: { icon: '👤', text: 'User' }, 
+        2: { icon: '🔒', text: 'Limited' },
+        3: { icon: '📝', text: 'Basic' },
+        777: { icon: '👥', text: 'Guest' }
+    };
+    
+    return roleMap[checkLogin] || { icon: '❓', text: 'Unknown' };
+}
+
+/**
+ * Hàm cập nhật title với role icon
+ * @param {HTMLElement} titleElement - Element chứa title
+ * @param {object} auth - Object chứa thông tin auth user
+ */
+function updateTitleWithRole(titleElement, auth) {
+    if (!titleElement || !auth) return;
+    
+    const roleInfo = getRoleInfo(parseInt(auth.checkLogin));
+    const baseTitle = titleElement.textContent.split(' - ')[0]; // Lấy title gốc
+    
+    titleElement.textContent = `${baseTitle} - ${roleInfo.icon} ${auth.displayName || auth.username}`;
+}
+
+/**
+ * Ví dụ sử dụng trong các trang
+ */
+function initializePageTitle() {
+    try {
+        const authData = localStorage.getItem('loginindex_auth');
+        if (!authData) return;
+        
+        const auth = JSON.parse(authData);
+        const titleElement = document.querySelector('h1, .tieude, .header h1');
+        
+        if (titleElement && auth.checkLogin !== undefined) {
+            updateTitleWithRole(titleElement, auth);
+        }
+        
+        console.log('Page title updated with role icon');
+    } catch (error) {
+        console.error('Error updating page title:', error);
+    }
+}
+
+/**
+ * Hàm hiển thị user info với icon ở sidebar hoặc header
+ * @param {string} containerSelector - Selector của container
+ */
+function displayUserInfo(containerSelector = '.user-info') {
+    try {
+        const authData = localStorage.getItem('loginindex_auth');
+        if (!authData) return;
+        
+        const auth = JSON.parse(authData);
+        const container = document.querySelector(containerSelector);
+        
+        if (container) {
+            const roleInfo = getRoleInfo(parseInt(auth.checkLogin));
+            container.innerHTML = `
+                <span class="user-role-badge">
+                    ${roleInfo.icon} ${auth.displayName || auth.username}
+                    <small>(${roleInfo.text})</small>
+                </span>
+            `;
+        }
+    } catch (error) {
+        console.error('Error displaying user info:', error);
+    }
+}
+
+/**
+ * CSS cho user role badge
+ */
+function injectRoleStyles() {
+    if (document.getElementById('roleStyles')) return;
+    
+    const styles = document.createElement('style');
+    styles.id = 'roleStyles';
+    styles.textContent = `
+        .user-role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-weight: 600;
+            color: #ecf0f1;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .user-role-badge small {
+            opacity: 0.8;
+            font-weight: 400;
+            margin-left: 4px;
+        }
+        
+        /* Role-specific colors */
+        .role-admin { color: #e74c3c; }
+        .role-user { color: #3498db; }
+        .role-limited { color: #f39c12; }
+        .role-basic { color: #27ae60; }
+        .role-guest { color: #95a5a6; }
+    `;
+    document.head.appendChild(styles);
+}
+
+/**
+ * Cách sử dụng trong code hiện tại của bạn:
+ */
+
+// 1. Thay thế đoạn code hiện tại:
+// if (auth.checkLogin === 0) {
+//     titleElement.textContent += ' - 👑 ' + auth.displayName;
+// }
+
+// Bằng:
+// updateTitleWithRole(titleElement, auth);
+
+// 2. Hoặc sử dụng cách ngắn gọn:
+function updatePageTitleSimple() {
+    try {
+        const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+        const titleElement = document.querySelector('h1, .tieude, .header h1');
+        
+        if (titleElement && authData.checkLogin !== undefined) {
+            const roleInfo = getRoleInfo(parseInt(authData.checkLogin));
+            const baseTitle = titleElement.textContent.split(' - ')[0];
+            titleElement.textContent = `${baseTitle} - ${roleInfo.icon} ${authData.displayName || authData.username}`;
+        }
+    } catch (error) {
+        console.error('Error updating title:', error);
+    }
+}
+
+// 3. Auto-initialize khi DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+    injectRoleStyles();
+    
+    // Delay một chút để đảm bảo auth data đã load
+    setTimeout(() => {
+        initializePageTitle();
+    }, 100);
+});
+
+// Export để sử dụng global
+window.RoleManager = {
+    getRoleInfo: getRoleInfo,
+    updateTitleWithRole: updateTitleWithRole,
+    displayUserInfo: displayUserInfo,
+    initializePageTitle: initializePageTitle
+};
 
 window.addEventListener("load", function() {
     const overlay = document.getElementById("loadingOverlay");

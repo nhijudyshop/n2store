@@ -12,7 +12,7 @@
     document.head.appendChild(script);
 })();
 
-// Cấu hình menu items - Đã thêm Bảng kiểm hàng
+// Cấu hình menu items - Đã thêm trang quản lý tài khoản cho admin
 const MENU_CONFIG = [
     {
         href: '../live/index.html',
@@ -61,6 +61,13 @@ const MENU_CONFIG = [
         icon: '✅',
         text: 'BẢNG KIỂM HÀNG',
         pageIdentifier: 'bangkiemhang'
+    },
+    {
+        href: '../user-management/index.html',
+        icon: '👥',
+        text: 'QUẢN LÝ TÀI KHOẢN',
+        pageIdentifier: 'user-management',
+        adminOnly: true
     },
     {
         href: '../history/index.html',
