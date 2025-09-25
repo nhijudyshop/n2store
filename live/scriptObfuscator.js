@@ -1688,35 +1688,35 @@ class ImageManagementApp {
         
         // Refresh button
         const refreshButton = document.createElement('button');
-        refreshButton.textContent = '🔄 Làm mới';
-        refreshButton.onclick = () => this.forceRefresh();
-        refreshButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #28a745, #20c997);';
-        refreshButton.onmouseover = () => refreshButton.style.transform = 'translateY(-1px)';
-        refreshButton.onmouseout = () => refreshButton.style.transform = 'translateY(0)';
+        //refreshButton.textContent = '🔄 Làm mới';
+        //refreshButton.onclick = () => this.forceRefresh();
+        //refreshButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #28a745, #20c997);';
+        //refreshButton.onmouseover = () => refreshButton.style.transform = 'translateY(-1px)';
+        //refreshButton.onmouseout = () => refreshButton.style.transform = 'translateY(0)';
         
         // Performance stats button
         const statsButton = document.createElement('button');
-        statsButton.textContent = '📊 Thống kê';
-        statsButton.onclick = () => this.showPerformanceStats();
-        statsButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #17a2b8, #6f42c1);';
-        statsButton.onmouseover = () => statsButton.style.transform = 'translateY(-1px)';
-        statsButton.onmouseout = () => statsButton.style.transform = 'translateY(0)';
+        //statsButton.textContent = '📊 Thống kê';
+        //statsButton.onclick = () => this.showPerformanceStats();
+        //statsButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #17a2b8, #6f42c1);';
+        //statsButton.onmouseover = () => statsButton.style.transform = 'translateY(-1px)';
+        //statsButton.onmouseout = () => statsButton.style.transform = 'translateY(0)';
         
         // Clear cache button
         const clearCacheButton = document.createElement('button');
-        clearCacheButton.textContent = '🗑️ Xóa cache';
-        clearCacheButton.onclick = () => this.clearCache();
-        clearCacheButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #ffc107, #fd7e14);';
-        clearCacheButton.onmouseover = () => clearCacheButton.style.transform = 'translateY(-1px)';
-        clearCacheButton.onmouseout = () => clearCacheButton.style.transform = 'translateY(0)';
+        //clearCacheButton.textContent = '🗑️ Xóa cache';
+        //clearCacheButton.onclick = () => this.clearCache();
+        //clearCacheButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #ffc107, #fd7e14);';
+        //clearCacheButton.onmouseover = () => clearCacheButton.style.transform = 'translateY(-1px)';
+        //clearCacheButton.onmouseout = () => clearCacheButton.style.transform = 'translateY(0)';
         
-        controlsContainer.appendChild(refreshButton);
-        controlsContainer.appendChild(statsButton);
-        controlsContainer.appendChild(clearCacheButton);
+        //controlsContainer.appendChild(refreshButton);
+        //controlsContainer.appendChild(statsButton);
+        //controlsContainer.appendChild(clearCacheButton);
         
-        if (this.dom.parentContainer) {
-            this.dom.parentContainer.appendChild(controlsContainer);
-        }
+        //if (this.dom.parentContainer) {
+        //    this.dom.parentContainer.appendChild(controlsContainer);
+        //}
     }
     
     forceRefresh() {

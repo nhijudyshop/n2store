@@ -68,6 +68,33 @@ function hideFloatingAlert() {
 }
 
 /**
+ * Show loading
+ */
+function showLoading(message = "Đang xử lý...") {
+    showFloatingAlert(message, true);
+}
+
+/**
+ * Show success
+ */
+function showSuccess(message = "Thành công!", duration = 2000) {
+    hideFloatingAlert();
+    setTimeout(() => {
+        showFloatingAlert(message, false, duration);
+    }, 100);
+}
+
+/**
+ * Show error
+ */
+function showError(message = "Có lỗi xảy ra!", duration = 3000) {
+    hideFloatingAlert();
+    setTimeout(() => {
+        showFloatingAlert(message, false, duration);
+    }, 100);
+}
+
+/**
  * ====================================================================================
  * CLIPBOARD FUNCTIONALITY
  * ====================================================================================

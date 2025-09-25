@@ -93,7 +93,8 @@ const tenSanPhamInput = document.getElementById('tenSanPham');
 const maSanPhamInput = document.getElementById('maSanPham');
 const bienTheInput = document.getElementById('bienThe');
 const soLuongInput = document.getElementById('soLuong');
-const giaNhapInput = document.getElementById('giaNhap');
+const giaMuaInput = document.getElementById('giaMua');
+const giaBanInput = document.getElementById('giaBan');
 const ghiChuInput = document.getElementById('ghiChu');
 
 // Image containers
@@ -354,11 +355,20 @@ function initializeInputValidation() {
         });
     }
     
-    if (giaNhapInput) {
-        giaNhapInput.addEventListener('input', function() {
-            const enteredValue = parseFloat(giaNhapInput.value);
+    if (giaMuaInput) {
+        giaMuaInput.addEventListener('input', function() {
+            const enteredValue = parseFloat(giaMuaInput.value);
             if (enteredValue < 0) {
-                giaNhapInput.value = '0';
+                giaMuaInput.value = '0';
+            }
+        });
+    }
+
+    if (giaBanInput) {
+        giaBanInput.addEventListener('input', function() {
+            const enteredValue = parseFloat(giaBanInput.value);
+            if (enteredValue < 0) {
+                giaBanInput.value = '0';
             }
         });
     }
@@ -685,190 +695,4 @@ function extractTimestampFromId(id) {
     }
     
     return 0;
-}
-
-// =====================================================
-// UI FUNCTIONS
-// =====================================================
-
-function showLoading(message = "Đang xử lý...") {
-    showFloatingAlert(message, true);
-}
-
-function showSuccess(message = "Thành công!", duration = 2000) {
-    hideFloatingAlert();
-    setTimeout(() => {
-        showFloatingAlert(message, false, duration);
-    }, 100);
-}
-
-function showError(message = "Có lỗi xảy ra!", duration = 3000) {
-    hideFloatingAlert();
-    setTimeout(() => {
-        showFloatingAlert(message, false, duration);
-    }, 100);
-}
-
-function showFloatingAlert(message, isLoading = false, duration = 3000) {
-    let alertBox = document.getElementById('floatingAlert');
-    
-    if (!alertBox) {
-        alertBox = document.createElement('div');
-        alertBox.id = 'floatingAlert';
-        alertBox.innerHTML = `
-            <div class="alert-content">
-                <div class="loading-spinner" style="display: none;">
-                    <div class="spinner"></div>
-                </div>
-                <div class="alert-text"></div>
-            </div>
-        `;
-        
-        alertBox.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(44, 62, 80, 0.9) 100%);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            width: auto;
-            min-width: 200px;
-            max-width: 350px;
-            text-align: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            pointer-events: none;
-            z-index: 9999;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            letter-spacing: 0.3px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-        `;
-        
-        const style = document.createElement('style');
-        style.textContent = `
-            #floatingAlert.loading {
-                background: rgba(0,0,0,0.9);
-                color: white;
-                border-color: #007bff;
-            }
-            
-            #floatingAlert.show {
-                opacity: 1 !important;
-                visibility: visible !important;
-                pointer-events: all !important;
-            }
-            
-            .loading-spinner {
-                margin-bottom: 10px;
-            }
-            
-            .spinner {
-                width: 20px;
-                height: 20px;
-                border: 2px solid rgba(255, 255, 255, 0.3);
-                border-radius: 50%;
-                border-top-color: #fff;
-                animation: spin 1s ease-in-out infinite;
-                margin: 0 auto;
-            }
-            
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-            
-            #loadingOverlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.3);
-                z-index: 9998;
-                opacity: 0;
-                visibility: hidden;
-                transition: all 0.3s ease;
-                pointer-events: none !important;
-            }
-            
-            #loadingOverlay.show {
-                opacity: 1;
-                visibility: visible;
-                pointer-events: all !important;
-            }
-        `;
-        document.head.appendChild(style);
-        
-        const loadingOverlay = document.createElement('div');
-        loadingOverlay.id = 'loadingOverlay';
-        document.body.appendChild(loadingOverlay);
-        document.body.appendChild(alertBox);
-    }
-    
-    const alertText = alertBox.querySelector('.alert-text');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const spinner = alertBox.querySelector('.loading-spinner');
-    
-    if (alertText) {
-        alertText.textContent = message;
-    }
-    
-    if (isLoading) {
-        alertBox.classList.add('loading');
-        if (loadingOverlay) loadingOverlay.classList.add('show');
-        if (spinner) spinner.style.display = 'block';
-        
-        document.body.style.pointerEvents = 'none';
-        document.body.style.userSelect = 'none';
-        alertBox.style.pointerEvents = 'all';
-        document.body.style.overflow = 'hidden';
-        document.body.style.cursor = 'wait';
-    } else {
-        alertBox.classList.remove('loading');
-        if (loadingOverlay) loadingOverlay.classList.remove('show');
-        if (spinner) spinner.style.display = 'none';
-        
-        document.body.style.pointerEvents = 'auto';
-        document.body.style.userSelect = 'auto';
-        document.body.style.overflow = 'auto';
-        document.body.style.cursor = 'default';
-    }
-    
-    alertBox.classList.add('show');
-    
-    if (!isLoading && duration > 0) {
-        setTimeout(() => {
-            hideFloatingAlert();
-        }, duration);
-    }
-}
-
-function hideFloatingAlert() {
-    const alertBox = document.getElementById('floatingAlert');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const spinner = alertBox?.querySelector('.loading-spinner');
-    
-    if (alertBox) {
-        alertBox.classList.remove('show', 'loading');
-    }
-    if (loadingOverlay) {
-        loadingOverlay.classList.remove('show');
-    }
-    if (spinner) {
-        spinner.style.display = 'none';
-    }
-    
-    document.body.style.pointerEvents = 'auto';
-    document.body.style.userSelect = 'auto';
-    document.body.style.overflow = 'auto';
-    document.body.style.cursor = 'default';
 }

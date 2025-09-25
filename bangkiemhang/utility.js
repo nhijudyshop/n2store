@@ -36,42 +36,6 @@ input[type=number].quantity-input, input[type=number].received-input, input[type
     text-align: center;
 }
 
-/* Style for edit and delete buttons */
-.edit-button, .delete-button {
-    padding: 4px 8px;
-    margin: 2px;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.edit-button {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-    color: white;
-}
-
-.edit-button:hover {
-    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-}
-
-.delete-button {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    color: white;
-}
-
-.delete-button:hover {
-    background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
-}
-
-.button-group {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    align-items: center;
-}
-
 .inventory-row.editing {
     background-color: #fff3cd !important;
 }

@@ -269,7 +269,7 @@
                         </div>
                         
                         <div class="price-images">
-                            <h3>Ảnh giá nhập:</h3>
+                            <h3>Ảnh giá mua:</h3>
                             <div class="radio-group">
                                 <label><input type="radio" name="priceInputType" value="clipboard" checked> Copy Paste</label>
                                 <label><input type="radio" name="priceInputType" value="file"> Nhập file</label>
@@ -277,11 +277,11 @@
                             </div>
                             
                             <div id="priceClipboardContainer" class="image-display-area">
-                                <p>Dán ảnh giá nhập ở đây...</p>
+                                <p>Dán ảnh giá mua ở đây...</p>
                             </div>
                             
                             <input type="file" id="priceFileInput" multiple accept="image/*" style="display: none;">
-                            <input type="text" id="priceLinkInput" placeholder="Nhập link ảnh giá nhập (https://...)" style="display: none;">
+                            <input type="text" id="priceLinkInput" placeholder="Nhập link ảnh giá mua (https://...)" style="display: none;">
                         </div>
                     </div>
                 </div>
@@ -311,10 +311,17 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="giaNhap">Giá nhập (VNĐ):</label>
-                        <input type="number" id="giaNhap" min="0" step="any" placeholder="0" required>
+                        <label for="giaMua">Giá mua (VNĐ):</label>
+                        <input type="number" id="giaMua" min="0" step="any" placeholder="0" required>
                     </div>
 
+                    <div class="form-group">
+                        <label for="giaBan">Giá bán (VNĐ):</label>
+                        <input type="number" id="giaBan" min="0" step="any" placeholder="0">
+                    </div>
+                </div>
+
+                <div class="form-row">
                     <div class="form-group">
                         <label for="ghiChu">Ghi chú:</label>
                         <textarea id="ghiChu" class="notes-textarea" placeholder="Ghi chú thêm về đơn hàng..."></textarea>
@@ -354,18 +361,19 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 10%;">Ngày đặt</th>
-                        <th style="width: 12%;">Nhà cung cấp</th>
-                        <th style="width: 10%;">Hóa đơn</th>
-                        <th style="width: 12%;">Ảnh hóa đơn</th>
-                        <th style="width: 15%;">Tên sản phẩm</th>
+                        <th style="width: 9%;">Ngày đặt</th>
+                        <th style="width: 11%;">Nhà cung cấp</th>
+                        <th style="width: 9%;">Hóa đơn</th>
+                        <th style="width: 11%;">Ảnh hóa đơn</th>
+                        <th style="width: 13%;">Tên sản phẩm</th>
                         <th style="width: 8%;">Mã SP</th>
-                        <th style="width: 10%;">Biến thể</th>
-                        <th style="width: 8%;">Số lượng</th>
-                        <th style="width: 10%;">Giá nhập</th>
-                        <th style="width: 12%;">Ảnh SP</th>
-                        <th style="width: 12%;">Ảnh giá nhập</th>
-                        <th style="width: 10%;">Ghi chú</th>
+                        <th style="width: 9%;">Biến thể</th>
+                        <th style="width: 7%;">Số lượng</th>
+                        <th style="width: 8%;">Giá mua</th>
+                        <th style="width: 8%;">Giá bán</th>
+                        <th style="width: 11%;">Ảnh SP</th>
+                        <th style="width: 11%;">Ảnh giá mua</th>
+                        <th style="width: 9%;">Ghi chú</th>
                         <th style="width: 5%;">Xóa</th>
                     </tr>
                 </thead>
@@ -392,9 +400,8 @@
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
     
-    <!-- Blocking Overlay
+    <!-- Blocking Overlay -->
     <div id="blockingOverlay"></div>
-    -->
     
     <!-- Copy Notification -->
     <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>

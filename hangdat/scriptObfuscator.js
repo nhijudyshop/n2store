@@ -34,7 +34,9 @@ async function deleteOrderByID(event) {
         ngayDatHang: row.cells[0].textContent,
         nhaCungCap: row.cells[1].textContent,
         hoaDon: row.cells[2].textContent,
-        tenSanPham: row.cells[4].textContent
+        tenSanPham: row.cells[4].textContent,
+        thucNhan: 0,
+        tongNhan: 0
     };
 
     showFloatingAlert("Đang xóa...", true);
@@ -106,7 +108,16 @@ async function updateOrderByID(event) {
     const orderId = input.getAttribute("data-order-id");
     const newValue = input.type === 'number' ? parseFloat(input.value) : input.value;
     const oldValue = input.type === 'number' ? parseFloat(input.defaultValue) : input.defaultValue;
-    const fieldName = input.className.includes('quantity') ? 'soLuong' : 'giaNhap';
+    
+    // Cập nhật fieldName logic
+    let fieldName;
+    if (input.className.includes('quantity')) {
+        fieldName = 'soLuong';
+    } else if (input.className.includes('price-buy')) {
+        fieldName = 'giaMua'; // Đổi từ giaNhap thành giaMua
+    } else if (input.className.includes('price-sell')) {
+        fieldName = 'giaBan'; // Thêm trường mới
+    }
     
     if (!orderId) {
         showFloatingAlert("Không tìm thấy ID đơn hàng!", false, 3000);
@@ -119,9 +130,17 @@ async function updateOrderByID(event) {
 
     // Confirm change
     if (newValue !== oldValue) {
-        const fieldDisplayName = fieldName === 'soLuong' ? 'số lượng' : 'giá nhập';
-        const valueDisplay = fieldName === 'giaNhap' ? formatCurrency(newValue) : newValue;
-        const oldValueDisplay = fieldName === 'giaNhap' ? formatCurrency(oldValue) : oldValue;
+        let fieldDisplayName;
+        if (fieldName === 'soLuong') {
+            fieldDisplayName = 'số lượng';
+        } else if (fieldName === 'giaMua') {
+            fieldDisplayName = 'giá mua';
+        } else if (fieldName === 'giaBan') {
+            fieldDisplayName = 'giá bán';
+        }
+        
+        const valueDisplay = (fieldName === 'giaMua' || fieldName === 'giaBan') ? formatCurrency(newValue) : newValue;
+        const oldValueDisplay = (fieldName === 'giaMua' || fieldName === 'giaBan') ? formatCurrency(oldValue) : oldValue;
         
         const confirmMessage = `Bạn có chắc chắn muốn thay đổi ${fieldDisplayName} đơn hàng "${orderInfo}" từ ${oldValueDisplay} thành ${valueDisplay}?\nID: ${orderId}`;
         
@@ -138,8 +157,8 @@ async function updateOrderByID(event) {
         return;
     }
 
-    if (fieldName === 'giaNhap' && newValue < 0) {
-        showFloatingAlert('Giá nhập phải lớn hơn hoặc bằng 0', false, 3000);
+    if ((fieldName === 'giaMua' || fieldName === 'giaBan') && newValue < 0) {
+        showFloatingAlert(`${fieldName === 'giaMua' ? 'Giá mua' : 'Giá bán'} phải lớn hơn hoặc bằng 0`, false, 3000);
         input.value = oldValue;
         return;
     }
@@ -172,9 +191,17 @@ async function updateOrderByID(event) {
         
         await collectionRef.doc("dathang").update({ data: data.data });
 
-        const fieldDisplayName = fieldName === 'soLuong' ? 'số lượng' : 'giá nhập';
-        const valueDisplay = fieldName === 'giaNhap' ? formatCurrency(newValue) : newValue;
-        const oldValueDisplay = fieldName === 'giaNhap' ? formatCurrency(oldValue) : oldValue;
+        let fieldDisplayName;
+        if (fieldName === 'soLuong') {
+            fieldDisplayName = 'số lượng';
+        } else if (fieldName === 'giaMua') {
+            fieldDisplayName = 'giá mua';
+        } else if (fieldName === 'giaBan') {
+            fieldDisplayName = 'giá bán';
+        }
+        
+        const valueDisplay = (fieldName === 'giaMua' || fieldName === 'giaBan') ? formatCurrency(newValue) : newValue;
+        const oldValueDisplay = (fieldName === 'giaMua' || fieldName === 'giaBan') ? formatCurrency(oldValue) : oldValue;
 
         // Log action
         logAction('update', `Cập nhật ${fieldDisplayName} đơn hàng "${orderInfo}" từ ${oldValueDisplay} thành ${valueDisplay} - ID: ${orderId}`, oldData, newData);
@@ -253,7 +280,8 @@ async function addOrder(event) {
     const maSanPham = sanitizeInput(maSanPhamInput.value.trim());
     const bienThe = sanitizeInput(bienTheInput.value.trim());
     const soLuong = parseInt(soLuongInput.value);
-    const giaNhap = parseInt(giaNhapInput.value);
+    const giaMua = parseInt(giaMuaInput.value);
+    const giaBan = giaBanInput.value ? parseInt(giaBanInput.value) : 0; // Optional field
     const ghiChu = sanitizeInput(ghiChuInput.value.trim());
 
     // Validation
@@ -287,8 +315,14 @@ async function addOrder(event) {
         return;
     }
 
-    if (isNaN(giaNhap) || giaNhap < 0) {
-        showError('Giá nhập phải lớn hơn hoặc bằng 0');
+    if (isNaN(giaMua) || giaMua < 0) {
+        showError('Giá mua phải lớn hơn hoặc bằng 0');
+        document.getElementById("addButton").disabled = false;
+        return;
+    }
+
+    if (giaBan && (isNaN(giaBan) || giaBan < 0)) {
+        showError('Giá bán phải lớn hơn hoặc bằng 0');
         document.getElementById("addButton").disabled = false;
         return;
     }
@@ -307,9 +341,12 @@ async function addOrder(event) {
         maSanPham: maSanPham,
         bienThe: bienThe,
         soLuong: soLuong,
-        giaNhap: giaNhap,
+        giaMua: giaMua,        // Đổi từ giaNhap thành giaMua
+        giaBan: giaBan,        // Thêm trường mới
         ghiChu: ghiChu,
-        user: getUserName()
+        user: getUserName(),
+        thucNhan: 0,
+        tongNhan: 0
     };
 
     try {
@@ -327,10 +364,10 @@ async function addOrder(event) {
             newOrderData.anhSanPham = productImageUrl;
         }
         
-        // Handle price images (optional)
+        // Handle price images (optional) - đổi tên từ giaNhap thành giaMua
         const priceImageUrl = await handlePriceImageUpload(newOrderData);
         if (priceImageUrl) {
-            newOrderData.anhGiaNhap = priceImageUrl;
+            newOrderData.anhGiaMua = priceImageUrl; // Đổi từ anhGiaNhap thành anhGiaMua
         }
 
         // Upload to Firestore
@@ -376,7 +413,7 @@ function clearOrderForm() {
     }
     
     if (priceClipboardContainer) {
-        priceClipboardContainer.innerHTML = '<p>Dán ảnh giá nhập ở đây...</p>';
+        priceClipboardContainer.innerHTML = '<p>Dán ảnh giá mua ở đây...</p>'; // Cập nhật text
         priceClipboardContainer.classList.remove('has-content');
     }
 
@@ -478,6 +515,27 @@ async function migrateDataWithIDs() {
         console.error("Lỗi trong quá trình migration:", error);
         showFloatingAlert("Lỗi migration: " + error.message, false, 5000);
     }
+}
+
+function migrateOldPriceData(dataArray) {
+    return dataArray.map(order => {
+        // Nếu có giaNhap nhưng không có giaMua, copy giaNhap sang giaMua
+        if (order.giaNhap && !order.giaMua) {
+            order.giaMua = order.giaNhap;
+        }
+        
+        // Nếu có anhGiaNhap nhưng không có anhGiaMua, copy sang anhGiaMua
+        if (order.anhGiaNhap && !order.anhGiaMua) {
+            order.anhGiaMua = order.anhGiaNhap;
+        }
+        
+        // Nếu không có giaBan, set default = 0
+        if (order.giaBan === undefined) {
+            order.giaBan = 0;
+        }
+        
+        return order;
+    });
 }
 
 // =====================================================
@@ -912,7 +970,7 @@ function renderDataToTable(dataArray) {
         summaryRow.style.backgroundColor = '#f8f9fa';
         summaryRow.style.fontWeight = 'bold';
         var summaryTd = document.createElement('td');
-        summaryTd.colSpan = 13;
+        summaryTd.colSpan = 14; // Tăng từ 13 lên 14 vì thêm 1 cột
         summaryTd.textContent = `Tổng: ${filteredData.length} đơn hàng`;
         summaryTd.style.textAlign = 'center';
         summaryTd.style.color = '#007bff';
@@ -954,7 +1012,7 @@ function renderDataToTable(dataArray) {
         tr.setAttribute('data-order-id', order.id || '');
         
         var cells = [];
-        for (let j = 0; j < 13; j++) {
+        for (let j = 0; j < 14; j++) { // Tăng từ 13 lên 14 cells
             cells[j] = document.createElement('td');
         }
         
@@ -962,6 +1020,7 @@ function renderDataToTable(dataArray) {
         cells[1].textContent = sanitizeInput(order.nhaCungCap || '');
         cells[2].textContent = sanitizeInput(order.hoaDon || '');
         
+        // Invoice images
         if (order.anhHoaDon) {
             const invoiceImgs = Array.isArray(order.anhHoaDon) ? order.anhHoaDon : [order.anhHoaDon];
             const invoiceContainer = document.createElement('div');
@@ -983,6 +1042,7 @@ function renderDataToTable(dataArray) {
         cells[5].textContent = sanitizeInput(order.maSanPham || '');
         cells[6].textContent = sanitizeInput(order.bienThe || '');
         
+        // Quantity input
         const quantityInput = document.createElement('input');
         quantityInput.type = 'number';
         quantityInput.value = order.soLuong || 0;
@@ -994,18 +1054,33 @@ function renderDataToTable(dataArray) {
         quantityInput.addEventListener('wheel', function(e) { e.preventDefault(); });
         cells[7].appendChild(quantityInput);
         
-        const priceInput = document.createElement('input');
-        priceInput.type = 'number';
-        priceInput.value = order.giaNhap || 0;
-        priceInput.min = '0';
-        priceInput.step = 'any';
-        priceInput.className = 'price-input';
-        priceInput.setAttribute('data-order-id', order.id || '');
-        priceInput.defaultValue = order.giaNhap || 0;
-        priceInput.addEventListener('change', updateOrderByID);
-        priceInput.addEventListener('wheel', function(e) { e.preventDefault(); });
-        cells[8].appendChild(priceInput);
+        // Price buy input (giá mua)
+        const priceBuyInput = document.createElement('input');
+        priceBuyInput.type = 'number';
+        priceBuyInput.value = order.giaMua || order.giaNhap || 0; // Backward compatibility
+        priceBuyInput.min = '0';
+        priceBuyInput.step = 'any';
+        priceBuyInput.className = 'price-buy-input';
+        priceBuyInput.setAttribute('data-order-id', order.id || '');
+        priceBuyInput.defaultValue = order.giaMua || order.giaNhap || 0;
+        priceBuyInput.addEventListener('change', updateOrderByID);
+        priceBuyInput.addEventListener('wheel', function(e) { e.preventDefault(); });
+        cells[8].appendChild(priceBuyInput);
         
+        // Price sell input (giá bán) - NEW
+        const priceSellInput = document.createElement('input');
+        priceSellInput.type = 'number';
+        priceSellInput.value = order.giaBan || 0;
+        priceSellInput.min = '0';
+        priceSellInput.step = 'any';
+        priceSellInput.className = 'price-sell-input';
+        priceSellInput.setAttribute('data-order-id', order.id || '');
+        priceSellInput.defaultValue = order.giaBan || 0;
+        priceSellInput.addEventListener('change', updateOrderByID);
+        priceSellInput.addEventListener('wheel', function(e) { e.preventDefault(); });
+        cells[9].appendChild(priceSellInput);
+        
+        // Product images
         if (order.anhSanPham) {
             const productImgs = Array.isArray(order.anhSanPham) ? order.anhSanPham : [order.anhSanPham];
             const productContainer = document.createElement('div');
@@ -1020,11 +1095,13 @@ function renderDataToTable(dataArray) {
                 imageObserver.observe(img);
                 productContainer.appendChild(img);
             });
-            cells[9].appendChild(productContainer);
+            cells[10].appendChild(productContainer);
         }
         
-        if (order.anhGiaNhap) {
-            const priceImgs = Array.isArray(order.anhGiaNhap) ? order.anhGiaNhap : [order.anhGiaNhap];
+        // Price images (ảnh giá mua)
+        if (order.anhGiaMua || order.anhGiaNhap) { // Backward compatibility
+            const priceImgs = Array.isArray(order.anhGiaMua || order.anhGiaNhap) ? 
+                (order.anhGiaMua || order.anhGiaNhap) : [order.anhGiaMua || order.anhGiaNhap];
             const priceContainer = document.createElement('div');
             priceContainer.className = 'product-row';
             priceImgs.forEach(imgUrl => {
@@ -1037,27 +1114,28 @@ function renderDataToTable(dataArray) {
                 imageObserver.observe(img);
                 priceContainer.appendChild(img);
             });
-            cells[10].appendChild(priceContainer);
+            cells[11].appendChild(priceContainer);
         }
         
-        cells[11].textContent = sanitizeInput(order.ghiChu || '');
-        cells[11].style.maxWidth = '150px';
-        cells[11].style.overflow = 'hidden';
-        cells[11].style.textOverflow = 'ellipsis';
-        cells[11].style.whiteSpace = 'nowrap';
-        if (order.ghiChu) cells[11].title = order.ghiChu;
+        // Notes
+        cells[12].textContent = sanitizeInput(order.ghiChu || '');
+        cells[12].style.maxWidth = '150px';
+        cells[12].style.overflow = 'hidden';
+        cells[12].style.textOverflow = 'ellipsis';
+        cells[12].style.whiteSpace = 'nowrap';
+        if (order.ghiChu) cells[12].title = order.ghiChu;
         
+        // Delete button
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button';
         deleteButton.setAttribute("data-order-id", order.id || '');
         deleteButton.setAttribute("data-order-info", `${sanitizeInput(order.tenSanPham || '')} - ${order.hoaDon || ''}`);
-        deleteButton.textContent = 'Xóa';
         deleteButton.addEventListener('click', deleteOrderByID);
-        cells[12].appendChild(deleteButton);
+        cells[13].appendChild(deleteButton);
 
         const auth = getAuthState();
         if (auth) {
-            applyRowPermissions(tr, [quantityInput, priceInput], deleteButton, parseInt(auth.checkLogin));
+            applyRowPermissions(tr, [quantityInput, priceBuyInput, priceSellInput], deleteButton, parseInt(auth.checkLogin));
         }
 
         cells.forEach(cell => tr.appendChild(cell));
@@ -1069,7 +1147,7 @@ function renderDataToTable(dataArray) {
         warningRow.style.backgroundColor = '#fff3cd';
         warningRow.style.color = '#856404';
         const warningTd = document.createElement('td');
-        warningTd.colSpan = 13;
+        warningTd.colSpan = 14; // Cập nhật từ 13 thành 14
         warningTd.textContent = `Hiển thị ${MAX_VISIBLE_ROWS} / ${filteredData.length} đơn hàng. Sử dụng bộ lọc để xem dữ liệu cụ thể hơn.`;
         warningTd.style.textAlign = 'center';
         warningTd.style.padding = '8px';
@@ -1287,27 +1365,38 @@ function exportToExcel() {
     showLoading('Đang tạo file Excel...');
     try {
         const filteredData = applyFiltersToData(cachedData);
+        
         const excelData = filteredData.map((order, index) => ({
-            'STT': index + 1,
-            'Ngày đặt hàng': order.ngayDatHang || '',
-            'Thời gian upload': order.thoiGianUpload || '',
-            'Nhà cung cấp': order.nhaCungCap || '',
-            'Hóa đơn': order.hoaDon || '',
+            'Loại sản phẩm': 'Có thể lưu trữ',
+            'Mã sản phẩm': order.maSanPham || '', 
+            'Mã chốt đơn': '', 
             'Tên sản phẩm': order.tenSanPham || '',
-            'Mã sản phẩm': order.maSanPham || '',
-            'Biến thể': order.bienThe || '',
-            'Số lượng': order.soLuong || 0,
-            'Giá nhập': order.giaNhap || 0,
-            'Tổng tiền': (order.soLuong || 0) * (order.giaNhap || 0),
-            'Ghi chú': order.ghiChu || '',
-            'Người tạo': order.user || '',
-            'ID': order.id || ''
+            'Giá bán': order.giaBan || '',
+            'Giá mua': order.giaMua || '',
+            'Đơn vị': '',
+            'Nhóm sản phẩm': 'Có thể bán',
+            'Mã vạch': '',
+            'Khối lượng': '',
+            'Chiết khấu bán': '',
+            'Chiết khấu mua': '',
+            'Tồn kho': '',
+            'Giá vốn': '',
+            'Ghi chú': '',
+            'Cho phép bán ở công ty khác': '',
+            'Thuộc tính': ''
         }));
         
+        // Tạo worksheet
         const ws = XLSX.utils.json_to_sheet(excelData);
+        
+        // Tạo workbook
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Đặt Hàng');
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        
+        // Tạo tên file với ngày tháng
         const fileName = `DatHang_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
+        
+        // Xuất file
         XLSX.writeFile(wb, fileName);
         
         hideFloatingAlert();
@@ -1315,6 +1404,49 @@ function exportToExcel() {
     } catch (error) {
         console.error('Lỗi khi xuất Excel:', error);
         showError('Lỗi khi xuất Excel!');
+    }
+}
+
+function exportExcelTemplate() {
+    showLoading('Đang tạo template Excel...');
+    try {
+        // Tạo một dòng dữ liệu mẫu trống
+        const templateData = [{
+            'Loại sản phẩm': '',
+            'Mã sản phẩm': '',
+            'Mã chốt đơn': '',
+            'Tên sản phẩm': '',
+            'Giá bán': '',
+            'Giá mua': '',
+            'Đơn vị': '',
+            'Nhóm sản phẩm': '',
+            'Mã vạch': '',
+            'Khối lượng': '',
+            'Chiết khấu bán': '',
+            'Chiết khấu mua': '',
+            'Tồn kho': '',
+            'Giá vốn': '',
+            'Ghi chú': '',
+            'Cho phép bán ở công ty khác': '',
+            'Thuộc tính': ''
+        }];
+        
+        // Tạo worksheet
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        
+        // Tạo workbook
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        
+        // Xuất file template
+        const fileName = `Template_DatHang_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        
+        hideFloatingAlert();
+        showSuccess('Xuất template Excel thành công!');
+    } catch (error) {
+        console.error('Lỗi khi tạo template Excel:', error);
+        showError('Lỗi khi tạo template Excel!');
     }
 }
 

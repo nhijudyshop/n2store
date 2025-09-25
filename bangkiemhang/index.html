@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Bảng Kiểm Hàng</title>
+    <title>Bảng Kiểm Hàng - Gộp theo NCC</title>
     <meta http-equiv="Cache-Control" content="public, max-age=31536000">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <link rel="preconnect" href="https://fonts.googleapis.com/">
@@ -24,12 +24,12 @@
     <!-- Main CSS -->
     <link rel="stylesheet" href="../main.css">
     
-    <!-- Navigation Manager -->
+    <!-- Navigation Manager - Load trước khi load page scripts -->
     <script src="../js/navigation.js"></script>
     <script src="../js/common-utils.js"></script>
     
     <style>
-        /* Additional styles for inventory management */
+        /* Enhanced styles for inventory management with grouping */
         .inventory-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -134,12 +134,38 @@
             border-left: 4px solid #ffc107;
         }
         
+        /* Grouped row styles */
+        .inventory-table tbody tr.grouped {
+            background-color: #e8f5e8 !important;
+            border-left: 4px solid #28a745;
+        }
+        
+        .inventory-table tbody tr.grouped:hover {
+            background-color: #d4f4d4 !important;
+        }
+        
         /* Button styles */
         .button-group {
             display: flex;
             flex-direction: column;
             gap: 4px;
             align-items: center;
+        }
+        
+        .expand-button {
+            background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .expand-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
         /* Label styles in table */
@@ -153,6 +179,8 @@
             background: #f8f9fa;
             border-radius: 6px;
             border: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
         
         .received-label.empty, .total-label.empty {
@@ -178,6 +206,58 @@
             outline: none;
         }
         
+        /* Toggle button styles */
+        .toggle-grouping-btn {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .toggle-grouping-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+        
+        .toggle-grouping-btn.enabled {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        /* Loading states */
+        .loading-row {
+            background: linear-gradient(90deg, #f0f0f0 25%, transparent 37%, #f0f0f0 63%);
+            background-size: 400% 100%;
+            animation: loading 1.4s ease-in-out infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Hide number input spinners */
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        input[type=number] {
+            -moz-appearance: textfield;
+            appearance: none;
+        }
+        
         /* Responsive design */
         @media (max-width: 768px) {
             .filter-group {
@@ -198,109 +278,36 @@
                 flex-direction: row;
                 gap: 2px;
             }
-            
-            .received-input, .total-input {
-                width: 60px;
-                padding: 4px 6px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .inventory-container {
-                padding: 10px;
-            }
-            
-            .filter-section {
-                padding: 15px;
-            }
-            
-            .inventory-table {
-                font-size: 11px;
-            }
-            
-            .inventory-table th,
-            .inventory-table td {
-                padding: 6px 4px;
-            }
-        }
-        
-        /* Loading states */
-        .loading-row {
-            background: linear-gradient(90deg, #f0f0f0 25%, transparent 37%, #f0f0f0 63%);
-            background-size: 400% 100%;
-            animation: loading 1.4s ease-in-out infinite;
-        }
-        
-        @keyframes loading {
-            0% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
-        }
-        
-        /* Status indicators */
-        .status-complete {
-            color: #28a745;
-            font-weight: bold;
-        }
-        
-        .status-partial {
-            color: #ffc107;
-            font-weight: bold;
-        }
-        
-        .status-pending {
-            color: #dc3545;
-            font-weight: bold;
         }
     </style>
 </head>
 
 <body>
-    <!-- Security Indicator -->
-    <div class="security-indicator" id="securityIndicator">Secure</div>
-    
-    <!-- Performance Indicator -->
-    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
-    
-    <!-- Menu Toggle Button -->
-    <button class="menu-toggle">
-        <div class="hamburger"></div>
-    </button>
-
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h3>Menu Điều Hướng</h3>
-            <button class="close-btn">&times;</button>
-        </div>
-        <ul class="nav-list"></ul>
-    </nav>
-
-    <!-- Overlay -->
-    <div class="overlay" id="overlay"></div>
-
     <!-- Top buttons -->
-    <div class="top-buttons">
-        <button id="toggleFormButton">Làm mới dữ liệu</button>
-        <button onclick="exportToExcel()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">Xuất Excel</button>
-        <button id="toggleLogoutButton">Đăng xuất</button>
+    <div class="top-buttons" style="display: flex; gap: 10px; margin: 20px; justify-content: center; flex-wrap: wrap;">
+        <button id="toggleGroupingButton" class="toggle-grouping-btn">Tắt gộp NCC</button>
+        <button id="toggleFormButton" style="background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%); color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer;">Làm mới dữ liệu</button>
+        <button id="exportButton" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer;">Xuất Excel</button>
+        <button id="toggleLogoutButton" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer;">Đăng xuất</button>
     </div>
 
     <!-- Main content -->
     <div class="main-content">
-        <div class="header">
+        <div class="header" style="text-align: center; margin: 20px 0;">
             <div id="parentContainer">
-                <p class="tieude">BẢNG KIỂM HÀNG</p>
+                <h1 class="tieude" style="color: #333; font-size: 28px; margin: 0;">BẢNG KIỂM HÀNG - GỘP THEO NCC</h1>
             </div>
         </div>
 
         <div class="inventory-container">
             <!-- Filter Section -->
             <div class="filter-section">
-                <h3 style="margin: 0 0 15px 0; color: #495057; font-weight: 600;">Bộ lọc dữ liệu</h3>
+                <h3 style="margin: 0 0 15px 0; color: #495057; font-weight: 600;">
+                    Bộ lọc dữ liệu
+                    <span id="groupingIndicator" style="background: #007bff; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px;">
+                        GỘP THEO NCC
+                    </span>
+                </h3>
                 <div class="filter-group">
                     <div>
                         <label for="filterSupplier">Chọn nhà cung cấp:</label>
@@ -324,6 +331,11 @@
                         <input type="text" id="filterProduct" placeholder="Tìm kiếm theo tên hoặc mã sản phẩm...">
                     </div>
                 </div>
+                
+                <!-- Grouping explanation -->
+                <div id="groupingExplanation" style="margin-top: 15px; padding: 12px; background: #e8f5e8; border: 1px solid #28a745; border-radius: 8px; font-size: 13px; color: #155724;">
+                    <strong>📋 Chế độ gộp theo NCC:</strong> Tất cả các đơn hàng từ cùng nhà cung cấp sẽ được gộp lại thành một dòng để dễ theo dõi.
+                </div>
             </div>
 
             <!-- Table Section -->
@@ -331,23 +343,23 @@
                 <table class="inventory-table">
                     <thead>
                         <tr>
-                            <th style="width: 12%;">Ngày đặt hàng</th>
-                            <th style="width: 12%;">Ngày nhận hàng</th>
-                            <th style="width: 15%;">Nhà cung cấp</th>
-                            <th style="width: 15%;">Mã sản phẩm</th>
-                            <th style="width: 10%;">Số lượng đặt</th>
-                            <th style="width: 12%;">Thực nhận</th>
-                            <th style="width: 12%;">Tổng nhận</th>
-                            <th style="width: 12%;">Thao tác</th>
+                            <th style="width: 10%;">Ngày đặt hàng</th>
+                            <th style="width: 10%;">Ngày nhận hàng</th>
+                            <th style="width: 12%;">Nhà cung cấp</th>
+                            <th style="width: 12%;">Mã sản phẩm</th>
+                            <th style="width: 15%;">Tên sản phẩm</th>
+                            <th style="width: 12%;">Số lượng đặt</th>
+                            <th style="width: 10%;">Thực nhận</th>
+                            <th style="width: 10%;">Tổng nhận</th>
+                            <th style="width: 9%;">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody id="orderTableBody">
-                        <!-- Data will be populated by JavaScript -->
                         <tr class="loading-row">
-                            <td colspan="8" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
+                            <td colspan="9" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
                                 <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                                    <div class="spinner" style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                                    Đang tải dữ liệu kiểm hàng...
+                                    <div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                    Đang tải dữ liệu kiểm hàng từ Firebase...
                                 </div>
                             </td>
                         </tr>
@@ -375,6 +387,10 @@
                         <div style="font-size: 24px; font-weight: bold;" id="pendingProducts">0</div>
                         <div style="font-size: 14px; opacity: 0.9;">Chưa nhận</div>
                     </div>
+                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%); color: white; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold;" id="groupedItems">0</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Mục đã gộp</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -389,144 +405,19 @@
             <div class="alert-text">Thông báo hiển thị!</div>
         </div>
     </div>
-
+    
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay"></div>
-    
-    <!-- Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
     
     <!-- Blocking Overlay
     <div id="blockingOverlay"></div>
     -->
     
-    <!-- Copy Notification -->
-    <div id="copyNotification" class="copy-notification">Đã copy thông tin!</div>
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
 
-    <!-- Inventory Management JavaScript -->
-    <script src="utility.js"></script>
+    <!-- Load the inventory JavaScript -->
     <script src="scriptObfuscator.js"></script>
-    
-    <script>
-        // Fix interaction blocking issues - MUST RUN FIRST
-        (function() {
-            // Immediately remove any blocking styles
-            const forceUnblock = () => {
-                document.body.style.pointerEvents = 'auto';
-                document.body.style.userSelect = 'auto';
-                document.body.style.overflow = 'auto';
-                document.body.style.cursor = 'default';
-                
-                // Remove overlay elements
-                const overlays = ['loadingOverlay', 'blockingOverlay', 'overlay'];
-                overlays.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.style.display = 'none';
-                        el.classList.remove('show');
-                    }
-                });
-                
-                // Hide floating alerts
-                const alert = document.getElementById('floatingAlert');
-                if (alert) {
-                    alert.classList.remove('show', 'loading');
-                    alert.style.display = 'none';
-                }
-            };
-            
-            // Run immediately and on DOM ready
-            forceUnblock();
-            document.addEventListener('DOMContentLoaded', forceUnblock);
-            
-            // Run after a delay to catch async blocking
-            setTimeout(forceUnblock, 1000);
-            setTimeout(forceUnblock, 3000);
-        })();
-        
-        // Debug function to manually unblock
-        window.forceUnblock = function() {
-            document.body.style.pointerEvents = 'auto';
-            document.body.style.userSelect = 'auto';
-            document.body.style.overflow = 'auto';
-            document.body.style.cursor = 'default';
-            
-            ['loadingOverlay', 'blockingOverlay', 'overlay', 'floatingAlert'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.style.display = 'none';
-                    el.classList.remove('show', 'loading');
-                }
-            });
-            
-            console.log('Force unblocked - page should be interactive now');
-        };
-        
-        // Additional helper functions for statistics
-        function updateStatistics(inventoryData) {
-            const totalProducts = document.getElementById('totalProducts');
-            const completedProducts = document.getElementById('completedProducts');
-            const partialProducts = document.getElementById('partialProducts');
-            const pendingProducts = document.getElementById('pendingProducts');
-            
-            if (!inventoryData || !Array.isArray(inventoryData)) return;
-            
-            let total = inventoryData.length;
-            let completed = 0;
-            let partial = 0;
-            let pending = 0;
-            
-            inventoryData.forEach(item => {
-                const ordered = item.soLuong || 0;
-                const received = (item.thucNhan || 0) + (item.tongNhan || 0);
-                
-                if (received >= ordered && received > 0) {
-                    completed++;
-                } else if (received > 0 && received < ordered) {
-                    partial++;
-                } else {
-                    pending++;
-                }
-            });
-            
-            if (totalProducts) totalProducts.textContent = total;
-            if (completedProducts) completedProducts.textContent = completed;
-            if (partialProducts) partialProducts.textContent = partial;
-            if (pendingProducts) pendingProducts.textContent = pending;
-        }
-        
-        // Override the renderInventoryTable function to include statistics
-        window.addEventListener('load', function() {
-            const originalRenderInventoryTable = window.renderInventoryTable;
-            if (typeof originalRenderInventoryTable === 'function') {
-                window.renderInventoryTable = function(inventoryData) {
-                    originalRenderInventoryTable(inventoryData);
-                    updateStatistics(inventoryData);
-                };
-            }
-        });
-        
-        // Add spinning animation for loading
-        const spinKeyframes = `
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        `;
-        const style = document.createElement('style');
-        style.textContent = spinKeyframes;
-        document.head.appendChild(style);
-        
-        // Emergency reset button (for debugging)
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'U') {
-                window.forceUnblock();
-                if (window.loadInventoryData) {
-                    window.loadInventoryData();
-                }
-            }
-        });
-    </script>
 </body>
 
 </html>
