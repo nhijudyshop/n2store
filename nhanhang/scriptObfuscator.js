@@ -734,7 +734,7 @@ function renderDataToTable(dataArray) {
         weightInput.addEventListener('wheel', function(e) { e.preventDefault(); });
         cells[1].appendChild(weightInput);
         
-        cells[2].textContent = receipt.thoiGianNhan || "Chưa nhập";
+        cells[4].textContent = receipt.thoiGianNhan || "Chưa nhập";
         
         if (receipt.anhNhanHang) {
             const img = document.createElement('img');
@@ -756,29 +756,32 @@ function renderDataToTable(dataArray) {
             cells[3].textContent = 'Không có ảnh';
         }
         
-        cells[4].textContent = sanitizeInput(receipt.ghiChu || '');
-        cells[4].style.maxWidth = '150px';
-        cells[4].style.overflow = 'hidden';
-        cells[4].style.textOverflow = 'ellipsis';
-        cells[4].style.whiteSpace = 'nowrap';
-        if (receipt.ghiChu) cells[4].title = receipt.ghiChu;
+        const quanlityInput = document.createElement('input');
+        quanlityInput.type = 'number';
+        quanlityInput.value = receipt.ghiChu || 0;
+        quanlityInput.min = '0';
+        quanlityInput.step = 'any';
+        quanlityInput.className = 'quantity-input';
+        quanlityInput.setAttribute('data-receipt-id', receipt.id || '');
+        quanlityInput.defaultValue = receipt.soKg || 0;
+        quanlityInput.addEventListener('change', updateReceiptByID);
+        quanlityInput.addEventListener('wheel', function(e) { e.preventDefault(); });
+        cells[2].appendChild(quanlityInput);
         
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button';
         deleteButton.setAttribute("data-receipt-id", receipt.id || '');
         deleteButton.setAttribute("data-receipt-info", `${sanitizeInput(receipt.tenNguoiNhan || '')} - ${formatCurrency(receipt.soKg || 0)}`);
-        deleteButton.textContent = 'Xóa';
         deleteButton.addEventListener('click', deleteReceiptByID);
         
-        const editButton = document.createElement('button');
-        editButton.className = 'edit-button';
-        editButton.setAttribute("data-receipt-id", receipt.id || '');
-        editButton.textContent = 'Sửa';
-        editButton.addEventListener('click', openEditModal);
+        //const editButton = document.createElement('button');
+        //editButton.className = 'edit-button';
+        //editButton.setAttribute("data-receipt-id", receipt.id || '');
+        //editButton.addEventListener('click', openEditModal);
         
         const actionContainer = document.createElement('div');
         actionContainer.className = 'action-buttons';
-        actionContainer.appendChild(editButton);
+        //actionContainer.appendChild(editButton);
         actionContainer.appendChild(deleteButton);
         cells[5].appendChild(actionContainer);
 
