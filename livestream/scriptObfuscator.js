@@ -2090,7 +2090,7 @@ function handleEditButton(e) {
             if (mm1) mm1.value = startMin;
             if (hh2) hh2.value = endHour;
             if (mm2) mm2.value = endMin;
-            if (hh1.value < 12) {
+            if (hh1.value < 12 && !hasPermission(0)) {
                 editModal.style.display = 'none';
                 return;
             };
