@@ -54,19 +54,22 @@ const MENU_CONFIG = [
         href: '../hangdat/index.html',
         icon: '📋',
         text: 'HÀNG ĐẶT',
-        pageIdentifier: 'hangdat'
+        pageIdentifier: 'hangdat',
+        adminOnly: true
     },
 	{
         href: '../bangkiemhang/index.html',
         icon: '✅',
         text: 'BẢNG KIỂM HÀNG',
-        pageIdentifier: 'bangkiemhang'
+        pageIdentifier: 'bangkiemhang',
+        adminOnly: true
     },
     {
         href: '../user-management/index.html',
         icon: '👥',
         text: 'QUẢN LÝ TÀI KHOẢN',
         pageIdentifier: 'user-management',
+        adminOnly: true
     },
     {
         href: '../history/index.html',

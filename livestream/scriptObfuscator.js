@@ -1477,17 +1477,6 @@ function createTableRow(item, dateStr) {
         if (cellData.type === 'edit') {
             const editButton = document.createElement('button');
             editButton.className = 'edit-button';
-            editButton.innerHTML = '✏️';
-            editButton.style.cssText = `
-                cursor: pointer; 
-                padding: 5px; 
-                border: none; 
-                background: transparent; 
-                font-size: 16px;
-                border-radius: 4px;
-                transition: background-color 0.2s;
-            `;
-            editButton.title = 'Chỉnh sửa';
             editButton.addEventListener('mouseenter', () => {
                 editButton.style.backgroundColor = '#f8f9fa';
             });
@@ -1498,17 +1487,6 @@ function createTableRow(item, dateStr) {
         } else if (cellData.type === 'delete') {
             const deleteButton = document.createElement('button');
             deleteButton.className = 'delete-button';
-            deleteButton.innerHTML = '🗑️';
-            deleteButton.style.cssText = `
-                cursor: pointer; 
-                padding: 5px; 
-                border: none; 
-                background: transparent; 
-                font-size: 16px;
-                border-radius: 4px;
-                transition: background-color 0.2s;
-            `;
-            deleteButton.title = 'Xóa';
             deleteButton.setAttribute('data-user', cellData.userId);
             deleteButton.addEventListener('mouseenter', () => {
                 deleteButton.style.backgroundColor = '#ffe6e6';
