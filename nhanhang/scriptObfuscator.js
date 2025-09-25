@@ -222,7 +222,7 @@ async function addReceipt(event) {
     // Get form values
     const tenNguoiNhan = sanitizeInput(tenNguoiNhanInput.value.trim());
     const soKg = parseFloat(soKgInput.value);
-    const ghiChu = sanitizeInput(ghiChuInput.value.trim());
+    const soKien = parseFloat(soKienInput.value.trim());
 
     // Validation
     if (!tenNguoiNhan) {
@@ -246,7 +246,7 @@ async function addReceipt(event) {
         tenNguoiNhan: tenNguoiNhan,
         soKg: soKg,
         thoiGianNhan: thoiGianNhan,
-        ghiChu: ghiChu,
+        soKien: soKien,
         user: getUserName()
     };
 
@@ -330,7 +330,7 @@ function openEditModal(event) {
     editReceiptId.value = receiptData.id;
     editTenNguoiNhanInput.value = receiptData.tenNguoiNhan || '';
     editSoKgInput.value = receiptData.soKg || 0;
-    editGhiChuInput.value = receiptData.ghiChu || '';
+    editSoKienInput.value = receiptData.soKien || 0;
 
     // Display current image if exists
     editCurrentImageUrl = receiptData.anhNhanHang || null;
@@ -398,7 +398,7 @@ async function updateReceipt(event) {
     const receiptId = editReceiptId.value;
     const tenNguoiNhan = sanitizeInput(editTenNguoiNhanInput.value.trim());
     const soKg = parseFloat(editSoKgInput.value);
-    const ghiChu = sanitizeInput(editGhiChuInput.value.trim());
+    const soKien = sanitizeInput(editSoKienInput.value.trim());
 
     // Validation
     if (!tenNguoiNhan) {
@@ -407,8 +407,14 @@ async function updateReceipt(event) {
         return;
     }
 
-    if (isNaN(soKg) || soKg < 0) {
-        showError('Số kg phải lớn hơn hoặc bằng 0');
+    if (isNaN(soKg) || soKg <= 0) {
+        showError('Số kg phải lớn hơn 0');
+        updateButton.disabled = false;
+        return;
+    }
+
+    if (isNaN(soKien) || soKien <= 0) {
+        showError('Số kiện phải lớn hơn 0');
         updateButton.disabled = false;
         return;
     }
@@ -438,7 +444,7 @@ async function updateReceipt(event) {
         // Update basic data
         data.data[index].tenNguoiNhan = tenNguoiNhan;
         data.data[index].soKg = soKg;
-        data.data[index].ghiChu = ghiChu;
+        data.data[index].soKien = soKien;
 
         // Handle image update
         let imageUrl = data.data[index].anhNhanHang; // Keep current by default
@@ -758,12 +764,12 @@ function renderDataToTable(dataArray) {
         
         const quanlityInput = document.createElement('input');
         quanlityInput.type = 'number';
-        quanlityInput.value = receipt.ghiChu || 0;
+        quanlityInput.value = receipt.soKien || 0;
         quanlityInput.min = '0';
         quanlityInput.step = 'any';
         quanlityInput.className = 'quantity-input';
         quanlityInput.setAttribute('data-receipt-id', receipt.id || '');
-        quanlityInput.defaultValue = receipt.soKg || 0;
+        quanlityInput.defaultValue = receipt.soKien || 0;
         quanlityInput.addEventListener('change', updateReceiptByID);
         quanlityInput.addEventListener('wheel', function(e) { e.preventDefault(); });
         cells[2].appendChild(quanlityInput);
@@ -972,8 +978,8 @@ function exportToExcel() {
             'STT': index + 1,
             'Tên người nhận': receipt.tenNguoiNhan || '',
             'Số kg': receipt.soKg || 0,
+            'Số kiện': receipt.soKien || 0,
             'Thời gian nhận': receipt.thoiGianNhan || '',
-            'Ghi chú': receipt.ghiChu || '',
             'Người tạo': receipt.user || '',
             'ID': receipt.id || ''
         }));
