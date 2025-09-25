@@ -1389,12 +1389,12 @@ function createTableRow(item, dateStr) {
     // Apply styling based on edit history and admin status
     if (hasEditHistory) {
         // Rows that have been edited - yellow styling
-        newRow.classList.add('edited-row');
-        newRow.style.borderLeft = '4px solid #ffc107';
-        newRow.style.backgroundColor = '#fff3cd';
-        newRow.title = 'Hàng này đã được chỉnh sửa - Click để xem lịch sử';
         
         if (isAdmin) {
+			newRow.classList.add('edited-row');
+			newRow.style.borderLeft = '4px solid #ffc107';
+			newRow.style.backgroundColor = '#fff3cd';
+			newRow.title = 'Hàng này đã được chỉnh sửa - Click để xem lịch sử';
             newRow.style.cursor = 'pointer';
         }
     } else if (isAdmin) {
