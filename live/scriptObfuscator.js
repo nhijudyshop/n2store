@@ -27,7 +27,7 @@ const CONFIG = {
 };
 
 // Authentication storage key - thống nhất với file 2
-const AUTH_STORAGE_KEY = 'loginindex_auth';
+const AUTH_STORAGE_KEY = 'liveindex_auth';
 
 // =====================================================
 // AUTHENTICATION SYSTEM - UPDATED VERSION

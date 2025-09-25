@@ -49,7 +49,7 @@ let filterTimeout = null;
 let isFilteringInProgress = false;
 
 // User authentication state - using consistent storage like file 3
-const AUTH_STORAGE_KEY = 'loginindex_auth';
+const AUTH_STORAGE_KEY = 'hanghoanindex_auth';
 let authState = null;
 
 // =====================================================

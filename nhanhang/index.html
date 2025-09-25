@@ -805,8 +805,10 @@
     </div>
 
     <script>
-        // Global Variables - Removed demo data
-        let allReceipts = []; // Empty array instead of mockData
+        // Global Variables
+        let mockData = [];
+
+        let allReceipts = [...mockData];
         let capturedImageBlob = null;
         let capturedImageUrl = null;
         let cameraStream = null;
@@ -1038,7 +1040,8 @@
                     hinhAnh: capturedImageUrl
                 };
 
-                allReceipts.unshift(receipt);
+                mockData.unshift(receipt);
+                allReceipts = [...mockData];
                 
                 renderTable(allReceipts);
                 updateFilterOptions();
@@ -1168,9 +1171,10 @@
                 showAlert('Đang xóa phiếu...', 'loading');
                 
                 setTimeout(() => {
-                    const index = allReceipts.findIndex(r => r.id === id);
+                    const index = mockData.findIndex(r => r.id === id);
                     if (index > -1) {
-                        allReceipts.splice(index, 1);
+                        mockData.splice(index, 1);
+                        allReceipts = [...mockData];
                         filterTable();
                         updateFilterOptions();
                         showAlert('Đã xóa phiếu thành công!', 'success');
@@ -1240,7 +1244,7 @@
             toggleFormBtn.addEventListener('click', () => {
                 const isVisible = formSection.classList.contains('show');
                 formSection.classList.toggle('show');
-                toggleFormBtn.textContent = isVisible ? 'Hiện Biểu Mẫu' : 'Ẩn Biểu Mẫu';
+                toggleFormBtn.textContent = isVisible ? 'Hiện Biểu Mâũ' : 'Ẩn Biếu Mãu';
             });
 
             // Form submission
@@ -1320,3 +1324,6 @@
         // Global functions for onclick
         window.editReceipt = editReceipt;
         window.deleteReceipt = deleteReceipt;
+    </script>
+</body>
+</html>

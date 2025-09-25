@@ -263,7 +263,7 @@ let isFilteringInProgress = false;
 // =====================================================
 
 // User authentication state - using consistent storage
-const AUTH_STORAGE_KEY = 'loginindex_auth';
+const AUTH_STORAGE_KEY = 'nhanhangindex_auth';
 let authState = null;
 
 function getAuthState() {
