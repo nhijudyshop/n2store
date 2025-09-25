@@ -990,7 +990,6 @@ function renderDataToTable(dataArray) {
         button.setAttribute("data-product-id", product.id || '');
         button.setAttribute("data-product-name", sanitizeInput(product.tenSanPham || ''));
         button.id = sanitizeInput(product.user || '');
-        button.textContent = 'Xóa';
         button.addEventListener('click', deleteInventoryByID);
 
         // Apply permissions to row

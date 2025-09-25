@@ -646,14 +646,10 @@ function renderSingleRow(item, sttNumber) {
         } else if (cellData.type === 'edit') {
             const editButton = document.createElement('button');
             editButton.className = 'edit-button';
-            editButton.innerHTML = '✏️';
-            editButton.style.cssText = 'cursor: pointer; padding: 5px; border: none; background: transparent; font-size: 16px;';
             cell.appendChild(editButton);
         } else if (cellData.type === 'delete') {
             const deleteButton = document.createElement('button');
             deleteButton.className = 'delete-button';
-            deleteButton.innerHTML = '🗑️';
-            deleteButton.style.cssText = 'cursor: pointer; padding: 5px; border: none; background: transparent; font-size: 16px;';
             deleteButton.id = cellData.userId;
             cell.appendChild(deleteButton);
         } else {

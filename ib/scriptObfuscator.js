@@ -584,7 +584,7 @@ function renderDataToTable(dataArray) {
                 if (auth && auth.checkLogin == '0') {
                     const hideButton = document.createElement('button');
                     hideButton.className = 'toggle-visibility';
-                    hideButton.innerHTML = '🗑️';
+                    hideButton.className = 'delete-button';
                     hideButton.id = dataItem.user || 'Unknown';
                     hideButton.onclick = () => deleteRow(row, hideButton);
                     toggleVisibilityCell.appendChild(hideButton);
@@ -662,7 +662,7 @@ function addProductToTable(dataItem) {
     if (auth && auth.checkLogin == '0') {
         const deleteButton = document.createElement('button');
         deleteButton.className = 'toggle-visibility';
-        deleteButton.innerHTML = '🗑️';
+        deleteButton.className = 'delete-button';
         deleteButton.id = dataItem.user;
         deleteButton.onclick = () => deleteRow(row, deleteButton);
         toggleVisibilityCell.appendChild(deleteButton);

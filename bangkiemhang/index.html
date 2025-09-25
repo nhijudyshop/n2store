@@ -27,6 +27,235 @@
     <!-- Navigation Manager -->
     <script src="../js/navigation.js"></script>
     <script src="../js/common-utils.js"></script>
+    
+    <style>
+        /* Additional styles for inventory management */
+        .inventory-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .filter-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            align-items: end;
+        }
+        
+        .filter-group label {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .filter-group select:focus,
+        .filter-group input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+            outline: none;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        
+        .inventory-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        .inventory-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .inventory-table th {
+            padding: 15px 10px;
+            text-align: center;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .inventory-table td {
+            padding: 12px 10px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+        
+        .inventory-table tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .inventory-table tbody tr:hover {
+            background-color: rgba(102, 126, 234, 0.05);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .inventory-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .inventory-table tbody tr.editing {
+            background-color: #fff3cd !important;
+            border-left: 4px solid #ffc107;
+        }
+        
+        /* Button styles */
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
+        }
+        
+        /* Label styles in table */
+        .received-label, .total-label {
+            display: inline-block;
+            min-width: 60px;
+            padding: 8px 12px;
+            text-align: center;
+            font-weight: 500;
+            color: #495057;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .received-label.empty, .total-label.empty {
+            color: #adb5bd;
+            font-style: italic;
+        }
+        
+        /* Input styles when editing */
+        .received-input, .total-input {
+            width: 80px;
+            padding: 6px 8px;
+            border: 2px solid #007bff;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            background: #fff;
+        }
+        
+        .received-input:focus, .total-input:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+            outline: none;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .filter-group {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .inventory-table {
+                font-size: 12px;
+            }
+            
+            .inventory-table th,
+            .inventory-table td {
+                padding: 8px 6px;
+            }
+            
+            .button-group {
+                flex-direction: row;
+                gap: 2px;
+            }
+            
+            .received-input, .total-input {
+                width: 60px;
+                padding: 4px 6px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .inventory-container {
+                padding: 10px;
+            }
+            
+            .filter-section {
+                padding: 15px;
+            }
+            
+            .inventory-table {
+                font-size: 11px;
+            }
+            
+            .inventory-table th,
+            .inventory-table td {
+                padding: 6px 4px;
+            }
+        }
+        
+        /* Loading states */
+        .loading-row {
+            background: linear-gradient(90deg, #f0f0f0 25%, transparent 37%, #f0f0f0 63%);
+            background-size: 400% 100%;
+            animation: loading 1.4s ease-in-out infinite;
+        }
+        
+        @keyframes loading {
+            0% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        
+        /* Status indicators */
+        .status-complete {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-partial {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        
+        .status-pending {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
 </head>
 
 <body>
@@ -55,7 +284,7 @@
 
     <!-- Top buttons -->
     <div class="top-buttons">
-        <button id="toggleFormButton">Hiện biểu mẫu</button>
+        <button id="toggleFormButton">Làm mới dữ liệu</button>
         <button onclick="exportToExcel()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">Xuất Excel</button>
         <button id="toggleLogoutButton">Đăng xuất</button>
     </div>
@@ -67,8 +296,90 @@
                 <p class="tieude">BẢNG KIỂM HÀNG</p>
             </div>
         </div>
-	</div>
-	
+
+        <div class="inventory-container">
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <h3 style="margin: 0 0 15px 0; color: #495057; font-weight: 600;">Bộ lọc dữ liệu</h3>
+                <div class="filter-group">
+                    <div>
+                        <label for="filterSupplier">Chọn nhà cung cấp:</label>
+                        <select id="filterSupplier">
+                            <option value="all">Tất cả</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="dateFilter">Lọc ngày nhận hàng:</label>
+                        <select id="dateFilter">
+                            <option value="all">Tất cả</option>
+                            <option value="today">Hôm nay</option>
+                            <option value="week">Tuần này</option>
+                            <option value="month">Tháng này</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filterProduct">Lọc sản phẩm:</label>
+                        <input type="text" id="filterProduct" placeholder="Tìm kiếm theo tên hoặc mã sản phẩm...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="table-container">
+                <table class="inventory-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">Ngày đặt hàng</th>
+                            <th style="width: 12%;">Ngày nhận hàng</th>
+                            <th style="width: 15%;">Nhà cung cấp</th>
+                            <th style="width: 15%;">Mã sản phẩm</th>
+                            <th style="width: 10%;">Số lượng đặt</th>
+                            <th style="width: 12%;">Thực nhận</th>
+                            <th style="width: 12%;">Tổng nhận</th>
+                            <th style="width: 12%;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTableBody">
+                        <!-- Data will be populated by JavaScript -->
+                        <tr class="loading-row">
+                            <td colspan="8" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                    <div class="spinner" style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                    Đang tải dữ liệu kiểm hàng...
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="filter-section" style="margin-top: 30px;">
+                <h3 style="margin: 0 0 15px 0; color: #495057; font-weight: 600;">Thống kê nhanh</h3>
+                <div class="filter-group" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold;" id="totalProducts">0</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Tổng sản phẩm</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold;" id="completedProducts">0</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Đã hoàn thành</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold;" id="partialProducts">0</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Nhận một phần</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold;" id="pendingProducts">0</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Chưa nhận</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Enhanced Floating Alert -->
     <div id="floatingAlert">
         <div class="alert-content">
@@ -89,11 +400,132 @@
     <div id="blockingOverlay"></div>
     
     <!-- Copy Notification -->
-    <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
+    <div id="copyNotification" class="copy-notification">Đã copy thông tin!</div>
 
-    <!-- Order Management JavaScript -->
+    <!-- Inventory Management JavaScript -->
     <script src="utility.js"></script>
     <script src="scriptObfuscator.js"></script>
+    
+    <script>
+        // Fix interaction blocking issues - MUST RUN FIRST
+        (function() {
+            // Immediately remove any blocking styles
+            const forceUnblock = () => {
+                document.body.style.pointerEvents = 'auto';
+                document.body.style.userSelect = 'auto';
+                document.body.style.overflow = 'auto';
+                document.body.style.cursor = 'default';
+                
+                // Remove overlay elements
+                const overlays = ['loadingOverlay', 'blockingOverlay', 'overlay'];
+                overlays.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.style.display = 'none';
+                        el.classList.remove('show');
+                    }
+                });
+                
+                // Hide floating alerts
+                const alert = document.getElementById('floatingAlert');
+                if (alert) {
+                    alert.classList.remove('show', 'loading');
+                    alert.style.display = 'none';
+                }
+            };
+            
+            // Run immediately and on DOM ready
+            forceUnblock();
+            document.addEventListener('DOMContentLoaded', forceUnblock);
+            
+            // Run after a delay to catch async blocking
+            setTimeout(forceUnblock, 1000);
+            setTimeout(forceUnblock, 3000);
+        })();
+        
+        // Debug function to manually unblock
+        window.forceUnblock = function() {
+            document.body.style.pointerEvents = 'auto';
+            document.body.style.userSelect = 'auto';
+            document.body.style.overflow = 'auto';
+            document.body.style.cursor = 'default';
+            
+            ['loadingOverlay', 'blockingOverlay', 'overlay', 'floatingAlert'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = 'none';
+                    el.classList.remove('show', 'loading');
+                }
+            });
+            
+            console.log('Force unblocked - page should be interactive now');
+        };
+        
+        // Additional helper functions for statistics
+        function updateStatistics(inventoryData) {
+            const totalProducts = document.getElementById('totalProducts');
+            const completedProducts = document.getElementById('completedProducts');
+            const partialProducts = document.getElementById('partialProducts');
+            const pendingProducts = document.getElementById('pendingProducts');
+            
+            if (!inventoryData || !Array.isArray(inventoryData)) return;
+            
+            let total = inventoryData.length;
+            let completed = 0;
+            let partial = 0;
+            let pending = 0;
+            
+            inventoryData.forEach(item => {
+                const ordered = item.soLuong || 0;
+                const received = (item.thucNhan || 0) + (item.tongNhan || 0);
+                
+                if (received >= ordered && received > 0) {
+                    completed++;
+                } else if (received > 0 && received < ordered) {
+                    partial++;
+                } else {
+                    pending++;
+                }
+            });
+            
+            if (totalProducts) totalProducts.textContent = total;
+            if (completedProducts) completedProducts.textContent = completed;
+            if (partialProducts) partialProducts.textContent = partial;
+            if (pendingProducts) pendingProducts.textContent = pending;
+        }
+        
+        // Override the renderInventoryTable function to include statistics
+        window.addEventListener('load', function() {
+            const originalRenderInventoryTable = window.renderInventoryTable;
+            if (typeof originalRenderInventoryTable === 'function') {
+                window.renderInventoryTable = function(inventoryData) {
+                    originalRenderInventoryTable(inventoryData);
+                    updateStatistics(inventoryData);
+                };
+            }
+        });
+        
+        // Add spinning animation for loading
+        const spinKeyframes = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        const style = document.createElement('style');
+        style.textContent = spinKeyframes;
+        document.head.appendChild(style);
+        
+        // Emergency reset button (for debugging)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'U') {
+                window.forceUnblock();
+                if (window.loadInventoryData) {
+                    window.loadInventoryData();
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>
