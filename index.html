@@ -49,30 +49,36 @@
         }
 
         @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(50px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Logo/Brand */
+        /* Brand / Logo */
         .brand {
             margin-bottom: calc(40px * var(--font-scale));
         }
 
-        .brand h1 {
+        .brand-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            width: 60px;       /* kích thước cố định logo */
+            height: 60px;
+            object-fit: cover; /* không méo hình */
+            border-radius: 10%;
+        }
+
+        .brand-text {
             font-size: calc(2.5rem * var(--font-scale));
             font-weight: 300;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: calc(10px * var(--font-scale));
-            letter-spacing: -1px;
         }
 
         .brand p {
@@ -201,47 +207,31 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error & Success Messages */
+        .error-message, .success-message {
+            padding: calc(12px * var(--font-scale)) calc(20px * var(--font-scale));
+            border-radius: 8px;
+            margin-top: calc(20px * var(--font-scale));
+            font-size: calc(14px * var(--font-scale));
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
         }
 
-        /* Error Message */
         .error-message {
             background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
             color: white;
-            padding: calc(12px * var(--font-scale)) calc(20px * var(--font-scale));
-            border-radius: 8px;
-            margin-top: calc(20px * var(--font-scale));
-            font-size: calc(14px * var(--font-scale));
-            font-weight: 500;
-            opacity: 0;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
         }
+        .error-message.show { opacity:1; transform:translateY(0); }
 
-        .error-message.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* Success Message */
         .success-message {
             background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
             color: white;
-            padding: calc(12px * var(--font-scale)) calc(20px * var(--font-scale));
-            border-radius: 8px;
-            margin-top: calc(20px * var(--font-scale));
-            font-size: calc(14px * var(--font-scale));
-            font-weight: 500;
-            opacity: 0;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
         }
-
-        .success-message.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        .success-message.show { opacity:1; transform:translateY(0); }
 
         /* Footer */
         .login-footer {
@@ -272,80 +262,23 @@
 
         /* Responsive Design */
         @media (max-width: 768px) {
-            body {
-                padding: 15px;
-            }
-
-            .font-settings {
-                top: 10px;
-                right: 10px;
-                padding: 10px;
-                min-width: 180px;
-            }
-
-            .login-container {
-                padding: calc(40px * var(--font-scale)) calc(30px * var(--font-scale));
-                max-width: 100%;
-                border-radius: 20px;
-            }
-
-            .brand h1 {
-                font-size: calc(2rem * var(--font-scale));
-            }
-
-            .input-wrapper input {
-                padding: calc(16px * var(--font-scale)) calc(18px * var(--font-scale));
-                font-size: calc(16px * var(--font-scale));
-            }
-
-            .input-wrapper.username input,
-            .input-wrapper.password input {
-                padding-left: calc(50px * var(--font-scale));
-            }
-
-            #loginButton {
-                padding: calc(16px * var(--font-scale)) calc(25px * var(--font-scale));
-                font-size: calc(15px * var(--font-scale));
-            }
+            .login-container { padding: calc(40px * var(--font-scale)) calc(30px * var(--font-scale)); }
+            .brand-logo { width: 50px; height: 50px; }
+            .brand-text { font-size: calc(2rem * var(--font-scale)); }
         }
 
         @media (max-width: 480px) {
-            .login-container {
-                padding: calc(30px * var(--font-scale)) calc(20px * var(--font-scale));
-                border-radius: 15px;
-            }
-
-            .brand h1 {
-                font-size: calc(1.8rem * var(--font-scale));
-            }
-
-            .version-info {
-                flex-direction: column;
-                gap: calc(10px * var(--font-scale));
-                text-align: center;
-            }
+            .login-container { padding: calc(30px * var(--font-scale)) calc(20px * var(--font-scale)); }
+            .brand-logo { width: 40px; height: 40px; }
+            .brand-text { font-size: calc(1.8rem * var(--font-scale)); }
         }
 
-        /* Dark mode support */
+        /* Dark mode */
         @media (prefers-color-scheme: dark) {
-            .login-container {
-                background: rgba(30, 30, 30, 0.95);
-                color: #e9ecef;
-            }
-
-            .input-wrapper input {
-                background: rgba(255, 255, 255, 0.1);
-                border-color: rgba(255, 255, 255, 0.2);
-                color: #e9ecef;
-            }
-
-            .input-wrapper input::placeholder {
-                color: rgba(255, 255, 255, 0.5);
-            }
-
-            .form-group label {
-                color: #e9ecef;
-            }
+            .login-container { background: rgba(30,30,30,0.95); color:#e9ecef; }
+            .input-wrapper input { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color:#e9ecef; }
+            .input-wrapper input::placeholder { color: rgba(255,255,255,0.5); }
+            .form-group label { color:#e9ecef; }
         }
     </style>
 </head>
@@ -354,7 +287,10 @@
     <div class="login-container" id="loginContainer">
         <!-- Brand Section -->
         <div class="brand">
-            <h1>N2 SHOP</h1>
+            <div class="brand-inner">
+                <img src="logo.jpg" alt="Logo" class="brand-logo">
+                <h1 class="brand-text">N2 SHOP</h1>
+            </div>
             <p>Hệ thống quản lý bán hàng</p>
         </div>
 
@@ -378,7 +314,6 @@
                 <button type="submit" id="loginButton">Đăng nhập</button>
             </form>
 
-            <!-- Messages -->
             <div id="errorMessage" class="error-message"></div>
             <div id="successMessage" class="success-message"></div>
         </div>
@@ -394,7 +329,6 @@
             </div>
         </div>
     </div>
-    <!-- Include your existing login.js if needed -->
     <script src="./index/login.js"></script>
 </body>
 </html>

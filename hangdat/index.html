@@ -64,9 +64,9 @@
             flex-wrap: wrap;
         }
         
-        .invoice-images, .product-images {
+        .invoice-images, .product-images, .price-images {
             flex: 1;
-            min-width: 300px;
+            min-width: 280px;
         }
         
         .radio-group {
@@ -152,8 +152,8 @@
         }
         
         /* Hide file inputs by default */
-        #invoiceFileInput, #productFileInput,
-        #invoiceLinkInput, #productLinkInput {
+        #invoiceFileInput, #productFileInput, #priceFileInput,
+        #invoiceLinkInput, #productLinkInput, #priceLinkInput {
             display: none;
             margin-top: 10px;
         }
@@ -172,7 +172,7 @@
                 gap: 8px;
             }
             
-            .invoice-images, .product-images {
+            .invoice-images, .product-images, .price-images {
                 min-width: auto;
             }
         }
@@ -214,13 +214,13 @@
     <div class="main-content">
         <div class="header">
             <div id="parentContainer">
-                <p class="tieude">THỐNG KÊ HÀNG ĐẶT</p>
+                <p class="tieude">THỐNG KÊ ĐẶT HÀNG</p>
             </div>
         </div>
 
         <!-- Data Form -->
         <div id="dataForm" class="form-section" style="display: none;">
-            <h1></h1>
+            <h1>Thêm Đơn Đặt Hàng</h1>
             <form id="orderForm">
                 <div class="form-row">
                     <div class="form-group">
@@ -259,7 +259,7 @@
                         </div>
                         
                         <div class="product-images">
-                            <h3>Ảnh sản phẩm - giá nhập:</h3>
+                            <h3>Ảnh sản phẩm:</h3>
                             <div class="radio-group">
                                 <label><input type="radio" name="productInputType" value="clipboard" checked> Copy Paste</label>
                                 <label><input type="radio" name="productInputType" value="file"> Nhập file</label>
@@ -272,6 +272,22 @@
                             
                             <input type="file" id="productFileInput" multiple accept="image/*">
                             <input type="text" id="productLinkInput" placeholder="Nhập link ảnh sản phẩm (https://...)">
+                        </div>
+                        
+                        <div class="price-images">
+                            <h3>Ảnh giá nhập:</h3>
+                            <div class="radio-group">
+                                <label><input type="radio" name="priceInputType" value="clipboard" checked> Copy Paste</label>
+                                <label><input type="radio" name="priceInputType" value="file"> Nhập file</label>
+                                <label><input type="radio" name="priceInputType" value="link"> Nhập link</label>
+                            </div>
+                            
+                            <div id="priceClipboardContainer" class="image-display-area">
+                                <p>Dán ảnh giá nhập ở đây...</p>
+                            </div>
+                            
+                            <input type="file" id="priceFileInput" multiple accept="image/*" style="display: none;">
+                            <input type="text" id="priceLinkInput" placeholder="Nhập link ảnh giá nhập (https://...)" style="display: none;">
                         </div>
                     </div>
                 </div>
@@ -302,7 +318,7 @@
 
                     <div class="form-group">
                         <label for="giaNhap">Giá nhập (VNĐ):</label>
-                        <input type="number" id="giaNhap" min="0" step="1000" placeholder="0" required>
+                        <input type="number" id="giaNhap" min="0" step="any" placeholder="0" required>
                     </div>
 
                     <div class="form-group">
@@ -344,20 +360,19 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 4%;">STT</th>
-                        <th style="width: 8%;">Ngày đặt</th>
-                        <th style="width: 10%;">Thời gian upload</th>
-                        <th style="width: 10%;">Nhà cung cấp</th>
-                        <th style="width: 8%;">Hóa đơn</th>
+                        <th style="width: 10%;">Ngày đặt</th>
+                        <th style="width: 12%;">Nhà cung cấp</th>
+                        <th style="width: 10%;">Hóa đơn</th>
                         <th style="width: 12%;">Ảnh hóa đơn</th>
-                        <th style="width: 12%;">Tên sản phẩm</th>
-                        <th style="width: 6%;">Mã SP</th>
-                        <th style="width: 8%;">Biến thể</th>
-                        <th style="width: 6%;">Số lượng</th>
-                        <th style="width: 8%;">Giá nhập</th>
+                        <th style="width: 15%;">Tên sản phẩm</th>
+                        <th style="width: 8%;">Mã SP</th>
+                        <th style="width: 10%;">Biến thể</th>
+                        <th style="width: 8%;">Số lượng</th>
+                        <th style="width: 10%;">Giá nhập</th>
                         <th style="width: 12%;">Ảnh SP</th>
-                        <th style="width: 8%;">Ghi chú</th>
-                        <th style="width: 4%;">Xóa</th>
+                        <th style="width: 12%;">Ảnh giá nhập</th>
+                        <th style="width: 10%;">Ghi chú</th>
+                        <th style="width: 5%;">Xóa</th>
                     </tr>
                 </thead>
                 <tbody id="orderTableBody">
@@ -412,6 +427,7 @@
     </script>
     
     <!-- Order Management JavaScript -->
+    <script src="utility.js"></script>
     <script src="scriptObfuscator.js"></script>
 </body>
 

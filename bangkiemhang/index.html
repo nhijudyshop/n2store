@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Bảng Kiểm Hàng</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="../logo.jpg" />
+    
+    <!-- The core Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- The Firebase storage SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <!-- The Firebase firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Load jQuery from a CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="../main.css">
+    
+    <!-- Navigation Manager -->
+    <script src="../js/navigation.js"></script>
+    <script src="../js/common-utils.js"></script>
+</head>
+
+<body>
+    <!-- Security Indicator -->
+    <div class="security-indicator" id="securityIndicator">Secure</div>
+    
+    <!-- Performance Indicator -->
+    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
+    
+    <!-- Menu Toggle Button -->
+    <button class="menu-toggle">
+        <div class="hamburger"></div>
+    </button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Menu Điều Hướng</h3>
+            <button class="close-btn">&times;</button>
+        </div>
+        <ul class="nav-list"></ul>
+    </nav>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Top buttons -->
+    <div class="top-buttons">
+        <button id="toggleFormButton">Hiện biểu mẫu</button>
+        <button onclick="exportToExcel()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">Xuất Excel</button>
+        <button id="toggleLogoutButton">Đăng xuất</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="main-content">
+        <div class="header">
+            <div id="parentContainer">
+                <p class="tieude">BẢNG KIỂM HÀNG</p>
+            </div>
+        </div>
+	</div>
+	
+    <!-- Enhanced Floating Alert -->
+    <div id="floatingAlert">
+        <div class="alert-content">
+            <div class="loading-spinner" style="display: none;">
+                <div class="spinner"></div>
+            </div>
+            <div class="alert-text">Thông báo hiển thị!</div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay"></div>
+    
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
+    
+    <!-- Blocking Overlay -->
+    <div id="blockingOverlay"></div>
+    
+    <!-- Copy Notification -->
+    <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
+
+    <!-- Order Management JavaScript -->
+    <script src="utility.js"></script>
+    <script src="scriptObfuscator.js"></script>
+</body>
+
+</html>

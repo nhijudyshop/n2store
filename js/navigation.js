@@ -12,7 +12,7 @@
     document.head.appendChild(script);
 })();
 
-// Cấu hình menu items
+// Cấu hình menu items - Đã thêm Bảng kiểm hàng
 const MENU_CONFIG = [
     {
         href: '../live/index.html',
@@ -55,6 +55,12 @@ const MENU_CONFIG = [
         icon: '📋',
         text: 'HÀNG ĐẶT',
         pageIdentifier: 'hangdat'
+    },
+	{
+        href: '../bangkiemhang/index.html',
+        icon: '✅',
+        text: 'BẢNG KIỂM HÀNG',
+        pageIdentifier: 'bangkiemhang'
     },
     {
         href: '../history/index.html',
@@ -807,8 +813,11 @@ function createIntegratedSidebar() {
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h3>N2 SHOP MENU</h3>
-            </div>
+				<h3>
+					<img src="../logo.jpg" alt="Logo" style="height:40px; vertical-align:middle; margin-right:10px;">
+					N2 SHOP
+				</h3>
+			</div>
             
             <nav class="nav-list">
                 <!-- Menu items sẽ được tạo tự động -->
@@ -976,7 +985,7 @@ function createNavigationMenu() {
                 </div>
                 <div class="setting-section">
                     <div style="color: #95a5a6; font-size: calc(11px * var(--font-scale)); padding: calc(5px * var(--font-scale)) 0; text-align: center;">
-                        N2 Shop Management v1.0
+                        N2 Shop Management v2.0
                     </div>
                 </div>
             </div>
