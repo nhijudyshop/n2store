@@ -332,9 +332,11 @@ function openEditModal(event) {
     editSoKgInput.value = receiptData.soKg || 0;
     editSoKienInput.value = receiptData.soKien || 0;
 
-    // Display current image if exists
+    // FIX: Đảm bảo hiển thị ảnh hiện tại đúng cách
     editCurrentImageUrl = receiptData.anhNhanHang || null;
-    if (editCurrentImageUrl) {
+    console.log('Setting current image URL:', editCurrentImageUrl);
+    
+    if (editCurrentImageUrl && currentImageContainer) {
         currentImageContainer.innerHTML = '';
         const img = document.createElement('img');
         img.src = editCurrentImageUrl;
@@ -342,16 +344,24 @@ function openEditModal(event) {
         img.className = 'captured-image';
         img.style.maxWidth = '200px';
         img.style.maxHeight = '200px';
+        img.style.borderRadius = '8px';
+        img.style.border = '2px solid #28a745';
         currentImageContainer.appendChild(img);
         currentImageContainer.classList.add('has-content');
+        
+        // Hiển thị section ảnh hiện tại
+        const currentImageDisplay = document.getElementById('currentImageDisplay');
+        if (currentImageDisplay) {
+            currentImageDisplay.style.display = 'block';
+        }
     } else {
-        currentImageContainer.innerHTML = '<p>Không có ảnh</p>';
+        currentImageContainer.innerHTML = '<p style="color: #6c757d; font-style: italic;">Không có ảnh</p>';
         currentImageContainer.classList.remove('has-content');
     }
 
-    // Reset edit camera
+    // Reset edit camera state
     resetEditCameraUI();
-    editKeepCurrentImage = false;
+    editKeepCurrentImage = true; // Mặc định giữ ảnh cũ
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
 
@@ -446,24 +456,24 @@ async function updateReceipt(event) {
         data.data[index].soKg = soKg;
         data.data[index].soKien = soKien;
 
-        // Handle image update
-        let imageUrl = data.data[index].anhNhanHang; // Keep current by default
-        
+        // Handle image update - FIX: Logic rõ ràng hơn
         if (editCapturedImageBlob) {
-            // New image was captured
-            imageUrl = await uploadEditCapturedImage();
-        } else if (!editKeepCurrentImage) {
-            // No new image and not keeping current = remove image
-            imageUrl = null;
-        }
-        
-        if (imageUrl !== undefined) {
-            if (imageUrl) {
-                data.data[index].anhNhanHang = imageUrl;
-            } else {
-                delete data.data[index].anhNhanHang;
+            // Có ảnh mới được chụp - upload ảnh mới
+            console.log('Uploading new captured image...');
+            const newImageUrl = await uploadEditCapturedImage();
+            if (newImageUrl) {
+                data.data[index].anhNhanHang = newImageUrl;
             }
+        } else if (editKeepCurrentImage && editCurrentImageUrl) {
+            // Giữ ảnh cũ - không thay đổi gì
+            console.log('Keeping current image:', editCurrentImageUrl);
+            data.data[index].anhNhanHang = editCurrentImageUrl;
+        } else if (!editKeepCurrentImage && !editCapturedImageBlob) {
+            // Không có ảnh mới và không giữ ảnh cũ - xóa ảnh
+            console.log('Removing image...');
+            delete data.data[index].anhNhanHang;
         }
+        // Nếu editKeepCurrentImage = true nhưng không có editCurrentImageUrl thì giữ nguyên
 
         // Update in Firestore
         await collectionRef.doc("nhanhang").update({ data: data.data });
@@ -765,6 +775,8 @@ function renderDataToTable(dataArray) {
         
         const editButton = document.createElement('button');
         editButton.className = 'edit-button';
+        editButton.setAttribute("data-receipt-id", receipt.id || '');
+        editButton.setAttribute("data-receipt-info", `${sanitizeInput(receipt.tenNguoiNhan || '')} - ${formatCurrency(receipt.soKg || 0)}`);
         editButton.addEventListener('click', openEditModal);
         
         const actionContainer = document.createElement('div');
@@ -1160,28 +1172,164 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApplication();
 });
 
-console.log("Enhanced Goods Receipt Management System loaded successfully");
-console.log("Debug functions available at window.debugFunctions");
-console.log("Available functions:", Object.keys(window.debugFunctions).join(', '));
+// Thêm vào cuối file scriptObfuscator.js để debug việc xử lý ảnh
 
-/*
-COMPLETE NHẬN HÀNG SYSTEM FILES:
-1. utility.js - Support functions, authentication, camera system, utilities
-2. scriptObfuscator.js - Main application logic, CRUD operations, UI functions
+// Debug functions cho image handling
+window.debugImageFunctions = {
+    // Kiểm tra trạng thái edit image
+    checkEditImageState: function() {
+        console.log('=== EDIT IMAGE STATE ===');
+        console.log('editCurrentImageUrl:', editCurrentImageUrl);
+        console.log('editCapturedImageUrl:', editCapturedImageUrl);
+        console.log('editCapturedImageBlob:', editCapturedImageBlob);
+        console.log('editKeepCurrentImage:', editKeepCurrentImage);
+        console.log('========================');
+    },
 
-HTML USAGE:
-<script src="utility.js"></script>
-<script src="scriptObfuscator.js"></script>
+    // Test open edit modal với data giả
+    testEditModal: function(receiptId) {
+        const cachedData = getCachedData();
+        if (cachedData) {
+            const receipt = cachedData.find(item => item.id === receiptId);
+            if (receipt) {
+                console.log('Testing edit modal with receipt:', receipt);
+                // Simulate button click
+                const fakeEvent = {
+                    currentTarget: {
+                        getAttribute: (attr) => attr === 'data-receipt-id' ? receiptId : null
+                    }
+                };
+                openEditModal(fakeEvent);
+            } else {
+                console.log('Receipt not found with ID:', receiptId);
+            }
+        } else {
+            console.log('No cached data available');
+        }
+    },
 
-Key Features:
-- Camera integration for taking photos
-- Automatic username detection
-- Weight tracking with validation
-- Real-time data updates
-- Permission-based access control
-- Excel export functionality
-- Advanced filtering system
-- Mobile-responsive design
+    // Kiểm tra tất cả receipts có ảnh
+    checkReceiptsWithImages: function() {
+        const cachedData = getCachedData();
+        if (cachedData) {
+            const withImages = cachedData.filter(item => item.anhNhanHang);
+            console.log('Receipts with images:', withImages.length);
+            console.log('Image URLs:');
+            withImages.forEach(item => {
+                console.log(`ID: ${item.id}, URL: ${item.anhNhanHang}`);
+            });
+            return withImages;
+        }
+        return [];
+    },
 
-All functions are properly ordered and complete!
-*/
+    // Force set edit image state
+    forceSetEditImageState: function(currentUrl, keepCurrent = true) {
+        editCurrentImageUrl = currentUrl;
+        editKeepCurrentImage = keepCurrent;
+        editCapturedImageUrl = null;
+        editCapturedImageBlob = null;
+        console.log('Forced edit image state:', {
+            editCurrentImageUrl,
+            editKeepCurrentImage,
+            editCapturedImageUrl,
+            editCapturedImageBlob
+        });
+    }
+};
+
+// Enhance existing openEditModal với logging
+const originalOpenEditModal = openEditModal;
+openEditModal = function(event) {
+    console.log('=== OPENING EDIT MODAL ===');
+    
+    const button = event.currentTarget;
+    const receiptId = button.getAttribute("data-receipt-id");
+    console.log('Receipt ID:', receiptId);
+    
+    // Find receipt data
+    const cachedData = getCachedData();
+    if (cachedData) {
+        const receiptData = cachedData.find(item => item.id === receiptId);
+        if (receiptData) {
+            console.log('Receipt data found:', receiptData);
+            console.log('Current image URL from data:', receiptData.anhNhanHang);
+        }
+    }
+    
+    // Call original function
+    const result = originalOpenEditModal.call(this, event);
+    
+    // Log state after opening
+    setTimeout(() => {
+        console.log('Edit modal opened. Image state:');
+        window.debugImageFunctions.checkEditImageState();
+    }, 100);
+    
+    console.log('=========================');
+    return result;
+};
+
+// Enhance updateReceipt với detailed logging
+const originalUpdateReceipt = updateReceipt;
+updateReceipt = async function(event) {
+    console.log('=== UPDATING RECEIPT ===');
+    window.debugImageFunctions.checkEditImageState();
+    
+    const receiptId = editReceiptId.value;
+    console.log('Updating receipt ID:', receiptId);
+    
+    // Determine image action
+    let imageAction = 'no change';
+    if (editCapturedImageBlob) {
+        imageAction = 'upload new image';
+    } else if (editKeepCurrentImage && editCurrentImageUrl) {
+        imageAction = 'keep current image';
+    } else if (!editKeepCurrentImage && !editCapturedImageBlob) {
+        imageAction = 'remove image';
+    }
+    
+    console.log('Image action:', imageAction);
+    console.log('========================');
+    
+    // Call original function
+    return await originalUpdateReceipt.call(this, event);
+};
+
+// Enhanced camera functions with logging
+const originalStartEditCamera = startEditCamera;
+startEditCamera = async function() {
+    console.log('Starting edit camera...');
+    editKeepCurrentImage = false; // Khi bắt đầu camera mới thì không giữ ảnh cũ
+    const result = await originalStartEditCamera.call(this);
+    window.debugImageFunctions.checkEditImageState();
+    return result;
+};
+
+const originalKeepCurrentImage = keepCurrentImage;
+keepCurrentImage = function() {
+    console.log('Keeping current image...');
+    console.log('Current editCurrentImageUrl:', editCurrentImageUrl);
+    const result = originalKeepCurrentImage.call(this);
+    window.debugImageFunctions.checkEditImageState();
+    return result;
+};
+
+// Log khi đóng modal
+const originalCloseEditModalFunction = closeEditModalFunction;
+closeEditModalFunction = function() {
+    console.log('Closing edit modal...');
+    const result = originalCloseEditModalFunction.call(this);
+    
+    // Reset image state
+    editCurrentImageUrl = null;
+    editCapturedImageUrl = null;
+    editCapturedImageBlob = null;
+    editKeepCurrentImage = false;
+    
+    console.log('Edit modal closed and state reset');
+    return result;
+};
+
+console.log('Debug image functions loaded. Available at window.debugImageFunctions');
+console.log('Available functions:', Object.keys(window.debugImageFunctions).join(', '));

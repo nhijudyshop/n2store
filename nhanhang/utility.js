@@ -783,8 +783,12 @@ function keepCurrentImage() {
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
     
+    console.log('Keeping current image. editCurrentImageUrl:', editCurrentImageUrl);
+    
     if (editImageDisplayArea) {
         editImageDisplayArea.style.display = 'none';
+        editImageDisplayArea.innerHTML = '<p>📷 Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>';
+        editImageDisplayArea.classList.remove('has-content');
     }
     
     stopEditCamera();
