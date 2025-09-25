@@ -1465,23 +1465,44 @@ function initializeForm() {
         });
     }
     
-    // Add Enter key navigation for all form fields
-    const formFields = ['transferNote', 'transferAmount', 'bank', 'customerInfo'];
+    // Add Enter key navigation for form fields (except the last one)
+    const formFields = ['transferNote', 'transferAmount', 'bank'];
     formFields.forEach((fieldId, index) => {
         const field = document.getElementById(fieldId);
         if (field && fieldId !== 'transferAmount') { // transferAmount already handled above
             field.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    const nextIndex = (index + 1) % formFields.length;
-                    const nextField = document.getElementById(formFields[nextIndex]);
-                    if (nextField) {
-                        nextField.focus();
+                    const nextIndex = index + 1;
+                    if (nextIndex < formFields.length) {
+                        const nextField = document.getElementById(formFields[nextIndex]);
+                        if (nextField) {
+                            nextField.focus();
+                        }
+                    } else {
+                        // If this is the last field, focus on customerInfo
+                        const customerInfoField = document.getElementById('customerInfo');
+                        if (customerInfoField) {
+                            customerInfoField.focus();
+                        }
                     }
                 }
             });
         }
     });
+    
+    // For customerInfo (last field), Enter should submit the form
+    const customerInfoField = document.getElementById('customerInfo');
+    if (customerInfoField) {
+        customerInfoField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // Submit the form
+                const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                moneyTransferForm.dispatchEvent(submitEvent);
+            }
+        });
+    }
     
     // Clear form button
     const clearDataButton = document.getElementById('clearDataButton');
