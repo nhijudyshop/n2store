@@ -1,10 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
+
 <head>
     <meta charset="UTF-8">
+    <title>Đăng Nhập</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRANG CHỦ</title>
     <link rel="shortcut icon" href="logo.jpg" />
+    
+    <!-- The core Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- The Firebase storage SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <!-- The Firebase firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Load jQuery from a CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- Sử dụng crypto-js thay vì bcrypt (load nhanh hơn) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    
+    <!-- Vẫn giữ bcrypt làm backup (load async) -->
+    <script async src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/3.0.1/bcrypt.min.js"></script>
+    
+    <!-- Navigation Manager -->
+    <script src="js/common-utils.js"></script>
     
     <style>
         :root {
@@ -66,9 +90,9 @@
         }
 
         .brand-logo {
-            width: 60px;       /* kích thước cố định logo */
+            width: 60px;
             height: 60px;
-            object-fit: cover; /* không méo hình */
+            object-fit: cover;
             border-radius: 10%;
         }
 
@@ -260,6 +284,23 @@
             letter-spacing: 0.5px;
         }
 
+        /* Status indicator */
+        .crypto-status {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .crypto-status.loaded {
+            color: #28a745;
+        }
+
+        .crypto-status.fallback {
+            color: #ffc107;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .login-container { padding: calc(40px * var(--font-scale)) calc(30px * var(--font-scale)); }
@@ -285,6 +326,9 @@
 
 <body>
     <div class="login-container" id="loginContainer">
+        <!-- Crypto status indicator -->
+        <div id="cryptoStatus" class="crypto-status">Loading...</div>
+
         <!-- Brand Section -->
         <div class="brand">
             <div class="brand-inner">
@@ -329,6 +373,44 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Check crypto libraries status
+        function updateCryptoStatus() {
+            const statusEl = document.getElementById('cryptoStatus');
+            
+            if (typeof CryptoJS !== 'undefined') {
+                if (typeof bcrypt !== 'undefined') {
+                    statusEl.textContent = '🔒 Bảo mật';
+                    statusEl.className = 'Status loaded';
+                } else {
+                    statusEl.textContent = '🔐 Bảo mật';
+                    statusEl.className = 'crypto-status loaded';
+                }
+            } else if (typeof bcrypt !== 'undefined') {
+                statusEl.textContent = '🔒 Bảo mật';
+                statusEl.className = 'crypto-status loaded';
+            } else {
+                statusEl.textContent = '⚠️ Kiểm tra lại';
+                statusEl.className = 'crypto-status fallback';
+            }
+        }
+
+        // Check status periodically until loaded
+        const statusCheck = setInterval(() => {
+            updateCryptoStatus();
+            if (typeof CryptoJS !== 'undefined' || typeof bcrypt !== 'undefined') {
+                clearInterval(statusCheck);
+                setTimeout(() => {
+                    document.getElementById('cryptoStatus').style.opacity = '0';
+                }, 3000);
+            }
+        }, 100);
+
+        // Initial check
+        updateCryptoStatus();
+    </script>
+    
     <script src="./index/login.js"></script>
 </body>
 </html>

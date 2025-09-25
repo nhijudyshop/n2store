@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo Hash Password</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/3.0.1/bcrypt.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: #f9f9f9;
+        }
+
+        .section h2 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+        }
+
+        input:focus, textarea:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .output {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            font-size: 12px;
+            padding: 5px 10px;
+            margin-left: 10px;
+        }
+
+        .method-selector {
+            margin-bottom: 20px;
+        }
+
+        .method-selector input[type="radio"] {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        .method-selector label {
+            display: inline;
+            margin-right: 20px;
+            font-weight: normal;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .example {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Tool Tạo Hash Password cho Firebase</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Lưu ý:</strong> Tool này để tạo hash password cho việc lưu trữ an toàn trong Firebase. Không bao giờ lưu password dạng plaintext!
+        </div>
+
+        <div class="section">
+            <h2>1. Tạo Hash Password</h2>
+            
+            <div class="method-selector">
+                <label><input type="radio" name="method" value="cryptojs" checked> Crypto-JS (Nhanh)</label>
+                <label><input type="radio" name="method" value="bcrypt"> bcrypt (An toàn hơn)</label>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" placeholder="Nhập username" value="admin">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" placeholder="Nhập password" value="123456">
+            </div>
+
+            <button onclick="generateHash()">Tạo Hash</button>
+            <button onclick="clearAll()">Xóa tất cả</button>
+
+            <div id="hashOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>2. Kiểm tra Password</h2>
+            <div class="form-group">
+                <label for="testPassword">Test Password:</label>
+                <input type="password" id="testPassword" placeholder="Nhập password để test">
+            </div>
+
+            <div class="form-group">
+                <label for="testHash">Hash để so sánh:</label>
+                <textarea id="testHash" rows="3" placeholder="Paste hash từ output trên"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="testSalt">Salt (nếu dùng Crypto-JS):</label>
+                <input type="text" id="testSalt" placeholder="Paste salt từ output trên">
+            </div>
+
+            <button onclick="verifyPassword()">Kiểm tra</button>
+
+            <div id="verifyOutput" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>3. Code Firebase Document</h2>
+            <p>Copy đoạn code này vào Firebase Console:</p>
+            <div id="firebaseCode" class="output"></div>
+        </div>
+
+        <div class="example">
+            <h3>🔧 Cách sử dụng:</h3>
+            <p>1. Nhập username và password → Nhấn "Tạo Hash"</p>
+            <p>2. Copy kết quả vào Firebase Firestore collection "users"</p>
+            <p>3. Document ID = username</p>
+            <p>4. Dán các fields: displayName, checkLogin, passwordHash, salt</p>
+        </div>
+    </div>
+
+    <script>
+        let currentMethod = 'cryptojs';
+        
+        document.querySelectorAll('input[name="method"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                currentMethod = e.target.value;
+            });
+        });
+
+        async function generateHash() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!username || !password) {
+                alert('Vui lòng nhập username và password!');
+                return;
+            }
+
+            const output = document.getElementById('hashOutput');
+            const firebaseCode = document.getElementById('firebaseCode');
+            
+            try {
+                if (currentMethod === 'cryptojs' && typeof CryptoJS !== 'undefined') {
+                    // Dùng Crypto-JS
+                    const salt = CryptoJS.lib.WordArray.random(128/8).toString();
+                    const hash = CryptoJS.PBKDF2(password, salt, { 
+                        keySize: 256/32,
+                        iterations: 1000 
+                    }).toString();
+                    
+                    const result = {
+                        username: username,
+                        displayName: username.charAt(0).toUpperCase() + username.slice(1),
+                        checkLogin: 1,
+                        passwordHash: hash,
+                        salt: salt,
+                        method: 'crypto-js'
+                    };
+                    
+                    displayResult(output, result);
+                    generateFirebaseCode(firebaseCode, result);
+                    
+                } else if (currentMethod === 'bcrypt' && typeof bcrypt !== 'undefined') {
+                    // Dùng bcrypt
+                    output.textContent = 'Đang tạo bcrypt hash...';
+                    
+                    const saltRounds = 10;
+                    const hash = await bcrypt.hash(password, saltRounds);
+                    
+                    const result = {
+                        username: username,
+                        displayName: username.charAt(0).toUpperCase() + username.slice(1),
+                        checkLogin: 1,
+                        passwordHash: hash,
+                        method: 'bcrypt'
+                    };
+                    
+                    displayResult(output, result);
+                    generateFirebaseCode(firebaseCode, result);
+                    
+                } else {
+                    output.textContent = 'Lỗi: Thư viện crypto chưa load! Vui lòng reload trang.';
+                }
+                
+            } catch (error) {
+                output.textContent = 'Lỗi: ' + error.message;
+            }
+        }
+
+        function displayResult(output, result) {
+            let text = `✅ Tạo hash thành công!\n\n`;
+            text += `Method: ${result.method}\n`;
+            text += `Username: ${result.username}\n`;
+            text += `Display Name: ${result.displayName}\n`;
+            text += `Check Login: ${result.checkLogin}\n`;
+            text += `Password Hash: ${result.passwordHash}\n`;
+            if (result.salt) {
+                text += `Salt: ${result.salt}\n`;
+            }
+            
+            output.textContent = text;
+            output.className = 'output success';
+            
+            // Auto populate test fields
+            document.getElementById('testHash').value = result.passwordHash;
+            if (result.salt) {
+                document.getElementById('testSalt').value = result.salt;
+            }
+        }
+
+        function generateFirebaseCode(firebaseCode, result) {
+            let code = `// Firebase Firestore Document\n`;
+            code += `// Collection: users\n`;
+            code += `// Document ID: ${result.username}\n\n`;
+            code += `{\n`;
+            code += `  "displayName": "${result.displayName}",\n`;
+            code += `  "checkLogin": ${result.checkLogin},\n`;
+            code += `  "passwordHash": "${result.passwordHash}"`;
+            
+            if (result.salt) {
+                code += `,\n  "salt": "${result.salt}"`;
+            }
+            
+            code += `\n}`;
+            
+            firebaseCode.textContent = code;
+            firebaseCode.innerHTML += `<button class="copy-btn" onclick="copyToClipboard('firebaseCode')">Copy</button>`;
+        }
+
+        async function verifyPassword() {
+            const testPassword = document.getElementById('testPassword').value.trim();
+            const testHash = document.getElementById('testHash').value.trim();
+            const testSalt = document.getElementById('testSalt').value.trim();
+            const output = document.getElementById('verifyOutput');
+            
+            if (!testPassword || !testHash) {
+                output.textContent = 'Vui lòng nhập password và hash để test!';
+                return;
+            }
+
+            try {
+                let isMatch = false;
+                let method = '';
+                
+                // Thử bcrypt trước
+                if (typeof bcrypt !== 'undefined' && testHash.startsWith('$2')) {
+                    isMatch = await bcrypt.compare(testPassword, testHash);
+                    method = 'bcrypt';
+                }
+                // Thử crypto-js
+                else if (typeof CryptoJS !== 'undefined' && testSalt) {
+                    const computedHash = CryptoJS.PBKDF2(testPassword, testSalt, { 
+                        keySize: 256/32,
+                        iterations: 1000 
+                    }).toString();
+                    isMatch = computedHash === testHash;
+                    method = 'crypto-js';
+                }
+                else {
+                    output.textContent = 'Không thể xác định method hoặc thiếu salt!';
+                    return;
+                }
+                
+                if (isMatch) {
+                    output.textContent = `✅ Password ĐÚNG! (Method: ${method})`;
+                    output.className = 'output success';
+                } else {
+                    output.textContent = `❌ Password SAI! (Method: ${method})`;
+                    output.className = 'output';
+                }
+                
+            } catch (error) {
+                output.textContent = 'Lỗi: ' + error.message;
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('testPassword').value = '';
+            document.getElementById('testHash').value = '';
+            document.getElementById('testSalt').value = '';
+            document.getElementById('hashOutput').textContent = '';
+            document.getElementById('verifyOutput').textContent = '';
+            document.getElementById('firebaseCode').textContent = '';
+            
+            // Reset classes
+            document.getElementById('hashOutput').className = 'output';
+            document.getElementById('verifyOutput').className = 'output';
+        }
+
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Đã copy vào clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Đã copy vào clipboard!');
+            });
+        }
+
+        // Auto-generate example on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (typeof CryptoJS !== 'undefined' || typeof bcrypt !== 'undefined') {
+                    console.log('Crypto libraries loaded successfully');
+                } else {
+                    console.error('Crypto libraries not loaded');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
