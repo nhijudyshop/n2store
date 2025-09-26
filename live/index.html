@@ -13,7 +13,6 @@
         />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="shortcut icon" href="../logo.jpg" />
-
         <!-- The core Firebase JS SDK -->
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
         <!-- The Firebase storage SDK -->
@@ -23,10 +22,8 @@
         <!-- Load jQuery from a CDN -->
         <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-
         <!-- CSS script -->
         <script src="../js/device-detector.js"></script>
-
         <!-- Navigation Manager - Load trước khi load page scripts -->
         <script src="../js/navigation.js"></script>
         <script src="../js/common-utils.js"></script>
@@ -35,19 +32,16 @@
     <body>
         <!-- Security Indicator -->
         <div class="security-indicator" id="securityIndicator">Secure</div>
-
         <!-- Performance Indicator -->
         <div class="performance-indicator" id="performanceIndicator">
             Fast Load
         </div>
-
         <!-- Top buttons -->
         <div class="top-buttons">
-            <button id="toggleFormButton">Hiện biểu mẫu</button>
-            <button id="toggleLogoutButton">Đăng xuất</button>
-            <button id="toggleDeleteButton">Xóa</button>
+            <button data-icon="➕" id="toggleFormButton">Hiện biểu mẫu</button>
+            <button data-icon="🗑️" id="toggleDeleteButton">Xóa</button>
+            <button data-icon="🚪" id="toggleLogoutButton">Đăng xuất</button>
         </div>
-
         <!-- Main content -->
         <div class="main-content">
             <div class="header">
@@ -55,7 +49,6 @@
                     <p class="tieude">HÌNH ẢNH LIVE ĐẦY ĐỦ</p>
                 </div>
             </div>
-
             <!-- Data Form -->
             <div id="dataForm" class="form-section" style="display: none">
                 <h1>Thêm Hình Ảnh Live</h1>
@@ -64,7 +57,6 @@
                         <label for="dotLive">Đợt Live:</label>
                         <input type="number" id="dotLive" required />
                     </div>
-
                     <div class="form-group">
                         <label for="phanLoai">Phân loại:</label>
                         <select id="phanLoai" required>
@@ -74,7 +66,6 @@
                             <option value="PKGD">Phụ kiện và Giày dép</option>
                         </select>
                     </div>
-
                     <div class="form-group">
                         <label for="hinhAnhInput">Hình ảnh sản phẩm:</label>
                         <input
@@ -85,7 +76,6 @@
                             required
                         />
                     </div>
-
                     <div class="center-button">
                         <button type="submit" id="addButton">Thêm</button>
                         <button type="button" id="clearDataButton">
@@ -94,7 +84,6 @@
                     </div>
                 </form>
             </div>
-
             <!-- Filter Section -->
             <div class="filter-section">
                 <div class="filter-group">
@@ -104,7 +93,6 @@
                     </select>
                 </div>
             </div>
-
             <!-- Table -->
             <div class="table-container">
                 <div class="live">
@@ -127,10 +115,8 @@
                 </div>
             </div>
         </div>
-
         <!-- Tooltip -->
         <div id="tooltip" class="tooltip"></div>
-
         <!-- Original JavaScript file -->
         <script src="scriptObfuscator.js"></script>
     </body>
