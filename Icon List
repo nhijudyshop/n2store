@@ -1,0 +1,190 @@
+# DANH SÁCH ICON CHO TOP BUTTONS
+
+## 📋 **DATA & FILE OPERATIONS**
+```
+📊 - Báo cáo/Thống kê
+📈 - Biểu đồ/Analytics  
+📉 - Xu hướng giảm
+📋 - Danh sách/Bảng
+📄 - Tài liệu
+📁 - Thư mục
+📂 - Thư mục mở
+💾 - Lưu dữ liệu
+💿 - Backup/Archive
+🗃️ - Database
+📇 - Index/Catalog
+```
+
+## 🔄 **ACTIONS & CONTROLS**
+```
+🔄 - Làm mới/Refresh
+⚡ - Nhanh/Quick action
+🚀 - Khởi chạy/Launch
+▶️ - Chạy/Play
+⏸️ - Tạm dừng/Pause
+⏹️ - Dừng/Stop
+🔃 - Đồng bộ/Sync
+🔁 - Lặp lại/Repeat
+↩️ - Hoàn tác/Undo
+↪️ - Làm lại/Redo
+```
+
+## 📤 **EXPORT & IMPORT**
+```
+📤 - Xuất dữ liệu/Export
+📥 - Nhập dữ liệu/Import
+📮 - Gửi/Send
+📨 - Nhận/Receive
+🔗 - Liên kết/Link
+📎 - Đính kèm/Attach
+💌 - Email/Mail
+📧 - Tin nhắn
+📰 - Báo cáo
+🖨️ - In/Print
+```
+
+## ⚙️ **SETTINGS & CONFIG**
+```
+⚙️ - Cài đặt/Settings
+🔧 - Công cụ/Tools
+🛠️ - Sửa chữa/Repair
+⚡ - Tùy chọn nhanh
+🎛️ - Điều khiển/Control
+🔩 - Chi tiết cài đặt
+📐 - Thiết lập/Setup
+🎨 - Tùy chỉnh/Customize
+🎭 - Theme/Style
+💡 - Gợi ý/Tips
+```
+
+## 🔍 **SEARCH & FILTER**
+```
+🔍 - Tìm kiếm/Search
+🔎 - Tìm chi tiết
+🎯 - Lọc chính xác/Filter
+📍 - Định vị/Locate
+🗂️ - Phân loại/Category
+🏷️ - Tag/Label
+📌 - Ghim/Pin
+⭐ - Yêu thích/Favorite
+🔖 - Đánh dấu/Bookmark
+📝 - Ghi chú/Note
+```
+
+## 👤 **USER & AUTH**
+```
+👤 - Người dùng/User
+👥 - Nhóm/Group
+🔐 - Bảo mật/Security
+🔒 - Khóa/Lock
+🔓 - Mở khóa/Unlock
+🗝️ - Khóa/Key
+🎫 - Vé/Ticket
+🆔 - ID/Identity
+👑 - Admin/VIP
+🛡️ - Bảo vệ/Protection
+```
+
+## 📊 **STATUS & MONITORING**
+```
+✅ - Thành công/Success
+❌ - Lỗi/Error
+⚠️ - Cảnh báo/Warning
+ℹ️ - Thông tin/Info
+🟢 - Hoạt động/Active
+🔴 - Tạm dừng/Inactive
+🟡 - Chờ xử lý/Pending
+🔵 - Đang xử lý/Processing
+⏳ - Đang chờ/Loading
+📶 - Trạng thái kết nối
+```
+
+## 💰 **BUSINESS & FINANCE**
+```
+💰 - Tiền/Money
+💳 - Thanh toán/Payment
+🏦 - Ngân hàng/Bank
+📊 - Doanh thu/Revenue
+💸 - Chi tiêu/Expense
+💹 - Đầu tư/Investment
+🧾 - Hóa đơn/Invoice
+💼 - Kinh doanh/Business
+📈 - Lợi nhuận/Profit
+💎 - Giá trị/Value
+```
+
+## 🎯 **SPECIFIC ACTIONS**
+```
+🎯 - Mục tiêu/Target
+🎪 - Sự kiện/Event
+🎁 - Quà tặng/Gift
+🎊 - Khuyến mãi/Promotion
+🎉 - Thành công/Celebration
+🔔 - Thông báo/Notification
+📢 - Công bố/Announcement
+📣 - Quảng cáo/Advertisement
+🎬 - Video/Media
+📷 - Ảnh/Photo
+```
+
+## 🌐 **WEB & NETWORK**
+```
+🌐 - Website/Global
+🔗 - Link/URL
+📡 - Kết nối/Connection
+📲 - Mobile/App
+💻 - Desktop/Computer
+📱 - Điện thoại/Phone
+☁️ - Cloud/Online
+🌍 - Internet/World
+📟 - API/Service
+🖥️ - Server/System
+```
+
+## 🏷️ **CATEGORIES & LABELS**
+```
+📦 - Sản phẩm/Product
+🛒 - Giỏ hàng/Cart
+🛍️ - Mua sắm/Shopping
+🏪 - Cửa hàng/Store
+📋 - Đơn hàng/Order
+📅 - Lịch/Calendar
+⏰ - Thời gian/Time
+📍 - Vị trí/Location
+🎪 - Sự kiện/Event
+🏆 - Thành tích/Achievement
+```
+
+## 🔧 **TECHNICAL**
+```
+🔧 - Debug/Fix
+🐛 - Bug/Error
+⚡ - Performance/Speed
+🔋 - Battery/Power
+📊 - Analytics/Stats
+🎛️ - Dashboard/Control
+🖲️ - Interface/UI
+💾 - Storage/Save
+🔄 - Process/Loop
+⚙️ - Mechanism/Engine
+```
+
+## CÁCH SỬ DỤNG:
+
+```html
+<div class="top-buttons">
+    <button data-icon="⚡" data-text="Menu">Menu</button>
+    <button data-icon="📊" onclick="exportExcel()">Xuất Excel</button>
+    <button data-icon="🔄" onclick="refreshData()">Làm mới</button>
+    <button data-icon="🔍" onclick="openSearch()">Tìm kiếm</button>
+    <button data-icon="⚙️" onclick="openSettings()">Cài đặt</button>
+</div>
+```
+
+## MẸO CHỌN ICON:
+
+1. **Đơn giản & Rõ ràng**: Chọn icon dễ hiểu
+2. **Nhất quán**: Dùng style icon tương tự
+3. **Phù hợp ngữ cảnh**: Icon phản ánh đúng chức năng
+4. **Phổ biến**: Chọn icon người dùng quen thuộc
+5. **Contrast tốt**: Icon hiển thị rõ trên background
