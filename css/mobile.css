@@ -554,20 +554,185 @@ button.delete-btn::before {
     margin-top: 20px;
 }
 
+/* ==================== TOP BUTTONS DROPDOWN EFFECT ==================== */
 .top-buttons {
-    position: absolute;
+    position: fixed;
     top: 20px;
     right: 20px;
     z-index: 100;
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 0;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: var(--transition-fast);
+    max-height: 50px;
+}
+
+.top-buttons:hover {
+    max-height: 500px;
+    box-shadow: var(--shadow-medium);
 }
 
 .top-buttons button {
+    background: transparent;
+    color: var(--text-primary);
+    padding: 15px 20px;
+    border: none;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    box-shadow: none;
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
+    transition: var(--transition-fast);
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeInButton 0.3s ease forwards;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    min-height: 50px;
+    width: 200px;
+}
+
+.top-buttons button:first-child {
+    opacity: 1;
+    transform: translateY(0);
     background: var(--primary-gradient);
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 12px;
+    color: white;
+    font-weight: 600;
+}
+
+.top-buttons button:last-child {
+    border-bottom: none;
+}
+
+.top-buttons button:not(:first-child) {
+    animation-delay: 0.1s;
+}
+
+.top-buttons button:not(:first-child):nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.top-buttons button:not(:first-child):nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.top-buttons button:not(:first-child):nth-child(5) {
+    animation-delay: 0.4s;
+}
+
+.top-buttons:hover button:not(:first-child) {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.top-buttons button:hover {
+    background: var(--primary-gradient);
+    color: white;
+    transform: translateX(5px);
+}
+
+.top-buttons button:first-child:hover {
+    transform: translateX(0);
+}
+
+.top-buttons button::before {
+    content: attr(data-icon);
+    font-size: 16px;
+    margin-right: 8px;
+}
+
+/* Animation keyframes */
+@keyframes fadeInButton {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile specific adjustments for top-buttons */
+@media (max-width: 768px) {
+    .top-buttons {
+        top: 15px;
+        right: 15px;
+        max-height: 48px;
+        width: 48px;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .top-buttons:hover {
+        max-height: 400px;
+        width: 200px;
+        border-radius: var(--border-radius);
+        align-items: stretch;
+    }
+
+    .top-buttons button {
+        width: 100%;
+        min-height: 48px;
+        padding: 12px 16px;
+        font-size: 14px;
+        justify-content: flex-start;
+    }
+
+    .top-buttons button:first-child {
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .top-buttons:hover button:first-child {
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+        width: 100%;
+        justify-content: flex-start;
+        padding: 12px 16px;
+    }
+
+    /* Touch-friendly hover for mobile */
+    @media (hover: none) {
+        .top-buttons {
+            max-height: 48px;
+        }
+
+        .top-buttons:active,
+        .top-buttons:focus-within {
+            max-height: 400px;
+            width: 200px;
+            border-radius: var(--border-radius);
+        }
+
+        .top-buttons:active button:not(:first-child),
+        .top-buttons:focus-within button:not(:first-child) {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+}
+
+@media (max-width: 480px) {
+    .top-buttons {
+        top: 10px;
+        right: 10px;
+    }
+
+    .top-buttons button {
+        font-size: 12px;
+        padding: 10px 12px;
+    }
 }
 
 /* ==================== TABLE COMPONENTS ==================== */
@@ -1877,20 +2042,245 @@ tr.edited-row:hover {
         min-width: 120px;
     }
 
-    /* Mobile Navigation */
+    /* Mobile Navigation - Hide top-buttons on mobile */
     .top-buttons {
-        top: 15px;
-        right: 15px;
-        flex-direction: column;
-        gap: 8px;
+        display: none !important;
     }
 
-    .top-buttons button {
-        padding: 12px 16px;
-        border-radius: 10px;
-        font-size: 12px;
-        min-width: 80px;
-        width: auto;
+    /* Right Menu Toggle Button for top-buttons */
+    .right-menu-toggle {
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        width: 48px;
+        height: 48px;
+        background: var(--primary-gradient);
+        border: none;
+        border-radius: 14px;
+        cursor: pointer;
+        z-index: 1001;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        transition: var(--transition-fast);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
+    }
+
+    .right-menu-toggle:hover,
+    .right-menu-toggle:focus {
+        transform: scale(1.05);
+        outline: none;
+    }
+
+    .right-menu-toggle.hidden {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(100px);
+    }
+
+    /* Three dots icon */
+    .three-dots {
+        position: relative;
+        width: 4px;
+        height: 4px;
+        background: white;
+        border-radius: 50%;
+        transition: var(--transition-fast);
+    }
+
+    .three-dots::before,
+    .three-dots::after {
+        content: "";
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: white;
+        border-radius: 50%;
+        transition: var(--transition-fast);
+    }
+
+    .three-dots::before {
+        top: -8px;
+        left: 0;
+    }
+
+    .three-dots::after {
+        top: 8px;
+        left: 0;
+    }
+
+    .right-menu-toggle.active .three-dots {
+        background: transparent;
+    }
+
+    .right-menu-toggle.active .three-dots::before {
+        top: 0;
+        transform: rotate(45deg);
+        width: 16px;
+        height: 2px;
+        border-radius: 1px;
+        left: -6px;
+    }
+
+    .right-menu-toggle.active .three-dots::after {
+        top: 0;
+        transform: rotate(-45deg);
+        width: 16px;
+        height: 2px;
+        border-radius: 1px;
+        left: -6px;
+    }
+
+    /* Right Sidebar for top-buttons */
+    .right-sidebar {
+        position: fixed;
+        right: -100vw;
+        top: 0;
+        width: 85vw;
+        max-width: 280px;
+        height: 100vh;
+        background: var(--dark-gradient);
+        box-shadow: -2px 0 20px rgba(0, 0, 0, 0.3);
+        transition: right 0.3s ease;
+        z-index: 1000;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .right-sidebar.open {
+        right: 0;
+    }
+
+    .right-sidebar-header {
+        padding: 25px 20px;
+        background: var(--primary-gradient);
+        color: white;
+        text-align: center;
+        position: relative;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .right-sidebar-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .right-close-btn {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 20px;
+        transition: var(--transition-fast);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .right-close-btn:hover,
+    .right-close-btn:focus {
+        background: rgba(255, 255, 255, 0.3);
+        outline: none;
+    }
+
+    .right-menu-list {
+        list-style: none;
+        padding: 20px 0;
+        margin: 0;
+    }
+
+    .right-menu-item {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 0;
+    }
+
+    .right-menu-item:last-child {
+        border-bottom: none;
+    }
+
+    .right-menu-item button {
+        display: flex;
+        align-items: center;
+        padding: 18px 25px;
+        width: 100%;
+        background: transparent;
+        border: none;
+        color: #ecf0f1;
+        font-weight: 500;
+        font-size: 16px;
+        text-align: left;
+        text-transform: none;
+        letter-spacing: normal;
+        transition: var(--transition-fast);
+        position: relative;
+        min-height: 48px;
+        box-shadow: none;
+        margin: 0;
+        border-radius: 0;
+        cursor: pointer;
+    }
+
+    .right-menu-item button:hover,
+    .right-menu-item button:focus {
+        background: rgba(255, 255, 255, 0.1);
+        transform: none;
+        box-shadow: none;
+        outline: none;
+    }
+
+    .right-menu-item button::before {
+        content: "";
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--primary-gradient);
+        transform: scaleY(0);
+        transition: transform 0.2s ease;
+    }
+
+    .right-menu-item button:hover::before,
+    .right-menu-item button:focus::before {
+        transform: scaleY(1);
+    }
+
+    .right-menu-item button .icon {
+        margin-right: 15px;
+        font-size: 16px;
+        width: 20px;
+        text-align: center;
+    }
+
+    /* Right overlay */
+    .right-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        opacity: 0;
+        visibility: hidden;
+        transition: var(--transition-fast);
+        z-index: 999;
+        touch-action: none;
+    }
+
+    .right-overlay.active {
+        opacity: 1;
+        visibility: visible;
     }
 
     /* Mobile Notifications */

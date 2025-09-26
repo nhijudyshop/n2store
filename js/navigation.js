@@ -1,5 +1,5 @@
 /**
- * Navigation Manager với Page Permissions - Phiên bản nâng cấp
+ * Navigation Manager với Page Permissions - Hover Effect Version
  * File: navigation.js
  * Dependencies: common-utils.js
  */
@@ -621,7 +621,7 @@ class IntegratedFontManager {
 }
 
 /**
- * Inject CSS styles cho sidebar
+ * Inject CSS styles cho sidebar với hover effect
  */
 function injectSidebarStyles() {
     if (document.getElementById("integratedSidebarStyles")) return;
@@ -629,10 +629,10 @@ function injectSidebarStyles() {
     const styles = document.createElement("style");
     styles.id = "integratedSidebarStyles";
     styles.textContent = `
-        /* [CSS content giống như trước, bỏ qua để ngắn gọn] */
         :root {
             --font-scale: 1;
             --global-font-scale: 1;
+            --sidebar-hover-delay: 0.3s;
         }
 
         .menu-toggle {
@@ -655,6 +655,7 @@ function injectSidebarStyles() {
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
         }
 
+        /* HAMBURGER ICON - Always visible for hover indicator */
         .hamburger {
             position: relative;
             width: calc(24px * var(--font-scale));
@@ -682,18 +683,15 @@ function injectSidebarStyles() {
             bottom: calc(-8px * var(--font-scale));
         }
 
-        .menu-toggle.active .hamburger {
-            background: transparent;
-        }
-
-        .menu-toggle.active .hamburger::before {
+        /* Hover zone để trigger sidebar */
+        .sidebar-hover-zone {
+            position: fixed;
+            left: 0;
             top: 0;
-            transform: rotate(45deg);
-        }
-
-        .menu-toggle.active .hamburger::after {
-            bottom: 0;
-            transform: rotate(-45deg);
+            width: calc(60px * var(--font-scale));
+            height: 100vh;
+            z-index: 998;
+            pointer-events: all;
         }
 
         .overlay {
@@ -707,13 +705,16 @@ function injectSidebarStyles() {
             visibility: hidden;
             transition: all 0.3s ease;
             z-index: 999;
+            pointer-events: none;
         }
 
         .overlay.active {
             opacity: 1;
             visibility: visible;
+            pointer-events: all;
         }
 
+        /* SIDEBAR WITH HOVER EFFECT */
         .sidebar {
             position: fixed;
             left: calc(-350px * var(--font-scale));
@@ -727,10 +728,31 @@ function injectSidebarStyles() {
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            pointer-events: all;
         }
 
-        .sidebar.open {
+        /* HOVER EFFECT - Show sidebar when hovering the left area */
+        .sidebar-hover-zone:hover + .overlay + .sidebar,
+        .sidebar:hover {
             left: 0;
+        }
+
+        .sidebar-hover-zone:hover + .overlay,
+        .sidebar:hover ~ .overlay {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
+        }
+
+        /* Alternative: Show on menu button hover */
+        .menu-toggle:hover ~ .sidebar {
+            left: 0;
+        }
+
+        .menu-toggle:hover ~ .overlay {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
         }
 
         .sidebar-header {
@@ -846,7 +868,7 @@ function injectSidebarStyles() {
             background: #fff !important;
         }
 
-        /* Settings dropdown styles remain the same */
+        /* Settings dropdown styles - với hover effect */
         .settings-item {
             position: relative;
         }
@@ -864,7 +886,8 @@ function injectSidebarStyles() {
             z-index: 10;
         }
 
-        .settings-dropdown.active {
+        /* HOVER EFFECT FOR SETTINGS */
+        .settings-item:hover .settings-dropdown {
             max-height: 500px;
         }
 
@@ -970,16 +993,6 @@ function injectSidebarStyles() {
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
-        .settings-arrow {
-            margin-left: auto;
-            transition: transform 0.3s ease;
-            font-size: calc(12px * var(--font-scale));
-        }
-
-        .settings-item.active .settings-arrow {
-            transform: rotate(180deg);
-        }
-
         .setting-section {
             margin: calc(10px * var(--font-scale)) 0;
         }
@@ -1035,6 +1048,25 @@ function injectSidebarStyles() {
             left: calc(22px * var(--font-scale));
         }
 
+        /* Hover indicator for menu button */
+        .menu-toggle::after {
+            content: "◀";
+            position: absolute;
+            right: calc(-15px * var(--font-scale));
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: calc(12px * var(--font-scale));
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .menu-toggle:hover::after {
+            opacity: 0.7;
+            right: calc(-20px * var(--font-scale));
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 width: calc(320px * var(--font-scale));
@@ -1046,6 +1078,32 @@ function injectSidebarStyles() {
                 left: calc(15px * var(--font-scale));
                 width: calc(45px * var(--font-scale));
                 height: calc(45px * var(--font-scale));
+            }
+
+            .sidebar-hover-zone {
+                width: calc(50px * var(--font-scale));
+            }
+
+            /* Mobile: Touch instead of hover */
+            .sidebar-hover-zone:hover + .overlay + .sidebar,
+            .sidebar:hover,
+            .menu-toggle:hover ~ .sidebar {
+                left: 0;
+            }
+
+            /* Touch devices: tap to show sidebar */
+            @media (hover: none) and (pointer: coarse) {
+                .sidebar-hover-zone:active + .overlay + .sidebar,
+                .menu-toggle:active ~ .sidebar {
+                    left: 0;
+                }
+
+                .sidebar-hover-zone:active + .overlay,
+                .menu-toggle:active ~ .overlay {
+                    opacity: 1;
+                    visibility: visible;
+                    pointer-events: all;
+                }
             }
 
             .font-size-controls {
@@ -1062,13 +1120,37 @@ function injectSidebarStyles() {
                 padding: calc(12px * var(--font-scale)) calc(25px * var(--font-scale));
             }
         }
+
+        /* Desktop: Better hover experience */
+        @media (min-width: 769px) {
+            .menu-toggle:hover {
+                animation: menuPulse 1.5s infinite;
+            }
+
+            .sidebar {
+                transition-delay: 0.1s;
+            }
+
+            .sidebar-hover-zone:hover + .overlay + .sidebar {
+                transition-delay: 0s;
+            }
+        }
+
+        @keyframes menuPulse {
+            0%, 100% { 
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            }
+            50% { 
+                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+            }
+        }
     `;
     document.head.appendChild(styles);
-    console.log("Sidebar styles injected");
+    console.log("Sidebar styles injected with hover effects");
 }
 
 /**
- * Tạo sidebar với menu có permission checking
+ * Tạo sidebar với menu có permission checking và hover effect
  */
 function createIntegratedSidebar() {
     const existingSidebar = document.getElementById("sidebar");
@@ -1086,13 +1168,19 @@ function createIntegratedSidebar() {
         existingToggle.remove();
     }
 
+    const existingHoverZone = document.querySelector(".sidebar-hover-zone");
+    if (existingHoverZone) {
+        existingHoverZone.remove();
+    }
+
     injectSidebarStyles();
 
     const sidebarHTML = `
-        <button class="menu-toggle" onclick="toggleSidebar()">
+        <button class="menu-toggle" title="Hover để mở menu">
             <div class="hamburger"></div>
         </button>
 
+        <div class="sidebar-hover-zone"></div>
         <div class="overlay" id="overlay"></div>
 
         <div class="sidebar" id="sidebar">
@@ -1110,112 +1198,13 @@ function createIntegratedSidebar() {
     `;
 
     document.body.insertAdjacentHTML("beforeend", sidebarHTML);
-    console.log("Sidebar HTML created with permissions checking");
-}
-
-/**
- * Toggle Sidebar function
- */
-function toggleSidebar() {
-    const sidebar = document.getElementById("sidebar");
-    const overlay = document.getElementById("overlay");
-    const menuToggle = document.querySelector(".menu-toggle");
-
-    if (!sidebar || !overlay || !menuToggle) {
-        console.warn("Sidebar elements not found, trying to recreate...");
-        createIntegratedSidebar();
-        setTimeout(toggleSidebar, 100);
-        return;
-    }
-
-    const isOpen = sidebar.classList.contains("open");
-
-    if (isOpen) {
-        sidebar.classList.remove("open");
-        overlay.classList.remove("active");
-        menuToggle.classList.remove("active");
-        const settingsItem = document.querySelector(".settings-item");
-        const dropdown = document.querySelector(".settings-dropdown");
-        if (settingsItem && dropdown) {
-            settingsItem.classList.remove("active");
-            dropdown.classList.remove("active");
-        }
-    } else {
-        sidebar.classList.add("open");
-        overlay.classList.add("active");
-        menuToggle.classList.add("active");
-    }
-}
-
-/**
- * Đóng sidebar
- */
-function closeSidebar() {
-    const sidebar = document.getElementById("sidebar");
-    const overlay = document.getElementById("overlay");
-    const menuToggle = document.querySelector(".menu-toggle");
-
-    if (sidebar && sidebar.classList.contains("open")) {
-        sidebar.classList.remove("open");
-        overlay.classList.remove("active");
-        menuToggle.classList.remove("active");
-        menuToggle.classList.remove("hidden");
-        const settingsItem = document.querySelector(".settings-item");
-        const dropdown = document.querySelector(".settings-dropdown");
-        if (settingsItem && dropdown) {
-            settingsItem.classList.remove("active");
-            dropdown.classList.remove("active");
-        }
-    }
-}
-
-/**
- * Toggle settings dropdown
- */
-function toggleSettings() {
-    const settingsItem = document.querySelector(".settings-item");
-    const dropdown = document.querySelector(".settings-dropdown");
-
-    if (settingsItem && dropdown) {
-        const isActive = settingsItem.classList.contains("active");
-
-        if (isActive) {
-            settingsItem.classList.remove("active");
-            dropdown.classList.remove("active");
-        } else {
-            settingsItem.classList.add("active");
-            dropdown.classList.add("active");
-        }
-    }
-}
-
-/**
- * Toggle setting switch
- */
-function toggleSetting(settingName) {
-    const toggleSwitch = document.querySelector(
-        `[data-setting="${settingName}"]`,
+    console.log(
+        "Sidebar HTML created with hover effects and permissions checking",
     );
-    if (toggleSwitch) {
-        const isActive = toggleSwitch.classList.contains("active");
-
-        if (isActive) {
-            toggleSwitch.classList.remove("active");
-            localStorage.setItem(settingName, "false");
-        } else {
-            toggleSwitch.classList.add("active");
-            localStorage.setItem(settingName, "true");
-        }
-
-        const event = new CustomEvent("settingChanged", {
-            detail: { settingName, value: !isActive },
-        });
-        window.dispatchEvent(event);
-    }
 }
 
 /**
- * Tạo menu navigation với permission checking
+ * Tạo menu navigation với permission checking (không cần toggle functions nữa)
  */
 async function createNavigationMenu() {
     const checkLogin = localStorage.getItem("checkLogin");
@@ -1263,7 +1252,6 @@ async function createNavigationMenu() {
         // Add disabled class if no permission
         if (!hasPermission) {
             li.style.display = "none";
-            //li.classList.add("disabled");
         }
 
         // Create link or disabled span
@@ -1286,14 +1274,13 @@ async function createNavigationMenu() {
         navList.appendChild(li);
     });
 
-    // Thêm Settings menu item
+    // Thêm Settings menu item với hover dropdown
     const settingsLi = document.createElement("li");
     settingsLi.className = "nav-item settings-item";
     settingsLi.innerHTML = `
-        <div class="nav-item-settings" onclick="toggleSettings()">
+        <div class="nav-item-settings">
             <i class="icon">⚙️</i>
             <span>CÀI ĐẶT</span>
-            <span class="settings-arrow">▼</span>
         </div>
         <div class="settings-dropdown">
             <div class="settings-dropdown-item">
@@ -1357,7 +1344,7 @@ async function createNavigationMenu() {
     loadSavedSettings();
 
     console.log(
-        `Navigation menu created with ${visibleMenuItems.length}/${MENU_CONFIG.length} accessible items`,
+        `Navigation menu created with ${visibleMenuItems.length}/${MENU_CONFIG.length} accessible items (HOVER MODE)`,
     );
 }
 
@@ -1419,13 +1406,40 @@ function getCurrentPageIdentifier() {
 }
 
 /**
- * Khởi tạo navigation system với permissions - có error handling
+ * Toggle setting switch (vẫn giữ để tương thích)
+ */
+function toggleSetting(settingName) {
+    const toggleSwitch = document.querySelector(
+        `[data-setting="${settingName}"]`,
+    );
+    if (toggleSwitch) {
+        const isActive = toggleSwitch.classList.contains("active");
+
+        if (isActive) {
+            toggleSwitch.classList.remove("active");
+            localStorage.setItem(settingName, "false");
+        } else {
+            toggleSwitch.classList.add("active");
+            localStorage.setItem(settingName, "true");
+        }
+
+        const event = new CustomEvent("settingChanged", {
+            detail: { settingName, value: !isActive },
+        });
+        window.dispatchEvent(event);
+    }
+}
+
+/**
+ * Khởi tạo navigation system với permissions và hover effects
  */
 async function initializeNavigation() {
-    console.log("Initializing navigation with permissions system...");
+    console.log(
+        "Initializing navigation with permissions and hover effects...",
+    );
 
     try {
-        // KIỂM TRA XEM CÓ ĐANG TRONG QUÁTRÌNH ĐĂNG NHẬP KHÔNG
+        // KIỂM TRA XEM CÓ ĐANG TRONG QUASTRÌNH ĐĂNG NHẬP KHÔNG
         const isJustLoggedIn = sessionStorage.getItem("justLoggedIn");
         if (isJustLoggedIn) {
             console.log("Just logged in, waiting for data to settle...");
@@ -1440,7 +1454,7 @@ async function initializeNavigation() {
             return; // Trang đã được thay thế bởi access denied
         }
 
-        // Tạo sidebar
+        // Tạo sidebar với hover effect
         createIntegratedSidebar();
 
         // Tạo menu navigation với permission checking
@@ -1463,7 +1477,7 @@ async function initializeNavigation() {
         applyCustomSettings();
 
         console.log(
-            "Navigation with permissions system initialized successfully",
+            "Navigation with permissions and hover effects initialized successfully",
         );
     } catch (error) {
         console.error("Error initializing navigation:", error);
@@ -1498,20 +1512,38 @@ function applyCustomSettings() {
 }
 
 /**
- * Thiết lập event listeners
+ * Thiết lập event listeners cho hover navigation
  */
 function setupNavigationEventListeners() {
-    // ESC key để đóng sidebar
+    // ESC key để ẩn sidebar
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") {
-            closeSidebar();
+            // Force hide sidebar by removing hover
+            const sidebar = document.getElementById("sidebar");
+            const overlay = document.getElementById("overlay");
+            if (sidebar && overlay) {
+                sidebar.style.left = "calc(-350px * var(--font-scale))";
+                overlay.classList.remove("active");
+                setTimeout(() => {
+                    sidebar.style.left = "";
+                }, 300);
+            }
         }
     });
 
     // Click vào overlay để đóng sidebar
     const overlay = document.getElementById("overlay");
     if (overlay) {
-        overlay.addEventListener("click", closeSidebar);
+        overlay.addEventListener("click", function () {
+            const sidebar = document.getElementById("sidebar");
+            if (sidebar) {
+                sidebar.style.left = "calc(-350px * var(--font-scale))";
+                overlay.classList.remove("active");
+                setTimeout(() => {
+                    sidebar.style.left = "";
+                }, 300);
+            }
+        });
     }
 
     // Listen for setting changes
@@ -1625,7 +1657,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // Inject dark mode styles first
             injectDarkModeStyles();
 
-            // Initialize navigation với permissions
+            // Initialize navigation với permissions và hover
             await initializeNavigation();
         } catch (error) {
             console.error("Error initializing navigation:", error);
@@ -1636,12 +1668,9 @@ document.addEventListener("DOMContentLoaded", function () {
     initWhenReady();
 });
 
-// Export functions
+// Export functions (loại bỏ toggle functions không cần thiết cho hover mode)
 window.NavigationManager = {
     init: initializeNavigation,
-    toggleSidebar: toggleSidebar,
-    closeSidebar: closeSidebar,
-    toggleSettings: toggleSettings,
     toggleSetting: toggleSetting,
     getSetting: getSetting,
     setSetting: setSetting,
@@ -1651,8 +1680,6 @@ window.NavigationManager = {
 };
 
 // Global functions
-window.toggleSidebar = toggleSidebar;
-window.toggleSettings = toggleSettings;
 window.toggleSetting = toggleSetting;
 window.checkPagePermission = checkPagePermission;
 window.goToAllowedPage = goToAllowedPage;

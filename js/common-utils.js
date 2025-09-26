@@ -26,16 +26,36 @@ function showStatusMessage(message, type = "info") {
 }
 
 /**
- * Enhanced floating alert system
+ * ====================================================================================
+ * ENHANCED FLOATING ALERT SYSTEM VỚI LOADING BLOCK
+ * ====================================================================================
+ */
+
+// Namespace để tránh conflicts
+window.FloatingAlert = window.FloatingAlert || {};
+
+// Global state tracking trong namespace
+if (typeof window.FloatingAlert.isPageBlocked === "undefined") {
+    window.FloatingAlert.isPageBlocked = false;
+    window.FloatingAlert.blockingOverlay = null;
+}
+
+/**
+ * Enhanced floating alert với khóa tương tác khi loading
  */
 function showFloatingAlert(message, type = "info", duration = 3000) {
     const alert = document.getElementById("floatingAlert");
     if (alert) {
+        // Tìm elements an toàn
         const alertText = alert.querySelector(".alert-text");
         const spinner = alert.querySelector(".loading-spinner");
 
+        // Cập nhật nội dung
         if (alertText) {
             alertText.textContent = message;
+        } else {
+            // Fallback nếu không có .alert-text
+            alert.textContent = message;
         }
 
         // Reset classes
@@ -44,11 +64,18 @@ function showFloatingAlert(message, type = "info", duration = 3000) {
         if (type === "loading") {
             alert.classList.add("loading");
             if (spinner) spinner.style.display = "block";
+
+            // KHÓA TƯƠNG TÁC KHI LOADING
+            blockPageInteractions();
         } else {
             alert.classList.add(type);
             if (spinner) spinner.style.display = "none";
+
+            // MỞ KHÓA TƯƠNG TÁC CHO CÁC LOẠI KHÁC
+            unblockPageInteractions();
         }
 
+        // Auto hide cho non-loading alerts
         if (type !== "loading") {
             setTimeout(() => {
                 alert.classList.remove("show");
@@ -58,41 +85,301 @@ function showFloatingAlert(message, type = "info", duration = 3000) {
 }
 
 /**
- * Hide floating alert (dành cho loading states)
+ * Hide floating alert và mở khóa tương tác
  */
 function hideFloatingAlert() {
     const alert = document.getElementById("floatingAlert");
     if (alert) {
         alert.classList.remove("show");
+
+        // MỞ KHÓA TƯƠNG TÁC KHI ẨN ALERT
+        unblockPageInteractions();
     }
 }
 
 /**
- * Show loading
+ * KHÓA TƯƠNG TÁC TOÀN TRANG
  */
-function showLoading(message = "Đang xử lý...") {
-    showFloatingAlert(message, true);
+function blockPageInteractions() {
+    if (window.FloatingAlert.isPageBlocked) return; // Tránh duplicate
+
+    window.FloatingAlert.isPageBlocked = true;
+
+    // Tạo overlay chặn
+    createBlockingOverlay();
+
+    // Vô hiệu hóa body interactions
+    document.body.style.pointerEvents = "none";
+    document.body.style.userSelect = "none";
+    document.body.classList.add("page-blocked");
+
+    // Cho phép alert vẫn hoạt động
+    const alert = document.getElementById("floatingAlert");
+    if (alert) {
+        alert.style.pointerEvents = "auto";
+        alert.style.zIndex = "10000";
+    }
+
+    // Vô hiệu hóa keyboard navigation
+    document.addEventListener("keydown", blockKeyboardInteraction, true);
+    document.addEventListener("keyup", blockKeyboardInteraction, true);
+    document.addEventListener("keypress", blockKeyboardInteraction, true);
+
+    // Vô hiệu hóa context menu
+    document.addEventListener("contextmenu", preventDefaultAction, true);
+
+    // Vô hiệu hóa drag & drop
+    document.addEventListener("dragstart", preventDefaultAction, true);
+
+    console.log("Page interactions blocked for loading");
 }
 
 /**
- * Show success
+ * MỞ KHÓA TƯƠNG TÁC TOÀN TRANG
+ */
+function unblockPageInteractions() {
+    if (!window.FloatingAlert.isPageBlocked) return; // Không cần unblock nếu chưa block
+
+    window.FloatingAlert.isPageBlocked = false;
+
+    // Xóa overlay chặn
+    removeBlockingOverlay();
+
+    // Kích hoạt lại body interactions
+    document.body.style.pointerEvents = "";
+    document.body.style.userSelect = "";
+    document.body.classList.remove("page-blocked");
+
+    // Reset alert styles
+    const alert = document.getElementById("floatingAlert");
+    if (alert) {
+        alert.style.pointerEvents = "";
+        alert.style.zIndex = "";
+    }
+
+    // Kích hoạt lại keyboard navigation
+    document.removeEventListener("keydown", blockKeyboardInteraction, true);
+    document.removeEventListener("keyup", blockKeyboardInteraction, true);
+    document.removeEventListener("keypress", blockKeyboardInteraction, true);
+
+    // Kích hoạt lại context menu
+    document.removeEventListener("contextmenu", preventDefaultAction, true);
+
+    // Kích hoạt lại drag & drop
+    document.removeEventListener("dragstart", preventDefaultAction, true);
+
+    console.log("Page interactions unblocked");
+}
+
+/**
+ * Tạo overlay chặn tương tác
+ */
+function createBlockingOverlay() {
+    if (window.FloatingAlert.blockingOverlay) return; // Tránh tạo duplicate
+
+    window.FloatingAlert.blockingOverlay = document.createElement("div");
+    window.FloatingAlert.blockingOverlay.id = "loadingBlockOverlay";
+    window.FloatingAlert.blockingOverlay.innerHTML = `
+        <div class="blocking-content">
+            <div class="blocking-spinner"></div>
+            <div class="blocking-message">Vui lòng đợi...</div>
+        </div>
+    `;
+
+    // Styles cho overlay
+    Object.assign(window.FloatingAlert.blockingOverlay.style, {
+        position: "fixed",
+        top: "0",
+        left: "0",
+        width: "100%",
+        height: "100%",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        zIndex: "9999",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backdropFilter: "blur(2px)",
+        cursor: "wait",
+    });
+
+    document.body.appendChild(window.FloatingAlert.blockingOverlay);
+
+    // Animate in
+    setTimeout(() => {
+        if (window.FloatingAlert.blockingOverlay) {
+            window.FloatingAlert.blockingOverlay.style.opacity = "1";
+        }
+    }, 10);
+}
+
+/**
+ * Xóa overlay chặn tương tác
+ */
+function removeBlockingOverlay() {
+    if (window.FloatingAlert.blockingOverlay) {
+        window.FloatingAlert.blockingOverlay.style.opacity = "0";
+        setTimeout(() => {
+            if (
+                window.FloatingAlert.blockingOverlay &&
+                window.FloatingAlert.blockingOverlay.parentNode
+            ) {
+                window.FloatingAlert.blockingOverlay.parentNode.removeChild(
+                    window.FloatingAlert.blockingOverlay,
+                );
+            }
+            window.FloatingAlert.blockingOverlay = null;
+        }, 300);
+    }
+}
+
+/**
+ * Chặn keyboard interactions
+ */
+function blockKeyboardInteraction(event) {
+    // Chỉ cho phép ESC để cancel loading nếu cần
+    if (event.key === "Escape") {
+        return; // Có thể thêm logic cancel loading ở đây
+    }
+
+    // Chặn tất cả các phím khác
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+}
+
+/**
+ * Ngăn default actions
+ */
+function preventDefaultAction(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+}
+
+/**
+ * Inject CSS cho blocking system
+ */
+function injectBlockingStyles() {
+    if (document.getElementById("loadingBlockStyles")) return;
+
+    const styles = document.createElement("style");
+    styles.id = "loadingBlockStyles";
+    styles.textContent = `
+        /* Page blocked state */
+        body.page-blocked {
+            overflow: hidden;
+            cursor: wait;
+        }
+        
+        body.page-blocked * {
+            cursor: wait !important;
+        }
+        
+        /* Blocking overlay content */
+        .blocking-content {
+            text-align: center;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .blocking-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: blockingSpin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        .blocking-message {
+            font-size: 16px;
+            font-weight: 500;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+        }
+        
+        @keyframes blockingSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Enhanced floating alert z-index */
+        #floatingAlert {
+            z-index: 10000 !important;
+        }
+        
+        #floatingAlert.loading {
+            pointer-events: auto !important;
+        }
+    `;
+
+    document.head.appendChild(styles);
+}
+
+/**
+ * Show loading với blocking
+ */
+function showLoading(message = "Đang xử lý...") {
+    showFloatingAlert(message, "loading");
+}
+
+/**
+ * Show success và unblock
  */
 function showSuccess(message = "Thành công!", duration = 2000) {
     hideFloatingAlert();
     setTimeout(() => {
-        showFloatingAlert(message, false, duration);
+        showFloatingAlert(message, "success", duration);
     }, 100);
 }
 
 /**
- * Show error
+ * Show error và unblock
  */
 function showError(message = "Có lỗi xảy ra!", duration = 3000) {
     hideFloatingAlert();
     setTimeout(() => {
-        showFloatingAlert(message, false, duration);
+        showFloatingAlert(message, "error", duration);
     }, 100);
 }
+
+/**
+ * Utility: Check nếu page đang bị block
+ */
+function isPageCurrentlyBlocked() {
+    return window.FloatingAlert.isPageBlocked;
+}
+
+/**
+ * Utility: Force unblock (emergency)
+ */
+function forceUnblockPage() {
+    console.warn("Force unblocking page interactions");
+    unblockPageInteractions();
+    hideFloatingAlert();
+}
+
+/**
+ * Auto-inject styles khi script load
+ */
+(function () {
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", injectBlockingStyles);
+    } else {
+        injectBlockingStyles();
+    }
+})();
+
+/**
+ * Auto-cleanup khi page unload
+ */
+window.addEventListener("beforeunload", function () {
+    if (window.FloatingAlert.isPageBlocked) {
+        forceUnblockPage();
+    }
+});
 
 /**
  * ====================================================================================
