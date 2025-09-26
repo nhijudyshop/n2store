@@ -428,11 +428,13 @@
     };
 
     // ==================== TOP BUTTONS MOBILE TOGGLE HANDLER ====================
-    // Top Buttons Mobile Toggle Handler - Integrated
+    // Top Buttons Mobile Toggle Handler - Fixed Version
     document.addEventListener("DOMContentLoaded", function () {
         const topButtons = document.querySelector(".top-buttons");
-
         if (!topButtons) return;
+
+        let isExpanded = false;
+        let expandTimeout = null;
 
         // Chỉ áp dụng cho mobile - Sử dụng device detection từ trên
         function isMobile() {
@@ -443,69 +445,117 @@
         }
 
         // Toggle menu trên mobile
-        function toggleTopButtonsMenu(e) {
+        function toggleTopButtonsMenu(force = null) {
             if (!isMobile()) return;
 
-            // Ngăn không cho button bị click
-            e.stopPropagation();
-            e.preventDefault();
+            // Clear existing timeout
+            if (expandTimeout) {
+                clearTimeout(expandTimeout);
+                expandTimeout = null;
+            }
 
-            topButtons.classList.toggle("expanded");
+            if (force !== null) {
+                isExpanded = force;
+            } else {
+                isExpanded = !isExpanded;
+            }
 
-            // Auto close sau 5 giây
-            if (topButtons.classList.contains("expanded")) {
-                setTimeout(() => {
-                    topButtons.classList.remove("expanded");
-                }, 5000);
+            if (isExpanded) {
+                topButtons.classList.add("expanded");
+                // Auto close sau 8 giây thay vì 5 giây
+                expandTimeout = setTimeout(() => {
+                    toggleTopButtonsMenu(false);
+                }, 8000);
+            } else {
+                topButtons.classList.remove("expanded");
             }
         }
 
-        // Click vào container để mở menu (chỉ trên mobile)
-        topButtons.addEventListener("click", function (e) {
-            if (!isMobile()) return;
-
-            // Nếu click vào container (không phải button) thì toggle menu
-            if (e.target === topButtons) {
-                toggleTopButtonsMenu(e);
-            }
-        });
-
-        // Ngăn không cho buttons bị click khi menu chưa mở (mobile)
+        // FIXED: Single click handler cho container
         topButtons.addEventListener("click", function (e) {
             if (!isMobile()) return;
 
             const clickedButton = e.target.closest("button");
-            if (clickedButton && !topButtons.classList.contains("expanded")) {
-                e.preventDefault();
+
+            // Nếu menu chưa mở và click vào container hoặc icon
+            if (!isExpanded) {
+                // Ngăn button actions khi menu chưa mở
+                if (clickedButton) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                toggleTopButtonsMenu(true);
+                return;
+            }
+
+            // Nếu menu đã mở và click vào button thật sự
+            if (clickedButton && isExpanded) {
+                // Cho phép button được click
+                toggleTopButtonsMenu(false); // Đóng menu sau khi click button
+                // Button action sẽ được execute bình thường
+                return;
+            }
+
+            // Click vào vùng trống trong expanded menu - không làm gì
+            if (e.target === topButtons) {
                 e.stopPropagation();
-                toggleTopButtonsMenu(e);
             }
         });
 
-        // Click bên ngoài để đóng menu
+        // Đóng menu khi click bên ngoài
         document.addEventListener("click", function (e) {
-            if (!isMobile()) return;
+            if (!isMobile() || !isExpanded) return;
 
             if (!topButtons.contains(e.target)) {
-                topButtons.classList.remove("expanded");
+                toggleTopButtonsMenu(false);
             }
         });
 
         // Đóng menu khi resize về desktop
         window.addEventListener("resize", function () {
-            if (!isMobile()) {
-                topButtons.classList.remove("expanded");
+            if (!isMobile() && isExpanded) {
+                toggleTopButtonsMenu(false);
             }
         });
 
         // ESC key để đóng menu
         document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape" && isMobile()) {
-                topButtons.classList.remove("expanded");
+            if (e.key === "Escape" && isMobile() && isExpanded) {
+                toggleTopButtonsMenu(false);
             }
         });
 
-        console.log("Top Buttons Mobile Handler initialized");
+        // Touch events cho mobile tốt hơn
+        if ("ontouchstart" in window) {
+            let touchStartTime = 0;
+
+            topButtons.addEventListener("touchstart", function (e) {
+                if (!isMobile()) return;
+                touchStartTime = Date.now();
+            });
+
+            topButtons.addEventListener("touchend", function (e) {
+                if (!isMobile()) return;
+
+                const touchDuration = Date.now() - touchStartTime;
+                const clickedButton = e.target.closest("button");
+
+                // Quick tap to toggle menu or click button
+                if (touchDuration < 300) {
+                    if (!isExpanded && !clickedButton) {
+                        e.preventDefault();
+                        toggleTopButtonsMenu(true);
+                    } else if (isExpanded && clickedButton) {
+                        // Button sẽ được click tự nhiên
+                        setTimeout(() => {
+                            toggleTopButtonsMenu(false);
+                        }, 100);
+                    }
+                }
+            });
+        }
+
+        console.log("Top Buttons Mobile Handler initialized - Fixed Version");
     });
 
     // Utility function để tạo top-buttons programmatically

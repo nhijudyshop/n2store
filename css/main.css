@@ -660,9 +660,10 @@ button.delete-btn::before {
 }
 
 /* Mobile specific adjustments for top-buttons */
+
 @media (max-width: 768px) {
     .top-buttons {
-        top: 15px;
+        top: 26px; /* Tăng từ 15px lên 25px để cách top hơn */
         right: 15px;
         max-height: 48px;
         width: 48px;
@@ -675,9 +676,11 @@ button.delete-btn::before {
         border: 2px solid rgba(255, 255, 255, 0.2);
         position: fixed;
         transform-origin: top right;
+        cursor: pointer; /* Thêm cursor pointer cho container */
+        z-index: 1000; /* Đảm bảo nằm trên các element khác */
     }
 
-    /* Tạo trigger icon riêng biệt */
+    /* Tạo trigger icon riêng biệt - FIX: Tắt pointer events để không che buttons */
     .top-buttons::before {
         content: "🏠";
         position: absolute;
@@ -685,16 +688,17 @@ button.delete-btn::before {
         left: 50%;
         transform: translate(-50%, -50%);
         font-size: 20px;
-        z-index: 10;
+        z-index: 1; /* Giảm z-index để không che buttons */
         color: white;
         transition: all 0.3s ease;
-        pointer-events: auto;
+        pointer-events: none; /* QUAN TRỌNG: Tắt pointer events */
         cursor: pointer;
     }
 
     .top-buttons.expanded::before {
         opacity: 0;
         transform: translate(-50%, -50%) scale(0.5);
+        pointer-events: none; /* Đảm bảo không block clicks */
     }
 
     .top-buttons.expanded,
@@ -708,6 +712,7 @@ button.delete-btn::before {
         border-color: var(--border-color);
         box-shadow: var(--shadow-medium);
         transform-origin: top right;
+        cursor: default; /* Đổi cursor khi expanded */
     }
 
     .top-buttons button {
@@ -722,13 +727,15 @@ button.delete-btn::before {
         transform: translateY(-10px);
         transition: all 0.3s ease;
         pointer-events: none;
+        z-index: 10; /* Đảm bảo buttons nằm trên icon */
+        position: relative; /* Đảm bảo z-index hoạt động */
     }
 
     /* Hiện tất cả buttons khi expanded */
     .top-buttons.expanded button {
         opacity: 1;
         transform: translateY(0);
-        pointer-events: all;
+        pointer-events: auto; /* Quan trọng: cho phép click khi expanded */
     }
 
     .top-buttons button:first-child {
@@ -765,10 +772,11 @@ button.delete-btn::before {
             border-radius: var(--border-radius);
         }
 
-        .top-buttons:active button:not(:first-child),
-        .top-buttons:focus-within button:not(:first-child) {
+        .top-buttons:active button,
+        .top-buttons:focus-within button {
             opacity: 1;
             transform: translateY(0);
+            pointer-events: auto; /* Cho phép click trên touch devices */
         }
 
         /* Longer touch delay for better UX */
@@ -780,7 +788,7 @@ button.delete-btn::before {
 
 @media (max-width: 480px) {
     .top-buttons {
-        top: 10px;
+        top: 21px; /* Tăng từ 10px lên 20px cho màn hình nhỏ */
         right: 10px;
         width: 44px;
         min-width: 44px;
