@@ -1,24 +1,18 @@
 /**
- * Device Detection & CSS Loader
- * Automatically detects device type and loads appropriate CSS file
+ * Optimized Device Detection & CSS Loader
+ * Eliminates flash of unstyled content (FOUC)
  */
 
 (function () {
     "use strict";
 
-    // Device detection configuration
+    // Configuration
     const CONFIG = {
-        // CSS file paths
         CSS_FILES: {
-            desktop: "../css/main.css", // Đường dẫn đến CSS desktop
-            mobile: "../css/mobile.css", // Đường dẫn đến CSS mobile
+            desktop: "../css/main.css",
+            mobile: "../css/mobile.css",
         },
-
-        // Detection thresholds
         MOBILE_MAX_WIDTH: 768,
-        MOBILE_MAX_HEIGHT: 1024,
-
-        // User agent patterns for mobile devices
         MOBILE_PATTERNS: [
             /Android/i,
             /iPhone/i,
@@ -31,16 +25,155 @@
             /Mobile/i,
             /Tablet/i,
         ],
-
-        // Debug mode
         DEBUG: false,
     };
 
-    // Device detection class
+    // Quick device detection (runs immediately)
+    function quickDetectMobile() {
+        const width =
+            window.innerWidth || document.documentElement.clientWidth || 768;
+        const userAgent = navigator.userAgent;
+        const hasTouch =
+            "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+        const isSmallScreen = width <= CONFIG.MOBILE_MAX_WIDTH;
+        const isMobileUserAgent = CONFIG.MOBILE_PATTERNS.some((pattern) =>
+            pattern.test(userAgent),
+        );
+        const isiPad =
+            /iPad/i.test(userAgent) ||
+            (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+        return (
+            isSmallScreen ||
+            (isMobileUserAgent && !isiPad) ||
+            (hasTouch && isSmallScreen)
+        );
+    }
+
+    // Load CSS immediately and synchronously if possible
+    function loadCSSImmediate(href, id) {
+        // Check if CSS already exists
+        const existingLink = document.getElementById(id);
+        if (existingLink) return Promise.resolve();
+
+        return new Promise((resolve, reject) => {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.type = "text/css";
+            link.href = href;
+            link.id = id;
+
+            // Add preload hint for faster loading
+            link.as = "style";
+
+            // Critical: Add to head immediately
+            const head =
+                document.head || document.getElementsByTagName("head")[0];
+
+            // Insert at the beginning for higher priority
+            if (head.firstChild) {
+                head.insertBefore(link, head.firstChild);
+            } else {
+                head.appendChild(link);
+            }
+
+            link.onload = () => {
+                if (CONFIG.DEBUG) console.log(`CSS loaded: ${href}`);
+                resolve();
+            };
+
+            link.onerror = () => {
+                console.error(`Failed to load CSS: ${href}`);
+                // Don't reject, continue anyway
+                resolve();
+            };
+        });
+    }
+
+    // Hide body until CSS is loaded
+    function hideBodyUntilStyled() {
+        const style = document.createElement("style");
+        style.id = "loading-hide";
+        style.textContent = `
+            body { 
+                visibility: hidden !important; 
+                opacity: 0 !important;
+                transition: opacity 0.3s ease !important;
+            }
+            body.css-loaded { 
+                visibility: visible !important; 
+                opacity: 1 !important; 
+            }
+        `;
+
+        const head = document.head || document.getElementsByTagName("head")[0];
+        head.insertBefore(style, head.firstChild);
+    }
+
+    // Show body after CSS is loaded
+    function showBody() {
+        document.body.classList.add("css-loaded");
+
+        // Remove loading hide style after transition
+        setTimeout(() => {
+            const loadingStyle = document.getElementById("loading-hide");
+            if (loadingStyle) {
+                loadingStyle.remove();
+            }
+        }, 300);
+    }
+
+    // Immediate execution before DOM is ready
+    function preloadCSS() {
+        const isMobile = quickDetectMobile();
+        const cssFile = isMobile
+            ? CONFIG.CSS_FILES.mobile
+            : CONFIG.CSS_FILES.desktop;
+        const cssId = isMobile ? "mobile-css" : "desktop-css";
+
+        // Hide body to prevent FOUC
+        hideBodyUntilStyled();
+
+        // Add device class immediately
+        if (document.body) {
+            document.body.classList.add(
+                isMobile ? "device-mobile" : "device-desktop",
+            );
+        } else {
+            // If body doesn't exist yet, add when it does
+            const addClassWhenReady = () => {
+                if (document.body) {
+                    document.body.classList.add(
+                        isMobile ? "device-mobile" : "device-desktop",
+                    );
+                } else {
+                    requestAnimationFrame(addClassWhenReady);
+                }
+            };
+            addClassWhenReady();
+        }
+
+        // Load CSS immediately
+        loadCSSImmediate(cssFile, cssId).then(() => {
+            // Show body after a brief moment to ensure CSS is applied
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    showBody();
+                });
+            });
+        });
+
+        if (CONFIG.DEBUG) {
+            console.log(
+                `Preloading ${isMobile ? "mobile" : "desktop"} CSS: ${cssFile}`,
+            );
+        }
+    }
+
+    // Full device detector class (for post-load functionality)
     class DeviceDetector {
         constructor() {
-            this.isMobile = false;
-            this.isTablet = false;
             this.screenWidth =
                 window.innerWidth || document.documentElement.clientWidth;
             this.screenHeight =
@@ -48,61 +181,10 @@
             this.userAgent = navigator.userAgent;
             this.hasTouch =
                 "ontouchstart" in window || navigator.maxTouchPoints > 0;
-
-            this.detect();
-        }
-
-        /**
-         * Main detection method
-         */
-        detect() {
-            this.isMobile = this.detectMobile();
+            this.isMobile = quickDetectMobile();
             this.isTablet = this.detectTablet();
-
-            if (CONFIG.DEBUG) {
-                console.log("Device Detection Results:", {
-                    isMobile: this.isMobile,
-                    isTablet: this.isTablet,
-                    screenWidth: this.screenWidth,
-                    screenHeight: this.screenHeight,
-                    hasTouch: this.hasTouch,
-                    userAgent: this.userAgent,
-                });
-            }
         }
 
-        /**
-         * Detect if device is mobile
-         */
-        detectMobile() {
-            // Check screen size
-            const isSmallScreen = this.screenWidth <= CONFIG.MOBILE_MAX_WIDTH;
-
-            // Check user agent
-            const isMobileUserAgent = CONFIG.MOBILE_PATTERNS.some((pattern) =>
-                pattern.test(this.userAgent),
-            );
-
-            // Check for touch support
-            const hasTouch = this.hasTouch;
-
-            // Special cases
-            const isiPad =
-                /iPad/i.test(this.userAgent) ||
-                (navigator.platform === "MacIntel" &&
-                    navigator.maxTouchPoints > 1);
-
-            // Combine all checks
-            return (
-                isSmallScreen ||
-                (isMobileUserAgent && !isiPad) ||
-                (hasTouch && isSmallScreen)
-            );
-        }
-
-        /**
-         * Detect if device is tablet
-         */
         detectTablet() {
             const isiPad =
                 /iPad/i.test(this.userAgent) ||
@@ -120,18 +202,12 @@
             );
         }
 
-        /**
-         * Get device type
-         */
         getDeviceType() {
             if (this.isMobile) return "mobile";
             if (this.isTablet) return "tablet";
             return "desktop";
         }
 
-        /**
-         * Check if should use mobile CSS
-         */
         shouldUseMobileCSS() {
             return (
                 this.isMobile ||
@@ -140,139 +216,28 @@
         }
     }
 
-    // CSS Loader class
-    class CSSLoader {
-        constructor() {
-            this.loadedCSS = new Set();
-        }
-
-        /**
-         * Load CSS file dynamically
-         */
-        loadCSS(href, id = null) {
-            return new Promise((resolve, reject) => {
-                // Check if already loaded
-                if (this.loadedCSS.has(href)) {
-                    if (CONFIG.DEBUG)
-                        console.log(`CSS already loaded: ${href}`);
-                    resolve();
-                    return;
-                }
-
-                // Create link element
-                const link = document.createElement("link");
-                link.rel = "stylesheet";
-                link.type = "text/css";
-                link.href = href;
-
-                if (id) {
-                    link.id = id;
-                }
-
-                // Handle load events
-                link.onload = () => {
-                    this.loadedCSS.add(href);
-                    if (CONFIG.DEBUG)
-                        console.log(`CSS loaded successfully: ${href}`);
-                    resolve();
-                };
-
-                link.onerror = () => {
-                    console.error(`Failed to load CSS: ${href}`);
-                    reject(new Error(`Failed to load CSS: ${href}`));
-                };
-
-                // Add to document head
-                document.head.appendChild(link);
-            });
-        }
-
-        /**
-         * Remove CSS file
-         */
-        removeCSS(selector) {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach((element) => {
-                if (element && element.parentNode) {
-                    element.parentNode.removeChild(element);
-                    if (CONFIG.DEBUG) console.log(`CSS removed: ${selector}`);
-                }
-            });
-        }
-
-        /**
-         * Replace CSS file
-         */
-        async replaceCSS(oldSelector, newHref, newId = null) {
-            this.removeCSS(oldSelector);
-            await this.loadCSS(newHref, newId);
-        }
-    }
-
-    // Main application class
+    // Main responsive loader (simplified for post-load)
     class ResponsiveCSSLoader {
         constructor() {
             this.detector = new DeviceDetector();
-            this.loader = new CSSLoader();
-            this.currentCSS = null;
-            this.isInitialized = false;
-        }
-
-        /**
-         * Initialize the loader
-         */
-        async init() {
-            if (this.isInitialized) return;
-
-            try {
-                await this.loadAppropriateCSS();
-                this.setupEventListeners();
-                this.addDeviceClasses();
-                this.isInitialized = true;
-
-                if (CONFIG.DEBUG) {
-                    console.log("ResponsiveCSSLoader initialized successfully");
-                    this.showDebugInfo();
-                }
-            } catch (error) {
-                console.error(
-                    "Failed to initialize ResponsiveCSSLoader:",
-                    error,
-                );
-            }
-        }
-
-        /**
-         * Load appropriate CSS based on device
-         */
-        async loadAppropriateCSS() {
-            const shouldUseMobile = this.detector.shouldUseMobileCSS();
-            const cssFile = shouldUseMobile
+            this.currentCSS = this.detector.shouldUseMobileCSS()
                 ? CONFIG.CSS_FILES.mobile
                 : CONFIG.CSS_FILES.desktop;
-            const cssId = shouldUseMobile ? "mobile-css" : "desktop-css";
+        }
 
-            // Remove any existing CSS
-            this.loader.removeCSS('link[id*="-css"]');
-
-            // Load new CSS
-            await this.loader.loadCSS(cssFile, cssId);
-            this.currentCSS = cssFile;
+        async init() {
+            this.setupEventListeners();
+            this.updateDeviceClasses();
 
             if (CONFIG.DEBUG) {
-                console.log(
-                    `Loaded ${shouldUseMobile ? "mobile" : "desktop"} CSS: ${cssFile}`,
-                );
+                console.log("ResponsiveCSSLoader initialized");
+                this.showDebugInfo();
             }
         }
 
-        /**
-         * Setup event listeners
-         */
         setupEventListeners() {
             let resizeTimeout;
 
-            // Handle window resize with debouncing
             window.addEventListener("resize", () => {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(() => {
@@ -280,26 +245,13 @@
                 }, 250);
             });
 
-            // Handle orientation change
             window.addEventListener("orientationchange", () => {
                 setTimeout(() => {
                     this.handleResize();
                 }, 100);
             });
-
-            // Handle visibility change (for mobile browser address bar changes)
-            document.addEventListener("visibilitychange", () => {
-                if (!document.hidden) {
-                    setTimeout(() => {
-                        this.handleResize();
-                    }, 100);
-                }
-            });
         }
 
-        /**
-         * Handle resize events
-         */
         async handleResize() {
             const oldDetector = this.detector;
             this.detector = new DeviceDetector();
@@ -307,7 +259,6 @@
             const oldShouldUseMobile = oldDetector.shouldUseMobileCSS();
             const newShouldUseMobile = this.detector.shouldUseMobileCSS();
 
-            // Only reload CSS if device type changed
             if (oldShouldUseMobile !== newShouldUseMobile) {
                 if (CONFIG.DEBUG) {
                     console.log(
@@ -315,10 +266,9 @@
                     );
                 }
 
-                await this.loadAppropriateCSS();
+                await this.switchCSS(newShouldUseMobile);
                 this.updateDeviceClasses();
 
-                // Dispatch custom event
                 window.dispatchEvent(
                     new CustomEvent("deviceTypeChanged", {
                         detail: {
@@ -331,20 +281,39 @@
             }
         }
 
-        /**
-         * Add device-specific classes to body
-         */
-        addDeviceClasses() {
+        async switchCSS(useMobile) {
+            const newCssFile = useMobile
+                ? CONFIG.CSS_FILES.mobile
+                : CONFIG.CSS_FILES.desktop;
+            const newCssId = useMobile ? "mobile-css" : "desktop-css";
+            const oldCssId = useMobile ? "desktop-css" : "mobile-css";
+
+            // Remove old CSS
+            const oldLink = document.getElementById(oldCssId);
+            if (oldLink) oldLink.remove();
+
+            // Load new CSS
+            await loadCSSImmediate(newCssFile, newCssId);
+            this.currentCSS = newCssFile;
+        }
+
+        updateDeviceClasses() {
             const body = document.body;
             const deviceType = this.detector.getDeviceType();
 
-            // Remove existing device classes
+            // Remove existing classes
             body.classList.remove(
                 "device-mobile",
                 "device-tablet",
                 "device-desktop",
             );
-            body.classList.remove("has-touch", "no-touch");
+            body.classList.remove(
+                "has-touch",
+                "no-touch",
+                "screen-small",
+                "screen-medium",
+                "screen-large",
+            );
 
             // Add new classes
             body.classList.add(`device-${deviceType}`);
@@ -352,7 +321,7 @@
                 this.detector.hasTouch ? "has-touch" : "no-touch",
             );
 
-            // Add screen size classes
+            // Screen size classes
             if (this.detector.screenWidth <= 480) {
                 body.classList.add("screen-small");
             } else if (this.detector.screenWidth <= 768) {
@@ -362,16 +331,6 @@
             }
         }
 
-        /**
-         * Update device classes on resize
-         */
-        updateDeviceClasses() {
-            this.addDeviceClasses();
-        }
-
-        /**
-         * Get current device info
-         */
         getDeviceInfo() {
             return {
                 type: this.detector.getDeviceType(),
@@ -384,20 +343,13 @@
             };
         }
 
-        /**
-         * Force load specific CSS
-         */
         async forceLoadCSS(type) {
             if (!["mobile", "desktop"].includes(type)) {
                 throw new Error('Invalid CSS type. Use "mobile" or "desktop".');
             }
 
-            const cssFile = CONFIG.CSS_FILES[type];
-            const cssId = `${type}-css`;
-
-            this.loader.removeCSS('link[id*="-css"]');
-            await this.loader.loadCSS(cssFile, cssId);
-            this.currentCSS = cssFile;
+            const useMobile = type === "mobile";
+            await this.switchCSS(useMobile);
 
             // Update body classes
             document.body.classList.remove(
@@ -408,13 +360,10 @@
             document.body.classList.add(`device-${type}`);
 
             if (CONFIG.DEBUG) {
-                console.log(`Force loaded ${type} CSS: ${cssFile}`);
+                console.log(`Force loaded ${type} CSS`);
             }
         }
 
-        /**
-         * Show debug information
-         */
         showDebugInfo() {
             console.table({
                 "Device Type": this.detector.getDeviceType(),
@@ -423,13 +372,15 @@
                 "Has Touch": this.detector.hasTouch,
                 "Screen Size": `${this.detector.screenWidth}x${this.detector.screenHeight}`,
                 "Current CSS": this.currentCSS,
-                "User Agent": this.detector.userAgent,
             });
         }
     }
 
-    // Auto-initialize when DOM is ready
-    function autoInit() {
+    // Execute CSS preload immediately (before DOM ready)
+    preloadCSS();
+
+    // Initialize full functionality when DOM is ready
+    function initWhenReady() {
         if (document.readyState === "loading") {
             document.addEventListener("DOMContentLoaded", () => {
                 window.responsiveCSSLoader = new ResponsiveCSSLoader();
@@ -445,10 +396,10 @@
     window.ResponsiveCSSLoader = ResponsiveCSSLoader;
     window.DeviceDetector = DeviceDetector;
 
-    // Auto-initialize
-    autoInit();
+    // Initialize
+    initWhenReady();
 
-    // Utility functions for manual control
+    // Utility functions
     window.loadMobileCSS = function () {
         if (window.responsiveCSSLoader) {
             return window.responsiveCSSLoader.forceLoadCSS("mobile");
@@ -468,9 +419,11 @@
         return null;
     };
 
-    // Enable debug mode
     window.enableCSSLoaderDebug = function () {
         CONFIG.DEBUG = true;
         console.log("CSS Loader debug mode enabled");
+        if (window.responsiveCSSLoader) {
+            window.responsiveCSSLoader.showDebugInfo();
+        }
     };
 })();
