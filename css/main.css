@@ -331,6 +331,10 @@ body {
     font-weight: 600;
 }
 
+.form-section label {
+    color: #000 !important;
+}
+
 .filter-section::before {
     content: "⚡ Fast Filter";
 }
