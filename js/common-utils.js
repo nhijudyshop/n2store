@@ -432,7 +432,7 @@ function getRoleInfo(checkLogin) {
         0: { icon: "👑", text: "Admin" },
         1: { icon: "👤", text: "User" },
         2: { icon: "🔒", text: "Limited" },
-        3: { icon: "📝", text: "Basic" },
+        3: { icon: "💡", text: "Basic" },
         777: { icon: "👥", text: "Guest" },
     };
 
@@ -508,33 +508,6 @@ function injectRoleStyles() {
 
     const styles = document.createElement("style");
     styles.id = "roleStyles";
-    styles.textContent = `
-        .user-role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            font-weight: 600;
-            color: #ecf0f1;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .user-role-badge small {
-            opacity: 0.8;
-            font-weight: 400;
-            margin-left: 4px;
-        }
-        
-        /* Role-specific colors */
-        .role-admin { color: #e74c3c; }
-        .role-user { color: #3498db; }
-        .role-limited { color: #f39c12; }
-        .role-basic { color: #27ae60; }
-        .role-guest { color: #95a5a6; }
-    `;
     document.head.appendChild(styles);
 }
 

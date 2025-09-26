@@ -7,12 +7,12 @@
 
 const firebaseConfig = {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com", 
+    authDomain: "n2shop-69e37.firebaseapp.com",
     projectId: "n2shop-69e37",
     storageBucket: "n2shop-69e37-ne0q1",
     messagingSenderId: "598906493303",
     appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D"
+    measurementId: "G-TEJH3S2T1D",
 };
 
 // Performance and cache configuration
@@ -23,11 +23,11 @@ const CONFIG = {
     MAX_IMAGE_SIZE: 800, // Max width for compression
     IMAGE_QUALITY: 0.8, // Compression quality
     SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours
-    LAZY_LOAD_MARGIN: '50px 0px 100px 0px'
+    LAZY_LOAD_MARGIN: "50px 0px 100px 0px",
 };
 
 // Authentication storage key - thống nhất với file 2
-const AUTH_STORAGE_KEY = 'loginindex_auth';
+const AUTH_STORAGE_KEY = "loginindex_auth";
 
 // =====================================================
 // AUTHENTICATION SYSTEM - UPDATED VERSION
@@ -38,7 +38,7 @@ class AuthManager {
         this.currentUser = null;
         this.init();
     }
-    
+
     init() {
         try {
             // Đọc từ key chính
@@ -51,43 +51,47 @@ class AuthManager {
                 }
             }
         } catch (error) {
-            console.error('Error reading auth data:', error);
+            console.error("Error reading auth data:", error);
             this.clearAuth();
         }
-        
+
         // Kiểm tra legacy storage để tương thích ngược
         const legacyAuth = this.checkLegacyAuth();
         if (legacyAuth) {
             // Migrate legacy auth to new format
-            this.setAuthState(legacyAuth.isLoggedIn, legacyAuth.userType, legacyAuth.checkLogin);
+            this.setAuthState(
+                legacyAuth.isLoggedIn,
+                legacyAuth.userType,
+                legacyAuth.checkLogin,
+            );
             this.currentUser = this.getAuthState();
             return true;
         }
-        
+
         return false;
     }
-    
+
     checkLegacyAuth() {
         try {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            const userType = localStorage.getItem('userType');
-            const checkLogin = localStorage.getItem('checkLogin');
-            
-            if (isLoggedIn === 'true' && userType && checkLogin) {
+            const isLoggedIn = localStorage.getItem("isLoggedIn");
+            const userType = localStorage.getItem("userType");
+            const checkLogin = localStorage.getItem("checkLogin");
+
+            if (isLoggedIn === "true" && userType && checkLogin) {
                 return {
-                    isLoggedIn: 'true',
+                    isLoggedIn: "true",
                     userType: userType,
                     checkLogin: parseInt(checkLogin),
                     timestamp: Date.now(),
-                    displayName: userType.split('-')[0]
+                    displayName: userType.split("-")[0],
                 };
             }
         } catch (error) {
-            console.error('Error checking legacy auth:', error);
+            console.error("Error checking legacy auth:", error);
         }
         return null;
     }
-    
+
     getAuthState() {
         try {
             const stored = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -96,7 +100,7 @@ class AuthManager {
                 return this.currentUser;
             }
         } catch (error) {
-            console.error('Error reading auth state:', error);
+            console.error("Error reading auth state:", error);
             this.clearAuth();
         }
         return null;
@@ -108,97 +112,107 @@ class AuthManager {
             userType: userType,
             checkLogin: checkLogin,
             timestamp: Date.now(),
-            displayName: userType ? userType.split('-')[0] : 'Unknown'
+            displayName: userType ? userType.split("-")[0] : "Unknown",
         };
-        
+
         try {
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(this.currentUser));
-            console.log('Auth state saved successfully');
+            localStorage.setItem(
+                AUTH_STORAGE_KEY,
+                JSON.stringify(this.currentUser),
+            );
+            console.log("Auth state saved successfully");
         } catch (error) {
-            console.error('Error saving auth state:', error);
+            console.error("Error saving auth state:", error);
         }
     }
-    
+
     isValidSession(auth) {
-        if (!auth.isLoggedIn || !auth.userType || auth.checkLogin === undefined) {
+        if (
+            !auth.isLoggedIn ||
+            !auth.userType ||
+            auth.checkLogin === undefined
+        ) {
             return false;
         }
-        
+
         // Kiểm tra session timeout (24 giờ)
-        if (auth.timestamp && (Date.now() - auth.timestamp > CONFIG.SESSION_TIMEOUT)) {
-            console.log('Session expired');
+        if (
+            auth.timestamp &&
+            Date.now() - auth.timestamp > CONFIG.SESSION_TIMEOUT
+        ) {
+            console.log("Session expired");
             return false;
         }
-        
+
         return true;
     }
-    
+
     isAuthenticated() {
         const auth = this.getAuthState();
-        return auth && auth.isLoggedIn === 'true';
+        return auth && auth.isLoggedIn === "true";
     }
-    
+
     hasPermission(requiredLevel) {
         const auth = this.getAuthState();
         if (!auth) return false;
-        
+
         const userLevel = parseInt(auth.checkLogin);
         return userLevel <= requiredLevel; // Số nhỏ hơn = quyền cao hơn
     }
-    
+
     getUserInfo() {
         return this.getAuthState();
     }
-    
+
     clearAuth() {
         this.currentUser = null;
         try {
             localStorage.removeItem(AUTH_STORAGE_KEY);
             // Xóa cả legacy keys để đảm bảo clean up hoàn toàn
-            localStorage.removeItem('isLoggedIn');
-            localStorage.removeItem('userType');
-            localStorage.removeItem('checkLogin');
+            localStorage.removeItem("isLoggedIn");
+            localStorage.removeItem("userType");
+            localStorage.removeItem("checkLogin");
             sessionStorage.clear();
-            console.log('Auth cleared successfully');
+            console.log("Auth cleared successfully");
         } catch (error) {
-            console.error('Error clearing auth:', error);
+            console.error("Error clearing auth:", error);
         }
     }
-    
+
     logout() {
-        const confirmLogout = confirm('Bạn có chắc muốn đăng xuất?');
+        const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
         if (confirmLogout) {
             this.clearAuth();
             cacheManager.invalidate();
-            window.location.href = '../index.html';
+            window.location.href = "../index.html";
         }
     }
-    
+
     // Method để kiểm tra và migrate legacy auth nếu cần
     migrateFromLegacy() {
         const legacyAuth = this.checkLegacyAuth();
         if (legacyAuth && !this.getAuthState()) {
             this.setAuthState(
-                legacyAuth.isLoggedIn, 
-                legacyAuth.userType, 
-                legacyAuth.checkLogin
+                legacyAuth.isLoggedIn,
+                legacyAuth.userType,
+                legacyAuth.checkLogin,
             );
-            
+
             // Xóa legacy keys sau khi migrate
             try {
-                localStorage.removeItem('isLoggedIn');
-                localStorage.removeItem('userType'); 
-                localStorage.removeItem('checkLogin');
-                console.log('Legacy auth migrated successfully');
+                localStorage.removeItem("isLoggedIn");
+                localStorage.removeItem("userType");
+                localStorage.removeItem("checkLogin");
+                console.log("Legacy auth migrated successfully");
             } catch (error) {
-                console.error('Error removing legacy auth:', error);
+                console.error("Error removing legacy auth:", error);
             }
-            
+
             return true;
         }
         return false;
     }
-    
+
     // Method để refresh session timestamp
     refreshSession() {
         const auth = this.getAuthState();
@@ -208,23 +222,24 @@ class AuthManager {
                 localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
                 this.currentUser = auth;
             } catch (error) {
-                console.error('Error refreshing session:', error);
+                console.error("Error refreshing session:", error);
             }
         }
     }
-    
+
     // Method để kiểm tra session và auto-refresh
     checkAndRefreshSession() {
         const auth = this.getAuthState();
         if (!auth) return false;
-        
+
         // Nếu session gần hết hạn (còn 1 giờ), tự động refresh
-        const timeUntilExpiry = CONFIG.SESSION_TIMEOUT - (Date.now() - auth.timestamp);
+        const timeUntilExpiry =
+            CONFIG.SESSION_TIMEOUT - (Date.now() - auth.timestamp);
         if (timeUntilExpiry < 60 * 60 * 1000 && timeUntilExpiry > 0) {
             this.refreshSession();
-            console.log('Session auto-refreshed');
+            console.log("Session auto-refreshed");
         }
-        
+
         return this.isValidSession(auth);
     }
 }
@@ -240,45 +255,45 @@ class CacheManager {
         this.stats = {
             hits: 0,
             misses: 0,
-            totalRequests: 0
+            totalRequests: 0,
         };
     }
-    
-    set(key, value, type = 'general') {
+
+    set(key, value, type = "general") {
         const cacheKey = `${type}_${key}`;
         const now = Date.now();
-        
+
         this.cache.set(cacheKey, {
             value: value,
             timestamp: now,
             expires: now + this.maxAge,
-            type: type
+            type: type,
         });
-        
+
         console.log(`Cache set: ${cacheKey}`);
     }
-    
-    get(key, type = 'general') {
+
+    get(key, type = "general") {
         const cacheKey = `${type}_${key}`;
         const cached = this.cache.get(cacheKey);
-        
+
         this.stats.totalRequests++;
-        
+
         if (cached && cached.expires > Date.now()) {
             this.stats.hits++;
             console.log(`Cache hit: ${cacheKey}`);
             return cached.value;
         }
-        
+
         if (cached) {
             this.cache.delete(cacheKey);
         }
-        
+
         this.stats.misses++;
         console.log(`Cache miss: ${cacheKey}`);
         return null;
     }
-    
+
     clear(type = null) {
         if (type) {
             for (const [key, value] of this.cache.entries()) {
@@ -289,35 +304,36 @@ class CacheManager {
         } else {
             this.cache.clear();
         }
-        console.log(`Cache cleared: ${type || 'all'}`);
+        console.log(`Cache cleared: ${type || "all"}`);
     }
-    
+
     cleanup() {
         const now = Date.now();
         let cleaned = 0;
-        
+
         for (const [key, value] of this.cache.entries()) {
             if (value.expires <= now) {
                 this.cache.delete(key);
                 cleaned++;
             }
         }
-        
+
         if (cleaned > 0) {
             console.log(`Cache cleanup: removed ${cleaned} expired entries`);
         }
     }
-    
+
     getStats() {
         const total = this.stats.hits + this.stats.misses;
         return {
-            hitRate: total > 0 ? ((this.stats.hits / total) * 100).toFixed(1) : 0,
+            hitRate:
+                total > 0 ? ((this.stats.hits / total) * 100).toFixed(1) : 0,
             totalRequests: this.stats.totalRequests,
             cacheSize: this.cache.size,
-            ...this.stats
+            ...this.stats,
         };
     }
-    
+
     invalidate() {
         this.clear();
         this.stats = { hits: 0, misses: 0, totalRequests: 0 };
@@ -337,7 +353,7 @@ const authManager = new AuthManager();
 
 // File metadata for uploads
 const uploadMetadata = {
-    cacheControl: 'public,max-age=31536000',
+    cacheControl: "public,max-age=31536000",
 };
 
 // =====================================================
@@ -351,168 +367,1177 @@ class LazyLoadManager {
         this.maxConcurrentLoads = CONFIG.MAX_CONCURRENT_LOADS;
         this.isProcessing = false;
         this.loadingProgress = { loaded: 0, total: 0, failed: 0 };
-        
+
         this.observer = new IntersectionObserver(
             this.handleIntersection.bind(this),
             {
                 root: null,
                 rootMargin: CONFIG.LAZY_LOAD_MARGIN,
-                threshold: [0, 0.1]
-            }
+                threshold: [0, 0.1],
+            },
         );
     }
-    
+
     handleIntersection(entries) {
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
             if (entry.isIntersecting) {
                 const img = entry.target;
-                const priority = img.dataset.priority === 'high' ? 0 : 1;
-                
+                const priority = img.dataset.priority === "high" ? 0 : 1;
+
                 this.queueImageLoad(img, priority);
                 this.observer.unobserve(img);
             }
         });
-        
+
         this.processQueue();
     }
-    
+
     queueImageLoad(img, priority = 1) {
         const imageData = {
             element: img,
             url: img.dataset.src,
             priority: priority,
             timestamp: Date.now(),
-            id: Math.random().toString(36).substr(2, 9)
+            id: Math.random().toString(36).substr(2, 9),
         };
-        
+
         // Insert based on priority
         if (priority === 0) {
             this.imageQueue.unshift(imageData);
         } else {
             this.imageQueue.push(imageData);
         }
-        
+
         this.loadingProgress.total++;
         this.processQueue();
     }
-    
+
     async processQueue() {
         if (this.isProcessing || this.imageQueue.length === 0) return;
         if (this.loadingQueue.size >= this.maxConcurrentLoads) return;
-        
+
         this.isProcessing = true;
-        
-        while (this.imageQueue.length > 0 && this.loadingQueue.size < this.maxConcurrentLoads) {
+
+        while (
+            this.imageQueue.length > 0 &&
+            this.loadingQueue.size < this.maxConcurrentLoads
+        ) {
             const imageData = this.imageQueue.shift();
             this.loadingQueue.add(imageData.id);
             this.loadImage(imageData);
         }
-        
+
         this.isProcessing = false;
     }
-    
+
     async loadImage(imageData) {
         const { element, url, id } = imageData;
-        
+
         try {
-            element.classList.add('lazy-loading');
-            
+            element.classList.add("lazy-loading");
+
             // Create new image for preloading
             const img = new Image();
-            
+
             return new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => {
-                    reject(new Error('Image load timeout'));
+                    reject(new Error("Image load timeout"));
                 }, 15000); // 15 second timeout
-                
+
                 img.onload = () => {
                     clearTimeout(timeout);
                     this.applyImageWithTransition(element, url);
                     this.onImageLoaded(imageData);
                     resolve();
                 };
-                
+
                 img.onerror = () => {
                     clearTimeout(timeout);
                     this.onImageError(element, imageData);
                     reject(new Error(`Failed to load image: ${url}`));
                 };
-                
+
                 img.src = url;
             });
-            
         } catch (error) {
-            console.error('Error loading image:', error);
+            console.error("Error loading image:", error);
             this.onImageError(element, imageData);
         }
     }
-    
+
     applyImageWithTransition(element, url) {
-        element.style.opacity = '0';
+        element.style.opacity = "0";
         element.src = url;
-        
+
         requestAnimationFrame(() => {
-            element.style.transition = 'opacity 0.3s ease-in-out, transform 0.3s ease';
-            element.style.opacity = '1';
-            element.style.transform = 'scale(1)';
-            element.classList.remove('lazy-loading');
-            element.classList.add('lazy-loaded');
+            element.style.transition =
+                "opacity 0.3s ease-in-out, transform 0.3s ease";
+            element.style.opacity = "1";
+            element.style.transform = "scale(1)";
+            element.classList.remove("lazy-loading");
+            element.classList.add("lazy-loaded");
         });
     }
-    
+
     onImageLoaded(imageData) {
         this.loadingProgress.loaded++;
         this.loadingQueue.delete(imageData.id);
         this.updateProgressIndicator();
         this.processQueue();
     }
-    
+
     onImageError(element, imageData) {
         this.loadingProgress.failed++;
-        element.classList.remove('lazy-loading');
-        element.classList.add('lazy-error');
-        element.style.opacity = '0.3';
-        element.alt = 'Lỗi tải ảnh';
-        
+        element.classList.remove("lazy-loading");
+        element.classList.add("lazy-error");
+        element.style.opacity = "0.3";
+        element.alt = "Lỗi tải ảnh";
+
         this.loadingQueue.delete(imageData.id);
         this.processQueue();
     }
-    
+
     updateProgressIndicator() {
         const { loaded, total, failed } = this.loadingProgress;
         const progress = total > 0 ? ((loaded + failed) / total) * 100 : 0;
-        
+
         if (total > 0 && loaded + failed < total) {
             const progressText = `Đang tải ảnh... ${loaded}/${total} (${Math.round(progress)}%)`;
             if (window.showNotification) {
-                window.showNotification(progressText, 'info', 0);
+                window.showNotification(progressText, "info", 0);
             }
         } else if (loaded + failed === total && total > 0) {
             if (window.hideNotification) {
                 window.hideNotification();
             }
-            const successText = failed > 0 ? 
-                `Tải ảnh hoàn tất! ${loaded} thành công, ${failed} lỗi` :
-                `Tải ảnh hoàn tất! ${loaded} ảnh`;
+            const successText =
+                failed > 0
+                    ? `Tải ảnh hoàn tất! ${loaded} thành công, ${failed} lỗi`
+                    : `Tải ảnh hoàn tất! ${loaded} ảnh`;
             if (window.showNotification) {
-                window.showNotification(successText, 'success', 2000);
+                window.showNotification(successText, "success", 2000);
             }
         }
     }
-    
-    observe(element, priority = 'normal') {
+
+    observe(element, priority = "normal") {
         element.dataset.priority = priority;
         this.observer.observe(element);
     }
-    
+
     resetProgress() {
         this.loadingProgress = { loaded: 0, total: 0, failed: 0 };
     }
-    
+
     destroy() {
         this.observer.disconnect();
         this.imageQueue = [];
         this.loadingQueue.clear();
+    }
+}
+
+// =====================================================
+// IMAGE UTILITIES
+// =====================================================
+
+class ImageUtils {
+    static async compressImage(
+        file,
+        maxWidth = CONFIG.MAX_IMAGE_SIZE,
+        quality = CONFIG.IMAGE_QUALITY,
+    ) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function () {
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    let { width, height } = img;
+
+                    // Calculate new dimensions
+                    if (width > maxWidth) {
+                        const ratio = maxWidth / width;
+                        width = maxWidth;
+                        height = height * ratio;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Enable high-quality scaling
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = "high";
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(
+                        function (blob) {
+                            const compressedFile = new File([blob], file.name, {
+                                type: file.type,
+                                lastModified: Date.now(),
+                            });
+
+                            const compressionRatio = (
+                                ((file.size - compressedFile.size) /
+                                    file.size) *
+                                100
+                            ).toFixed(1);
+                            console.log(
+                                `Image compressed: ${file.name}, ${compressionRatio}% reduction`,
+                            );
+
+                            resolve(compressedFile);
+                        },
+                        file.type,
+                        quality,
+                    );
+                };
+            };
+        });
+    }
+
+    static createLazyImageElement(url, priority = "normal") {
+        const imgElement = document.createElement("img");
+        imgElement.className = "product-image lazy-image";
+        imgElement.dataset.src = url;
+        imgElement.dataset.priority = priority;
+
+        // Initial styles
+        Object.assign(imgElement.style, {});
+
+        // Hover effects
+        imgElement.addEventListener("mouseenter", function () {
+            if (this.classList.contains("lazy-loaded")) {
+                this.style.transform = "scale(1.1)";
+                this.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+                this.style.zIndex = "10";
+                this.style.borderColor = "#2196F3";
+            }
+        });
+
+        imgElement.addEventListener("mouseleave", function () {
+            this.style.transform = "scale(1)";
+            this.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+            this.style.zIndex = "1";
+            this.style.borderColor = "#e0e0e0";
+        });
+
+        imgElement.alt = "Đang tải...";
+
+        // Click to copy URL
+        imgElement.addEventListener("click", function () {
+            if (imgElement.src && imgElement.src !== window.location.href) {
+                ImageUtils.copyToClipboard(imgElement.src);
+            }
+        });
+
+        return imgElement;
+    }
+
+    static async copyToClipboard(text) {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                notificationManager.success("Đã sao chép link ảnh!", 1500);
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+                notificationManager.success("Đã sao chép link ảnh!", 1500);
+            }
+        } catch (error) {
+            console.error("Failed to copy to clipboard:", error);
+            notificationManager.error("Không thể sao chép link ảnh");
+        }
+    }
+}
+
+// =====================================================
+// FIREBASE OPERATIONS
+// =====================================================
+
+class FirebaseManager {
+    constructor() {
+        this.app = null;
+        this.storage = null;
+        this.db = null;
+        this.init();
+    }
+
+    init() {
+        try {
+            this.app = firebase.initializeApp(firebaseConfig);
+            this.storage = firebase.storage();
+            this.db = firebase.firestore();
+            console.log("Firebase initialized successfully");
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            notificationManager.error("Lỗi kết nối hệ thống");
+        }
+    }
+
+    getStorageRef() {
+        return this.storage.ref();
+    }
+
+    async listFolder(path) {
+        const cacheKey = `folder_${path}`;
+        const cached = cacheManager.get(cacheKey, "folders");
+
+        if (cached) {
+            return cached;
+        }
+
+        try {
+            const result = await this.getStorageRef().child(path).listAll();
+            const folderData = {
+                items: result.items,
+                prefixes: result.prefixes,
+                path: path,
+            };
+
+            cacheManager.set(cacheKey, folderData, "folders");
+            return folderData;
+        } catch (error) {
+            console.error(`Error listing folder ${path}:`, error);
+            return { items: [], prefixes: [], path: path };
+        }
+    }
+
+    async getImageUrl(imageRef) {
+        const cacheKey = `url_${imageRef.fullPath}`;
+        const cached = cacheManager.get(cacheKey, "urls");
+
+        if (cached) {
+            return cached;
+        }
+
+        try {
+            const url = await imageRef.getDownloadURL();
+            cacheManager.set(cacheKey, url, "urls");
+            return url;
+        } catch (error) {
+            console.error(`Error getting URL for ${imageRef.name}:`, error);
+            return null;
+        }
+    }
+
+    async uploadImage(file, path) {
+        try {
+            const imageRef = this.getStorageRef().child(path);
+            const uploadTask = imageRef.put(file, uploadMetadata);
+
+            return new Promise((resolve, reject) => {
+                uploadTask.on(
+                    "state_changed",
+                    (snapshot) => {
+                        const progress =
+                            (snapshot.bytesTransferred / snapshot.totalBytes) *
+                            100;
+                        console.log(`Upload progress: ${progress.toFixed(1)}%`);
+                    },
+                    (error) => {
+                        console.error("Upload error:", error);
+                        reject(error);
+                    },
+                    () => {
+                        console.log(`Upload completed: ${path}`);
+                        resolve(uploadTask.snapshot);
+                    },
+                );
+            });
+        } catch (error) {
+            console.error("Upload initiation error:", error);
+            throw error;
+        }
+    }
+
+    async deleteFolder(path) {
+        try {
+            const folderRef = this.getStorageRef().child(path);
+            const result = await folderRef.listAll();
+
+            // Delete all files in batches
+            const batchSize = CONFIG.BATCH_SIZE;
+            let deletedCount = 0;
+
+            for (let i = 0; i < result.items.length; i += batchSize) {
+                const batch = result.items.slice(i, i + batchSize);
+                const deletePromises = batch.map(async (fileRef) => {
+                    try {
+                        await fileRef.delete();
+                        deletedCount++;
+                        return true;
+                    } catch (error) {
+                        console.error(`Error deleting ${fileRef.name}:`, error);
+                        return false;
+                    }
+                });
+
+                await Promise.allSettled(deletePromises);
+
+                if (i + batchSize < result.items.length) {
+                    notificationManager.show(
+                        `Đã xóa ${deletedCount}/${result.items.length} file...`,
+                        "info",
+                        0,
+                        true,
+                    );
+                    await new Promise((resolve) => setTimeout(resolve, 200)); // Brief pause between batches
+                }
+            }
+
+            // Delete subfolders recursively
+            const subfolderPromises = result.prefixes.map((subFolderRef) =>
+                this.deleteFolder(subFolderRef.fullPath),
+            );
+            await Promise.allSettled(subfolderPromises);
+
+            return { success: true, deletedCount };
+        } catch (error) {
+            console.error(`Error deleting folder ${path}:`, error);
+            return { success: false, error };
+        }
+    }
+}
+
+// =====================================================
+// MAIN APPLICATION CLASS
+// =====================================================
+
+class ImageManagementApp {
+    constructor() {
+        this.firebase = null;
+        this.lazyLoader = null;
+        this.categories = ["ao", "quan", "setvadam", "pkgd"];
+        this.pathMapping = {
+            Áo: "ao",
+            Quần: "quan",
+            "Set và Đầm": "setvadam",
+            PKGD: "pkgd",
+        };
+
+        this.dom = {};
+        this.init();
+    }
+
+    async init() {
+        // Kiểm tra authentication với system mới
+        if (!authManager.isAuthenticated()) {
+            console.log("User not authenticated, redirecting to login...");
+            this.redirectToLogin();
+            return;
+        }
+
+        // Auto-refresh session nếu cần
+        authManager.checkAndRefreshSession();
+
+        // Migrate legacy auth nếu cần
+        authManager.migrateFromLegacy();
+
+        this.initializeFirebase();
+        this.initializeLazyLoader();
+        this.cacheDOMElements();
+        this.setupEventListeners();
+        this.updateUserInterface();
+        this.injectStyles();
+        this.setupControlButtons();
+
+        await this.updateDateFilterDropdown();
+        await this.loadImages();
+
+        // Setup periodic cache cleanup và session check
+        setInterval(
+            () => {
+                cacheManager.cleanup();
+
+                // Kiểm tra session mỗi 5 phút
+                if (!authManager.checkAndRefreshSession()) {
+                    console.log("Session expired, redirecting to login...");
+                    this.redirectToLogin();
+                }
+            },
+            5 * 60 * 1000,
+        ); // Every 5 minutes
+
+        console.log("Image Management App initialized successfully");
+    }
+
+    initializeFirebase() {
+        this.firebase = new FirebaseManager();
+    }
+
+    initializeLazyLoader() {
+        this.lazyLoader = new LazyLoadManager();
+    }
+
+    cacheDOMElements() {
+        this.dom = {
+            toggleFormButton: document.getElementById("toggleFormButton"),
+            dataForm: document.getElementById("dataForm"),
+            productForm: document.getElementById("productForm"),
+            liveTable: document.querySelector(".live table"),
+            dateFilterDropdown: document.getElementById("dateFilter"),
+            dotLiveInput: document.getElementById("dotLive"),
+            phanLoaiSelect: document.getElementById("phanLoai"),
+            hinhAnhInput: document.getElementById("hinhAnhInput"),
+            addButton: document.getElementById("addButton"),
+            clearDataButton: document.getElementById("clearDataButton"),
+            toggleLogoutButton: document.getElementById("toggleLogoutButton"),
+            toggleDeleteButton: document.getElementById("toggleDeleteButton"),
+            liveDate: document.getElementById("liveDate"),
+            parentContainer: document.getElementById("parentContainer"),
+        };
+    }
+
+    setupEventListeners() {
+        // Form toggle
+        if (this.dom.toggleFormButton) {
+            this.dom.toggleFormButton.addEventListener("click", () => {
+                this.toggleForm();
+            });
+        }
+
+        // Form submission
+        if (this.dom.productForm) {
+            this.dom.productForm.addEventListener("submit", (e) => {
+                this.handleFormSubmit(e);
+            });
+        }
+
+        // Date filter
+        if (this.dom.dateFilterDropdown) {
+            this.dom.dateFilterDropdown.addEventListener("change", () => {
+                this.handleDateFilterChange();
+            });
+        }
+
+        // Clear form
+        if (this.dom.clearDataButton) {
+            this.dom.clearDataButton.addEventListener("click", () => {
+                this.clearForm();
+            });
+        }
+
+        // Logout
+        if (this.dom.toggleLogoutButton) {
+            this.dom.toggleLogoutButton.addEventListener("click", () => {
+                this.handleLogout();
+            });
+        }
+
+        // Delete
+        if (this.dom.toggleDeleteButton) {
+            this.dom.toggleDeleteButton.addEventListener("click", () => {
+                this.handleDelete();
+            });
+        }
+    }
+
+    updateUserInterface() {
+        const userInfo = authManager.getUserInfo();
+        if (userInfo && userInfo.displayName) {
+            const titleElement = document.querySelector(".tieude");
+            if (titleElement) {
+                titleElement.textContent += " - " + userInfo.displayName;
+            }
+        }
+
+        if (this.dom.parentContainer) {
+            this.dom.parentContainer.style.display = "flex";
+            this.dom.parentContainer.style.justifyContent = "center";
+            this.dom.parentContainer.style.alignItems = "center";
+        }
+    }
+
+    redirectToLogin() {
+        console.log("User not authenticated, redirecting to login...");
+        window.location.href = "../index.html";
+    }
+
+    toggleForm() {
+        if (authManager.hasPermission(777)) {
+            const isHidden =
+                this.dom.dataForm.style.display === "none" ||
+                this.dom.dataForm.style.display === "";
+            this.dom.dataForm.style.display = isHidden ? "block" : "none";
+            this.dom.toggleFormButton.textContent = isHidden
+                ? "Ẩn biểu mẫu"
+                : "Hiện biểu mẫu";
+        } else {
+            notificationManager.error("Không có quyền truy cập form");
+        }
+    }
+
+    async handleFormSubmit(e) {
+        e.preventDefault();
+
+        if (!authManager.hasPermission(3)) {
+            notificationManager.error("Không có quyền upload ảnh");
+            return;
+        }
+
+        // Refresh session trước khi thực hiện action quan trọng
+        authManager.refreshSession();
+
+        if (this.dom.addButton) {
+            this.dom.addButton.disabled = true;
+        }
+
+        try {
+            const phanLoai = this.dom.phanLoaiSelect?.value;
+            const dotLiveValue = this.dom.dotLiveInput?.value;
+
+            if (!dotLiveValue) {
+                notificationManager.error("Vui lòng chọn một đợt Live");
+                return;
+            }
+
+            if (!phanLoai || !this.pathMapping[phanLoai]) {
+                notificationManager.error("Vui lòng chọn phân loại hợp lệ");
+                return;
+            }
+
+            const uploadPath = `live/${dotLiveValue}/${this.pathMapping[phanLoai]}/`;
+            const files = this.dom.hinhAnhInput?.files;
+
+            if (!files || files.length === 0) {
+                notificationManager.error("Vui lòng chọn ít nhất một hình ảnh");
+                return;
+            }
+
+            await this.uploadImages(files, uploadPath);
+        } catch (error) {
+            console.error("Form submission error:", error);
+            notificationManager.error("Lỗi khi xử lý form");
+        } finally {
+            if (this.dom.addButton) {
+                this.dom.addButton.disabled = false;
+            }
+        }
+    }
+
+    async uploadImages(files, uploadPath) {
+        notificationManager.loading(`Đang xử lý ${files.length} ảnh...`);
+
+        try {
+            let uploadedCount = 0;
+            const totalFiles = files.length;
+            const errors = [];
+
+            // Process in batches
+            for (let i = 0; i < totalFiles; i += CONFIG.BATCH_SIZE) {
+                const batch = Array.from(files).slice(i, i + CONFIG.BATCH_SIZE);
+
+                const batchPromises = batch.map(async (file, index) => {
+                    try {
+                        // Validate file
+                        if (!this.validateImageFile(file)) {
+                            throw new Error(`File không hợp lệ: ${file.name}`);
+                        }
+
+                        // Compress image
+                        const compressedFile =
+                            await ImageUtils.compressImage(file);
+                        const filePath = uploadPath + compressedFile.name;
+
+                        // Upload to Firebase
+                        await this.firebase.uploadImage(
+                            compressedFile,
+                            filePath,
+                        );
+
+                        uploadedCount++;
+                        notificationManager.show(
+                            `Đã tải ${uploadedCount}/${totalFiles} ảnh`,
+                            "info",
+                            0,
+                            true,
+                        );
+
+                        return { success: true, file: file.name };
+                    } catch (error) {
+                        console.error(`Error processing ${file.name}:`, error);
+                        errors.push({ file: file.name, error: error.message });
+                        return { success: false, file: file.name, error };
+                    }
+                });
+
+                await Promise.allSettled(batchPromises);
+
+                // Brief pause between batches
+                if (i + CONFIG.BATCH_SIZE < totalFiles) {
+                    await new Promise((resolve) => setTimeout(resolve, 300));
+                }
+            }
+
+            // Clear cache and reload
+            cacheManager.invalidate();
+
+            notificationManager.clear();
+
+            if (errors.length > 0) {
+                notificationManager.warning(
+                    `Upload hoàn tất với ${errors.length} lỗi. Đã tải ${uploadedCount}/${totalFiles} ảnh`,
+                );
+                console.warn("Upload errors:", errors);
+            } else {
+                notificationManager.success("Upload hoàn tất thành công!");
+            }
+
+            // Reload page after delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } catch (error) {
+            console.error("Upload process error:", error);
+            notificationManager.error("Lỗi trong quá trình upload");
+        }
+    }
+
+    validateImageFile(file) {
+        // Check file type
+        const allowedTypes = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+        ];
+        if (!allowedTypes.includes(file.type)) {
+            return false;
+        }
+
+        // Check file size (max 10MB)
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            return false;
+        }
+
+        return true;
+    }
+
+    handleDateFilterChange() {
+        const selectedDate = this.dom.dateFilterDropdown?.value;
+
+        if (selectedDate === "all") {
+            if (this.dom.liveDate) {
+                this.dom.liveDate.textContent = "Tất cả";
+            }
+            this.showAllTableRows();
+        } else {
+            if (this.dom.liveDate) {
+                this.dom.liveDate.textContent = selectedDate;
+            }
+            this.filterTableRows(selectedDate);
+        }
+
+        this.loadImages();
+    }
+
+    showAllTableRows() {
+        if (!this.dom.liveTable) return;
+
+        for (const row of this.dom.liveTable.rows) {
+            if (row.cells[0] && row.cells[0].textContent !== "ĐỢT LIVE") {
+                row.style.display = "table-row";
+            }
+        }
+    }
+
+    filterTableRows(selectedDate) {
+        if (!this.dom.liveTable) return;
+
+        for (const row of this.dom.liveTable.rows) {
+            if (row.cells[0] && row.cells[0].textContent !== "ĐỢT LIVE") {
+                const rowDate = row.cells[0].textContent;
+                row.style.display =
+                    selectedDate === rowDate ? "table-row" : "none";
+            }
+        }
+    }
+
+    async loadImages() {
+        this.lazyLoader.resetProgress();
+
+        const selectedDate = this.dom.dateFilterDropdown?.value || "all";
+        const cacheKey = `import_${selectedDate}`;
+
+        // Check cache first
+        const cachedData = cacheManager.get(cacheKey, "images");
+        if (cachedData) {
+            notificationManager.loading("Sử dụng dữ liệu cache...");
+            this.renderImagesFromCache(cachedData);
+            notificationManager.success("Tải hình ảnh từ cache hoàn tất!");
+            return;
+        }
+
+        // Clear existing images
+        this.clearAllImageContainers();
+
+        try {
+            const liveFolder = await this.firebase.listFolder("live/");
+
+            if (liveFolder.prefixes.length === 0) {
+                notificationManager.error("Không tìm thấy dữ liệu");
+                return;
+            }
+
+            const datesToProcess =
+                selectedDate === "all"
+                    ? liveFolder.prefixes.map((folderRef) => folderRef.name)
+                    : [selectedDate];
+
+            const imageData = {};
+
+            // Process dates with limited concurrency
+            for (const date of datesToProcess) {
+                await this.processDateImages(date, imageData);
+            }
+
+            // Cache the results
+            cacheManager.set(cacheKey, imageData, "images");
+
+            notificationManager.success("Tải hình ảnh hoàn tất!");
+
+            // Log performance stats
+            const stats = cacheManager.getStats();
+            console.log(
+                `Cache stats - Hit rate: ${stats.hitRate}%, Size: ${stats.cacheSize}`,
+            );
+        } catch (error) {
+            console.error("Error loading images:", error);
+            notificationManager.error("Lỗi khi tải hình ảnh");
+        }
+    }
+
+    async processDateImages(date, imageData) {
+        const categoryPromises = this.categories.map(async (category) => {
+            try {
+                const urls = await this.loadCategoryImages(category, date);
+                if (!imageData[category]) {
+                    imageData[category] = [];
+                }
+                imageData[category] = imageData[category].concat(urls || []);
+            } catch (error) {
+                console.error(
+                    `Error loading ${category} images for ${date}:`,
+                    error,
+                );
+            }
+        });
+
+        await Promise.allSettled(categoryPromises);
+    }
+
+    async loadCategoryImages(category, date) {
+        const path = `live/${date}/${category}/`;
+        const imageContainer = document.querySelector(
+            `.${category}product-row`,
+        );
+
+        if (!imageContainer) {
+            console.warn(`Image container not found for category: ${category}`);
+            return [];
+        }
+
+        try {
+            const cacheKey = `images_${path}`;
+            let imageUrls = cacheManager.get(cacheKey, "urls");
+
+            if (!imageUrls) {
+                const folderData = await this.firebase.listFolder(path);
+                imageUrls = [];
+
+                // Get URLs in batches
+                const batchSize = 5;
+                for (let i = 0; i < folderData.items.length; i += batchSize) {
+                    const batch = folderData.items.slice(i, i + batchSize);
+                    const batchPromises = batch.map((imageRef) =>
+                        this.firebase.getImageUrl(imageRef),
+                    );
+
+                    const batchResults =
+                        await Promise.allSettled(batchPromises);
+                    batchResults.forEach((result) => {
+                        if (result.status === "fulfilled" && result.value) {
+                            imageUrls.push(result.value);
+                        }
+                    });
+                }
+
+                cacheManager.set(cacheKey, imageUrls, "urls");
+            }
+
+            // Render images
+            imageUrls.reverse().forEach((url, index) => {
+                const priority = index < 6 ? "high" : "normal";
+                const imgElement = ImageUtils.createLazyImageElement(
+                    url,
+                    priority,
+                );
+                imageContainer.appendChild(imgElement);
+                this.lazyLoader.observe(imgElement, priority);
+            });
+
+            return imageUrls;
+        } catch (error) {
+            console.error(`Error loading images for ${category}:`, error);
+            return [];
+        }
+    }
+
+    renderImagesFromCache(imageData) {
+        Object.keys(imageData).forEach((category) => {
+            const imageContainer = document.querySelector(
+                `.${category}product-row`,
+            );
+            if (imageContainer && imageData[category]) {
+                imageData[category].forEach((url, index) => {
+                    const priority = index < 6 ? "high" : "normal";
+                    const imgElement = ImageUtils.createLazyImageElement(
+                        url,
+                        priority,
+                    );
+                    imageContainer.appendChild(imgElement);
+                    this.lazyLoader.observe(imgElement, priority);
+                });
+            }
+        });
+    }
+
+    clearAllImageContainers() {
+        this.categories.forEach((category) => {
+            const imageContainer = document.querySelector(
+                `.${category}product-row`,
+            );
+            if (imageContainer) {
+                imageContainer.innerHTML = "";
+            }
+        });
+    }
+
+    clearForm() {
+        if (this.dom.productForm) {
+            this.dom.productForm.reset();
+        }
+    }
+
+    handleLogout() {
+        authManager.logout(); // Sử dụng method có confirmation built-in
+    }
+
+    async handleDelete() {
+        if (!authManager.hasPermission(0)) {
+            notificationManager.error("Không đủ quyền để xóa!");
+            return;
+        }
+
+        // Refresh session trước khi thực hiện action quan trọng
+        authManager.refreshSession();
+
+        const selectedDate = this.dom.dateFilterDropdown?.value;
+        if (!selectedDate || selectedDate === "all") {
+            notificationManager.error(
+                "Vui lòng chọn một đợt live cụ thể để xóa",
+            );
+            return;
+        }
+
+        const confirmDelete = confirm(
+            `Bạn có chắc chắn muốn xóa đợt live ${selectedDate}? Hành động này không thể hoàn tác.`,
+        );
+        if (!confirmDelete) return;
+
+        notificationManager.loading("Đang xóa dữ liệu...");
+
+        try {
+            const result = await this.firebase.deleteFolder(
+                `live/${selectedDate}`,
+            );
+
+            if (result.success) {
+                cacheManager.invalidate();
+                notificationManager.success(
+                    `Đã xóa thành công ${result.deletedCount} file!`,
+                );
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                notificationManager.error("Lỗi khi xóa dữ liệu");
+            }
+        } catch (error) {
+            console.error("Delete operation error:", error);
+            notificationManager.error("Lỗi khi xóa dữ liệu");
+        }
+    }
+
+    async updateDateFilterDropdown() {
+        if (!this.dom.dateFilterDropdown) return;
+
+        // Clear existing options except "Tất cả"
+        while (this.dom.dateFilterDropdown.options.length > 1) {
+            this.dom.dateFilterDropdown.remove(1);
+        }
+
+        try {
+            const liveFolder = await this.firebase.listFolder("live/");
+            const dates = liveFolder.prefixes.map(
+                (folderRef) => folderRef.name,
+            );
+
+            dates
+                .sort()
+                .reverse()
+                .forEach((date) => {
+                    const option = document.createElement("option");
+                    option.value = date;
+                    option.textContent = date;
+                    this.dom.dateFilterDropdown.appendChild(option);
+                });
+
+            if (this.dom.dotLiveInput) {
+                this.dom.dotLiveInput.value = dates.length > 0 ? dates[0] : "1";
+            }
+        } catch (error) {
+            console.error("Error updating date filter dropdown:", error);
+            notificationManager.error("Lỗi khi tải danh sách ngày");
+        }
+    }
+
+    setupControlButtons() {
+        const controlsContainer = document.createElement("div");
+        controlsContainer.style.cssText = `
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        `;
+
+        const buttonStyle = `
+            padding: 10px 16px;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
+
+        // Refresh button
+        const refreshButton = document.createElement("button");
+        //refreshButton.textContent = '🔄 Làm mới';
+        //refreshButton.onclick = () => this.forceRefresh();
+        //refreshButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #28a745, #20c997);';
+        //refreshButton.onmouseover = () => refreshButton.style.transform = 'translateY(-1px)';
+        //refreshButton.onmouseout = () => refreshButton.style.transform = 'translateY(0)';
+
+        // Performance stats button
+        const statsButton = document.createElement("button");
+        //statsButton.textContent = '📊 Thống kê';
+        //statsButton.onclick = () => this.showPerformanceStats();
+        //statsButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #17a2b8, #6f42c1);';
+        //statsButton.onmouseover = () => statsButton.style.transform = 'translateY(-1px)';
+        //statsButton.onmouseout = () => statsButton.style.transform = 'translateY(0)';
+
+        // Clear cache button
+        const clearCacheButton = document.createElement("button");
+        //clearCacheButton.textContent = '🗑️ Xóa cache';
+        //clearCacheButton.onclick = () => this.clearCache();
+        //clearCacheButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #ffc107, #fd7e14);';
+        //clearCacheButton.onmouseover = () => clearCacheButton.style.transform = 'translateY(-1px)';
+        //clearCacheButton.onmouseout = () => clearCacheButton.style.transform = 'translateY(0)';
+
+        //controlsContainer.appendChild(refreshButton);
+        //controlsContainer.appendChild(statsButton);
+        //controlsContainer.appendChild(clearCacheButton);
+
+        //if (this.dom.parentContainer) {
+        //    this.dom.parentContainer.appendChild(controlsContainer);
+        //}
+    }
+
+    forceRefresh() {
+        cacheManager.invalidate();
+        this.lazyLoader.resetProgress();
+        this.clearAllImageContainers();
+        this.loadImages();
+        notificationManager.success("Đã làm mới dữ liệu!");
+    }
+
+    showPerformanceStats() {
+        const stats = cacheManager.getStats();
+        const lazyStats = this.lazyLoader.loadingProgress;
+
+        const message = `
+Cache: ${stats.hitRate}% hit rate (${stats.cacheSize} entries)
+Ảnh: ${lazyStats.loaded}/${lazyStats.total} loaded${lazyStats.failed > 0 ? `, ${lazyStats.failed} failed` : ""}
+        `.trim();
+
+        notificationManager.show(message, "info", 4000);
+    }
+
+    clearCache() {
+        const confirmClear = confirm("Bạn có chắc muốn xóa toàn bộ cache?");
+        if (confirmClear) {
+            cacheManager.invalidate();
+            notificationManager.success("Cache đã được xóa hoàn toàn!");
+        }
+    }
+
+    injectStyles() {
+        if (document.getElementById("app-styles")) return;
+
+        const style = document.createElement("style");
+        style.id = "app-styles";
+        style.textContent = `
+            .lazy-image {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                border-radius: 6px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            
+            .lazy-loading {
+                opacity: 0.6;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+            
+            .lazy-loaded {
+                opacity: 1;
+                transform: scale(1);
+            }
+            
+            .lazy-error {
+                opacity: 0.3;
+                filter: grayscale(1);
+                border: 2px dashed #dc3545;
+            }
+            
+            @keyframes pulse {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 0.8; }
+            }
+            
+            .category-section {
+                margin: 20px 0;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                border-left: 4px solid #007bff;
+            }
+        `;
+        document.head.appendChild(style);
     }
 }
 
@@ -527,10 +1552,10 @@ class NotificationManager {
         this.notificationCounter = 0; // Unique ID for each notification
         this.init();
     }
-    
+
     init() {
-        this.container = document.createElement('div');
-        this.container.id = 'notification-container';
+        this.container = document.createElement("div");
+        this.container.id = "notification-container";
         this.container.style.cssText = `
             position: fixed;
             top: 20px;
@@ -540,20 +1565,20 @@ class NotificationManager {
             pointer-events: none;
         `;
         document.body.appendChild(this.container);
-        
+
         this.injectStyles();
-        
+
         // Clean up any existing overlay on init (in case of page refresh issues)
         setTimeout(() => {
             this.forceHideOverlay();
         }, 100);
     }
-    
+
     injectStyles() {
-        if (document.getElementById('notification-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'notification-styles';
+        if (document.getElementById("notification-styles")) return;
+
+        const style = document.createElement("style");
+        style.id = "notification-styles";
         style.textContent = `
             .notification {
                 padding: 15px 20px;
@@ -657,88 +1682,90 @@ class NotificationManager {
         `;
         document.head.appendChild(style);
     }
-    
-    show(message, type = 'info', duration = 3000, showOverlay = false) {
+
+    show(message, type = "info", duration = 3000, showOverlay = false) {
         // If this is a loading notification, clear previous ones first
         if (showOverlay || duration === 0) {
             this.clearAll();
         }
-        
+
         const notificationId = ++this.notificationCounter;
-        const notification = document.createElement('div');
+        const notification = document.createElement("div");
         notification.className = `notification ${type}`;
         notification.dataset.id = notificationId;
-        
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'close-btn';
-        closeBtn.innerHTML = '×';
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "close-btn";
+        closeBtn.innerHTML = "×";
         closeBtn.onclick = () => this.remove(notificationId);
-        
+
         notification.textContent = message;
         notification.appendChild(closeBtn);
-        
+
         // Add progress bar for timed notifications
         if (duration > 0) {
-            notification.style.setProperty('--duration', duration + 'ms');
-            notification.classList.add('with-progress');
+            notification.style.setProperty("--duration", duration + "ms");
+            notification.classList.add("with-progress");
         }
-        
+
         this.container.appendChild(notification);
         this.notifications.set(notificationId, {
             element: notification,
             type: type,
             timeout: null,
-            showOverlay: showOverlay
+            showOverlay: showOverlay,
         });
-        
+
         // Handle loading overlay
         if (showOverlay) {
             this.showOverlay();
-            document.body.style.overflow = 'hidden';
+            document.body.style.overflow = "hidden";
         }
-        
+
         // Animate in
         requestAnimationFrame(() => {
-            notification.classList.add('show');
+            notification.classList.add("show");
         });
-        
+
         // Auto-hide with proper cleanup
         if (duration > 0 && !showOverlay) {
             const timeoutId = setTimeout(() => {
                 this.remove(notificationId);
             }, duration);
-            
+
             this.notifications.get(notificationId).timeout = timeoutId;
         }
-        
+
         return notificationId;
     }
-    
+
     remove(notificationId) {
         const notification = this.notifications.get(notificationId);
         if (!notification) return;
-        
+
         // Clear timeout if exists
         if (notification.timeout) {
             clearTimeout(notification.timeout);
         }
-        
+
         // Animate out
-        notification.element.classList.remove('show');
-        
+        notification.element.classList.remove("show");
+
         setTimeout(() => {
             if (notification.element && notification.element.parentNode) {
-                notification.element.parentNode.removeChild(notification.element);
+                notification.element.parentNode.removeChild(
+                    notification.element,
+                );
             }
             this.notifications.delete(notificationId);
-            
+
             // Hide overlay only if no more loading notifications exist
             if (notification.showOverlay) {
                 this.checkAndHideOverlay();
             }
         }, 300);
     }
-    
+
     clearAll() {
         // Clear all notifications
         for (const [id] of this.notifications) {
@@ -747,70 +1774,71 @@ class NotificationManager {
         // Force hide overlay regardless
         this.forceHideOverlay();
     }
-    
+
     // Legacy method for backwards compatibility
     clear() {
         this.clearAll();
     }
-    
+
     // Check if any loading notifications still exist before hiding overlay
     checkAndHideOverlay() {
-        const hasLoadingNotifications = Array.from(this.notifications.values())
-            .some(notification => notification.showOverlay);
-        
+        const hasLoadingNotifications = Array.from(
+            this.notifications.values(),
+        ).some((notification) => notification.showOverlay);
+
         if (!hasLoadingNotifications) {
             this.hideOverlay();
         }
     }
-    
+
     forceHideOverlay() {
-        const overlay = document.getElementById('loading-overlay');
+        const overlay = document.getElementById("loading-overlay");
         if (overlay) {
-            overlay.classList.remove('show');
+            overlay.classList.remove("show");
         }
-        document.body.style.overflow = 'auto';
+        document.body.style.overflow = "auto";
     }
-    
+
     showOverlay() {
-        let overlay = document.getElementById('loading-overlay');
+        let overlay = document.getElementById("loading-overlay");
         if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'loading-overlay';
-            overlay.className = 'loading-overlay';
+            overlay = document.createElement("div");
+            overlay.id = "loading-overlay";
+            overlay.className = "loading-overlay";
             document.body.appendChild(overlay);
         }
-        overlay.classList.add('show');
+        overlay.classList.add("show");
     }
-    
+
     hideOverlay() {
-        const overlay = document.getElementById('loading-overlay');
+        const overlay = document.getElementById("loading-overlay");
         if (overlay) {
-            overlay.classList.remove('show');
+            overlay.classList.remove("show");
         }
-        document.body.style.overflow = 'auto';
+        document.body.style.overflow = "auto";
     }
-    
+
     loading(message = "Đang xử lý...") {
-        return this.show(message, 'info', 0, true);
+        return this.show(message, "info", 0, true);
     }
-    
+
     success(message, duration = 2000) {
-        return this.show(message, 'success', duration);
+        return this.show(message, "success", duration);
     }
-    
+
     error(message, duration = 4000) {
-        return this.show(message, 'error', duration);
+        return this.show(message, "error", duration);
     }
-    
+
     warning(message, duration = 3000) {
-        return this.show(message, 'warning', duration);
+        return this.show(message, "warning", duration);
     }
-    
+
     // Method to update an existing notification (useful for progress updates)
     update(notificationId, newMessage) {
         const notification = this.notifications.get(notificationId);
         if (notification) {
-            const closeBtn = notification.element.querySelector('.close-btn');
+            const closeBtn = notification.element.querySelector(".close-btn");
             notification.element.textContent = newMessage;
             notification.element.appendChild(closeBtn);
         }
@@ -818,991 +1846,21 @@ class NotificationManager {
 
     // Method to manually fix stuck overlay (can be called from console if needed)
     fixStuckOverlay() {
-        console.log('Fixing stuck overlay...');
+        console.log("Fixing stuck overlay...");
         this.clearAll();
         this.forceHideOverlay();
-        
+
         // Also clean up any orphaned overlay elements
-        const allOverlays = document.querySelectorAll('.loading-overlay, #loading-overlay');
-        allOverlays.forEach(overlay => {
-            overlay.classList.remove('show');
-            overlay.style.display = 'none';
-        });
-        
-        document.body.style.overflow = 'auto';
-        console.log('Overlay cleanup completed');
-    }
-}
-
-// =====================================================
-// IMAGE UTILITIES
-// =====================================================
-
-class ImageUtils {
-    static async compressImage(file, maxWidth = CONFIG.MAX_IMAGE_SIZE, quality = CONFIG.IMAGE_QUALITY) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = function(event) {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    let { width, height } = img;
-
-                    // Calculate new dimensions
-                    if (width > maxWidth) {
-                        const ratio = maxWidth / width;
-                        width = maxWidth;
-                        height = height * ratio;
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    
-                    // Enable high-quality scaling
-                    ctx.imageSmoothingEnabled = true;
-                    ctx.imageSmoothingQuality = 'high';
-                    ctx.drawImage(img, 0, 0, width, height);
-                    
-                    canvas.toBlob(function(blob) {
-                        const compressedFile = new File([blob], file.name, {
-                            type: file.type,
-                            lastModified: Date.now()
-                        });
-                        
-                        const compressionRatio = ((file.size - compressedFile.size) / file.size * 100).toFixed(1);
-                        console.log(`Image compressed: ${file.name}, ${compressionRatio}% reduction`);
-                        
-                        resolve(compressedFile);
-                    }, file.type, quality);
-                };
-            };
-        });
-    }
-    
-    static createLazyImageElement(url, priority = 'normal') {
-        const imgElement = document.createElement('img');
-        imgElement.className = 'product-image lazy-image';
-        imgElement.dataset.src = url;
-        imgElement.dataset.priority = priority;
-        
-        // Initial styles
-        Object.assign(imgElement.style, {
-            opacity: '0',
-            transform: 'scale(0.9)',
-            transition: 'all 0.3s ease',
-            backgroundColor: '#f5f5f5',
-            minHeight: '120px',
-            width: '100px',
-            objectFit: 'cover',
-            cursor: 'pointer',
-            borderRadius: '4px',
-            border: '1px solid #e0e0e0'
+        const allOverlays = document.querySelectorAll(
+            ".loading-overlay, #loading-overlay",
+        );
+        allOverlays.forEach((overlay) => {
+            overlay.classList.remove("show");
+            overlay.style.display = "none";
         });
 
-        // Hover effects
-        imgElement.addEventListener('mouseenter', function() {
-            if (this.classList.contains('lazy-loaded')) {
-                this.style.transform = 'scale(1.1)';
-                this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-                this.style.zIndex = '10';
-                this.style.borderColor = '#2196F3';
-            }
-        });
-
-        imgElement.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1)';
-            this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-            this.style.zIndex = '1';
-            this.style.borderColor = '#e0e0e0';
-        });
-        
-        imgElement.alt = 'Đang tải...';
-        
-        // Click to copy URL
-        imgElement.addEventListener('click', function() {
-            if (imgElement.src && imgElement.src !== window.location.href) {
-                ImageUtils.copyToClipboard(imgElement.src);
-            }
-        });
-        
-        return imgElement;
-    }
-    
-    static async copyToClipboard(text) {
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(text);
-                notificationManager.success('Đã sao chép link ảnh!', 1500);
-            } else {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                textArea.style.position = 'fixed';
-                textArea.style.opacity = '0';
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                notificationManager.success('Đã sao chép link ảnh!', 1500);
-            }
-        } catch (error) {
-            console.error('Failed to copy to clipboard:', error);
-            notificationManager.error('Không thể sao chép link ảnh');
-        }
-    }
-}
-
-// =====================================================
-// FIREBASE OPERATIONS
-// =====================================================
-
-class FirebaseManager {
-    constructor() {
-        this.app = null;
-        this.storage = null;
-        this.db = null;
-        this.init();
-    }
-    
-    init() {
-        try {
-            this.app = firebase.initializeApp(firebaseConfig);
-            this.storage = firebase.storage();
-            this.db = firebase.firestore();
-            console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization failed:', error);
-            notificationManager.error('Lỗi kết nối hệ thống');
-        }
-    }
-    
-    getStorageRef() {
-        return this.storage.ref();
-    }
-    
-    async listFolder(path) {
-        const cacheKey = `folder_${path}`;
-        const cached = cacheManager.get(cacheKey, 'folders');
-        
-        if (cached) {
-            return cached;
-        }
-        
-        try {
-            const result = await this.getStorageRef().child(path).listAll();
-            const folderData = {
-                items: result.items,
-                prefixes: result.prefixes,
-                path: path
-            };
-            
-            cacheManager.set(cacheKey, folderData, 'folders');
-            return folderData;
-            
-        } catch (error) {
-            console.error(`Error listing folder ${path}:`, error);
-            return { items: [], prefixes: [], path: path };
-        }
-    }
-    
-    async getImageUrl(imageRef) {
-        const cacheKey = `url_${imageRef.fullPath}`;
-        const cached = cacheManager.get(cacheKey, 'urls');
-        
-        if (cached) {
-            return cached;
-        }
-        
-        try {
-            const url = await imageRef.getDownloadURL();
-            cacheManager.set(cacheKey, url, 'urls');
-            return url;
-        } catch (error) {
-            console.error(`Error getting URL for ${imageRef.name}:`, error);
-            return null;
-        }
-    }
-    
-    async uploadImage(file, path) {
-        try {
-            const imageRef = this.getStorageRef().child(path);
-            const uploadTask = imageRef.put(file, uploadMetadata);
-            
-            return new Promise((resolve, reject) => {
-                uploadTask.on('state_changed',
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        console.log(`Upload progress: ${progress.toFixed(1)}%`);
-                    },
-                    (error) => {
-                        console.error('Upload error:', error);
-                        reject(error);
-                    },
-                    () => {
-                        console.log(`Upload completed: ${path}`);
-                        resolve(uploadTask.snapshot);
-                    }
-                );
-            });
-        } catch (error) {
-            console.error('Upload initiation error:', error);
-            throw error;
-        }
-    }
-    
-    async deleteFolder(path) {
-        try {
-            const folderRef = this.getStorageRef().child(path);
-            const result = await folderRef.listAll();
-            
-            // Delete all files in batches
-            const batchSize = CONFIG.BATCH_SIZE;
-            let deletedCount = 0;
-            
-            for (let i = 0; i < result.items.length; i += batchSize) {
-                const batch = result.items.slice(i, i + batchSize);
-                const deletePromises = batch.map(async (fileRef) => {
-                    try {
-                        await fileRef.delete();
-                        deletedCount++;
-                        return true;
-                    } catch (error) {
-                        console.error(`Error deleting ${fileRef.name}:`, error);
-                        return false;
-                    }
-                });
-                
-                await Promise.allSettled(deletePromises);
-                
-                if (i + batchSize < result.items.length) {
-                    notificationManager.show(`Đã xóa ${deletedCount}/${result.items.length} file...`, 'info', 0, true);
-                    await new Promise(resolve => setTimeout(resolve, 200)); // Brief pause between batches
-                }
-            }
-            
-            // Delete subfolders recursively
-            const subfolderPromises = result.prefixes.map(subFolderRef => this.deleteFolder(subFolderRef.fullPath));
-            await Promise.allSettled(subfolderPromises);
-            
-            return { success: true, deletedCount };
-            
-        } catch (error) {
-            console.error(`Error deleting folder ${path}:`, error);
-            return { success: false, error };
-        }
-    }
-}
-
-// =====================================================
-// MAIN APPLICATION CLASS
-// =====================================================
-
-class ImageManagementApp {
-    constructor() {
-        this.firebase = null;
-        this.lazyLoader = null;
-        this.categories = ['ao', 'quan', 'setvadam', 'pkgd'];
-        this.pathMapping = {
-            "Áo": "ao",
-            "Quần": "quan", 
-            "Set và Đầm": "setvadam",
-            "PKGD": "pkgd"
-        };
-        
-        this.dom = {};
-        this.init();
-    }
-    
-    async init() {
-        // Kiểm tra authentication với system mới
-        if (!authManager.isAuthenticated()) {
-            console.log('User not authenticated, redirecting to login...');
-            this.redirectToLogin();
-            return;
-        }
-        
-        // Auto-refresh session nếu cần
-        authManager.checkAndRefreshSession();
-        
-        // Migrate legacy auth nếu cần
-        authManager.migrateFromLegacy();
-        
-        this.initializeFirebase();
-        this.initializeLazyLoader();
-        this.cacheDOMElements();
-        this.setupEventListeners();
-        this.updateUserInterface();
-        this.injectStyles();
-        this.setupControlButtons();
-        
-        await this.updateDateFilterDropdown();
-        await this.loadImages();
-        
-        // Setup periodic cache cleanup và session check
-        setInterval(() => {
-            cacheManager.cleanup();
-            
-            // Kiểm tra session mỗi 5 phút
-            if (!authManager.checkAndRefreshSession()) {
-                console.log('Session expired, redirecting to login...');
-                this.redirectToLogin();
-            }
-        }, 5 * 60 * 1000); // Every 5 minutes
-        
-        console.log('Image Management App initialized successfully');
-    }
-    
-    initializeFirebase() {
-        this.firebase = new FirebaseManager();
-    }
-    
-    initializeLazyLoader() {
-        this.lazyLoader = new LazyLoadManager();
-    }
-    
-    cacheDOMElements() {
-        this.dom = {
-            toggleFormButton: document.getElementById('toggleFormButton'),
-            dataForm: document.getElementById('dataForm'),
-            productForm: document.getElementById('productForm'),
-            liveTable: document.querySelector('.live table'),
-            dateFilterDropdown: document.getElementById('dateFilter'),
-            dotLiveInput: document.getElementById('dotLive'),
-            phanLoaiSelect: document.getElementById('phanLoai'),
-            hinhAnhInput: document.getElementById('hinhAnhInput'),
-            addButton: document.getElementById('addButton'),
-            clearDataButton: document.getElementById('clearDataButton'),
-            toggleLogoutButton: document.getElementById('toggleLogoutButton'),
-            toggleDeleteButton: document.getElementById('toggleDeleteButton'),
-            liveDate: document.getElementById('liveDate'),
-            parentContainer: document.getElementById('parentContainer')
-        };
-    }
-    
-    setupEventListeners() {
-        // Form toggle
-        if (this.dom.toggleFormButton) {
-            this.dom.toggleFormButton.addEventListener('click', () => {
-                this.toggleForm();
-            });
-        }
-        
-        // Form submission
-        if (this.dom.productForm) {
-            this.dom.productForm.addEventListener('submit', (e) => {
-                this.handleFormSubmit(e);
-            });
-        }
-        
-        // Date filter
-        if (this.dom.dateFilterDropdown) {
-            this.dom.dateFilterDropdown.addEventListener('change', () => {
-                this.handleDateFilterChange();
-            });
-        }
-        
-        // Clear form
-        if (this.dom.clearDataButton) {
-            this.dom.clearDataButton.addEventListener('click', () => {
-                this.clearForm();
-            });
-        }
-        
-        // Logout
-        if (this.dom.toggleLogoutButton) {
-            this.dom.toggleLogoutButton.addEventListener('click', () => {
-                this.handleLogout();
-            });
-        }
-        
-        // Delete
-        if (this.dom.toggleDeleteButton) {
-            this.dom.toggleDeleteButton.addEventListener('click', () => {
-                this.handleDelete();
-            });
-        }
-    }
-    
-    updateUserInterface() {
-        const userInfo = authManager.getUserInfo();
-        if (userInfo && userInfo.displayName) {
-            const titleElement = document.querySelector('.tieude');
-            if (titleElement) {
-                titleElement.textContent += ' - ' + userInfo.displayName;
-            }
-        }
-        
-        if (this.dom.parentContainer) {
-            this.dom.parentContainer.style.display = 'flex';
-            this.dom.parentContainer.style.justifyContent = 'center';
-            this.dom.parentContainer.style.alignItems = 'center';
-        }
-        
-        // Remove ads
-        this.removeAds();
-    }
-    
-    removeAds() {
-        const adElements = document.querySelectorAll('div[style*="position: fixed"][style*="z-index:9999999"]');
-        adElements.forEach(ad => ad.remove());
-    }
-    
-    redirectToLogin() {
-        console.log('User not authenticated, redirecting to login...');
-        window.location.href = '../index.html';
-    }
-    
-    toggleForm() {
-        if (authManager.hasPermission(777)) {
-            const isHidden = this.dom.dataForm.style.display === 'none' || this.dom.dataForm.style.display === '';
-            this.dom.dataForm.style.display = isHidden ? 'block' : 'none';
-            this.dom.toggleFormButton.textContent = isHidden ? 'Ẩn biểu mẫu' : 'Hiện biểu mẫu';
-        } else {
-            notificationManager.error('Không có quyền truy cập form');
-        }
-    }
-    
-    async handleFormSubmit(e) {
-        e.preventDefault();
-        
-        if (!authManager.hasPermission(3)) {
-            notificationManager.error('Không có quyền upload ảnh');
-            return;
-        }
-        
-        // Refresh session trước khi thực hiện action quan trọng
-        authManager.refreshSession();
-        
-        if (this.dom.addButton) {
-            this.dom.addButton.disabled = true;
-        }
-        
-        try {
-            const phanLoai = this.dom.phanLoaiSelect?.value;
-            const dotLiveValue = this.dom.dotLiveInput?.value;
-            
-            if (!dotLiveValue) {
-                notificationManager.error('Vui lòng chọn một đợt Live');
-                return;
-            }
-            
-            if (!phanLoai || !this.pathMapping[phanLoai]) {
-                notificationManager.error('Vui lòng chọn phân loại hợp lệ');
-                return;
-            }
-            
-            const uploadPath = `live/${dotLiveValue}/${this.pathMapping[phanLoai]}/`;
-            const files = this.dom.hinhAnhInput?.files;
-            
-            if (!files || files.length === 0) {
-                notificationManager.error('Vui lòng chọn ít nhất một hình ảnh');
-                return;
-            }
-            
-            await this.uploadImages(files, uploadPath);
-            
-        } catch (error) {
-            console.error('Form submission error:', error);
-            notificationManager.error('Lỗi khi xử lý form');
-        } finally {
-            if (this.dom.addButton) {
-                this.dom.addButton.disabled = false;
-            }
-        }
-    }
-    
-    async uploadImages(files, uploadPath) {
-        notificationManager.loading(`Đang xử lý ${files.length} ảnh...`);
-        
-        try {
-            let uploadedCount = 0;
-            const totalFiles = files.length;
-            const errors = [];
-            
-            // Process in batches
-            for (let i = 0; i < totalFiles; i += CONFIG.BATCH_SIZE) {
-                const batch = Array.from(files).slice(i, i + CONFIG.BATCH_SIZE);
-                
-                const batchPromises = batch.map(async (file, index) => {
-                    try {
-                        // Validate file
-                        if (!this.validateImageFile(file)) {
-                            throw new Error(`File không hợp lệ: ${file.name}`);
-                        }
-                        
-                        // Compress image
-                        const compressedFile = await ImageUtils.compressImage(file);
-                        const filePath = uploadPath + compressedFile.name;
-                        
-                        // Upload to Firebase
-                        await this.firebase.uploadImage(compressedFile, filePath);
-                        
-                        uploadedCount++;
-                        notificationManager.show(
-                            `Đã tải ${uploadedCount}/${totalFiles} ảnh`, 
-                            'info', 0, true
-                        );
-                        
-                        return { success: true, file: file.name };
-                        
-                    } catch (error) {
-                        console.error(`Error processing ${file.name}:`, error);
-                        errors.push({ file: file.name, error: error.message });
-                        return { success: false, file: file.name, error };
-                    }
-                });
-                
-                await Promise.allSettled(batchPromises);
-                
-                // Brief pause between batches
-                if (i + CONFIG.BATCH_SIZE < totalFiles) {
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                }
-            }
-            
-            // Clear cache and reload
-            cacheManager.invalidate();
-            
-            notificationManager.clear();
-            
-            if (errors.length > 0) {
-                notificationManager.warning(
-                    `Upload hoàn tất với ${errors.length} lỗi. Đã tải ${uploadedCount}/${totalFiles} ảnh`
-                );
-                console.warn('Upload errors:', errors);
-            } else {
-                notificationManager.success('Upload hoàn tất thành công!');
-            }
-            
-            // Reload page after delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-            
-        } catch (error) {
-            console.error('Upload process error:', error);
-            notificationManager.error('Lỗi trong quá trình upload');
-        }
-    }
-    
-    validateImageFile(file) {
-        // Check file type
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) {
-            return false;
-        }
-        
-        // Check file size (max 10MB)
-        const maxSize = 10 * 1024 * 1024;
-        if (file.size > maxSize) {
-            return false;
-        }
-        
-        return true;
-    }
-    
-    handleDateFilterChange() {
-        const selectedDate = this.dom.dateFilterDropdown?.value;
-        
-        if (selectedDate === 'all') {
-            if (this.dom.liveDate) {
-                this.dom.liveDate.textContent = 'Tất cả';
-            }
-            this.showAllTableRows();
-        } else {
-            if (this.dom.liveDate) {
-                this.dom.liveDate.textContent = selectedDate;
-            }
-            this.filterTableRows(selectedDate);
-        }
-        
-        this.loadImages();
-    }
-    
-    showAllTableRows() {
-        if (!this.dom.liveTable) return;
-        
-        for (const row of this.dom.liveTable.rows) {
-            if (row.cells[0] && row.cells[0].textContent !== 'ĐỢT LIVE') {
-                row.style.display = 'table-row';
-            }
-        }
-    }
-    
-    filterTableRows(selectedDate) {
-        if (!this.dom.liveTable) return;
-        
-        for (const row of this.dom.liveTable.rows) {
-            if (row.cells[0] && row.cells[0].textContent !== 'ĐỢT LIVE') {
-                const rowDate = row.cells[0].textContent;
-                row.style.display = selectedDate === rowDate ? 'table-row' : 'none';
-            }
-        }
-    }
-    
-    async loadImages() {
-        this.lazyLoader.resetProgress();
-        
-        const selectedDate = this.dom.dateFilterDropdown?.value || 'all';
-        const cacheKey = `import_${selectedDate}`;
-        
-        // Check cache first
-        const cachedData = cacheManager.get(cacheKey, 'images');
-        if (cachedData) {
-            notificationManager.loading('Sử dụng dữ liệu cache...');
-            this.renderImagesFromCache(cachedData);
-            notificationManager.success('Tải hình ảnh từ cache hoàn tất!');
-            return;
-        }
-        
-        // Clear existing images
-        this.clearAllImageContainers();
-        
-        try {
-            const liveFolder = await this.firebase.listFolder('live/');
-            
-            if (liveFolder.prefixes.length === 0) {
-                notificationManager.error('Không tìm thấy dữ liệu');
-                return;
-            }
-            
-            const datesToProcess = selectedDate === 'all' 
-                ? liveFolder.prefixes.map(folderRef => folderRef.name)
-                : [selectedDate];
-            
-            const imageData = {};
-            
-            // Process dates with limited concurrency
-            for (const date of datesToProcess) {
-                await this.processDateImages(date, imageData);
-            }
-            
-            // Cache the results
-            cacheManager.set(cacheKey, imageData, 'images');
-            
-            notificationManager.success('Tải hình ảnh hoàn tất!');
-            
-            // Log performance stats
-            const stats = cacheManager.getStats();
-            console.log(`Cache stats - Hit rate: ${stats.hitRate}%, Size: ${stats.cacheSize}`);
-            
-        } catch (error) {
-            console.error('Error loading images:', error);
-            notificationManager.error('Lỗi khi tải hình ảnh');
-        }
-    }
-    
-    async processDateImages(date, imageData) {
-        const categoryPromises = this.categories.map(async category => {
-            try {
-                const urls = await this.loadCategoryImages(category, date);
-                if (!imageData[category]) {
-                    imageData[category] = [];
-                }
-                imageData[category] = imageData[category].concat(urls || []);
-            } catch (error) {
-                console.error(`Error loading ${category} images for ${date}:`, error);
-            }
-        });
-        
-        await Promise.allSettled(categoryPromises);
-    }
-    
-    async loadCategoryImages(category, date) {
-        const path = `live/${date}/${category}/`;
-        const imageContainer = document.querySelector(`.${category}product-row`);
-        
-        if (!imageContainer) {
-            console.warn(`Image container not found for category: ${category}`);
-            return [];
-        }
-        
-        try {
-            const cacheKey = `images_${path}`;
-            let imageUrls = cacheManager.get(cacheKey, 'urls');
-            
-            if (!imageUrls) {
-                const folderData = await this.firebase.listFolder(path);
-                imageUrls = [];
-                
-                // Get URLs in batches
-                const batchSize = 5;
-                for (let i = 0; i < folderData.items.length; i += batchSize) {
-                    const batch = folderData.items.slice(i, i + batchSize);
-                    const batchPromises = batch.map(imageRef => 
-                        this.firebase.getImageUrl(imageRef)
-                    );
-                    
-                    const batchResults = await Promise.allSettled(batchPromises);
-                    batchResults.forEach(result => {
-                        if (result.status === 'fulfilled' && result.value) {
-                            imageUrls.push(result.value);
-                        }
-                    });
-                }
-                
-                cacheManager.set(cacheKey, imageUrls, 'urls');
-            }
-            
-            // Render images
-            imageUrls.reverse().forEach((url, index) => {
-                const priority = index < 6 ? 'high' : 'normal';
-                const imgElement = ImageUtils.createLazyImageElement(url, priority);
-                imageContainer.appendChild(imgElement);
-                this.lazyLoader.observe(imgElement, priority);
-            });
-            
-            return imageUrls;
-            
-        } catch (error) {
-            console.error(`Error loading images for ${category}:`, error);
-            return [];
-        }
-    }
-    
-    renderImagesFromCache(imageData) {
-        Object.keys(imageData).forEach(category => {
-            const imageContainer = document.querySelector(`.${category}product-row`);
-            if (imageContainer && imageData[category]) {
-                imageData[category].forEach((url, index) => {
-                    const priority = index < 6 ? 'high' : 'normal';
-                    const imgElement = ImageUtils.createLazyImageElement(url, priority);
-                    imageContainer.appendChild(imgElement);
-                    this.lazyLoader.observe(imgElement, priority);
-                });
-            }
-        });
-    }
-    
-    clearAllImageContainers() {
-        this.categories.forEach(category => {
-            const imageContainer = document.querySelector(`.${category}product-row`);
-            if (imageContainer) {
-                imageContainer.innerHTML = '';
-            }
-        });
-    }
-    
-    clearForm() {
-        if (this.dom.productForm) {
-            this.dom.productForm.reset();
-        }
-    }
-    
-    handleLogout() {
-        authManager.logout(); // Sử dụng method có confirmation built-in
-    }
-    
-    async handleDelete() {
-        if (!authManager.hasPermission(0)) {
-            notificationManager.error('Không đủ quyền để xóa!');
-            return;
-        }
-        
-        // Refresh session trước khi thực hiện action quan trọng
-        authManager.refreshSession();
-        
-        const selectedDate = this.dom.dateFilterDropdown?.value;
-        if (!selectedDate || selectedDate === 'all') {
-            notificationManager.error('Vui lòng chọn một đợt live cụ thể để xóa');
-            return;
-        }
-        
-        const confirmDelete = confirm(`Bạn có chắc chắn muốn xóa đợt live ${selectedDate}? Hành động này không thể hoàn tác.`);
-        if (!confirmDelete) return;
-        
-        notificationManager.loading('Đang xóa dữ liệu...');
-        
-        try {
-            const result = await this.firebase.deleteFolder(`live/${selectedDate}`);
-            
-            if (result.success) {
-                cacheManager.invalidate();
-                notificationManager.success(`Đã xóa thành công ${result.deletedCount} file!`);
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
-            } else {
-                notificationManager.error('Lỗi khi xóa dữ liệu');
-            }
-            
-        } catch (error) {
-            console.error('Delete operation error:', error);
-            notificationManager.error('Lỗi khi xóa dữ liệu');
-        }
-    }
-    
-    async updateDateFilterDropdown() {
-        if (!this.dom.dateFilterDropdown) return;
-        
-        // Clear existing options except "Tất cả"
-        while (this.dom.dateFilterDropdown.options.length > 1) {
-            this.dom.dateFilterDropdown.remove(1);
-        }
-        
-        try {
-            const liveFolder = await this.firebase.listFolder('live/');
-            const dates = liveFolder.prefixes.map(folderRef => folderRef.name);
-            
-            dates.sort().reverse().forEach(date => {
-                const option = document.createElement('option');
-                option.value = date;
-                option.textContent = date;
-                this.dom.dateFilterDropdown.appendChild(option);
-            });
-            
-            if (this.dom.dotLiveInput) {
-                this.dom.dotLiveInput.value = dates.length > 0 ? dates[0] : '1';
-            }
-            
-        } catch (error) {
-            console.error('Error updating date filter dropdown:', error);
-            notificationManager.error('Lỗi khi tải danh sách ngày');
-        }
-    }
-    
-    setupControlButtons() {
-        const controlsContainer = document.createElement('div');
-        controlsContainer.style.cssText = `
-            display: flex;
-            gap: 10px;
-            margin: 15px 0;
-            flex-wrap: wrap;
-            justify-content: center;
-        `;
-        
-        const buttonStyle = `
-            padding: 10px 16px;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        `;
-        
-        // Refresh button
-        const refreshButton = document.createElement('button');
-        //refreshButton.textContent = '🔄 Làm mới';
-        //refreshButton.onclick = () => this.forceRefresh();
-        //refreshButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #28a745, #20c997);';
-        //refreshButton.onmouseover = () => refreshButton.style.transform = 'translateY(-1px)';
-        //refreshButton.onmouseout = () => refreshButton.style.transform = 'translateY(0)';
-        
-        // Performance stats button
-        const statsButton = document.createElement('button');
-        //statsButton.textContent = '📊 Thống kê';
-        //statsButton.onclick = () => this.showPerformanceStats();
-        //statsButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #17a2b8, #6f42c1);';
-        //statsButton.onmouseover = () => statsButton.style.transform = 'translateY(-1px)';
-        //statsButton.onmouseout = () => statsButton.style.transform = 'translateY(0)';
-        
-        // Clear cache button
-        const clearCacheButton = document.createElement('button');
-        //clearCacheButton.textContent = '🗑️ Xóa cache';
-        //clearCacheButton.onclick = () => this.clearCache();
-        //clearCacheButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #ffc107, #fd7e14);';
-        //clearCacheButton.onmouseover = () => clearCacheButton.style.transform = 'translateY(-1px)';
-        //clearCacheButton.onmouseout = () => clearCacheButton.style.transform = 'translateY(0)';
-        
-        //controlsContainer.appendChild(refreshButton);
-        //controlsContainer.appendChild(statsButton);
-        //controlsContainer.appendChild(clearCacheButton);
-        
-        //if (this.dom.parentContainer) {
-        //    this.dom.parentContainer.appendChild(controlsContainer);
-        //}
-    }
-    
-    forceRefresh() {
-        cacheManager.invalidate();
-        this.lazyLoader.resetProgress();
-        this.clearAllImageContainers();
-        this.loadImages();
-        notificationManager.success('Đã làm mới dữ liệu!');
-    }
-    
-    showPerformanceStats() {
-        const stats = cacheManager.getStats();
-        const lazyStats = this.lazyLoader.loadingProgress;
-        
-        const message = `
-Cache: ${stats.hitRate}% hit rate (${stats.cacheSize} entries)
-Ảnh: ${lazyStats.loaded}/${lazyStats.total} loaded${lazyStats.failed > 0 ? `, ${lazyStats.failed} failed` : ''}
-        `.trim();
-        
-        notificationManager.show(message, 'info', 4000);
-    }
-    
-    clearCache() {
-        const confirmClear = confirm('Bạn có chắc muốn xóa toàn bộ cache?');
-        if (confirmClear) {
-            cacheManager.invalidate();
-            notificationManager.success('Cache đã được xóa hoàn toàn!');
-        }
-    }
-    
-    injectStyles() {
-        if (document.getElementById('app-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'app-styles';
-        style.textContent = `
-            .lazy-image {
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                border-radius: 6px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-            
-            .lazy-loading {
-                opacity: 0.6;
-                animation: pulse 1.5s ease-in-out infinite;
-            }
-            
-            .lazy-loaded {
-                opacity: 1;
-                transform: scale(1);
-            }
-            
-            .lazy-error {
-                opacity: 0.3;
-                filter: grayscale(1);
-                border: 2px dashed #dc3545;
-            }
-            
-            @keyframes pulse {
-                0%, 100% { opacity: 0.6; }
-                50% { opacity: 0.8; }
-            }
-            
-            .product-image:hover {
-                transform: scale(1.05) !important;
-                z-index: 10;
-                box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
-            }
-            
-            .image-container {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 10px;
-                justify-content: center;
-                padding: 10px;
-            }
-            
-            .category-section {
-                margin: 20px 0;
-                padding: 15px;
-                background: #f8f9fa;
-                border-radius: 8px;
-                border-left: 4px solid #007bff;
-            }
-        `;
-        document.head.appendChild(style);
+        document.body.style.overflow = "auto";
+        console.log("Overlay cleanup completed");
     }
 }
 
@@ -1815,54 +1873,59 @@ let notificationManager;
 let app;
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener("DOMContentLoaded", function () {
     try {
         // Initialize notification system
         notificationManager = new NotificationManager();
-        
+
         // Make notification functions globally available
-        window.showNotification = (message, type, duration) => notificationManager.show(message, type, duration);
+        window.showNotification = (message, type, duration) =>
+            notificationManager.show(message, type, duration);
         window.hideNotification = () => notificationManager.clear();
         window.showFloatingAlert = (message, isLoading, duration) => {
             if (isLoading) {
                 notificationManager.loading(message);
             } else {
-                notificationManager.show(message, 'info', duration);
+                notificationManager.show(message, "info", duration);
             }
         };
         window.hideFloatingAlert = () => notificationManager.clear();
-        
+
         // Initialize main application
         app = new ImageManagementApp();
-        
+
         // Setup periodic session check (mỗi 10 phút)
-        setInterval(() => {
-            if (!authManager.checkAndRefreshSession()) {
-                console.log('Session expired during periodic check');
-                notificationManager.error('Phiên đăng nhập đã hết hạn. Đang chuyển về trang đăng nhập...');
-                setTimeout(() => {
-                    window.location.href = '../index.html';
-                }, 2000);
-            }
-        }, 10 * 60 * 1000);
-        
+        setInterval(
+            () => {
+                if (!authManager.checkAndRefreshSession()) {
+                    console.log("Session expired during periodic check");
+                    notificationManager.error(
+                        "Phiên đăng nhập đã hết hạn. Đang chuyển về trang đăng nhập...",
+                    );
+                    setTimeout(() => {
+                        window.location.href = "../index.html";
+                    }, 2000);
+                }
+            },
+            10 * 60 * 1000,
+        );
     } catch (error) {
-        console.error('Application initialization error:', error);
+        console.error("Application initialization error:", error);
         if (notificationManager) {
-            notificationManager.error('Lỗi khởi tạo ứng dụng');
+            notificationManager.error("Lỗi khởi tạo ứng dụng");
         }
     }
 });
 
 // Updated cleanup on page unload
-window.addEventListener('beforeunload', () => {
+window.addEventListener("beforeunload", () => {
     if (app && app.lazyLoader) {
         app.lazyLoader.destroy();
     }
     if (cacheManager) {
         cacheManager.cleanup();
     }
-    
+
     // Refresh session timestamp before unload
     if (authManager) {
         authManager.refreshSession();
@@ -1870,15 +1933,15 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Global error handler
-window.addEventListener('error', function(e) {
-    console.error('Global error:', e.error);
+window.addEventListener("error", function (e) {
+    console.error("Global error:", e.error);
     if (notificationManager) {
-        notificationManager.error('Có lỗi xảy ra. Vui lòng tải lại trang.');
+        notificationManager.error("Có lỗi xảy ra. Vui lòng tải lại trang.");
     }
 });
 
 // Export for debugging (remove in production)
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
     window.debug = {
         authManager,
         cacheManager,
@@ -1894,10 +1957,10 @@ if (typeof window !== 'undefined') {
         fixStuckOverlay: () => notificationManager.fixStuckOverlay(),
         forceLogout: () => {
             authManager.clearAuth();
-            window.location.href = '../index.html';
-        }
+            window.location.href = "../index.html";
+        },
     };
-    
-    console.log('Debug utilities available via window.debug');
-    console.log('Available methods:', Object.keys(window.debug));
+
+    console.log("Debug utilities available via window.debug");
+    console.log("Available methods:", Object.keys(window.debug));
 }
