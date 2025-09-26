@@ -604,13 +604,25 @@ class ImageUtils {
         imgElement.dataset.src = url;
         imgElement.dataset.priority = priority;
 
-        // Initial styles
-        Object.assign(imgElement.style, {});
+        // Cải thiện style cho hình ảnh trong bảng - THÊM PHẦN NÀY
+        Object.assign(imgElement.style, {
+            width: "80px",
+            height: "80px",
+            objectFit: "cover",
+            borderRadius: "8px",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            border: "2px solid transparent",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+            display: "block",
+            margin: "2px auto",
+            verticalAlign: "top", // Giúp hình ảnh dồn lên trên
+        });
 
-        // Hover effects
+        // Hover effects - SỬA PHẦN NÀY
         imgElement.addEventListener("mouseenter", function () {
             if (this.classList.contains("lazy-loaded")) {
-                this.style.transform = "scale(1.1)";
+                this.style.transform = "scale(1.15)"; // Thay đổi từ 1.1 thành 1.15
                 this.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
                 this.style.zIndex = "10";
                 this.style.borderColor = "#2196F3";
@@ -621,7 +633,7 @@ class ImageUtils {
             this.style.transform = "scale(1)";
             this.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
             this.style.zIndex = "1";
-            this.style.borderColor = "#e0e0e0";
+            this.style.borderColor = "transparent"; // Thay đổi từ "#e0e0e0" thành "transparent"
         });
 
         imgElement.alt = "Đang tải...";
@@ -1502,45 +1514,61 @@ Cache: ${stats.hitRate}% hit rate (${stats.cacheSize} entries)
         const style = document.createElement("style");
         style.id = "app-styles";
         style.textContent = `
-            .lazy-image {
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                border-radius: 6px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-            
-            .lazy-loading {
-                opacity: 0.6;
-                animation: pulse 1.5s ease-in-out infinite;
-            }
-            
-            .lazy-loaded {
-                opacity: 1;
-                transform: scale(1);
-            }
-            
-            .lazy-error {
-                opacity: 0.3;
-                filter: grayscale(1);
-                border: 2px dashed #dc3545;
-            }
-            
-            @keyframes pulse {
-                0%, 100% { opacity: 0.6; }
-                50% { opacity: 0.8; }
-            }
-            
-            .category-section {
-                margin: 20px 0;
-                padding: 15px;
-                background: #f8f9fa;
-                border-radius: 8px;
-                border-left: 4px solid #007bff;
-            }
-        `;
+        .lazy-image {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .lazy-loading {
+            opacity: 0.6;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .lazy-loaded {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .lazy-error {
+            opacity: 0.3;
+            filter: grayscale(1);
+            border: 2px dashed #dc3545;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.8; }
+        }
+        
+        .category-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        
+        /* THÊM PHẦN NÀY - Cải thiện style cho product-row containers */
+        .aoproduct-row,
+        .quanproduct-row, 
+        .setvadamproduct-row,
+        .pkgdproduct-row {
+            vertical-align: top !important;
+            padding: 8px !important;
+            min-height: 100px;
+        }
+        
+        /* Đảm bảo images được align properly */
+        .product-image {
+            vertical-align: top !important;
+            margin: 2px !important;
+            display: inline-block !important;
+        }
+    `;
         document.head.appendChild(style);
     }
 }
-
 // =====================================================
 // UI NOTIFICATION SYSTEM - FIXED VERSION
 // =====================================================
