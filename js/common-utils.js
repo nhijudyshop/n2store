@@ -661,7 +661,6 @@ if (typeof window !== "undefined") {
 
     // Export Role
     window.getRoleInfo = getRoleInfo;
-    window.updateTitleWithRole = updateTitleWithRole;
     window.initializePageTitle = initializePageTitle;
     window.displayUserInfo = displayUserInfo;
 
@@ -731,14 +730,46 @@ function getRoleInfo(checkLogin) {
  * @param {HTMLElement} titleElement - Element chứa title
  * @param {object} auth - Object chứa thông tin auth user
  */
-function updateTitleWithRole(titleElement, auth) {
+function updateTitleWithRoleEnhanced(titleElement, auth) {
     if (!titleElement || !auth) return;
 
     const roleInfo = getRoleInfo(parseInt(auth.checkLogin));
-    const baseTitle = titleElement.textContent.split(" - ")[0]; // Lấy title gốc
+    const baseTitle = titleElement.textContent.split(" - ")[0];
 
-    titleElement.textContent = `${baseTitle} - ${roleInfo.icon} ${auth.displayName || auth.username}`;
+    // Clear và rebuild với proper structure
+    titleElement.innerHTML = "";
+
+    // Title text
+    const titleText = document.createTextNode(`${baseTitle} - `);
+    titleElement.appendChild(titleText);
+
+    // Icon với class theo role
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "role-icon";
+
+    // Thêm class specific theo role
+    const roleClass =
+        {
+            0: "admin",
+            1: "user",
+            2: "limited",
+            3: "basic",
+            777: "guest",
+        }[parseInt(auth.checkLogin)] || "default";
+
+    iconSpan.classList.add(roleClass);
+    iconSpan.textContent = roleInfo.icon;
+    titleElement.appendChild(iconSpan);
+
+    // User name text
+    const userText = document.createTextNode(
+        ` ${auth.displayName || auth.username}`,
+    );
+    titleElement.appendChild(userText);
 }
+
+// Export enhanced version
+window.updateTitleWithRoleEnhanced = updateTitleWithRoleEnhanced;
 
 /**
  * Ví dụ sử dụng trong các trang
@@ -752,7 +783,7 @@ function initializePageTitle() {
         const titleElement = document.querySelector("h1, .tieude, .header h1");
 
         if (titleElement && auth.checkLogin !== undefined) {
-            updateTitleWithRole(titleElement, auth);
+            updateTitleWithRoleEnhanced(titleElement, auth);
         }
 
         console.log("Page title updated with role icon");
@@ -795,6 +826,307 @@ function injectRoleStyles() {
 
     const styles = document.createElement("style");
     styles.id = "roleStyles";
+    styles.textContent = `
+        /* ================== BEAUTIFUL .TIEUDE STYLES - FIXED VERSION ================== */
+        
+        /* Beautiful gradient .tieude styles */
+        .tieude {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px 15px;
+            position: relative;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            transition: all 0.3s ease;
+            
+            /* Gradient chỉ áp dụng cho text */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            
+            /* Subtle text shadow for depth */
+            filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.2));
+        }
+
+        /* FIX QUAN TRỌNG: Role icon styles - SPECIFIC CLASS */
+        .tieude .role-icon {
+            -webkit-text-fill-color: initial !important;
+            background: none !important;
+            color: #f39c12 !important;
+            text-shadow: 
+                0 0 10px rgba(243, 156, 18, 0.6),
+                0 0 20px rgba(243, 156, 18, 0.3) !important;
+            font-style: normal !important;
+            font-size: 0.9em !important;
+            margin: 0 8px !important;
+            display: inline-block !important;
+            animation: roleIconGlow 2s ease-in-out infinite !important;
+            filter: drop-shadow(0 3px 6px rgba(243, 156, 18, 0.4)) !important;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Fallback cho browsers không support background-clip */
+        @supports not (-webkit-background-clip: text) {
+            .tieude {
+                background: none;
+                -webkit-text-fill-color: initial;
+                color: #667eea;
+                text-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+            }
+            
+            .tieude .role-icon {
+                color: #f39c12 !important;
+            }
+        }
+
+        /* Hover glow effect cho title */
+        .tieude::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+            border-radius: 15px;
+            transform: translate(-50%, -50%);
+            z-index: -1;
+            filter: blur(20px);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .tieude:hover::before {
+            opacity: 1;
+        }
+
+        .tieude:hover {
+            transform: translateY(-2px);
+        }
+
+        .tieude:hover .role-icon {
+            animation: roleIconBounce 0.6s ease !important;
+            text-shadow: 
+                0 0 15px rgba(243, 156, 18, 0.8),
+                0 0 25px rgba(243, 156, 18, 0.4) !important;
+            transform: scale(1.1) !important;
+        }
+
+        /* Enhanced role icon animations */
+        @keyframes roleIconGlow {
+            0%, 100% {
+                text-shadow: 
+                    0 0 10px rgba(243, 156, 18, 0.6),
+                    0 0 20px rgba(243, 156, 18, 0.3);
+                transform: scale(1);
+            }
+            50% {
+                text-shadow: 
+                    0 0 15px rgba(243, 156, 18, 0.8),
+                    0 0 25px rgba(243, 156, 18, 0.5);
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes roleIconBounce {
+            0%, 100% {
+                transform: scale(1.1);
+            }
+            25% {
+                transform: scale(1.2) rotate(5deg);
+            }
+            50% {
+                transform: scale(1.15) rotate(0deg);
+            }
+            75% {
+                transform: scale(1.2) rotate(-5deg);
+            }
+        }
+
+        /* Alternative icon colors cho từng role */
+        .tieude .role-icon.admin {
+            color: #e74c3c !important;
+            text-shadow: 
+                0 0 10px rgba(231, 76, 60, 0.6),
+                0 0 20px rgba(231, 76, 60, 0.3) !important;
+        }
+
+        .tieude .role-icon.user {
+            color: #3498db !important;
+            text-shadow: 
+                0 0 10px rgba(52, 152, 219, 0.6),
+                0 0 20px rgba(52, 152, 219, 0.3) !important;
+        }
+
+        .tieude .role-icon.limited {
+            color: #95a5a6 !important;
+            text-shadow: 
+                0 0 10px rgba(149, 165, 166, 0.6),
+                0 0 20px rgba(149, 165, 166, 0.3) !important;
+        }
+
+        .tieude .role-icon.basic {
+            color: #f1c40f !important;
+            text-shadow: 
+                0 0 10px rgba(241, 196, 15, 0.6),
+                0 0 20px rgba(241, 196, 15, 0.3) !important;
+        }
+
+        .tieude .role-icon.guest {
+            color: #9b59b6 !important;
+            text-shadow: 
+                0 0 10px rgba(155, 89, 182, 0.6),
+                0 0 20px rgba(155, 89, 182, 0.3) !important;
+        }
+
+        /* User role badge với beautiful gradient */
+        .user-role-badge {
+            display: inline-flex;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 25px;
+            font-weight: 500;
+            box-shadow: 
+                0 4px 15px rgba(102, 126, 234, 0.3),
+                0 2px 8px rgba(118, 75, 162, 0.2);
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .user-role-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 6px 20px rgba(102, 126, 234, 0.4),
+                0 4px 12px rgba(118, 75, 162, 0.3);
+        }
+
+        .user-role-badge small {
+            margin-left: 8px;
+            opacity: 0.85;
+            font-size: 0.8em;
+            font-weight: 400;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .tieude {
+                font-size: 1.8rem;
+                padding: 15px 10px;
+                margin: 15px 0;
+            }
+            
+            .tieude .role-icon {
+                font-size: 0.85em !important;
+                margin: 0 6px !important;
+            }
+            
+            .user-role-badge {
+                padding: 8px 14px;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .tieude {
+                font-size: 1.4rem;
+                padding: 10px 5px;
+            }
+            
+            .tieude .role-icon {
+                font-size: 0.8em !important;
+                margin: 0 4px !important;
+            }
+            
+            .user-role-badge {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .tieude .role-icon {
+                filter: brightness(1.2) drop-shadow(0 3px 6px rgba(243, 156, 18, 0.4)) !important;
+            }
+            
+            .user-role-badge {
+                background: linear-gradient(135deg, #4c51bf, #553c9a);
+                border-color: rgba(255, 255, 255, 0.2);
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            .tieude {
+                background: none !important;
+                -webkit-text-fill-color: initial !important;
+                color: #000 !important;
+                text-shadow: none !important;
+                filter: none !important;
+            }
+            
+            .tieude .role-icon {
+                color: #000 !important;
+                text-shadow: none !important;
+                animation: none !important;
+                filter: none !important;
+            }
+            
+            .tieude::before {
+                display: none;
+            }
+            
+            .user-role-badge {
+                background: #667eea !important;
+                box-shadow: none !important;
+            }
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .tieude {
+                background: none !important;
+                -webkit-text-fill-color: initial !important;
+                color: #000 !important;
+                border: 2px solid #000;
+            }
+            
+            .tieude .role-icon {
+                color: #000 !important;
+                text-shadow: none !important;
+            }
+        }
+
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            .tieude,
+            .tieude::before,
+            .tieude .role-icon,
+            .user-role-badge {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* Focus accessibility */
+        .tieude:focus-visible {
+            outline: 3px solid rgba(102, 126, 234, 0.6);
+            outline-offset: 4px;
+        }
+
+        .user-role-badge:focus-visible {
+            outline: 2px solid rgba(255, 255, 255, 0.8);
+            outline-offset: 2px;
+        }
+    `;
+
     document.head.appendChild(styles);
 }
 
@@ -841,7 +1173,7 @@ document.addEventListener("DOMContentLoaded", function () {
 // Export để sử dụng global
 window.RoleManager = {
     getRoleInfo: getRoleInfo,
-    updateTitleWithRole: updateTitleWithRole,
+    updateTitleWithRoleEnhanced: updateTitleWithRoleEnhanced,
     displayUserInfo: displayUserInfo,
     initializePageTitle: initializePageTitle,
 };
