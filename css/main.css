@@ -2042,11 +2042,6 @@ tr.edited-row:hover {
         min-width: 120px;
     }
 
-    /* Mobile Navigation - Hide top-buttons on mobile */
-    .top-buttons {
-        display: none !important;
-    }
-
     /* Right Menu Toggle Button for top-buttons */
     .right-menu-toggle {
         position: fixed;
