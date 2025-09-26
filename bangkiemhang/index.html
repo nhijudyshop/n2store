@@ -1,423 +1,678 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Bảng Kiểm Hàng - Gộp theo NCC</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <link rel="preconnect" href="https://fonts.googleapis.com/" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com/"
+            crossorigin=""
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="shortcut icon" href="../logo.jpg" />
 
-<head>
-    <meta charset="UTF-8">
-    <title>Bảng Kiểm Hàng - Gộp theo NCC</title>
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com/">
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="../logo.jpg" />
-    
-    <!-- The core Firebase JS SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <!-- The Firebase storage SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <!-- The Firebase firestore SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <!-- Load jQuery from a CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-    
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="../main.css">
-    
-    <!-- Navigation Manager - Load trước khi load page scripts -->
-    <script src="../js/navigation.js"></script>
-    <script src="../js/common-utils.js"></script>
-    
-    <style>
-        /* Enhanced styles for inventory management with grouping */
-        .inventory-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .filter-section {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .filter-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            align-items: end;
-        }
-        
-        .filter-group label {
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 5px;
-            display: block;
-        }
-        
-        .filter-group select,
-        .filter-group input {
-            padding: 10px 12px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        
-        .filter-group select:focus,
-        .filter-group input:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-            outline: none;
-        }
-        
-        .table-container {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            margin: 20px 0;
-        }
-        
-        .inventory-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        
-        .inventory-table thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        .inventory-table th {
-            padding: 15px 10px;
-            text-align: center;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-size: 12px;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        
-        .inventory-table td {
-            padding: 12px 10px;
-            text-align: center;
-            border-bottom: 1px solid #e9ecef;
-            vertical-align: middle;
-        }
-        
-        .inventory-table tbody tr {
-            transition: all 0.3s ease;
-        }
-        
-        .inventory-table tbody tr:hover {
-            background-color: rgba(102, 126, 234, 0.05);
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .inventory-table tbody tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-        
-        .inventory-table tbody tr.editing {
-            background-color: #fff3cd !important;
-            border-left: 4px solid #ffc107;
-        }
-        
-        /* Grouped row styles */
-        .inventory-table tbody tr.grouped {
-            background-color: #e8f5e8 !important;
-            border-left: 4px solid #28a745;
-        }
-        
-        .inventory-table tbody tr.grouped:hover {
-            background-color: #d4f4d4 !important;
-        }
-        
-        /* Button styles */
-        .button-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            align-items: center;
-        }
-        
-        .expand-button {
-            background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 8px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .expand-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        
-        /* Label styles in table */
-        .received-label, .total-label {
-            display: inline-block;
-            min-width: 60px;
-            padding: 8px 12px;
-            text-align: center;
-            font-weight: 500;
-            color: #495057;
-            background: #f8f9fa;
-            border-radius: 6px;
-            border: 1px solid #e9ecef;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .received-label.empty, .total-label.empty {
-            color: #adb5bd;
-            font-style: italic;
-        }
-        
-        /* Input styles when editing */
-        .received-input, .total-input {
-            width: 80px;
-            padding: 6px 8px;
-            border: 2px solid #007bff;
-            border-radius: 6px;
-            text-align: center;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            background: #fff;
-        }
-        
-        .received-input:focus, .total-input:focus {
-            border-color: #0056b3;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-            outline: none;
-        }
-        
-        /* Toggle button styles */
-        .toggle-grouping-btn {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 15px;
-            font-size: 14px;
-            cursor: pointer;
-            margin-right: 10px;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-        
-        .toggle-grouping-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-        }
-        
-        .toggle-grouping-btn.enabled {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        }
-        
-        /* Loading states */
-        .loading-row {
-            background: linear-gradient(90deg, #f0f0f0 25%, transparent 37%, #f0f0f0 63%);
-            background-size: 400% 100%;
-            animation: loading 1.4s ease-in-out infinite;
-        }
-        
-        @keyframes loading {
-            0% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Hide number input spinners */
-        input[type=number]::-webkit-outer-spin-button,
-        input[type=number]::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        
-        input[type=number] {
-            -moz-appearance: textfield;
-            appearance: none;
-        }
-        
-        /* Responsive design */
-        @media (max-width: 768px) {
+        <!-- The core Firebase JS SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <!-- The Firebase storage SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+        <!-- The Firebase firestore SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+        <!-- Load jQuery from a CDN -->
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+
+        <!-- Main CSS -->
+        <link rel="stylesheet" href="../main.css" />
+
+        <!-- Navigation Manager - Load trước khi load page scripts -->
+        <script src="../js/navigation.js"></script>
+        <script src="../js/common-utils.js"></script>
+
+        <style>
+            /* Enhanced styles for inventory management with grouping */
+            .inventory-container {
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            .filter-section {
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 20px;
+                margin: 20px 0;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+
             .filter-group {
-                grid-template-columns: 1fr;
-                gap: 15px;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+                align-items: end;
             }
-            
+
+            .filter-group label {
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 5px;
+                display: block;
+            }
+
+            .filter-group select,
+            .filter-group input {
+                padding: 10px 12px;
+                border: 2px solid #e9ecef;
+                border-radius: 8px;
+                font-size: 14px;
+                transition: all 0.3s ease;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .filter-group select:focus,
+            .filter-group input:focus {
+                border-color: #007bff;
+                box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+                outline: none;
+            }
+
+            .table-container {
+                background: white;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                margin: 20px 0;
+            }
+
             .inventory-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 14px;
+            }
+
+            .inventory-table thead {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }
+
+            .inventory-table th {
+                padding: 15px 10px;
+                text-align: center;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
                 font-size: 12px;
+                position: sticky;
+                top: 0;
+                z-index: 10;
             }
-            
-            .inventory-table th,
+
             .inventory-table td {
-                padding: 8px 6px;
+                padding: 12px 10px;
+                text-align: center;
+                border-bottom: 1px solid #e9ecef;
+                vertical-align: middle;
             }
-            
+
+            .inventory-table tbody tr {
+                transition: all 0.3s ease;
+            }
+
+            .inventory-table tbody tr:hover {
+                background-color: rgba(102, 126, 234, 0.05);
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+
+            .inventory-table tbody tr:nth-child(even) {
+                background-color: #f8f9fa;
+            }
+
+            .inventory-table tbody tr.editing {
+                background-color: #fff3cd !important;
+                border-left: 4px solid #ffc107;
+            }
+
+            /* Grouped row styles */
+            .inventory-table tbody tr.grouped {
+                background-color: #e8f5e8 !important;
+                border-left: 4px solid #28a745;
+            }
+
+            .inventory-table tbody tr.grouped:hover {
+                background-color: #d4f4d4 !important;
+            }
+
+            /* Button styles */
             .button-group {
-                flex-direction: row;
-                gap: 2px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                align-items: center;
             }
-        }
-    </style>
-</head>
 
-<body>
-    <!-- Top buttons -->
-    <div class="top-buttons" style="display: flex; gap: 10px; margin: 20px; justify-content: center; flex-wrap: wrap;">
-        <button id="toggleGroupingButton" class="toggle-grouping-btn">Tắt gộp NCC</button>
-        <button id="toggleFormButton" style="background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%); color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer;">Làm mới dữ liệu</button>
-        <button id="exportButton" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer;">Xuất Excel</button>
-        <button id="toggleLogoutButton" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer;">Đăng xuất</button>
-    </div>
+            .expand-button {
+                background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%);
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
 
-    <!-- Main content -->
-    <div class="main-content">
-        <div class="header" style="text-align: center; margin: 20px 0;">
-            <div id="parentContainer">
-                <h1 class="tieude" style="color: #333; font-size: 28px; margin: 0;">BẢNG KIỂM HÀNG - GỘP THEO NCC</h1>
+            .expand-button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            }
+
+            /* Label styles in table */
+            .received-label,
+            .total-label {
+                display: inline-block;
+                min-width: 60px;
+                padding: 8px 12px;
+                text-align: center;
+                font-weight: 500;
+                color: #495057;
+                background: #f8f9fa;
+                border-radius: 6px;
+                border: 1px solid #e9ecef;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+
+            .received-label.empty,
+            .total-label.empty {
+                color: #adb5bd;
+                font-style: italic;
+            }
+
+            /* Input styles when editing */
+            .received-input,
+            .total-input {
+                width: 80px;
+                padding: 6px 8px;
+                border: 2px solid #007bff;
+                border-radius: 6px;
+                text-align: center;
+                font-weight: 500;
+                transition: all 0.3s ease;
+                background: #fff;
+            }
+
+            .received-input:focus,
+            .total-input:focus {
+                border-color: #0056b3;
+                box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+                outline: none;
+            }
+
+            /* Toggle button styles */
+            .toggle-grouping-btn {
+                background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 15px;
+                font-size: 14px;
+                cursor: pointer;
+                margin-right: 10px;
+                transition: all 0.3s ease;
+                font-weight: 500;
+            }
+
+            .toggle-grouping-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+            }
+
+            .toggle-grouping-btn.enabled {
+                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            }
+
+            /* Loading states */
+            .loading-row {
+                background: linear-gradient(
+                    90deg,
+                    #f0f0f0 25%,
+                    transparent 37%,
+                    #f0f0f0 63%
+                );
+                background-size: 400% 100%;
+                animation: loading 1.4s ease-in-out infinite;
+            }
+
+            @keyframes loading {
+                0% {
+                    background-position: 100% 50%;
+                }
+                100% {
+                    background-position: 0% 50%;
+                }
+            }
+
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+
+            /* Hide number input spinners */
+            input[type="number"]::-webkit-outer-spin-button,
+            input[type="number"]::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+
+            input[type="number"] {
+                -moz-appearance: textfield;
+                appearance: none;
+            }
+
+            /* Responsive design */
+            @media (max-width: 768px) {
+                .filter-group {
+                    grid-template-columns: 1fr;
+                    gap: 15px;
+                }
+
+                .inventory-table {
+                    font-size: 12px;
+                }
+
+                .inventory-table th,
+                .inventory-table td {
+                    padding: 8px 6px;
+                }
+
+                .button-group {
+                    flex-direction: row;
+                    gap: 2px;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <!-- Top buttons -->
+        <div
+            class="top-buttons"
+            style="
+                display: flex;
+                gap: 10px;
+                margin: 20px;
+                justify-content: center;
+                flex-wrap: wrap;
+            "
+        >
+            <button id="toggleGroupingButton" class="toggle-grouping-btn">
+                Tắt gộp NCC
+            </button>
+            <button
+                id="toggleFormButton"
+                style="
+                    background: linear-gradient(
+                        135deg,
+                        #17a2b8 0%,
+                        #007bff 100%
+                    );
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 10px 15px;
+                    cursor: pointer;
+                "
+            >
+                Làm mới dữ liệu
+            </button>
+            <button
+                id="exportButton"
+                style="
+                    background: linear-gradient(
+                        135deg,
+                        #28a745 0%,
+                        #20c997 100%
+                    );
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 10px 15px;
+                    cursor: pointer;
+                "
+            >
+                Xuất Excel
+            </button>
+            <button
+                id="toggleLogoutButton"
+                style="
+                    background: linear-gradient(
+                        135deg,
+                        #6c757d 0%,
+                        #495057 100%
+                    );
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 10px 15px;
+                    cursor: pointer;
+                "
+            >
+                Đăng xuất
+            </button>
+        </div>
+
+        <!-- Main content -->
+        <div class="main-content">
+            <div class="header" style="text-align: center; margin: 20px 0">
+                <div id="parentContainer">
+                    <h1
+                        class="tieude"
+                        style="color: #333; font-size: 28px; margin: 0"
+                    >
+                        BẢNG KIỂM HÀNG - GỘP THEO NCC
+                    </h1>
+                </div>
+            </div>
+
+            <div class="inventory-container">
+                <!-- Filter Section -->
+                <div class="filter-section">
+                    <h3
+                        style="
+                            margin: 0 0 15px 0;
+                            color: #495057;
+                            font-weight: 600;
+                        "
+                    >
+                        Bộ lọc dữ liệu
+                        <span
+                            id="groupingIndicator"
+                            style="
+                                background: #007bff;
+                                color: white;
+                                padding: 2px 8px;
+                                border-radius: 4px;
+                                font-size: 11px;
+                                margin-left: 10px;
+                            "
+                        >
+                            GỘP THEO NCC
+                        </span>
+                    </h3>
+                    <div class="filter-group">
+                        <div>
+                            <label for="filterSupplier"
+                                >Chọn nhà cung cấp:</label
+                            >
+                            <select id="filterSupplier">
+                                <option value="all">Tất cả</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="dateFilter">Lọc ngày nhận hàng:</label>
+                            <select id="dateFilter">
+                                <option value="all">Tất cả</option>
+                                <option value="today">Hôm nay</option>
+                                <option value="week">Tuần này</option>
+                                <option value="month">Tháng này</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="filterProduct">Lọc sản phẩm:</label>
+                            <input
+                                type="text"
+                                id="filterProduct"
+                                placeholder="Tìm kiếm theo tên hoặc mã sản phẩm..."
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Grouping explanation -->
+                    <div
+                        id="groupingExplanation"
+                        style="
+                            margin-top: 15px;
+                            padding: 12px;
+                            background: #e8f5e8;
+                            border: 1px solid #28a745;
+                            border-radius: 8px;
+                            font-size: 13px;
+                            color: #155724;
+                        "
+                    >
+                        <strong>📋 Chế độ gộp theo NCC:</strong> Tất cả các đơn
+                        hàng từ cùng nhà cung cấp sẽ được gộp lại thành một dòng
+                        để dễ theo dõi.
+                    </div>
+                </div>
+
+                <!-- Table Section -->
+                <div class="table-container">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%">Ngày đặt hàng</th>
+                                <th style="width: 10%">Ngày nhận hàng</th>
+                                <th style="width: 12%">Nhà cung cấp</th>
+                                <th style="width: 12%">Mã sản phẩm</th>
+                                <th style="width: 15%">Tên sản phẩm</th>
+                                <th style="width: 12%">Số lượng đặt</th>
+                                <th style="width: 10%">Thực nhận</th>
+                                <th style="width: 10%">Tổng nhận</th>
+                                <th style="width: 9%">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderTableBody">
+                            <tr class="loading-row">
+                                <td
+                                    colspan="9"
+                                    style="
+                                        text-align: center;
+                                        padding: 40px;
+                                        color: #6c757d;
+                                        font-style: italic;
+                                    "
+                                >
+                                    <div
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            gap: 10px;
+                                        "
+                                    >
+                                        <div
+                                            style="
+                                                width: 20px;
+                                                height: 20px;
+                                                border: 2px solid #f3f3f3;
+                                                border-top: 2px solid #007bff;
+                                                border-radius: 50%;
+                                                animation: spin 1s linear
+                                                    infinite;
+                                            "
+                                        ></div>
+                                        Đang tải dữ liệu kiểm hàng từ
+                                        Firebase...
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Statistics Section -->
+                <div class="filter-section" style="margin-top: 30px">
+                    <h3
+                        style="
+                            margin: 0 0 15px 0;
+                            color: #495057;
+                            font-weight: 600;
+                        "
+                    >
+                        Thống kê nhanh
+                    </h3>
+                    <div
+                        class="filter-group"
+                        style="
+                            grid-template-columns: repeat(
+                                auto-fit,
+                                minmax(200px, 1fr)
+                            );
+                        "
+                    >
+                        <div
+                            style="
+                                text-align: center;
+                                padding: 15px;
+                                background: linear-gradient(
+                                    135deg,
+                                    #667eea 0%,
+                                    #764ba2 100%
+                                );
+                                color: white;
+                                border-radius: 8px;
+                            "
+                        >
+                            <div
+                                style="font-size: 24px; font-weight: bold"
+                                id="totalProducts"
+                            >
+                                0
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9">
+                                Tổng sản phẩm
+                            </div>
+                        </div>
+                        <div
+                            style="
+                                text-align: center;
+                                padding: 15px;
+                                background: linear-gradient(
+                                    135deg,
+                                    #28a745 0%,
+                                    #20c997 100%
+                                );
+                                color: white;
+                                border-radius: 8px;
+                            "
+                        >
+                            <div
+                                style="font-size: 24px; font-weight: bold"
+                                id="completedProducts"
+                            >
+                                0
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9">
+                                Đã hoàn thành
+                            </div>
+                        </div>
+                        <div
+                            style="
+                                text-align: center;
+                                padding: 15px;
+                                background: linear-gradient(
+                                    135deg,
+                                    #ffc107 0%,
+                                    #fd7e14 100%
+                                );
+                                color: white;
+                                border-radius: 8px;
+                            "
+                        >
+                            <div
+                                style="font-size: 24px; font-weight: bold"
+                                id="partialProducts"
+                            >
+                                0
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9">
+                                Nhận một phần
+                            </div>
+                        </div>
+                        <div
+                            style="
+                                text-align: center;
+                                padding: 15px;
+                                background: linear-gradient(
+                                    135deg,
+                                    #dc3545 0%,
+                                    #c82333 100%
+                                );
+                                color: white;
+                                border-radius: 8px;
+                            "
+                        >
+                            <div
+                                style="font-size: 24px; font-weight: bold"
+                                id="pendingProducts"
+                            >
+                                0
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9">
+                                Chưa nhận
+                            </div>
+                        </div>
+                        <div
+                            style="
+                                text-align: center;
+                                padding: 15px;
+                                background: linear-gradient(
+                                    135deg,
+                                    #17a2b8 0%,
+                                    #007bff 100%
+                                );
+                                color: white;
+                                border-radius: 8px;
+                            "
+                        >
+                            <div
+                                style="font-size: 24px; font-weight: bold"
+                                id="groupedItems"
+                            >
+                                0
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9">
+                                Mục đã gộp
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="inventory-container">
-            <!-- Filter Section -->
-            <div class="filter-section">
-                <h3 style="margin: 0 0 15px 0; color: #495057; font-weight: 600;">
-                    Bộ lọc dữ liệu
-                    <span id="groupingIndicator" style="background: #007bff; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px;">
-                        GỘP THEO NCC
-                    </span>
-                </h3>
-                <div class="filter-group">
-                    <div>
-                        <label for="filterSupplier">Chọn nhà cung cấp:</label>
-                        <select id="filterSupplier">
-                            <option value="all">Tất cả</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="dateFilter">Lọc ngày nhận hàng:</label>
-                        <select id="dateFilter">
-                            <option value="all">Tất cả</option>
-                            <option value="today">Hôm nay</option>
-                            <option value="week">Tuần này</option>
-                            <option value="month">Tháng này</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="filterProduct">Lọc sản phẩm:</label>
-                        <input type="text" id="filterProduct" placeholder="Tìm kiếm theo tên hoặc mã sản phẩm...">
-                    </div>
+        <!-- Enhanced Floating Alert -->
+        <div id="floatingAlert">
+            <div class="alert-content">
+                <div class="loading-spinner" style="display: none">
+                    <div class="spinner"></div>
                 </div>
-                
-                <!-- Grouping explanation -->
-                <div id="groupingExplanation" style="margin-top: 15px; padding: 12px; background: #e8f5e8; border: 1px solid #28a745; border-radius: 8px; font-size: 13px; color: #155724;">
-                    <strong>📋 Chế độ gộp theo NCC:</strong> Tất cả các đơn hàng từ cùng nhà cung cấp sẽ được gộp lại thành một dòng để dễ theo dõi.
-                </div>
-            </div>
-
-            <!-- Table Section -->
-            <div class="table-container">
-                <table class="inventory-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 10%;">Ngày đặt hàng</th>
-                            <th style="width: 10%;">Ngày nhận hàng</th>
-                            <th style="width: 12%;">Nhà cung cấp</th>
-                            <th style="width: 12%;">Mã sản phẩm</th>
-                            <th style="width: 15%;">Tên sản phẩm</th>
-                            <th style="width: 12%;">Số lượng đặt</th>
-                            <th style="width: 10%;">Thực nhận</th>
-                            <th style="width: 10%;">Tổng nhận</th>
-                            <th style="width: 9%;">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody id="orderTableBody">
-                        <tr class="loading-row">
-                            <td colspan="9" style="text-align: center; padding: 40px; color: #6c757d; font-style: italic;">
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                                    <div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                                    Đang tải dữ liệu kiểm hàng từ Firebase...
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Statistics Section -->
-            <div class="filter-section" style="margin-top: 30px;">
-                <h3 style="margin: 0 0 15px 0; color: #495057; font-weight: 600;">Thống kê nhanh</h3>
-                <div class="filter-group" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px;">
-                        <div style="font-size: 24px; font-weight: bold;" id="totalProducts">0</div>
-                        <div style="font-size: 14px; opacity: 0.9;">Tổng sản phẩm</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 8px;">
-                        <div style="font-size: 24px; font-weight: bold;" id="completedProducts">0</div>
-                        <div style="font-size: 14px; opacity: 0.9;">Đã hoàn thành</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; border-radius: 8px;">
-                        <div style="font-size: 24px; font-weight: bold;" id="partialProducts">0</div>
-                        <div style="font-size: 14px; opacity: 0.9;">Nhận một phần</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; border-radius: 8px;">
-                        <div style="font-size: 24px; font-weight: bold;" id="pendingProducts">0</div>
-                        <div style="font-size: 14px; opacity: 0.9;">Chưa nhận</div>
-                    </div>
-                    <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%); color: white; border-radius: 8px;">
-                        <div style="font-size: 24px; font-weight: bold;" id="groupedItems">0</div>
-                        <div style="font-size: 14px; opacity: 0.9;">Mục đã gộp</div>
-                    </div>
-                </div>
+                <div class="alert-text">Thông báo hiển thị!</div>
             </div>
         </div>
-    </div>
-    
-    <!-- Enhanced Floating Alert -->
-    <div id="floatingAlert">
-        <div class="alert-content">
-            <div class="loading-spinner" style="display: none;">
-                <div class="spinner"></div>
-            </div>
-            <div class="alert-text">Thông báo hiển thị!</div>
-        </div>
-    </div>
-    
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay"></div>
-    
-    <!-- Blocking Overlay
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay"></div>
+
+        <!-- Blocking Overlay
     <div id="blockingOverlay"></div>
     -->
-    
-    <!-- Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
 
-    <!-- Load the inventory JavaScript -->
-    <script src="scriptObfuscator.js"></script>
-</body>
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
 
+        <!-- Load the inventory JavaScript -->
+        <script src="scriptObfuscator.js"></script>
+    </body>
 </html>

@@ -6,7 +6,7 @@
 // =====================================================
 
 // Cache configuration - using in-memory storage instead of localStorage
-const CACHE_KEY = 'loginindex_auth';
+const CACHE_KEY = "loginindex_auth";
 const CACHE_EXPIRY = 10 * 60 * 1000; // 10 minutes
 const BATCH_SIZE = 50; // Smaller batch size for better performance
 const MAX_VISIBLE_ROWS = 500; // Reduced limit
@@ -162,9 +162,9 @@ input[type=number].quantity-input {
 `;
 
 // Add styles to head if not already present
-if (!document.getElementById('hideSpinnerStyles')) {
-    const styleElement = document.createElement('div');
-    styleElement.id = 'hideSpinnerStyles';
+if (!document.getElementById("hideSpinnerStyles")) {
+    const styleElement = document.createElement("div");
+    styleElement.id = "hideSpinnerStyles";
     styleElement.innerHTML = hideSpinnerStyles;
     document.head.appendChild(styleElement);
 }
@@ -172,22 +172,22 @@ if (!document.getElementById('hideSpinnerStyles')) {
 // In-memory cache object (replaces localStorage)
 let memoryCache = {
     data: null,
-    timestamp: null
+    timestamp: null,
 };
 
 // Create file metadata to update
 var newMetadata = {
-    cacheControl: 'public,max-age=31536000',
-}
+    cacheControl: "public,max-age=31536000",
+};
 
 const firebaseConfig = {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com", 
+    authDomain: "n2shop-69e37.firebaseapp.com",
     projectId: "n2shop-69e37",
     storageBucket: "n2shop-69e37-ne0q1",
     messagingSenderId: "598906493303",
     appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D"
+    measurementId: "G-TEJH3S2T1D",
 };
 
 // Initialize Firebase
@@ -198,48 +198,50 @@ const collectionRef = db.collection("nhanhang");
 const historyCollectionRef = db.collection("edit_history");
 
 // DOM Elements
-const tbody = document.getElementById('receiptTableBody');
-const receiptForm = document.getElementById('receiptForm');
-const tenNguoiNhanInput = document.getElementById('tenNguoiNhan');
-const soKgInput = document.getElementById('soKg');
-const soKienInput = document.getElementById('soKien');
+const tbody = document.getElementById("receiptTableBody");
+const receiptForm = document.getElementById("receiptForm");
+const tenNguoiNhanInput = document.getElementById("tenNguoiNhan");
+const soKgInput = document.getElementById("soKg");
+const soKienInput = document.getElementById("soKien");
 
 // Camera elements
-const cameraPreview = document.getElementById('cameraPreview');
-const cameraVideo = document.getElementById('cameraVideo');
-const cameraCanvas = document.getElementById('cameraCanvas');
-const startCameraButton = document.getElementById('startCamera');
-const takePictureButton = document.getElementById('takePicture');
-const retakePictureButton = document.getElementById('retakePicture');
-const imageDisplayArea = document.getElementById('imageDisplayArea');
+const cameraPreview = document.getElementById("cameraPreview");
+const cameraVideo = document.getElementById("cameraVideo");
+const cameraCanvas = document.getElementById("cameraCanvas");
+const startCameraButton = document.getElementById("startCamera");
+const takePictureButton = document.getElementById("takePicture");
+const retakePictureButton = document.getElementById("retakePicture");
+const imageDisplayArea = document.getElementById("imageDisplayArea");
 
 // Edit modal elements
-const editModal = document.getElementById('editModal');
-const editForm = document.getElementById('editForm');
-const editReceiptId = document.getElementById('editReceiptId');
-const editTenNguoiNhanInput = document.getElementById('editTenNguoiNhan');
-const editSoKgInput = document.getElementById('editSoKg');
-const editSoKienInput = document.getElementById('editSoKien');
-const closeEditModal = document.getElementById('closeEditModal');
-const cancelEditButton = document.getElementById('cancelEditButton');
-const updateButton = document.getElementById('updateButton');
+const editModal = document.getElementById("editModal");
+const editForm = document.getElementById("editForm");
+const editReceiptId = document.getElementById("editReceiptId");
+const editTenNguoiNhanInput = document.getElementById("editTenNguoiNhan");
+const editSoKgInput = document.getElementById("editSoKg");
+const editSoKienInput = document.getElementById("editSoKien");
+const closeEditModal = document.getElementById("closeEditModal");
+const cancelEditButton = document.getElementById("cancelEditButton");
+const updateButton = document.getElementById("updateButton");
 
 // Edit camera elements
-const editCameraPreview = document.getElementById('editCameraPreview');
-const editCameraVideo = document.getElementById('editCameraVideo');
-const editCameraCanvas = document.getElementById('editCameraCanvas');
-const editStartCameraButton = document.getElementById('editStartCamera');
-const editTakePictureButton = document.getElementById('editTakePicture');
-const editRetakePictureButton = document.getElementById('editRetakePicture');
-const editKeepCurrentImageButton = document.getElementById('editKeepCurrentImage');
-const editImageDisplayArea = document.getElementById('editImageDisplayArea');
-const currentImageContainer = document.getElementById('currentImageContainer');
+const editCameraPreview = document.getElementById("editCameraPreview");
+const editCameraVideo = document.getElementById("editCameraVideo");
+const editCameraCanvas = document.getElementById("editCameraCanvas");
+const editStartCameraButton = document.getElementById("editStartCamera");
+const editTakePictureButton = document.getElementById("editTakePicture");
+const editRetakePictureButton = document.getElementById("editRetakePicture");
+const editKeepCurrentImageButton = document.getElementById(
+    "editKeepCurrentImage",
+);
+const editImageDisplayArea = document.getElementById("editImageDisplayArea");
+const currentImageContainer = document.getElementById("currentImageContainer");
 
 // Filter elements
-const filterUserSelect = document.getElementById('filterUser');
-const dateFilterSelect = document.getElementById('dateFilter');
-const filterWeightInput = document.getElementById('filterWeight');
-const filterQuantInput = document.getElementById('filterQuant');
+const filterUserSelect = document.getElementById("filterUser");
+const dateFilterSelect = document.getElementById("dateFilter");
+const filterWeightInput = document.getElementById("filterWeight");
+const filterQuantInput = document.getElementById("filterQuant");
 
 // Global variables
 var capturedImageUrl = null;
@@ -252,9 +254,9 @@ var cameraStream = null;
 var editCameraStream = null;
 let editingRow = null;
 let currentFilters = {
-    user: 'all',
-    date: 'all',
-    weight: ''
+    user: "all",
+    date: "all",
+    weight: "",
 };
 let filterTimeout = null;
 let isFilteringInProgress = false;
@@ -264,7 +266,7 @@ let isFilteringInProgress = false;
 // =====================================================
 
 // User authentication state - using consistent storage
-const AUTH_STORAGE_KEY = 'loginindex_auth';
+const AUTH_STORAGE_KEY = "loginindex_auth";
 let authState = null;
 
 function getAuthState() {
@@ -274,25 +276,31 @@ function getAuthState() {
             authState = JSON.parse(stored);
             return authState;
         }
-        
+
         // Fallback to legacy system for compatibility
-        const legacyLogin = localStorage.getItem('isLoggedIn') || sessionStorage.getItem('isLoggedIn');
-        const legacyUserType = localStorage.getItem('userType') || sessionStorage.getItem('userType');
-        const legacyCheckLogin = localStorage.getItem('checkLogin') || sessionStorage.getItem('checkLogin');
-        
+        const legacyLogin =
+            localStorage.getItem("isLoggedIn") ||
+            sessionStorage.getItem("isLoggedIn");
+        const legacyUserType =
+            localStorage.getItem("userType") ||
+            sessionStorage.getItem("userType");
+        const legacyCheckLogin =
+            localStorage.getItem("checkLogin") ||
+            sessionStorage.getItem("checkLogin");
+
         if (legacyLogin) {
             const migratedAuth = {
                 isLoggedIn: legacyLogin,
                 userType: legacyUserType,
                 checkLogin: legacyCheckLogin,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
             setAuthState(legacyLogin, legacyUserType, legacyCheckLogin);
             clearLegacyAuth();
             return migratedAuth;
         }
     } catch (error) {
-        console.error('Error reading auth state:', error);
+        console.error("Error reading auth state:", error);
         clearAuthState();
     }
     return null;
@@ -303,13 +311,13 @@ function setAuthState(isLoggedIn, userType, checkLogin) {
         isLoggedIn: isLoggedIn,
         userType: userType,
         checkLogin: checkLogin,
-        timestamp: Date.now()
+        timestamp: Date.now(),
     };
-    
+
     try {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
     } catch (error) {
-        console.error('Error saving auth state:', error);
+        console.error("Error saving auth state:", error);
     }
 }
 
@@ -319,37 +327,37 @@ function clearAuthState() {
         localStorage.removeItem(AUTH_STORAGE_KEY);
         clearLegacyAuth();
     } catch (error) {
-        console.error('Error clearing auth state:', error);
+        console.error("Error clearing auth state:", error);
     }
 }
 
 function clearLegacyAuth() {
     try {
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userType'); 
-        localStorage.removeItem('checkLogin');
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
         sessionStorage.clear();
     } catch (error) {
-        console.error('Error clearing legacy auth:', error);
+        console.error("Error clearing legacy auth:", error);
     }
 }
 
 function isAuthenticated() {
     const auth = getAuthState();
-    return auth && auth.isLoggedIn === 'true';
+    return auth && auth.isLoggedIn === "true";
 }
 
 function hasPermission(requiredLevel) {
     const auth = getAuthState();
     if (!auth) return false;
-    
+
     const userLevel = parseInt(auth.checkLogin);
     return userLevel <= requiredLevel; // Lower number = higher permission
 }
 
 function getUserName() {
     const auth = getAuthState();
-    return auth && auth.userType ? auth.userType.split('-')[0] : 'Unknown';
+    return auth && auth.userType ? auth.userType.split("-")[0] : "Unknown";
 }
 
 // =====================================================
@@ -368,7 +376,7 @@ function getCachedData() {
             }
         }
     } catch (e) {
-        console.warn('Error accessing cache:', e);
+        console.warn("Error accessing cache:", e);
         invalidateCache();
     }
     return null;
@@ -381,7 +389,7 @@ function setCachedData(data) {
         memoryCache.timestamp = Date.now();
         console.log("Data sorted and cached successfully");
     } catch (e) {
-        console.warn('Cannot cache data:', e);
+        console.warn("Cannot cache data:", e);
     }
 }
 
@@ -396,27 +404,27 @@ function invalidateCache() {
 // =====================================================
 
 function sanitizeInput(input) {
-    if (typeof input !== 'string') return '';
-    return input.replace(/[<>"'&]/g, '').trim(); // Enhanced XSS protection
+    if (typeof input !== "string") return "";
+    return input.replace(/[<>"'&]/g, "").trim(); // Enhanced XSS protection
 }
 
 function numberWithCommas(x) {
-    if (!x && x !== 0) return '0';
+    if (!x && x !== 0) return "0";
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function formatDate(date) {
-    if (!date || !(date instanceof Date)) return '';
-    
+    if (!date || !(date instanceof Date)) return "";
+
     const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
     return `${day}/${month}/${year}`;
 }
 
 function formatCurrency(amount) {
-    if (!amount && amount !== 0) return '0 kg';
-    return numberWithCommas(amount) + ' kg';
+    if (!amount && amount !== 0) return "0 kg";
+    return numberWithCommas(amount) + " kg";
 }
 
 // Debounced function factory
@@ -445,7 +453,7 @@ function generateUniqueID() {
 
 // Function to generate unique filename
 function generateUniqueFileName() {
-    return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.jpg';
+    return Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".jpg";
 }
 
 // =====================================================
@@ -455,11 +463,11 @@ function generateUniqueFileName() {
 // Get formatted current date and time
 function getFormattedDateTime() {
     const currentDate = new Date();
-    const day = currentDate.getDate().toString().padStart(2, '0');
-    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = currentDate.getDate().toString().padStart(2, "0");
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, "0");
     const year = currentDate.getFullYear();
-    const hour = currentDate.getHours().toString().padStart(2, '0');
-    const minute = currentDate.getMinutes().toString().padStart(2, '0');
+    const hour = currentDate.getHours().toString().padStart(2, "0");
+    const minute = currentDate.getMinutes().toString().padStart(2, "0");
     return `${day}/${month}/${year}, ${hour}:${minute}`;
 }
 
@@ -468,17 +476,17 @@ function setCurrentUserName() {
     if (tenNguoiNhanInput) {
         const userName = getUserName();
         tenNguoiNhanInput.value = userName;
-        tenNguoiNhanInput.setAttribute('readonly', true);
+        tenNguoiNhanInput.setAttribute("readonly", true);
     }
 }
 
 // Input validation for weight
 function initializeInputValidation() {
     if (soKgInput) {
-        soKgInput.addEventListener('input', function() {
+        soKgInput.addEventListener("input", function () {
             const enteredValue = parseFloat(soKgInput.value);
             if (enteredValue < 0) {
-                soKgInput.value = '0';
+                soKgInput.value = "0";
             }
         });
     }
@@ -491,32 +499,32 @@ function initializeInputValidation() {
 // Initialize camera system
 function initializeCameraSystem() {
     if (startCameraButton) {
-        startCameraButton.addEventListener('click', startCamera);
+        startCameraButton.addEventListener("click", startCamera);
     }
-    
+
     if (takePictureButton) {
-        takePictureButton.addEventListener('click', takePicture);
+        takePictureButton.addEventListener("click", takePicture);
     }
-    
+
     if (retakePictureButton) {
-        retakePictureButton.addEventListener('click', retakePicture);
+        retakePictureButton.addEventListener("click", retakePicture);
     }
 
     // Edit camera events
     if (editStartCameraButton) {
-        editStartCameraButton.addEventListener('click', startEditCamera);
+        editStartCameraButton.addEventListener("click", startEditCamera);
     }
-    
+
     if (editTakePictureButton) {
-        editTakePictureButton.addEventListener('click', takeEditPicture);
+        editTakePictureButton.addEventListener("click", takeEditPicture);
     }
-    
+
     if (editRetakePictureButton) {
-        editRetakePictureButton.addEventListener('click', retakeEditPicture);
+        editRetakePictureButton.addEventListener("click", retakeEditPicture);
     }
 
     if (editKeepCurrentImageButton) {
-        editKeepCurrentImageButton.addEventListener('click', keepCurrentImage);
+        editKeepCurrentImageButton.addEventListener("click", keepCurrentImage);
     }
 }
 
@@ -524,22 +532,22 @@ function initializeCameraSystem() {
 async function startCamera() {
     try {
         showLoading("Đang khởi động camera...");
-        
+
         const constraints = {
             video: {
                 width: { ideal: 1280 },
                 height: { ideal: 720 },
-                facingMode: 'environment' // Use back camera if available
-            }
+                facingMode: "environment", // Use back camera if available
+            },
         };
-        
+
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
+
         if (cameraVideo) {
             cameraVideo.srcObject = cameraStream;
             cameraVideo.play();
-            
-            cameraVideo.addEventListener('loadedmetadata', () => {
+
+            cameraVideo.addEventListener("loadedmetadata", () => {
                 // Adjust canvas size to match video
                 if (cameraCanvas) {
                     cameraCanvas.width = cameraVideo.videoWidth;
@@ -547,28 +555,27 @@ async function startCamera() {
                 }
             });
         }
-        
+
         // Update UI
-        if (startCameraButton) startCameraButton.style.display = 'none';
-        if (takePictureButton) takePictureButton.style.display = 'inline-flex';
-        if (cameraPreview) cameraPreview.style.display = 'block';
-        
+        if (startCameraButton) startCameraButton.style.display = "none";
+        if (takePictureButton) takePictureButton.style.display = "inline-flex";
+        if (cameraPreview) cameraPreview.style.display = "block";
+
         hideFloatingAlert();
         showSuccess("Camera đã sẵn sàng!");
-        
     } catch (error) {
-        console.error('Error accessing camera:', error);
+        console.error("Error accessing camera:", error);
         hideFloatingAlert();
-        
+
         let errorMessage = "Không thể truy cập camera. ";
-        if (error.name === 'NotAllowedError') {
+        if (error.name === "NotAllowedError") {
             errorMessage += "Vui lòng cho phép truy cập camera.";
-        } else if (error.name === 'NotFoundError') {
+        } else if (error.name === "NotFoundError") {
             errorMessage += "Không tìm thấy camera.";
         } else {
             errorMessage += "Lỗi: " + error.message;
         }
-        
+
         showError(errorMessage);
     }
 }
@@ -579,34 +586,37 @@ function takePicture() {
         showError("Camera chưa sẵn sàng!");
         return;
     }
-    
+
     try {
         const canvas = cameraCanvas;
-        const context = canvas.getContext('2d');
-        
+        const context = canvas.getContext("2d");
+
         // Draw current video frame to canvas
         context.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-        
+
         // Convert to blob
-        canvas.toBlob((blob) => {
-            if (blob) {
-                capturedImageBlob = blob;
-                capturedImageUrl = URL.createObjectURL(blob);
-                
-                // Display captured image
-                displayCapturedImage();
-                
-                // Stop camera
-                stopCamera();
-                
-                showSuccess("Đã chụp ảnh thành công!");
-            } else {
-                showError("Không thể chụp ảnh!");
-            }
-        }, 'image/jpeg', 0.8);
-        
+        canvas.toBlob(
+            (blob) => {
+                if (blob) {
+                    capturedImageBlob = blob;
+                    capturedImageUrl = URL.createObjectURL(blob);
+
+                    // Display captured image
+                    displayCapturedImage();
+
+                    // Stop camera
+                    stopCamera();
+
+                    showSuccess("Đã chụp ảnh thành công!");
+                } else {
+                    showError("Không thể chụp ảnh!");
+                }
+            },
+            "image/jpeg",
+            0.8,
+        );
     } catch (error) {
-        console.error('Error taking picture:', error);
+        console.error("Error taking picture:", error);
         showError("Lỗi khi chụp ảnh: " + error.message);
     }
 }
@@ -614,19 +624,20 @@ function takePicture() {
 // Display captured image
 function displayCapturedImage() {
     if (imageDisplayArea && capturedImageUrl) {
-        imageDisplayArea.innerHTML = '';
-        
-        const img = document.createElement('img');
+        imageDisplayArea.innerHTML = "";
+
+        const img = document.createElement("img");
         img.src = capturedImageUrl;
-        img.alt = 'Ảnh đã chụp';
-        img.className = 'captured-image';
-        
+        img.alt = "Ảnh đã chụp";
+        img.className = "captured-image";
+
         imageDisplayArea.appendChild(img);
-        imageDisplayArea.classList.add('has-content');
-        
+        imageDisplayArea.classList.add("has-content");
+
         // Update UI
-        if (takePictureButton) takePictureButton.style.display = 'none';
-        if (retakePictureButton) retakePictureButton.style.display = 'inline-flex';
+        if (takePictureButton) takePictureButton.style.display = "none";
+        if (retakePictureButton)
+            retakePictureButton.style.display = "inline-flex";
     }
 }
 
@@ -635,32 +646,33 @@ function retakePicture() {
     // Clear captured image
     capturedImageUrl = null;
     capturedImageBlob = null;
-    
+
     if (imageDisplayArea) {
-        imageDisplayArea.innerHTML = '<p>📷 Ảnh sẽ hiển thị ở đây sau khi chụp</p>';
-        imageDisplayArea.classList.remove('has-content');
+        imageDisplayArea.innerHTML =
+            "<p>📷 Ảnh sẽ hiển thị ở đây sau khi chụp</p>";
+        imageDisplayArea.classList.remove("has-content");
     }
-    
+
     // Show start camera button again
-    if (startCameraButton) startCameraButton.style.display = 'inline-flex';
-    if (takePictureButton) takePictureButton.style.display = 'none';
-    if (retakePictureButton) retakePictureButton.style.display = 'none';
-    if (cameraPreview) cameraPreview.style.display = 'none';
+    if (startCameraButton) startCameraButton.style.display = "inline-flex";
+    if (takePictureButton) takePictureButton.style.display = "none";
+    if (retakePictureButton) retakePictureButton.style.display = "none";
+    if (cameraPreview) cameraPreview.style.display = "none";
 }
 
 // Stop camera
 function stopCamera() {
     if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream.getTracks().forEach((track) => track.stop());
         cameraStream = null;
     }
-    
+
     if (cameraVideo) {
         cameraVideo.srcObject = null;
     }
-    
+
     if (cameraPreview) {
-        cameraPreview.style.display = 'none';
+        cameraPreview.style.display = "none";
     }
 }
 
@@ -672,42 +684,45 @@ function stopCamera() {
 async function startEditCamera() {
     try {
         showLoading("Đang khởi động camera...");
-        
+
         const constraints = {
             video: {
                 width: { ideal: 1280 },
                 height: { ideal: 720 },
-                facingMode: 'environment'
-            }
+                facingMode: "environment",
+            },
         };
-        
-        editCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
+
+        editCameraStream =
+            await navigator.mediaDevices.getUserMedia(constraints);
+
         if (editCameraVideo) {
             editCameraVideo.srcObject = editCameraStream;
             editCameraVideo.play();
-            
-            editCameraVideo.addEventListener('loadedmetadata', () => {
+
+            editCameraVideo.addEventListener("loadedmetadata", () => {
                 if (editCameraCanvas) {
                     editCameraCanvas.width = editCameraVideo.videoWidth;
                     editCameraCanvas.height = editCameraVideo.videoHeight;
                 }
             });
         }
-        
+
         // Update UI
-        if (editStartCameraButton) editStartCameraButton.style.display = 'none';
-        if (editTakePictureButton) editTakePictureButton.style.display = 'inline-flex';
-        if (editRetakePictureButton) editRetakePictureButton.style.display = 'inline-flex';
-        if (editKeepCurrentImageButton) editKeepCurrentImageButton.style.display = 'inline-flex';
-        if (editCameraPreview) editCameraPreview.style.display = 'block';
-        if (editImageDisplayArea) editImageDisplayArea.style.display = 'flex';
-        
+        if (editStartCameraButton) editStartCameraButton.style.display = "none";
+        if (editTakePictureButton)
+            editTakePictureButton.style.display = "inline-flex";
+        if (editRetakePictureButton)
+            editRetakePictureButton.style.display = "inline-flex";
+        if (editKeepCurrentImageButton)
+            editKeepCurrentImageButton.style.display = "inline-flex";
+        if (editCameraPreview) editCameraPreview.style.display = "block";
+        if (editImageDisplayArea) editImageDisplayArea.style.display = "flex";
+
         hideFloatingAlert();
         showSuccess("Camera edit đã sẵn sàng!");
-        
     } catch (error) {
-        console.error('Error accessing edit camera:', error);
+        console.error("Error accessing edit camera:", error);
         hideFloatingAlert();
         showError("Không thể truy cập camera: " + error.message);
     }
@@ -719,30 +734,33 @@ function takeEditPicture() {
         showError("Camera chưa sẵn sàng!");
         return;
     }
-    
+
     try {
         const canvas = editCameraCanvas;
-        const context = canvas.getContext('2d');
-        
+        const context = canvas.getContext("2d");
+
         context.drawImage(editCameraVideo, 0, 0, canvas.width, canvas.height);
-        
-        canvas.toBlob((blob) => {
-            if (blob) {
-                editCapturedImageBlob = blob;
-                editCapturedImageUrl = URL.createObjectURL(blob);
-                editKeepCurrentImage = false;
-                
-                displayEditCapturedImage();
-                stopEditCamera();
-                
-                showSuccess("Đã chụp ảnh mới thành công!");
-            } else {
-                showError("Không thể chụp ảnh!");
-            }
-        }, 'image/jpeg', 0.8);
-        
+
+        canvas.toBlob(
+            (blob) => {
+                if (blob) {
+                    editCapturedImageBlob = blob;
+                    editCapturedImageUrl = URL.createObjectURL(blob);
+                    editKeepCurrentImage = false;
+
+                    displayEditCapturedImage();
+                    stopEditCamera();
+
+                    showSuccess("Đã chụp ảnh mới thành công!");
+                } else {
+                    showError("Không thể chụp ảnh!");
+                }
+            },
+            "image/jpeg",
+            0.8,
+        );
     } catch (error) {
-        console.error('Error taking edit picture:', error);
+        console.error("Error taking edit picture:", error);
         showError("Lỗi khi chụp ảnh: " + error.message);
     }
 }
@@ -750,16 +768,16 @@ function takeEditPicture() {
 // Display captured image for editing
 function displayEditCapturedImage() {
     if (editImageDisplayArea && editCapturedImageUrl) {
-        editImageDisplayArea.innerHTML = '';
-        
-        const img = document.createElement('img');
+        editImageDisplayArea.innerHTML = "";
+
+        const img = document.createElement("img");
         img.src = editCapturedImageUrl;
-        img.alt = 'Ảnh mới đã chụp';
-        img.className = 'captured-image';
-        
+        img.alt = "Ảnh mới đã chụp";
+        img.className = "captured-image";
+
         editImageDisplayArea.appendChild(img);
-        editImageDisplayArea.classList.add('has-content');
-        editImageDisplayArea.style.display = 'flex';
+        editImageDisplayArea.classList.add("has-content");
+        editImageDisplayArea.style.display = "flex";
     }
 }
 
@@ -767,12 +785,13 @@ function displayEditCapturedImage() {
 function retakeEditPicture() {
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
-    
+
     if (editImageDisplayArea) {
-        editImageDisplayArea.innerHTML = '<p>📷 Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>';
-        editImageDisplayArea.classList.remove('has-content');
+        editImageDisplayArea.innerHTML =
+            "<p>📷 Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>";
+        editImageDisplayArea.classList.remove("has-content");
     }
-    
+
     // Restart camera
     startEditCamera();
 }
@@ -782,48 +801,55 @@ function keepCurrentImage() {
     editKeepCurrentImage = true;
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
-    
-    console.log('Keeping current image. editCurrentImageUrl:', editCurrentImageUrl);
-    
+
+    console.log(
+        "Keeping current image. editCurrentImageUrl:",
+        editCurrentImageUrl,
+    );
+
     if (editImageDisplayArea) {
-        editImageDisplayArea.style.display = 'none';
-        editImageDisplayArea.innerHTML = '<p>📷 Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>';
-        editImageDisplayArea.classList.remove('has-content');
+        editImageDisplayArea.style.display = "none";
+        editImageDisplayArea.innerHTML =
+            "<p>📷 Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>";
+        editImageDisplayArea.classList.remove("has-content");
     }
-    
+
     stopEditCamera();
     resetEditCameraUI();
-    
+
     showSuccess("Sẽ giữ ảnh hiện tại!");
 }
 
 // Stop edit camera
 function stopEditCamera() {
     if (editCameraStream) {
-        editCameraStream.getTracks().forEach(track => track.stop());
+        editCameraStream.getTracks().forEach((track) => track.stop());
         editCameraStream = null;
     }
-    
+
     if (editCameraVideo) {
         editCameraVideo.srcObject = null;
     }
-    
+
     if (editCameraPreview) {
-        editCameraPreview.style.display = 'none';
+        editCameraPreview.style.display = "none";
     }
 }
 
 // Reset edit camera UI
 function resetEditCameraUI() {
-    if (editStartCameraButton) editStartCameraButton.style.display = 'inline-flex';
-    if (editTakePictureButton) editTakePictureButton.style.display = 'none';
-    if (editRetakePictureButton) editRetakePictureButton.style.display = 'none';
-    if (editKeepCurrentImageButton) editKeepCurrentImageButton.style.display = 'none';
-    if (editCameraPreview) editCameraPreview.style.display = 'none';
+    if (editStartCameraButton)
+        editStartCameraButton.style.display = "inline-flex";
+    if (editTakePictureButton) editTakePictureButton.style.display = "none";
+    if (editRetakePictureButton) editRetakePictureButton.style.display = "none";
+    if (editKeepCurrentImageButton)
+        editKeepCurrentImageButton.style.display = "none";
+    if (editCameraPreview) editCameraPreview.style.display = "none";
     if (editImageDisplayArea) {
-        editImageDisplayArea.style.display = 'none';
-        editImageDisplayArea.innerHTML = '<p>📷 Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>';
-        editImageDisplayArea.classList.remove('has-content');
+        editImageDisplayArea.style.display = "none";
+        editImageDisplayArea.innerHTML =
+            "<p>📷 Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>";
+        editImageDisplayArea.classList.remove("has-content");
     }
 }
 
@@ -836,33 +862,36 @@ async function uploadCapturedImage() {
     if (!capturedImageBlob) {
         return null; // No image captured
     }
-    
+
     try {
         const imageName = generateUniqueFileName();
         const imageRef = storageRef.child(`nhanhang/photos/` + imageName);
-        
+
         return new Promise((resolve, reject) => {
             const uploadTask = imageRef.put(capturedImageBlob, newMetadata);
-            
-            uploadTask.on('state_changed',
-                function(snapshot) {
+
+            uploadTask.on(
+                "state_changed",
+                function (snapshot) {
                     // Progress can be shown here if needed
                 },
-                function(error) {
-                    console.error('Error uploading image:', error);
+                function (error) {
+                    console.error("Error uploading image:", error);
                     reject(error);
                 },
-                function() {
-                    uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
-                        console.log('Image uploaded successfully');
-                        resolve(downloadURL);
-                    }).catch(reject);
-                }
+                function () {
+                    uploadTask.snapshot.ref
+                        .getDownloadURL()
+                        .then(function (downloadURL) {
+                            console.log("Image uploaded successfully");
+                            resolve(downloadURL);
+                        })
+                        .catch(reject);
+                },
             );
         });
-        
     } catch (error) {
-        console.error('Error in image upload process:', error);
+        console.error("Error in image upload process:", error);
         throw error;
     }
 }
@@ -871,7 +900,13 @@ async function uploadCapturedImage() {
 // LOGGING FUNCTIONS
 // =====================================================
 
-function logAction(action, description, oldData = null, newData = null, pageName = 'Nhận Hàng') {
+function logAction(
+    action,
+    description,
+    oldData = null,
+    newData = null,
+    pageName = "Nhận Hàng",
+) {
     const logEntry = {
         timestamp: new Date(),
         user: getUserName(),
@@ -880,11 +915,12 @@ function logAction(action, description, oldData = null, newData = null, pageName
         description: description,
         oldData: oldData,
         newData: newData,
-        id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+        id: Date.now() + "_" + Math.random().toString(36).substr(2, 9),
     };
 
     // Save to Firebase
-    historyCollectionRef.add(logEntry)
+    historyCollectionRef
+        .add(logEntry)
         .then(() => {
             console.log("Log entry saved successfully");
         })
@@ -899,21 +935,21 @@ function logAction(action, description, oldData = null, newData = null, pageName
 
 function sortDataByNewest(dataArray) {
     if (!Array.isArray(dataArray)) return dataArray;
-    
+
     return dataArray.sort((a, b) => {
         // Sort by receipt time first (newest first)
         const timeA = parseVietnameseDate(a.thoiGianNhan);
         const timeB = parseVietnameseDate(b.thoiGianNhan);
-        
+
         if (!timeA && !timeB) {
             const timestampA = extractTimestampFromId(a.id);
             const timestampB = extractTimestampFromId(b.id);
             return timestampB - timestampA;
         }
-        
+
         if (!timeA) return 1;
         if (!timeB) return -1;
-        
+
         return timeB - timeA;
     });
 }
@@ -921,232 +957,50 @@ function sortDataByNewest(dataArray) {
 // Helper function to parse Vietnamese date format
 function parseVietnameseDate(dateString) {
     if (!dateString) return null;
-    
+
     try {
-        const cleanDateString = dateString.replace(/,?\s*/g, ' ').trim();
-        
+        const cleanDateString = dateString.replace(/,?\s*/g, " ").trim();
+
         const patterns = [
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})/, // dd/mm/yyyy hh:mm
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/, // dd/mm/yyyy
         ];
-        
+
         for (let pattern of patterns) {
             const match = cleanDateString.match(pattern);
             if (match) {
                 const [, day, month, year, hour = 0, minute = 0] = match;
-                return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 
-                               parseInt(hour), parseInt(minute));
+                return new Date(
+                    parseInt(year),
+                    parseInt(month) - 1,
+                    parseInt(day),
+                    parseInt(hour),
+                    parseInt(minute),
+                );
             }
         }
-        
+
         const date = new Date(dateString);
         return isNaN(date.getTime()) ? null : date;
-        
     } catch (error) {
-        console.warn('Error parsing date:', dateString, error);
+        console.warn("Error parsing date:", dateString, error);
         return null;
     }
 }
 
 // Helper function to extract timestamp from ID
 function extractTimestampFromId(id) {
-    if (!id || !id.startsWith('receipt_')) return 0;
-    
+    if (!id || !id.startsWith("receipt_")) return 0;
+
     try {
-        const parts = id.split('_');
+        const parts = id.split("_");
         if (parts.length >= 2) {
             // Convert from base36 back to timestamp
             return parseInt(parts[1], 36);
         }
     } catch (error) {
-        console.warn('Error extracting timestamp from ID:', id, error);
+        console.warn("Error extracting timestamp from ID:", id, error);
     }
-    
+
     return 0;
-}
-
-// =====================================================
-// UI FUNCTIONS
-// =====================================================
-
-function showLoading(message = "Đang xử lý...") {
-    showFloatingAlert(message, true);
-}
-
-function showSuccess(message = "Thành công!", duration = 2000) {
-    hideFloatingAlert();
-    setTimeout(() => {
-        showFloatingAlert(message, false, duration);
-    }, 100);
-}
-
-function showError(message = "Có lỗi xảy ra!", duration = 3000) {
-    hideFloatingAlert();
-    setTimeout(() => {
-        showFloatingAlert(message, false, duration);
-    }, 100);
-}
-
-function showFloatingAlert(message, isLoading = false, duration = 3000) {
-    let alertBox = document.getElementById('floatingAlert');
-    
-    if (!alertBox) {
-        alertBox = document.createElement('div');
-        alertBox.id = 'floatingAlert';
-        alertBox.innerHTML = `
-            <div class="alert-content">
-                <div class="loading-spinner" style="display: none;">
-                    <div class="spinner"></div>
-                </div>
-                <div class="alert-text"></div>
-            </div>
-        `;
-        
-        alertBox.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(44, 62, 80, 0.9) 100%);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 500;
-            width: auto;
-            min-width: 200px;
-            max-width: 350px;
-            text-align: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            pointer-events: none;
-            z-index: 9999;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            letter-spacing: 0.3px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-        `;
-        
-        const style = document.createElement('style');
-        style.textContent = `
-            #floatingAlert.loading {
-                background: rgba(0,0,0,0.9);
-                color: white;
-                border-color: #007bff;
-            }
-            
-            #floatingAlert.show {
-                opacity: 1 !important;
-                visibility: visible !important;
-                pointer-events: all !important;
-            }
-            
-            .loading-spinner {
-                margin-bottom: 10px;
-            }
-            
-            .spinner {
-                width: 20px;
-                height: 20px;
-                border: 2px solid rgba(255, 255, 255, 0.3);
-                border-radius: 50%;
-                border-top-color: #fff;
-                animation: spin 1s ease-in-out infinite;
-                margin: 0 auto;
-            }
-            
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-            
-            #loadingOverlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.3);
-                z-index: 9998;
-                opacity: 0;
-                visibility: hidden;
-                transition: all 0.3s ease;
-                pointer-events: none !important;
-            }
-            
-            #loadingOverlay.show {
-                opacity: 1;
-                visibility: visible;
-                pointer-events: all !important;
-            }
-        `;
-        document.head.appendChild(style);
-        
-        const loadingOverlay = document.createElement('div');
-        loadingOverlay.id = 'loadingOverlay';
-        document.body.appendChild(loadingOverlay);
-        document.body.appendChild(alertBox);
-    }
-    
-    const alertText = alertBox.querySelector('.alert-text');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const spinner = alertBox.querySelector('.loading-spinner');
-    
-    if (alertText) {
-        alertText.textContent = message;
-    }
-    
-    if (isLoading) {
-        alertBox.classList.add('loading');
-        if (loadingOverlay) loadingOverlay.classList.add('show');
-        if (spinner) spinner.style.display = 'block';
-        
-        document.body.style.pointerEvents = 'none';
-        document.body.style.userSelect = 'none';
-        alertBox.style.pointerEvents = 'all';
-        document.body.style.overflow = 'hidden';
-        document.body.style.cursor = 'wait';
-    } else {
-        alertBox.classList.remove('loading');
-        if (loadingOverlay) loadingOverlay.classList.remove('show');
-        if (spinner) spinner.style.display = 'none';
-        
-        document.body.style.pointerEvents = 'auto';
-        document.body.style.userSelect = 'auto';
-        document.body.style.overflow = 'auto';
-        document.body.style.cursor = 'default';
-    }
-    
-    alertBox.classList.add('show');
-    
-    if (!isLoading && duration > 0) {
-        setTimeout(() => {
-            hideFloatingAlert();
-        }, duration);
-    }
-}
-
-function hideFloatingAlert() {
-    const alertBox = document.getElementById('floatingAlert');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const spinner = alertBox?.querySelector('.loading-spinner');
-    
-    if (alertBox) {
-        alertBox.classList.remove('show', 'loading');
-    }
-    if (loadingOverlay) {
-        loadingOverlay.classList.remove('show');
-    }
-    if (spinner) {
-        spinner.style.display = 'none';
-    }
-    
-    document.body.style.pointerEvents = 'auto';
-    document.body.style.userSelect = 'auto';
-    document.body.style.overflow = 'auto';
-    document.body.style.cursor = 'default';
 }

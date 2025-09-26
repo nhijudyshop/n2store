@@ -1,2083 +1,1692 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản Lý Tài Khoản - N2 Shop</title>
-    
-    <!-- Firebase Scripts -->
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    
-    <!-- Crypto Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/3.0.1/bcrypt.min.js"></script>
-    
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="../main.css">
-    
-    <!-- Navigation -->
-    <script src="../js/navigation.js"></script>
-    <script src="../js/common-utils.js"></script>
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 80px 20px 20px;
-        }
-
-        .access-denied {
-            max-width: 600px;
-            margin: 100px auto;
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        .access-denied h1 {
-            color: #e74c3c;
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-        }
-
-        .access-denied p {
-            color: #666;
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-        }
-
-        .back-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            display: none; /* Ẩn mặc định, chỉ hiện khi admin */
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .header h1 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .admin-badge {
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: bold;
-            display: inline-block;
-        }
-
-        .tabs {
-            display: flex;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #e0e0e0;
-            flex-wrap: wrap;
-        }
-
-        .tab {
-            padding: 12px 20px;
-            cursor: pointer;
-            border: none;
-            background: none;
-            font-size: 14px;
-            font-weight: bold;
-            color: #666;
-            border-bottom: 3px solid transparent;
-            white-space: nowrap;
-        }
-
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            background: #f9f9f9;
-        }
-
-        .section h2 {
-            color: #555;
-            margin-bottom: 15px;
-            font-size: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quản Lý Tài Khoản - N2 Shop</title>
+        <!-- Firebase Scripts -->
+        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+        <!-- Crypto Libraries -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/3.0.1/bcrypt.min.js"></script>
+        <!-- Main CSS -->
+        <link rel="stylesheet" href="user-management.css" />
+        <link rel="stylesheet" href="../main.css" />
+        <!-- Navigation -->
+        <script src="../js/navigation.js"></script>
+        <script src="../js/common-utils.js"></script>
+        <style>
+            .permissions-section {
+                background: #f8f9fa;
+                border: 2px solid #e9ecef;
+                border-radius: 12px;
+                padding: 20px;
+                margin: 20px 0;
             }
-            
-            .tabs {
-                flex-direction: column;
+            .permissions-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 15px;
+                margin-top: 15px;
             }
-            
-            .tab {
-                text-align: left;
-                border-bottom: 1px solid #e0e0e0;
+            .permission-item {
+                background: white;
+                border: 2px solid #dee2e6;
+                border-radius: 8px;
+                padding: 12px;
+                transition: all 0.3s ease;
             }
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #333;
-        }
-
-        input, textarea, select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            font-family: 'Courier New', monospace;
-        }
-
-        input:focus, textarea:focus, select:focus {
-            border-color: #667eea;
-            outline: none;
-            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
-        }
-
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-right: 10px;
-            margin-bottom: 10px;
-            transition: all 0.3s ease;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        button.danger {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-        }
-
-        button.success {
-            background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
-        }
-
-        .output {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            white-space: pre-wrap;
-            word-break: break-all;
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 15px;
-        }
-
-        .success {
-            background: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-
-        .error {
-            background: #f8d7da;
-            border-color: #f5c6cb;
-            color: #721c24;
-        }
-
-        .user-list {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .user-item {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .user-info {
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .user-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .user-actions button {
-            padding: 6px 12px;
-            font-size: 12px;
-            margin: 2px;
-        }
-
-        .loading {
-            opacity: 0.7;
-            pointer-events: none;
-        }
-
-        .method-selector {
-            margin-bottom: 20px;
-        }
-
-        .method-selector input[type="radio"] {
-            width: auto;
-            margin-right: 8px;
-        }
-
-        .method-selector label {
-            display: inline;
-            margin-right: 20px;
-            font-weight: normal;
-        }
-
-        .warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .info {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <!-- Thông báo truy cập bị từ chối -->
-    <div id="accessDenied" class="access-denied" style="display: none;">
-        <h1>🚫 Truy cập bị từ chối</h1>
-        <p>Bạn không có quyền truy cập vào trang này.<br>Chỉ có Admin mới có thể quản lý tài khoản.</p>
-        <a href="../live/index.html" class="back-btn">← Quay về trang chính</a>
-    </div>
-
-    <!-- Nội dung chính - Chỉ hiện với Admin -->
-    <div id="mainContainer" class="container">
-        <div class="header">
-            <h1>🔐 Quản Lý Tài Khoản N2 Shop</h1>
-            <div class="admin-badge">👑 ADMIN PANEL</div>
-            <div style="margin-top: 10px; color: #666; font-size: 14px;">
-                Đăng nhập: <span id="currentUser">Loading...</span>
-            </div>
-        </div>
-        
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('manage')">👥 Quản Lý Users</button>
-            <button class="tab" onclick="showTab('create')">➕ Tạo Mới</button>
-            <button class="tab" onclick="showTab('tools')">🔧 Tools</button>
-        </div>
-
-        <!-- Tab 1: Quản Lý Users -->
-        <div id="manage" class="tab-content active">
-            <div class="section">
-                <h2>Kết Nối Firebase</h2>
-                <div id="firebaseStatus" class="output">Đang kết nối Firebase...</div>
-                <button onclick="connectFirebase()" style="display: none;">Kết Nối Lại</button>
-            </div>
-
-            <div class="section">
-                <h2>📋 Danh Sách Tài Khoản</h2>
-                <button onclick="loadUsers()">🔄 Tải Danh Sách</button>
-                <button onclick="exportUsers()" class="success">📊 Xuất Excel</button>
-                <div id="userList" class="user-list">
-                    <div style="padding: 20px; text-align: center;">Nhấn "Tải Danh Sách" để xem users</div>
-                </div>
-            </div>
-
-            <div class="section">
-                <h2>✏️ Chỉnh Sửa Tài Khoản</h2>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="editUsername">Username:</label>
-                        <input type="text" id="editUsername" placeholder="Chọn user từ danh sách" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="editDisplayName">Tên hiển thị:</label>
-                        <input type="text" id="editDisplayName" placeholder="Tên hiển thị mới">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="editCheckLogin">Quyền hạn:</label>
-                        <select id="editCheckLogin">
-                            <option value="0">👑 Admin (0)</option>
-                            <option value="1">👤 User (1)</option>
-                            <option value="2">🔒 Limited (2)</option>
-                            <option value="3">📝 Basic (3)</option>
-                            <option value="777">👥 Guest (777)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="editNewPassword">Password mới (để trống nếu không đổi):</label>
-                        <input type="password" id="editNewPassword" placeholder="Password mới">
-                    </div>
-                </div>
-                <button class="success" onclick="updateUser()">💾 Cập Nhật</button>
-                <button onclick="clearEditForm()">🗑️ Xóa Form</button>
-                <div id="editOutput" class="output" style="display: none;"></div>
-            </div>
-        </div>
-
-        <!-- Tab 2: Tạo User Mới -->
-        <div id="create" class="tab-content">
-            <div class="section">
-                <h2>➕ Tạo Tài Khoản Mới</h2>
-                <div class="info">
-                    <strong>ℹ️ Lưu ý:</strong> Password sẽ được hash tự động bằng Crypto-JS để đảm bảo bảo mật.
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="newUsername">Username:</label>
-                        <input type="text" id="newUsername" placeholder="Username (không dấu, không khoảng trắng)">
-                    </div>
-                    <div class="form-group">
-                        <label for="newPassword">Password:</label>
-                        <input type="password" id="newPassword" placeholder="Password mạnh">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="newDisplayName">Tên hiển thị:</label>
-                        <input type="text" id="newDisplayName" placeholder="Tên hiển thị (tự động điền)">
-                    </div>
-                    <div class="form-group">
-                        <label for="newCheckLogin">Quyền hạn:</label>
-                        <select id="newCheckLogin">
-                            <option value="0">👑 Admin (0)</option>
-                            <option value="1" selected>👤 User (1)</option>
-                            <option value="2">🔒 Limited (2)</option>
-                            <option value="3">📝 Basic (3)</option>
-                            <option value="777">👥 Guest (777)</option>
-                        </select>
-                    </div>
-                </div>
-                <button class="success" onclick="createUser()">✅ Tạo Tài Khoản</button>
-                <button onclick="clearCreateForm()">🗑️ Xóa Form</button>
-                <div id="createOutput" class="output" style="display: none;"></div>
-            </div>
-        </div>
-
-        <!-- Tab 3: Tools -->
-        <div id="tools" class="tab-content">
-            <div class="section">
-                <h2>🔐 Tạo Hash Password</h2>
-                
-                <div class="method-selector">
-                    <label><input type="radio" name="method" value="cryptojs" checked> Crypto-JS (Nhanh)</label>
-                    <label><input type="radio" name="method" value="bcrypt"> bcrypt (An toàn hơn)</label>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="username">Username:</label>
-                        <input type="text" id="username" placeholder="Nhập username">
-                    </div>
-                    <div class="form-group">
-                        <label for="password">Password:</label>
-                        <input type="password" id="password" placeholder="Nhập password">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="displayName">Tên hiển thị:</label>
-                        <input type="text" id="displayName" placeholder="Tên hiển thị">
-                    </div>
-                    <div class="form-group">
-                        <label for="checkLogin">Quyền hạn:</label>
-                        <select id="checkLogin">
-                            <option value="0">👑 Admin (0)</option>
-                            <option value="1" selected>👤 User (1)</option>
-                            <option value="2">🔒 Limited (2)</option>
-                            <option value="3">📝 Basic (3)</option>
-                            <option value="777">👥 Guest (777)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button onclick="generateHash()">🔐 Tạo Hash</button>
-                <button onclick="clearHashForm()">🗑️ Xóa Form</button>
-                <div id="hashOutput" class="output" style="display: none;"></div>
-            </div>
-
-            <div class="section">
-                <h2>🔍 Kiểm Tra Password</h2>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="testPassword">Test Password:</label>
-                        <input type="password" id="testPassword" placeholder="Nhập password để test">
-                    </div>
-                    <div class="form-group">
-                        <label for="testSalt">Salt (Crypto-JS):</label>
-                        <input type="text" id="testSalt" placeholder="Salt từ hash output">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="testHash">Hash để so sánh:</label>
-                    <textarea id="testHash" rows="3" placeholder="Paste hash để kiểm tra"></textarea>
-                </div>
-
-                <button onclick="verifyPassword()">✅ Kiểm Tra</button>
-                <div id="verifyOutput" class="output" style="display: none;"></div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let db = null;
-        let auth = null;
-        let currentMethod = 'cryptojs';
-        let users = [];
-
-        // Kiểm tra quyền admin ngay khi tải trang
-        function checkAdminAccess() {
-            const checkLogin = localStorage.getItem('checkLogin');
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            const authData = localStorage.getItem('loginindex_auth');
-            
-            console.log('Checking admin access:', { checkLogin, isLoggedIn, authData: !!authData });
-            
-            if (!isLoggedIn || isLoggedIn !== 'true') {
-                showAccessDenied('Bạn chưa đăng nhập hệ thống.');
-                return false;
+            .permission-item:hover {
+                border-color: #667eea;
+                box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
             }
-            
-            if (!checkLogin || (checkLogin !== '0' && checkLogin !== 0)) {
-                showAccessDenied('Bạn không có quyền Admin.');
-                return false;
+            .permission-item.granted {
+                border-color: #28a745;
+                background: #f8fff9;
             }
-
-            // Hiển thị thông tin user hiện tại
-            try {
-                const auth = JSON.parse(authData);
-                document.getElementById('currentUser').textContent = auth.displayName || auth.username || 'Admin';
-            } catch (e) {
-                document.getElementById('currentUser').textContent = 'Admin';
+            .permission-checkbox {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 500;
             }
-
-            // Hiện container chính
-            document.getElementById('mainContainer').style.display = 'block';
-            
-            // Tự động kết nối Firebase
-            setTimeout(connectFirebase, 500);
-            
-            return true;
-        }
-
-        function showAccessDenied(reason = '') {
-            document.getElementById('accessDenied').style.display = 'block';
-            document.getElementById('mainContainer').style.display = 'none';
-            
-            if (reason) {
-                const msg = document.querySelector('#accessDenied p');
-                msg.innerHTML = reason + '<br>Chỉ có Admin mới có thể quản lý tài khoản.';
+            .permission-checkbox input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
             }
-        }
-
-        // Firebase Configuration
-        function connectFirebase() {
-            try {
-                if (!firebase.apps.length) {
-                    const config = {
-                        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-                        authDomain: "n2shop-69e37.firebaseapp.com", 
-                        projectId: "n2shop-69e37",
-                        storageBucket: "n2shop-69e37-ne0q1",
-                        messagingSenderId: "598906493303",
-                        appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
-                    };
-
-                    const app = firebase.initializeApp(config);
-                    db = firebase.firestore();
-                    auth = firebase.auth();
+            .permission-icon {
+                font-size: 18px;
+                width: 24px;
+                text-align: center;
+            }
+            .permission-text {
+                flex: 1;
+                font-size: 14px;
+            }
+            .permission-description {
+                font-size: 12px;
+                color: #6c757d;
+                margin-top: 5px;
+                padding-left: 34px;
+                font-style: italic;
+            }
+            .role-template {
+                background: #e3f2fd;
+                border: 2px solid #2196f3;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 15px 0;
+            }
+            .template-buttons {
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+                flex-wrap: wrap;
+            }
+            .template-btn {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 600;
+                transition: all 0.2s ease;
+            }
+            .template-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            }
+            .permissions-summary {
+                background: #fff3cd;
+                border: 2px solid #ffc107;
+                border-radius: 8px;
+                padding: 12px;
+                margin: 15px 0;
+                font-size: 13px;
+            }
+            .permissions-count {
+                font-weight: bold;
+                color: #856404;
+            }
+            @media (max-width: 768px) {
+                .permissions-grid {
+                    grid-template-columns: 1fr;
                 }
-
-                document.getElementById('firebaseStatus').textContent = '✅ Kết nối Firebase thành công!\nProject: n2shop-69e37\nTrạng thái: Admin Access Granted';
-                document.getElementById('firebaseStatus').className = 'output success';
-                
-                // Tự động tải danh sách users
-                setTimeout(loadUsers, 1000);
-                
-            } catch (error) {
-                document.getElementById('firebaseStatus').textContent = '❌ Lỗi kết nối Firebase: ' + error.message;
-                document.getElementById('firebaseStatus').className = 'output error';
-            }
-        }
-
-        // Tab Management
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        // User Management Functions
-        async function loadUsers() {
-            if (!db) {
-                alert('Firebase chưa được kết nối!');
-                return;
-            }
-
-            const userList = document.getElementById('userList');
-            userList.innerHTML = '<div style="padding: 20px; text-align: center;">⏳ Đang tải dữ liệu...</div>';
-
-            try {
-                const snapshot = await db.collection("users").get();
-                users = [];
-                
-                snapshot.forEach((doc) => {
-                    users.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
-                });
-
-                if (users.length === 0) {
-                    userList.innerHTML = '<div style="padding: 20px; text-align: center;">📝 Không có tài khoản nào</div>';
-                    return;
+                .template-buttons {
+                    flex-direction: column;
                 }
+            }
+        </style>
+    </head>
 
-                // Sắp xếp users theo quyền hạn và tên
-                users.sort((a, b) => {
-                    if (a.checkLogin !== b.checkLogin) {
-                        return a.checkLogin - b.checkLogin;
-                    }
-                    return a.displayName.localeCompare(b.displayName);
-                });
+    <body>
+        <!-- Thông báo truy cập bị từ chối -->
+        <div id="accessDenied" class="access-denied" style="display: none">
+            <h1>🚫 Truy cập bị từ chối</h1>
+            <p>
+                Bạn không có quyền truy cập vào trang này.<br />Chỉ có Admin mới
+                có thể quản lý tài khoản.
+            </p>
+            <a href="../live/index.html" class="back-btn"
+                >← Quay về trang chính</a
+            >
+        </div>
 
-                let html = '';
-                users.forEach((user, index) => {
-                    const roleText = getRoleText(user.checkLogin);
-                    const roleColor = getRoleColor(user.checkLogin);
-                    
-                    html += `
-                        <div class="user-item">
-                            <div class="user-info">
-                                <strong style="color: ${roleColor};">${user.displayName}</strong> 
-                                <span style="color: #666;">(${user.id})</span><br>
-                                <small>
-                                    ${roleText} | 
-                                    ${user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString('vi-VN') : 'N/A'}
-                                    ${user.updatedAt ? ' | Cập nhật: ' + new Date(user.updatedAt.seconds * 1000).toLocaleDateString('vi-VN') : ''}
-                                </small>
-                            </div>
-                            <div class="user-actions">
-                                <button onclick="editUser('${user.id}')" title="Chỉnh sửa">✏️ Sửa</button>
-                                <button class="danger" onclick="deleteUser('${user.id}')" title="Xóa tài khoản">🗑️ Xóa</button>
+        <!-- Nội dung chính - Chỉ hiện với Admin -->
+        <div id="mainContainer" class="container">
+            <div class="header">
+                <h1>🔐 Quản Lý Tài Khoản N2 Shop</h1>
+                <div class="admin-badge">👑 ADMIN PANEL</div>
+                <div style="margin-top: 10px; color: #666; font-size: 14px">
+                    Đăng nhập: <span id="currentUser">Loading...</span>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('manage')">
+                    👥 Quản Lý Users
+                </button>
+                <button class="tab" onclick="showTab('create')">
+                    ➕ Tạo Mới
+                </button>
+                <button class="tab" onclick="showTab('permissions')">
+                    🔑 Quyền Truy Cập
+                </button>
+                <button class="tab" onclick="showTab('tools')">🔧 Tools</button>
+            </div>
+
+            <!-- Tab 1: Quản Lý Users -->
+            <div id="manage" class="tab-content active">
+                <div class="section">
+                    <h2>Kết Nối Firebase</h2>
+                    <div id="firebaseStatus" class="output">
+                        Đang kết nối Firebase...
+                    </div>
+                    <button onclick="connectFirebase()" style="display: none">
+                        Kết Nối Lại
+                    </button>
+                </div>
+
+                <div class="section">
+                    <h2>📋 Danh Sách Tài Khoản</h2>
+                    <button onclick="loadUsers()">🔄 Tải Danh Sách</button>
+                    <button onclick="exportUsers()" class="success">
+                        📊 Xuất Excel
+                    </button>
+                    <div id="userList" class="user-list">
+                        <div style="padding: 20px; text-align: center">
+                            Nhấn "Tải Danh Sách" để xem users
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>✏️ Chỉnh Sửa Tài Khoản</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editUsername">Username:</label>
+                            <input
+                                type="text"
+                                id="editUsername"
+                                placeholder="Chọn user từ danh sách"
+                                readonly
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="editDisplayName">Tên hiển thị:</label>
+                            <input
+                                type="text"
+                                id="editDisplayName"
+                                placeholder="Tên hiển thị mới"
+                            />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editCheckLogin">Quyền hạn:</label>
+                            <select id="editCheckLogin">
+                                <option value="0">👑 Admin (0)</option>
+                                <option value="1">👤 User (1)</option>
+                                <option value="2">🔒 Limited (2)</option>
+                                <option value="3">💡 Basic (3)</option>
+                                <option value="777">👥 Guest (777)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editNewPassword"
+                                >Password mới (để trống nếu không đổi):</label
+                            >
+                            <input
+                                type="password"
+                                id="editNewPassword"
+                                placeholder="Password mới"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Phần quyền truy cập trang -->
+                    <div class="permissions-section">
+                        <h3>🔑 Quyền Truy Cập Các Trang</h3>
+                        <p
+                            style="
+                                color: #6c757d;
+                                font-size: 13px;
+                                margin-bottom: 15px;
+                            "
+                        >
+                            Chọn các trang mà user này có thể truy cập. Admin
+                            luôn có toàn quyền.
+                        </p>
+
+                        <div class="role-template">
+                            <h4>📋 Template theo vai trò:</h4>
+                            <div class="template-buttons">
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('admin')"
+                                >
+                                    👑 Admin - Toàn quyền
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('manager')"
+                                >
+                                    👨‍💼 Manager - Quản lý cơ bản
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('staff')"
+                                >
+                                    👤 Staff - Nhân viên
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('viewer')"
+                                >
+                                    👁️ Viewer - Chỉ xem
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('clear')"
+                                >
+                                    🚫 Xóa tất cả
+                                </button>
                             </div>
                         </div>
-                    `;
-                });
 
-                userList.innerHTML = html;
-
-            } catch (error) {
-                userList.innerHTML = `<div style="padding: 20px; color: red;">❌ Lỗi tải danh sách: ${error.message}</div>`;
-                console.error('Load users error:', error);
-            }
-        }
-
-        function getRoleText(checkLogin) {
-            const roles = {
-                0: '👑 Admin',
-                1: '👤 User',
-                2: '🔒 Limited',
-                3: '📝 Basic',
-                777: '👥 Guest'
-            };
-            return roles[checkLogin] || `⚠️ Unknown (${checkLogin})`;
-        }
-
-        function getRoleColor(checkLogin) {
-            const colors = {
-                0: '#e74c3c',    // Admin - Red
-                1: '#3498db',    // User - Blue
-                2: '#f39c12',    // Limited - Orange
-                3: '#27ae60',    // Basic - Green
-                777: '#95a5a6'   // Guest - Gray
-            };
-            return colors[checkLogin] || '#666';
-        }
-
-        function editUser(username) {
-            const user = users.find(u => u.id === username);
-            if (!user) return;
-
-            document.getElementById('editUsername').value = user.id;
-            document.getElementById('editDisplayName').value = user.displayName;
-            document.getElementById('editCheckLogin').value = user.checkLogin;
-            document.getElementById('editNewPassword').value = '';
-
-            // Scroll to edit section và switch tab
-            showTab('manage');
-            document.querySelector('#manage .section:nth-child(3)').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        async function updateUser() {
-            if (!db) {
-                alert('Firebase chưa được kết nối!');
-                return;
-            }
-
-            const username = document.getElementById('editUsername').value.trim();
-            const displayName = document.getElementById('editDisplayName').value.trim();
-            const checkLogin = parseInt(document.getElementById('editCheckLogin').value);
-            const newPassword = document.getElementById('editNewPassword').value.trim();
-            
-            if (!username || !displayName) {
-                alert('Vui lòng nhập đầy đủ thông tin!');
-                return;
-            }
-
-            const output = document.getElementById('editOutput');
-            output.style.display = 'block';
-            output.textContent = 'Đang cập nhật tài khoản...';
-            output.className = 'output';
-            
-            try {
-                let updateData = {
-                    displayName: displayName,
-                    checkLogin: checkLogin,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: JSON.parse(localStorage.getItem('loginindex_auth')).username
-                };
-
-                // Hash new password if provided
-                if (newPassword) {
-                    const salt = CryptoJS.lib.WordArray.random(128/8).toString();
-                    const hash = CryptoJS.PBKDF2(newPassword, salt, { 
-                        keySize: 256/32,
-                        iterations: 1000 
-                    }).toString();
-                    
-                    updateData.passwordHash = hash;
-                    updateData.salt = salt;
-                }
-
-                await db.collection("users").doc(username).update(updateData);
-
-                output.textContent = `✅ Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}${newPassword ? '\n🔐 Đã thay đổi password' : ''}`;
-                output.className = 'output success';
-
-                // Reload user list
-                setTimeout(loadUsers, 1000);
-                setTimeout(() => {
-                    clearEditForm();
-                }, 3000);
-
-            } catch (error) {
-                output.textContent = '❌ Lỗi cập nhật: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        async function deleteUser(username) {
-            if (!db) {
-                alert('Firebase chưa được kết nối!');
-                return;
-            }
-
-            const user = users.find(u => u.id === username);
-            if (!user) return;
-
-            // Không cho phép xóa admin cuối cùng
-            const adminCount = users.filter(u => u.checkLogin === 0).length;
-            if (user.checkLogin === 0 && adminCount === 1) {
-                alert('❌ Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.');
-                return;
-            }
-
-            const confirmMsg = `⚠️ XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nQuyền hạn: ${getRoleText(user.checkLogin)}\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
-            
-            if (!confirm(confirmMsg)) {
-                return;
-            }
-
-            try {
-                // Delete from users collection
-                await db.collection("users").doc(username).delete();
-                
-                // Try to delete from auth_users if exists
-                try {
-                    const authUsersSnapshot = await db.collection("auth_users").where("username", "==", username).get();
-                    authUsersSnapshot.forEach(async (doc) => {
-                        await doc.ref.delete();
-                    });
-                } catch (authError) {
-                    console.log('Could not delete from auth_users:', authError);
-                }
-
-                alert(`✅ Đã xóa tài khoản "${username}" thành công!`);
-                loadUsers(); // Reload user list
-
-            } catch (error) {
-                alert('❌ Lỗi xóa tài khoản: ' + error.message);
-            }
-        }
-
-        async function createUser() {
-            if (!db) {
-                alert('Firebase chưa được kết nối!');
-                return;
-            }
-
-            const username = document.getElementById('newUsername').value.trim().toLowerCase();
-            const password = document.getElementById('newPassword').value.trim();
-            const displayName = document.getElementById('newDisplayName').value.trim() || username.charAt(0).toUpperCase() + username.slice(1);
-            const checkLogin = parseInt(document.getElementById('newCheckLogin').value);
-            
-            if (!username || !password) {
-                alert('Vui lòng nhập username và password!');
-                return;
-            }
-
-            // Validate username
-            if (!/^[a-z0-9_]+$/.test(username)) {
-                alert('Username chỉ được chứa chữ cái thường, số và dấu gạch dưới!');
-                return;
-            }
-
-            if (password.length < 6) {
-                alert('Password phải có ít nhất 6 ký tự!');
-                return;
-            }
-
-            const output = document.getElementById('createOutput');
-            output.style.display = 'block';
-            output.textContent = 'Đang tạo tài khoản...';
-            output.className = 'output';
-            
-            try {
-                // Check if user exists
-                const userDoc = await db.collection("users").doc(username).get();
-                if (userDoc.exists) {
-                    output.textContent = '❌ Username đã tồn tại!';
-                    output.className = 'output error';
-                    return;
-                }
-
-                // Create hash
-                const salt = CryptoJS.lib.WordArray.random(128/8).toString();
-                const hash = CryptoJS.PBKDF2(password, salt, { 
-                    keySize: 256/32,
-                    iterations: 1000 
-                }).toString();
-
-                // Create user document
-                await db.collection("users").doc(username).set({
-                    displayName: displayName,
-                    checkLogin: checkLogin,
-                    passwordHash: hash,
-                    salt: salt,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    createdBy: JSON.parse(localStorage.getItem('loginindex_auth')).username
-                });
-
-                output.textContent = `✅ Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\n🔐 Password đã được hash an toàn`;
-                output.className = 'output success';
-
-                // Clear form
-                clearCreateForm();
-
-                // Reload user list
-                setTimeout(loadUsers, 1000);
-
-            } catch (error) {
-                output.textContent = '❌ Lỗi tạo tài khoản: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        // Hash Generation Functions
-        document.querySelectorAll('input[name="method"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                currentMethod = e.target.value;
-            });
-        });
-
-        async function generateHash() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const displayName = document.getElementById('displayName').value.trim() || username.charAt(0).toUpperCase() + username.slice(1);
-            const checkLogin = parseInt(document.getElementById('checkLogin').value);
-            
-            if (!username || !password) {
-                alert('Vui lòng nhập username và password!');
-                return;
-            }
-
-            const output = document.getElementById('hashOutput');
-            output.style.display = 'block';
-            
-            try {
-                let result = {
-                    username: username,
-                    displayName: displayName,
-                    checkLogin: checkLogin
-                };
-
-                if (currentMethod === 'cryptojs' && typeof CryptoJS !== 'undefined') {
-                    const salt = CryptoJS.lib.WordArray.random(128/8).toString();
-                    const hash = CryptoJS.PBKDF2(password, salt, { 
-                        keySize: 256/32,
-                        iterations: 1000 
-                    }).toString();
-                    
-                    result.passwordHash = hash;
-                    result.salt = salt;
-                    result.method = 'crypto-js';
-                    
-                } else if (currentMethod === 'bcrypt' && typeof bcrypt !== 'undefined') {
-                    output.textContent = 'Đang tạo bcrypt hash...';
-                    const saltRounds = 10;
-                    const hash = await bcrypt.hash(password, saltRounds);
-                    
-                    result.passwordHash = hash;
-                    result.method = 'bcrypt';
-                } else {
-                    output.textContent = 'Lỗi: Thư viện crypto chưa load!';
-                    return;
-                }
-                
-                displayHashResult(output, result);
-                
-                // Auto populate test fields
-                document.getElementById('testHash').value = result.passwordHash;
-                if (result.salt) {
-                    document.getElementById('testSalt').value = result.salt;
-                }
-                
-            } catch (error) {
-                output.textContent = 'Lỗi: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        function displayHashResult(output, result) {
-            let text = `✅ Tạo hash thành công!\n\n`;
-            text += `Method: ${result.method}\n`;
-            text += `Username: ${result.username}\n`;
-            text += `Display Name: ${result.displayName}\n`;
-            text += `Check Login: ${result.checkLogin} (${getRoleText(result.checkLogin)})\n`;
-            text += `Password Hash: ${result.passwordHash}\n`;
-            if (result.salt) {
-                text += `Salt: ${result.salt}\n`;
-            }
-            
-            text += `\n--- Firebase Document ---\n`;
-            text += `Collection: users\n`;
-            text += `Document ID: ${result.username}\n\n`;
-            text += JSON.stringify({
-                displayName: result.displayName,
-                checkLogin: result.checkLogin,
-                passwordHash: result.passwordHash,
-                ...(result.salt && { salt: result.salt })
-            }, null, 2);
-            
-            output.textContent = text;
-            output.className = 'output success';
-        }
-
-        async function verifyPassword() {
-            const testPassword = document.getElementById('testPassword').value.trim();
-            const testHash = document.getElementById('testHash').value.trim();
-            const testSalt = document.getElementById('testSalt').value.trim();
-            const output = document.getElementById('verifyOutput');
-            
-            if (!testPassword || !testHash) {
-                output.style.display = 'block';
-                output.textContent = 'Vui lòng nhập password và hash để test!';
-                output.className = 'output error';
-                return;
-            }
-
-            output.style.display = 'block';
-            
-            try {
-                let isMatch = false;
-                let method = '';
-                
-                if (typeof bcrypt !== 'undefined' && testHash.startsWith('$2')) {
-                    isMatch = await bcrypt.compare(testPassword, testHash);
-                    method = 'bcrypt';
-                } else if (typeof CryptoJS !== 'undefined' && testSalt) {
-                    const computedHash = CryptoJS.PBKDF2(testPassword, testSalt, { 
-                        keySize: 256/32,
-                        iterations: 1000 
-                    }).toString();
-                    isMatch = computedHash === testHash;
-                    method = 'crypto-js';
-                } else {
-                    output.textContent = 'Không thể xác định method hoặc thiếu salt!';
-                    output.className = 'output error';
-                    return;
-                }
-                
-                if (isMatch) {
-                    output.textContent = `✅ Password ĐÚNG!\nMethod: ${method}\nHash khớp với password đã nhập.`;
-                    output.className = 'output success';
-                } else {
-                    output.textContent = `❌ Password SAI!\nMethod: ${method}\nHash không khớp với password đã nhập.`;
-                    output.className = 'output error';
-                }
-                
-            } catch (error) {
-                output.textContent = 'Lỗi: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        // Export function
-        async function exportUsers() {
-            if (users.length === 0) {
-                alert('Không có dữ liệu để xuất!');
-                return;
-            }
-
-            try {
-                let csv = 'Username,Display Name,Role,Role Code,Created Date,Updated Date\n';
-                
-                users.forEach(user => {
-                    const createdDate = user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString('vi-VN') : 'N/A';
-                    const updatedDate = user.updatedAt ? new Date(user.updatedAt.seconds * 1000).toLocaleDateString('vi-VN') : 'N/A';
-                    
-                    csv += `${user.id},"${user.displayName}","${getRoleText(user.checkLogin)}",${user.checkLogin},"${createdDate}","${updatedDate}"\n`;
-                });
-
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                
-                link.setAttribute('href', url);
-                link.setAttribute('download', `N2Shop_Users_${new Date().toISOString().split('T')[0]}.csv`);
-                link.style.visibility = 'hidden';
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                alert('✅ Đã xuất file CSV thành công!');
-                
-            } catch (error) {
-                alert('❌ Lỗi xuất file: ' + error.message);
-            }
-        }
-
-        // Clear form functions
-        function clearEditForm() {
-            document.getElementById('editUsername').value = '';
-            document.getElementById('editDisplayName').value = '';
-            document.getElementById('editCheckLogin').value = '1';
-            document.getElementById('editNewPassword').value = '';
-            const output = document.getElementById('editOutput');
-            output.style.display = 'none';
-            output.textContent = '';
-            output.className = 'output';
-        }
-
-        function clearCreateForm() {
-            document.getElementById('newUsername').value = '';
-            document.getElementById('newPassword').value = '';
-            document.getElementById('newDisplayName').value = '';
-            document.getElementById('newCheckLogin').value = '1';
-            const output = document.getElementById('createOutput');
-            output.style.display = 'none';
-            output.textContent = '';
-            output.className = 'output';
-        }
-
-        function clearHashForm() {
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-            document.getElementById('displayName').value = '';
-            document.getElementById('checkLogin').value = '1';
-            const output = document.getElementById('hashOutput');
-            output.style.display = 'none';
-            output.textContent = '';
-            output.className = 'output';
-        }
-
-        // Auto-fill display name when username changes
-        document.getElementById('username').addEventListener('input', function() {
-            const username = this.value.trim();
-            if (username && !document.getElementById('displayName').value) {
-                document.getElementById('displayName').value = username.charAt(0).toUpperCase() + username.slice(1);
-            }
-        });
-
-        document.getElementById('newUsername').addEventListener('input', function() {
-            const username = this.value.trim();
-            if (username && !document.getElementById('newDisplayName').value) {
-                document.getElementById('newDisplayName').value = username.charAt(0).toUpperCase() + username.slice(1);
-            }
-        });
-
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('User Management page loading...');
-            
-            // Check admin access first
-            if (!checkAdminAccess()) {
-                return;
-            }
-            
-            console.log('Admin access granted, initializing...');
-            
-            // Initialize crypto libraries check
-            setTimeout(() => {
-                if (typeof CryptoJS !== 'undefined' && typeof bcrypt !== 'undefined') {
-                    console.log('✅ Crypto libraries loaded successfully');
-                } else {
-                    console.warn('⚠️ Some crypto libraries failed to load');
-                }
-            }, 1000);
-        });
-
-        // Security: Clear sensitive data on page unload
-        window.addEventListener('beforeunload', function() {
-            // Clear any sensitive data if needed
-            console.log('Page unloading, cleaning up...');
-        });
-
-        // Prevent right-click context menu in production
-        document.addEventListener('contextmenu', function(e) {
-            const checkLogin = localStorage.getItem('checkLogin');
-            if (checkLogin !== '0' && checkLogin !== 0) {
-                e.preventDefault();
-            }
-        });
-
-        console.log('User Management System initialized');
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản Lý Tài Khoản Firebase</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/3.0.1/bcrypt.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 30px;
-            font-size: 28px;
-        }
-
-        .tabs {
-            display: flex;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .tab {
-            padding: 12px 24px;
-            cursor: pointer;
-            border: none;
-            background: none;
-            font-size: 16px;
-            font-weight: bold;
-            color: #666;
-            border-bottom: 3px solid transparent;
-        }
-
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            background: #f9f9f9;
-        }
-
-        .section h2 {
-            color: #555;
-            margin-bottom: 15px;
-            font-size: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #333;
-        }
-
-        input, textarea, select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            font-family: 'Courier New', monospace;
-        }
-
-        input:focus, textarea:focus, select:focus {
-            border-color: #667eea;
-            outline: none;
-            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
-        }
-
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        button.danger {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-        }
-
-        button.success {
-            background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
-        }
-
-        .output {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            white-space: pre-wrap;
-            word-break: break-all;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .success {
-            background: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-
-        .error {
-            background: #f8d7da;
-            border-color: #f5c6cb;
-            color: #721c24;
-        }
-
-        .user-list {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .user-item {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: between;
-            align-items: center;
-        }
-
-        .user-info {
-            flex: 1;
-        }
-
-        .user-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .user-actions button {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-
-        .firebase-config {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .loading {
-            opacity: 0.7;
-            pointer-events: none;
-        }
-
-        .method-selector {
-            margin-bottom: 20px;
-        }
-
-        .method-selector input[type="radio"] {
-            width: auto;
-            margin-right: 8px;
-        }
-
-        .method-selector label {
-            display: inline;
-            margin-right: 20px;
-            font-weight: normal;
-        }
-
-        .warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🔐 Quản Lý Tài Khoản Firebase</h1>
-        
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('hash')">Tạo Hash</button>
-            <button class="tab" onclick="showTab('manage')">Quản Lý Tài Khoản</button>
-            <button class="tab" onclick="showTab('firebase')">Kết Nối Firebase</button>
-        </div>
-
-        <!-- Tab 1: Tạo Hash Password -->
-        <div id="hash" class="tab-content active">
-            <div class="warning">
-                <strong>⚠️ Lưu ý:</strong> Tool này để tạo hash password cho việc lưu trữ an toàn trong Firebase. Không bao giờ lưu password dạng plaintext!
+                        <div
+                            class="permissions-summary"
+                            id="permissionsSummary"
+                        >
+                            <span class="permissions-count"
+                                >0/11 trang được chọn</span
+                            >
+                        </div>
+
+                        <div class="permissions-grid" id="editPermissionsGrid">
+                            <!-- Permissions sẽ được tạo bằng JS -->
+                        </div>
+                    </div>
+
+                    <button class="success" onclick="updateUser()">
+                        💾 Cập Nhật
+                    </button>
+                    <button onclick="clearEditForm()">🗑️ Xóa Form</button>
+                    <div
+                        id="editOutput"
+                        class="output"
+                        style="display: none"
+                    ></div>
+                </div>
             </div>
 
-            <div class="section">
-                <h2>1. Tạo Hash Password</h2>
-                
-                <div class="method-selector">
-                    <label><input type="radio" name="method" value="cryptojs" checked> Crypto-JS (Nhanh)</label>
-                    <label><input type="radio" name="method" value="bcrypt"> bcrypt (An toàn hơn)</label>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="username">Username:</label>
-                        <input type="text" id="username" placeholder="Nhập username" value="admin">
+            <!-- Tab 2: Tạo User Mới -->
+            <div id="create" class="tab-content">
+                <div class="section">
+                    <h2>➕ Tạo Tài Khoản Mới</h2>
+                    <div class="info">
+                        <strong>ℹ️ Lưu ý:</strong> Password sẽ được hash tự động
+                        bằng Crypto-JS để đảm bảo bảo mật.
                     </div>
-                    <div class="form-group">
-                        <label for="password">Password:</label>
-                        <input type="password" id="password" placeholder="Nhập password" value="123456">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newUsername">Username:</label>
+                            <input
+                                type="text"
+                                id="newUsername"
+                                placeholder="Username (không dấu, không khoảng trắng)"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">Password:</label>
+                            <input
+                                type="password"
+                                id="newPassword"
+                                placeholder="Password mạnh"
+                            />
+                        </div>
                     </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="displayName">Tên hiển thị:</label>
-                        <input type="text" id="displayName" placeholder="Tên hiển thị">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newDisplayName">Tên hiển thị:</label>
+                            <input
+                                type="text"
+                                id="newDisplayName"
+                                placeholder="Tên hiển thị (tự động điền)"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="newCheckLogin">Quyền hạn:</label>
+                            <select id="newCheckLogin">
+                                <option value="0">👑 Admin (0)</option>
+                                <option value="1" selected>👤 User (1)</option>
+                                <option value="2">🔒 Limited (2)</option>
+                                <option value="3">💡 Basic (3)</option>
+                                <option value="777">👥 Guest (777)</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="checkLogin">Quyền hạn:</label>
-                        <select id="checkLogin">
-                            <option value="0">Admin (0)</option>
-                            <option value="1" selected>User (1)</option>
-                            <option value="2">Limited (2)</option>
-                            <option value="3">Basic (3)</option>
-                            <option value="777">Guest (777)</option>
-                        </select>
-                    </div>
-                </div>
 
-                <button onclick="generateHash()">Tạo Hash</button>
-                <button onclick="clearAll()">Xóa tất cả</button>
+                    <!-- Phần quyền truy cập trang cho user mới -->
+                    <div class="permissions-section">
+                        <h3>🔑 Quyền Truy Cập Các Trang</h3>
+                        <p
+                            style="
+                                color: #6c757d;
+                                font-size: 13px;
+                                margin-bottom: 15px;
+                            "
+                        >
+                            Chọn các trang mà user mới này có thể truy cập.
+                        </p>
 
-                <div id="hashOutput" class="output"></div>
-            </div>
-
-            <div class="section">
-                <h2>2. Kiểm tra Password</h2>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="testPassword">Test Password:</label>
-                        <input type="password" id="testPassword" placeholder="Nhập password để test">
-                    </div>
-                    <div class="form-group">
-                        <label for="testSalt">Salt (nếu dùng Crypto-JS):</label>
-                        <input type="text" id="testSalt" placeholder="Paste salt từ output">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="testHash">Hash để so sánh:</label>
-                    <textarea id="testHash" rows="3" placeholder="Paste hash từ output trên"></textarea>
-                </div>
-
-                <button onclick="verifyPassword()">Kiểm tra</button>
-                <div id="verifyOutput" class="output"></div>
-            </div>
-        </div>
-
-        <!-- Tab 2: Quản Lý Tài Khoản -->
-        <div id="manage" class="tab-content">
-            <div class="section">
-                <h2>Kết Nối Firebase</h2>
-                <div id="firebaseStatus" class="output">Chưa kết nối Firebase</div>
-                <button onclick="connectFirebase()">Kết Nối Firebase</button>
-            </div>
-
-            <div class="section">
-                <h2>Tạo Tài Khoản Mới</h2>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="newUsername">Username:</label>
-                        <input type="text" id="newUsername" placeholder="Nhập username">
-                    </div>
-                    <div class="form-group">
-                        <label for="newPassword">Password:</label>
-                        <input type="password" id="newPassword" placeholder="Nhập password">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="newDisplayName">Tên hiển thị:</label>
-                        <input type="text" id="newDisplayName" placeholder="Tên hiển thị">
-                    </div>
-                    <div class="form-group">
-                        <label for="newCheckLogin">Quyền hạn:</label>
-                        <select id="newCheckLogin">
-                            <option value="0">Admin (0)</option>
-                            <option value="1" selected>User (1)</option>
-                            <option value="2">Limited (2)</option>
-                            <option value="3">Basic (3)</option>
-                            <option value="777">Guest (777)</option>
-                        </select>
-                    </div>
-                </div>
-                <button class="success" onclick="createUser()">Tạo Tài Khoản</button>
-                <div id="createOutput" class="output"></div>
-            </div>
-
-            <div class="section">
-                <h2>Danh Sách Tài Khoản</h2>
-                <button onclick="loadUsers()">Tải Danh Sách</button>
-                <div id="userList" class="user-list"></div>
-            </div>
-
-            <div class="section">
-                <h2>Chỉnh Sửa Tài Khoản</h2>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="editUsername">Username:</label>
-                        <input type="text" id="editUsername" placeholder="Username để chỉnh sửa" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="editDisplayName">Tên hiển thị:</label>
-                        <input type="text" id="editDisplayName" placeholder="Tên hiển thị mới">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="editCheckLogin">Quyền hạn:</label>
-                        <select id="editCheckLogin">
-                            <option value="0">Admin (0)</option>
-                            <option value="1">User (1)</option>
-                            <option value="2">Limited (2)</option>
-                            <option value="3">Basic (3)</option>
-                            <option value="777">Guest (777)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="editNewPassword">Password mới (để trống nếu không đổi):</label>
-                        <input type="password" id="editNewPassword" placeholder="Password mới">
-                    </div>
-                </div>
-                <button class="success" onclick="updateUser()">Cập Nhật</button>
-                <button onclick="clearEditForm()">Xóa Form</button>
-                <div id="editOutput" class="output"></div>
-            </div>
-        </div>
-
-        <!-- Tab 3: Firebase Config -->
-        <div id="firebase" class="tab-content">
-            <div class="firebase-config">
-                <h3>Cấu Hình Firebase</h3>
-                <p>Nhập thông tin Firebase của bạn:</p>
-            </div>
-
-            <div class="section">
-                <h2>Firebase Configuration</h2>
-                <div class="form-group">
-                    <label for="apiKey">API Key:</label>
-                    <input type="text" id="apiKey" placeholder="AIzaSy...">
-                </div>
-                <div class="form-group">
-                    <label for="authDomain">Auth Domain:</label>
-                    <input type="text" id="authDomain" placeholder="your-app.firebaseapp.com">
-                </div>
-                <div class="form-group">
-                    <label for="projectId">Project ID:</label>
-                    <input type="text" id="projectId" placeholder="your-project-id">
-                </div>
-                <div class="form-group">
-                    <label for="storageBucket">Storage Bucket:</label>
-                    <input type="text" id="storageBucket" placeholder="your-app.appspot.com">
-                </div>
-                <div class="form-group">
-                    <label for="messagingSenderId">Messaging Sender ID:</label>
-                    <input type="text" id="messagingSenderId" placeholder="123456789">
-                </div>
-                <div class="form-group">
-                    <label for="appId">App ID:</label>
-                    <input type="text" id="appId" placeholder="1:123456789:web:...">
-                </div>
-
-                <button onclick="saveFirebaseConfig()">Lưu Cấu Hình</button>
-                <button onclick="loadDefaultConfig()">Load Config Mặc Định</button>
-                <div id="configOutput" class="output"></div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let db = null;
-        let auth = null;
-        let currentMethod = 'cryptojs';
-        let users = [];
-
-        // Tab Management
-        function showTab(tabName) {
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            // Remove active class from all tabs
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab content
-            document.getElementById(tabName).classList.add('active');
-            // Add active class to selected tab
-            event.target.classList.add('active');
-        }
-
-        // Firebase Configuration
-        function loadDefaultConfig() {
-            document.getElementById('apiKey').value = 'AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM';
-            document.getElementById('authDomain').value = 'n2shop-69e37.firebaseapp.com';
-            document.getElementById('projectId').value = 'n2shop-69e37';
-            document.getElementById('storageBucket').value = 'n2shop-69e37-ne0q1';
-            document.getElementById('messagingSenderId').value = '598906493303';
-            document.getElementById('appId').value = '1:598906493303:web:46d6236a1fdc2eff33e972';
-        }
-
-        function saveFirebaseConfig() {
-            const config = {
-                apiKey: document.getElementById('apiKey').value,
-                authDomain: document.getElementById('authDomain').value,
-                projectId: document.getElementById('projectId').value,
-                storageBucket: document.getElementById('storageBucket').value,
-                messagingSenderId: document.getElementById('messagingSenderId').value,
-                appId: document.getElementById('appId').value
-            };
-
-            localStorage.setItem('firebaseConfig', JSON.stringify(config));
-            document.getElementById('configOutput').textContent = 'Đã lưu cấu hình Firebase vào localStorage';
-            document.getElementById('configOutput').className = 'output success';
-        }
-
-        function connectFirebase() {
-            try {
-                const savedConfig = localStorage.getItem('firebaseConfig');
-                let config;
-
-                if (savedConfig) {
-                    config = JSON.parse(savedConfig);
-                } else {
-                    // Use default config
-                    config = {
-                        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-                        authDomain: "n2shop-69e37.firebaseapp.com", 
-                        projectId: "n2shop-69e37",
-                        storageBucket: "n2shop-69e37-ne0q1",
-                        messagingSenderId: "598906493303",
-                        appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
-                    };
-                }
-
-                if (!firebase.apps.length) {
-                    const app = firebase.initializeApp(config);
-                    db = firebase.firestore();
-                    auth = firebase.auth();
-                    
-                    document.getElementById('firebaseStatus').textContent = '✅ Đã kết nối Firebase thành công!\nProject: ' + config.projectId;
-                    document.getElementById('firebaseStatus').className = 'output success';
-                } else {
-                    document.getElementById('firebaseStatus').textContent = '✅ Firebase đã được kết nối trước đó';
-                    document.getElementById('firebaseStatus').className = 'output success';
-                }
-            } catch (error) {
-                document.getElementById('firebaseStatus').textContent = '❌ Lỗi kết nối Firebase: ' + error.message;
-                document.getElementById('firebaseStatus').className = 'output error';
-            }
-        }
-
-        // Password Hash Functions
-        document.querySelectorAll('input[name="method"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                currentMethod = e.target.value;
-            });
-        });
-
-        async function generateHash() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const displayName = document.getElementById('displayName').value.trim() || username.charAt(0).toUpperCase() + username.slice(1);
-            const checkLogin = parseInt(document.getElementById('checkLogin').value);
-            
-            if (!username || !password) {
-                alert('Vui lòng nhập username và password!');
-                return;
-            }
-
-            const output = document.getElementById('hashOutput');
-            
-            try {
-                let result = {
-                    username: username,
-                    displayName: displayName,
-                    checkLogin: checkLogin
-                };
-
-                if (currentMethod === 'cryptojs' && typeof CryptoJS !== 'undefined') {
-                    const salt = CryptoJS.lib.WordArray.random(128/8).toString();
-                    const hash = CryptoJS.PBKDF2(password, salt, { 
-                        keySize: 256/32,
-                        iterations: 1000 
-                    }).toString();
-                    
-                    result.passwordHash = hash;
-                    result.salt = salt;
-                    result.method = 'crypto-js';
-                    
-                } else if (currentMethod === 'bcrypt' && typeof bcrypt !== 'undefined') {
-                    output.textContent = 'Đang tạo bcrypt hash...';
-                    const saltRounds = 10;
-                    const hash = await bcrypt.hash(password, saltRounds);
-                    
-                    result.passwordHash = hash;
-                    result.method = 'bcrypt';
-                } else {
-                    output.textContent = 'Lỗi: Thư viện crypto chưa load!';
-                    return;
-                }
-                
-                displayHashResult(output, result);
-                
-                // Auto populate test fields
-                document.getElementById('testHash').value = result.passwordHash;
-                if (result.salt) {
-                    document.getElementById('testSalt').value = result.salt;
-                }
-                
-            } catch (error) {
-                output.textContent = 'Lỗi: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        function displayHashResult(output, result) {
-            let text = `✅ Tạo hash thành công!\n\n`;
-            text += `Method: ${result.method}\n`;
-            text += `Username: ${result.username}\n`;
-            text += `Display Name: ${result.displayName}\n`;
-            text += `Check Login: ${result.checkLogin}\n`;
-            text += `Password Hash: ${result.passwordHash}\n`;
-            if (result.salt) {
-                text += `Salt: ${result.salt}\n`;
-            }
-            
-            text += `\n--- Firebase Document ---\n`;
-            text += `Collection: users\n`;
-            text += `Document ID: ${result.username}\n\n`;
-            text += JSON.stringify({
-                displayName: result.displayName,
-                checkLogin: result.checkLogin,
-                passwordHash: result.passwordHash,
-                ...(result.salt && { salt: result.salt })
-            }, null, 2);
-            
-            output.textContent = text;
-            output.className = 'output success';
-        }
-
-        async function verifyPassword() {
-            const testPassword = document.getElementById('testPassword').value.trim();
-            const testHash = document.getElementById('testHash').value.trim();
-            const testSalt = document.getElementById('testSalt').value.trim();
-            const output = document.getElementById('verifyOutput');
-            
-            if (!testPassword || !testHash) {
-                output.textContent = 'Vui lòng nhập password và hash để test!';
-                return;
-            }
-
-            try {
-                let isMatch = false;
-                let method = '';
-                
-                if (typeof bcrypt !== 'undefined' && testHash.startsWith('$2')) {
-                    isMatch = await bcrypt.compare(testPassword, testHash);
-                    method = 'bcrypt';
-                } else if (typeof CryptoJS !== 'undefined' && testSalt) {
-                    const computedHash = CryptoJS.PBKDF2(testPassword, testSalt, { 
-                        keySize: 256/32,
-                        iterations: 1000 
-                    }).toString();
-                    isMatch = computedHash === testHash;
-                    method = 'crypto-js';
-                } else {
-                    output.textContent = 'Không thể xác định method hoặc thiếu salt!';
-                    return;
-                }
-                
-                if (isMatch) {
-                    output.textContent = `✅ Password ĐÚNG! (Method: ${method})`;
-                    output.className = 'output success';
-                } else {
-                    output.textContent = `❌ Password SAI! (Method: ${method})`;
-                    output.className = 'output error';
-                }
-                
-            } catch (error) {
-                output.textContent = 'Lỗi: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        // User Management Functions
-        async function createUser() {
-            if (!db) {
-                alert('Vui lòng kết nối Firebase trước!');
-                return;
-            }
-
-            const username = document.getElementById('newUsername').value.trim();
-            const password = document.getElementById('newPassword').value.trim();
-            const displayName = document.getElementById('newDisplayName').value.trim() || username.charAt(0).toUpperCase() + username.slice(1);
-            const checkLogin = parseInt(document.getElementById('newCheckLogin').value);
-            
-            if (!username || !password) {
-                alert('Vui lòng nhập username và password!');
-                return;
-            }
-
-            const output = document.getElementById('createOutput');
-            output.textContent = 'Đang tạo tài khoản...';
-            
-            try {
-                // Check if user exists
-                const userDoc = await db.collection("users").doc(username).get();
-                if (userDoc.exists) {
-                    output.textContent = '❌ Username đã tồn tại!';
-                    output.className = 'output error';
-                    return;
-                }
-
-                // Create hash
-                const salt = CryptoJS.lib.WordArray.random(128/8).toString();
-                const hash = CryptoJS.PBKDF2(password, salt, { 
-                    keySize: 256/32,
-                    iterations: 1000 
-                }).toString();
-
-                // Create user document
-                await db.collection("users").doc(username).set({
-                    displayName: displayName,
-                    checkLogin: checkLogin,
-                    passwordHash: hash,
-                    salt: salt,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                output.textContent = `✅ Tạo tài khoản thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${checkLogin}`;
-                output.className = 'output success';
-
-                // Clear form
-                document.getElementById('newUsername').value = '';
-                document.getElementById('newPassword').value = '';
-                document.getElementById('newDisplayName').value = '';
-                document.getElementById('newCheckLogin').value = '1';
-
-                // Reload user list
-                setTimeout(loadUsers, 1000);
-
-            } catch (error) {
-                output.textContent = '❌ Lỗi tạo tài khoản: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        async function loadUsers() {
-            if (!db) {
-                alert('Vui lòng kết nối Firebase trước!');
-                return;
-            }
-
-            const userList = document.getElementById('userList');
-            userList.innerHTML = '<div style="padding: 20px; text-align: center;">Đang tải...</div>';
-
-            try {
-                const snapshot = await db.collection("users").get();
-                users = [];
-                
-                snapshot.forEach((doc) => {
-                    users.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
-                });
-
-                if (users.length === 0) {
-                    userList.innerHTML = '<div style="padding: 20px; text-align: center;">Không có tài khoản nào</div>';
-                    return;
-                }
-
-                let html = '';
-                users.forEach((user, index) => {
-                    html += `
-                        <div class="user-item">
-                            <div class="user-info">
-                                <strong>${user.displayName}</strong> (${user.id})<br>
-                                <small>Quyền hạn: ${user.checkLogin} | ${user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</small>
-                            </div>
-                            <div class="user-actions">
-                                <button onclick="editUser('${user.id}')">Sửa</button>
-                                <button class="danger" onclick="deleteUser('${user.id}')">Xóa</button>
+                        <div class="role-template">
+                            <h4>📋 Template theo vai trò:</h4>
+                            <div class="template-buttons">
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('admin', 'new')"
+                                >
+                                    👑 Admin - Toàn quyền
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('manager', 'new')"
+                                >
+                                    👨‍💼 Manager - Quản lý cơ bản
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('staff', 'new')"
+                                >
+                                    👤 Staff - Nhân viên
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('viewer', 'new')"
+                                >
+                                    👁️ Viewer - Chỉ xem
+                                </button>
+                                <button
+                                    class="template-btn"
+                                    onclick="applyPermissionTemplate('clear', 'new')"
+                                >
+                                    🚫 Xóa tất cả
+                                </button>
                             </div>
                         </div>
+
+                        <div
+                            class="permissions-summary"
+                            id="newPermissionsSummary"
+                        >
+                            <span class="permissions-count"
+                                >0/11 trang được chọn</span
+                            >
+                        </div>
+
+                        <div class="permissions-grid" id="newPermissionsGrid">
+                            <!-- Permissions sẽ được tạo bằng JS -->
+                        </div>
+                    </div>
+
+                    <button class="success" onclick="createUser()">
+                        ✅ Tạo Tài Khoản
+                    </button>
+                    <button onclick="clearCreateForm()">🗑️ Xóa Form</button>
+                    <div
+                        id="createOutput"
+                        class="output"
+                        style="display: none"
+                    ></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Permissions Management -->
+            <div id="permissions" class="tab-content">
+                <div class="section">
+                    <h2>🔑 Quản Lý Quyền Truy Cập</h2>
+                    <div class="info">
+                        <strong>ℹ️ Thông tin:</strong> Trang này cho phép xem và
+                        quản lý quyền truy cập của tất cả users.
+                    </div>
+
+                    <button onclick="loadPermissionsOverview()">
+                        🔄 Tải Thống Kê Quyền
+                    </button>
+                    <button onclick="exportPermissions()" class="success">
+                        📊 Xuất Báo Cáo
+                    </button>
+
+                    <div id="permissionsOverview" class="permissions-overview">
+                        <div
+                            style="
+                                padding: 20px;
+                                text-align: center;
+                                color: #6c757d;
+                            "
+                        >
+                            Nhấn "Tải Thống Kê Quyền" để xem báo cáo
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Tools -->
+            <div id="tools" class="tab-content">
+                <div class="section">
+                    <h2>🔐 Tạo Hash Password</h2>
+                    <div class="method-selector">
+                        <label
+                            ><input
+                                type="radio"
+                                name="method"
+                                value="cryptojs"
+                                checked
+                            />
+                            Crypto-JS (Nhanh)</label
+                        >
+                        <label
+                            ><input type="radio" name="method" value="bcrypt" />
+                            bcrypt (An toàn hơn)</label
+                        >
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="username">Username:</label>
+                            <input
+                                type="text"
+                                id="username"
+                                placeholder="Nhập username"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password:</label>
+                            <input
+                                type="password"
+                                id="password"
+                                placeholder="Nhập password"
+                            />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="displayName">Tên hiển thị:</label>
+                            <input
+                                type="text"
+                                id="displayName"
+                                placeholder="Tên hiển thị"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="checkLogin">Quyền hạn:</label>
+                            <select id="checkLogin">
+                                <option value="0">👑 Admin (0)</option>
+                                <option value="1" selected>👤 User (1)</option>
+                                <option value="2">🔒 Limited (2)</option>
+                                <option value="3">💡 Basic (3)</option>
+                                <option value="777">👥 Guest (777)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="generateHash()">🔐 Tạo Hash</button>
+                    <button onclick="clearHashForm()">🗑️ Xóa Form</button>
+                    <div
+                        id="hashOutput"
+                        class="output"
+                        style="display: none"
+                    ></div>
+                </div>
+
+                <div class="section">
+                    <h2>🔍 Kiểm Tra Password</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="testPassword">Test Password:</label>
+                            <input
+                                type="password"
+                                id="testPassword"
+                                placeholder="Nhập password để test"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="testSalt">Salt (Crypto-JS):</label>
+                            <input
+                                type="text"
+                                id="testSalt"
+                                placeholder="Salt từ hash output"
+                            />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="testHash">Hash để so sánh:</label>
+                        <textarea
+                            id="testHash"
+                            rows="3"
+                            placeholder="Paste hash để kiểm tra"
+                        ></textarea>
+                    </div>
+                    <button onclick="verifyPassword()">✅ Kiểm Tra</button>
+                    <div
+                        id="verifyOutput"
+                        class="output"
+                        style="display: none"
+                    ></div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Global variables
+            let db = null;
+            let auth = null;
+            let currentMethod = "cryptojs";
+            let users = [];
+
+            // Available pages with their info
+            const AVAILABLE_PAGES = [
+                {
+                    id: "live",
+                    icon: "📸",
+                    name: "HÌNH ẢNH LIVE ĐẦY ĐỦ",
+                    description: "Xem và quản lý hình ảnh live stream",
+                },
+                {
+                    id: "livestream",
+                    icon: "📺",
+                    name: "BÁO CÁO LIVESTREAM",
+                    description: "Xem báo cáo và thống kê livestream",
+                },
+                {
+                    id: "nhanhang",
+                    icon: "📦",
+                    name: "NHẬN HÀNG",
+                    description: "Quản lý việc nhận hàng từ nhà cung cấp",
+                },
+                {
+                    id: "hangrotxa",
+                    icon: "📋",
+                    name: "HÀNG RỚT - XẢ",
+                    description: "Quản lý hàng rớt và xả hàng",
+                },
+                {
+                    id: "ib",
+                    icon: "💬",
+                    name: "CHECK INBOX KHÁCH HÀNG",
+                    description: "Kiểm tra và quản lý tin nhắn khách hàng",
+                },
+                {
+                    id: "ck",
+                    icon: "💳",
+                    name: "THÔNG TIN CHUYỂN KHOẢN",
+                    description: "Quản lý thông tin chuyển khoản",
+                },
+                {
+                    id: "hanghoan",
+                    icon: "↩️",
+                    name: "HÀNG HOÀN",
+                    description: "Xử lý hàng hoàn trả",
+                },
+                {
+                    id: "hangdat",
+                    icon: "📝",
+                    name: "HÀNG ĐẶT",
+                    description: "Quản lý đơn hàng đặt trước",
+                },
+                {
+                    id: "bangkiemhang",
+                    icon: "✅",
+                    name: "BẢNG KIỂM HÀNG",
+                    description: "Kiểm tra và xác nhận hàng hóa",
+                },
+                {
+                    id: "user-management",
+                    icon: "👥",
+                    name: "QUẢN LÝ TÀI KHOẢN",
+                    description: "Quản lý users và phân quyền (Admin only)",
+                },
+                {
+                    id: "history",
+                    icon: "📊",
+                    name: "LỊCH SỬ CHỈNH SỬA",
+                    description: "Xem lịch sử thay đổi dữ liệu (Admin only)",
+                },
+            ];
+
+            // Permission templates
+            const PERMISSION_TEMPLATES = {
+                admin: [
+                    "live",
+                    "livestream",
+                    "nhanhang",
+                    "hangrotxa",
+                    "ib",
+                    "ck",
+                    "hanghoan",
+                    "hangdat",
+                    "bangkiemhang",
+                    "user-management",
+                    "history",
+                ],
+                manager: [
+                    "live",
+                    "livestream",
+                    "nhanhang",
+                    "hangrotxa",
+                    "ib",
+                    "ck",
+                    "hanghoan",
+                    "bangkiemhang",
+                ],
+                staff: [
+                    "live",
+                    "livestream",
+                    "nhanhang",
+                    "hangrotxa",
+                    "ib",
+                    "ck",
+                    "hanghoan",
+                ],
+                viewer: ["live"],
+            };
+
+            // Initialize permissions grid
+            function initializePermissionsGrid(containerId, prefix = "") {
+                const container = document.getElementById(containerId);
+                container.innerHTML = "";
+
+                AVAILABLE_PAGES.forEach((page) => {
+                    const permissionItem = document.createElement("div");
+                    permissionItem.className = "permission-item";
+
+                    const checkboxId = `${prefix}perm_${page.id}`;
+
+                    permissionItem.innerHTML = `
+                        <div class="permission-checkbox">
+                            <input type="checkbox" id="${checkboxId}" value="${page.id}" 
+                                   onchange="updatePermissionsSummary('${containerId.replace("Grid", "Summary")}', '${prefix}perm_')">
+                            <span class="permission-icon">${page.icon}</span>
+                            <span class="permission-text">${page.name}</span>
+                        </div>
+                        <div class="permission-description">${page.description}</div>
                     `;
+
+                    container.appendChild(permissionItem);
+                });
+            }
+
+            // Update permissions summary
+            function updatePermissionsSummary(summaryId, prefix) {
+                const checkboxes = document.querySelectorAll(
+                    `input[id^="${prefix}"]:checked`,
+                );
+                const total = AVAILABLE_PAGES.length;
+                const selected = checkboxes.length;
+
+                const summaryElement = document.getElementById(summaryId);
+                if (summaryElement) {
+                    const countElement =
+                        summaryElement.querySelector(".permissions-count");
+                    countElement.textContent = `${selected}/${total} trang được chọn`;
+
+                    // Update parent permission item styling
+                    document
+                        .querySelectorAll(`input[id^="${prefix}"]`)
+                        .forEach((checkbox) => {
+                            const permItem =
+                                checkbox.closest(".permission-item");
+                            if (checkbox.checked) {
+                                permItem.classList.add("granted");
+                            } else {
+                                permItem.classList.remove("granted");
+                            }
+                        });
+                }
+            }
+
+            // Apply permission template
+            function applyPermissionTemplate(templateName, formType = "edit") {
+                const prefix = formType === "new" ? "newperm_" : "perm_";
+                const summaryId =
+                    formType === "new"
+                        ? "newPermissionsSummary"
+                        : "permissionsSummary";
+
+                // Clear all checkboxes first
+                document
+                    .querySelectorAll(`input[id^="${prefix}"]`)
+                    .forEach((checkbox) => {
+                        checkbox.checked = false;
+                    });
+
+                if (
+                    templateName !== "clear" &&
+                    PERMISSION_TEMPLATES[templateName]
+                ) {
+                    // Apply template
+                    PERMISSION_TEMPLATES[templateName].forEach((pageId) => {
+                        const checkbox = document.getElementById(
+                            `${prefix}${pageId}`,
+                        );
+                        if (checkbox) {
+                            checkbox.checked = true;
+                        }
+                    });
+                }
+
+                updatePermissionsSummary(summaryId, prefix);
+            }
+
+            // Get selected permissions
+            function getSelectedPermissions(prefix) {
+                const checkboxes = document.querySelectorAll(
+                    `input[id^="${prefix}"]:checked`,
+                );
+                return Array.from(checkboxes).map((cb) => cb.value);
+            }
+
+            // Set user permissions in form
+            function setUserPermissions(permissions, prefix = "perm_") {
+                document
+                    .querySelectorAll(`input[id^="${prefix}"]`)
+                    .forEach((checkbox) => {
+                        checkbox.checked = permissions.includes(checkbox.value);
+                    });
+
+                const summaryId =
+                    prefix === "newperm_"
+                        ? "newPermissionsSummary"
+                        : "permissionsSummary";
+                updatePermissionsSummary(summaryId, prefix);
+            }
+
+            // Check admin access
+            function checkAdminAccess() {
+                const checkLogin = localStorage.getItem("checkLogin");
+                const isLoggedIn = localStorage.getItem("isLoggedIn");
+                const authData = localStorage.getItem("loginindex_auth");
+
+                console.log("Checking admin access:", {
+                    checkLogin,
+                    isLoggedIn,
+                    authData: !!authData,
                 });
 
-                userList.innerHTML = html;
-
-            } catch (error) {
-                userList.innerHTML = `<div style="padding: 20px; color: red;">❌ Lỗi tải danh sách: ${error.message}</div>`;
-            }
-        }
-
-        function editUser(username) {
-            const user = users.find(u => u.id === username);
-            if (!user) return;
-
-            document.getElementById('editUsername').value = user.id;
-            document.getElementById('editDisplayName').value = user.displayName;
-            document.getElementById('editCheckLogin').value = user.checkLogin;
-            document.getElementById('editNewPassword').value = '';
-
-            // Scroll to edit section
-            document.querySelector('#manage .section:nth-child(4)').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        async function updateUser() {
-            if (!db) {
-                alert('Vui lòng kết nối Firebase trước!');
-                return;
-            }
-
-            const username = document.getElementById('editUsername').value.trim();
-            const displayName = document.getElementById('editDisplayName').value.trim();
-            const checkLogin = parseInt(document.getElementById('editCheckLogin').value);
-            const newPassword = document.getElementById('editNewPassword').value.trim();
-            
-            if (!username || !displayName) {
-                alert('Vui lòng nhập username và tên hiển thị!');
-                return;
-            }
-
-            const output = document.getElementById('editOutput');
-            output.textContent = 'Đang cập nhật tài khoản...';
-            
-            try {
-                let updateData = {
-                    displayName: displayName,
-                    checkLogin: checkLogin,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                // If new password is provided, hash it
-                if (newPassword) {
-                    const salt = CryptoJS.lib.WordArray.random(128/8).toString();
-                    const hash = CryptoJS.PBKDF2(newPassword, salt, { 
-                        keySize: 256/32,
-                        iterations: 1000 
-                    }).toString();
-                    
-                    updateData.passwordHash = hash;
-                    updateData.salt = salt;
+                if (!isLoggedIn || isLoggedIn !== "true") {
+                    showAccessDenied("Bạn chưa đăng nhập hệ thống.");
+                    return false;
                 }
 
-                await db.collection("users").doc(username).update(updateData);
-
-                output.textContent = `✅ Cập nhật tài khoản thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${checkLogin}${newPassword ? '\nĐã thay đổi password' : ''}`;
-                output.className = 'output success';
-
-                // Reload user list
-                setTimeout(loadUsers, 1000);
-
-            } catch (error) {
-                output.textContent = '❌ Lỗi cập nhật tài khoản: ' + error.message;
-                output.className = 'output error';
-            }
-        }
-
-        async function deleteUser(username) {
-            if (!db) {
-                alert('Vui lòng kết nối Firebase trước!');
-                return;
-            }
-
-            if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản "${username}"?\nHành động này không thể hoàn tác!`)) {
-                return;
-            }
-
-            try {
-                await db.collection("users").doc(username).delete();
-                
-                // Also try to delete from auth_users if exists
-                try {
-                    const authUsersSnapshot = await db.collection("auth_users").where("username", "==", username).get();
-                    authUsersSnapshot.forEach(async (doc) => {
-                        await doc.ref.delete();
-                    });
-                } catch (authError) {
-                    console.log('Could not delete from auth_users:', authError);
+                if (!checkLogin || (checkLogin !== "0" && checkLogin !== 0)) {
+                    showAccessDenied("Bạn không có quyền Admin.");
+                    return false;
                 }
 
-                alert(`✅ Đã xóa tài khoản "${username}" thành công!`);
-                loadUsers(); // Reload user list
-
-            } catch (error) {
-                alert('❌ Lỗi xóa tài khoản: ' + error.message);
-            }
-        }
-
-        function clearEditForm() {
-            document.getElementById('editUsername').value = '';
-            document.getElementById('editDisplayName').value = '';
-            document.getElementById('editCheckLogin').value = '1';
-            document.getElementById('editNewPassword').value = '';
-            document.getElementById('editOutput').textContent = '';
-            document.getElementById('editOutput').className = 'output';
-        }
-
-        function clearAll() {
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-            document.getElementById('displayName').value = '';
-            document.getElementById('checkLogin').value = '1';
-            document.getElementById('testPassword').value = '';
-            document.getElementById('testHash').value = '';
-            document.getElementById('testSalt').value = '';
-            document.getElementById('hashOutput').textContent = '';
-            document.getElementById('verifyOutput').textContent = '';
-            
-            // Reset classes
-            document.getElementById('hashOutput').className = 'output';
-            document.getElementById('verifyOutput').className = 'output';
-        }
-
-        // Auto-fill display name when username changes
-        document.getElementById('username').addEventListener('input', function() {
-            const username = this.value.trim();
-            if (username && !document.getElementById('displayName').value) {
-                document.getElementById('displayName').value = username.charAt(0).toUpperCase() + username.slice(1);
-            }
-        });
-
-        document.getElementById('newUsername').addEventListener('input', function() {
-            const username = this.value.trim();
-            if (username && !document.getElementById('newDisplayName').value) {
-                document.getElementById('newDisplayName').value = username.charAt(0).toUpperCase() + username.slice(1);
-            }
-        });
-
-        // Load saved config on page load
-        window.addEventListener('load', () => {
-            const savedConfig = localStorage.getItem('firebaseConfig');
-            if (savedConfig) {
                 try {
-                    const config = JSON.parse(savedConfig);
-                    document.getElementById('apiKey').value = config.apiKey || '';
-                    document.getElementById('authDomain').value = config.authDomain || '';
-                    document.getElementById('projectId').value = config.projectId || '';
-                    document.getElementById('storageBucket').value = config.storageBucket || '';
-                    document.getElementById('messagingSenderId').value = config.messagingSenderId || '';
-                    document.getElementById('appId').value = config.appId || '';
+                    const auth = JSON.parse(authData);
+                    document.getElementById("currentUser").textContent =
+                        auth.displayName || auth.username || "Admin";
                 } catch (e) {
-                    console.log('Could not load saved config:', e);
+                    document.getElementById("currentUser").textContent =
+                        "Admin";
                 }
-            } else {
-                // Load default config
-                loadDefaultConfig();
+
+                document.getElementById("mainContainer").style.display =
+                    "block";
+                setTimeout(connectFirebase, 500);
+                return true;
             }
 
-            // Check if libraries are loaded
-            setTimeout(() => {
-                if (typeof CryptoJS !== 'undefined' && typeof bcrypt !== 'undefined') {
-                    console.log('✅ Crypto libraries loaded successfully');
-                } else {
-                    console.error('❌ Some crypto libraries failed to load');
-                }
-            }, 1000);
-        });
+            function showAccessDenied(reason = "") {
+                document.getElementById("accessDenied").style.display = "block";
+                document.getElementById("mainContainer").style.display = "none";
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl + Enter to generate hash
-            if (e.ctrlKey && e.key === 'Enter') {
-                if (document.getElementById('hash').classList.contains('active')) {
-                    generateHash();
+                if (reason) {
+                    const msg = document.querySelector("#accessDenied p");
+                    msg.innerHTML =
+                        reason +
+                        "<br>Chỉ có Admin mới có thể quản lý tài khoản.";
                 }
             }
-        });
-    </script>
-</body>
+
+            // Firebase Configuration
+            function connectFirebase() {
+                try {
+                    if (!firebase.apps.length) {
+                        const config = {
+                            apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+                            authDomain: "n2shop-69e37.firebaseapp.com",
+                            projectId: "n2shop-69e37",
+                            storageBucket: "n2shop-69e37-ne0q1",
+                            messagingSenderId: "598906493303",
+                            appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+                        };
+
+                        const app = firebase.initializeApp(config);
+                        db = firebase.firestore();
+                        auth = firebase.auth();
+                    }
+
+                    document.getElementById("firebaseStatus").textContent =
+                        "✅ Kết nối Firebase thành công!\nProject: n2shop-69e37\nTrạng thái: Admin Access Granted";
+                    document.getElementById("firebaseStatus").className =
+                        "output success";
+
+                    setTimeout(loadUsers, 1000);
+                } catch (error) {
+                    document.getElementById("firebaseStatus").textContent =
+                        "❌ Lỗi kết nối Firebase: " + error.message;
+                    document.getElementById("firebaseStatus").className =
+                        "output error";
+                }
+            }
+
+            // Tab Management
+            function showTab(tabName) {
+                document.querySelectorAll(".tab-content").forEach((content) => {
+                    content.classList.remove("active");
+                });
+                document.querySelectorAll(".tab").forEach((tab) => {
+                    tab.classList.remove("active");
+                });
+
+                document.getElementById(tabName).classList.add("active");
+                event.target.classList.add("active");
+            }
+
+            // Load users with permissions
+            async function loadUsers() {
+                if (!db) {
+                    alert("Firebase chưa được kết nối!");
+                    return;
+                }
+
+                const userList = document.getElementById("userList");
+                userList.innerHTML =
+                    '<div style="padding: 20px; text-align: center;">⏳ Đang tải dữ liệu...</div>';
+
+                try {
+                    const snapshot = await db.collection("users").get();
+                    users = [];
+
+                    snapshot.forEach((doc) => {
+                        users.push({
+                            id: doc.id,
+                            ...doc.data(),
+                        });
+                    });
+
+                    if (users.length === 0) {
+                        userList.innerHTML =
+                            '<div style="padding: 20px; text-align: center;">📝 Không có tài khoản nào</div>';
+                        return;
+                    }
+
+                    users.sort((a, b) => {
+                        if (a.checkLogin !== b.checkLogin) {
+                            return a.checkLogin - b.checkLogin;
+                        }
+                        return a.displayName.localeCompare(b.displayName);
+                    });
+
+                    let html = "";
+                    users.forEach((user, index) => {
+                        const roleText = getRoleText(user.checkLogin);
+                        const roleColor = getRoleColor(user.checkLogin);
+                        const permissionCount = user.pagePermissions
+                            ? user.pagePermissions.length
+                            : 0;
+
+                        html += `
+                            <div class="user-item">
+                                <div class="user-info">
+                                    <strong style="color: ${roleColor};">${user.displayName}</strong> 
+                                    <span style="color: #666;">(${user.id})</span><br>
+                                    <small>
+                                        ${roleText} | 
+                                        🔑 ${permissionCount}/${AVAILABLE_PAGES.length} trang |
+                                        ${user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString("vi-VN") : "N/A"}
+                                        ${user.updatedAt ? " | Cập nhật: " + new Date(user.updatedAt.seconds * 1000).toLocaleDateString("vi-VN") : ""}
+                                    </small>
+                                </div>
+                                <div class="user-actions">
+                                    <button onclick="editUser('${user.id}')" title="Chỉnh sửa">✏️ Sửa</button>
+                                    <button class="danger" onclick="deleteUser('${user.id}')" title="Xóa tài khoản">🗑️ Xóa</button>
+                                    <button onclick="viewUserPermissions('${user.id}')" title="Xem quyền">👁️ Quyền</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    userList.innerHTML = html;
+                } catch (error) {
+                    userList.innerHTML = `<div style="padding: 20px; color: red;">❌ Lỗi tải danh sách: ${error.message}</div>`;
+                    console.error("Load users error:", error);
+                }
+            }
+
+            function getRoleText(checkLogin) {
+                const roles = {
+                    0: "👑 Admin",
+                    1: "👤 User",
+                    2: "🔒 Limited",
+                    3: "💡 Basic",
+                    777: "👥 Guest",
+                };
+                return roles[checkLogin] || `⚠️ Unknown (${checkLogin})`;
+            }
+
+            function getRoleColor(checkLogin) {
+                const colors = {
+                    0: "#e74c3c", // Admin - Red
+                    1: "#3498db", // User - Blue
+                    2: "#f39c12", // Limited - Orange
+                    3: "#27ae60", // Basic - Green
+                    777: "#95a5a6", // Guest - Gray
+                };
+                return colors[checkLogin] || "#666";
+            }
+
+            // Edit user with permissions
+            function editUser(username) {
+                const user = users.find((u) => u.id === username);
+                if (!user) return;
+
+                document.getElementById("editUsername").value = user.id;
+                document.getElementById("editDisplayName").value =
+                    user.displayName;
+                document.getElementById("editCheckLogin").value =
+                    user.checkLogin;
+                document.getElementById("editNewPassword").value = "";
+
+                // Set permissions
+                const userPermissions = user.pagePermissions || [];
+                setUserPermissions(userPermissions, "perm_");
+
+                showTab("manage");
+                document
+                    .querySelector("#manage .section:nth-child(3)")
+                    .scrollIntoView({ behavior: "smooth" });
+            }
+
+            // View user permissions
+            function viewUserPermissions(username) {
+                const user = users.find((u) => u.id === username);
+                if (!user) return;
+
+                const permissions = user.pagePermissions || [];
+                const permissionNames = permissions.map((pid) => {
+                    const page = AVAILABLE_PAGES.find((p) => p.id === pid);
+                    return page ? `${page.icon} ${page.name}` : pid;
+                });
+
+                const message = `
+🔑 Quyền truy cập của: ${user.displayName} (${user.id})
+👤 Vai trò: ${getRoleText(user.checkLogin)}
+📊 Tổng quyền: ${permissions.length}/${AVAILABLE_PAGES.length} trang
+
+📋 Các trang có quyền truy cập:
+${permissionNames.length > 0 ? permissionNames.join("\n") : "❌ Không có quyền truy cập trang nào"}
+                `.trim();
+
+                alert(message);
+            }
+
+            // Update user with permissions
+            async function updateUser() {
+                if (!db) {
+                    alert("Firebase chưa được kết nối!");
+                    return;
+                }
+
+                const username = document
+                    .getElementById("editUsername")
+                    .value.trim();
+                const displayName = document
+                    .getElementById("editDisplayName")
+                    .value.trim();
+                const checkLogin = parseInt(
+                    document.getElementById("editCheckLogin").value,
+                );
+                const newPassword = document
+                    .getElementById("editNewPassword")
+                    .value.trim();
+
+                if (!username || !displayName) {
+                    alert("Vui lòng nhập đầy đủ thông tin!");
+                    return;
+                }
+
+                // Get selected permissions
+                const selectedPermissions = getSelectedPermissions("perm_");
+
+                const output = document.getElementById("editOutput");
+                output.style.display = "block";
+                output.textContent = "Đang cập nhật tài khoản...";
+                output.className = "output";
+
+                try {
+                    let updateData = {
+                        displayName: displayName,
+                        checkLogin: checkLogin,
+                        pagePermissions: selectedPermissions,
+                        updatedAt:
+                            firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedBy: JSON.parse(
+                            localStorage.getItem("loginindex_auth"),
+                        ).username,
+                    };
+
+                    if (newPassword) {
+                        const salt = CryptoJS.lib.WordArray.random(
+                            128 / 8,
+                        ).toString();
+                        const hash = CryptoJS.PBKDF2(newPassword, salt, {
+                            keySize: 256 / 32,
+                            iterations: 1000,
+                        }).toString();
+
+                        updateData.passwordHash = hash;
+                        updateData.salt = salt;
+                    }
+
+                    await db
+                        .collection("users")
+                        .doc(username)
+                        .update(updateData);
+
+                    output.textContent = `✅ Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\n🔑 Quyền truy cập: ${selectedPermissions.length}/${AVAILABLE_PAGES.length} trang${newPassword ? "\n🔐 Đã thay đổi password" : ""}`;
+                    output.className = "output success";
+
+                    setTimeout(loadUsers, 1000);
+                    setTimeout(() => {
+                        clearEditForm();
+                    }, 3000);
+                } catch (error) {
+                    output.textContent = "❌ Lỗi cập nhật: " + error.message;
+                    output.className = "output error";
+                }
+            }
+
+            // Create user with permissions
+            async function createUser() {
+                if (!db) {
+                    alert("Firebase chưa được kết nối!");
+                    return;
+                }
+
+                const username = document
+                    .getElementById("newUsername")
+                    .value.trim()
+                    .toLowerCase();
+                const password = document
+                    .getElementById("newPassword")
+                    .value.trim();
+                const displayName =
+                    document.getElementById("newDisplayName").value.trim() ||
+                    username.charAt(0).toUpperCase() + username.slice(1);
+                const checkLogin = parseInt(
+                    document.getElementById("newCheckLogin").value,
+                );
+
+                if (!username || !password) {
+                    alert("Vui lòng nhập username và password!");
+                    return;
+                }
+
+                if (!/^[a-z0-9_]+$/.test(username)) {
+                    alert(
+                        "Username chỉ được chứa chữ cái thường, số và dấu gạch dưới!",
+                    );
+                    return;
+                }
+
+                if (password.length < 6) {
+                    alert("Password phải có ít nhất 6 ký tự!");
+                    return;
+                }
+
+                // Get selected permissions
+                const selectedPermissions = getSelectedPermissions("newperm_");
+
+                const output = document.getElementById("createOutput");
+                output.style.display = "block";
+                output.textContent = "Đang tạo tài khoản...";
+                output.className = "output";
+
+                try {
+                    const userDoc = await db
+                        .collection("users")
+                        .doc(username)
+                        .get();
+                    if (userDoc.exists) {
+                        output.textContent = "❌ Username đã tồn tại!";
+                        output.className = "output error";
+                        return;
+                    }
+
+                    const salt = CryptoJS.lib.WordArray.random(
+                        128 / 8,
+                    ).toString();
+                    const hash = CryptoJS.PBKDF2(password, salt, {
+                        keySize: 256 / 32,
+                        iterations: 1000,
+                    }).toString();
+
+                    await db
+                        .collection("users")
+                        .doc(username)
+                        .set({
+                            displayName: displayName,
+                            checkLogin: checkLogin,
+                            pagePermissions: selectedPermissions,
+                            passwordHash: hash,
+                            salt: salt,
+                            createdAt:
+                                firebase.firestore.FieldValue.serverTimestamp(),
+                            createdBy: JSON.parse(
+                                localStorage.getItem("loginindex_auth"),
+                            ).username,
+                        });
+
+                    output.textContent = `✅ Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\n🔑 Quyền truy cập: ${selectedPermissions.length}/${AVAILABLE_PAGES.length} trang\n🔐 Password đã được hash an toàn`;
+                    output.className = "output success";
+
+                    clearCreateForm();
+                    setTimeout(loadUsers, 1000);
+                } catch (error) {
+                    output.textContent =
+                        "❌ Lỗi tạo tài khoản: " + error.message;
+                    output.className = "output error";
+                }
+            }
+
+            // Load permissions overview
+            async function loadPermissionsOverview() {
+                if (!db) {
+                    alert("Firebase chưa được kết nối!");
+                    return;
+                }
+
+                const overview = document.getElementById("permissionsOverview");
+                overview.innerHTML =
+                    '<div style="padding: 20px; text-align: center;">⏳ Đang tải dữ liệu...</div>';
+
+                try {
+                    const snapshot = await db.collection("users").get();
+                    const permissionStats = {};
+                    const roleStats = {};
+
+                    // Initialize stats
+                    AVAILABLE_PAGES.forEach((page) => {
+                        permissionStats[page.id] = {
+                            name: page.name,
+                            icon: page.icon,
+                            count: 0,
+                            users: [],
+                        };
+                    });
+
+                    let totalUsers = 0;
+
+                    snapshot.forEach((doc) => {
+                        const user = doc.data();
+                        totalUsers++;
+
+                        // Count by role
+                        const role = getRoleText(user.checkLogin);
+                        roleStats[role] = (roleStats[role] || 0) + 1;
+
+                        // Count permissions
+                        const permissions = user.pagePermissions || [];
+                        permissions.forEach((permId) => {
+                            if (permissionStats[permId]) {
+                                permissionStats[permId].count++;
+                                permissionStats[permId].users.push(
+                                    user.displayName || doc.id,
+                                );
+                            }
+                        });
+                    });
+
+                    // Generate HTML
+                    let html = `
+                        <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                            <h3>📊 Thống Kê Tổng Quan</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                    `;
+
+                    Object.entries(roleStats).forEach(([role, count]) => {
+                        html += `
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #007bff;">${count}</div>
+                                <div style="font-size: 14px; color: #6c757d;">${role}</div>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                        <div style="background: white; padding: 20px; border-radius: 10px;">
+                            <h3>🔑 Thống Kê Quyền Truy Cập Từng Trang</h3>
+                            <div style="margin-top: 15px;">
+                    `;
+
+                    Object.entries(permissionStats).forEach(
+                        ([pageId, stats]) => {
+                            const percentage =
+                                totalUsers > 0
+                                    ? Math.round(
+                                          (stats.count / totalUsers) * 100,
+                                      )
+                                    : 0;
+                            html += `
+                            <div style="margin-bottom: 15px; padding: 15px; border: 1px solid #dee2e6; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-weight: bold;">${stats.icon} ${stats.name}</span>
+                                    <span style="background: #007bff; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                                        ${stats.count}/${totalUsers} (${percentage}%)
+                                    </span>
+                                </div>
+                                <div style="background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
+                                    <div style="background: #007bff; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+                                </div>
+                                ${
+                                    stats.users.length > 0
+                                        ? `
+                                    <div style="margin-top: 8px; font-size: 12px; color: #6c757d;">
+                                        <strong>Users:</strong> ${stats.users.join(", ")}
+                                    </div>
+                                `
+                                        : ""
+                                }
+                            </div>
+                        `;
+                        },
+                    );
+
+                    html += "</div></div>";
+                    overview.innerHTML = html;
+                } catch (error) {
+                    overview.innerHTML = `<div style="padding: 20px; color: red;">❌ Lỗi tải thống kê: ${error.message}</div>`;
+                }
+            }
+
+            // Export permissions report
+            async function exportPermissions() {
+                if (users.length === 0) {
+                    alert("Vui lòng tải danh sách users trước!");
+                    return;
+                }
+
+                try {
+                    let csv = "Username,Display Name,Role,Role Code,";
+                    AVAILABLE_PAGES.forEach((page) => {
+                        csv += `${page.name.replace(/,/g, " ")},`;
+                    });
+                    csv += "Total Permissions,Created Date\n";
+
+                    users.forEach((user) => {
+                        const permissions = user.pagePermissions || [];
+                        const createdDate = user.createdAt
+                            ? new Date(
+                                  user.createdAt.seconds * 1000,
+                              ).toLocaleDateString("vi-VN")
+                            : "N/A";
+
+                        csv += `${user.id},"${user.displayName}","${getRoleText(user.checkLogin)}",${user.checkLogin},`;
+
+                        AVAILABLE_PAGES.forEach((page) => {
+                            csv += permissions.includes(page.id)
+                                ? "YES,"
+                                : "NO,";
+                        });
+
+                        csv += `${permissions.length},"${createdDate}"\n`;
+                    });
+
+                    const blob = new Blob([csv], {
+                        type: "text/csv;charset=utf-8;",
+                    });
+                    const link = document.createElement("a");
+                    const url = URL.createObjectURL(blob);
+
+                    link.setAttribute("href", url);
+                    link.setAttribute(
+                        "download",
+                        `N2Shop_Permissions_${new Date().toISOString().split("T")[0]}.csv`,
+                    );
+                    link.style.visibility = "hidden";
+
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    alert("✅ Đã xuất báo cáo quyền thành công!");
+                } catch (error) {
+                    alert("❌ Lỗi xuất báo cáo: " + error.message);
+                }
+            }
+
+            // Delete user (existing function)
+            async function deleteUser(username) {
+                if (!db) {
+                    alert("Firebase chưa được kết nối!");
+                    return;
+                }
+
+                const user = users.find((u) => u.id === username);
+                if (!user) return;
+
+                const adminCount = users.filter(
+                    (u) => u.checkLogin === 0,
+                ).length;
+                if (user.checkLogin === 0 && adminCount === 1) {
+                    alert(
+                        "❌ Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.",
+                    );
+                    return;
+                }
+
+                const permissions = user.pagePermissions || [];
+                const confirmMsg = `⚠️ XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nQuyền hạn: ${getRoleText(user.checkLogin)}\n🔑 Quyền truy cập: ${permissions.length}/${AVAILABLE_PAGES.length} trang\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
+
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+
+                try {
+                    await db.collection("users").doc(username).delete();
+
+                    try {
+                        const authUsersSnapshot = await db
+                            .collection("auth_users")
+                            .where("username", "==", username)
+                            .get();
+                        authUsersSnapshot.forEach(async (doc) => {
+                            await doc.ref.delete();
+                        });
+                    } catch (authError) {
+                        console.log(
+                            "Could not delete from auth_users:",
+                            authError,
+                        );
+                    }
+
+                    alert(`✅ Đã xóa tài khoản "${username}" thành công!`);
+                    loadUsers();
+                } catch (error) {
+                    alert("❌ Lỗi xóa tài khoản: " + error.message);
+                }
+            }
+
+            // Clear forms
+            function clearEditForm() {
+                document.getElementById("editUsername").value = "";
+                document.getElementById("editDisplayName").value = "";
+                document.getElementById("editCheckLogin").value = "1";
+                document.getElementById("editNewPassword").value = "";
+                setUserPermissions([], "perm_");
+                const output = document.getElementById("editOutput");
+                output.style.display = "none";
+                output.textContent = "";
+                output.className = "output";
+            }
+
+            function clearCreateForm() {
+                document.getElementById("newUsername").value = "";
+                document.getElementById("newPassword").value = "";
+                document.getElementById("newDisplayName").value = "";
+                document.getElementById("newCheckLogin").value = "1";
+                setUserPermissions([], "newperm_");
+                const output = document.getElementById("createOutput");
+                output.style.display = "none";
+                output.textContent = "";
+                output.className = "output";
+            }
+
+            // Hash generation and verification functions (existing)
+            document
+                .querySelectorAll('input[name="method"]')
+                .forEach((radio) => {
+                    radio.addEventListener("change", (e) => {
+                        currentMethod = e.target.value;
+                    });
+                });
+
+            async function generateHash() {
+                const username = document
+                    .getElementById("username")
+                    .value.trim();
+                const password = document
+                    .getElementById("password")
+                    .value.trim();
+                const displayName =
+                    document.getElementById("displayName").value.trim() ||
+                    username.charAt(0).toUpperCase() + username.slice(1);
+                const checkLogin = parseInt(
+                    document.getElementById("checkLogin").value,
+                );
+
+                if (!username || !password) {
+                    alert("Vui lòng nhập username và password!");
+                    return;
+                }
+
+                const output = document.getElementById("hashOutput");
+                output.style.display = "block";
+
+                try {
+                    let result = {
+                        username: username,
+                        displayName: displayName,
+                        checkLogin: checkLogin,
+                    };
+
+                    if (
+                        currentMethod === "cryptojs" &&
+                        typeof CryptoJS !== "undefined"
+                    ) {
+                        const salt = CryptoJS.lib.WordArray.random(
+                            128 / 8,
+                        ).toString();
+                        const hash = CryptoJS.PBKDF2(password, salt, {
+                            keySize: 256 / 32,
+                            iterations: 1000,
+                        }).toString();
+
+                        result.passwordHash = hash;
+                        result.salt = salt;
+                        result.method = "crypto-js";
+                    } else if (
+                        currentMethod === "bcrypt" &&
+                        typeof bcrypt !== "undefined"
+                    ) {
+                        output.textContent = "Đang tạo bcrypt hash...";
+                        const saltRounds = 10;
+                        const hash = await bcrypt.hash(password, saltRounds);
+
+                        result.passwordHash = hash;
+                        result.method = "bcrypt";
+                    } else {
+                        output.textContent = "Lỗi: Thư viện crypto chưa load!";
+                        return;
+                    }
+
+                    displayHashResult(output, result);
+
+                    document.getElementById("testHash").value =
+                        result.passwordHash;
+                    if (result.salt) {
+                        document.getElementById("testSalt").value = result.salt;
+                    }
+                } catch (error) {
+                    output.textContent = "Lỗi: " + error.message;
+                    output.className = "output error";
+                }
+            }
+
+            function displayHashResult(output, result) {
+                let text = `✅ Tạo hash thành công!\n\n`;
+                text += `Method: ${result.method}\n`;
+                text += `Username: ${result.username}\n`;
+                text += `Display Name: ${result.displayName}\n`;
+                text += `Check Login: ${result.checkLogin} (${getRoleText(result.checkLogin)})\n`;
+                text += `Password Hash: ${result.passwordHash}\n`;
+                if (result.salt) {
+                    text += `Salt: ${result.salt}\n`;
+                }
+
+                text += `\n--- Firebase Document ---\n`;
+                text += `Collection: users\n`;
+                text += `Document ID: ${result.username}\n\n`;
+                text += JSON.stringify(
+                    {
+                        displayName: result.displayName,
+                        checkLogin: result.checkLogin,
+                        passwordHash: result.passwordHash,
+                        pagePermissions: [],
+                        ...(result.salt && { salt: result.salt }),
+                    },
+                    null,
+                    2,
+                );
+
+                output.textContent = text;
+                output.className = "output success";
+            }
+
+            async function verifyPassword() {
+                const testPassword = document
+                    .getElementById("testPassword")
+                    .value.trim();
+                const testHash = document
+                    .getElementById("testHash")
+                    .value.trim();
+                const testSalt = document
+                    .getElementById("testSalt")
+                    .value.trim();
+                const output = document.getElementById("verifyOutput");
+
+                if (!testPassword || !testHash) {
+                    output.style.display = "block";
+                    output.textContent =
+                        "Vui lòng nhập password và hash để test!";
+                    output.className = "output error";
+                    return;
+                }
+
+                output.style.display = "block";
+
+                try {
+                    let isMatch = false;
+                    let method = "";
+
+                    if (
+                        typeof bcrypt !== "undefined" &&
+                        testHash.startsWith("$2")
+                    ) {
+                        isMatch = await bcrypt.compare(testPassword, testHash);
+                        method = "bcrypt";
+                    } else if (typeof CryptoJS !== "undefined" && testSalt) {
+                        const computedHash = CryptoJS.PBKDF2(
+                            testPassword,
+                            testSalt,
+                            {
+                                keySize: 256 / 32,
+                                iterations: 1000,
+                            },
+                        ).toString();
+                        isMatch = computedHash === testHash;
+                        method = "crypto-js";
+                    } else {
+                        output.textContent =
+                            "Không thể xác định method hoặc thiếu salt!";
+                        output.className = "output error";
+                        return;
+                    }
+
+                    if (isMatch) {
+                        output.textContent = `✅ Password ĐÚNG!\nMethod: ${method}\nHash khớp với password đã nhập.`;
+                        output.className = "output success";
+                    } else {
+                        output.textContent = `❌ Password SAI!\nMethod: ${method}\nHash không khớp với password đã nhập.`;
+                        output.className = "output error";
+                    }
+                } catch (error) {
+                    output.textContent = "Lỗi: " + error.message;
+                    output.className = "output error";
+                }
+            }
+
+            function clearHashForm() {
+                document.getElementById("username").value = "";
+                document.getElementById("password").value = "";
+                document.getElementById("displayName").value = "";
+                document.getElementById("checkLogin").value = "1";
+                const output = document.getElementById("hashOutput");
+                output.style.display = "none";
+                output.textContent = "";
+                output.className = "output";
+            }
+
+            // Auto-fill display name
+            document
+                .getElementById("username")
+                .addEventListener("input", function () {
+                    const username = this.value.trim();
+                    if (
+                        username &&
+                        !document.getElementById("displayName").value
+                    ) {
+                        document.getElementById("displayName").value =
+                            username.charAt(0).toUpperCase() +
+                            username.slice(1);
+                    }
+                });
+
+            document
+                .getElementById("newUsername")
+                .addEventListener("input", function () {
+                    const username = this.value.trim();
+                    if (
+                        username &&
+                        !document.getElementById("newDisplayName").value
+                    ) {
+                        document.getElementById("newDisplayName").value =
+                            username.charAt(0).toUpperCase() +
+                            username.slice(1);
+                    }
+                });
+
+            // Initialize page
+            document.addEventListener("DOMContentLoaded", function () {
+                console.log("Enhanced User Management page loading...");
+
+                if (!checkAdminAccess()) {
+                    return;
+                }
+
+                // Initialize permissions grids
+                initializePermissionsGrid("editPermissionsGrid", "perm_");
+                initializePermissionsGrid("newPermissionsGrid", "newperm_");
+
+                console.log(
+                    "Enhanced User Management initialized with permissions system",
+                );
+
+                setTimeout(() => {
+                    if (
+                        typeof CryptoJS !== "undefined" &&
+                        typeof bcrypt !== "undefined"
+                    ) {
+                        console.log("✅ Crypto libraries loaded successfully");
+                    } else {
+                        console.warn("⚠️ Some crypto libraries failed to load");
+                    }
+                }, 1000);
+            });
+
+            window.addEventListener("beforeunload", function () {
+                console.log("Page unloading, cleaning up...");
+            });
+
+            document.addEventListener("contextmenu", function (e) {
+                const checkLogin = localStorage.getItem("checkLogin");
+                if (checkLogin !== "0" && checkLogin !== 0) {
+                    e.preventDefault();
+                }
+            });
+
+            console.log(
+                "Enhanced User Management System with Permissions initialized",
+            );
+        </script>
+    </body>
 </html>

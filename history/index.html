@@ -1,613 +1,690 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Lịch sử chỉnh sửa</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <link rel="preconnect" href="https://fonts.googleapis.com/" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com/"
+            crossorigin=""
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="shortcut icon" href="../logo.jpg" />
 
-<head>
-    <meta charset="UTF-8">
-    <title>Lịch sử chỉnh sửa</title>
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com/">
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="../logo.jpg" />
-    
-    <!-- The core Firebase JS SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <!-- The Firebase storage SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <!-- The Firebase firestore SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <!-- Load jQuery from a CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-    
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="../main.css">
-    
-    <!-- Navigation Manager - Load trước khi load page scripts -->
-    <script src="../js/navigation.js"></script>
-    <script src="../js/common-utils.js"></script>
-</head>
+        <!-- The core Firebase JS SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <!-- The Firebase storage SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+        <!-- The Firebase firestore SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+        <!-- Load jQuery from a CDN -->
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
-<body>
-    <!-- Security Indicator -->
-    <div class="security-indicator" id="securityIndicator">Secure</div>
-    
-    <!-- Performance Indicator -->
-    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
-    
-    <!-- Menu Toggle Button -->
-    <button class="menu-toggle">
-        <div class="hamburger"></div>
-    </button>
+        <!-- Main CSS -->
+        <link rel="stylesheet" href="../main.css" />
 
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h3>Menu Điều Hướng</h3>
-            <button class="close-btn">&times;</button>
+        <!-- Navigation Manager - Load trước khi load page scripts -->
+        <script src="../js/navigation.js"></script>
+        <script src="../js/common-utils.js"></script>
+    </head>
+
+    <body>
+        <!-- Security Indicator -->
+        <div class="security-indicator" id="securityIndicator">Secure</div>
+
+        <!-- Performance Indicator -->
+        <div class="performance-indicator" id="performanceIndicator">
+            Fast Load
         </div>
-        <ul class="nav-list"></ul>
-    </nav>
 
-    <!-- Overlay -->
-    <div class="overlay" id="overlay"></div>
+        <!-- Menu Toggle Button -->
+        <button class="menu-toggle">
+            <div class="hamburger"></div>
+        </button>
 
-    <!-- Top buttons -->
-    <div class="top-buttons">
-        <button id="refreshButton">Làm mới</button>
-        <button id="toggleLogoutButton">Đăng xuất</button>
-    </div>
-
-    <!-- Main content -->
-    <div class="main-content">
-        <div class="header">
-            <div id="parentContainer">
-                <p class="tieude">LỊCH SỬ CHỈNH SỬA</p>
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Menu Điều Hướng</h3>
+                <button class="close-btn">&times;</button>
             </div>
+            <ul class="nav-list"></ul>
+        </nav>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Top buttons -->
+        <div class="top-buttons">
+            <button id="refreshButton">Làm mới</button>
+            <button id="toggleLogoutButton">Đăng xuất</button>
         </div>
 
-        <!-- Stats Section -->
-        <div class="stats-section">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="totalLogs">0</div>
-                    <div class="stat-label">Tổng hoạt động</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="todayLogs">0</div>
-                    <div class="stat-label">Hôm nay</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="activeUsers">0</div>
-                    <div class="stat-label">Người dùng hoạt động</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="currentUserLogs">0</div>
-                    <div class="stat-label">Hoạt động của bạn</div>
+        <!-- Main content -->
+        <div class="main-content">
+            <div class="header">
+                <div id="parentContainer">
+                    <p class="tieude">LỊCH SỬ CHỈNH SỬA</p>
                 </div>
             </div>
-        </div>
 
-        <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <label for="userFilter">Lọc theo người dùng:</label>
-                <select id="userFilter">
-                    <option value="all">Tất cả</option>
-                </select>
-
-                <label for="actionFilter">Lọc theo hành động:</label>
-                <select id="actionFilter">
-                    <option value="all">Tất cả</option>
-                    <option value="add">Thêm</option>
-                    <option value="edit">Sửa</option>
-                    <option value="delete">Xóa</option>
-                    <option value="update">Cập nhật</option>
-                </select>
-                
-                <label for="startDate">Từ ngày:</label>
-                <input type="date" id="startDate">
-                
-                <label for="endDate">Đến ngày:</label>
-                <input type="date" id="endDate">
-
-                <button onclick="applyFilters()">Áp dụng bộ lọc</button>
-                <button onclick="showAllData()">Hiện tất cả</button>
-                <button class="clear-history-btn" onclick="clearFilteredHistory()">Xóa lịch sử đã lọc</button>
+            <!-- Stats Section -->
+            <div class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalLogs">0</div>
+                        <div class="stat-label">Tổng hoạt động</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="todayLogs">0</div>
+                        <div class="stat-label">Hôm nay</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="activeUsers">0</div>
+                        <div class="stat-label">Người dùng hoạt động</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="currentUserLogs">0</div>
+                        <div class="stat-label">Hoạt động của bạn</div>
+                    </div>
+                </div>
             </div>
-            
-            <!-- Filter info display -->
-            <div class="filter-info" id="filterInfo">
-                Đang hiển thị <span id="filteredCount">0</span> kết quả theo bộ lọc
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="userFilter">Lọc theo người dùng:</label>
+                    <select id="userFilter">
+                        <option value="all">Tất cả</option>
+                    </select>
+
+                    <label for="actionFilter">Lọc theo hành động:</label>
+                    <select id="actionFilter">
+                        <option value="all">Tất cả</option>
+                        <option value="add">Thêm</option>
+                        <option value="edit">Sửa</option>
+                        <option value="delete">Xóa</option>
+                        <option value="update">Cập nhật</option>
+                    </select>
+
+                    <label for="startDate">Từ ngày:</label>
+                    <input type="date" id="startDate" />
+
+                    <label for="endDate">Đến ngày:</label>
+                    <input type="date" id="endDate" />
+
+                    <button onclick="applyFilters()">Áp dụng bộ lọc</button>
+                    <button onclick="showAllData()">Hiện tất cả</button>
+                    <button
+                        class="clear-history-btn"
+                        onclick="clearFilteredHistory()"
+                    >
+                        Xóa lịch sử đã lọc
+                    </button>
+                </div>
+
+                <!-- Filter info display -->
+                <div class="filter-info" id="filterInfo">
+                    Đang hiển thị <span id="filteredCount">0</span> kết quả theo
+                    bộ lọc
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Thời gian</th>
+                            <th>Người dùng</th>
+                            <th>Trang</th>
+                            <th>Hành động</th>
+                            <th>Mô tả</th>
+                            <th>Dữ liệu cũ</th>
+                            <th>Dữ liệu mới</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <!-- Dữ liệu lịch sử sẽ được thêm bằng JavaScript -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Table -->
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>STT</th>
-                        <th>Thời gian</th>
-                        <th>Người dùng</th>
-                        <th>Trang</th>
-                        <th>Hành động</th>
-                        <th>Mô tả</th>
-                        <th>Dữ liệu cũ</th>
-                        <th>Dữ liệu mới</th>
-                    </tr>
-                </thead>
-                <tbody id="historyTableBody">
-                    <!-- Dữ liệu lịch sử sẽ được thêm bằng JavaScript -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Enhanced Floating Alert -->
-    <div id="floatingAlert">
-        <div class="alert-content">
-            <div class="loading-spinner" style="display: none;">
-                <div class="spinner"></div>
+        <!-- Enhanced Floating Alert -->
+        <div id="floatingAlert">
+            <div class="alert-content">
+                <div class="loading-spinner" style="display: none">
+                    <div class="spinner"></div>
+                </div>
+                <div class="alert-text">Thông báo hiển thị!</div>
             </div>
-            <div class="alert-text">Thông báo hiển thị!</div>
         </div>
-    </div>
-    
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay"></div>
-    
-    <!-- Blocking Overlay
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay"></div>
+
+        <!-- Blocking Overlay
     <div id="blockingOverlay"></div>
     -->
-    
-    <!-- Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
 
-    <!-- Detail Modal -->
-    <div id="detailModal" class="detail-modal">
-        <div class="detail-modal-content">
-            <span class="detail-modal-close" onclick="closeDetailModal()">&times;</span>
-            <div id="modalDetailContent">
-                <!-- Content sẽ được thêm bằng JavaScript -->
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
+
+        <!-- Detail Modal -->
+        <div id="detailModal" class="detail-modal">
+            <div class="detail-modal-content">
+                <span class="detail-modal-close" onclick="closeDetailModal()"
+                    >&times;</span
+                >
+                <div id="modalDetailContent">
+                    <!-- Content sẽ được thêm bằng JavaScript -->
+                </div>
             </div>
         </div>
-    </div>
 
-    <script>
-		const firebaseConfig = {
-			apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-			authDomain: "n2shop-69e37.firebaseapp.com", 
-			projectId: "n2shop-69e37",
-			storageBucket: "n2shop-69e37-ne0q1",
-			messagingSenderId: "598906493303",
-			appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-			measurementId: "G-TEJH3S2T1D"
-		};
-		
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const historyCollectionRef = db.collection("edit_history");
-
-        // Get elements
-        const tbody = document.getElementById('historyTableBody');
-        const userFilter = document.getElementById('userFilter');
-        const actionFilter = document.getElementById('actionFilter');
-        const startDate = document.getElementById('startDate');
-        const endDate = document.getElementById('endDate');
-        const filterInfo = document.getElementById('filterInfo');
-        const filteredCount = document.getElementById('filteredCount');
-
-        // Global variables
-        let allHistoryData = [];
-        let filteredData = [];
-
-        // Check both localStorage and sessionStorage for login status
-		var isLoggedIn = localStorage.getItem('isLoggedIn') || sessionStorage.getItem('isLoggedIn') || 'false';
-		const userType = localStorage.getItem('userType') || sessionStorage.getItem('userType') || null;
-		const checkLogin = localStorage.getItem('checkLogin') || sessionStorage.getItem('checkLogin');
-
-		if (isLoggedIn === 'true') {
-			document.querySelector('.tieude').innerText += ' - Administrator';
-			const parentContainer = document.getElementById('parentContainer');
-			parentContainer.style.display = 'flex';
-			parentContainer.style.justifyContent = 'center';
-			parentContainer.style.alignItems = 'center';
-		} else {
-			// Comment out redirect for development/testing
-			window.location.href = '../index.html';
-			console.log('User not logged in - redirect to index.html disabled for development');
-		}
-
-        // Kiểm tra quyền truy cập trang lịch sử
-        if (checkLogin != 0) {
-            // Nếu không phải admin (checkLogin != 0), chuyển hướng về trang chính
-            alert('Bạn không có quyền truy cập trang này!');
-            window.location.href = '../index.html';
-        }
-
-        // Utility function to log actions
-        function logAction(action, description, oldData = null, newData = null, pageName = null) {
-            // Auto-detect page name if not provided
-            if (!pageName) {
-                const currentPath = window.location.pathname;
-                const pathParts = currentPath.split('/');
-                const currentDir = pathParts[pathParts.length - 2] || 'unknown';
-                
-                const pageNames = {
-                    'live': 'Hình ảnh Live',
-                    'hangrotxa': 'Hàng rớt - xả',
-                    'ib': 'Check Inbox',
-                    'ck': 'Chuyển khoản',
-                    'hanghoan': 'Hàng hoàn',
-                    'nhaphang': 'Nhập hàng',
-                    'lichsuchinhsua': 'Lịch sử chỉnh sửa'
-                };
-                
-                pageName = pageNames[currentDir] || currentDir;
-            }
-
-            const logEntry = {
-                timestamp: new Date(),
-                user: userType ? userType.split('-')[0] : 'Unknown',
-                page: pageName,
-                action: action,
-                description: description,
-                oldData: oldData,
-                newData: newData,
-                id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+        <script>
+            const firebaseConfig = {
+                apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+                authDomain: "n2shop-69e37.firebaseapp.com",
+                projectId: "n2shop-69e37",
+                storageBucket: "n2shop-69e37-ne0q1",
+                messagingSenderId: "598906493303",
+                appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+                measurementId: "G-TEJH3S2T1D",
             };
 
-            // Save to Firebase
-            historyCollectionRef.add(logEntry)
-                .then(() => {
-                    console.log("Log entry saved successfully");
-                })
-                .catch((error) => {
-                    console.error("Error saving log entry: ", error);
-                });
-        }
+            // Initialize Firebase
+            const app = firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+            const historyCollectionRef = db.collection("edit_history");
 
-        // Toggle Sidebar function
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            const menuToggle = document.querySelector('.menu-toggle');
-            
-            const isOpen = sidebar.classList.contains('open');
-            
-            if (isOpen) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
-                menuToggle.classList.remove('active');
+            // Get elements
+            const tbody = document.getElementById("historyTableBody");
+            const userFilter = document.getElementById("userFilter");
+            const actionFilter = document.getElementById("actionFilter");
+            const startDate = document.getElementById("startDate");
+            const endDate = document.getElementById("endDate");
+            const filterInfo = document.getElementById("filterInfo");
+            const filteredCount = document.getElementById("filteredCount");
+
+            // Global variables
+            let allHistoryData = [];
+            let filteredData = [];
+
+            // Check both localStorage and sessionStorage for login status
+            var isLoggedIn =
+                localStorage.getItem("isLoggedIn") ||
+                sessionStorage.getItem("isLoggedIn") ||
+                "false";
+            const userType =
+                localStorage.getItem("userType") ||
+                sessionStorage.getItem("userType") ||
+                null;
+            const checkLogin =
+                localStorage.getItem("checkLogin") ||
+                sessionStorage.getItem("checkLogin");
+
+            if (isLoggedIn === "true") {
+                document.querySelector(".tieude").innerText +=
+                    " - Administrator";
+                const parentContainer =
+                    document.getElementById("parentContainer");
+                parentContainer.style.display = "flex";
+                parentContainer.style.justifyContent = "center";
+                parentContainer.style.alignItems = "center";
             } else {
-                sidebar.classList.add('open');
-                overlay.classList.add('active');
-                menuToggle.classList.add('active');
+                // Comment out redirect for development/testing
+                window.location.href = "../index.html";
+                console.log(
+                    "User not logged in - redirect to index.html disabled for development",
+                );
             }
-        }
 
-        // Load and display history data
-        async function loadHistoryData() {
-            showFloatingAlert("Đang tải dữ liệu...");
-            
-            try {
-                const snapshot = await historyCollectionRef.orderBy('timestamp', 'desc').get();
-                
-                allHistoryData = [];
-                const users = new Set();
-                let todayCount = 0;
-                let currentUserCount = 0;
-                const today = new Date().toDateString();
-                const currentUser = userType ? userType.split('-')[0] : '';
+            // Kiểm tra quyền truy cập trang lịch sử
+            if (checkLogin != 0) {
+                // Nếu không phải admin (checkLogin != 0), chuyển hướng về trang chính
+                alert("Bạn không có quyền truy cập trang này!");
+                window.location.href = "../index.html";
+            }
 
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    data.docId = doc.id; // Store document ID for deletion
-                    allHistoryData.push(data);
-                    users.add(data.user);
-                    
-                    // Count today's logs
-                    if (data.timestamp.toDate().toDateString() === today) {
-                        todayCount++;
-                    }
-                    
-                    // Count current user's logs
-                    if (data.user === currentUser) {
-                        currentUserCount++;
-                    }
+            // Utility function to log actions
+            function logAction(
+                action,
+                description,
+                oldData = null,
+                newData = null,
+                pageName = null,
+            ) {
+                // Auto-detect page name if not provided
+                if (!pageName) {
+                    const currentPath = window.location.pathname;
+                    const pathParts = currentPath.split("/");
+                    const currentDir =
+                        pathParts[pathParts.length - 2] || "unknown";
+
+                    const pageNames = {
+                        live: "Hình ảnh Live",
+                        hangrotxa: "Hàng rớt - xả",
+                        ib: "Check Inbox",
+                        ck: "Chuyển khoản",
+                        hanghoan: "Hàng hoàn",
+                        nhaphang: "Nhập hàng",
+                        lichsuchinhsua: "Lịch sử chỉnh sửa",
+                    };
+
+                    pageName = pageNames[currentDir] || currentDir;
+                }
+
+                const logEntry = {
+                    timestamp: new Date(),
+                    user: userType ? userType.split("-")[0] : "Unknown",
+                    page: pageName,
+                    action: action,
+                    description: description,
+                    oldData: oldData,
+                    newData: newData,
+                    id:
+                        Date.now() +
+                        "_" +
+                        Math.random().toString(36).substr(2, 9),
+                };
+
+                // Save to Firebase
+                historyCollectionRef
+                    .add(logEntry)
+                    .then(() => {
+                        console.log("Log entry saved successfully");
+                    })
+                    .catch((error) => {
+                        console.error("Error saving log entry: ", error);
+                    });
+            }
+
+            // Toggle Sidebar function
+            function toggleSidebar() {
+                const sidebar = document.getElementById("sidebar");
+                const overlay = document.getElementById("overlay");
+                const menuToggle = document.querySelector(".menu-toggle");
+
+                const isOpen = sidebar.classList.contains("open");
+
+                if (isOpen) {
+                    sidebar.classList.remove("open");
+                    overlay.classList.remove("active");
+                    menuToggle.classList.remove("active");
+                } else {
+                    sidebar.classList.add("open");
+                    overlay.classList.add("active");
+                    menuToggle.classList.add("active");
+                }
+            }
+
+            // Load and display history data
+            async function loadHistoryData() {
+                showFloatingAlert("Đang tải dữ liệu...");
+
+                try {
+                    const snapshot = await historyCollectionRef
+                        .orderBy("timestamp", "desc")
+                        .get();
+
+                    allHistoryData = [];
+                    const users = new Set();
+                    let todayCount = 0;
+                    let currentUserCount = 0;
+                    const today = new Date().toDateString();
+                    const currentUser = userType ? userType.split("-")[0] : "";
+
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        data.docId = doc.id; // Store document ID for deletion
+                        allHistoryData.push(data);
+                        users.add(data.user);
+
+                        // Count today's logs
+                        if (data.timestamp.toDate().toDateString() === today) {
+                            todayCount++;
+                        }
+
+                        // Count current user's logs
+                        if (data.user === currentUser) {
+                            currentUserCount++;
+                        }
+                    });
+
+                    // Update stats
+                    document.getElementById("totalLogs").textContent =
+                        allHistoryData.length;
+                    document.getElementById("todayLogs").textContent =
+                        todayCount;
+                    document.getElementById("activeUsers").textContent =
+                        users.size;
+                    document.getElementById("currentUserLogs").textContent =
+                        currentUserCount;
+
+                    // Update user filter
+                    updateUserFilter(users);
+
+                    // Display all data initially
+                    displayFilteredData(allHistoryData);
+
+                    showFloatingAlert("Tải dữ liệu thành công!");
+                } catch (error) {
+                    console.error("Error loading history data: ", error);
+                    showFloatingAlert("Lỗi khi tải dữ liệu!");
+                }
+            }
+
+            // Display filtered data in table
+            function displayFilteredData(data) {
+                tbody.innerHTML = "";
+                filteredData = data;
+
+                data.forEach((item, index) => {
+                    addRowToTable(item, index + 1);
                 });
 
-                // Update stats
-                document.getElementById('totalLogs').textContent = allHistoryData.length;
-                document.getElementById('todayLogs').textContent = todayCount;
-                document.getElementById('activeUsers').textContent = users.size;
-                document.getElementById('currentUserLogs').textContent = currentUserCount;
-
-                // Update user filter
-                updateUserFilter(users);
-                
-                // Display all data initially
-                displayFilteredData(allHistoryData);
-                
-                showFloatingAlert("Tải dữ liệu thành công!");
-                
-            } catch (error) {
-                console.error("Error loading history data: ", error);
-                showFloatingAlert("Lỗi khi tải dữ liệu!");
+                // Update filter info
+                if (data.length !== allHistoryData.length) {
+                    filterInfo.classList.add("active");
+                    filteredCount.textContent = data.length;
+                } else {
+                    filterInfo.classList.remove("active");
+                }
             }
-        }
 
-        // Display filtered data in table
-        function displayFilteredData(data) {
-            tbody.innerHTML = '';
-            filteredData = data;
-            
-            data.forEach((item, index) => {
-                addRowToTable(item, index + 1);
-            });
-            
-            // Update filter info
-            if (data.length !== allHistoryData.length) {
-                filterInfo.classList.add('active');
-                filteredCount.textContent = data.length;
-            } else {
-                filterInfo.classList.remove('active');
-            }
-        }
+            // Add row to table
+            function addRowToTable(data, stt) {
+                const tr = document.createElement("tr");
+                tr.style.cursor = "pointer";
+                tr.title = "Click để xem chi tiết";
+                tr.setAttribute("data-doc-id", data.docId); // Store doc ID for filtering
 
-        // Add row to table
-        function addRowToTable(data, stt) {
-            const tr = document.createElement('tr');
-            tr.style.cursor = 'pointer';
-            tr.title = 'Click để xem chi tiết';
-            tr.setAttribute('data-doc-id', data.docId); // Store doc ID for filtering
-            
-            const timestamp = data.timestamp.toDate();
-            const formattedTime = timestamp.toLocaleString('vi-VN');
-            
-            tr.innerHTML = `
+                const timestamp = data.timestamp.toDate();
+                const formattedTime = timestamp.toLocaleString("vi-VN");
+
+                tr.innerHTML = `
                 <td>${stt}</td>
                 <td>${formattedTime}</td>
                 <td>${data.user}</td>
-                <td><span class="page-badge">${data.page || 'Không xác định'}</span></td>
+                <td><span class="page-badge">${data.page || "Không xác định"}</span></td>
                 <td><span class="action-badge action-${data.action}">${getActionText(data.action)}</span></td>
                 <td>${data.description}</td>
-                <td>${renderDataCell(data.oldData, data.action, 'old', data.oldData, data.newData)}</td>
-                <td>${renderDataCell(data.newData, data.action, 'new', data.oldData, data.newData)}</td>
+                <td>${renderDataCell(data.oldData, data.action, "old", data.oldData, data.newData)}</td>
+                <td>${renderDataCell(data.newData, data.action, "new", data.oldData, data.newData)}</td>
             `;
-            
-            // Add click event to show detail modal
-            tr.addEventListener('click', () => {
-                showDetailModal(data);
-            });
-            
-            tbody.appendChild(tr);
-        }
 
-        // Enhanced render function for data cells based on action type
-        function renderDataCell(data, action, cellType, oldData = null, newData = null) {
-            // Check if this is a mark/unmark action (no data needed)
-            if (isMarkAction(action)) {
-                return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
-            }
-            
-            if (action === 'delete') {
-                if (cellType === 'old') {
-                    // For delete actions, old data shows "-"
-                    return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
-                } else {
-                    // For delete actions, new data shows "Đã Xóa"
-                    return `<span class="deleted-indicator" style="font-size:11px; padding:4px 8px;">Đã Xóa</span>`;
-                }
-            } else if (action === 'edit' || action === 'update') {
-                // For edit/update actions, show only changed fields
-                return renderChangedFields(oldData, newData, cellType);
-            } else if (action === 'add') {
-                if (cellType === 'old') {
-                    // For add actions, old data shows "-"
-                    return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
-                } else {
-                    // For add actions, new data shows "Tạo Mới"
-                    return `<span class="added-indicator" style="font-size:11px; padding:4px 8px; background:#d4edda; color:#155724; border-radius:4px; display:inline-block; border:1px solid #c3e6cb;">Tạo Mới</span>`;
-                }
-            }
-            
-            // Fallback to compact summary
-            return renderCompactSummary(data, 'normal');
-        }
+                // Add click event to show detail modal
+                tr.addEventListener("click", () => {
+                    showDetailModal(data);
+                });
 
-        // Function to render only changed fields by comparing old and new data
-        function renderChangedFields(oldData, newData, cellType) {
-            if (!oldData || !newData) return '-';
-            
-            const changedFields = {};
-            const allKeys = new Set([...Object.keys(oldData), ...Object.keys(newData)]);
-            
-            // Find changed fields
-            allKeys.forEach(key => {
-                const oldValue = oldData[key];
-                const newValue = newData[key];
-                
-                if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-                    if (cellType === 'old') {
-                        changedFields[key] = oldValue;
+                tbody.appendChild(tr);
+            }
+
+            // Enhanced render function for data cells based on action type
+            function renderDataCell(
+                data,
+                action,
+                cellType,
+                oldData = null,
+                newData = null,
+            ) {
+                // Check if this is a mark/unmark action (no data needed)
+                if (isMarkAction(action)) {
+                    return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
+                }
+
+                if (action === "delete") {
+                    if (cellType === "old") {
+                        // For delete actions, old data shows "-"
+                        return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
                     } else {
-                        changedFields[key] = newValue;
+                        // For delete actions, new data shows "Đã Xóa"
+                        return `<span class="deleted-indicator" style="font-size:11px; padding:4px 8px;">Đã Xóa</span>`;
+                    }
+                } else if (action === "edit" || action === "update") {
+                    // For edit/update actions, show only changed fields
+                    return renderChangedFields(oldData, newData, cellType);
+                } else if (action === "add") {
+                    if (cellType === "old") {
+                        // For add actions, old data shows "-"
+                        return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
+                    } else {
+                        // For add actions, new data shows "Tạo Mới"
+                        return `<span class="added-indicator" style="font-size:11px; padding:4px 8px; background:#d4edda; color:#155724; border-radius:4px; display:inline-block; border:1px solid #c3e6cb;">Tạo Mới</span>`;
                     }
                 }
-            });
-            
-            // If no changes found, return dash
-            if (Object.keys(changedFields).length === 0) {
-                return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
-            }
-            
-            // Render changed fields compactly
-            return renderCompactChangedFields(changedFields, cellType);
-        }
 
-        // Function to render changed fields in a compact format
-        function renderCompactChangedFields(changedFields, cellType) {
-            const keys = Object.keys(changedFields);
-            if (keys.length === 0) return '-';
-            
-            let html = '<div style="font-size:11px;">';
-            let fieldsShown = 0;
-            const maxFields = 2; // Show max 2 fields to keep compact
-            
-            keys.forEach(key => {
-                if (fieldsShown >= maxFields) return;
-                
-                let value = changedFields[key];
-                let displayValue = '';
-                
-                if (value === null || value === undefined) {
-                    displayValue = cellType === 'old' ? 'Có giá trị' : 'Đã xóa';
-                } else if (typeof value === 'string') {
-                    displayValue = value.length > 20 ? value.substring(0, 20) + '...' : value;
-                } else if (typeof value === 'object') {
-                    displayValue = JSON.stringify(value).substring(0, 20) + '...';
-                } else {
-                    displayValue = String(value);
+                // Fallback to compact summary
+                return renderCompactSummary(data, "normal");
+            }
+
+            // Function to render only changed fields by comparing old and new data
+            function renderChangedFields(oldData, newData, cellType) {
+                if (!oldData || !newData) return "-";
+
+                const changedFields = {};
+                const allKeys = new Set([
+                    ...Object.keys(oldData),
+                    ...Object.keys(newData),
+                ]);
+
+                // Find changed fields
+                allKeys.forEach((key) => {
+                    const oldValue = oldData[key];
+                    const newValue = newData[key];
+
+                    if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+                        if (cellType === "old") {
+                            changedFields[key] = oldValue;
+                        } else {
+                            changedFields[key] = newValue;
+                        }
+                    }
+                });
+
+                // If no changes found, return dash
+                if (Object.keys(changedFields).length === 0) {
+                    return '<span style="color:#6c757d; font-style:italic; font-size:11px;">-</span>';
                 }
-                
-                const className = cellType === 'old' ? 'change-removed' : 'change-added';
-                html += `<div class="${className}" style="margin:1px 0; padding:2px 4px; font-size:10px; border-radius:3px;">
+
+                // Render changed fields compactly
+                return renderCompactChangedFields(changedFields, cellType);
+            }
+
+            // Function to render changed fields in a compact format
+            function renderCompactChangedFields(changedFields, cellType) {
+                const keys = Object.keys(changedFields);
+                if (keys.length === 0) return "-";
+
+                let html = '<div style="font-size:11px;">';
+                let fieldsShown = 0;
+                const maxFields = 2; // Show max 2 fields to keep compact
+
+                keys.forEach((key) => {
+                    if (fieldsShown >= maxFields) return;
+
+                    let value = changedFields[key];
+                    let displayValue = "";
+
+                    if (value === null || value === undefined) {
+                        displayValue =
+                            cellType === "old" ? "Có giá trị" : "Đã xóa";
+                    } else if (typeof value === "string") {
+                        displayValue =
+                            value.length > 20
+                                ? value.substring(0, 20) + "..."
+                                : value;
+                    } else if (typeof value === "object") {
+                        displayValue =
+                            JSON.stringify(value).substring(0, 20) + "...";
+                    } else {
+                        displayValue = String(value);
+                    }
+
+                    const className =
+                        cellType === "old" ? "change-removed" : "change-added";
+                    html += `<div class="${className}" style="margin:1px 0; padding:2px 4px; font-size:10px; border-radius:3px;">
                             <strong>${key}:</strong> ${displayValue}
                          </div>`;
-                fieldsShown++;
-            });
-            
-            if (keys.length > maxFields) {
-                html += `<div style="color:#6c757d; font-size:10px;">+${keys.length - maxFields} thay đổi khác</div>`;
-            }
-            
-            html += '</div>';
-            return html;
-        }
+                    fieldsShown++;
+                });
 
-        // Check if action is mark/unmark type
-        function isMarkAction(action) {
-            const markActions = ['mark', 'unmark', 'check', 'uncheck', 'toggle', 'flag', 'unflag'];
-            return markActions.includes(action.toLowerCase());
-        }
-
-        // Function to render compact summary that doesn't expand table height
-        function renderCompactSummary(data, type) {
-            if (!data || typeof data !== "object") return "-";
-
-            // For images, show small preview
-            if (data.image || data.img || data.hinh) {
-                let imgUrl = data.image || data.img || data.hinh;
-                return `<img src="${imgUrl}" alt="Img" style="max-width:40px; max-height:40px; border-radius:4px;">`;
-            }
-
-            // Priority fields to show
-            const priorityFields = ['tenSanPham', 'name', 'title', 'dotLive', 'soLuong', 'quantity'];
-            let displayText = '';
-            
-            // Find the most important field to display
-            for (let field of priorityFields) {
-                if (data[field]) {
-                    displayText = String(data[field]);
-                    if (displayText.length > 25) {
-                        displayText = displayText.substring(0, 25) + '...';
-                    }
-                    break;
+                if (keys.length > maxFields) {
+                    html += `<div style="color:#6c757d; font-size:10px;">+${keys.length - maxFields} thay đổi khác</div>`;
                 }
+
+                html += "</div>";
+                return html;
             }
-            
-            // If no priority field found, use first available field
-            if (!displayText) {
-                const keys = Object.keys(data);
-                if (keys.length > 0) {
-                    displayText = String(data[keys[0]]);
-                    if (displayText.length > 25) {
-                        displayText = displayText.substring(0, 25) + '...';
+
+            // Check if action is mark/unmark type
+            function isMarkAction(action) {
+                const markActions = [
+                    "mark",
+                    "unmark",
+                    "check",
+                    "uncheck",
+                    "toggle",
+                    "flag",
+                    "unflag",
+                ];
+                return markActions.includes(action.toLowerCase());
+            }
+
+            // Function to render compact summary that doesn't expand table height
+            function renderCompactSummary(data, type) {
+                if (!data || typeof data !== "object") return "-";
+
+                // For images, show small preview
+                if (data.image || data.img || data.hinh) {
+                    let imgUrl = data.image || data.img || data.hinh;
+                    return `<img src="${imgUrl}" alt="Img" style="max-width:40px; max-height:40px; border-radius:4px;">`;
+                }
+
+                // Priority fields to show
+                const priorityFields = [
+                    "tenSanPham",
+                    "name",
+                    "title",
+                    "dotLive",
+                    "soLuong",
+                    "quantity",
+                ];
+                let displayText = "";
+
+                // Find the most important field to display
+                for (let field of priorityFields) {
+                    if (data[field]) {
+                        displayText = String(data[field]);
+                        if (displayText.length > 25) {
+                            displayText = displayText.substring(0, 25) + "...";
+                        }
+                        break;
                     }
                 }
+
+                // If no priority field found, use first available field
+                if (!displayText) {
+                    const keys = Object.keys(data);
+                    if (keys.length > 0) {
+                        displayText = String(data[keys[0]]);
+                        if (displayText.length > 25) {
+                            displayText = displayText.substring(0, 25) + "...";
+                        }
+                    }
+                }
+
+                // Apply styling based on type
+                let className = "";
+                if (type === "deleted") className = "change-removed";
+                else if (type === "added") className = "change-added";
+                else if (type === "changed") className = "change-modified";
+
+                return `<span class="${className}" style="font-size:11px; padding:2px 6px; border-radius:4px; display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${JSON.stringify(data).replace(/"/g, "&quot;")}">${displayText || "Dữ liệu"}</span>`;
             }
-            
-            // Apply styling based on type
-            let className = '';
-            if (type === 'deleted') className = 'change-removed';
-            else if (type === 'added') className = 'change-added';
-            else if (type === 'changed') className = 'change-modified';
-            
-            return `<span class="${className}" style="font-size:11px; padding:2px 6px; border-radius:4px; display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${JSON.stringify(data).replace(/"/g, '&quot;')}">${displayText || 'Dữ liệu'}</span>`;
-        }
-        
-        // Render object thành bảng key-value
-        function renderObjectAsTable(obj) {
-            if (!obj || typeof obj !== "object") return "<i>Không có dữ liệu</i>";
-            let html = "<table style='width:100%; border-collapse:collapse; font-size:13px;'>";
-            html += "<tr><th style='border:1px solid #ddd; padding:6px;'>Trường</th><th style='border:1px solid #ddd; padding:6px;'>Giá trị</th></tr>";
-            for (let key in obj) {
-                html += `<tr>
+
+            // Render object thành bảng key-value
+            function renderObjectAsTable(obj) {
+                if (!obj || typeof obj !== "object")
+                    return "<i>Không có dữ liệu</i>";
+                let html =
+                    "<table style='width:100%; border-collapse:collapse; font-size:13px;'>";
+                html +=
+                    "<tr><th style='border:1px solid #ddd; padding:6px;'>Trường</th><th style='border:1px solid #ddd; padding:6px;'>Giá trị</th></tr>";
+                for (let key in obj) {
+                    html += `<tr>
                             <td style='border:1px solid #ddd; padding:6px; font-weight:600;'>${key}</td>
                             <td style='border:1px solid #ddd; padding:6px;'>${JSON.stringify(obj[key])}</td>
                          </tr>`;
+                }
+                html += "</table>";
+                return html;
             }
-            html += "</table>";
-            return html;
-        }
 
-        // Render dữ liệu chủ đạo cho bảng chính
-        function renderSummary(data) {
-            if (!data || typeof data !== "object") return "-";
+            // Render dữ liệu chủ đạo cho bảng chính
+            function renderSummary(data) {
+                if (!data || typeof data !== "object") return "-";
 
-            // Nếu có trường hình ảnh
-            if (data.image || data.img || data.hinh) {
-                let imgUrl = data.image || data.img || data.hinh;
-                return `<div style="text-align:center; vertical-align:middle;">
+                // Nếu có trường hình ảnh
+                if (data.image || data.img || data.hinh) {
+                    let imgUrl = data.image || data.img || data.hinh;
+                    return `<div style="text-align:center; vertical-align:middle;">
                             <img src="${imgUrl}" alt="Hình ảnh" style="max-width:50px; max-height:50px; border-radius:5px;">
                         </div>`;
-            }
+                }
 
-            // Nếu có tên sản phẩm và đợt live
-            let ten = data.tenSanPham || data.name || data.title || "";
-            let dot = data.dotLive || data.liveBatch || data.dot || "";
-            if (ten || dot) {
-                return `<div style="text-align:center; vertical-align:middle;">
+                // Nếu có tên sản phẩm và đợt live
+                let ten = data.tenSanPham || data.name || data.title || "";
+                let dot = data.dotLive || data.liveBatch || data.dot || "";
+                if (ten || dot) {
+                    return `<div style="text-align:center; vertical-align:middle;">
                             ${ten ? `<div><b>${ten}</b></div>` : ""}
                             ${dot ? `<div>Đợt: ${dot}</div>` : ""}
                         </div>`;
-            }
-            
-            if (data.soLuong || data.quantity) {
-                return `<div style="text-align:center; vertical-align:middle;">
+                }
+
+                if (data.soLuong || data.quantity) {
+                    return `<div style="text-align:center; vertical-align:middle;">
                             Số lượng: ${data.soLuong || data.quantity}
                         </div>`;
-            }
+                }
 
-            // fallback: JSON rút gọn
-            return `<div style="text-align:center; vertical-align:middle;">
+                // fallback: JSON rút gọn
+                return `<div style="text-align:center; vertical-align:middle;">
                         ${JSON.stringify(data).substring(0, 50)}...
                     </div>`;
-        }
+            }
 
-        // Show detail modal
-        function showDetailModal(data) {
-            const modal = document.getElementById('detailModal');
-            const modalContent = document.getElementById('modalDetailContent');
-            
-            // Check if this is a mark/unmark action
-            const isMarkActionType = isMarkAction(data.action);
-            
-            modalContent.innerHTML = `
+            // Show detail modal
+            function showDetailModal(data) {
+                const modal = document.getElementById("detailModal");
+                const modalContent =
+                    document.getElementById("modalDetailContent");
+
+                // Check if this is a mark/unmark action
+                const isMarkActionType = isMarkAction(data.action);
+
+                modalContent.innerHTML = `
                 <h3>Chi tiết thay đổi</h3>
                 <div class="detail-section">
-                    <p><strong>Thời gian:</strong> ${data.timestamp.toDate().toLocaleString('vi-VN')}</p>
+                    <p><strong>Thời gian:</strong> ${data.timestamp.toDate().toLocaleString("vi-VN")}</p>
                     <p><strong>Người dùng:</strong> ${data.user}</p>
-                    <p><strong>Trang:</strong> ${data.page || 'Không xác định'}</p>
+                    <p><strong>Trang:</strong> ${data.page || "Không xác định"}</p>
                     <p><strong>Hành động:</strong> ${getActionText(data.action)}</p>
                     <p><strong>Mô tả:</strong> ${data.description}</p>
                 </div>
                 
-                ${!isMarkActionType ? `
+                ${
+                    !isMarkActionType
+                        ? `
                 <div class="detail-section">
                     <h4>Dữ liệu trước khi thay đổi:</h4>
                     ${renderObjectAsTable(data.oldData)}
@@ -615,247 +692,272 @@
                 
                 <div class="detail-section">
                     <h4>Dữ liệu sau khi thay đổi:</h4>
-                    ${data.action === 'delete' ? '<div class="deleted-indicator" style="padding:12px; font-size:14px;">Đã Xóa</div>' : renderObjectAsTable(data.newData)}
+                    ${data.action === "delete" ? '<div class="deleted-indicator" style="padding:12px; font-size:14px;">Đã Xóa</div>' : renderObjectAsTable(data.newData)}
                 </div>
                 
                 <div class="detail-section">
                     <h4>Thay đổi cụ thể:</h4>
                     <div id="changesDiff">${generateChangeDiff(data.oldData, data.newData, data.action)}</div>
                 </div>
-                ` : `
+                `
+                        : `
                 <div class="detail-section">
                     <h4>Thông tin:</h4>
                     <p style="color:#667eea; font-style:italic;">Đây là hành động đánh dấu/bỏ đánh dấu, không có dữ liệu thay đổi cụ thể.</p>
                 </div>
-                `}
+                `
+                }
             `;
-            
-            modal.classList.add('show');
-        }
 
-        // Generate change diff with action-specific handling
-        function generateChangeDiff(oldData, newData, action) {
-            if (action === 'delete') {
-                return '<span class="removed">- Xóa toàn bộ dữ liệu</span>';
+                modal.classList.add("show");
             }
-            
-            if (!oldData && !newData) return 'Không có thay đổi';
-            if (!oldData) return '<span class="added">+ Tạo mới toàn bộ dữ liệu</span>';
-            if (!newData) return '<span class="removed">- Xóa toàn bộ dữ liệu</span>';
-            
-            let diff = '';
-            const allKeys = new Set([...Object.keys(oldData || {}), ...Object.keys(newData || {})]);
-            
-            allKeys.forEach(key => {
-                const oldValue = oldData[key];
-                const newValue = newData[key];
-                
-                if (oldValue !== newValue) {
-                    if (oldValue === undefined) {
-                        diff += `<div class="change-item"><strong>${key}:</strong> <span class="added">+ ${JSON.stringify(newValue)}</span></div>`;
-                    } else if (newValue === undefined) {
-                        diff += `<div class="change-item"><strong>${key}:</strong> <span class="removed">- ${JSON.stringify(oldValue)}</span></div>`;
-                    } else {
-                        diff += `<div class="change-item"><strong>${key}:</strong><br/>
+
+            // Generate change diff with action-specific handling
+            function generateChangeDiff(oldData, newData, action) {
+                if (action === "delete") {
+                    return '<span class="removed">- Xóa toàn bộ dữ liệu</span>';
+                }
+
+                if (!oldData && !newData) return "Không có thay đổi";
+                if (!oldData)
+                    return '<span class="added">+ Tạo mới toàn bộ dữ liệu</span>';
+                if (!newData)
+                    return '<span class="removed">- Xóa toàn bộ dữ liệu</span>';
+
+                let diff = "";
+                const allKeys = new Set([
+                    ...Object.keys(oldData || {}),
+                    ...Object.keys(newData || {}),
+                ]);
+
+                allKeys.forEach((key) => {
+                    const oldValue = oldData[key];
+                    const newValue = newData[key];
+
+                    if (oldValue !== newValue) {
+                        if (oldValue === undefined) {
+                            diff += `<div class="change-item"><strong>${key}:</strong> <span class="added">+ ${JSON.stringify(newValue)}</span></div>`;
+                        } else if (newValue === undefined) {
+                            diff += `<div class="change-item"><strong>${key}:</strong> <span class="removed">- ${JSON.stringify(oldValue)}</span></div>`;
+                        } else {
+                            diff += `<div class="change-item"><strong>${key}:</strong><br/>
                                  <span class="removed">- ${JSON.stringify(oldValue)}</span><br/>
                                  <span class="added">+ ${JSON.stringify(newValue)}</span></div>`;
+                        }
                     }
-                }
-            });
-            
-            return diff || 'Không có thay đổi';
-        }
+                });
 
-        // Close detail modal
-        function closeDetailModal() {
-            const modal = document.getElementById('detailModal');
-            modal.classList.remove('show');
-        }
-
-        // Get action text in Vietnamese with mark actions
-        function getActionText(action) {
-            const actionMap = {
-                'add': 'Thêm',
-                'edit': 'Sửa',
-                'delete': 'Xóa',
-                'update': 'Cập nhật',
-                'mark': 'Đánh dấu',
-                'unmark': 'Bỏ đánh dấu',
-                'check': 'Đánh dấu',
-                'uncheck': 'Bỏ đánh dấu',
-                'toggle': 'Chuyển đổi',
-                'flag': 'Gắn cờ',
-                'unflag': 'Bỏ cờ'
-            };
-            return actionMap[action.toLowerCase()] || action;
-        }
-
-        // Update user filter dropdown
-        function updateUserFilter(users) {
-            // Clear existing options except "Tất cả"
-            userFilter.innerHTML = '<option value="all">Tất cả</option>';
-            
-            // Add user options
-            users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user;
-                option.textContent = user;
-                userFilter.appendChild(option);
-            });
-        }
-
-        // Apply filters
-        function applyFilters() {
-            const selectedUser = userFilter.value;
-            const selectedAction = actionFilter.value;
-            const startDateValue = startDate.value;
-            const endDateValue = endDate.value;
-
-            // Check if all filters are set to default (show all)
-            const isShowingAll = selectedUser === 'all' && selectedAction === 'all' && !startDateValue && !endDateValue;
-            
-            if (isShowingAll) {
-                displayFilteredData(allHistoryData);
-                showFloatingAlert("Hiển thị tất cả dữ liệu!");
-                return;
+                return diff || "Không có thay đổi";
             }
 
-            let filtered = allHistoryData.filter(item => {
-                // Filter by user
-                if (selectedUser !== 'all' && item.user !== selectedUser) {
-                    return false;
-                }
+            // Close detail modal
+            function closeDetailModal() {
+                const modal = document.getElementById("detailModal");
+                modal.classList.remove("show");
+            }
 
-                // Filter by action
-                if (selectedAction !== 'all' && item.action !== selectedAction) {
-                    return false;
-                }
+            // Get action text in Vietnamese with mark actions
+            function getActionText(action) {
+                const actionMap = {
+                    add: "Thêm",
+                    edit: "Sửa",
+                    delete: "Xóa",
+                    update: "Cập nhật",
+                    mark: "Đánh dấu",
+                    unmark: "Bỏ đánh dấu",
+                    check: "Đánh dấu",
+                    uncheck: "Bỏ đánh dấu",
+                    toggle: "Chuyển đổi",
+                    flag: "Gắn cờ",
+                    unflag: "Bỏ cờ",
+                };
+                return actionMap[action.toLowerCase()] || action;
+            }
 
-                // Filter by date range
-                const itemDate = item.timestamp.toDate();
-                if (startDateValue && itemDate < new Date(startDateValue)) {
-                    return false;
-                }
-                if (endDateValue && itemDate > new Date(endDateValue + ' 23:59:59')) {
-                    return false;
-                }
+            // Update user filter dropdown
+            function updateUserFilter(users) {
+                // Clear existing options except "Tất cả"
+                userFilter.innerHTML = '<option value="all">Tất cả</option>';
 
-                return true;
-            });
+                // Add user options
+                users.forEach((user) => {
+                    const option = document.createElement("option");
+                    option.value = user;
+                    option.textContent = user;
+                    userFilter.appendChild(option);
+                });
+            }
 
-            displayFilteredData(filtered);
-            showFloatingAlert(`Đã áp dụng bộ lọc! Hiển thị ${filtered.length} kết quả.`);
-        }
+            // Apply filters
+            function applyFilters() {
+                const selectedUser = userFilter.value;
+                const selectedAction = actionFilter.value;
+                const startDateValue = startDate.value;
+                const endDateValue = endDate.value;
 
-        // Clear filtered history function
-        function clearFilteredHistory() {
-            if (checkLogin != 777) {
-                if (filteredData.length === 0) {
-                    showFloatingAlert("Không có dữ liệu để xóa!");
+                // Check if all filters are set to default (show all)
+                const isShowingAll =
+                    selectedUser === "all" &&
+                    selectedAction === "all" &&
+                    !startDateValue &&
+                    !endDateValue;
+
+                if (isShowingAll) {
+                    displayFilteredData(allHistoryData);
+                    showFloatingAlert("Hiển thị tất cả dữ liệu!");
                     return;
                 }
 
-                const confirmMessage = filteredData.length === allHistoryData.length 
-                    ? `Bạn có chắc chắn muốn xóa toàn bộ ${filteredData.length} bản ghi lịch sử? Hành động này không thể hoàn tác!`
-                    : `Bạn có chắc chắn muốn xóa ${filteredData.length} bản ghi lịch sử đã lọc? Hành động này không thể hoàn tác!`;
-                
-                const confirmClear = confirm(confirmMessage);
-                
-                if (confirmClear) {
-                    showFloatingAlert("Đang xóa lịch sử...");
-                    
-                    // Delete filtered documents
-                    const batch = db.batch();
-                    filteredData.forEach((item) => {
-                        if (item.docId) {
-                            const docRef = historyCollectionRef.doc(item.docId);
-                            batch.delete(docRef);
-                        }
-                    });
-                    
-                    batch.commit().then(() => {
-                        // Log the clear action
-                        const actionDescription = filteredData.length === allHistoryData.length 
-                            ? 'Xóa toàn bộ lịch sử chỉnh sửa'
-                            : `Xóa ${filteredData.length} bản ghi lịch sử đã lọc`;
-                        
-                        logAction('delete', actionDescription);
-                        
-                        // Refresh the display
-                        loadHistoryData();
-                        
-                        showFloatingAlert(`Đã xóa ${filteredData.length} bản ghi thành công!`);
-                    }).catch((error) => {
-                        console.error("Error clearing filtered history: ", error);
-                        showFloatingAlert("Lỗi khi xóa lịch sử!");
-                    });
-                }
-            } else {
-                showFloatingAlert("Không đủ quyền thực hiện hành động này!");
+                let filtered = allHistoryData.filter((item) => {
+                    // Filter by user
+                    if (selectedUser !== "all" && item.user !== selectedUser) {
+                        return false;
+                    }
+
+                    // Filter by action
+                    if (
+                        selectedAction !== "all" &&
+                        item.action !== selectedAction
+                    ) {
+                        return false;
+                    }
+
+                    // Filter by date range
+                    const itemDate = item.timestamp.toDate();
+                    if (startDateValue && itemDate < new Date(startDateValue)) {
+                        return false;
+                    }
+                    if (
+                        endDateValue &&
+                        itemDate > new Date(endDateValue + " 23:59:59")
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                displayFilteredData(filtered);
+                showFloatingAlert(
+                    `Đã áp dụng bộ lọc! Hiển thị ${filtered.length} kết quả.`,
+                );
             }
-        }
 
-        // Reset filters
-        function resetFilters() {
-            userFilter.value = 'all';
-            actionFilter.value = 'all';
-            startDate.value = '';
-            endDate.value = '';
-            displayFilteredData(allHistoryData);
-            showFloatingAlert("Đã reset bộ lọc!");
-        }
+            // Clear filtered history function
+            function clearFilteredHistory() {
+                if (checkLogin != 777) {
+                    if (filteredData.length === 0) {
+                        showFloatingAlert("Không có dữ liệu để xóa!");
+                        return;
+                    }
 
-        // Clear all filters and show all data
-        function showAllData() {
-            userFilter.value = 'all';
-            actionFilter.value = 'all';
-            startDate.value = '';
-            endDate.value = '';
-            displayFilteredData(allHistoryData);
-        }
+                    const confirmMessage =
+                        filteredData.length === allHistoryData.length
+                            ? `Bạn có chắc chắn muốn xóa toàn bộ ${filteredData.length} bản ghi lịch sử? Hành động này không thể hoàn tác!`
+                            : `Bạn có chắc chắn muốn xóa ${filteredData.length} bản ghi lịch sử đã lọc? Hành động này không thể hoàn tác!`;
 
-        // Refresh data
-        function refreshData() {
-            loadHistoryData();
-        }
+                    const confirmClear = confirm(confirmMessage);
 
-        // Logout function
-        function handleLogout() {
-            localStorage.removeItem('isLoggedIn');
-            localStorage.removeItem('userType');
-            localStorage.removeItem('checkLogin');
-            location.reload();
-        }
+                    if (confirmClear) {
+                        showFloatingAlert("Đang xóa lịch sử...");
 
-        // Show floating alert
-        function showFloatingAlert(message) {
-            const alertBox = document.getElementById('floatingAlert');
-            alertBox.innerText = message;
-            alertBox.classList.add('show');
+                        // Delete filtered documents
+                        const batch = db.batch();
+                        filteredData.forEach((item) => {
+                            if (item.docId) {
+                                const docRef = historyCollectionRef.doc(
+                                    item.docId,
+                                );
+                                batch.delete(docRef);
+                            }
+                        });
 
-            setTimeout(() => {
-                alertBox.classList.remove('show');
-            }, 3000);
-        }
+                        batch
+                            .commit()
+                            .then(() => {
+                                // Log the clear action
+                                const actionDescription =
+                                    filteredData.length ===
+                                    allHistoryData.length
+                                        ? "Xóa toàn bộ lịch sử chỉnh sửa"
+                                        : `Xóa ${filteredData.length} bản ghi lịch sử đã lọc`;
 
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            loadHistoryData();
-        });
+                                logAction("delete", actionDescription);
 
-        document.getElementById('refreshButton').addEventListener('click', refreshData);
-        document.getElementById('toggleLogoutButton').addEventListener('click', handleLogout);
+                                // Refresh the display
+                                loadHistoryData();
 
-        // Add event listeners for filter changes
-        userFilter.addEventListener('change', applyFilters);
-        actionFilter.addEventListener('change', applyFilters);
-        startDate.addEventListener('change', applyFilters);
-        endDate.addEventListener('change', applyFilters);
+                                showFloatingAlert(
+                                    `Đã xóa ${filteredData.length} bản ghi thành công!`,
+                                );
+                            })
+                            .catch((error) => {
+                                console.error(
+                                    "Error clearing filtered history: ",
+                                    error,
+                                );
+                                showFloatingAlert("Lỗi khi xóa lịch sử!");
+                            });
+                    }
+                } else {
+                    showFloatingAlert(
+                        "Không đủ quyền thực hiện hành động này!",
+                    );
+                }
+            }
 
-        // Auto-refresh every 5 minutes
-        setInterval(refreshData, 5 * 60 * 1000);
+            // Reset filters
+            function resetFilters() {
+                userFilter.value = "all";
+                actionFilter.value = "all";
+                startDate.value = "";
+                endDate.value = "";
+                displayFilteredData(allHistoryData);
+                showFloatingAlert("Đã reset bộ lọc!");
+            }
 
-    </script>
-</body>
+            // Clear all filters and show all data
+            function showAllData() {
+                userFilter.value = "all";
+                actionFilter.value = "all";
+                startDate.value = "";
+                endDate.value = "";
+                displayFilteredData(allHistoryData);
+            }
 
+            // Refresh data
+            function refreshData() {
+                loadHistoryData();
+            }
+
+            // Logout function
+            function handleLogout() {
+                localStorage.removeItem("isLoggedIn");
+                localStorage.removeItem("userType");
+                localStorage.removeItem("checkLogin");
+                location.reload();
+            }
+
+            // Event listeners
+            document.addEventListener("DOMContentLoaded", function () {
+                loadHistoryData();
+            });
+
+            document
+                .getElementById("refreshButton")
+                .addEventListener("click", refreshData);
+            document
+                .getElementById("toggleLogoutButton")
+                .addEventListener("click", handleLogout);
+
+            // Add event listeners for filter changes
+            userFilter.addEventListener("change", applyFilters);
+            actionFilter.addEventListener("change", applyFilters);
+            startDate.addEventListener("change", applyFilters);
+            endDate.addEventListener("change", applyFilters);
+
+            // Auto-refresh every 5 minutes
+            setInterval(refreshData, 5 * 60 * 1000);
+        </script>
+    </body>
 </html>
