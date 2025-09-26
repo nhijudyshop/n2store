@@ -1,247 +1,276 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Hàng Hoàn</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <link rel="preconnect" href="https://fonts.googleapis.com/" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com/"
+            crossorigin=""
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="shortcut icon" href="../logo.jpg" />
 
-<head>
-    <meta charset="UTF-8">
-    <title>Hàng Hoàn</title>
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com/">
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="../logo.jpg" />
-    
-    <!-- The core Firebase JS SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <!-- The Firebase storage SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <!-- The Firebase firestore SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <!-- Load jQuery from a CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="../main.css">
-    
-    <!-- Navigation Manager - Load trước khi load page scripts -->
-    <script src="../js/navigation.js"></script>
-    <script src="../js/common-utils.js"></script>
-</head>
+        <!-- The core Firebase JS SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <!-- The Firebase storage SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+        <!-- The Firebase firestore SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+        <!-- Load jQuery from a CDN -->
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
-<body>
-    <!-- Security Indicator -->
-    <div class="security-indicator" id="securityIndicator">Secure</div>
-    
-    <!-- Performance Indicator -->
-    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
-    
-    <!-- Menu Toggle Button -->
-    <button class="menu-toggle">
-        <div class="hamburger"></div>
-    </button>
+        <!-- CSS script -->
+        <script src="../js/device-detector.js"></script>
 
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h3>Menu Điều Hướng</h3>
-            <button class="close-btn">&times;</button>
+        <!-- Navigation Manager - Load trước khi load page scripts -->
+        <script src="../js/navigation.js"></script>
+        <script src="../js/common-utils.js"></script>
+    </head>
+
+    <body>
+        <!-- Security Indicator -->
+        <div class="security-indicator" id="securityIndicator">Secure</div>
+
+        <!-- Performance Indicator -->
+        <div class="performance-indicator" id="performanceIndicator">
+            Fast Load
         </div>
-        <ul class="nav-list"></ul>
-    </nav>
 
-    <!-- Overlay -->
-    <div class="overlay" id="overlay"></div>
+        <!-- Menu Toggle Button -->
+        <button class="menu-toggle">
+            <div class="hamburger"></div>
+        </button>
 
-    <!-- Top buttons -->
-    <div class="top-buttons">
-        <button id="toggleFormButton">Hiện biểu mẫu</button>
-        <button id="toggleLogoutButton">Đăng xuất</button>
-    </div>
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Menu Điều Hướng</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <ul class="nav-list"></ul>
+        </nav>
 
-    <!-- Main content -->
-    <div class="main-content">
-        <div class="header">
-            <div id="parentContainer">
-                <p class="tieude">THÔNG TIN HÀNG HOÀN</p>
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Top buttons -->
+        <div class="top-buttons">
+            <button id="toggleFormButton">Hiện biểu mẫu</button>
+            <button id="toggleLogoutButton">Đăng xuất</button>
+        </div>
+
+        <!-- Main content -->
+        <div class="main-content">
+            <div class="header">
+                <div id="parentContainer">
+                    <p class="tieude">THÔNG TIN HÀNG HOÀN</p>
+                </div>
+            </div>
+
+            <!-- Data Form -->
+            <div id="dataForm" class="form-section" style="display: none">
+                <h1>Thêm Thông tin</h1>
+                <form id="return-product">
+                    <div class="form-group">
+                        <label for="ship">Kênh:</label>
+                        <select id="ship" required>
+                            <option value="J&T">J&T</option>
+                            <option value="TP">TP</option>
+                            <option value="BM">BM</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scenario">Trường hợp:</label>
+                        <select id="scenario" required>
+                            <option value="BOOM">BOOM</option>
+                            <option value="Sửa COD">Sửa COD</option>
+                            <option value="Thu về">Thu về</option>
+                            <option value="Khách gửi">Khách gửi</option>
+                            <option value="Thay đổi thông tin">
+                                Thay đổi thông tin
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customerInfo">Tên FB + SĐT:</label>
+                        <input
+                            type="text"
+                            id="customerInfo"
+                            list="suggestionsInfo"
+                            required
+                        />
+                        <datalist id="suggestionsInfo"></datalist>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="totalAmount">Giá tiền:</label>
+                        <input type="text" id="totalAmount" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cause">Lý do:</label>
+                        <input
+                            type="text"
+                            id="cause"
+                            list="suggestionsCause"
+                            required
+                        />
+                        <datalist id="suggestionsCause"></datalist>
+                    </div>
+
+                    <div class="center-button">
+                        <button type="submit" id="addButton">Thêm</button>
+                        <button type="button" id="clearDataButton">
+                            Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="channelFilter">Lọc Kênh:</label>
+                    <select id="channelFilter">
+                        <option value="all">Tất cả</option>
+                        <option value="J&T">J&T</option>
+                        <option value="TP">TP</option>
+                        <option value="BM">BM</option>
+                    </select>
+
+                    <label for="scenarioFilter">Lọc Trường hợp:</label>
+                    <select id="scenarioFilter">
+                        <option value="all">Tất cả</option>
+                        <option value="BOOM">BOOM</option>
+                        <option value="Sửa COD">Sửa COD</option>
+                        <option value="Thu về">Thu về</option>
+                        <option value="Khách gửi">Khách gửi</option>
+                        <option value="Thay đổi thông tin">
+                            Thay đổi thông tin
+                        </option>
+                    </select>
+
+                    <label for="startDate">Ngày bắt đầu:</label>
+                    <input type="date" id="startDate" />
+
+                    <label for="endDate">Ngày kết thúc:</label>
+                    <input type="date" id="endDate" />
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <div class="table-wrapper">
+                    <div class="ck">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Kênh</th>
+                                    <th>Trường hợp</th>
+                                    <th>Tên FB + SĐT</th>
+                                    <th>Số tiền</th>
+                                    <th>Lý do</th>
+                                    <th>Đã nhận</th>
+                                    <th>Ngày<br />duyệt hoàn</th>
+                                    <th>✏️ Sửa</th>
+                                    <th>🗑️ Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Data Form -->
-        <div id="dataForm" class="form-section" style="display: none;">
-            <h1>Thêm Thông tin</h1>
-            <form id="return-product">
+        <!-- Modal for editing -->
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <span
+                    class="close"
+                    onclick="closeModal()"
+                    style="
+                        position: sticky;
+                        top: 0;
+                        right: 0;
+                        float: right;
+                        font-size: 24px;
+                        cursor: pointer;
+                        background: white;
+                        z-index: 10;
+                        padding: 5px;
+                    "
+                >
+                    &times;
+                </span>
                 <div class="form-group">
-                    <label for="ship">Kênh:</label>
-                    <select id="ship" required>
+                    <label for="editDelivery">Kênh:</label>
+                    <select id="editDelivery" required>
                         <option value="J&T">J&T</option>
                         <option value="TP">TP</option>
                         <option value="BM">BM</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="scenario">Trường hợp:</label>
-                    <select id="scenario" required>
+                    <label for="eidtScenario">Trường hợp:</label>
+                    <select id="eidtScenario" required>
                         <option value="BOOM">BOOM</option>
                         <option value="Sửa COD">Sửa COD</option>
                         <option value="Thu về">Thu về</option>
                         <option value="Khách gửi">Khách gửi</option>
-                        <option value="Thay đổi thông tin">Thay đổi thông tin</option>
+                        <option value="Thay đổi thông tin">
+                            Thay đổi thông tin
+                        </option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="customerInfo">Tên FB + SĐT:</label>
-                    <input type="text" id="customerInfo" list="suggestionsInfo" required>
-                    <datalist id="suggestionsInfo"></datalist>
+                    <label for="editInfo">FB+SĐT:</label>
+                    <input type="text" id="editInfo" />
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="totalAmount">Giá tiền:</label>
-                    <input type="text" id="totalAmount" required>
+                    <label for="editAmount">Số tiền:</label>
+                    <input type="text" id="editAmount" />
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="cause">Lý do:</label>
-                    <input type="text" id="cause" list="suggestionsCause" required>
-                    <datalist id="suggestionsCause"></datalist>
+                    <label for="editNote">Lý do:</label>
+                    <input type="text" id="editNote" />
                 </div>
-                
-                <div class="center-button">
-                    <button type="submit" id="addButton">Thêm</button>
-                    <button type="button" id="clearDataButton">Reset</button>
+
+                <div class="form-group">
+                    <label for="editDate">Ngày đi đơn:</label>
+                    <input type="text" id="editDate" />
                 </div>
-            </form>
-        </div>
 
-        <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <label for="channelFilter">Lọc Kênh:</label>
-                <select id="channelFilter">
-                    <option value="all">Tất cả</option>
-                    <option value="J&T">J&T</option>
-                    <option value="TP">TP</option>
-                    <option value="BM">BM</option>
-                </select>
-
-                <label for="scenarioFilter">Lọc Trường hợp:</label>
-                <select id="scenarioFilter">
-                    <option value="all">Tất cả</option>
-                    <option value="BOOM">BOOM</option>
-                    <option value="Sửa COD">Sửa COD</option>
-                    <option value="Thu về">Thu về</option>
-                    <option value="Khách gửi">Khách gửi</option>
-                    <option value="Thay đổi thông tin">Thay đổi thông tin</option>
-                </select>
-                
-                <label for="startDate">Ngày bắt đầu:</label>
-                <input type="date" id="startDate">
-                
-                <label for="endDate">Ngày kết thúc:</label>
-                <input type="date" id="endDate">
+                <button id="saveButton">Lưu</button>
             </div>
         </div>
 
-        <!-- Table -->
-        <div class="table-container">
-            <div class="table-wrapper">
-                <div class="ck">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>Kênh</th>
-                                <th>Trường hợp</th>
-                                <th>Tên FB + SĐT</th>
-                                <th>Số tiền</th>
-                                <th>Lý do</th>
-                                <th>Đã nhận</th>
-                                <th>Ngày<br>duyệt hoàn</th>
-                                <th>✏️ Sửa</th>
-                                <th>🗑️ Xóa</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody"></tbody>
-                    </table>
+        <!-- Enhanced Floating Alert -->
+        <div id="floatingAlert">
+            <div class="alert-content">
+                <div class="loading-spinner" style="display: none">
+                    <div class="spinner"></div>
                 </div>
+                <div class="alert-text">Thông báo hiển thị!</div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal for editing -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()" 
-				  style="position: sticky; top: 0; right: 0; float: right; font-size: 24px; cursor: pointer; background: white; z-index: 10; padding: 5px;">
-				  &times;
-			</span>
-            <div class="form-group">
-                <label for="editDelivery">Kênh:</label>
-                <select id="editDelivery" required>
-                    <option value="J&T">J&T</option>
-                    <option value="TP">TP</option>
-                    <option value="BM">BM</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="eidtScenario">Trường hợp:</label>
-                <select id="eidtScenario" required>
-                    <option value="BOOM">BOOM</option>
-                    <option value="Sửa COD">Sửa COD</option>
-                    <option value="Thu về">Thu về</option>
-                    <option value="Khách gửi">Khách gửi</option>
-                    <option value="Thay đổi thông tin">Thay đổi thông tin</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="editInfo">FB+SĐT:</label>
-                <input type="text" id="editInfo">
-            </div>
-            
-            <div class="form-group">
-                <label for="editAmount">Số tiền:</label>
-                <input type="text" id="editAmount">
-            </div>
-            
-            <div class="form-group">
-                <label for="editNote">Lý do:</label>
-                <input type="text" id="editNote">
-            </div>
-            
-            <div class="form-group">
-                <label for="editDate">Ngày đi đơn:</label>
-                <input type="text" id="editDate">
-            </div>
-            
-            <button id="saveButton">Lưu</button>
-        </div>
-    </div>
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
 
-    <!-- Enhanced Floating Alert -->
-    <div id="floatingAlert">
-        <div class="alert-content">
-            <div class="loading-spinner" style="display: none;">
-                <div class="spinner"></div>
-            </div>
-            <div class="alert-text">Thông báo hiển thị!</div>
-        </div>
-    </div>
-    
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay"></div>
-    
-    <!-- Blocking Overlay
-    <div id="blockingOverlay"></div>
-    -->
-    
-    <!-- Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
-    
-    <!-- Original JavaScript file -->
-    <script src="scriptObfuscator.js"></script>
-</body>
-
+        <!-- Original JavaScript file -->
+        <script src="scriptObfuscator.js"></script>
+    </body>
 </html>

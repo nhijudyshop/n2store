@@ -24,8 +24,8 @@
         <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
-        <!-- Main CSS -->
-        <link rel="stylesheet" href="../main.css" />
+        <!-- CSS script -->
+        <script src="../js/device-detector.js"></script>
 
         <!-- Navigation Manager -->
         <script src="../js/navigation.js"></script>
@@ -871,15 +871,8 @@
             </div>
         </div>
 
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loadingOverlay"></div>
-
         <!-- Tooltip -->
         <div id="tooltip" class="tooltip"></div>
-
-        <!-- Blocking Overlay
-    <div id="blockingOverlay"></div>
-    -->
 
         <!-- Edit Modal -->
         <div id="editModal" class="modal">
@@ -1020,6 +1013,19 @@
                 </form>
             </div>
         </div>
+
+        <!-- Enhanced Floating Alert -->
+        <div id="floatingAlert">
+            <div class="alert-content">
+                <div class="loading-spinner" style="display: none">
+                    <div class="spinner"></div>
+                </div>
+                <div class="alert-text">Thông báo hiển thị!</div>
+            </div>
+        </div>
+
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
 
         <!-- Receipt Management JavaScript -->
         <script src="utility.js"></script>

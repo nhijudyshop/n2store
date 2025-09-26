@@ -1,207 +1,255 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Check inbox khách</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <link rel="preconnect" href="https://fonts.googleapis.com/" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com/"
+            crossorigin=""
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="shortcut icon" href="../logo.jpg" />
 
-<head>
-    <meta charset="UTF-8">
-    <title>Check inbox khách</title>
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com/">
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="../logo.jpg" />
-    
-    <!-- The core Firebase JS SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <!-- The Firebase storage SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <!-- The Firebase firestore SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <!-- Load jQuery from a CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-    
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="../main.css">
-    
-    <!-- Navigation Manager - Load trước khi load page scripts -->
-    <script src="../js/navigation.js"></script>
-    <script src="../js/common-utils.js"></script>
-</head>
+        <!-- The core Firebase JS SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <!-- The Firebase storage SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+        <!-- The Firebase firestore SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+        <!-- Load jQuery from a CDN -->
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
-<body>
-    <!-- Security Indicator -->
-    <div class="security-indicator" id="securityIndicator">Secure</div>
-    
-    <!-- Performance Indicator -->
-    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
-    
-    <!-- Menu Toggle Button -->
-    <button class="menu-toggle">
-        <div class="hamburger"></div>
-    </button>
+        <!-- CSS script -->
+        <script src="../js/device-detector.js"></script>
 
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h3>Menu Điều Hướng</h3>
-            <button class="close-btn">&times;</button>
+        <!-- Navigation Manager - Load trước khi load page scripts -->
+        <script src="../js/navigation.js"></script>
+        <script src="../js/common-utils.js"></script>
+    </head>
+
+    <body>
+        <!-- Security Indicator -->
+        <div class="security-indicator" id="securityIndicator">Secure</div>
+
+        <!-- Performance Indicator -->
+        <div class="performance-indicator" id="performanceIndicator">
+            Fast Load
         </div>
-        <ul class="nav-list"></ul>
-    </nav>
 
-    <!-- Overlay -->
-    <div class="overlay" id="overlay"></div>
+        <!-- Menu Toggle Button -->
+        <button class="menu-toggle">
+            <div class="hamburger"></div>
+        </button>
 
-    <!-- Top buttons -->
-    <div class="top-buttons">
-        <button id="toggleFormButton">Hiện biểu mẫu</button>
-        <button id="toggleLogoutButton">Đăng xuất</button>
-    </div>
-
-    <!-- Main content -->
-    <div class="main-content fade-in">
-        <div class="header">
-            <div id="parentContainer">
-                <p class="tieude">CHECK INBOX KHÁCH HÀNG</p>
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Menu Điều Hướng</h3>
+                <button class="close-btn">&times;</button>
             </div>
+            <ul class="nav-list"></ul>
+        </nav>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Top buttons -->
+        <div class="top-buttons">
+            <button id="toggleFormButton">Hiện biểu mẫu</button>
+            <button id="toggleLogoutButton">Đăng xuất</button>
         </div>
 
-        <!-- Data Form -->
-        <div id="dataForm" class="form-section" style="display: none;">
-            <h1>Thêm Sản Phẩm</h1>
-            <form>
-                <div class="form-group">
-                    <label for="phanLoai">Phân loại:</label>
-                    <select id="phanLoai" required>
-                        <option value="Áo" selected>Áo</option>
+        <!-- Main content -->
+        <div class="main-content fade-in">
+            <div class="header">
+                <div id="parentContainer">
+                    <p class="tieude">CHECK INBOX KHÁCH HÀNG</p>
+                </div>
+            </div>
+
+            <!-- Data Form -->
+            <div id="dataForm" class="form-section" style="display: none">
+                <h1>Thêm Sản Phẩm</h1>
+                <form>
+                    <div class="form-group">
+                        <label for="phanLoai">Phân loại:</label>
+                        <select id="phanLoai" required>
+                            <option value="Áo" selected>Áo</option>
+                            <option value="Quần">Quần</option>
+                            <option value="Set và Đầm">Set và Đầm</option>
+                            <option value="PKGD">Phụ kiện và Giày dép</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hình ảnh sản phẩm:</label>
+                        <div id="radioButtonsContainer">
+                            <input
+                                type="radio"
+                                name="inputType"
+                                id="inputClipboard"
+                                checked
+                            />
+                            <label for="inputClipboard">Copy Paste</label>
+                            <input
+                                type="radio"
+                                name="inputType"
+                                id="inputFile"
+                            />
+                            <label for="inputFile">Nhập file</label>
+                            <input
+                                type="radio"
+                                name="inputType"
+                                id="inputLink"
+                            />
+                            <label for="inputLink">Nhập link</label>
+                        </div>
+                    </div>
+
+                    <div id="container">
+                        <p>Dán ảnh sản phẩm ở đây…</p>
+                    </div>
+
+                    <div id="inputFileContainer" style="display: none">
+                        <label for="hinhAnhInputFile"
+                            >Chọn file ảnh sản phẩm:</label
+                        >
+                        <input
+                            type="file"
+                            id="hinhAnhInputFile"
+                            accept="image/*"
+                            multiple
+                        />
+                    </div>
+
+                    <div id="inputLinkContainer" style="display: none">
+                        <label for="hinhAnhInputLink"
+                            >Thêm link ảnh sản phẩm:</label
+                        >
+                        <input
+                            type="button"
+                            id="hinhAnhInputLink"
+                            value="Thêm link"
+                        />
+                    </div>
+
+                    <div id="hinhAnhContainer"></div>
+
+                    <div class="form-group">
+                        <label for="tenSanPham">Tên sản phẩm:</label>
+                        <input
+                            type="text"
+                            id="tenSanPham"
+                            required
+                            placeholder="Nhập tên sản phẩm..."
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hình ảnh khách hàng:</label>
+                        <div id="radioButtonsContainer">
+                            <input
+                                type="radio"
+                                name="inputTypeKH"
+                                id="inputClipboardKH"
+                                checked
+                            />
+                            <label for="inputClipboardKH">Copy Paste</label>
+                            <input
+                                type="radio"
+                                name="inputTypeKH"
+                                id="inputFileKH"
+                            />
+                            <label for="inputFileKH">Nhập file</label>
+                        </div>
+                    </div>
+
+                    <div id="containerKH">
+                        <p>Dán ảnh khách hàng ở đây…</p>
+                    </div>
+
+                    <div id="hinhAnhContainerKH"></div>
+
+                    <div id="inputFileContainerKH" style="display: none">
+                        <label for="hinhAnhInputFileKH"
+                            >Chọn file ảnh khách hàng:</label
+                        >
+                        <input
+                            type="file"
+                            id="hinhAnhInputFileKH"
+                            accept="image/*"
+                            multiple
+                        />
+                    </div>
+
+                    <div class="center-button">
+                        <button type="submit" id="addButton">Thêm</button>
+                        <button type="button" id="clearDataButton">
+                            Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="filterCategory">Chọn phân loại:</label>
+                    <select id="filterCategory">
+                        <option value="all">Tất cả</option>
+                        <option value="Áo">Áo</option>
                         <option value="Quần">Quần</option>
                         <option value="Set và Đầm">Set và Đầm</option>
                         <option value="PKGD">Phụ kiện và Giày dép</option>
                     </select>
                 </div>
+            </div>
 
-                <div class="form-group">
-                    <label>Hình ảnh sản phẩm:</label>
-                    <div id="radioButtonsContainer">
-                        <input type="radio" name="inputType" id="inputClipboard" checked>
-                        <label for="inputClipboard">Copy Paste</label>
-                        <input type="radio" name="inputType" id="inputFile">
-                        <label for="inputFile">Nhập file</label>
-                        <input type="radio" name="inputType" id="inputLink">
-                        <label for="inputLink">Nhập link</label>
-                    </div>
-                </div>
-
-                <div id="container">
-                    <p>Dán ảnh sản phẩm ở đây…</p>
-                </div>
-
-                <div id="inputFileContainer" style="display: none;">
-                    <label for="hinhAnhInputFile">Chọn file ảnh sản phẩm:</label>
-                    <input type="file" id="hinhAnhInputFile" accept="image/*" multiple>
-                </div>
-
-                <div id="inputLinkContainer" style="display: none;">
-                    <label for="hinhAnhInputLink">Thêm link ảnh sản phẩm:</label>
-                    <input type="button" id="hinhAnhInputLink" value="Thêm link">
-                </div>
-
-                <div id="hinhAnhContainer"></div>
-
-                <div class="form-group">
-                    <label for="tenSanPham">Tên sản phẩm:</label>
-                    <input type="text" id="tenSanPham" required placeholder="Nhập tên sản phẩm...">
-                </div>
-
-                <div class="form-group">
-                    <label>Hình ảnh khách hàng:</label>
-                    <div id="radioButtonsContainer">
-                        <input type="radio" name="inputTypeKH" id="inputClipboardKH" checked>
-                        <label for="inputClipboardKH">Copy Paste</label>
-                        <input type="radio" name="inputTypeKH" id="inputFileKH">
-                        <label for="inputFileKH">Nhập file</label>
-                    </div>
-                </div>
-
-                <div id="containerKH">
-                    <p>Dán ảnh khách hàng ở đây…</p>
-                </div>
-
-                <div id="hinhAnhContainerKH"></div>
-
-                <div id="inputFileContainerKH" style="display: none;">
-                    <label for="hinhAnhInputFileKH">Chọn file ảnh khách hàng:</label>
-                    <input type="file" id="hinhAnhInputFileKH" accept="image/*" multiple>
-                </div>
-
-                <div class="center-button">
-                    <button type="submit" id="addButton">Thêm</button>
-                    <button type="button" id="clearDataButton">Reset</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <label for="filterCategory">Chọn phân loại:</label>
-                <select id="filterCategory">
-                    <option value="all">Tất cả</option>
-                    <option value="Áo">Áo</option>
-                    <option value="Quần">Quần</option>
-                    <option value="Set và Đầm">Set và Đầm</option>
-                    <option value="PKGD">Phụ kiện và Giày dép</option>
-                </select>
+            <!-- Table -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 5%" id="thuTuHeader">Thứ tự</th>
+                            <th style="width: 10%">Thời gian upload</th>
+                            <th style="width: 10%">Phân loại</th>
+                            <th style="width: 30%">Hình ảnh sản phẩm</th>
+                            <th style="width: 30%">Tên sản phẩm</th>
+                            <th style="width: 10%">Ảnh khách hàng</th>
+                            <th style="width: 5%">Xoá</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Dữ liệu sản phẩm và thông tin khách hàng sẽ được thêm bằng JavaScript -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Table -->
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 5%;" id="thuTuHeader">Thứ tự</th>
-                        <th style="width: 10%;">Thời gian upload</th>
-                        <th style="width: 10%;">Phân loại</th>
-                        <th style="width: 30%;">Hình ảnh sản phẩm</th>
-                        <th style="width: 30%;">Tên sản phẩm</th>
-                        <th style="width: 10%;">Ảnh khách hàng</th>
-                        <th style="width: 5%;">Xoá</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    <!-- Dữ liệu sản phẩm và thông tin khách hàng sẽ được thêm bằng JavaScript -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Enhanced Floating Alert -->
-    <div id="floatingAlert">
-        <div class="alert-content">
-            <div class="loading-spinner" style="display: none;">
-                <div class="spinner"></div>
+        <!-- Enhanced Floating Alert -->
+        <div id="floatingAlert">
+            <div class="alert-content">
+                <div class="loading-spinner" style="display: none">
+                    <div class="spinner"></div>
+                </div>
+                <div class="alert-text">Thông báo hiển thị!</div>
             </div>
-            <div class="alert-text">Thông báo hiển thị!</div>
         </div>
-    </div>
-    
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay"></div>
-    
-    <!-- Blocking Overlay
-    <div id="blockingOverlay"></div>
-    -->
-    
-    <!-- Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
 
-    <!-- Copy Notification -->
-    <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
-    
-    <!-- Enhanced JavaScript file -->
-    <script src="scriptObfuscator.js"></script>
-</body>
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
 
+        <!-- Copy Notification -->
+        <div id="copyNotification" class="copy-notification">
+            Đã copy link ảnh!
+        </div>
+
+        <!-- Enhanced JavaScript file -->
+        <script src="scriptObfuscator.js"></script>
+    </body>
 </html>

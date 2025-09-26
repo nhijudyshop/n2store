@@ -254,55 +254,6 @@ function invalidateCache() {
 }
 
 // =====================================================
-// UI FUNCTIONS
-// =====================================================
-
-function showFloatingAlert(message, isLoading = false, duration = 3000) {
-    const alertBox = document.getElementById("floatingAlert");
-    if (!alertBox) return;
-
-    const alertText = alertBox.querySelector(".alert-text");
-    const spinner = alertBox.querySelector(".loading-spinner");
-
-    if (alertText) alertText.textContent = message;
-
-    alertBox.style.display = "block";
-    alertBox.style.opacity = "1";
-    alertBox.style.visibility = "visible";
-
-    if (isLoading) {
-        if (spinner) spinner.style.display = "block";
-        document.body.style.pointerEvents = "none";
-        alertBox.style.pointerEvents = "all";
-    } else {
-        if (spinner) spinner.style.display = "none";
-        document.body.style.pointerEvents = "auto";
-    }
-
-    if (!isLoading && duration > 0) {
-        setTimeout(() => {
-            hideFloatingAlert();
-        }, duration);
-    }
-}
-
-function hideFloatingAlert() {
-    const alertBox = document.getElementById("floatingAlert");
-    const spinner = alertBox?.querySelector(".loading-spinner");
-
-    if (alertBox) {
-        alertBox.style.opacity = "0";
-        alertBox.style.visibility = "hidden";
-        setTimeout(() => {
-            alertBox.style.display = "none";
-        }, 300);
-    }
-    if (spinner) spinner.style.display = "none";
-
-    document.body.style.pointerEvents = "auto";
-}
-
-// =====================================================
 // DATA TRANSFORMATION WITH GROUPING
 // =====================================================
 
@@ -916,7 +867,6 @@ function toggleGrouping() {
     const toggleButton = document.getElementById("toggleGroupingButton");
     const indicator = document.getElementById("groupingIndicator");
     const explanation = document.getElementById("groupingExplanation");
-    const title = document.querySelector(".tieude");
 
     if (toggleButton) {
         toggleButton.textContent = groupingEnabled
@@ -934,12 +884,6 @@ function toggleGrouping() {
 
     if (explanation) {
         explanation.style.display = groupingEnabled ? "block" : "none";
-    }
-
-    if (title) {
-        title.textContent = groupingEnabled
-            ? "BẢNG KIỂM HÀNG - GỘP THEO NCC"
-            : "BẢNG KIỂM HÀNG - CHI TIẾT";
     }
 
     invalidateCache();

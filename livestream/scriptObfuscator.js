@@ -1464,7 +1464,7 @@ function createTableRow(item, dateStr) {
                 showEditHistoryTooltip(e, item.editHistory, newRow);
             } else {
                 // Show creation info for non-edited rows
-                showCreationInfoTooltip(e, item, newRow);
+                //showCreationInfoTooltip(e, item, newRow);
             }
         });
     }

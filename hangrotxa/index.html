@@ -1,250 +1,278 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Hàng rớt xả</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <link rel="preconnect" href="https://fonts.googleapis.com/" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com/"
+            crossorigin=""
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="shortcut icon" href="../logo.jpg" />
 
-<head>
-    <meta charset="UTF-8">
-    <title>Hàng rớt xả</title>
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com/">
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="../logo.jpg" />
-    
-    <!-- The core Firebase JS SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <!-- The Firebase storage SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <!-- The Firebase firestore SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <!-- Load jQuery from a CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-    
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="../main.css">
-    
-    <!-- Navigation Manager - Load trước khi load page scripts -->
-    <script src="../js/navigation.js"></script>
-    <script src="../js/common-utils.js"></script>
-</head>
+        <!-- The core Firebase JS SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <!-- The Firebase storage SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+        <!-- The Firebase firestore SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+        <!-- Load jQuery from a CDN -->
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
-<body>
-    <!-- Security Indicator -->
-    <div class="security-indicator" id="securityIndicator">Secure</div>
-    
-    <!-- Performance Indicator -->
-    <div class="performance-indicator" id="performanceIndicator">Fast Load</div>
-    
-    <!-- Menu Toggle Button -->
-    <button class="menu-toggle">
-        <div class="hamburger"></div>
-    </button>
+        <!-- CSS script -->
+        <script src="../js/device-detector.js"></script>
 
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h3>Menu Điều Hướng</h3>
-            <button class="close-btn">&times;</button>
+        <!-- Navigation Manager - Load trước khi load page scripts -->
+        <script src="../js/navigation.js"></script>
+        <script src="../js/common-utils.js"></script>
+    </head>
+
+    <body>
+        <!-- Security Indicator -->
+        <div class="security-indicator" id="securityIndicator">Secure</div>
+
+        <!-- Performance Indicator -->
+        <div class="performance-indicator" id="performanceIndicator">
+            Fast Load
         </div>
-        <ul class="nav-list"></ul>
-    </nav>
 
-    <!-- Overlay -->
-    <div class="overlay" id="overlay"></div>
+        <!-- Menu Toggle Button -->
+        <button class="menu-toggle">
+            <div class="hamburger"></div>
+        </button>
 
-    <!-- Top buttons -->
-    <div class="top-buttons">
-        <button id="toggleFormButton">Hiện biểu mẫu</button>
-        <button id="toggleLogoutButton">Đăng xuất</button>
-    </div>
-
-    <!-- Main content -->
-    <div class="main-content">
-        <div class="header">
-            <div id="parentContainer">
-                <p class="tieude">HÀNG RỚT - XẢ</p>
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Menu Điều Hướng</h3>
+                <button class="close-btn">&times;</button>
             </div>
+            <ul class="nav-list"></ul>
+        </nav>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Top buttons -->
+        <div class="top-buttons">
+            <button id="toggleFormButton">Hiện biểu mẫu</button>
+            <button id="toggleLogoutButton">Đăng xuất</button>
         </div>
 
-        <!-- Data Form -->
-        <div id="dataForm" class="form-section" style="display: none;">
-            <h1>Thêm Sản Phẩm</h1>
-            <form id="productForm">
-                <div class="form-group">
-                    <label for="phanLoai">Phân loại:</label>
-                    <select id="phanLoai" required>
-                        <option value="Áo" selected>Áo</option>
+        <!-- Main content -->
+        <div class="main-content">
+            <div class="header">
+                <div id="parentContainer">
+                    <p class="tieude">HÀNG RỚT - XẢ</p>
+                </div>
+            </div>
+
+            <!-- Data Form -->
+            <div id="dataForm" class="form-section" style="display: none">
+                <h1>Thêm Sản Phẩm</h1>
+                <form id="productForm">
+                    <div class="form-group">
+                        <label for="phanLoai">Phân loại:</label>
+                        <select id="phanLoai" required>
+                            <option value="Áo" selected>Áo</option>
+                            <option value="Quần">Quần</option>
+                            <option value="Set và Đầm">Set và Đầm</option>
+                            <option value="PKGD">Phụ kiện và Giày dép</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dotLive">Đợt Live:</label>
+                        <input type="number" id="dotLive" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hình ảnh sản phẩm:</label>
+                        <div id="radioButtonsContainer">
+                            <input
+                                type="radio"
+                                name="inputType"
+                                id="inputClipboard"
+                                checked
+                            />
+                            <label for="inputClipboard">Copy Paste</label>
+                            <input
+                                type="radio"
+                                name="inputType"
+                                id="inputFile"
+                            />
+                            <label for="inputFile">Nhập file</label>
+                            <input
+                                type="radio"
+                                name="inputType"
+                                id="inputLink"
+                            />
+                            <label for="inputLink">Nhập link</label>
+                        </div>
+                    </div>
+
+                    <div id="container">
+                        <p>Dán ảnh ở đây…</p>
+                    </div>
+
+                    <div id="inputFileContainer">
+                        <input
+                            type="file"
+                            id="hinhAnhInputFile"
+                            multiple
+                            accept="image/*"
+                        />
+                    </div>
+
+                    <div id="inputLinkContainer">
+                        <input
+                            type="text"
+                            id="hinhAnhInput"
+                            placeholder="Nhập link hình ảnh (https://...)"
+                        />
+                    </div>
+
+                    <div id="hinhAnhContainer"></div>
+
+                    <div class="form-group">
+                        <label for="tenSanPham">Tên sản phẩm:</label>
+                        <input
+                            type="text"
+                            id="tenSanPham"
+                            list="suggestions"
+                            required
+                        />
+                        <datalist id="suggestions"></datalist>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="kichCo">Kích cỡ:</label>
+                        <select id="kichCo" required>
+                            <option value="FreeSize">FreeSize</option>
+                            <option value="S">S</option>
+                            <option value="M">M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                            <option value="2XL">2XL</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="34">34</option>
+                            <option value="35">35</option>
+                            <option value="36">36</option>
+                            <option value="37">37</option>
+                            <option value="38">38</option>
+                            <option value="39">39</option>
+                            <option value="40">40</option>
+                            <option value="41">41</option>
+                            <option value="42">42</option>
+                            <option value="43">43</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="soLuong">Số lượng:</label>
+                        <input type="number" id="soLuong" min="1" required />
+                    </div>
+
+                    <div class="center-button">
+                        <button type="submit" id="addButton">Thêm</button>
+                        <button type="button" id="clearDataButton">
+                            Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="filterCategory">Chọn phân loại:</label>
+                    <select id="filterCategory">
+                        <option value="all">Tất cả</option>
+                        <option value="Áo">Áo</option>
                         <option value="Quần">Quần</option>
                         <option value="Set và Đầm">Set và Đầm</option>
                         <option value="PKGD">Phụ kiện và Giày dép</option>
                     </select>
-                </div>
 
-                <div class="form-group">
-                    <label for="dotLive">Đợt Live:</label>
-                    <input type="number" id="dotLive" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Hình ảnh sản phẩm:</label>
-                    <div id="radioButtonsContainer">
-                        <input type="radio" name="inputType" id="inputClipboard" checked>
-                        <label for="inputClipboard">Copy Paste</label>
-                        <input type="radio" name="inputType" id="inputFile">
-                        <label for="inputFile">Nhập file</label>
-                        <input type="radio" name="inputType" id="inputLink">
-                        <label for="inputLink">Nhập link</label>
-                    </div>
-                </div>
-
-                <div id="container">
-                    <p>Dán ảnh ở đây…</p>
-                </div>
-
-                <div id="inputFileContainer">
-                    <input type="file" id="hinhAnhInputFile" multiple accept="image/*">
-                </div>
-
-                <div id="inputLinkContainer">
-                    <input type="text" id="hinhAnhInput" placeholder="Nhập link hình ảnh (https://...)">
-                </div>
-
-                <div id="hinhAnhContainer"></div>
-
-                <div class="form-group">
-                    <label for="tenSanPham">Tên sản phẩm:</label>
-                    <input type="text" id="tenSanPham" list="suggestions" required>
-                    <datalist id="suggestions"></datalist>
-                </div>
-
-                <div class="form-group">
-                    <label for="kichCo">Kích cỡ:</label>
-                    <select id="kichCo" required>
-                        <option value="FreeSize">FreeSize</option>
-                        <option value="S">S</option>
-                        <option value="M">M</option>
-                        <option value="L">L</option>
-                        <option value="XL">XL</option>
-                        <option value="2XL">2XL</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="34">34</option>
-                        <option value="35">35</option>
-                        <option value="36">36</option>
-                        <option value="37">37</option>
-                        <option value="38">38</option>
-                        <option value="39">39</option>
-                        <option value="40">40</option>
-                        <option value="41">41</option>
-                        <option value="42">42</option>
-                        <option value="43">43</option>
+                    <label for="dateFilter">Lọc Đợt Live:</label>
+                    <select id="dateFilter">
+                        <option value="all">Tất cả</option>
                     </select>
                 </div>
+            </div>
 
-                <div class="form-group">
-                    <label for="soLuong">Số lượng:</label>
-                    <input type="number" id="soLuong" min="1" required>
-                </div>
-
-                <div class="center-button">
-                    <button type="submit" id="addButton">Thêm</button>
-                    <button type="button" id="clearDataButton">Reset</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <label for="filterCategory">Chọn phân loại:</label>
-                <select id="filterCategory">
-                    <option value="all">Tất cả</option>
-                    <option value="Áo">Áo</option>
-                    <option value="Quần">Quần</option>
-                    <option value="Set và Đầm">Set và Đầm</option>
-                    <option value="PKGD">Phụ kiện và Giày dép</option>
-                </select>
-
-                <label for="dateFilter">Lọc Đợt Live:</label>
-                <select id="dateFilter">
-                    <option value="all">Tất cả</option>
-                </select>
+            <!-- Table -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 5%">Thứ tự</th>
+                            <th style="width: 5%">Đợt Live</th>
+                            <th style="width: 10%">Thời gian Upload</th>
+                            <th style="width: 10%">Phân loại</th>
+                            <th style="width: 20%">Hình ảnh</th>
+                            <th style="width: 25%">Tên sản phẩm</th>
+                            <th style="width: 10%">Kích cỡ</th>
+                            <th style="width: 15%">Số lượng</th>
+                            <th style="width: 5%">Xoá</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody">
+                        <!-- Dữ liệu sản phẩm tồn kho sẽ được thêm bằng JavaScript -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Table -->
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 5%;">Thứ tự</th>
-                        <th style="width: 5%;">Đợt Live</th>
-                        <th style="width: 10%;">Thời gian Upload</th>
-                        <th style="width: 10%;">Phân loại</th>
-                        <th style="width: 20%;">Hình ảnh</th>
-                        <th style="width: 25%;">Tên sản phẩm</th>
-                        <th style="width: 10%;">Kích cỡ</th>
-                        <th style="width: 15%;">Số lượng</th>
-                        <th style="width: 5%;">Xoá</th>
-                    </tr>
-                </thead>
-                <tbody id="productTableBody">
-                    <!-- Dữ liệu sản phẩm tồn kho sẽ được thêm bằng JavaScript -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Enhanced Floating Alert -->
-    <div id="floatingAlert">
-        <div class="alert-content">
-            <div class="loading-spinner" style="display: none;">
-                <div class="spinner"></div>
+        <!-- Enhanced Floating Alert -->
+        <div id="floatingAlert">
+            <div class="alert-content">
+                <div class="loading-spinner" style="display: none">
+                    <div class="spinner"></div>
+                </div>
+                <div class="alert-text">Thông báo hiển thị!</div>
             </div>
-            <div class="alert-text">Thông báo hiển thị!</div>
         </div>
-    </div>
 
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay"></div>
-    
-    <!-- Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
-    
-    <!-- Blocking Overlay
-    <div id="blockingOverlay"></div>
-    -->
-    
-    <!-- Copy Notification -->
-    <div id="copyNotification" class="copy-notification">Đã copy link ảnh!</div>
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
 
-    <script>
-        // Enhanced image click handling for copy functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            // Event delegation for images in table
-            const tbody = document.querySelector('tbody');
-            
-            if (tbody) {
-                tbody.addEventListener('click', function(e) {
-                    if (e.target.tagName === 'IMG') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const imgSrc = e.target.dataset.src || e.target.src;
-                        
-                        // Copy image source to clipboard
-                        copyToClipboard(imgSrc);
-                    }
-                });
-            }
-        });
-    </script>
-    
-    <!-- Original JavaScript file -->
-    <script src="scriptObfuscator.js"></script>
-</body>
+        <!-- Copy Notification -->
+        <div id="copyNotification" class="copy-notification">
+            Đã copy link ảnh!
+        </div>
 
+        <script>
+            // Enhanced image click handling for copy functionality
+            document.addEventListener("DOMContentLoaded", function () {
+                // Event delegation for images in table
+                const tbody = document.querySelector("tbody");
+
+                if (tbody) {
+                    tbody.addEventListener("click", function (e) {
+                        if (e.target.tagName === "IMG") {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            const imgSrc = e.target.dataset.src || e.target.src;
+
+                            // Copy image source to clipboard
+                            copyToClipboard(imgSrc);
+                        }
+                    });
+                }
+            });
+        </script>
+
+        <!-- Original JavaScript file -->
+        <script src="scriptObfuscator.js"></script>
+    </body>
 </html>
