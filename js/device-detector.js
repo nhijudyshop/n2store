@@ -426,4 +426,106 @@
             window.responsiveCSSLoader.showDebugInfo();
         }
     };
+
+    // ==================== TOP BUTTONS MOBILE TOGGLE HANDLER ====================
+    // Top Buttons Mobile Toggle Handler - Integrated
+    document.addEventListener("DOMContentLoaded", function () {
+        const topButtons = document.querySelector(".top-buttons");
+
+        if (!topButtons) return;
+
+        // Chỉ áp dụng cho mobile - Sử dụng device detection từ trên
+        function isMobile() {
+            if (window.responsiveCSSLoader) {
+                return window.responsiveCSSLoader.getDeviceInfo().isMobile;
+            }
+            return window.innerWidth <= 768;
+        }
+
+        // Toggle menu trên mobile
+        function toggleTopButtonsMenu(e) {
+            if (!isMobile()) return;
+
+            // Ngăn không cho button bị click
+            e.stopPropagation();
+            e.preventDefault();
+
+            topButtons.classList.toggle("expanded");
+
+            // Auto close sau 5 giây
+            if (topButtons.classList.contains("expanded")) {
+                setTimeout(() => {
+                    topButtons.classList.remove("expanded");
+                }, 5000);
+            }
+        }
+
+        // Click vào container để mở menu (chỉ trên mobile)
+        topButtons.addEventListener("click", function (e) {
+            if (!isMobile()) return;
+
+            // Nếu click vào container (không phải button) thì toggle menu
+            if (e.target === topButtons) {
+                toggleTopButtonsMenu(e);
+            }
+        });
+
+        // Ngăn không cho buttons bị click khi menu chưa mở (mobile)
+        topButtons.addEventListener("click", function (e) {
+            if (!isMobile()) return;
+
+            const clickedButton = e.target.closest("button");
+            if (clickedButton && !topButtons.classList.contains("expanded")) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleTopButtonsMenu(e);
+            }
+        });
+
+        // Click bên ngoài để đóng menu
+        document.addEventListener("click", function (e) {
+            if (!isMobile()) return;
+
+            if (!topButtons.contains(e.target)) {
+                topButtons.classList.remove("expanded");
+            }
+        });
+
+        // Đóng menu khi resize về desktop
+        window.addEventListener("resize", function () {
+            if (!isMobile()) {
+                topButtons.classList.remove("expanded");
+            }
+        });
+
+        // ESC key để đóng menu
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && isMobile()) {
+                topButtons.classList.remove("expanded");
+            }
+        });
+
+        console.log("Top Buttons Mobile Handler initialized");
+    });
+
+    // Utility function để tạo top-buttons programmatically
+    window.createTopButtons = function (buttons) {
+        const topButtonsContainer = document.createElement("div");
+        topButtonsContainer.className = "top-buttons";
+
+        buttons.forEach((btn, index) => {
+            const button = document.createElement("button");
+            button.setAttribute("data-icon", btn.icon || "⚡");
+            button.textContent = btn.text || `Button ${index + 1}`;
+
+            if (btn.onclick) {
+                button.addEventListener("click", btn.onclick);
+            }
+
+            topButtonsContainer.appendChild(button);
+        });
+
+        document.body.appendChild(topButtonsContainer);
+        return topButtonsContainer;
+    };
 })();
