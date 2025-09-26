@@ -334,7 +334,6 @@ body {
 
 .filter-section::before {
     content: "⚡ Fast Filter";
-    background: rgba(23, 162, 184, 0.9);
 }
 
 .form-group,
