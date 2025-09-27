@@ -387,63 +387,128 @@ window.addEventListener("beforeunload", function () {
  * ====================================================================================
  */
 
-/**
- * Copy text to clipboard với fallback
- */
-function copyToClipboard(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        // Use modern clipboard API
-        navigator.clipboard
-            .writeText(text)
-            .then(() => {
-                showCopyNotification();
-            })
-            .catch((err) => {
-                console.error("Failed to copy: ", err);
-                // Fallback to older method
-                fallbackCopyToClipboard(text);
-            });
-    } else {
-        // Fallback for older browsers or non-secure contexts
-        fallbackCopyToClipboard(text);
-    }
-}
-
-/**
- * Fallback copy method
- */
-function fallbackCopyToClipboard(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-999999px";
-    textArea.style.top = "-999999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
+// Function to copy image to clipboard
+async function copyToClipboard(imgElement) {
     try {
-        document.execCommand("copy");
-        showCopyNotification();
-    } catch (err) {
-        console.error("Fallback: Oops, unable to copy", err);
-    }
+        showMessage("Đang tải ảnh...", "info");
 
-    document.body.removeChild(textArea);
+        const imgSrc = imgElement.dataset.src || imgElement.src;
+
+        // Fetch image to handle CORS issues
+        const response = await fetch(imgSrc, {
+            mode: "cors",
+            credentials: "omit",
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to fetch image");
+        }
+
+        const blob = await response.blob();
+
+        // Check if it's an image
+        if (!blob.type.startsWith("image/")) {
+            throw new Error("Not a valid image");
+        }
+
+        // Use Clipboard API to copy image
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                [blob.type]: blob,
+            }),
+        ]);
+
+        // Show success message
+        showMessage("Đã copy ảnh vào clipboard!", "success");
+    } catch (error) {
+        console.error("Error copying image:", error);
+
+        // Fallback: copy image URL instead
+        try {
+            const imgSrc = imgElement.dataset.src || imgElement.src;
+            await navigator.clipboard.writeText(imgSrc);
+            showMessage(
+                "Không thể copy ảnh, đã copy link ảnh thay thế",
+                "error",
+            );
+        } catch (fallbackError) {
+            showMessage("Không thể copy ảnh hoặc link", "error");
+        }
+    }
 }
 
-/**
- * Hiển thị thông báo copy thành công
- */
-function showCopyNotification() {
-    const notification = document.getElementById("copyNotification");
-    if (notification) {
-        notification.classList.add("show");
-
-        setTimeout(() => {
-            notification.classList.remove("show");
-        }, 2000);
+// Function to show message
+function showMessage(message, type = "info") {
+    // Remove existing message
+    const existingMessage = document.querySelector(".copy-message");
+    if (existingMessage) {
+        existingMessage.remove();
     }
+
+    // Create message element
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `copy-message copy-${type}`;
+    messageDiv.textContent = message;
+    messageDiv.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    border-radius: 6px;
+                    color: white;
+                    font-weight: 500;
+                    z-index: 10000;
+                    animation: slideIn 0.3s ease-out;
+                    ${
+                        type === "success"
+                            ? "background-color: #10b981;"
+                            : type === "error"
+                              ? "background-color: #ef4444;"
+                              : "background-color: #3b82f6;"
+                    }
+                `;
+
+    // Add animation styles
+    if (!document.querySelector("#copy-message-styles")) {
+        const styles = document.createElement("style");
+        styles.id = "copy-message-styles";
+        styles.textContent = `
+                        @keyframes slideIn {
+                            from {
+                                transform: translateX(100%);
+                                opacity: 0;
+                            }
+                            to {
+                                transform: translateX(0);
+                                opacity: 1;
+                            }
+                        }
+                        @keyframes slideOut {
+                            from {
+                                transform: translateX(0);
+                                opacity: 1;
+                            }
+                            to {
+                                transform: translateX(100%);
+                                opacity: 0;
+                            }
+                        }
+                    `;
+        document.head.appendChild(styles);
+    }
+
+    // Add to page
+    document.body.appendChild(messageDiv);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        messageDiv.style.animation = "slideOut 0.3s ease-out";
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 300);
+    }, 3000);
 }
 
 /**
