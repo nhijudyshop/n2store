@@ -12,49 +12,6 @@ const BATCH_SIZE = 50; // Smaller batch size for better performance
 const MAX_VISIBLE_ROWS = 500; // Reduced limit
 const FILTER_DEBOUNCE_DELAY = 500; // Increased delay
 
-// Add CSS to hide number input spinners globally
-const hideSpinnerStyles = `
-<style>
-/* Hide number input spinners for all browsers */
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-input[type=number] {
-    -moz-appearance: textfield;
-    appearance: none;
-}
-
-/* Style for quantity inputs */
-input[type=number].quantity-input {
-    width: 80px;
-    padding: 4px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    text-align: center;
-}
-
-/* Style for price inputs */
-input[type=number].price-input {
-    width: 120px;
-    padding: 4px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    text-align: right;
-}
-</style>
-`;
-
-// Add styles to head if not already present
-if (!document.getElementById("hideSpinnerStyles")) {
-    const styleElement = document.createElement("div");
-    styleElement.id = "hideSpinnerStyles";
-    styleElement.innerHTML = hideSpinnerStyles;
-    document.head.appendChild(styleElement);
-}
-
 // In-memory cache object (replaces localStorage)
 let memoryCache = {
     data: null,

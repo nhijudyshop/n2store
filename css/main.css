@@ -1591,7 +1591,6 @@ textarea {
     transition: var(--transition-fast);
     background: white;
     flex: 1;
-    min-width: 160px;
     text-align: center;
     width: 100%;
     box-sizing: border-box;
@@ -2098,8 +2097,6 @@ table td input,
     display: block;
     width: 80px;
     padding: 8px;
-    border: 2px solid #007bff;
-    border-radius: 6px;
     font-size: 13px;
     font-weight: 500;
     background: #fff;

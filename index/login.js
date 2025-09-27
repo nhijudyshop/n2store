@@ -11,27 +11,37 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const auth = firebase.auth(); // Thêm Firebase Auth
+    const auth = firebase.auth();
+
+    // Enhanced authentication configuration
+    const AUTH_CONFIG = {
+        SESSION_DURATION: 8 * 60 * 60 * 1000, // 8 hours for regular session
+        REMEMBER_DURATION: 30 * 24 * 60 * 60 * 1000, // 30 days for "remember me"
+        MAX_LOGIN_ATTEMPTS: 5,
+        LOCKOUT_DURATION: 5 * 60 * 1000, // 5 minutes lockout
+    };
 
     // Cache DOM elements
     const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
+    const rememberMeCheckbox = document.getElementById("rememberMe"); // New element
     const loginButton = document.getElementById("loginButton");
     const errorMessage = document.getElementById("errorMessage");
     const successMessage = document.getElementById("successMessage");
 
     // Security: Rate limiting
     let loginAttempts = 0;
-    const MAX_LOGIN_ATTEMPTS = 5;
-    const LOCKOUT_DURATION = 5 * 60 * 1000;
+    let lastAttemptTime = 0;
 
-    // Main login handler với Firebase Auth
+    // Enhanced login handler
     async function handleLogin() {
         console.log("Login attempt initiated");
 
         if (isRateLimited()) {
             const remainingTime = Math.ceil(
-                (LOCKOUT_DURATION - (Date.now() - lastAttemptTime)) / 60000,
+                (AUTH_CONFIG.LOCKOUT_DURATION -
+                    (Date.now() - lastAttemptTime)) /
+                    60000,
             );
             showError(
                 `Quá nhiều lần đăng nhập sai. Vui lòng thử lại sau ${remainingTime} phút.`,
@@ -43,6 +53,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const username = usernameInput.value.trim().toLowerCase();
         const password = passwordInput.value.trim();
+        const rememberMe = rememberMeCheckbox
+            ? rememberMeCheckbox.checked
+            : false;
 
         if (loginButton) {
             loginButton.classList.add("loading");
@@ -50,7 +63,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         try {
-            // Bước 1: Kiểm tra user có tồn tại trong Firestore không
+            // Step 1: Check user exists in Firestore
             const userDocRef = db.collection("users").doc(username);
             const userDoc = await userDocRef.get();
 
@@ -62,31 +75,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const userData = userDoc.data();
 
-            // Bước 2: Verify password (giữ nguyên logic cũ)
+            // Step 2: Verify password
             let passwordMatch = await verifyUserPassword(password, userData);
 
             if (!passwordMatch) {
-                console.log("Sai mật khẩu!");
+                console.log("Incorrect password!");
                 handleFailedLogin();
                 return;
             }
 
-            // Bước 3: Đăng nhập với Firebase Auth bằng Custom Token
-            // (Cần tạo custom token từ server hoặc dùng Anonymous Auth)
-
-            // Kiểm tra xem user đã có Firebase Auth session chưa
+            // Step 3: Firebase Auth login
             let authResult;
             if (auth.currentUser) {
-                // User đã có session Firebase Auth
                 authResult = { user: auth.currentUser };
                 console.log("Reusing existing Firebase Auth session");
             } else {
-                // Tạo Firebase Auth session mới
                 authResult = await auth.signInAnonymously();
                 console.log("Created new Firebase Auth session");
             }
 
-            // Tạo/cập nhật record trong auth_users (chỉ khi cần)
+            // Step 4: Update auth_users collection
             try {
                 const authUserRef = db
                     .collection("auth_users")
@@ -94,20 +102,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 const authUserDoc = await authUserRef.get();
 
                 if (!authUserDoc.exists) {
-                    // Chỉ tạo mới khi chưa có
                     await authUserRef.set({
                         username: username,
                         loginTime:
                             firebase.firestore.FieldValue.serverTimestamp(),
                         lastLogin:
                             firebase.firestore.FieldValue.serverTimestamp(),
+                        rememberMe: rememberMe,
                     });
                     console.log("New auth mapping created");
                 } else {
-                    // Chỉ cập nhật thời gian đăng nhập cuối
                     await authUserRef.update({
                         lastLogin:
                             firebase.firestore.FieldValue.serverTimestamp(),
+                        rememberMe: rememberMe,
                     });
                     console.log("Auth mapping updated");
                 }
@@ -117,13 +125,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
             console.log("Firebase Auth successful:", authResult.user.uid);
 
-            // Bước 4: Lưu thông tin session
-            handleSuccessfulLogin(username, {
-                displayName: userData.displayName,
-                checkLogin: userData.checkLogin,
-                password: password,
-                uid: authResult.user.uid,
-            });
+            // Step 5: Save session with remember me option
+            await handleSuccessfulLogin(
+                username,
+                {
+                    displayName: userData.displayName,
+                    checkLogin: userData.checkLogin,
+                    password: password,
+                    uid: authResult.user.uid,
+                },
+                rememberMe,
+            );
         } catch (error) {
             console.error("Authentication error:", error);
             handleAuthError(error);
@@ -135,10 +147,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Hàm verify password (giữ nguyên logic cũ)
+    // Enhanced password verification
     async function verifyUserPassword(password, userData) {
         if (userData.passwordHash) {
-            // Logic hash password như cũ
             if (typeof bcrypt !== "undefined") {
                 try {
                     return await bcrypt.compare(
@@ -180,11 +191,16 @@ document.addEventListener("DOMContentLoaded", function () {
         return false;
     }
 
-    async function handleSuccessfulLogin(username, userInfo) {
+    // Enhanced successful login handler with remember me
+    async function handleSuccessfulLogin(
+        username,
+        userInfo,
+        rememberMe = false,
+    ) {
         try {
             loginAttempts = 0;
 
-            // QUAN TRỌNG: Load permissions từ Firebase trước khi lưu auth data
+            // Load user permissions
             let userPermissions = [];
             try {
                 const userDocRef = db.collection("users").doc(username);
@@ -197,7 +213,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             } catch (error) {
                 console.error("Error loading user permissions:", error);
-                // Nếu là admin, cho tất cả permissions
                 if (userInfo.checkLogin === "0" || userInfo.checkLogin === 0) {
                     userPermissions = [
                         "live",
@@ -215,49 +230,184 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
 
+            const now = Date.now();
+            const duration = rememberMe
+                ? AUTH_CONFIG.REMEMBER_DURATION
+                : AUTH_CONFIG.SESSION_DURATION;
+
             const authData = {
                 isLoggedIn: "true",
                 userType: `${username}-${userInfo.password}`,
                 checkLogin: userInfo.checkLogin.toString(),
-                timestamp: Date.now(),
+                timestamp: now,
+                expiresAt: now + duration,
+                lastActivity: now,
                 displayName: userInfo.displayName,
                 loginTime: new Date().toISOString(),
                 username: username,
                 uid: userInfo.uid,
-                pagePermissions: userPermissions, // THÊM PERMISSIONS VÀO AUTH DATA
+                pagePermissions: userPermissions,
+                isRemembered: rememberMe,
             };
 
-            localStorage.setItem("loginindex_auth", JSON.stringify(authData));
-            localStorage.setItem("isLoggedIn", "true");
-            localStorage.setItem(
-                "userType",
-                `${username}-${userInfo.password}`,
-            );
-            localStorage.setItem("checkLogin", userInfo.checkLogin.toString());
+            // Save to appropriate storage based on remember me option
+            const authDataString = JSON.stringify(authData);
 
-            console.log(
-                "Session data saved successfully with permissions:",
-                userPermissions,
-            );
+            if (rememberMe) {
+                // Save to localStorage for persistent login (30 days)
+                localStorage.setItem("loginindex_auth", authDataString);
+                localStorage.setItem("remember_login_preference", "true");
+
+                // Also save legacy format for compatibility
+                localStorage.setItem("isLoggedIn", "true");
+                localStorage.setItem(
+                    "userType",
+                    `${username}-${userInfo.password}`,
+                );
+                localStorage.setItem(
+                    "checkLogin",
+                    userInfo.checkLogin.toString(),
+                );
+
+                // Clear from sessionStorage if exists
+                sessionStorage.removeItem("loginindex_auth");
+
+                console.log(
+                    "Session saved to localStorage (persistent for 30 days)",
+                );
+            } else {
+                // Save to sessionStorage for session-only login
+                sessionStorage.setItem("loginindex_auth", authDataString);
+
+                // Clear from localStorage
+                localStorage.removeItem("loginindex_auth");
+                localStorage.removeItem("remember_login_preference");
+                localStorage.removeItem("isLoggedIn");
+                localStorage.removeItem("userType");
+                localStorage.removeItem("checkLogin");
+
+                console.log("Session saved to sessionStorage (session only)");
+            }
+
+            const durationText = rememberMe
+                ? "30 ngày"
+                : "phiên làm việc hiện tại";
             showSuccess(
-                `Đăng nhập thành công! Chào mừng ${userInfo.displayName}`,
+                `Đăng nhập thành công! Chào mừng ${userInfo.displayName}. Sẽ giữ đăng nhập trong ${durationText}.`,
             );
 
-            // Delay redirect để đảm bảo data được lưu
+            // Delay redirect to ensure data is saved
             setTimeout(() => {
                 redirectToMainApp();
-            }, 1000); // Tăng delay lên 1s
+            }, 1500);
         } catch (error) {
             console.error("Error saving session data:", error);
             showError("Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.");
         }
     }
 
-    // Các hàm khác giữ nguyên
+    // Enhanced session validation
+    function isValidSession(authData, isFromLocalStorage) {
+        if (!authData || !authData.timestamp) return false;
+
+        const now = Date.now();
+        const sessionAge = now - authData.timestamp;
+        const maxDuration = isFromLocalStorage
+            ? AUTH_CONFIG.REMEMBER_DURATION
+            : AUTH_CONFIG.SESSION_DURATION;
+
+        // Check if session has expired
+        if (sessionAge > maxDuration) {
+            console.log("Session expired due to age");
+            return false;
+        }
+
+        // Check explicit expiry if exists
+        if (authData.expiresAt && now > authData.expiresAt) {
+            console.log("Session expired due to explicit expiry");
+            return false;
+        }
+
+        return true;
+    }
+
+    // Enhanced existing login check
+    function checkExistingLogin() {
+        // Check localStorage first (for remembered logins)
+        let authData = localStorage.getItem("loginindex_auth");
+        let isFromLocalStorage = true;
+        let isRemembered =
+            localStorage.getItem("remember_login_preference") === "true";
+
+        // If not in localStorage, check sessionStorage
+        if (!authData) {
+            authData = sessionStorage.getItem("loginindex_auth");
+            isFromLocalStorage = false;
+            isRemembered = false;
+        }
+
+        if (authData) {
+            try {
+                const auth = JSON.parse(authData);
+
+                if (isValidSession(auth, isFromLocalStorage)) {
+                    console.log(
+                        `Valid ${isRemembered ? "persistent" : "session"} found, redirecting...`,
+                    );
+
+                    const sessionTypeText = isRemembered
+                        ? "đăng nhập dài hạn"
+                        : "phiên làm việc";
+                    showSuccess(
+                        `Chào mừng trở lại, ${auth.displayName} (${sessionTypeText})`,
+                    );
+
+                    setTimeout(() => {
+                        redirectToMainApp();
+                    }, 1000);
+                    return true;
+                } else {
+                    console.log("Session expired, clearing data");
+                    clearAllAuthData();
+                }
+            } catch (error) {
+                console.error("Invalid session data:", error);
+                clearAllAuthData();
+            }
+        }
+
+        // Check legacy format for backward compatibility
+        const legacyLogin = localStorage.getItem("isLoggedIn");
+        if (legacyLogin === "true") {
+            console.log("Found legacy session, migrating...");
+            // Could migrate here or just clear legacy data
+            clearAllAuthData();
+        }
+
+        return false;
+    }
+
+    // Clear all authentication data
+    function clearAllAuthData() {
+        // Clear enhanced auth data
+        localStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("remember_login_preference");
+        sessionStorage.removeItem("loginindex_auth");
+
+        // Clear legacy auth data
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
+
+        // Clear session markers
+        sessionStorage.removeItem("justLoggedIn");
+    }
+
+    // Rate limiting check
     function isRateLimited() {
-        if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+        if (loginAttempts >= AUTH_CONFIG.MAX_LOGIN_ATTEMPTS) {
             const timeSinceLastAttempt = Date.now() - lastAttemptTime;
-            if (timeSinceLastAttempt < LOCKOUT_DURATION) {
+            if (timeSinceLastAttempt < AUTH_CONFIG.LOCKOUT_DURATION) {
                 return true;
             } else {
                 loginAttempts = 0;
@@ -266,6 +416,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return false;
     }
 
+    // Input validation
     function validateInputs() {
         if (!usernameInput || !passwordInput) {
             showError("Lỗi hệ thống: Không tìm thấy trường nhập liệu");
@@ -290,6 +441,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return true;
     }
 
+    // Handle failed login
     function handleFailedLogin() {
         loginAttempts++;
         lastAttemptTime = Date.now();
@@ -299,18 +451,20 @@ document.addEventListener("DOMContentLoaded", function () {
             passwordInput.focus();
         }
 
-        const remainingAttempts = MAX_LOGIN_ATTEMPTS - loginAttempts;
+        const remainingAttempts =
+            AUTH_CONFIG.MAX_LOGIN_ATTEMPTS - loginAttempts;
         if (remainingAttempts > 0) {
             showError(
                 `Thông tin đăng nhập không chính xác. Còn lại ${remainingAttempts} lần thử.`,
             );
         } else {
             showError(
-                `Quá nhiều lần đăng nhập sai. Tài khoản bị khóa ${LOCKOUT_DURATION / 60000} phút.`,
+                `Quá nhiều lần đăng nhập sai. Tài khoản bị khóa ${AUTH_CONFIG.LOCKOUT_DURATION / 60000} phút.`,
             );
         }
     }
 
+    // Handle authentication errors
     function handleAuthError(error) {
         if (error.code === "unavailable") {
             showError("Không thể kết nối Firebase. Kiểm tra kết nối mạng.");
@@ -322,6 +476,7 @@ document.addEventListener("DOMContentLoaded", function () {
         handleFailedLogin();
     }
 
+    // Show error message
     function showError(message) {
         if (errorMessage) {
             errorMessage.textContent = message;
@@ -335,6 +490,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("Login error:", message);
     }
 
+    // Show success message
     function showSuccess(message) {
         if (successMessage) {
             successMessage.textContent = message;
@@ -348,11 +504,9 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log("Login success:", message);
     }
 
+    // Redirect to main application
     function redirectToMainApp() {
-        // Đánh dấu là vừa đăng nhập để navigation system biết cần đợi
         sessionStorage.setItem("justLoggedIn", "true");
-
-        // Redirect với timestamp để tránh cache
         const timestamp = Date.now();
         window.location.href = `./live/index.html?t=${timestamp}`;
     }
@@ -382,8 +536,22 @@ document.addEventListener("DOMContentLoaded", function () {
         if (passwordInput) {
             passwordInput.addEventListener("keypress", handleKeyPress);
         }
+
+        // Handle remember me checkbox
+        if (rememberMeCheckbox) {
+            rememberMeCheckbox.addEventListener("change", function () {
+                const isChecked = this.checked;
+                const durationText = isChecked
+                    ? "30 ngày"
+                    : "phiên làm việc hiện tại";
+                console.log(
+                    `Remember me ${isChecked ? "enabled" : "disabled"}: ${durationText}`,
+                );
+            });
+        }
     }
 
+    // Handle key press events
     function handleKeyPress(e) {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -391,45 +559,50 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Initialize
-    console.log("Initializing login system...");
-    setupEventListeners();
-    if (usernameInput) usernameInput.focus();
+    // Initialize the login system
+    function initialize() {
+        console.log("Initializing enhanced login system...");
+        setupEventListeners();
 
-    function checkExistingLogin() {
-        const authData = localStorage.getItem("loginindex_auth");
-        const isLoggedIn = localStorage.getItem("isLoggedIn");
-
-        if (authData && isLoggedIn === "true") {
-            try {
-                const auth = JSON.parse(authData);
-                const loginTime = new Date(auth.loginTime).getTime();
-                const now = Date.now();
-                const hoursPassed = (now - loginTime) / (1000 * 60 * 60);
-
-                // Session valid trong 24 giờ
-                if (hoursPassed < 24) {
-                    console.log("Valid session found, redirecting...");
-                    showSuccess(`Chào mừng trở lại, ${auth.displayName}`);
-                    setTimeout(() => {
-                        redirectToMainApp();
-                    }, 1000);
-                    return true;
-                } else {
-                    console.log("Session expired, clearing data");
-                    localStorage.clear();
-                }
-            } catch (error) {
-                console.error("Invalid session data:", error);
-                localStorage.clear();
+        // Check for existing valid session
+        setTimeout(() => {
+            if (!checkExistingLogin()) {
+                console.log("No valid session, showing login form");
+                if (usernameInput) usernameInput.focus();
             }
-        }
-        return false;
+        }, 1000);
     }
-    setTimeout(() => {
-        if (!checkExistingLogin()) {
-            console.log("No valid session, showing login form");
-            if (usernameInput) usernameInput.focus();
-        }
-    }, 1000);
+
+    // Start initialization
+    initialize();
 });
+
+/*
+HTML Template for the checkbox (add this to your login form):
+
+<div class="form-group">
+    <label class="remember-me-container">
+        <input type="checkbox" id="rememberMe" name="rememberMe">
+        <span class="checkmark"></span>
+        Ghi nhớ đăng nhập (30 ngày)
+    </label>
+</div>
+
+CSS for styling (optional):
+.remember-me-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #666;
+    cursor: pointer;
+}
+
+.remember-me-container input[type="checkbox"] {
+    margin: 0;
+}
+
+.remember-me-container:hover {
+    color: #333;
+}
+*/

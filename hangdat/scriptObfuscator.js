@@ -311,7 +311,7 @@ async function uploadToFirestore(orderData) {
     }
 }
 
-// ADD ORDER
+// Updated addOrder function to properly handle the new form structure
 async function addOrder(event) {
     if (event) event.preventDefault();
 
@@ -401,6 +401,24 @@ async function addOrder(event) {
     }
 }
 
+// Helper function to show loading state
+function showLoading(message) {
+    showFloatingAlert(message, true);
+}
+
+// Helper function to show success message
+function showSuccess(message) {
+    hideFloatingAlert();
+    showFloatingAlert(message, false);
+    setTimeout(hideFloatingAlert, 2000);
+}
+
+// Helper function to show error message
+function showError(message) {
+    hideFloatingAlert();
+    showFloatingAlert(message, false);
+    setTimeout(hideFloatingAlert, 3000);
+}
 function collectFormData() {
     // Get shared data elements
     const ngayDatHangEl = document.getElementById("ngayDatHang");
@@ -493,6 +511,7 @@ function collectFormData() {
     return { sharedData, products };
 }
 
+// Updated getInvoiceImageData function with error handling
 function getInvoiceImageData() {
     try {
         const selectedTypeEl = document.querySelector(
@@ -525,6 +544,7 @@ function getInvoiceImageData() {
     }
 }
 
+// Updated getRowImageData function with error handling
 function getRowImageData(row, type) {
     try {
         const upload = row.querySelector(`.mini-upload[data-type="${type}"]`);

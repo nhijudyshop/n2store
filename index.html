@@ -205,6 +205,83 @@
                 padding-left: calc(55px * var(--font-scale));
             }
 
+            /* Remember Me Checkbox */
+            .remember-me-group {
+                margin-bottom: calc(20px * var(--font-scale));
+                text-align: left;
+            }
+
+            .remember-me-container {
+                display: flex;
+                align-items: center;
+                gap: calc(10px * var(--font-scale));
+                font-size: calc(14px * var(--font-scale));
+                color: #495057;
+                cursor: pointer;
+                padding: calc(8px * var(--font-scale)) 0;
+                transition: all 0.2s ease;
+                user-select: none;
+            }
+
+            .remember-me-container:hover {
+                color: #667eea;
+            }
+
+            .remember-me-container input[type="checkbox"] {
+                position: relative;
+                width: calc(20px * var(--font-scale));
+                height: calc(20px * var(--font-scale));
+                margin: 0;
+                cursor: pointer;
+                appearance: none;
+                border: 2px solid #e9ecef;
+                border-radius: 4px;
+                background: white;
+                transition: all 0.2s ease;
+                flex-shrink: 0;
+            }
+
+            .remember-me-container input[type="checkbox"]:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+
+            .remember-me-container input[type="checkbox"]:checked {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-color: #667eea;
+            }
+
+            .remember-me-container input[type="checkbox"]:checked::after {
+                content: "✓";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: white;
+                font-size: calc(12px * var(--font-scale));
+                font-weight: bold;
+                line-height: 1;
+            }
+
+            .remember-duration {
+                font-size: calc(12px * var(--font-scale));
+                color: #6c757d;
+                font-weight: 400;
+                margin-left: calc(30px * var(--font-scale));
+                opacity: 0;
+                transform: translateX(-10px);
+                transition: all 0.3s ease;
+            }
+
+            .remember-me-container
+                input[type="checkbox"]:checked
+                + .remember-text
+                + .remember-duration,
+            .remember-duration.show {
+                opacity: 1;
+                transform: translateX(0);
+            }
+
             /* Login Button */
             #loginButton {
                 width: 100%;
@@ -365,6 +442,12 @@
                 .brand-text {
                     font-size: calc(1.8rem * var(--font-scale));
                 }
+
+                .remember-duration {
+                    margin-left: 0;
+                    margin-top: calc(5px * var(--font-scale));
+                    display: block;
+                }
             }
 
             /* Dark mode */
@@ -383,6 +466,13 @@
                 }
                 .form-group label {
                     color: #e9ecef;
+                }
+                .remember-me-container {
+                    color: #e9ecef;
+                }
+                .remember-me-container input[type="checkbox"] {
+                    border-color: rgba(255, 255, 255, 0.3);
+                    background: rgba(255, 255, 255, 0.1);
                 }
             }
         </style>
@@ -433,6 +523,21 @@
                         </div>
                     </div>
 
+                    <!-- Remember Me Checkbox -->
+                    <div class="remember-me-group">
+                        <label class="remember-me-container">
+                            <input
+                                type="checkbox"
+                                id="rememberMe"
+                                name="rememberMe"
+                            />
+                            <span class="remember-text">Ghi nhớ đăng nhập</span>
+                        </label>
+                        <div class="remember-duration" id="rememberDuration">
+                            Sẽ giữ đăng nhập trong 30 ngày
+                        </div>
+                    </div>
+
                     <button type="submit" id="loginButton">Đăng nhập</button>
                 </form>
 
@@ -460,7 +565,7 @@
                 if (typeof CryptoJS !== "undefined") {
                     if (typeof bcrypt !== "undefined") {
                         statusEl.textContent = "🔒 Bảo mật";
-                        statusEl.className = "Status loaded";
+                        statusEl.className = "crypto-status loaded";
                     } else {
                         statusEl.textContent = "🔐 Bảo mật";
                         statusEl.className = "crypto-status loaded";
@@ -471,6 +576,35 @@
                 } else {
                     statusEl.textContent = "⚠️ Kiểm tra lại";
                     statusEl.className = "crypto-status fallback";
+                }
+            }
+
+            // Enhanced Remember Me functionality
+            function setupRememberMe() {
+                const rememberCheckbox = document.getElementById("rememberMe");
+                const rememberDuration =
+                    document.getElementById("rememberDuration");
+
+                if (rememberCheckbox && rememberDuration) {
+                    rememberCheckbox.addEventListener("change", function () {
+                        if (this.checked) {
+                            rememberDuration.classList.add("show");
+                            rememberDuration.textContent =
+                                "Sẽ giữ đăng nhập trong 30 ngày";
+                        } else {
+                            rememberDuration.classList.remove("show");
+                        }
+                    });
+
+                    // Show duration hint on hover
+                    rememberCheckbox.parentElement.addEventListener(
+                        "mouseenter",
+                        function () {
+                            if (rememberCheckbox.checked) {
+                                rememberDuration.classList.add("show");
+                            }
+                        },
+                    );
                 }
             }
 
@@ -489,8 +623,11 @@
                 }
             }, 100);
 
-            // Initial check
-            updateCryptoStatus();
+            // Initialize on DOM ready
+            document.addEventListener("DOMContentLoaded", function () {
+                updateCryptoStatus();
+                setupRememberMe();
+            });
         </script>
 
         <script src="./index/login.js"></script>

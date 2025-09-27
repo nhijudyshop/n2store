@@ -26,12 +26,1408 @@
 
         <!-- CSS script -->
         <script src="../js/device-detector.js"></script>
+
         <!-- Navigation Manager -->
         <script src="../js/navigation.js"></script>
         <script src="../js/common-utils.js"></script>
 
-        <!-- Enhanced CSS -->
-        <link rel="stylesheet" href="../css/common-styles.css" />
+        <style>
+            /* ==================== PREMIUM ENHANCED TABLE STYLES ==================== */
+
+            /* Global root variables */
+            :root {
+                --primary-gradient: linear-gradient(
+                    135deg,
+                    #667eea 0%,
+                    #764ba2 100%
+                );
+                --success-gradient: linear-gradient(
+                    135deg,
+                    #28a745 0%,
+                    #20c997 100%
+                );
+                --danger-gradient: linear-gradient(
+                    135deg,
+                    #dc3545 0%,
+                    #c82333 100%
+                );
+                --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.06);
+                --shadow-medium: 0 12px 48px rgba(0, 0, 0, 0.1);
+                --shadow-strong: 0 16px 64px rgba(0, 0, 0, 0.15);
+                --border-radius: 16px;
+                --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                --glass-bg: rgba(255, 255, 255, 0.95);
+                --glass-border: rgba(255, 255, 255, 0.2);
+            }
+
+            /* ==================== ENHANCED FORM CONTAINER ==================== */
+            .order-form-container {
+                max-width: 1600px;
+                margin: 30px auto;
+                background: var(--glass-bg);
+                border-radius: 24px;
+                box-shadow:
+                    var(--shadow-strong),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                overflow: hidden;
+                border: 1px solid var(--glass-border);
+                backdrop-filter: blur(20px);
+                position: relative;
+                transition: var(--transition-smooth);
+            }
+
+            .order-form-container:hover {
+                box-shadow:
+                    0 20px 80px rgba(0, 0, 0, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                transform: translateY(-4px);
+            }
+
+            /* Form header with advanced styling */
+            .form-header {
+                background: var(--primary-gradient);
+                color: white;
+                padding: 32px 40px;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .form-header::before {
+                content: "";
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(
+                    circle,
+                    rgba(255, 255, 255, 0.1) 0%,
+                    transparent 70%
+                );
+                animation: shimmer 3s ease-in-out infinite;
+            }
+
+            .form-header h2 {
+                margin: 0;
+                font-size: 28px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                position: relative;
+                z-index: 1;
+            }
+
+            /* ==================== ENHANCED SHARED INFO SECTION ==================== */
+            .shared-info-section {
+                padding: 40px;
+                background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                position: relative;
+            }
+
+            .shared-info-section::before {
+                content: "🔒 Secure Input";
+                position: absolute;
+                top: -8px;
+                right: 30px;
+                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                color: white;
+                padding: 6px 16px;
+                border-radius: 20px;
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
+            }
+
+            .shared-info-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                gap: 24px;
+                margin-bottom: 32px;
+            }
+
+            .shared-info-group {
+                position: relative;
+            }
+
+            .shared-info-group label {
+                display: block;
+                font-weight: 700;
+                color: #2c3e50;
+                font-size: 14px;
+                margin-bottom: 8px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                position: relative;
+            }
+
+            .shared-info-group label::after {
+                content: "";
+                position: absolute;
+                bottom: -4px;
+                left: 0;
+                width: 20px;
+                height: 2px;
+                background: var(--primary-gradient);
+                border-radius: 1px;
+            }
+
+            .shared-info-group input,
+            .shared-info-group select {
+                width: 100%;
+                padding: 16px 20px;
+                border: 2px solid #e9ecef;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 500;
+                background: white;
+                color: #2c3e50;
+                transition: var(--transition-smooth);
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+                position: relative;
+                z-index: 1;
+            }
+
+            .shared-info-group input:focus,
+            .shared-info-group select:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow:
+                    0 0 0 4px rgba(102, 126, 234, 0.15),
+                    0 8px 32px rgba(102, 126, 234, 0.2),
+                    inset 0 2px 4px rgba(0, 0, 0, 0.06);
+                transform: translateY(-2px);
+                background: #fefeff;
+            }
+
+            /* ==================== ENHANCED IMAGE UPLOAD SECTION ==================== */
+            .image-upload-section {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+                gap: 24px;
+                margin-top: 32px;
+            }
+
+            .image-upload-group {
+                border: 3px dashed #ddd;
+                border-radius: 16px;
+                padding: 32px;
+                text-align: center;
+                background: linear-gradient(
+                    135deg,
+                    rgba(255, 255, 255, 0.8) 0%,
+                    rgba(248, 249, 250, 0.6) 100%
+                );
+                transition: var(--transition-smooth);
+                min-height: 180px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .image-upload-group::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(102, 126, 234, 0.1),
+                    transparent
+                );
+                transition: left 0.6s ease;
+            }
+
+            .image-upload-group:hover::before {
+                left: 100%;
+            }
+
+            .image-upload-group:hover {
+                border-color: #667eea;
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.05) 0%,
+                    rgba(248, 249, 250, 0.8) 100%
+                );
+                box-shadow:
+                    0 8px 32px rgba(102, 126, 234, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                transform: translateY(-4px);
+            }
+
+            .image-upload-group.has-content {
+                border-color: #28a745;
+                background: linear-gradient(
+                    135deg,
+                    rgba(40, 167, 69, 0.08) 0%,
+                    rgba(248, 255, 249, 0.9) 100%
+                );
+                box-shadow:
+                    0 8px 32px rgba(40, 167, 69, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+
+            .image-upload-group h4 {
+                margin: 0 0 20px 0;
+                color: #2c3e50;
+                font-size: 18px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+            }
+
+            .image-display-area {
+                min-height: 100px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                gap: 12px;
+                position: relative;
+                z-index: 2;
+            }
+
+            .image-display-area img {
+                max-width: 140px;
+                max-height: 140px;
+                object-fit: cover;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+                border: 3px solid white;
+                transition: var(--transition-smooth);
+            }
+
+            .image-display-area img:hover {
+                transform: scale(1.05);
+                box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+            }
+
+            .image-display-area p {
+                color: #6c757d;
+                font-style: italic;
+                margin: 0;
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            /* ==================== ENHANCED PRODUCTS SECTION ==================== */
+            .products-section {
+                padding: 40px;
+                background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            }
+
+            .products-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 32px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid #e9ecef;
+                position: relative;
+            }
+
+            .products-header::after {
+                content: "";
+                position: absolute;
+                bottom: -2px;
+                left: 0;
+                width: 60px;
+                height: 2px;
+                background: var(--success-gradient);
+            }
+
+            .products-header h3 {
+                margin: 0;
+                color: #2c3e50;
+                font-size: 24px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .add-product-btn {
+                background: var(--success-gradient);
+                color: white;
+                border: none;
+                padding: 16px 24px;
+                border-radius: 12px;
+                font-weight: 700;
+                font-size: 15px;
+                cursor: pointer;
+                transition: var(--transition-smooth);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
+                position: relative;
+                overflow: hidden;
+            }
+
+            .add-product-btn::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.2),
+                    transparent
+                );
+                transition: left 0.6s ease;
+            }
+
+            .add-product-btn:hover::before {
+                left: 100%;
+            }
+
+            .add-product-btn:hover {
+                transform: translateY(-3px) scale(1.02);
+                box-shadow: 0 8px 32px rgba(40, 167, 69, 0.4);
+            }
+
+            /* ==================== PREMIUM TABLE CONTAINERS ==================== */
+            .table-container,
+            .products-table-container {
+                background: var(--glass-bg);
+                border-radius: 20px;
+                box-shadow:
+                    var(--shadow-medium),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                border: 1px solid var(--glass-border);
+                margin: 32px 0;
+                overflow: hidden;
+                position: relative;
+                backdrop-filter: blur(20px);
+                transition: var(--transition-smooth);
+            }
+
+            .table-container:hover,
+            .products-table-container:hover {
+                box-shadow:
+                    var(--shadow-strong),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                transform: translateY(-6px);
+            }
+
+            /* Enhanced badges */
+            .table-container::before {
+                content: "📊 Data Dashboard";
+                position: absolute;
+                top: -10px;
+                right: 24px;
+                background: var(--primary-gradient);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 25px;
+                font-size: 11px;
+                font-weight: 700;
+                z-index: 20;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+                border: 2px solid white;
+            }
+
+            .products-table-container::before {
+                content: "🛍️ Product Manager";
+                position: absolute;
+                top: -10px;
+                right: 24px;
+                background: var(--success-gradient);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 25px;
+                font-size: 11px;
+                font-weight: 700;
+                z-index: 20;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+                border: 2px solid white;
+            }
+
+            /* ==================== PREMIUM DISPLAY TABLE ==================== */
+            .display-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 14px;
+                position: relative;
+                min-width: 1400px;
+                background: transparent;
+            }
+
+            .display-table thead {
+                background: var(--primary-gradient);
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            }
+
+            .display-table th {
+                padding: 24px 16px;
+                text-align: center;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-size: 12px;
+                color: white;
+                border-right: 1px solid rgba(255, 255, 255, 0.15);
+                position: relative;
+                background: transparent;
+                transition: var(--transition-smooth);
+            }
+
+            .display-table th::after {
+                content: "";
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 2px;
+                background: rgba(255, 255, 255, 0.3);
+                transform: scaleX(0);
+                transition: transform 0.3s ease;
+            }
+
+            .display-table th:hover::after {
+                transform: scaleX(1);
+            }
+
+            .display-table th:last-child {
+                border-right: none;
+            }
+
+            .display-table th:hover {
+                background: rgba(255, 255, 255, 0.1);
+                cursor: pointer;
+                transform: translateY(-2px);
+            }
+
+            .display-table td {
+                padding: 18px 14px;
+                text-align: center;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+                border-right: 1px solid rgba(0, 0, 0, 0.05);
+                vertical-align: middle;
+                font-size: 13px;
+                color: #2c3e50;
+                font-weight: 500;
+                line-height: 1.5;
+                transition: var(--transition-smooth);
+                position: relative;
+                background: transparent;
+            }
+
+            .display-table td:last-child {
+                border-right: none;
+            }
+
+            .display-table tbody tr {
+                transition: var(--transition-smooth);
+                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                background: transparent;
+            }
+
+            .display-table tbody tr:hover {
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.08) 0%,
+                    rgba(118, 75, 162, 0.05) 100%
+                );
+                transform: translateY(-2px) scale(1.002);
+                box-shadow:
+                    0 8px 32px rgba(102, 126, 234, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            }
+
+            .display-table tbody tr:nth-child(even) {
+                background: linear-gradient(
+                    135deg,
+                    rgba(248, 249, 250, 0.5) 0%,
+                    rgba(255, 255, 255, 0.3) 100%
+                );
+            }
+
+            .display-table tbody tr:nth-child(even):hover {
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.1) 0%,
+                    rgba(118, 75, 162, 0.06) 100%
+                );
+            }
+
+            /* Enhanced merged cells */
+            .display-table .merged-cell {
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.1) 0%,
+                    rgba(248, 249, 250, 0.8) 100%
+                );
+                font-weight: 700;
+                color: #495057;
+                border-left: 4px solid transparent;
+                border-image: var(--primary-gradient) 1;
+                position: relative;
+                box-shadow: inset 2px 0 4px rgba(102, 126, 234, 0.1);
+            }
+
+            /* ==================== PREMIUM PRODUCTS TABLE ==================== */
+            .products-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+                min-width: 1400px;
+                background: transparent;
+            }
+
+            .products-table thead {
+                background: var(--success-gradient);
+                position: sticky;
+                top: 0;
+                z-index: 50;
+                box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+            }
+
+            .products-table th {
+                padding: 20px 14px;
+                text-align: center;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                font-size: 11px;
+                color: white;
+                border-right: 1px solid rgba(255, 255, 255, 0.15);
+                position: relative;
+                background: transparent;
+                transition: var(--transition-smooth);
+            }
+
+            .products-table th::after {
+                content: "";
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 2px;
+                background: rgba(255, 255, 255, 0.3);
+                transform: scaleX(0);
+                transition: transform 0.3s ease;
+            }
+
+            .products-table th:hover::after {
+                transform: scaleX(1);
+            }
+
+            .products-table th:last-child {
+                border-right: none;
+            }
+
+            .products-table td {
+                padding: 14px 10px;
+                text-align: center;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+                border-right: 1px solid rgba(0, 0, 0, 0.04);
+                vertical-align: middle;
+                font-size: 12px;
+                color: #495057;
+                font-weight: 500;
+                background: transparent;
+                transition: var(--transition-smooth);
+            }
+
+            .products-table td:last-child {
+                border-right: none;
+            }
+
+            .products-table tbody tr {
+                transition: var(--transition-smooth);
+                background: transparent;
+            }
+
+            .products-table tbody tr:hover {
+                background: linear-gradient(
+                    135deg,
+                    rgba(40, 167, 69, 0.08) 0%,
+                    rgba(32, 201, 151, 0.05) 100%
+                );
+                box-shadow: inset 0 0 0 1px rgba(40, 167, 69, 0.15);
+                transform: translateY(-1px);
+            }
+
+            /* ==================== PREMIUM INPUT STYLING ==================== */
+            .display-table input,
+            .products-table input,
+            .products-table select,
+            .products-table textarea {
+                width: 100%;
+                padding: 12px 14px;
+                border: 2px solid #e9ecef;
+                border-radius: 10px;
+                font-size: 13px;
+                font-weight: 500;
+                background: white;
+                color: #495057;
+                transition: var(--transition-smooth);
+                box-sizing: border-box;
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+            }
+
+            .display-table input:focus,
+            .products-table input:focus,
+            .products-table select:focus,
+            .products-table textarea:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow:
+                    0 0 0 4px rgba(102, 126, 234, 0.12),
+                    0 4px 16px rgba(102, 126, 234, 0.2),
+                    inset 0 2px 4px rgba(0, 0, 0, 0.06);
+                transform: translateY(-2px) scale(1.02);
+                background: #fefeff;
+            }
+
+            .products-table textarea {
+                min-height: 70px;
+                resize: vertical;
+                font-family: inherit;
+                line-height: 1.5;
+            }
+
+            /* Enhanced quantity inputs */
+            .quantity-input,
+            .products-table .product-quantity {
+                text-align: center;
+                font-weight: 700;
+                color: #28a745;
+                max-width: 90px;
+                margin: 0 auto;
+                background: linear-gradient(
+                    135deg,
+                    rgba(40, 167, 69, 0.05) 0%,
+                    rgba(255, 255, 255, 1) 100%
+                );
+            }
+
+            /* Enhanced price inputs */
+            .price-buy-input,
+            .price-sell-input,
+            .products-table .product-buy-price,
+            .products-table .product-sell-price {
+                text-align: right;
+                font-weight: 700;
+                font-family: "Monaco", "Consolas", monospace;
+                max-width: 110px;
+                margin: 0 auto;
+            }
+
+            .price-buy-input,
+            .products-table .product-buy-price {
+                color: #dc3545;
+                background: linear-gradient(
+                    135deg,
+                    rgba(220, 53, 69, 0.05) 0%,
+                    rgba(255, 255, 255, 1) 100%
+                );
+            }
+
+            .price-sell-input,
+            .products-table .product-sell-price {
+                color: #28a745;
+                background: linear-gradient(
+                    135deg,
+                    rgba(40, 167, 69, 0.05) 0%,
+                    rgba(255, 255, 255, 1) 100%
+                );
+            }
+
+            /* ==================== PREMIUM IMAGE HANDLING ==================== */
+            .product-images,
+            .price-images,
+            .display-table .product-row {
+                padding: 12px !important;
+            }
+
+            .display-table img,
+            .products-table img,
+            .mini-upload img {
+                max-width: 90px;
+                max-height: 90px;
+                object-fit: cover;
+                border-radius: 12px;
+                border: 3px solid white;
+                cursor: pointer;
+                transition: var(--transition-smooth);
+                box-shadow:
+                    0 4px 16px rgba(0, 0, 0, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                margin: 3px;
+                position: relative;
+            }
+
+            .display-table img:hover,
+            .products-table img:hover {
+                transform: scale(2.8);
+                z-index: 1000;
+                border-color: #667eea;
+                box-shadow:
+                    0 16px 64px rgba(0, 0, 0, 0.3),
+                    0 0 0 6px rgba(102, 126, 234, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+                border-radius: 16px;
+            }
+
+            /* Premium mini upload areas */
+            .mini-upload {
+                border: 3px dashed #ddd;
+                border-radius: 12px;
+                padding: 16px;
+                min-height: 90px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                transition: var(--transition-smooth);
+                background: linear-gradient(
+                    135deg,
+                    rgba(255, 255, 255, 0.8) 0%,
+                    rgba(250, 250, 250, 0.6) 100%
+                );
+                cursor: pointer;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .mini-upload::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(102, 126, 234, 0.1),
+                    transparent
+                );
+                transition: left 0.5s ease;
+            }
+
+            .mini-upload:hover::before {
+                left: 100%;
+            }
+
+            .mini-upload:hover {
+                border-color: #667eea;
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.08) 0%,
+                    rgba(250, 250, 250, 0.9) 100%
+                );
+                transform: translateY(-2px) scale(1.02);
+                box-shadow: 0 6px 24px rgba(102, 126, 234, 0.2);
+            }
+
+            .mini-upload.has-content {
+                border-color: #28a745;
+                background: linear-gradient(
+                    135deg,
+                    rgba(40, 167, 69, 0.1) 0%,
+                    rgba(248, 255, 249, 0.9) 100%
+                );
+                box-shadow: 0 4px 16px rgba(40, 167, 69, 0.2);
+            }
+
+            .mini-upload p {
+                margin: 0;
+                font-size: 11px;
+                color: #6c757d;
+                text-align: center;
+                font-style: italic;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                position: relative;
+                z-index: 2;
+            }
+
+            /* ==================== PREMIUM BUTTONS ==================== */
+            .remove-product-btn {
+                background: var(--danger-gradient);
+                color: white;
+                border: none;
+                padding: 10px 14px;
+                border-radius: 10px;
+                font-size: 18px;
+                cursor: pointer;
+                transition: var(--transition-smooth);
+                box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+                min-width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .remove-product-btn::before,
+            .delete-button::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.2),
+                    transparent
+                );
+                transition: left 0.5s ease;
+            }
+
+            .remove-product-btn:hover::before,
+            .delete-button:hover::before {
+                left: 100%;
+            }
+
+            .remove-product-btn:hover,
+            .delete-button:hover {
+                transform: translateY(-3px) scale(1.08) rotate(5deg);
+                box-shadow: 0 8px 32px rgba(220, 53, 69, 0.5);
+                background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            }
+
+            /* ==================== PREMIUM SUBMIT SECTION ==================== */
+            .submit-section {
+                padding: 40px;
+                background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+                text-align: center;
+                border-top: 1px solid rgba(0, 0, 0, 0.05);
+                position: relative;
+            }
+
+            .submit-btn,
+            .clear-btn {
+                background: var(--primary-gradient);
+                color: white;
+                border: none;
+                padding: 20px 40px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: var(--transition-smooth);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                min-width: 200px;
+                margin: 0 8px;
+                position: relative;
+                overflow: hidden;
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+            }
+
+            .submit-btn::before,
+            .clear-btn::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.2),
+                    transparent
+                );
+                transition: left 0.6s ease;
+            }
+
+            .submit-btn:hover::before,
+            .clear-btn:hover::before {
+                left: 100%;
+            }
+
+            .submit-btn:hover,
+            .clear-btn:hover {
+                transform: translateY(-4px) scale(1.05);
+                box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+            }
+
+            .clear-btn {
+                background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+                box-shadow: 0 6px 20px rgba(108, 117, 125, 0.3);
+            }
+
+            .clear-btn:hover {
+                box-shadow: 0 12px 40px rgba(108, 117, 125, 0.4);
+            }
+
+            /* ==================== PREMIUM SUMMARY ROWS ==================== */
+            .summary-row {
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.1) 0%,
+                    rgba(248, 249, 250, 0.9) 100%
+                ) !important;
+                font-weight: 800;
+                border-top: 4px solid transparent !important;
+                border-bottom: 4px solid transparent !important;
+                border-image: var(--primary-gradient) 1 !important;
+                position: sticky;
+                bottom: 0;
+                z-index: 15;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 -4px 16px rgba(102, 126, 234, 0.2);
+            }
+
+            .summary-row td {
+                text-align: center !important;
+                color: #667eea !important;
+                padding: 20px !important;
+                font-size: 16px !important;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-weight: 800;
+            }
+
+            .warning-row {
+                background: linear-gradient(
+                    135deg,
+                    rgba(255, 193, 7, 0.15) 0%,
+                    rgba(255, 238, 170, 0.9) 100%
+                ) !important;
+                color: #856404 !important;
+                font-weight: 700;
+                border: 3px solid transparent !important;
+                border-image: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%)
+                    1 !important;
+                box-shadow: 0 4px 16px rgba(255, 193, 7, 0.3);
+            }
+
+            .warning-row td {
+                text-align: center !important;
+                padding: 16px !important;
+                font-size: 14px !important;
+                font-weight: 700;
+            }
+
+            /* ==================== SUPPLIER SUGGESTIONS ==================== */
+            .supplier-suggestions {
+                max-height: 240px;
+                overflow-y: auto;
+                background: white;
+                border: 2px solid #e9ecef;
+                border-radius: 12px;
+                margin-top: 8px;
+                display: none;
+                position: absolute;
+                z-index: 1000;
+                width: 100%;
+                box-shadow:
+                    0 8px 32px rgba(0, 0, 0, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                backdrop-filter: blur(10px);
+            }
+
+            .supplier-suggestion {
+                padding: 14px 18px;
+                cursor: pointer;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                transition: var(--transition-smooth);
+                font-weight: 500;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .supplier-suggestion::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(102, 126, 234, 0.1),
+                    transparent
+                );
+                transition: left 0.5s ease;
+            }
+
+            .supplier-suggestion:hover::before {
+                left: 100%;
+            }
+
+            .supplier-suggestion:hover {
+                background: linear-gradient(
+                    135deg,
+                    rgba(102, 126, 234, 0.08) 0%,
+                    rgba(248, 249, 250, 0.9) 100%
+                );
+                color: #667eea;
+                font-weight: 600;
+                transform: translateX(4px);
+            }
+
+            .supplier-suggestion:last-child {
+                border-bottom: none;
+            }
+
+            /* ==================== PREMIUM ANIMATIONS ==================== */
+            @keyframes shimmer {
+                0% {
+                    transform: translateX(-100%) translateY(-50%) rotate(45deg);
+                }
+                100% {
+                    transform: translateX(400%) translateY(-50%) rotate(45deg);
+                }
+            }
+
+            @keyframes tableRowSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-15px) scale(0.98);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+
+            @keyframes pulseGlow {
+                0%,
+                100% {
+                    box-shadow: 0 0 5px rgba(102, 126, 234, 0.5);
+                }
+                50% {
+                    box-shadow:
+                        0 0 20px rgba(102, 126, 234, 0.8),
+                        0 0 30px rgba(102, 126, 234, 0.6);
+                }
+            }
+
+            @keyframes floatAnimation {
+                0%,
+                100% {
+                    transform: translateY(0px);
+                }
+                50% {
+                    transform: translateY(-6px);
+                }
+            }
+
+            .display-table tbody tr,
+            .products-table tbody tr {
+                animation: tableRowSlideIn 0.4s ease-out;
+            }
+
+            /* Loading skeleton with premium effect */
+            .table-loading {
+                background: linear-gradient(
+                    90deg,
+                    #f0f0f0 25%,
+                    #ffffff 37%,
+                    #f0f0f0 63%
+                );
+                background-size: 400% 100%;
+                animation: shimmer 1.8s ease-in-out infinite;
+                position: relative;
+            }
+
+            .table-loading::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(102, 126, 234, 0.1),
+                    transparent
+                );
+                animation: shimmer 2s ease-in-out infinite reverse;
+            }
+
+            /* Premium scroll indicators */
+            .table-container::after,
+            .products-table-container::after {
+                content: "← Swipe to explore →";
+                position: absolute;
+                bottom: 16px;
+                right: 24px;
+                background: linear-gradient(
+                    135deg,
+                    rgba(0, 0, 0, 0.8) 0%,
+                    rgba(52, 58, 64, 0.9) 100%
+                );
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 11px;
+                font-weight: 600;
+                opacity: 0;
+                transition: opacity 0.4s ease;
+                pointer-events: none;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+                backdrop-filter: blur(10px);
+            }
+
+            .table-container:hover::after,
+            .products-table-container:hover::after {
+                opacity: 0.9;
+                animation: floatAnimation 2s ease-in-out infinite;
+            }
+
+            /* ==================== PREMIUM RESPONSIVE DESIGN ==================== */
+            @media (max-width: 1400px) {
+                .table-container,
+                .products-table-container {
+                    margin: 20px -15px;
+                    border-radius: 16px;
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .display-table,
+                .products-table {
+                    min-width: 1200px;
+                }
+            }
+
+            @media (max-width: 1200px) {
+                .order-form-container {
+                    margin: 20px 10px;
+                    border-radius: 20px;
+                }
+
+                .shared-info-grid {
+                    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                    gap: 20px;
+                }
+
+                .image-upload-section {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            @media (max-width: 768px) {
+                .display-table,
+                .products-table {
+                    font-size: 12px;
+                    min-width: 1000px;
+                }
+
+                .display-table th,
+                .products-table th {
+                    padding: 16px 10px;
+                    font-size: 10px;
+                }
+
+                .display-table td,
+                .products-table td {
+                    padding: 12px 8px;
+                    font-size: 11px;
+                }
+
+                .display-table img,
+                .products-table img {
+                    max-width: 70px;
+                    max-height: 70px;
+                }
+
+                .mini-upload {
+                    min-height: 70px;
+                    padding: 12px;
+                }
+
+                .remove-product-btn,
+                .delete-button {
+                    min-width: 36px;
+                    height: 36px;
+                    font-size: 16px;
+                }
+
+                .shared-info-section,
+                .products-section,
+                .submit-section {
+                    padding: 24px 20px;
+                }
+
+                .shared-info-grid {
+                    grid-template-columns: 1fr;
+                    gap: 16px;
+                }
+
+                .products-header h3 {
+                    font-size: 20px;
+                }
+
+                .add-product-btn {
+                    padding: 14px 20px;
+                    font-size: 14px;
+                }
+
+                .submit-btn,
+                .clear-btn {
+                    padding: 16px 32px;
+                    font-size: 14px;
+                    min-width: 160px;
+                    margin: 8px 4px;
+                }
+            }
+
+            @media (max-width: 480px) {
+                .display-table,
+                .products-table {
+                    font-size: 11px;
+                    min-width: 800px;
+                }
+
+                .display-table th,
+                .products-table th {
+                    padding: 12px 6px;
+                    font-size: 9px;
+                }
+
+                .display-table td,
+                .products-table td {
+                    padding: 10px 4px;
+                    font-size: 10px;
+                }
+
+                .display-table input,
+                .products-table input,
+                .products-table select,
+                .products-table textarea {
+                    padding: 8px 10px;
+                    font-size: 11px;
+                }
+
+                .order-form-container {
+                    margin: 10px 5px;
+                    border-radius: 16px;
+                }
+
+                .form-header {
+                    padding: 24px 20px;
+                }
+
+                .form-header h2 {
+                    font-size: 22px;
+                }
+
+                .shared-info-section,
+                .products-section,
+                .submit-section {
+                    padding: 20px 15px;
+                }
+
+                .image-upload-group {
+                    padding: 24px 16px;
+                    min-height: 140px;
+                }
+
+                .products-header {
+                    flex-direction: column;
+                    gap: 16px;
+                    align-items: stretch;
+                }
+
+                .add-product-btn {
+                    justify-content: center;
+                }
+
+                .submit-btn,
+                .clear-btn {
+                    display: block;
+                    width: 100%;
+                    margin: 8px 0;
+                    padding: 18px;
+                }
+            }
+
+            /* Hide scroll indicators on very large screens */
+            @media (min-width: 1401px) {
+                .table-container::after,
+                .products-table-container::after {
+                    display: none;
+                }
+            }
+
+            /* ==================== ACCESSIBILITY ENHANCEMENTS ==================== */
+            @media (prefers-reduced-motion: reduce) {
+                *,
+                *::before,
+                *::after {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                    transition-duration: 0.01ms !important;
+                    scroll-behavior: auto !important;
+                }
+            }
+
+            /* Focus indicators for keyboard navigation */
+            .display-table th:focus,
+            .products-table th:focus,
+            .display-table input:focus,
+            .products-table input:focus,
+            .products-table select:focus,
+            .products-table textarea:focus,
+            .remove-product-btn:focus,
+            .delete-button:focus,
+            .add-product-btn:focus,
+            .submit-btn:focus,
+            .clear-btn:focus {
+                outline: 3px solid rgba(102, 126, 234, 0.6);
+                outline-offset: 2px;
+            }
+
+            /* High contrast mode support */
+            @media (prefers-contrast: high) {
+                .display-table,
+                .products-table {
+                    border: 2px solid #000;
+                }
+
+                .display-table th,
+                .products-table th {
+                    background: #000;
+                    color: #fff;
+                    border: 1px solid #fff;
+                }
+
+                .display-table td,
+                .products-table td {
+                    border: 1px solid #000;
+                }
+            }
+        </style>
     </head>
 
     <body>
@@ -45,9 +1441,9 @@
 
         <!-- Top buttons -->
         <div class="top-buttons">
-            <button data-icon="➕" id="toggleFormBtn">Hiện biểu mẫu</button>
+            <button data-icon="➕" id="toggleFormButton">Hiện biểu mẫu</button>
             <button data-icon="📤" onclick="exportToExcel()">Xuất Excel</button>
-            <button data-icon="🚪" id="toggleLogoutBtn">Đăng xuất</button>
+            <button data-icon="🚪" id="toggleLogoutButton">Đăng xuất</button>
         </div>
 
         <!-- Main content -->
@@ -61,342 +1457,169 @@
             <!-- Enhanced Data Form -->
             <div
                 id="dataForm"
-                class="form-section order-form-container"
+                class="order-form-container"
                 style="display: none"
             >
                 <div class="form-header">
                     <h2>Thêm Đơn Đặt Hàng</h2>
-                    <div class="form-progress">
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="formProgress"></div>
-                        </div>
-                        <span class="progress-text">Điền thông tin cơ bản</span>
-                    </div>
                 </div>
 
                 <!-- Shared Information Section -->
                 <div class="shared-info-section">
-                    <h3 class="section-title">
-                        <span class="section-icon">📋</span>
-                        Thông tin chung
-                    </h3>
-
                     <div class="shared-info-grid">
-                        <div class="form-group">
-                            <label for="ngayDatHang" class="required-field"
-                                >Ngày đặt hàng</label
-                            >
+                        <div class="shared-info-group">
+                            <label for="ngayDatHang">Ngày đặt hàng *</label>
                             <input type="date" id="ngayDatHang" required />
-                            <div class="field-hint">Chọn ngày đặt hàng</div>
                         </div>
 
-                        <div class="form-group supplier-group">
-                            <label for="nhaCungCap" class="required-field"
-                                >Nhà cung cấp</label
-                            >
+                        <div
+                            class="shared-info-group"
+                            style="position: relative"
+                        >
+                            <label for="nhaCungCap">Nhà cung cấp *</label>
                             <input
                                 type="text"
                                 id="nhaCungCap"
                                 placeholder="Nhập tên nhà cung cấp..."
                                 required
-                                autocomplete="off"
                             />
                             <div
                                 class="supplier-suggestions"
                                 id="supplierSuggestions"
                             ></div>
-                            <div class="field-hint">
-                                Tên công ty hoặc cá nhân cung cấp
-                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="hoaDon" class="required-field"
-                                >Số hóa đơn</label
-                            >
+                        <div class="shared-info-group">
+                            <label for="hoaDon">Hóa đơn *</label>
                             <input
                                 type="text"
                                 id="hoaDon"
-                                placeholder="Nhập số hóa đơn..."
+                                placeholder="Số hóa đơn..."
                                 required
                             />
-                            <div class="field-hint">
-                                Mã số hóa đơn hoặc đơn hàng
-                            </div>
                         </div>
                     </div>
 
-                    <!-- Enhanced Image Upload Section -->
+                    <!-- Image Upload Section -->
                     <div class="image-upload-section">
-                        <h4 class="upload-title">
-                            <span class="upload-icon">📷</span>
-                            Hình ảnh hóa đơn
-                        </h4>
-
-                        <div
-                            class="image-upload-group enhanced-upload"
-                            id="invoiceImageGroup"
-                        >
-                            <div class="upload-tabs">
-                                <label class="upload-tab active">
-                                    <input
-                                        type="radio"
-                                        name="invoiceInputType"
-                                        value="clipboard"
-                                        checked
-                                    />
-                                    <span class="tab-icon">📋</span>
-                                    <span class="tab-text"
-                                        >Dán từ clipboard</span
-                                    >
-                                </label>
-                                <label class="upload-tab">
-                                    <input
-                                        type="radio"
-                                        name="invoiceInputType"
-                                        value="file"
-                                    />
-                                    <span class="tab-icon">📁</span>
-                                    <span class="tab-text">Chọn file</span>
-                                </label>
-                                <label class="upload-tab">
-                                    <input
-                                        type="radio"
-                                        name="invoiceInputType"
-                                        value="link"
-                                    />
-                                    <span class="tab-icon">🔗</span>
-                                    <span class="tab-text">Nhập link</span>
-                                </label>
-                            </div>
-
-                            <div class="upload-content">
-                                <div
-                                    class="image-display-area"
-                                    id="invoiceClipboardContainer"
-                                >
-                                    <div class="upload-placeholder">
-                                        <div class="placeholder-icon">📷</div>
-                                        <p>Dán ảnh hóa đơn ở đây (Ctrl+V)</p>
-                                        <small>Hỗ trợ: JPG, PNG, WebP</small>
-                                    </div>
-                                </div>
-                                <input
-                                    type="file"
-                                    id="invoiceFileInput"
-                                    class="hidden-upload"
-                                    multiple
-                                    accept="image/*"
-                                />
-                                <input
-                                    type="text"
-                                    id="invoiceLinkInput"
-                                    class="hidden-upload"
-                                    placeholder="https://example.com/image.jpg"
-                                />
+                        <div class="image-upload-group" id="invoiceImageGroup">
+                            <h4>Ảnh hóa đơn</h4>
+                            <div
+                                class="image-display-area"
+                                id="invoiceClipboardContainer"
+                            >
+                                <p>Dán ảnh hóa đơn ở đây...</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Enhanced Products Section -->
+                <!-- Products Section -->
                 <div class="products-section">
-                    <div class="section-header">
-                        <h3 class="section-title">
-                            <span class="section-icon">📦</span>
-                            Danh sách sản phẩm
-                        </h3>
+                    <div class="products-header">
+                        <h3>Sản phẩm đặt hàng</h3>
                         <button
                             type="button"
                             class="add-product-btn"
                             id="addProductBtn"
                         >
-                            <span class="btn-icon">➕</span>
-                            <span class="btn-text">Thêm sản phẩm</span>
+                            <span>➕</span> Thêm sản phẩm
                         </button>
                     </div>
 
                     <div class="products-table-container">
-                        <div class="table-wrapper">
-                            <table
-                                class="products-table inventory-table"
-                                id="productsTable"
-                            >
-                                <thead>
-                                    <tr>
-                                        <th class="product-name-col">
-                                            Tên sản phẩm
-                                        </th>
-                                        <th class="product-code-col">Mã SP</th>
-                                        <th class="variant-col">Biến thể</th>
-                                        <th class="quantity-col">Số lượng</th>
-                                        <th class="price-col">Giá mua</th>
-                                        <th class="price-col">Giá bán</th>
-                                        <th class="image-col">Ảnh sản phẩm</th>
-                                        <th class="image-col">Ảnh giá mua</th>
-                                        <th class="notes-col">Ghi chú</th>
-                                        <th class="action-col">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productsTableBody">
-                                    <!-- Product rows will be added here -->
-                                </tbody>
-                            </table>
-                        </div>
+                        <table class="products-table" id="productsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 12%">Tên sản phẩm *</th>
+                                    <th style="width: 10%">Mã SP</th>
+                                    <th style="width: 10%">Biến thể</th>
+                                    <th style="width: 8%">Số lượng *</th>
+                                    <th style="width: 10%">Giá mua *</th>
+                                    <th style="width: 10%">Giá bán</th>
+                                    <th style="width: 12%">Ảnh sản phẩm</th>
+                                    <th style="width: 12%">Ảnh giá mua</th>
+                                    <th style="width: 12%">Ghi chú</th>
+                                    <th style="width: 4%">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody">
+                                <!-- Product rows will be added here -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                <!-- Enhanced Submit Section -->
+                <!-- Submit Section -->
                 <div class="submit-section">
-                    <div class="submit-summary">
-                        <div class="summary-item">
-                            <span class="summary-label">Tổng sản phẩm:</span>
-                            <span class="summary-value" id="totalProducts"
-                                >1</span
-                            >
-                        </div>
-                        <div class="summary-item">
-                            <span class="summary-label">Tổng số lượng:</span>
-                            <span class="summary-value" id="totalQuantity"
-                                >0</span
-                            >
-                        </div>
-                        <div class="summary-item">
-                            <span class="summary-label">Tổng giá trị:</span>
-                            <span class="summary-value" id="totalValue"
-                                >0₫</span
-                            >
-                        </div>
-                    </div>
-
-                    <div class="submit-actions">
-                        <button
-                            type="button"
-                            class="submit-btn primary-btn"
-                            id="submitOrderBtn"
-                        >
-                            <span class="btn-icon">✅</span>
-                            <span class="btn-text">Thêm đơn hàng</span>
-                        </button>
-                        <button
-                            type="button"
-                            class="clear-btn secondary-btn"
-                            id="clearFormBtn"
-                        >
-                            <span class="btn-icon">🗑️</span>
-                            <span class="btn-text">Xóa form</span>
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        class="submit-btn"
+                        id="submitOrderBtn"
+                    >
+                        Thêm đơn hàng
+                    </button>
+                    <button type="button" class="clear-btn" id="clearFormBtn">
+                        Xóa form
+                    </button>
                 </div>
             </div>
 
-            <!-- Enhanced Filter Section -->
+            <!-- Filter Section -->
             <div class="filter-section">
-                <h3 class="filter-title">
-                    <span class="filter-icon">🔍</span>
-                    Bộ lọc dữ liệu
-                </h3>
+                <div class="filter-group">
+                    <label for="filterSupplier">Chọn nhà cung cấp:</label>
+                    <select id="filterSupplier">
+                        <option value="all">Tất cả</option>
+                    </select>
 
-                <div class="filter-grid">
-                    <div class="filter-group">
-                        <label for="filterSupplier">Nhà cung cấp:</label>
-                        <select id="filterSupplier" class="filter-select">
-                            <option value="all">Tất cả nhà cung cấp</option>
-                        </select>
-                    </div>
+                    <label for="dateFilter">Lọc ngày đặt hàng:</label>
+                    <select id="dateFilter">
+                        <option value="all">Tất cả</option>
+                        <option value="today">Hôm nay</option>
+                        <option value="week">Tuần này</option>
+                        <option value="month">Tháng này</option>
+                    </select>
 
-                    <div class="filter-group">
-                        <label for="dateFilter">Thời gian:</label>
-                        <select id="dateFilter" class="filter-select">
-                            <option value="all">Tất cả thời gian</option>
-                            <option value="today">Hôm nay</option>
-                            <option value="week">Tuần này</option>
-                            <option value="month">Tháng này</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group">
-                        <label for="filterProduct">Tìm kiếm sản phẩm:</label>
-                        <input
-                            type="text"
-                            id="filterProduct"
-                            class="filter-input"
-                            placeholder="Tên sản phẩm, mã SP..."
-                        />
-                    </div>
-
-                    <div class="filter-actions">
-                        <button
-                            type="button"
-                            class="filter-btn clear-filter"
-                            onclick="clearAllFilters()"
-                        >
-                            <span>🗑️</span>
-                            Xóa bộ lọc
-                        </button>
-                    </div>
-                </div>
-
-                <div class="filter-info" id="filterInfo" style="display: none">
-                    <span class="info-icon">ℹ️</span>
-                    <span class="info-text"></span>
+                    <label for="filterProduct">Lọc sản phẩm:</label>
+                    <input
+                        type="text"
+                        id="filterProduct"
+                        placeholder="Tìm kiếm sản phẩm..."
+                    />
                 </div>
             </div>
 
             <!-- Enhanced Display Table -->
             <div class="table-container">
-                <div class="table-header">
-                    <h3 class="table-title">
-                        <span class="table-icon">📊</span>
-                        Danh sách đơn hàng
-                    </h3>
-                    <div class="table-actions">
-                        <button
-                            class="table-btn refresh-btn"
-                            onclick="forceRefreshData()"
-                        >
-                            <span>🔄</span>
-                            Làm mới
-                        </button>
-                    </div>
-                </div>
-
-                <div class="table-wrapper">
-                    <table class="display-table inventory-table">
-                        <thead>
-                            <tr>
-                                <th class="date-col">Ngày đặt</th>
-                                <th class="supplier-col">Nhà cung cấp</th>
-                                <th class="invoice-col">Hóa đơn</th>
-                                <th class="image-col">Ảnh hóa đơn</th>
-                                <th class="product-name-col">Tên sản phẩm</th>
-                                <th class="product-code-col">Mã SP</th>
-                                <th class="variant-col">Biến thể</th>
-                                <th class="quantity-col">Số lượng</th>
-                                <th class="price-col">Giá mua</th>
-                                <th class="price-col">Giá bán</th>
-                                <th class="image-col">Ảnh SP</th>
-                                <th class="image-col">Ảnh giá mua</th>
-                                <th class="notes-col">Ghi chú</th>
-                                <th class="action-col">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="orderTableBody">
-                            <!-- Order data will be populated here -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="table-footer" id="tableFooter">
-                    <div class="table-stats">
-                        <span id="tableStats">Đang tải dữ liệu...</span>
-                    </div>
-                </div>
+                <table class="display-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%">Ngày đặt</th>
+                            <th style="width: 10%">Nhà cung cấp</th>
+                            <th style="width: 8%">Hóa đơn</th>
+                            <th style="width: 10%">Ảnh hóa đơn</th>
+                            <th style="width: 12%">Tên sản phẩm</th>
+                            <th style="width: 8%">Mã SP</th>
+                            <th style="width: 8%">Biến thể</th>
+                            <th style="width: 6%">Số lượng</th>
+                            <th style="width: 8%">Giá mua</th>
+                            <th style="width: 8%">Giá bán</th>
+                            <th style="width: 10%">Ảnh SP</th>
+                            <th style="width: 10%">Ảnh giá mua</th>
+                            <th style="width: 8%">Ghi chú</th>
+                            <th style="width: 4%">Xóa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderTableBody">
+                        <!-- Order data will be populated here -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
         <!-- Enhanced Floating Alert -->
-        <div id="floatingAlert" class="floating-alert">
+        <div id="floatingAlert">
             <div class="alert-content">
                 <div class="loading-spinner" style="display: none">
                     <div class="spinner"></div>
@@ -405,21 +1628,664 @@
             </div>
         </div>
 
-        <!-- Enhanced Tooltip -->
-        <div id="tooltip" class="tooltip">
-            <div class="tooltip-content"></div>
-            <div class="tooltip-arrow"></div>
-        </div>
+        <!-- Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
 
-        <!-- Copy Notification -->
-        <div id="copyNotification" class="copy-notification">
-            <span class="notification-icon">✅</span>
-            <span class="notification-text">Đã copy link ảnh!</span>
-        </div>
+        <script>
+            // Enhanced form management
+            let productCounter = 0;
+            const productsData = [];
 
-        <!-- Load Scripts -->
-        <script src="enhanced-order-management.js"></script>
-        <script src="enhanced-order-management-part2.js"></script>
-        <script src="enhanced-order-management-part3.js"></script>
+            // Initialize form
+            document.addEventListener("DOMContentLoaded", function () {
+                initializeEnhancedForm();
+                addInitialProductRow();
+
+                // Set today's date
+                const today = new Date();
+                document.getElementById("ngayDatHang").value = today
+                    .toISOString()
+                    .split("T")[0];
+            });
+
+            function initializeEnhancedForm() {
+                // Add product button
+                document
+                    .getElementById("addProductBtn")
+                    .addEventListener("click", addProductRow);
+
+                // Clear button
+                document
+                    .getElementById("clearFormBtn")
+                    .addEventListener("click", clearForm);
+
+                // Invoice image handling
+                initializeInvoiceImageHandling();
+
+                // Supplier suggestions
+                initializeSupplierSuggestions();
+            }
+
+            function addInitialProductRow() {
+                addProductRow();
+            }
+
+            function addProductRow() {
+                productCounter++;
+                const tbody = document.getElementById("productsTableBody");
+                const row = document.createElement("tr");
+                row.id = `product-row-${productCounter}`;
+
+                row.innerHTML = `
+                    <td>
+                        <input type="text" class="product-name" placeholder="Tên sản phẩm..." required />
+                    </td>
+                    <td>
+                        <input type="text" class="product-code" placeholder="Mã sản phẩm..." />
+                    </td>
+                    <td>
+                        <input type="text" class="product-variant" placeholder="Biến thể..." />
+                    </td>
+                    <td>
+                        <input type="number" class="product-quantity" min="1" value="1" required />
+                    </td>
+                    <td>
+                        <input type="number" class="product-buy-price" min="0" step="any" placeholder="0" required />
+                    </td>
+                    <td>
+                        <input type="number" class="product-sell-price" min="0" step="any" placeholder="0" />
+                    </td>
+                    <td class="product-images">
+                        <div class="image-upload-cell">
+                            <div class="mini-upload" data-type="product" data-row="${productCounter}">
+                                <p>Dán/Chọn ảnh</p>
+                            </div>
+                            <input class="hidden-upload product-image-file" multiple accept="image/*" />
+                        </div>
+                    </td>
+                    <td class="price-images">
+                        <div class="image-upload-cell">
+                            <div class="mini-upload" data-type="price" data-row="${productCounter}">
+                                <p>Dán/Chọn ảnh</p>
+                            </div>
+                            <input class="hidden-upload price-image-file" multiple accept="image/*" />
+                        </div>
+                    </td>
+                    <td class="notes-col">
+                        <textarea class="product-notes" placeholder="Ghi chú..."></textarea>
+                    </td>
+                    <td>
+                        <button type="button" class="remove-product-btn" onclick="removeProductRow('${productCounter}')">
+                            🗑️
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+
+                // Initialize image upload for this row
+                initializeRowImageHandling(productCounter);
+
+                // Show remove button only if more than 1 row
+                updateRemoveButtons();
+            }
+
+            function removeProductRow(productId) {
+                const row = document.getElementById(`product-row-${productId}`);
+                if (row) {
+                    row.remove();
+                    updateRemoveButtons();
+                }
+            }
+
+            function updateRemoveButtons() {
+                const rows = document.querySelectorAll("#productsTableBody tr");
+                const removeButtons = document.querySelectorAll(
+                    ".remove-product-btn",
+                );
+
+                removeButtons.forEach((btn) => {
+                    btn.style.display =
+                        rows.length > 1 ? "inline-block" : "none";
+                });
+            }
+
+            function initializeRowImageHandling(rowId) {
+                const row = document.getElementById(`product-row-${rowId}`);
+
+                // Product image upload
+                const productUpload = row.querySelector(
+                    '.mini-upload[data-type="product"]',
+                );
+                const productFileInput = row.querySelector(
+                    ".product-image-file",
+                );
+
+                productUpload.addEventListener("click", () =>
+                    productFileInput.click(),
+                );
+                productFileInput.addEventListener("change", (e) =>
+                    handleFileUpload(e, productUpload),
+                );
+                productUpload.addEventListener("paste", (e) =>
+                    handlePaste(e, productUpload),
+                );
+
+                // Price image upload
+                const priceUpload = row.querySelector(
+                    '.mini-upload[data-type="price"]',
+                );
+                const priceFileInput = row.querySelector(".price-image-file");
+
+                priceUpload.addEventListener("click", () =>
+                    priceFileInput.click(),
+                );
+                priceFileInput.addEventListener("change", (e) =>
+                    handleFileUpload(e, priceUpload),
+                );
+                priceUpload.addEventListener("paste", (e) =>
+                    handlePaste(e, priceUpload),
+                );
+            }
+
+            function handleFileUpload(event, container) {
+                const files = event.target.files;
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    const img = document.createElement("img");
+                    img.src = URL.createObjectURL(file);
+                    img.onload = () => URL.revokeObjectURL(img.src);
+
+                    container.innerHTML = "";
+                    container.appendChild(img);
+                    container.classList.add("has-content");
+
+                    // Store file data
+                    container.fileData = file;
+                }
+            }
+
+            function handlePaste(event, container) {
+                event.preventDefault();
+                const items = (
+                    event.clipboardData || event.originalEvent.clipboardData
+                ).items;
+
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf("image") !== -1) {
+                        const blob = items[i].getAsFile();
+                        const img = document.createElement("img");
+                        img.src = URL.createObjectURL(blob);
+                        img.onload = () => URL.revokeObjectURL(img.src);
+
+                        container.innerHTML = "";
+                        container.appendChild(img);
+                        container.classList.add("has-content");
+
+                        // Store file data
+                        container.fileData = new File(
+                            [blob],
+                            "pasted-image.jpg",
+                            { type: blob.type },
+                        );
+                        break;
+                    }
+                }
+            }
+
+            function initializeInvoiceImageHandling() {
+                const invoiceRadios = document.querySelectorAll(
+                    'input[name="invoiceInputType"]',
+                );
+                const container = document.getElementById(
+                    "invoiceClipboardContainer",
+                );
+                const fileInput = document.getElementById("invoiceFileInput");
+                const linkInput = document.getElementById("invoiceLinkInput");
+
+                invoiceRadios.forEach((radio) => {
+                    radio.addEventListener("change", function () {
+                        if (this.value === "clipboard") {
+                            container.style.display = "flex";
+                            fileInput.style.display = "none";
+                            linkInput.style.display = "none";
+                        } else if (this.value === "file") {
+                            container.style.display = "none";
+                            fileInput.style.display = "block";
+                            linkInput.style.display = "none";
+                        } else if (this.value === "link") {
+                            container.style.display = "none";
+                            fileInput.style.display = "none";
+                            linkInput.style.display = "block";
+                        }
+                    });
+                });
+
+                // Paste handling for invoice
+                container.addEventListener("paste", function (e) {
+                    e.preventDefault();
+                    const text = e.clipboardData.getData("text");
+
+                    if (text && text.startsWith("http")) {
+                        const img = document.createElement("img");
+                        img.src = text;
+                        img.onload = () => console.log("Invoice URL loaded");
+                        img.onerror = () =>
+                            console.error("Invoice URL load failed");
+
+                        container.innerHTML = "";
+                        container.appendChild(img);
+                        container.classList.add("has-content");
+                        container.urlData = text;
+                        return;
+                    }
+
+                    const items = (
+                        e.clipboardData || e.originalEvent.clipboardData
+                    ).items;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf("image") !== -1) {
+                            const blob = items[i].getAsFile();
+                            const file = new File([blob], "invoice.jpg", {
+                                type: blob.type,
+                            });
+
+                            const img = document.createElement("img");
+                            img.src = URL.createObjectURL(file);
+                            img.onload = () => URL.revokeObjectURL(img.src);
+
+                            container.innerHTML = "";
+                            container.appendChild(img);
+                            container.classList.add("has-content");
+                            container.fileData = file;
+                            break;
+                        }
+                    }
+                });
+
+                // File input handling
+                fileInput.addEventListener("change", function (e) {
+                    if (e.target.files && e.target.files.length > 0) {
+                        const file = e.target.files[0];
+                        const img = document.createElement("img");
+                        img.src = URL.createObjectURL(file);
+                        img.onload = () => URL.revokeObjectURL(img.src);
+
+                        container.innerHTML = "";
+                        container.appendChild(img);
+                        container.classList.add("has-content");
+                        container.fileData = file;
+                    }
+                });
+            }
+
+            function initializeSupplierSuggestions() {
+                const input = document.getElementById("nhaCungCap");
+                const suggestions = document.getElementById(
+                    "supplierSuggestions",
+                );
+
+                // Mock supplier data - replace with actual data
+                const suppliers = [
+                    "Nhà cung cấp A",
+                    "Nhà cung cấp B",
+                    "Công ty TNHH ABC",
+                    "Doanh nghiệp XYZ",
+                ];
+
+                input.addEventListener("input", function () {
+                    const value = this.value.toLowerCase().trim();
+                    if (value.length < 2) {
+                        suggestions.style.display = "none";
+                        return;
+                    }
+
+                    const filtered = suppliers.filter((supplier) =>
+                        supplier.toLowerCase().includes(value),
+                    );
+
+                    if (filtered.length > 0) {
+                        suggestions.innerHTML = filtered
+                            .map(
+                                (supplier) =>
+                                    `<div class="supplier-suggestion">${supplier}</div>`,
+                            )
+                            .join("");
+                        suggestions.style.display = "block";
+                    } else {
+                        suggestions.style.display = "none";
+                    }
+                });
+
+                suggestions.addEventListener("click", function (e) {
+                    if (e.target.classList.contains("supplier-suggestion")) {
+                        input.value = e.target.textContent;
+                        suggestions.style.display = "none";
+                    }
+                });
+
+                document.addEventListener("click", function (e) {
+                    if (
+                        !input.contains(e.target) &&
+                        !suggestions.contains(e.target)
+                    ) {
+                        suggestions.style.display = "none";
+                    }
+                });
+            }
+
+            function collectFormData() {
+                // Shared data
+                const sharedData = {
+                    ngayDatHang: document.getElementById("ngayDatHang").value,
+                    nhaCungCap: document
+                        .getElementById("nhaCungCap")
+                        .value.trim(),
+                    hoaDon: document.getElementById("hoaDon").value.trim(),
+                    invoiceImage: getInvoiceImageData(),
+                };
+
+                // Validate shared data
+                if (
+                    !sharedData.ngayDatHang ||
+                    !sharedData.nhaCungCap ||
+                    !sharedData.hoaDon
+                ) {
+                    throw new Error(
+                        "Vui lòng điền đầy đủ thông tin chung (ngày đặt hàng, nhà cung cấp, hóa đơn)",
+                    );
+                }
+
+                // Product data
+                const productRows = document.querySelectorAll(
+                    "#productsTableBody tr",
+                );
+                const products = [];
+
+                productRows.forEach((row, index) => {
+                    const productName = row
+                        .querySelector(".product-name")
+                        .value.trim();
+                    const quantity = parseInt(
+                        row.querySelector(".product-quantity").value,
+                    );
+                    const buyPrice = parseFloat(
+                        row.querySelector(".product-buy-price").value,
+                    );
+
+                    if (
+                        !productName ||
+                        !quantity ||
+                        quantity < 1 ||
+                        !buyPrice ||
+                        buyPrice < 0
+                    ) {
+                        throw new Error(
+                            `Sản phẩm ${index + 1}: Vui lòng điền đầy đủ tên sản phẩm, số lượng và giá mua hợp lệ`,
+                        );
+                    }
+
+                    const product = {
+                        tenSanPham: productName,
+                        maSanPham: row
+                            .querySelector(".product-code")
+                            .value.trim(),
+                        bienThe: row
+                            .querySelector(".product-variant")
+                            .value.trim(),
+                        soLuong: quantity,
+                        giaMua: buyPrice,
+                        giaBan:
+                            parseFloat(
+                                row.querySelector(".product-sell-price").value,
+                            ) || 0,
+                        ghiChu: row
+                            .querySelector(".product-notes")
+                            .value.trim(),
+                        productImage: getRowImageData(row, "product"),
+                        priceImage: getRowImageData(row, "price"),
+                    };
+
+                    products.push(product);
+                });
+
+                if (products.length === 0) {
+                    throw new Error("Vui lòng thêm ít nhất một sản phẩm");
+                }
+
+                return { sharedData, products };
+            }
+
+            function getInvoiceImageData() {
+                const selectedType = document.querySelector(
+                    'input[name="invoiceInputType"]:checked',
+                ).value;
+                const container = document.getElementById(
+                    "invoiceClipboardContainer",
+                );
+
+                if (selectedType === "link") {
+                    const linkInput =
+                        document.getElementById("invoiceLinkInput");
+                    return linkInput.value.startsWith("http")
+                        ? linkInput.value
+                        : null;
+                } else if (selectedType === "file") {
+                    const fileInput =
+                        document.getElementById("invoiceFileInput");
+                    return fileInput.files.length > 0
+                        ? fileInput.files[0]
+                        : null;
+                } else if (selectedType === "clipboard") {
+                    return container.fileData || container.urlData || null;
+                }
+                return null;
+            }
+
+            function getRowImageData(row, type) {
+                const upload = row.querySelector(
+                    `.mini-upload[data-type="${type}"]`,
+                );
+                return upload ? upload.fileData || null : null;
+            }
+
+            async function submitOrder() {
+                try {
+                    const submitBtn = document.getElementById("submitOrderBtn");
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = "Đang xử lý...";
+
+                    showFloatingAlert("Đang xử lý đơn hàng...", true);
+
+                    const formData = collectFormData();
+
+                    // Create orders for each product with shared data
+                    const orders = formData.products.map((product) => ({
+                        id: generateUniqueID(),
+                        ...formData.sharedData,
+                        ...product,
+                        thoiGianUpload: getFormattedDateTime(),
+                        user: getUserName(),
+                        thucNhan: 0,
+                        tongNhan: 0,
+                    }));
+
+                    // Process images and upload to Firebase
+                    for (const order of orders) {
+                        if (
+                            order.invoiceImage &&
+                            typeof order.invoiceImage !== "string"
+                        ) {
+                            order.anhHoaDon = await uploadImageToFirebase(
+                                order.invoiceImage,
+                                "invoice",
+                            );
+                            delete order.invoiceImage;
+                        } else if (typeof order.invoiceImage === "string") {
+                            order.anhHoaDon = order.invoiceImage;
+                            delete order.invoiceImage;
+                        }
+
+                        if (order.productImage) {
+                            order.anhSanPham = await uploadImageToFirebase(
+                                order.productImage,
+                                "product",
+                            );
+                            delete order.productImage;
+                        }
+
+                        if (order.priceImage) {
+                            order.anhGiaMua = await uploadImageToFirebase(
+                                order.priceImage,
+                                "price",
+                            );
+                            delete order.priceImage;
+                        }
+                    }
+
+                    // Upload all orders to Firestore
+                    for (const order of orders) {
+                        await uploadToFirestore(order);
+                    }
+
+                    hideFloatingAlert();
+                    showFloatingAlert("Thêm đơn hàng thành công!", false, 3000);
+
+                    clearForm();
+                } catch (error) {
+                    console.error("Error submitting order:", error);
+                    showFloatingAlert("Lỗi: " + error.message, false, 5000);
+                } finally {
+                    const submitBtn = document.getElementById("submitOrderBtn");
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Thêm đơn hàng";
+                }
+            }
+
+            async function uploadImageToFirebase(file, type) {
+                if (!file) return null;
+
+                return new Promise((resolve, reject) => {
+                    const storageRef = firebase.storage().ref();
+                    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+                    const imageRef = storageRef.child(
+                        `dathang/${type}/${fileName}`,
+                    );
+
+                    const uploadTask = imageRef.put(file);
+
+                    uploadTask.on(
+                        "state_changed",
+                        function (snapshot) {},
+                        function (error) {
+                            console.error(
+                                `Error uploading ${type} image:`,
+                                error,
+                            );
+                            reject(error);
+                        },
+                        function () {
+                            uploadTask.snapshot.ref
+                                .getDownloadURL()
+                                .then(function (downloadURL) {
+                                    resolve(downloadURL);
+                                })
+                                .catch(reject);
+                        },
+                    );
+                });
+            }
+
+            function clearForm() {
+                // Clear shared data
+                document.getElementById("ngayDatHang").value = new Date()
+                    .toISOString()
+                    .split("T")[0];
+                document.getElementById("nhaCungCap").value = "";
+                document.getElementById("hoaDon").value = "";
+
+                // Clear invoice image
+                const invoiceContainer = document.getElementById(
+                    "invoiceClipboardContainer",
+                );
+                invoiceContainer.innerHTML = "<p>Dán ảnh hóa đơn ở đây...</p>";
+                invoiceContainer.classList.remove("has-content");
+                invoiceContainer.fileData = null;
+                invoiceContainer.urlData = null;
+
+                document.getElementById("invoiceFileInput").value = "";
+                document.getElementById("invoiceLinkInput").value = "";
+
+                // Reset radio to clipboard
+                document.querySelector(
+                    'input[name="invoiceInputType"][value="clipboard"]',
+                ).checked = true;
+                document
+                    .querySelector(
+                        'input[name="invoiceInputType"][value="clipboard"]',
+                    )
+                    .dispatchEvent(new Event("change"));
+
+                // Clear all products and reset to one row
+                document.getElementById("productsTableBody").innerHTML = "";
+                productCounter = 0;
+                addInitialProductRow();
+            }
+
+            // Utility functions
+            function generateUniqueID() {
+                const timestamp = Date.now().toString(36);
+                const random = Math.random().toString(36).substr(2, 9);
+                return `id_${timestamp}_${random}`;
+            }
+
+            function getFormattedDateTime() {
+                const now = new Date();
+                return now.toLocaleString("vi-VN");
+            }
+
+            function getUserName() {
+                // This should get the actual user name from your auth system
+                return "User";
+            }
+
+            function showFloatingAlert(message, isLoading = false) {
+                const alert = document.getElementById("floatingAlert");
+                const text = alert.querySelector(".alert-text");
+                const spinner = alert.querySelector(".loading-spinner");
+
+                text.textContent = message;
+
+                if (isLoading) {
+                    spinner.style.display = "block";
+                    alert.classList.add("loading");
+                } else {
+                    spinner.style.display = "none";
+                    alert.classList.remove("loading");
+                }
+
+                alert.classList.add("show");
+            }
+
+            function hideFloatingAlert() {
+                const alert = document.getElementById("floatingAlert");
+                alert.classList.remove("show");
+            }
+
+            // Mock function - replace with your actual upload function
+            async function uploadToFirestore(orderData) {
+                // This should integrate with your existing Firebase upload logic
+                console.log("Uploading to Firestore:", orderData);
+
+                // Simulate upload delay
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                return true;
+            }
+        </script>
+
+        <!-- Load your existing JavaScript files -->
+        <script src="utility.js"></script>
+        <script src="scriptObfuscator.js"></script>
     </body>
 </html>
