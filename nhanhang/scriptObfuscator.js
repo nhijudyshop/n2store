@@ -665,7 +665,6 @@ async function migrateDataWithIDs() {
 function applyFiltersToData(dataArray) {
     const filterUser = filterUserSelect.value;
     const filterDate = dateFilterSelect.value;
-    const filterWeightText = filterWeightInput.value.toLowerCase().trim();
 
     return dataArray.filter((receipt) => {
         const matchUser =
@@ -706,12 +705,7 @@ function applyFiltersToData(dataArray) {
             }
         }
 
-        const matchWeight =
-            !filterWeightText ||
-            (receipt.soKg &&
-                receipt.soKg.toString().includes(filterWeightText));
-
-        return matchUser && matchDate && matchWeight;
+        return matchUser && matchDate;
     });
 }
 
@@ -1036,12 +1030,6 @@ function initializeFilterEvents() {
     }
     if (dateFilterSelect) {
         dateFilterSelect.addEventListener("change", applyFilters);
-    }
-    if (filterWeightInput) {
-        filterWeightInput.addEventListener(
-            "input",
-            debounce(applyFilters, 300),
-        );
     }
 }
 
