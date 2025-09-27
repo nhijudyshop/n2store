@@ -383,161 +383,9 @@ window.addEventListener("beforeunload", function () {
 
 /**
  * ====================================================================================
- * CLIPBOARD FUNCTIONALITY
- * ====================================================================================
- */
-
-// Function to copy image to clipboard
-async function copyToClipboard(imgElement) {
-    try {
-        showMessage("Đang tải ảnh...", "info");
-
-        const imgSrc = imgElement.dataset.src || imgElement.src;
-
-        // Fetch image to handle CORS issues
-        const response = await fetch(imgSrc, {
-            mode: "cors",
-            credentials: "omit",
-        });
-
-        if (!response.ok) {
-            throw new Error("Failed to fetch image");
-        }
-
-        const blob = await response.blob();
-
-        // Check if it's an image
-        if (!blob.type.startsWith("image/")) {
-            throw new Error("Not a valid image");
-        }
-
-        // Use Clipboard API to copy image
-        await navigator.clipboard.write([
-            new ClipboardItem({
-                [blob.type]: blob,
-            }),
-        ]);
-
-        // Show success message
-        showMessage("Đã copy ảnh vào clipboard!", "success");
-    } catch (error) {
-        console.error("Error copying image:", error);
-
-        // Fallback: copy image URL instead
-        try {
-            const imgSrc = imgElement.dataset.src || imgElement.src;
-            await navigator.clipboard.writeText(imgSrc);
-            showMessage(
-                "Không thể copy ảnh, đã copy link ảnh thay thế",
-                "error",
-            );
-        } catch (fallbackError) {
-            showMessage("Không thể copy ảnh hoặc link", "error");
-        }
-    }
-}
-
-// Function to show message
-function showMessage(message, type = "info") {
-    // Remove existing message
-    const existingMessage = document.querySelector(".copy-message");
-    if (existingMessage) {
-        existingMessage.remove();
-    }
-
-    // Create message element
-    const messageDiv = document.createElement("div");
-    messageDiv.className = `copy-message copy-${type}`;
-    messageDiv.textContent = message;
-    messageDiv.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    padding: 12px 20px;
-                    border-radius: 6px;
-                    color: white;
-                    font-weight: 500;
-                    z-index: 10000;
-                    animation: slideIn 0.3s ease-out;
-                    ${
-                        type === "success"
-                            ? "background-color: #10b981;"
-                            : type === "error"
-                              ? "background-color: #ef4444;"
-                              : "background-color: #3b82f6;"
-                    }
-                `;
-
-    // Add animation styles
-    if (!document.querySelector("#copy-message-styles")) {
-        const styles = document.createElement("style");
-        styles.id = "copy-message-styles";
-        styles.textContent = `
-                        @keyframes slideIn {
-                            from {
-                                transform: translateX(100%);
-                                opacity: 0;
-                            }
-                            to {
-                                transform: translateX(0);
-                                opacity: 1;
-                            }
-                        }
-                        @keyframes slideOut {
-                            from {
-                                transform: translateX(0);
-                                opacity: 1;
-                            }
-                            to {
-                                transform: translateX(100%);
-                                opacity: 0;
-                            }
-                        }
-                    `;
-        document.head.appendChild(styles);
-    }
-
-    // Add to page
-    document.body.appendChild(messageDiv);
-
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-        messageDiv.style.animation = "slideOut 0.3s ease-out";
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.parentNode.removeChild(messageDiv);
-            }
-        }, 300);
-    }, 3000);
-}
-
-/**
- * ====================================================================================
  * EVENT HANDLERS SETUP
  * ====================================================================================
  */
-
-/**
- * Setup image click handlers cho copy functionality
- */
-function setupImageClickHandlers() {
-    // Event delegation for images in table
-    const tbody = document.querySelector("tbody");
-
-    if (tbody) {
-        tbody.addEventListener("click", function (e) {
-            if (e.target.tagName === "IMG") {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const imgSrc = e.target.dataset.src || e.target.src;
-
-                // Copy image source to clipboard
-                copyToClipboard(imgSrc);
-            }
-        });
-    }
-}
 
 /**
  * Setup clipboard container drag & drop feedback
@@ -670,9 +518,6 @@ function setupErrorHandling() {
  * Setup all common UI event handlers
  */
 function setupCommonEventHandlers() {
-    // Enhanced image click handling for copy functionality
-    setupImageClickHandlers();
-
     // Enhanced clipboard container feedback
     setupClipboardContainers();
 
@@ -711,11 +556,8 @@ if (typeof window !== "undefined") {
     window.showStatusMessage = showStatusMessage;
     window.showFloatingAlert = showFloatingAlert;
     window.hideFloatingAlert = hideFloatingAlert;
-    window.copyToClipboard = copyToClipboard;
-    window.showCopyNotification = showCopyNotification;
 
     // Export setup functions
-    window.setupImageClickHandlers = setupImageClickHandlers;
     window.setupClipboardContainers = setupClipboardContainers;
     window.setupFormMonitoring = setupFormMonitoring;
     window.setupSecurityIndicators = setupSecurityIndicators;
@@ -736,12 +578,7 @@ if (typeof window !== "undefined") {
         showFloatingAlert: showFloatingAlert,
         hideFloatingAlert: hideFloatingAlert,
 
-        // Clipboard functions
-        copyToClipboard: copyToClipboard,
-        showCopyNotification: showCopyNotification,
-
         // Setup functions
-        setupImageClickHandlers: setupImageClickHandlers,
         setupClipboardContainers: setupClipboardContainers,
         setupFormMonitoring: setupFormMonitoring,
         setupSecurityIndicators: setupSecurityIndicators,
@@ -760,10 +597,6 @@ if (typeof module !== "undefined" && module.exports) {
         showStatusMessage,
         showFloatingAlert,
         hideFloatingAlert,
-        copyToClipboard,
-        showCopyNotification,
-        setupImageClickHandlers,
-        setupClipboardContainers,
         setupFormMonitoring,
         setupSecurityIndicators,
         setupPerformanceMonitoring,

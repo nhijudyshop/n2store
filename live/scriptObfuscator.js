@@ -1082,37 +1082,7 @@ class ImageUtils {
 
         imgElement.alt = "Đang tải...";
 
-        // Click to copy URL
-        imgElement.addEventListener("click", function () {
-            if (imgElement.src && imgElement.src !== window.location.href) {
-                ImageUtils.copyToClipboard(imgElement.src);
-            }
-        });
-
         return imgElement;
-    }
-
-    static async copyToClipboard(text) {
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(text);
-                notificationManager.success("Đã sao chép link ảnh!", 1500);
-            } else {
-                // Fallback for older browsers
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed";
-                textArea.style.opacity = "0";
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand("copy");
-                document.body.removeChild(textArea);
-                notificationManager.success("Đã sao chép link ảnh!", 1500);
-            }
-        } catch (error) {
-            console.error("Failed to copy to clipboard:", error);
-            notificationManager.error("Không thể sao chép link ảnh");
-        }
     }
 }
 

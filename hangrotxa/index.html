@@ -228,33 +228,6 @@
         <!-- Tooltip -->
         <div id="tooltip" class="tooltip"></div>
 
-        <!-- Copy Notification -->
-        <div id="copyNotification" class="copy-notification">
-            Đã copy link ảnh!
-        </div>
-
-        <script>
-            // Enhanced image click handling for copy functionality
-            document.addEventListener("DOMContentLoaded", function () {
-                // Event delegation for images in table
-                const tbody = document.querySelector("tbody");
-
-                if (tbody) {
-                    tbody.addEventListener("click", function (e) {
-                        if (e.target.tagName === "IMG") {
-                            e.preventDefault();
-                            e.stopPropagation();
-
-                            const imgSrc = e.target.dataset.src || e.target.src;
-
-                            // Copy image source to clipboard
-                            copyToClipboard(imgSrc);
-                        }
-                    });
-                }
-            });
-        </script>
-
         <!-- Original JavaScript file -->
         <script src="scriptObfuscator.js"></script>
     </body>

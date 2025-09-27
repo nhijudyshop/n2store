@@ -2000,52 +2000,6 @@ function initializeTooltipHandlers() {
     }
 }
 
-function copyToClipboard(text) {
-    if (navigator.clipboard) {
-        navigator.clipboard
-            .writeText(text)
-            .then(() => {
-                showCopyNotification();
-            })
-            .catch((err) => {
-                console.error("Failed to copy: ", err);
-                fallbackCopyTextToClipboard(text);
-            });
-    } else {
-        fallbackCopyTextToClipboard(text);
-    }
-}
-
-function fallbackCopyTextToClipboard(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-999999px";
-    textArea.style.top = "-999999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
-    try {
-        document.execCommand("copy");
-        showCopyNotification();
-    } catch (err) {
-        console.error("Fallback: Oops, unable to copy", err);
-    }
-
-    document.body.removeChild(textArea);
-}
-
-function showCopyNotification() {
-    const notification = document.getElementById("copyNotification");
-    if (notification) {
-        notification.classList.add("show");
-        setTimeout(() => {
-            notification.classList.remove("show");
-        }, 2000);
-    }
-}
-
 function handleLogout() {
     const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
     if (confirmLogout) {
