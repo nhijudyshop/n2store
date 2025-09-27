@@ -3217,3 +3217,302 @@ if (document.readyState === "loading") {
 } else {
     injectEditHistoryCSS();
 }
+
+// =====================================================
+// TOTAL CALCULATION FUNCTIONS - Updated to always show details
+// =====================================================
+
+// Biến global để theo dõi dữ liệu
+let filteredDataForTotal = [];
+
+// Hàm khởi tạo tổng tiền (gọi sau khi load data) - UPDATED
+function initializeTotalCalculation() {
+    // Luôn hiển thị chi tiết ngay từ ban đầu
+    showTotalDetailsAlways();
+
+    // Cập nhật tổng tiền
+    updateAllTotals();
+}
+
+// Hàm hiển thị chi tiết luôn luôn - UPDATED
+function showTotalDetailsAlways() {
+    const totalGrid = document.querySelector(".total-grid");
+    const totalSummary = document.querySelector(".total-summary");
+
+    if (totalGrid) {
+        // Hiển thị tất cả cards ngay từ đầu
+        const totalCards = totalGrid.querySelectorAll(".total-card");
+        totalCards.forEach((card) => {
+            card.style.display = "block";
+            card.style.opacity = "1";
+            card.style.transform = "translateY(0)";
+        });
+
+        // Thiết lập grid để hiện tất cả cards
+        totalGrid.style.gridTemplateColumns =
+            "repeat(auto-fit, minmax(180px, 1fr))";
+    }
+
+    // Cập nhật title để không có click action
+    if (totalSummary) {
+        totalSummary.style.cursor = "default"; // Bỏ cursor pointer
+        updateTotalSummaryTitle("Tổng kết Tiền QC");
+
+        // Loại bỏ event listener nếu có
+        totalSummary.removeEventListener("click", toggleTotalDetails);
+    }
+}
+
+// Hàm cập nhật title của summary - UPDATED
+function updateTotalSummaryTitle(newTitle) {
+    const summaryTitle = document.querySelector(".total-summary h2");
+    if (summaryTitle) {
+        summaryTitle.textContent = newTitle;
+    }
+}
+
+// Hàm tính tổng tiền từ dữ liệu - UNCHANGED
+function calculateTotalAmounts() {
+    // Sử dụng arrayData đã có từ Firebase
+    if (!arrayData || arrayData.length === 0) {
+        return {
+            all: { amount: 0, count: 0 },
+            today: { amount: 0, count: 0 },
+            week: { amount: 0, count: 0 },
+            month: { amount: 0, count: 0 },
+            filtered: { amount: 0, count: 0 },
+        };
+    }
+
+    const today = new Date();
+    const startOfToday = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+    );
+    const endOfToday = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        23,
+        59,
+        59,
+    );
+
+    // Tính tuần này (Chủ nhật đến Thứ 7)
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // Tính tháng này
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(
+        today.getFullYear(),
+        today.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+    );
+
+    const totals = {
+        all: { amount: 0, count: 0 },
+        today: { amount: 0, count: 0 },
+        week: { amount: 0, count: 0 },
+        month: { amount: 0, count: 0 },
+        filtered: { amount: 0, count: 0 },
+    };
+
+    arrayData.forEach((item) => {
+        // Parse tiền QC - loại bỏ dấu phẩy và chuyển về số
+        let amount = 0;
+        if (item.tienQC) {
+            const cleanAmount = item.tienQC.toString().replace(/[,\.]/g, "");
+            amount = parseFloat(cleanAmount) || 0;
+        }
+
+        // Parse ngày từ timestamp
+        const itemDate = new Date(parseInt(item.dateCell));
+
+        // Tổng tất cả
+        totals.all.amount += amount;
+        totals.all.count++;
+
+        // Hôm nay
+        if (itemDate >= startOfToday && itemDate <= endOfToday) {
+            totals.today.amount += amount;
+            totals.today.count++;
+        }
+
+        // Tuần này
+        if (itemDate >= startOfWeek && itemDate <= endOfWeek) {
+            totals.week.amount += amount;
+            totals.week.count++;
+        }
+
+        // Tháng này
+        if (itemDate >= startOfMonth && itemDate <= endOfMonth) {
+            totals.month.amount += amount;
+            totals.month.count++;
+        }
+    });
+
+    // Tính filtered data (sử dụng bộ lọc hiện tại)
+    filteredDataForTotal = getFilteredDataForTotal();
+    filteredDataForTotal.forEach((item) => {
+        let amount = 0;
+        if (item.tienQC) {
+            const cleanAmount = item.tienQC.toString().replace(/[,\.]/g, "");
+            amount = parseFloat(cleanAmount) || 0;
+        }
+
+        totals.filtered.amount += amount;
+        totals.filtered.count++;
+    });
+
+    return totals;
+}
+
+// Hàm lấy dữ liệu đã lọc cho tính tổng - UNCHANGED
+function getFilteredDataForTotal() {
+    if (!arrayData || arrayData.length === 0) return [];
+
+    // Sử dụng bộ lọc hiện tại từ hệ thống filter chính
+    if (
+        currentFilters &&
+        (currentFilters.startDate || currentFilters.endDate)
+    ) {
+        const startDate = currentFilters.startDate;
+        const endDate = currentFilters.endDate;
+
+        if (!startDate || !endDate) {
+            return arrayData;
+        }
+
+        const startTime = new Date(startDate + "T00:00:00").getTime();
+        const endTime = new Date(endDate + "T23:59:59").getTime();
+
+        return arrayData.filter((item) => {
+            const itemTime = parseInt(item.dateCell);
+            return itemTime >= startTime && itemTime <= endTime;
+        });
+    }
+
+    return arrayData;
+}
+
+// Hàm format số tiền - UNCHANGED
+function formatCurrency(amount) {
+    if (!amount && amount !== 0) return "0 ₫";
+    return new Intl.NumberFormat("vi-VN").format(amount) + " ₫";
+}
+
+// Hàm cập nhật tất cả tổng tiền - UNCHANGED
+function updateAllTotals() {
+    const totals = calculateTotalAmounts();
+
+    // Cập nhật UI
+    const totalAllAmount = document.getElementById("totalAllAmount");
+    const totalAllCount = document.getElementById("totalAllCount");
+    const totalTodayAmount = document.getElementById("totalTodayAmount");
+    const totalTodayCount = document.getElementById("totalTodayCount");
+    const totalWeekAmount = document.getElementById("totalWeekAmount");
+    const totalWeekCount = document.getElementById("totalWeekCount");
+    const totalMonthAmount = document.getElementById("totalMonthAmount");
+    const totalMonthCount = document.getElementById("totalMonthCount");
+    const totalFilteredAmount = document.getElementById("totalFilteredAmount");
+    const totalFilteredCount = document.getElementById("totalFilteredCount");
+
+    if (totalAllAmount)
+        totalAllAmount.textContent = formatCurrency(totals.all.amount);
+    if (totalAllCount)
+        totalAllCount.textContent = totals.all.count + " báo cáo";
+
+    if (totalTodayAmount)
+        totalTodayAmount.textContent = formatCurrency(totals.today.amount);
+    if (totalTodayCount)
+        totalTodayCount.textContent = totals.today.count + " báo cáo";
+
+    if (totalWeekAmount)
+        totalWeekAmount.textContent = formatCurrency(totals.week.amount);
+    if (totalWeekCount)
+        totalWeekCount.textContent = totals.week.count + " báo cáo";
+
+    if (totalMonthAmount)
+        totalMonthAmount.textContent = formatCurrency(totals.month.amount);
+    if (totalMonthCount)
+        totalMonthCount.textContent = totals.month.count + " báo cáo";
+
+    if (totalFilteredAmount)
+        totalFilteredAmount.textContent = formatCurrency(
+            totals.filtered.amount,
+        );
+    if (totalFilteredCount)
+        totalFilteredCount.textContent = totals.filtered.count + " báo cáo";
+
+    console.log("Updated totals:", totals);
+}
+
+// Override hàm applyFilters hiện có để tự động cập nhật tổng tiền - UNCHANGED
+const originalApplyFilters = window.applyFilters || applyFilters;
+if (typeof originalApplyFilters === "function") {
+    window.applyFilters = function () {
+        originalApplyFilters.call(this);
+
+        // Cập nhật tổng tiền sau khi apply filter
+        setTimeout(() => {
+            updateAllTotals();
+        }, 200);
+    };
+}
+
+// Override hàm renderTableFromData để tự động cập nhật tổng tiền - UNCHANGED
+const originalRenderTableFromData = renderTableFromData;
+renderTableFromData = function (dataArray, applyInitialFilter = false) {
+    // Gọi hàm gốc
+    originalRenderTableFromData.call(this, dataArray, applyInitialFilter);
+
+    // Cập nhật tổng tiền sau khi render table
+    setTimeout(() => {
+        updateAllTotals();
+    }, 100);
+};
+
+// Override hàm updateTable để tự động cập nhật tổng tiền - UNCHANGED
+const originalUpdateTable = updateTable;
+updateTable = function () {
+    originalUpdateTable.call(this);
+
+    // Khởi tạo total calculation sau khi load data
+    setTimeout(() => {
+        initializeTotalCalculation();
+    }, 500);
+};
+
+// Thêm event listeners khi DOM ready - UPDATED
+document.addEventListener("DOMContentLoaded", function () {
+    // Khởi tạo total calculation nếu data đã có
+    if (arrayData && arrayData.length > 0) {
+        setTimeout(() => {
+            initializeTotalCalculation();
+        }, 1000);
+    }
+
+    // Override các hàm form submit để cập nhật tổng tiền
+    const originalHandleUpdatedFormSubmit = handleUpdatedFormSubmit;
+    handleUpdatedFormSubmit = function (e) {
+        originalHandleUpdatedFormSubmit.call(this, e);
+
+        // Cập nhật tổng tiền sau khi thêm mới
+        setTimeout(() => {
+            updateAllTotals();
+        }, 1000);
+    };
+});
+
+// Export các hàm để sử dụng global - UPDATED (bỏ toggleTotalDetails)
+window.initializeTotalCalculation = initializeTotalCalculation;
+window.updateAllTotals = updateAllTotals;
