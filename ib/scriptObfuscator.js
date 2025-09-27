@@ -1568,14 +1568,14 @@ function initializeTableInteractions() {
             const deleteButton = row.querySelector(".toggle-visibility");
             const value = deleteButton ? deleteButton.id : "Không có nút xóa";
 
-            tooltip.textContent = value;
-            tooltip.style.display = "block";
-            tooltip.style.top = e.pageY + 10 + "px";
-            tooltip.style.left = e.pageX + 10 + "px";
+            //tooltip.textContent = value;
+            //tooltip.style.display = "block";
+            //tooltip.style.top = e.pageY + 10 + "px";
+            //tooltip.style.left = e.pageX + 10 + "px";
 
-            setTimeout(() => {
-                tooltip.style.display = "none";
-            }, 1000);
+            //setTimeout(() => {
+            //    tooltip.style.display = "none";
+            //}, 1000);
         }
     });
 }
@@ -1679,14 +1679,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (parentContainer) {
         parentContainer.appendChild(refreshButton);
-    }
-
-    // Remove ads
-    const adsElement = document.querySelector(
-        'div[style*="position: fixed"][style*="z-index:9999999"]',
-    );
-    if (adsElement) {
-        adsElement.remove();
     }
 
     console.log("Enhanced Inbox Management System initialized successfully");

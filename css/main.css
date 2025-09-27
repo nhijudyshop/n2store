@@ -558,7 +558,7 @@ button.delete-btn::before {
     margin-top: 20px;
 }
 
-/* ==================== TOP BUTTONS DROPDOWN EFFECT - FIXED FOR PC & MOBILE ==================== */
+/* ==================== TOP BUTTONS - UNIFIED VERSION ==================== */
 .top-buttons {
     position: fixed;
     top: 20px;
@@ -659,11 +659,10 @@ button.delete-btn::before {
     flex-shrink: 0;
 }
 
-/* Mobile specific adjustments for top-buttons */
-
+/* ==================== MOBILE TOP-BUTTONS OVERRIDE ==================== */
 @media (max-width: 768px) {
     .top-buttons {
-        top: 26px; /* Tăng từ 15px lên 25px để cách top hơn */
+        top: 26px;
         right: 15px;
         max-height: 48px;
         width: 48px;
@@ -676,11 +675,10 @@ button.delete-btn::before {
         border: 2px solid rgba(255, 255, 255, 0.2);
         position: fixed;
         transform-origin: top right;
-        cursor: pointer; /* Thêm cursor pointer cho container */
-        z-index: 1000; /* Đảm bảo nằm trên các element khác */
+        cursor: pointer;
+        z-index: 1000;
     }
 
-    /* Tạo trigger icon riêng biệt - FIX: Tắt pointer events để không che buttons */
     .top-buttons::before {
         content: "🏠";
         position: absolute;
@@ -688,17 +686,17 @@ button.delete-btn::before {
         left: 50%;
         transform: translate(-50%, -50%);
         font-size: 20px;
-        z-index: 1; /* Giảm z-index để không che buttons */
+        z-index: 1;
         color: white;
         transition: all 0.3s ease;
-        pointer-events: none; /* QUAN TRỌNG: Tắt pointer events */
+        pointer-events: none;
         cursor: pointer;
     }
 
     .top-buttons.expanded::before {
         opacity: 0;
         transform: translate(-50%, -50%) scale(0.5);
-        pointer-events: none; /* Đảm bảo không block clicks */
+        pointer-events: none;
     }
 
     .top-buttons.expanded,
@@ -712,7 +710,7 @@ button.delete-btn::before {
         border-color: var(--border-color);
         box-shadow: var(--shadow-medium);
         transform-origin: top right;
-        cursor: default; /* Đổi cursor khi expanded */
+        cursor: default;
     }
 
     .top-buttons button {
@@ -727,15 +725,14 @@ button.delete-btn::before {
         transform: translateY(-10px);
         transition: all 0.3s ease;
         pointer-events: none;
-        z-index: 10; /* Đảm bảo buttons nằm trên icon */
-        position: relative; /* Đảm bảo z-index hoạt động */
+        z-index: 10;
+        position: relative;
     }
 
-    /* Hiện tất cả buttons khi expanded */
     .top-buttons.expanded button {
         opacity: 1;
         transform: translateY(0);
-        pointer-events: auto; /* Quan trọng: cho phép click khi expanded */
+        pointer-events: auto;
     }
 
     .top-buttons button:first-child {
@@ -759,7 +756,6 @@ button.delete-btn::before {
         transform: translateX(0);
     }
 
-    /* Touch-friendly hover for mobile */
     @media (hover: none) and (pointer: coarse) {
         .top-buttons {
             max-height: 48px;
@@ -776,10 +772,9 @@ button.delete-btn::before {
         .top-buttons:focus-within button {
             opacity: 1;
             transform: translateY(0);
-            pointer-events: auto; /* Cho phép click trên touch devices */
+            pointer-events: auto;
         }
 
-        /* Longer touch delay for better UX */
         .top-buttons button {
             transition: all 0.2s ease;
         }
@@ -788,7 +783,7 @@ button.delete-btn::before {
 
 @media (max-width: 480px) {
     .top-buttons {
-        top: 21px; /* Tăng từ 10px lên 20px cho màn hình nhỏ */
+        top: 21px;
         right: 10px;
         width: 44px;
         min-width: 44px;
@@ -2035,691 +2030,3 @@ tr.edited-row:hover {
     .btn-delete,
     .edit-button,
     .delete-button {
-        width: 100%;
-        margin: 5px 0;
-        padding: 14px 16px;
-        font-size: 14px;
-        min-height: 48px;
-    }
-
-    .action-buttons {
-        flex-direction: column;
-        gap: 10px;
-        width: 100%;
-    }
-
-    .btn-edit.icon-only,
-    .btn-delete.icon-only,
-    .edit-button.icon-only,
-    .delete-button.icon-only {
-        width: 48px;
-        height: 48px;
-        align-self: center;
-    }
-
-    /* Mobile Menu Toggle */
-    .menu-toggle {
-        top: 15px;
-        left: 15px;
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-    }
-
-    /* Mobile Table */
-    .table-container {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        max-height: 60vh;
-    }
-
-    .table-container::before {
-        content: "📱 Mobile Optimized";
-        font-size: 9px;
-        top: -8px;
-        right: 15px;
-        padding: 3px 6px;
-    }
-
-    table,
-    .ck table {
-        font-size: 12px;
-        min-width: 100%;
-    }
-
-    th,
-    td,
-    .ck th,
-    .ck td {
-        padding: 12px 6px;
-        font-size: 12px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 120px;
-    }
-
-    th,
-    .ck th {
-        font-size: 11px;
-        min-width: 80px;
-    }
-
-    table td input,
-    .table-container td input {
-        width: 70px;
-        padding: 8px 6px;
-        font-size: 12px;
-        border-radius: 6px;
-    }
-
-    table td img,
-    .table-container td img {
-        width: 60px;
-        height: 60px;
-        max-width: 60px;
-        max-height: 60px;
-    }
-
-    table td img:hover,
-    .table-container td img:hover {
-        transform: scale(1.5);
-        z-index: 100;
-    }
-
-    .edit-button,
-    .delete-button {
-        width: 100%;
-        min-height: 36px;
-        font-size: 11px;
-        padding: 8px 10px;
-        margin: 2px 0;
-        min-width: 120px;
-    }
-
-    /* Right Menu Toggle Button for top-buttons */
-    .right-menu-toggle {
-        position: fixed;
-        top: 15px;
-        right: 15px;
-        width: 48px;
-        height: 48px;
-        background: var(--primary-gradient);
-        border: none;
-        border-radius: 14px;
-        cursor: pointer;
-        z-index: 1001;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        transition: var(--transition-fast);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        touch-action: manipulation;
-    }
-
-    .right-menu-toggle:hover,
-    .right-menu-toggle:focus {
-        transform: scale(1.05);
-        outline: none;
-    }
-
-    .right-menu-toggle.hidden {
-        opacity: 0;
-        visibility: hidden;
-        transform: translateX(100px);
-    }
-
-    /* Three dots icon */
-    .three-dots {
-        position: relative;
-        width: 4px;
-        height: 4px;
-        background: white;
-        border-radius: 50%;
-        transition: var(--transition-fast);
-    }
-
-    .three-dots::before,
-    .three-dots::after {
-        content: "";
-        position: absolute;
-        width: 4px;
-        height: 4px;
-        background: white;
-        border-radius: 50%;
-        transition: var(--transition-fast);
-    }
-
-    .three-dots::before {
-        top: -8px;
-        left: 0;
-    }
-
-    .three-dots::after {
-        top: 8px;
-        left: 0;
-    }
-
-    .right-menu-toggle.active .three-dots {
-        background: transparent;
-    }
-
-    .right-menu-toggle.active .three-dots::before {
-        top: 0;
-        transform: rotate(45deg);
-        width: 16px;
-        height: 2px;
-        border-radius: 1px;
-        left: -6px;
-    }
-
-    .right-menu-toggle.active .three-dots::after {
-        top: 0;
-        transform: rotate(-45deg);
-        width: 16px;
-        height: 2px;
-        border-radius: 1px;
-        left: -6px;
-    }
-
-    /* Right Sidebar for top-buttons */
-    .right-sidebar {
-        position: fixed;
-        right: -100vw;
-        top: 0;
-        width: 85vw;
-        max-width: 280px;
-        height: 100vh;
-        background: var(--dark-gradient);
-        box-shadow: -2px 0 20px rgba(0, 0, 0, 0.3);
-        transition: right 0.3s ease;
-        z-index: 1000;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .right-sidebar.open {
-        right: 0;
-    }
-
-    .right-sidebar-header {
-        padding: 25px 20px;
-        background: var(--primary-gradient);
-        color: white;
-        text-align: center;
-        position: relative;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .right-sidebar-header h3 {
-        margin: 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    .right-close-btn {
-        position: absolute;
-        left: 15px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: rgba(255, 255, 255, 0.2);
-        border: none;
-        color: white;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        cursor: pointer;
-        font-size: 20px;
-        transition: var(--transition-fast);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .right-close-btn:hover,
-    .right-close-btn:focus {
-        background: rgba(255, 255, 255, 0.3);
-        outline: none;
-    }
-
-    .right-menu-list {
-        list-style: none;
-        padding: 20px 0;
-        margin: 0;
-    }
-
-    .right-menu-item {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 0;
-    }
-
-    .right-menu-item:last-child {
-        border-bottom: none;
-    }
-
-    .right-menu-item button {
-        display: flex;
-        align-items: center;
-        padding: 18px 25px;
-        width: 100%;
-        background: transparent;
-        border: none;
-        color: #ecf0f1;
-        font-weight: 500;
-        font-size: 16px;
-        text-align: left;
-        text-transform: none;
-        letter-spacing: normal;
-        transition: var(--transition-fast);
-        position: relative;
-        min-height: 48px;
-        box-shadow: none;
-        margin: 0;
-        border-radius: 0;
-        cursor: pointer;
-    }
-
-    .right-menu-item button:hover,
-    .right-menu-item button:focus {
-        background: rgba(255, 255, 255, 0.1);
-        transform: none;
-        box-shadow: none;
-        outline: none;
-    }
-
-    .right-menu-item button::before {
-        content: "";
-        position: absolute;
-        right: 0;
-        top: 0;
-        width: 4px;
-        height: 100%;
-        background: var(--primary-gradient);
-        transform: scaleY(0);
-        transition: transform 0.2s ease;
-    }
-
-    .right-menu-item button:hover::before,
-    .right-menu-item button:focus::before {
-        transform: scaleY(1);
-    }
-
-    .right-menu-item button .icon {
-        margin-right: 15px;
-        font-size: 16px;
-        width: 20px;
-        text-align: center;
-    }
-
-    /* Right overlay */
-    .right-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        opacity: 0;
-        visibility: hidden;
-        transition: var(--transition-fast);
-        z-index: 999;
-        touch-action: none;
-    }
-
-    .right-overlay.active {
-        opacity: 1;
-        visibility: visible;
-    }
-
-    /* Mobile Notifications */
-    #floatingAlert {
-        top: 80px;
-        left: 15px;
-        right: 15px;
-        transform: translateY(-100px);
-        max-width: none;
-        width: auto;
-        padding: 16px 20px;
-        font-size: 15px;
-    }
-
-    #floatingAlert.show {
-        transform: translateY(0);
-    }
-
-    /* Mobile Login */
-    .login-container {
-        padding: 30px 20px;
-        width: calc(100% - 20px);
-        max-width: 400px;
-        margin: 10px;
-        border-radius: 20px;
-    }
-
-    .brand h1 {
-        font-size: 2rem;
-    }
-
-    .input-wrapper input {
-        padding: 18px 20px;
-        font-size: 16px;
-    }
-
-    .input-wrapper.username input,
-    .input-wrapper.password input {
-        padding-left: 50px;
-    }
-
-    #loginButton {
-        padding: 18px 25px;
-        font-size: 16px;
-        min-height: 48px;
-    }
-
-    /* Mobile Font Settings */
-    .font-settings {
-        top: 80px;
-        right: 15px;
-        left: 15px;
-        padding: 20px;
-        border-radius: 15px;
-    }
-
-    .font-settings h4 {
-        font-size: 16px;
-        margin-bottom: 15px;
-    }
-
-    .font-size-controls {
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-
-    .font-size-btn {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        font-size: 20px;
-    }
-
-    .font-size-display {
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-size: 16px;
-        flex: 1;
-    }
-
-    .preset-buttons {
-        gap: 8px;
-    }
-
-    .preset-btn {
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-size: 14px;
-        min-height: 48px;
-    }
-
-    /* Mobile Upload Containers */
-    #container,
-    #containerKH,
-    #inputFileContainer,
-    #inputFileContainerKH,
-    #inputLinkContainer {
-        padding: 25px 15px;
-        margin: 15px 0;
-        min-height: 120px;
-        touch-action: manipulation;
-    }
-
-    #container img,
-    #containerKH img {
-        max-width: 150px;
-        max-height: 150px;
-    }
-
-    #radioButtonsContainer {
-        flex-direction: column;
-        gap: 12px;
-        align-items: flex-start;
-    }
-
-    #radioButtonsContainer label {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 16px;
-        padding: 10px;
-        min-height: 48px;
-        width: 100%;
-    }
-
-    #radioButtonsContainer input[type="radio"] {
-        width: 20px;
-        height: 20px;
-        margin: 0;
-    }
-
-    /* Mobile Modal */
-    .modal-content {
-        margin: 20px auto;
-        padding: 25px 20px;
-        width: calc(100% - 40px);
-        max-width: none;
-        border-radius: 18px;
-        max-height: 80vh;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    /* Mobile Utilities */
-    .security-indicator,
-    .performance-indicator {
-        font-size: 8px;
-        padding: 2px 4px;
-    }
-
-    /* Touch-friendly hover states */
-    @media (hover: none) {
-        button:hover,
-        .btn:hover,
-        .nav-item a:hover,
-        .menu-toggle:hover {
-            transform: none;
-            box-shadow: initial;
-        }
-    }
-}
-
-@media (max-width: 480px) {
-    .sidebar {
-        width: 90vw;
-    }
-
-    .menu-toggle {
-        width: 42px;
-        height: 42px;
-        top: 10px;
-        left: 10px;
-    }
-
-    .main-content {
-        margin: 5px;
-        padding: 15px 10px;
-    }
-
-    .login-container {
-        padding: 25px 15px;
-        width: calc(100% - 30px);
-        margin: 15px;
-    }
-
-    .brand h1 {
-        font-size: 1.8rem;
-    }
-
-    #floatingAlert {
-        top: 70px;
-        left: 10px;
-        right: 10px;
-        padding: 12px 16px;
-        font-size: 14px;
-    }
-
-    table td,
-    table th {
-        padding: 8px 4px;
-        font-size: 11px;
-    }
-
-    .action-buttons {
-        gap: 3px;
-    }
-
-    .edit-button,
-    .delete-button {
-        min-height: 40px;
-        font-size: 10px;
-        padding: 6px 8px;
-    }
-
-    .version-info {
-        flex-direction: column;
-        gap: 10px;
-        text-align: center;
-    }
-}
-
-/* Landscape orientation adjustments */
-@media screen and (orientation: landscape) and (max-height: 500px) {
-    .main-content {
-        padding: 15px 10px;
-    }
-
-    .header h1,
-    .header h2,
-    .tieude-filter {
-        font-size: 1.5rem;
-        margin-bottom: 15px;
-    }
-
-    .sidebar {
-        width: 70vw;
-        max-width: 280px;
-    }
-
-    .login-container {
-        padding: 20px 15px;
-    }
-
-    .font-settings {
-        top: 60px;
-        padding: 15px;
-    }
-}
-
-/* Prevent zoom on focus for iOS */
-input[type="text"],
-input[type="number"],
-input[type="email"],
-input[type="password"],
-select,
-textarea {
-    font-size: 16px !important;
-}
-
-/* Remove default mobile styling */
-@media (max-width: 768px) {
-    input,
-    textarea,
-    select,
-    button {
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        border-radius: 0;
-    }
-
-    /* Optimize touch targets */
-    a,
-    button,
-    input,
-    select,
-    textarea,
-    .nav-item a,
-    .close-btn,
-    .menu-toggle {
-        min-height: 48px;
-        min-width: 48px;
-    }
-
-    /* Improve text rendering */
-    body,
-    input,
-    textarea,
-    select,
-    button {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* Mobile scrollbar */
-    ::-webkit-scrollbar {
-        width: 3px;
-        height: 3px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: rgba(102, 126, 234, 0.3);
-        border-radius: 10px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(102, 126, 234, 0.5);
-    }
-}
-
-@media (max-width: 480px) {
-    .login-container {
-        padding: calc(30px * var(--font-scale)) calc(20px * var(--font-scale));
-        border-radius: 15px;
-    }
-
-    .brand h1 {
-        font-size: calc(1.8rem * var(--font-scale));
-    }
-
-    .version-info {
-        flex-direction: column;
-        gap: calc(10px * var(--font-scale));
-        text-align: center;
-    }
-}
-
-/* ==================== DARK MODE SUPPORT ==================== */
-@media (prefers-color-scheme: dark) {
-    .login-container {
-        background: rgba(30, 30, 30, 0.95);
-        color: #e9ecef;
-    }
-
-    .input-wrapper input {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.2);
-        color: #e9ecef;
-    }
-
-    .input-wrapper input::placeholder {
-        color: rgba(255, 255, 255, 0.5);
-    }
-
-    .form-group label {
-        color: #e9ecef;
-    }
-}
