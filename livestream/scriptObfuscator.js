@@ -1627,7 +1627,7 @@ function initializeUpdatedForm() {
             value = parseFloat(value);
 
             if (!isNaN(value) && value > 0) {
-                this.value = numberWithCommas(value);
+                this.value = value;
             } else {
                 this.value = "";
                 showError("Mẫu live phải là số hợp lệ");
@@ -1649,7 +1649,7 @@ function initializeUpdatedForm() {
 
             // FIXED: Allow 0 value for live dishes
             if (!isNaN(value) && value >= 0) {
-                this.value = numberWithCommas(value);
+                this.value = value;
             } else {
                 this.value = "";
                 showError("Số món live phải là số không âm");
@@ -1671,7 +1671,7 @@ function initializeUpdatedForm() {
 
             // FIXED: Explicitly allow 0 value for inbox dishes
             if (!isNaN(value) && value >= 0) {
-                this.value = numberWithCommas(value);
+                this.value = value;
             } else {
                 this.value = "";
                 showError("Số món inbox phải là số không âm (có thể là 0)");
@@ -3257,9 +3257,6 @@ function showTotalDetailsAlways() {
     if (totalSummary) {
         totalSummary.style.cursor = "default"; // Bỏ cursor pointer
         updateTotalSummaryTitle("Tổng kết Tiền QC");
-
-        // Loại bỏ event listener nếu có
-        totalSummary.removeEventListener("click", toggleTotalDetails);
     }
 }
 
@@ -3513,6 +3510,6 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 });
 
-// Export các hàm để sử dụng global - UPDATED (bỏ toggleTotalDetails)
+// Export các hàm để sử dụng global - UPDATED
 window.initializeTotalCalculation = initializeTotalCalculation;
 window.updateAllTotals = updateAllTotals;
