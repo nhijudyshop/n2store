@@ -1838,6 +1838,7 @@ function handleUpdatedFormSubmit(e) {
             invalidateCache();
             showSuccess("Đã thêm báo cáo thành công!");
             console.log("Document uploaded successfully");
+            location.reload();
         })
         .catch((error) => {
             console.error("Error uploading document: ", error);
