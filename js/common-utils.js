@@ -780,7 +780,9 @@ function initializePageTitle() {
         if (!authData) return;
 
         const auth = JSON.parse(authData);
-        const titleElement = document.querySelector("h1, .tieude, .header h1");
+        const titleElement = document.querySelector(
+            "h1, .page-title, .header h1",
+        );
 
         if (titleElement && auth.checkLogin !== undefined) {
             updateTitleWithRoleEnhanced(titleElement, auth);
@@ -827,10 +829,10 @@ function injectRoleStyles() {
     const styles = document.createElement("style");
     styles.id = "roleStyles";
     styles.textContent = `
-        /* ================== BEAUTIFUL .TIEUDE STYLES - FIXED VERSION ================== */
+        /* ================== BEAUTIFUL .page-title STYLES - FIXED VERSION ================== */
         
-        /* Beautiful gradient .tieude styles */
-        .tieude {
+        /* Beautiful gradient .page-title styles */
+        .page-title {
             font-size: 2.5rem;
             font-weight: 700;
             text-align: center;
@@ -852,7 +854,7 @@ function injectRoleStyles() {
         }
 
         /* FIX QUAN TRỌNG: Role icon styles - SPECIFIC CLASS */
-        .tieude .role-icon {
+        .page-title .role-icon {
             -webkit-text-fill-color: initial !important;
             background: none !important;
             color: #f39c12 !important;
@@ -871,20 +873,20 @@ function injectRoleStyles() {
 
         /* Fallback cho browsers không support background-clip */
         @supports not (-webkit-background-clip: text) {
-            .tieude {
+            .page-title {
                 background: none;
                 -webkit-text-fill-color: initial;
                 color: #667eea;
                 text-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
             }
             
-            .tieude .role-icon {
+            .page-title .role-icon {
                 color: #f39c12 !important;
             }
         }
 
         /* Hover glow effect cho title */
-        .tieude::before {
+        .page-title::before {
             content: '';
             position: absolute;
             top: 50%;
@@ -900,15 +902,15 @@ function injectRoleStyles() {
             transition: opacity 0.4s ease;
         }
 
-        .tieude:hover::before {
+        .page-title:hover::before {
             opacity: 1;
         }
 
-        .tieude:hover {
+        .page-title:hover {
             transform: translateY(-2px);
         }
 
-        .tieude:hover .role-icon {
+        .page-title:hover .role-icon {
             animation: roleIconBounce 0.6s ease !important;
             text-shadow: 
                 0 0 15px rgba(243, 156, 18, 0.8),
@@ -948,35 +950,35 @@ function injectRoleStyles() {
         }
 
         /* Alternative icon colors cho từng role */
-        .tieude .role-icon.admin {
+        .page-title .role-icon.admin {
             color: #e74c3c !important;
             text-shadow: 
                 0 0 10px rgba(231, 76, 60, 0.6),
                 0 0 20px rgba(231, 76, 60, 0.3) !important;
         }
 
-        .tieude .role-icon.user {
+        .page-title .role-icon.user {
             color: #3498db !important;
             text-shadow: 
                 0 0 10px rgba(52, 152, 219, 0.6),
                 0 0 20px rgba(52, 152, 219, 0.3) !important;
         }
 
-        .tieude .role-icon.limited {
+        .page-title .role-icon.limited {
             color: #95a5a6 !important;
             text-shadow: 
                 0 0 10px rgba(149, 165, 166, 0.6),
                 0 0 20px rgba(149, 165, 166, 0.3) !important;
         }
 
-        .tieude .role-icon.basic {
+        .page-title .role-icon.basic {
             color: #f1c40f !important;
             text-shadow: 
                 0 0 10px rgba(241, 196, 15, 0.6),
                 0 0 20px rgba(241, 196, 15, 0.3) !important;
         }
 
-        .tieude .role-icon.guest {
+        .page-title .role-icon.guest {
             color: #9b59b6 !important;
             text-shadow: 
                 0 0 10px rgba(155, 89, 182, 0.6),
@@ -1016,13 +1018,13 @@ function injectRoleStyles() {
 
         /* Responsive design */
         @media (max-width: 768px) {
-            .tieude {
+            .page-title {
                 font-size: 1.8rem;
                 padding: 15px 10px;
                 margin: 15px 0;
             }
             
-            .tieude .role-icon {
+            .page-title .role-icon {
                 font-size: 0.85em !important;
                 margin: 0 6px !important;
             }
@@ -1034,12 +1036,12 @@ function injectRoleStyles() {
         }
 
         @media (max-width: 480px) {
-            .tieude {
+            .page-title {
                 font-size: 1.4rem;
                 padding: 10px 5px;
             }
             
-            .tieude .role-icon {
+            .page-title .role-icon {
                 font-size: 0.8em !important;
                 margin: 0 4px !important;
             }
@@ -1052,7 +1054,7 @@ function injectRoleStyles() {
 
         /* Dark mode support */
         @media (prefers-color-scheme: dark) {
-            .tieude .role-icon {
+            .page-title .role-icon {
                 filter: brightness(1.2) drop-shadow(0 3px 6px rgba(243, 156, 18, 0.4)) !important;
             }
             
@@ -1064,7 +1066,7 @@ function injectRoleStyles() {
 
         /* Print styles */
         @media print {
-            .tieude {
+            .page-title {
                 background: none !important;
                 -webkit-text-fill-color: initial !important;
                 color: #000 !important;
@@ -1072,14 +1074,14 @@ function injectRoleStyles() {
                 filter: none !important;
             }
             
-            .tieude .role-icon {
+            .page-title .role-icon {
                 color: #000 !important;
                 text-shadow: none !important;
                 animation: none !important;
                 filter: none !important;
             }
             
-            .tieude::before {
+            .page-title::before {
                 display: none;
             }
             
@@ -1091,14 +1093,14 @@ function injectRoleStyles() {
 
         /* High contrast mode support */
         @media (prefers-contrast: high) {
-            .tieude {
+            .page-title {
                 background: none !important;
                 -webkit-text-fill-color: initial !important;
                 color: #000 !important;
                 border: 2px solid #000;
             }
             
-            .tieude .role-icon {
+            .page-title .role-icon {
                 color: #000 !important;
                 text-shadow: none !important;
             }
@@ -1106,9 +1108,9 @@ function injectRoleStyles() {
 
         /* Reduced motion support */
         @media (prefers-reduced-motion: reduce) {
-            .tieude,
-            .tieude::before,
-            .tieude .role-icon,
+            .page-title,
+            .page-title::before,
+            .page-title .role-icon,
             .user-role-badge {
                 animation: none !important;
                 transition: none !important;
@@ -1116,7 +1118,7 @@ function injectRoleStyles() {
         }
 
         /* Focus accessibility */
-        .tieude:focus-visible {
+        .page-title:focus-visible {
             outline: 3px solid rgba(102, 126, 234, 0.6);
             outline-offset: 4px;
         }
@@ -1148,7 +1150,9 @@ function updatePageTitleSimple() {
         const authData = JSON.parse(
             localStorage.getItem("loginindex_auth") || "{}",
         );
-        const titleElement = document.querySelector("h1, .tieude, .header h1");
+        const titleElement = document.querySelector(
+            "h1, .page-title, .header h1",
+        );
 
         if (titleElement && authData.checkLogin !== undefined) {
             const roleInfo = getRoleInfo(parseInt(authData.checkLogin));

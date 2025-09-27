@@ -533,7 +533,7 @@ class IntegratedFontManager {
                 font-size: calc(14px * var(--font-scale)) !important;
             }
             
-            .tieude, h1, .header h1, .header h2 {
+            .page-title, h1, .header h1, .header h2 {
                 font-size: calc(2.5rem * var(--font-scale)) !important;
             }
             
@@ -555,7 +555,7 @@ class IntegratedFontManager {
             }
             
             @media (max-width: 768px) {
-                .tieude, .header h1, .header h2 {
+                .page-title, .header h1, .header h2 {
                     font-size: calc(1.8rem * var(--font-scale)) !important;
                 }
                 

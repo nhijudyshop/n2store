@@ -1216,7 +1216,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Update UI based on user
     const auth = getAuthState();
     if (auth && auth.userType) {
-        const titleElement = document.querySelector(".tieude");
+        const titleElement = document.querySelector(".page-title");
         if (titleElement) {
             titleElement.textContent += " - " + auth.displayName;
         }

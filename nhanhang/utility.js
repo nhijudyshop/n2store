@@ -12,9 +12,6 @@ const BATCH_SIZE = 50; // Smaller batch size for better performance
 const MAX_VISIBLE_ROWS = 500; // Reduced limit
 const FILTER_DEBOUNCE_DELAY = 500; // Increased delay
 
-// Add CSS to hide number input spinners globally
-const hideSpinnerStyles = "";
-
 // In-memory cache object (replaces localStorage)
 let memoryCache = {
     data: null,

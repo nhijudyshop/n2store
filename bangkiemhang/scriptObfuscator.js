@@ -1579,7 +1579,7 @@ async function initializeInventorySystem() {
     }
 
     if (auth && auth.userType && auth.userType !== "Admin") {
-        const titleElement = document.querySelector(".tieude");
+        const titleElement = document.querySelector(".page-title");
         if (titleElement) {
             titleElement.textContent += " - " + auth.userType;
         }

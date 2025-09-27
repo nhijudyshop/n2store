@@ -7,12 +7,12 @@
 
 const firebaseConfig = {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com", 
+    authDomain: "n2shop-69e37.firebaseapp.com",
     projectId: "n2shop-69e37",
     storageBucket: "n2shop-69e37-ne0q1",
     messagingSenderId: "598906493303",
     appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D"
+    measurementId: "G-TEJH3S2T1D",
 };
 
 // Cache configuration - using in-memory storage
@@ -27,7 +27,7 @@ const RENDER_DEBOUNCE_DELAY = 50; // Debounce for rendering
 // In-memory cache object
 let memoryCache = {
     data: null,
-    timestamp: null
+    timestamp: null,
 };
 
 // Initialize Firebase
@@ -38,14 +38,14 @@ const collectionRef = db.collection("ck");
 const historyCollectionRef = db.collection("edit_history");
 
 // DOM Elements
-const moneyTransferForm = document.getElementById('moneyTransferForm');
-const tableBody = document.getElementById('tableBody');
-const toggleFormButton = document.getElementById('toggleFormButton');
-const dataForm = document.getElementById('dataForm');
-const ngayck = document.getElementById('ngayck');
-const transferAmountInput = document.getElementById('transferAmount');
-const totalAmountElement = document.getElementById('totalAmount');
-const editModal = document.getElementById('editModal');
+const moneyTransferForm = document.getElementById("moneyTransferForm");
+const tableBody = document.getElementById("tableBody");
+const toggleFormButton = document.getElementById("toggleFormButton");
+const dataForm = document.getElementById("dataForm");
+const ngayck = document.getElementById("ngayck");
+const transferAmountInput = document.getElementById("transferAmount");
+const totalAmountElement = document.getElementById("totalAmount");
+const editModal = document.getElementById("editModal");
 
 // Global variables
 let editingRow = null;
@@ -58,7 +58,7 @@ let renderQueue = []; // Queue for batch rendering
 let currentFilters = {
     startDate: null,
     endDate: null,
-    status: 'all'
+    status: "all",
 };
 let filterTimeout = null;
 let renderTimeout = null;
@@ -69,7 +69,7 @@ let isOperationInProgress = false;
 let currentOperationType = null;
 
 // User authentication state - using consistent storage
-const AUTH_STORAGE_KEY = 'loginindex_auth';
+const AUTH_STORAGE_KEY = "loginindex_auth";
 let authState = null;
 
 // =====================================================
@@ -98,78 +98,88 @@ function ensureUniqueId(item) {
 function blockInteraction(operationType) {
     isOperationInProgress = true;
     currentOperationType = operationType;
-    
+
     // Disable form inputs but preserve their original disabled state
     if (moneyTransferForm) {
-        const inputs = moneyTransferForm.querySelectorAll('input, select, button, textarea');
-        inputs.forEach(input => {
+        const inputs = moneyTransferForm.querySelectorAll(
+            "input, select, button, textarea",
+        );
+        inputs.forEach((input) => {
             // Store original disabled state
-            input.setAttribute('data-original-disabled', input.disabled);
+            input.setAttribute("data-original-disabled", input.disabled);
             input.disabled = true;
         });
     }
-    
+
     // Disable table interactions
     if (tableBody) {
-        tableBody.style.pointerEvents = 'none';
-        tableBody.style.opacity = '0.7';
+        tableBody.style.pointerEvents = "none";
+        tableBody.style.opacity = "0.7";
     }
-    
+
     // Disable modal buttons if open
-    const modalButtons = document.querySelectorAll('#editModal button');
-    modalButtons.forEach(btn => {
-        btn.setAttribute('data-original-disabled', btn.disabled);
+    const modalButtons = document.querySelectorAll("#editModal button");
+    modalButtons.forEach((btn) => {
+        btn.setAttribute("data-original-disabled", btn.disabled);
         btn.disabled = true;
     });
-    
+
     // Disable export and other action buttons
-    const actionButtons = document.querySelectorAll('.filter-btn, #toggleFormButton, #toggleLogoutButton');
-    actionButtons.forEach(btn => {
-        btn.setAttribute('data-original-disabled', btn.disabled);
+    const actionButtons = document.querySelectorAll(
+        ".filter-btn, #toggleFormButton, #toggleLogoutButton",
+    );
+    actionButtons.forEach((btn) => {
+        btn.setAttribute("data-original-disabled", btn.disabled);
         btn.disabled = true;
     });
-    
+
     console.log(`Interactions blocked for operation: ${operationType}`);
 }
 
 function unblockInteraction() {
     isOperationInProgress = false;
     currentOperationType = null;
-    
+
     // Re-enable form inputs based on their original state
     if (moneyTransferForm) {
-        const inputs = moneyTransferForm.querySelectorAll('input, select, button, textarea');
-        inputs.forEach(input => {
+        const inputs = moneyTransferForm.querySelectorAll(
+            "input, select, button, textarea",
+        );
+        inputs.forEach((input) => {
             // Restore original disabled state
-            const originalDisabled = input.getAttribute('data-original-disabled');
-            input.disabled = originalDisabled === 'true';
-            input.removeAttribute('data-original-disabled');
+            const originalDisabled = input.getAttribute(
+                "data-original-disabled",
+            );
+            input.disabled = originalDisabled === "true";
+            input.removeAttribute("data-original-disabled");
         });
     }
-    
+
     // Re-enable table interactions
     if (tableBody) {
-        tableBody.style.pointerEvents = 'auto';
-        tableBody.style.opacity = '1';
+        tableBody.style.pointerEvents = "auto";
+        tableBody.style.opacity = "1";
     }
-    
+
     // Re-enable modal buttons
-    const modalButtons = document.querySelectorAll('#editModal button');
-    modalButtons.forEach(btn => {
-        const originalDisabled = btn.getAttribute('data-original-disabled');
-        btn.disabled = originalDisabled === 'true';
-        btn.removeAttribute('data-original-disabled');
+    const modalButtons = document.querySelectorAll("#editModal button");
+    modalButtons.forEach((btn) => {
+        const originalDisabled = btn.getAttribute("data-original-disabled");
+        btn.disabled = originalDisabled === "true";
+        btn.removeAttribute("data-original-disabled");
     });
-    
+
     // Re-enable action buttons
-    const actionButtons = document.querySelectorAll('.filter-btn, #toggleFormButton, #toggleLogoutButton');
-    actionButtons.forEach(btn => {
-        const originalDisabled = btn.getAttribute('data-original-disabled');
-        btn.disabled = originalDisabled === 'true';
-        btn.removeAttribute('data-original-disabled');
+    const actionButtons = document.querySelectorAll(
+        ".filter-btn, #toggleFormButton, #toggleLogoutButton",
+    );
+    actionButtons.forEach((btn) => {
+        const originalDisabled = btn.getAttribute("data-original-disabled");
+        btn.disabled = originalDisabled === "true";
+        btn.removeAttribute("data-original-disabled");
     });
-    
-    console.log('Interactions unblocked');
+
+    console.log("Interactions unblocked");
 }
 
 function showOperationLoading(message, operationType) {
@@ -180,7 +190,7 @@ function showOperationLoading(message, operationType) {
 function hideOperationLoading(successMessage = null) {
     unblockInteraction();
     hideFloatingAlert();
-    
+
     if (successMessage) {
         setTimeout(() => {
             showSuccess(successMessage);
@@ -200,7 +210,7 @@ function getAuthState() {
             return authState;
         }
     } catch (error) {
-        console.error('Error reading auth state:', error);
+        console.error("Error reading auth state:", error);
         clearAuthState();
     }
     return null;
@@ -211,13 +221,13 @@ function setAuthState(isLoggedIn, userType, checkLogin) {
         isLoggedIn: isLoggedIn,
         userType: userType,
         checkLogin: checkLogin,
-        timestamp: Date.now()
+        timestamp: Date.now(),
     };
-    
+
     try {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
     } catch (error) {
-        console.error('Error saving auth state:', error);
+        console.error("Error saving auth state:", error);
     }
 }
 
@@ -226,24 +236,24 @@ function clearAuthState() {
     try {
         localStorage.removeItem(AUTH_STORAGE_KEY);
         // Clear legacy keys
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userType'); 
-        localStorage.removeItem('checkLogin');
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
         sessionStorage.clear();
     } catch (error) {
-        console.error('Error clearing auth state:', error);
+        console.error("Error clearing auth state:", error);
     }
 }
 
 function isAuthenticated() {
     const auth = getAuthState();
-    return auth && auth.isLoggedIn === 'true';
+    return auth && auth.isLoggedIn === "true";
 }
 
 function hasPermission(requiredLevel) {
     const auth = getAuthState();
     if (!auth) return false;
-    
+
     const userLevel = parseInt(auth.checkLogin);
     return userLevel <= requiredLevel; // Lower number = higher permission
 }
@@ -264,7 +274,7 @@ function getCachedData() {
             }
         }
     } catch (e) {
-        console.warn('Error accessing cache:', e);
+        console.warn("Error accessing cache:", e);
         invalidateCache();
     }
     return null;
@@ -276,7 +286,7 @@ function setCachedData(data) {
         memoryCache.timestamp = Date.now();
         console.log("Data cached successfully");
     } catch (e) {
-        console.warn('Cannot cache data:', e);
+        console.warn("Cannot cache data:", e);
     }
 }
 
@@ -290,40 +300,48 @@ function invalidateCache() {
 // PERFORMANCE OPTIMIZATION FUNCTIONS
 // =====================================================
 
-function createDocumentFragment(items, startIndex = 0, endIndex = items.length) {
+function createDocumentFragment(
+    items,
+    startIndex = 0,
+    endIndex = items.length,
+) {
     const fragment = document.createDocumentFragment();
     const itemsToRender = items.slice(startIndex, endIndex);
-    
-    itemsToRender.forEach(item => {
+
+    itemsToRender.forEach((item) => {
         const timestamp = parseFloat(item.dateCell);
         const dateCellConvert = new Date(timestamp);
         const formattedTime = formatDate(dateCellConvert);
-        
+
         if (formattedTime) {
             const newRow = createTableRow(item, formattedTime);
             fragment.appendChild(newRow);
         }
     });
-    
+
     return fragment;
 }
 
 function batchRenderRows(items, batchSize = BATCH_SIZE) {
     return new Promise((resolve) => {
         let currentIndex = 0;
-        
+
         function renderBatch() {
             const endIndex = Math.min(currentIndex + batchSize, items.length);
-            const fragment = createDocumentFragment(items, currentIndex, endIndex);
+            const fragment = createDocumentFragment(
+                items,
+                currentIndex,
+                endIndex,
+            );
             tableBody.appendChild(fragment);
-            
+
             currentIndex = endIndex;
             currentDisplayedRows = endIndex;
-            
+
             // Update progress
             const progress = Math.round((currentIndex / items.length) * 100);
             showLoading(`Đang tải dữ liệu... ${progress}%`);
-            
+
             if (currentIndex < items.length) {
                 // Use requestAnimationFrame for smooth rendering
                 requestAnimationFrame(() => {
@@ -333,7 +351,7 @@ function batchRenderRows(items, batchSize = BATCH_SIZE) {
                 resolve();
             }
         }
-        
+
         renderBatch();
     });
 }
@@ -349,82 +367,87 @@ function debouncedRender(callback, delay = RENDER_DEBOUNCE_DELAY) {
 function enableLazyLoading() {
     const tableContainer = tableBody.parentElement;
     if (!tableContainer) return;
-    
+
     const scrollHandler = () => {
         if (isLazyLoading || filteredData.length === 0) return;
-        
+
         const scrollTop = tableContainer.scrollTop;
         const containerHeight = tableContainer.clientHeight;
         const scrollHeight = tableContainer.scrollHeight;
-        
+
         // Load more when near bottom (80% scrolled)
         if (scrollTop + containerHeight >= scrollHeight * 0.8) {
             loadMoreRows();
         }
     };
-    
-    tableContainer.addEventListener('scroll', scrollHandler, { passive: true });
+
+    tableContainer.addEventListener("scroll", scrollHandler, { passive: true });
 }
 
 function loadMoreRows() {
     if (isLazyLoading || currentDisplayedRows >= filteredData.length) return;
-    
+
     isLazyLoading = true;
-    const nextBatch = Math.min(currentDisplayedRows + LAZY_LOAD_SIZE, filteredData.length);
+    const nextBatch = Math.min(
+        currentDisplayedRows + LAZY_LOAD_SIZE,
+        filteredData.length,
+    );
     const itemsToLoad = filteredData.slice(currentDisplayedRows, nextBatch);
-    
+
     if (itemsToLoad.length === 0) {
         isLazyLoading = false;
         return;
     }
-    
+
     showLoading(`Đang tải thêm ${itemsToLoad.length} giao dịch...`);
-    
+
     setTimeout(() => {
         const fragment = createDocumentFragment(itemsToLoad);
         tableBody.appendChild(fragment);
         currentDisplayedRows = nextBatch;
-        
+
         hideFloatingAlert();
         isLazyLoading = false;
-        
-        console.log(`Loaded ${itemsToLoad.length} more rows. Total displayed: ${currentDisplayedRows}/${filteredData.length}`);
+
+        console.log(
+            `Loaded ${itemsToLoad.length} more rows. Total displayed: ${currentDisplayedRows}/${filteredData.length}`,
+        );
     }, 100);
 }
 
 function sanitizeInput(input) {
-    if (typeof input !== 'string') return '';
-    return input.replace(/[<>\"']/g, '').trim();
+    if (typeof input !== "string") return "";
+    return input.replace(/[<>\"']/g, "").trim();
 }
 
 function numberWithCommas(x) {
-    if (!x && x !== 0) return '0';
+    if (!x && x !== 0) return "0";
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function formatDate(date) {
-    if (!date || !(date instanceof Date)) return '';
-    
+    if (!date || !(date instanceof Date)) return "";
+
     const year = date.getFullYear() % 100;
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
     return `${day}-${month}-${year}`;
 }
 
 function parseDisplayDate(dateStr) {
-    if (!dateStr || typeof dateStr !== 'string') return null;
-    
-    const parts = dateStr.split('-');
+    if (!dateStr || typeof dateStr !== "string") return null;
+
+    const parts = dateStr.split("-");
     if (parts.length !== 3) return null;
-    
+
     const day = parseInt(parts[0]);
     const month = parseInt(parts[1]) - 1;
     let year = parseInt(parts[2]);
-    
+
     if (year < 100) {
         year = year < 50 ? 2000 + year : 1900 + year;
     }
-    
+
     const result = new Date(year, month, day);
     return isNaN(result.getTime()) ? null : result;
 }
@@ -432,36 +455,38 @@ function parseDisplayDate(dateStr) {
 function convertToTimestamp(dateString) {
     const tempTimeStamp = new Date();
     const parts = dateString.split("-");
-    
+
     if (parts.length !== 3) {
-        throw new Error('Invalid date format. Expected DD-MM-YY');
+        throw new Error("Invalid date format. Expected DD-MM-YY");
     }
-    
+
     const day = parseInt(parts[0]);
     const month = parseInt(parts[1]);
     let year = parseInt(parts[2]);
-    
+
     if (year < 100) {
         year = 2000 + year;
     }
-    
+
     const dateObj = new Date(year, month - 1, day);
-    const timestamp = dateObj.getTime() + (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
-    
+    const timestamp =
+        dateObj.getTime() +
+        (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
+
     return timestamp.toString();
 }
 
 function isValidDateFormat(dateStr) {
-    if (!dateStr || typeof dateStr !== 'string') return false;
-    
+    if (!dateStr || typeof dateStr !== "string") return false;
+
     const regex = /^\d{2}-\d{2}-\d{2}$/;
     if (!regex.test(dateStr)) return false;
-    
-    const parts = dateStr.split('-');
+
+    const parts = dateStr.split("-");
     const day = parseInt(parts[0]);
     const month = parseInt(parts[1]);
     const year = parseInt(parts[2]);
-    
+
     return day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 0;
 }
 
@@ -490,20 +515,31 @@ function showError(message = "Có lỗi xảy ra!", duration = 3000) {
 // LOGGING FUNCTIONS
 // =====================================================
 
-function logAction(action, description, oldData = null, newData = null, pageName = 'Chuyển khoản') {
+function logAction(
+    action,
+    description,
+    oldData = null,
+    newData = null,
+    pageName = "Chuyển khoản",
+) {
     const auth = getAuthState();
     const logEntry = {
         timestamp: new Date(),
-        user: auth ? (auth.userType ? auth.userType.split('-')[0] : 'Unknown') : 'Unknown',
+        user: auth
+            ? auth.userType
+                ? auth.userType.split("-")[0]
+                : "Unknown"
+            : "Unknown",
         page: pageName,
         action: action,
         description: description,
         oldData: oldData,
         newData: newData,
-        id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+        id: Date.now() + "_" + Math.random().toString(36).substr(2, 9),
     };
 
-    historyCollectionRef.add(logEntry)
+    historyCollectionRef
+        .add(logEntry)
         .then(() => {
             console.log("Log entry saved successfully");
         })
@@ -517,17 +553,17 @@ function logAction(action, description, oldData = null, newData = null, pageName
 // =====================================================
 
 function createFilterSystem() {
-    if (document.getElementById('improvedFilterSystem')) {
+    if (document.getElementById("improvedFilterSystem")) {
         return;
     }
-    
+
     const today = new Date();
-	const tzOffset = today.getTimezoneOffset() * 60000;
-	const localISODate = new Date(today - tzOffset).toISOString().split('T')[0];
-    
-    const filterContainer = document.createElement('div');
-    filterContainer.id = 'improvedFilterSystem';
-    filterContainer.className = 'filter-system';
+    const tzOffset = today.getTimezoneOffset() * 60000;
+    const localISODate = new Date(today - tzOffset).toISOString().split("T")[0];
+
+    const filterContainer = document.createElement("div");
+    filterContainer.id = "improvedFilterSystem";
+    filterContainer.className = "filter-system";
     filterContainer.innerHTML = `
         <style>
             .filter-system {
@@ -670,63 +706,68 @@ function createFilterSystem() {
         
         <div id="filterInfo" class="filter-info hidden"></div>
     `;
-    
-    const tableContainer = document.querySelector('.table-container') || (tableBody ? tableBody.parentNode : null);
+
+    const tableContainer =
+        document.querySelector(".table-container") ||
+        (tableBody ? tableBody.parentNode : null);
     if (tableContainer && tableContainer.parentNode) {
         tableContainer.parentNode.insertBefore(filterContainer, tableContainer);
     }
-    
+
     currentFilters.startDate = localISODate;
     currentFilters.endDate = localISODate;
-    
+
     setTimeout(() => {
         attachFilterEventListeners();
     }, 100);
 }
 
 function attachFilterEventListeners() {
-    const startDateFilter = document.getElementById('startDateFilter');
-    const endDateFilter = document.getElementById('endDateFilter');
-    const statusFilter = document.getElementById('statusFilterDropdown');
-    const todayBtn = document.getElementById('todayFilterBtn');
-    const allBtn = document.getElementById('allFilterBtn');
-    const clearBtn = document.getElementById('clearFiltersBtn');
-    
-    if (startDateFilter) startDateFilter.addEventListener('change', handleDateRangeChange);
-    if (endDateFilter) endDateFilter.addEventListener('change', handleDateRangeChange);
-    if (statusFilter) statusFilter.addEventListener('change', handleFilterChange);
-    if (todayBtn) todayBtn.addEventListener('click', setTodayFilter);
-    if (allBtn) allBtn.addEventListener('click', setAllFilter);
-    if (clearBtn) clearBtn.addEventListener('click', clearAllFilters);
+    const startDateFilter = document.getElementById("startDateFilter");
+    const endDateFilter = document.getElementById("endDateFilter");
+    const statusFilter = document.getElementById("statusFilterDropdown");
+    const todayBtn = document.getElementById("todayFilterBtn");
+    const allBtn = document.getElementById("allFilterBtn");
+    const clearBtn = document.getElementById("clearFiltersBtn");
+
+    if (startDateFilter)
+        startDateFilter.addEventListener("change", handleDateRangeChange);
+    if (endDateFilter)
+        endDateFilter.addEventListener("change", handleDateRangeChange);
+    if (statusFilter)
+        statusFilter.addEventListener("change", handleFilterChange);
+    if (todayBtn) todayBtn.addEventListener("click", setTodayFilter);
+    if (allBtn) allBtn.addEventListener("click", setAllFilter);
+    if (clearBtn) clearBtn.addEventListener("click", clearAllFilters);
 }
 
 function handleDateRangeChange() {
     if (isFilteringInProgress || isOperationInProgress) return;
-    
-    const startDateFilter = document.getElementById('startDateFilter');
-    const endDateFilter = document.getElementById('endDateFilter');
-    
+
+    const startDateFilter = document.getElementById("startDateFilter");
+    const endDateFilter = document.getElementById("endDateFilter");
+
     if (!startDateFilter || !endDateFilter) return;
-    
+
     let startDate = startDateFilter.value;
     let endDate = endDateFilter.value;
-    
+
     if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
         [startDate, endDate] = [endDate, startDate];
         startDateFilter.value = startDate;
         endDateFilter.value = endDate;
     }
-    
+
     currentFilters.startDate = startDate;
     currentFilters.endDate = endDate;
-    
+
     debouncedApplyFilters();
 }
 
 function handleFilterChange() {
     if (isFilteringInProgress || isOperationInProgress) return;
-    
-    const statusFilter = document.getElementById('statusFilterDropdown');
+
+    const statusFilter = document.getElementById("statusFilterDropdown");
     if (statusFilter) {
         currentFilters.status = statusFilter.value;
         debouncedApplyFilters();
@@ -735,65 +776,65 @@ function handleFilterChange() {
 
 function setTodayFilter() {
     if (isFilteringInProgress || isOperationInProgress) return;
-    
+
     const today = new Date();
     const tzOffset = today.getTimezoneOffset() * 60000; // phút → ms
-    const localISODate = new Date(today - tzOffset).toISOString().split('T')[0];
+    const localISODate = new Date(today - tzOffset).toISOString().split("T")[0];
 
-    const startDateFilter = document.getElementById('startDateFilter');
-    const endDateFilter = document.getElementById('endDateFilter');
-    
+    const startDateFilter = document.getElementById("startDateFilter");
+    const endDateFilter = document.getElementById("endDateFilter");
+
     if (startDateFilter) startDateFilter.value = localISODate;
     if (endDateFilter) endDateFilter.value = localISODate;
-    
+
     currentFilters.startDate = localISODate;
     currentFilters.endDate = localISODate;
-    
+
     applyFilters();
 }
 
 function setAllFilter() {
     if (isFilteringInProgress || isOperationInProgress) return;
-    
-    const startDateFilter = document.getElementById('startDateFilter');
-    const endDateFilter = document.getElementById('endDateFilter');
-    
-    if (startDateFilter) startDateFilter.value = '';
-    if (endDateFilter) endDateFilter.value = '';
-    
+
+    const startDateFilter = document.getElementById("startDateFilter");
+    const endDateFilter = document.getElementById("endDateFilter");
+
+    if (startDateFilter) startDateFilter.value = "";
+    if (endDateFilter) endDateFilter.value = "";
+
     currentFilters.startDate = null;
     currentFilters.endDate = null;
-    
+
     applyFilters();
 }
 
 function clearAllFilters() {
     if (isFilteringInProgress || isOperationInProgress) return;
-    
-    const startDateFilter = document.getElementById('startDateFilter');
-    const endDateFilter = document.getElementById('endDateFilter');
-    const statusFilter = document.getElementById('statusFilterDropdown');
-    
-    if (startDateFilter) startDateFilter.value = '';
-    if (endDateFilter) endDateFilter.value = '';
-    if (statusFilter) statusFilter.value = 'all';
-    
+
+    const startDateFilter = document.getElementById("startDateFilter");
+    const endDateFilter = document.getElementById("endDateFilter");
+    const statusFilter = document.getElementById("statusFilterDropdown");
+
+    if (startDateFilter) startDateFilter.value = "";
+    if (endDateFilter) endDateFilter.value = "";
+    if (statusFilter) statusFilter.value = "all";
+
     currentFilters = {
         startDate: null,
         endDate: null,
-        status: 'all'
+        status: "all",
     };
-    
+
     applyFilters();
 }
 
 function debouncedApplyFilters() {
     if (isFilteringInProgress || isOperationInProgress) return;
-    
+
     if (filterTimeout) {
         clearTimeout(filterTimeout);
     }
-    
+
     filterTimeout = setTimeout(() => {
         applyFilters();
     }, FILTER_DEBOUNCE_DELAY);
@@ -801,46 +842,49 @@ function debouncedApplyFilters() {
 
 function applyFilters() {
     if (isFilteringInProgress || isOperationInProgress) return;
-    
+
     isFilteringInProgress = true;
     showLoading("Đang lọc dữ liệu...");
-    
+
     debouncedRender(() => {
         try {
             // Filter data from source instead of DOM for better performance
-            const filteredResults = arrayData.filter(item => {
+            const filteredResults = arrayData.filter((item) => {
                 const timestamp = parseFloat(item.dateCell);
                 const itemDate = new Date(timestamp);
                 const formattedDate = formatDate(itemDate);
                 const rowDate = parseDisplayDate(formattedDate);
-                
-                const matchDate = checkDateInRange(rowDate, currentFilters.startDate, currentFilters.endDate);
-                
+
+                const matchDate = checkDateInRange(
+                    rowDate,
+                    currentFilters.startDate,
+                    currentFilters.endDate,
+                );
+
                 let matchStatus = true;
                 if (currentFilters.status === "active") {
                     matchStatus = !item.muted;
                 } else if (currentFilters.status === "completed") {
                     matchStatus = Boolean(item.muted);
                 }
-                
+
                 return matchDate && matchStatus;
             });
-            
+
             // Update filtered data
             filteredData = filteredResults;
-            
+
             // Re-render table with filtered data
             renderFilteredData(filteredResults);
-            
+
             updateFilterInfo(filteredResults.length, arrayData.length);
             updateTotalAmount();
-            
+
             hideFloatingAlert();
             showSuccess(`Hiển thị ${filteredResults.length} giao dịch`);
-            
         } catch (error) {
-            console.error('Error during filtering:', error);
-            showError('Có lỗi xảy ra khi lọc dữ liệu');
+            console.error("Error during filtering:", error);
+            showError("Có lỗi xảy ra khi lọc dữ liệu");
         } finally {
             isFilteringInProgress = false;
         }
@@ -848,21 +892,21 @@ function applyFilters() {
 }
 
 async function renderFilteredData(dataToRender) {
-    // Sort by date only (newest first) - NO muted sorting  
+    // Sort by date only (newest first) - NO muted sorting
     const sortedData = [...dataToRender].sort((a, b) => {
         const timestampA = parseInt(a.dateCell) || 0;
         const timestampB = parseInt(b.dateCell) || 0;
         return timestampB - timestampA; // Only sort by date, keep muted items in place
     });
-    
+
     // Clear table and reset counter
-    tableBody.innerHTML = '';
+    tableBody.innerHTML = "";
     currentDisplayedRows = 0;
-    
+
     if (sortedData.length === 0) {
         return;
     }
-    
+
     // For small datasets, render immediately
     if (sortedData.length <= INITIAL_LOAD_SIZE) {
         const fragment = createDocumentFragment(sortedData);
@@ -877,33 +921,37 @@ async function renderFilteredData(dataToRender) {
 function checkDateInRange(rowDate, startDateStr, endDateStr) {
     if (!startDateStr && !endDateStr) return true;
     if (!rowDate) return false;
-    
+
     const rowTime = rowDate.getTime();
-    
+
     if (startDateStr) {
-        const startTime = new Date(startDateStr + 'T00:00:00').getTime();
+        const startTime = new Date(startDateStr + "T00:00:00").getTime();
         if (rowTime < startTime) return false;
     }
-    
+
     if (endDateStr) {
-        const endTime = new Date(endDateStr + 'T23:59:59').getTime();
+        const endTime = new Date(endDateStr + "T23:59:59").getTime();
         if (rowTime > endTime) return false;
     }
-    
+
     return true;
 }
 
 function updateFilterInfo(visibleCount, totalCount) {
-    const filterInfo = document.getElementById('filterInfo');
+    const filterInfo = document.getElementById("filterInfo");
     if (!filterInfo) return;
-    
+
     if (visibleCount !== totalCount) {
         let filterText = `Hiển thị ${visibleCount.toLocaleString()} / ${totalCount.toLocaleString()} giao dịch`;
-        
+
         if (currentFilters.startDate || currentFilters.endDate) {
-            const startStr = currentFilters.startDate ? formatDateForDisplay(currentFilters.startDate) : '';
-            const endStr = currentFilters.endDate ? formatDateForDisplay(currentFilters.endDate) : '';
-            
+            const startStr = currentFilters.startDate
+                ? formatDateForDisplay(currentFilters.startDate)
+                : "";
+            const endStr = currentFilters.endDate
+                ? formatDateForDisplay(currentFilters.endDate)
+                : "";
+
             if (startStr && endStr) {
                 if (startStr === endStr) {
                     filterText += ` (ngày ${startStr})`;
@@ -916,29 +964,32 @@ function updateFilterInfo(visibleCount, totalCount) {
                 filterText += ` (đến ${endStr})`;
             }
         }
-        
-        if (currentFilters.status !== 'all') {
-            const statusText = currentFilters.status === 'active' ? 'chưa đi đơn' : 'đã đi đơn';
+
+        if (currentFilters.status !== "all") {
+            const statusText =
+                currentFilters.status === "active"
+                    ? "chưa đi đơn"
+                    : "đã đi đơn";
             filterText += ` - ${statusText}`;
         }
-        
+
         filterInfo.innerHTML = filterText;
-        filterInfo.classList.remove('hidden');
+        filterInfo.classList.remove("hidden");
     } else {
-        filterInfo.classList.add('hidden');
+        filterInfo.classList.add("hidden");
     }
 }
 
 function formatDateForDisplay(dateStr) {
-    if (!dateStr) return '';
-    
+    if (!dateStr) return "";
+
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '';
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+    if (isNaN(date.getTime())) return "";
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
-    
+
     return `${day}/${month}/${year}`;
 }
 
@@ -948,14 +999,14 @@ function formatDateForDisplay(dateStr) {
 
 function updateTotalAmount() {
     let totalAmount = 0;
-    
+
     // Calculate from filtered data instead of DOM for accuracy
     if (filteredData && filteredData.length > 0) {
-        filteredData.forEach(item => {
+        filteredData.forEach((item) => {
             // Only count non-muted items
             if (!item.muted) {
-                const amountStr = item.amountCell || '0';
-                const cleanAmount = amountStr.toString().replace(/[,\.]/g, '');
+                const amountStr = item.amountCell || "0";
+                const cleanAmount = amountStr.toString().replace(/[,\.]/g, "");
                 const amount = parseFloat(cleanAmount);
                 if (!isNaN(amount)) {
                     totalAmount += amount;
@@ -964,10 +1015,10 @@ function updateTotalAmount() {
         });
     } else {
         // Fallback to arrayData if filteredData not available
-        arrayData.forEach(item => {
+        arrayData.forEach((item) => {
             if (!item.muted) {
-                const amountStr = item.amountCell || '0';
-                const cleanAmount = amountStr.toString().replace(/[,\.]/g, '');
+                const amountStr = item.amountCell || "0";
+                const cleanAmount = amountStr.toString().replace(/[,\.]/g, "");
                 const amount = parseFloat(cleanAmount);
                 if (!isNaN(amount)) {
                     totalAmount += amount;
@@ -975,48 +1026,49 @@ function updateTotalAmount() {
             }
         });
     }
-    
+
     if (totalAmountElement) {
-        totalAmountElement.innerText = 'Tổng Tiền: ' + numberWithCommas(totalAmount) + ',000';
+        totalAmountElement.innerText =
+            "Tổng Tiền: " + numberWithCommas(totalAmount) + ",000";
     }
 }
 
 async function renderTableFromData(dataArray, applyInitialFilter = false) {
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
-        console.log('No data to render');
+        console.log("No data to render");
         createFilterSystem();
         return;
     }
-    
+
     showLoading("Đang chuẩn bị dữ liệu...");
-    
+
     // Ensure all items have unique IDs
-    const dataWithUniqueIds = dataArray.map(item => ensureUniqueId(item));
+    const dataWithUniqueIds = dataArray.map((item) => ensureUniqueId(item));
     arrayData = [...dataWithUniqueIds];
-    
+
     if (applyInitialFilter) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split("T")[0];
         currentFilters.startDate = today;
         currentFilters.endDate = today;
     }
-    
+
     // Sort data by date only (newest first) - NO muted sorting
     const sortedData = [...dataWithUniqueIds].sort((a, b) => {
         const timestampA = parseInt(a.dateCell) || 0;
         const timestampB = parseInt(b.dateCell) || 0;
         return timestampB - timestampA; // Newest first only
     });
-    
+
     // Store sorted data - will be filtered later
     filteredData = [...sortedData];
-    
+
     // Clear table and reset counters
-    tableBody.innerHTML = '';
+    tableBody.innerHTML = "";
     currentDisplayedRows = 0;
     const uniqueDates = new Set();
-    
+
     // Extract unique dates for filter
-    sortedData.forEach(item => {
+    sortedData.forEach((item) => {
         const timestamp = parseFloat(item.dateCell);
         const dateCellConvert = new Date(timestamp);
         const formattedTime = formatDate(dateCellConvert);
@@ -1025,56 +1077,75 @@ async function renderTableFromData(dataArray, applyInitialFilter = false) {
         }
     });
     arrayDate = Array.from(uniqueDates);
-    
+
     try {
         // Create filter system first
         createFilterSystem();
-        
+
         // If we need to apply initial filter, do it now before rendering
         if (applyInitialFilter) {
             // Filter the data first
-            const filteredResults = sortedData.filter(item => {
+            const filteredResults = sortedData.filter((item) => {
                 const timestamp = parseFloat(item.dateCell);
                 const itemDate = new Date(timestamp);
                 const formattedDate = formatDate(itemDate);
                 const rowDate = parseDisplayDate(formattedDate);
-                
-                const matchDate = checkDateInRange(rowDate, currentFilters.startDate, currentFilters.endDate);
-                
+
+                const matchDate = checkDateInRange(
+                    rowDate,
+                    currentFilters.startDate,
+                    currentFilters.endDate,
+                );
+
                 let matchStatus = true;
                 if (currentFilters.status === "active") {
                     matchStatus = !item.muted;
                 } else if (currentFilters.status === "completed") {
                     matchStatus = Boolean(item.muted);
                 }
-                
+
                 return matchDate && matchStatus;
             });
-            
+
             filteredData = filteredResults;
-            
+
             // Render filtered data
             if (filteredResults.length > 0) {
-                const initialBatchSize = Math.min(INITIAL_LOAD_SIZE, filteredResults.length);
+                const initialBatchSize = Math.min(
+                    INITIAL_LOAD_SIZE,
+                    filteredResults.length,
+                );
                 showLoading("Đang tải dữ liệu hôm nay...");
-                const initialFragment = createDocumentFragment(filteredResults, 0, initialBatchSize);
+                const initialFragment = createDocumentFragment(
+                    filteredResults,
+                    0,
+                    initialBatchSize,
+                );
                 tableBody.appendChild(initialFragment);
                 currentDisplayedRows = initialBatchSize;
-                
+
                 updateTotalAmount();
                 updateFilterInfo(filteredResults.length, sortedData.length);
-                
+
                 hideFloatingAlert();
-                showSuccess(`Hiển thị ${filteredResults.length} giao dịch hôm nay`);
-                
+                showSuccess(
+                    `Hiển thị ${filteredResults.length} giao dịch hôm nay`,
+                );
+
                 // Load remaining filtered data in background if needed
                 if (filteredResults.length > initialBatchSize) {
                     setTimeout(async () => {
-                        showLoading(`Đang tải ${filteredResults.length - initialBatchSize} giao dịch còn lại...`);
-                        await batchRenderRows(filteredResults.slice(initialBatchSize));
+                        showLoading(
+                            `Đang tải ${filteredResults.length - initialBatchSize} giao dịch còn lại...`,
+                        );
+                        await batchRenderRows(
+                            filteredResults.slice(initialBatchSize),
+                        );
                         updateTotalAmount();
                         hideFloatingAlert();
-                        console.log(`Completed loading ${filteredResults.length} filtered transactions`);
+                        console.log(
+                            `Completed loading ${filteredResults.length} filtered transactions`,
+                        );
                     }, 100);
                 }
             } else {
@@ -1085,102 +1156,126 @@ async function renderTableFromData(dataArray, applyInitialFilter = false) {
             }
         } else {
             // No initial filter, render all data
-            const initialBatchSize = Math.min(INITIAL_LOAD_SIZE, sortedData.length);
+            const initialBatchSize = Math.min(
+                INITIAL_LOAD_SIZE,
+                sortedData.length,
+            );
             if (initialBatchSize > 0) {
                 showLoading("Đang tải dữ liệu ban đầu...");
-                const initialFragment = createDocumentFragment(sortedData, 0, initialBatchSize);
+                const initialFragment = createDocumentFragment(
+                    sortedData,
+                    0,
+                    initialBatchSize,
+                );
                 tableBody.appendChild(initialFragment);
                 currentDisplayedRows = initialBatchSize;
-                
+
                 updateTotalAmount();
-                
+
                 hideFloatingAlert();
-                showSuccess(`Đã tải ${initialBatchSize}/${sortedData.length} giao dịch đầu tiên`);
-                
+                showSuccess(
+                    `Đã tải ${initialBatchSize}/${sortedData.length} giao dịch đầu tiên`,
+                );
+
                 // Load remaining data in background if needed
                 if (sortedData.length > initialBatchSize) {
                     setTimeout(async () => {
-                        showLoading(`Đang tải ${sortedData.length - initialBatchSize} giao dịch còn lại...`);
-                        await batchRenderRows(sortedData.slice(initialBatchSize));
+                        showLoading(
+                            `Đang tải ${sortedData.length - initialBatchSize} giao dịch còn lại...`,
+                        );
+                        await batchRenderRows(
+                            sortedData.slice(initialBatchSize),
+                        );
                         updateTotalAmount();
                         hideFloatingAlert();
-                        console.log(`Completed loading all ${sortedData.length} transactions`);
+                        console.log(
+                            `Completed loading all ${sortedData.length} transactions`,
+                        );
                     }, 100);
                 }
             }
         }
-        
+
         // Enable lazy loading for future interactions
         enableLazyLoading();
-        
     } catch (error) {
-        console.error('Error rendering table:', error);
-        showError('Có lỗi xảy ra khi hiển thị dữ liệu');
+        console.error("Error rendering table:", error);
+        showError("Có lỗi xảy ra khi hiển thị dữ liệu");
     }
 }
 
 function createTableRow(item, dateStr) {
-    const newRow = document.createElement('tr');
-    
+    const newRow = document.createElement("tr");
+
     // Apply styling for muted items (dimmed and moved to bottom)
     if (item.muted) {
-        newRow.style.cssText = 'opacity: 0.4; background-color: #f8f9fa;';
-        newRow.classList.add('muted-row');
+        newRow.style.cssText = "opacity: 0.4; background-color: #f8f9fa;";
+        newRow.classList.add("muted-row");
     } else {
-        newRow.style.cssText = 'opacity: 1.0;';
-        newRow.classList.add('active-row');
+        newRow.style.cssText = "opacity: 1.0;";
+        newRow.classList.add("active-row");
     }
 
     const cells = [
         { content: sanitizeInput(dateStr), id: item.dateCell },
-        { content: sanitizeInput(item.noteCell || '') },
-        { content: item.amountCell ? numberWithCommas(sanitizeInput(item.amountCell.toString()).replace(/[,\.]/g, '')) : '0' },
-        { content: sanitizeInput(item.bankCell || '') },
-        { content: null, type: 'checkbox', checked: Boolean(item.muted) },
-        { content: sanitizeInput(item.customerInfoCell || '') },
-        { content: null, type: 'edit' },
-        { content: null, type: 'delete', userId: item.user || 'Unknown' }
+        { content: sanitizeInput(item.noteCell || "") },
+        {
+            content: item.amountCell
+                ? numberWithCommas(
+                      sanitizeInput(item.amountCell.toString()).replace(
+                          /[,\.]/g,
+                          "",
+                      ),
+                  )
+                : "0",
+        },
+        { content: sanitizeInput(item.bankCell || "") },
+        { content: null, type: "checkbox", checked: Boolean(item.muted) },
+        { content: sanitizeInput(item.customerInfoCell || "") },
+        { content: null, type: "edit" },
+        { content: null, type: "delete", userId: item.user || "Unknown" },
     ];
 
     // Create cells using document fragment for better performance
     const cellFragment = document.createDocumentFragment();
-    
+
     cells.forEach((cellData, index) => {
-        const cell = document.createElement('td');
-        
-        if (cellData.type === 'checkbox') {
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
+        const cell = document.createElement("td");
+
+        if (cellData.type === "checkbox") {
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.style.cssText =
+                "width: 20px; height: 20px; cursor: pointer;";
             checkbox.checked = cellData.checked;
             cell.appendChild(checkbox);
-        } else if (cellData.type === 'edit') {
-            const editButton = document.createElement('button');
-            editButton.className = 'edit-button';
+        } else if (cellData.type === "edit") {
+            const editButton = document.createElement("button");
+            editButton.className = "edit-button";
             cell.appendChild(editButton);
-        } else if (cellData.type === 'delete') {
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'delete-button';
-            deleteButton.setAttribute('data-user', cellData.userId);
+        } else if (cellData.type === "delete") {
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "delete-button";
+            deleteButton.setAttribute("data-user", cellData.userId);
             cell.appendChild(deleteButton);
         } else {
             cell.textContent = cellData.content;
             if (cellData.id) cell.id = cellData.id;
         }
-        
+
         cellFragment.appendChild(cell);
     });
-    
+
     newRow.appendChild(cellFragment);
 
     // Store the unique ID in the row for easier identification
-    newRow.setAttribute('data-unique-id', item.uniqueId);
-    
+    newRow.setAttribute("data-unique-id", item.uniqueId);
+
     const auth = getAuthState();
     if (auth) {
         applyRowPermissions(newRow, parseInt(auth.checkLogin));
     }
-    
+
     return newRow;
 }
 
@@ -1188,16 +1283,16 @@ function applyRowPermissions(row, userRole) {
     const deleteCell = row.cells[7];
     const editCell = row.cells[6];
     const checkboxCell = row.cells[4];
-    
+
     if (userRole !== 0) {
-        deleteCell.style.visibility = 'hidden';
-        
+        deleteCell.style.visibility = "hidden";
+
         if (userRole === 1) {
-            checkboxCell.style.visibility = 'visible';
-            editCell.style.visibility = 'visible';
+            checkboxCell.style.visibility = "visible";
+            editCell.style.visibility = "visible";
         } else {
-            editCell.style.visibility = 'hidden';
-            checkboxCell.style.visibility = 'hidden';
+            editCell.style.visibility = "hidden";
+            checkboxCell.style.visibility = "hidden";
         }
     }
 }
@@ -1205,7 +1300,7 @@ function applyRowPermissions(row, userRole) {
 function updateTable() {
     const cachedData = getCachedData();
     if (cachedData) {
-        console.log('Loading from cache...');
+        console.log("Loading from cache...");
         showLoading("Đang tải dữ liệu từ cache...");
         // Use setTimeout to prevent blocking UI
         setTimeout(async () => {
@@ -1214,19 +1309,25 @@ function updateTable() {
         }, 50);
         return;
     }
-    
-    console.log('Loading from Firebase...');
+
+    console.log("Loading from Firebase...");
     showLoading("Đang tải dữ liệu từ Firebase...");
-    
-    collectionRef.doc("ck").get()
+
+    collectionRef
+        .doc("ck")
+        .get()
         .then(async (doc) => {
             if (doc.exists) {
                 const data = doc.data();
                 if (Array.isArray(data["data"]) && data["data"].length > 0) {
-                    console.log(`Loading ${data["data"].length} transactions from Firebase...`);
+                    console.log(
+                        `Loading ${data["data"].length} transactions from Firebase...`,
+                    );
                     await renderTableFromData(data["data"], true);
                     setCachedData(data["data"]);
-                    showSuccess(`Đã tải xong ${data["data"].length} giao dịch!`);
+                    showSuccess(
+                        `Đã tải xong ${data["data"].length} giao dịch!`,
+                    );
                 } else {
                     console.log("No data found or data array is empty");
                     createFilterSystem();
@@ -1253,91 +1354,99 @@ function initializeForm() {
     if (ngayck) {
         ngayck.valueAsDate = new Date();
     }
-    
+
     // Toggle form button
     if (toggleFormButton) {
-        toggleFormButton.addEventListener('click', () => {
+        toggleFormButton.addEventListener("click", () => {
             if (isOperationInProgress) {
-                showError('Có thao tác đang thực hiện, vui lòng đợi...');
+                showError("Có thao tác đang thực hiện, vui lòng đợi...");
                 return;
             }
-            
+
             if (hasPermission(3)) {
-                if (dataForm.style.display === 'none' || dataForm.style.display === '') {
-                    dataForm.style.display = 'block';
-                    toggleFormButton.textContent = 'Ẩn biểu mẫu';
-                    
+                if (
+                    dataForm.style.display === "none" ||
+                    dataForm.style.display === ""
+                ) {
+                    dataForm.style.display = "block";
+                    toggleFormButton.textContent = "Ẩn biểu mẫu";
+
                     // Auto-focus on first input when form opens
                     setTimeout(() => {
-                        const firstInput = document.getElementById('transferNote');
+                        const firstInput =
+                            document.getElementById("transferNote");
                         if (firstInput) {
                             firstInput.focus();
                         }
                     }, 100);
                 } else {
-                    dataForm.style.display = 'none';
-                    toggleFormButton.textContent = 'Hiện biểu mẫu';
+                    dataForm.style.display = "none";
+                    toggleFormButton.textContent = "Hiện biểu mẫu";
                 }
             } else {
-                showError('Không có quyền truy cập form');
+                showError("Không có quyền truy cập form");
             }
         });
     }
-    
+
     // Form submit handler
     if (moneyTransferForm) {
-        moneyTransferForm.addEventListener('submit', handleFormSubmit);
-        
+        moneyTransferForm.addEventListener("submit", handleFormSubmit);
+
         // Add keyboard shortcuts for faster entry
-        moneyTransferForm.addEventListener('keydown', function(e) {
+        moneyTransferForm.addEventListener("keydown", function (e) {
             // Ctrl + Enter to submit form
-            if (e.ctrlKey && e.key === 'Enter') {
+            if (e.ctrlKey && e.key === "Enter") {
                 e.preventDefault();
                 handleFormSubmit(e);
             }
         });
     }
-    
+
     // Amount input formatting
     if (transferAmountInput) {
-        transferAmountInput.addEventListener('blur', function() {
-            let value = this.value.replace(/[,\.]/g, '');
+        transferAmountInput.addEventListener("blur", function () {
+            let value = this.value.replace(/[,\.]/g, "");
             value = parseFloat(value);
 
             if (!isNaN(value) && value > 0) {
                 this.value = numberWithCommas(value);
             }
         });
-        
+
         // Auto-advance to next field on Enter
-        transferAmountInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+        transferAmountInput.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
                 e.preventDefault();
-                const bankSelect = document.getElementById('bank');
+                const bankSelect = document.getElementById("bank");
                 if (bankSelect) {
                     bankSelect.focus();
                 }
             }
         });
     }
-    
+
     // Add Enter key navigation for form fields (except the last one)
-    const formFields = ['transferNote', 'transferAmount', 'bank'];
+    const formFields = ["transferNote", "transferAmount", "bank"];
     formFields.forEach((fieldId, index) => {
         const field = document.getElementById(fieldId);
-        if (field && fieldId !== 'transferAmount') { // transferAmount already handled above
-            field.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
+        if (field && fieldId !== "transferAmount") {
+            // transferAmount already handled above
+            field.addEventListener("keypress", function (e) {
+                if (e.key === "Enter") {
                     e.preventDefault();
                     const nextIndex = index + 1;
                     if (nextIndex < formFields.length) {
-                        const nextField = document.getElementById(formFields[nextIndex]);
+                        const nextField = document.getElementById(
+                            formFields[nextIndex],
+                        );
                         if (nextField) {
                             nextField.focus();
                         }
                     } else {
                         // If this is the last field, focus on customerInfo
-                        const customerInfoField = document.getElementById('customerInfo');
+                        const customerInfoField =
+                            document.getElementById("customerInfo");
                         if (customerInfoField) {
                             customerInfoField.focus();
                         }
@@ -1346,35 +1455,38 @@ function initializeForm() {
             });
         }
     });
-    
+
     // For customerInfo (last field), Enter should submit the form
-    const customerInfoField = document.getElementById('customerInfo');
+    const customerInfoField = document.getElementById("customerInfo");
     if (customerInfoField) {
-        customerInfoField.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+        customerInfoField.addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
                 e.preventDefault();
                 // Submit the form
-                const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                const submitEvent = new Event("submit", {
+                    bubbles: true,
+                    cancelable: true,
+                });
                 moneyTransferForm.dispatchEvent(submitEvent);
             }
         });
     }
-    
+
     // Clear form button
-    const clearDataButton = document.getElementById('clearDataButton');
+    const clearDataButton = document.getElementById("clearDataButton");
     if (clearDataButton) {
-        clearDataButton.addEventListener('click', function() {
+        clearDataButton.addEventListener("click", function () {
             if (isOperationInProgress) {
-                showError('Có thao tác đang thực hiện, vui lòng đợi...');
+                showError("Có thao tác đang thực hiện, vui lòng đợi...");
                 return;
             }
             const currentDate = new Date();
             moneyTransferForm.reset();
             ngayck.valueAsDate = currentDate;
-            
+
             // Focus on first input after clearing
             setTimeout(() => {
-                const firstInput = document.getElementById('transferNote');
+                const firstInput = document.getElementById("transferNote");
                 if (firstInput) {
                     firstInput.focus();
                 }
@@ -1388,37 +1500,43 @@ function handleFormSubmit(e) {
 
     // Check if any operation is in progress
     if (isOperationInProgress) {
-        showError('Có thao tác đang thực hiện, vui lòng đợi...');
+        showError("Có thao tác đang thực hiện, vui lòng đợi...");
         return;
     }
 
     if (!hasPermission(3)) {
-        showError('Không có quyền thêm giao dịch');
+        showError("Không có quyền thêm giao dịch");
         return;
     }
 
     const currentDate = new Date(ngayck.value);
     const formattedDate = formatDate(currentDate);
-    const transferNote = sanitizeInput(document.getElementById('transferNote').value);
-    let transferAmount = transferAmountInput.value.replace(/[,\.]/g, '');
+    const transferNote = sanitizeInput(
+        document.getElementById("transferNote").value,
+    );
+    let transferAmount = transferAmountInput.value.replace(/[,\.]/g, "");
     transferAmount = parseFloat(transferAmount);
-    const selectedBank = sanitizeInput(document.getElementById('bank').value);
-    const customerInfo = sanitizeInput(document.getElementById('customerInfo').value);
+    const selectedBank = sanitizeInput(document.getElementById("bank").value);
+    const customerInfo = sanitizeInput(
+        document.getElementById("customerInfo").value,
+    );
 
     // Validation
     if (isNaN(transferAmount) || transferAmount <= 0) {
-        showError('Vui lòng nhập số tiền chuyển hợp lệ.');
+        showError("Vui lòng nhập số tiền chuyển hợp lệ.");
         return;
     }
 
     if (!transferNote.trim()) {
-        showError('Vui lòng nhập ghi chú chuyển khoản.');
+        showError("Vui lòng nhập ghi chú chuyển khoản.");
         return;
     }
 
     // Generate timestamp
     const tempTimeStamp = new Date();
-    const timestamp = currentDate.getTime() + (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
+    const timestamp =
+        currentDate.getTime() +
+        (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
 
     const auth = getAuthState();
     const dataToUpload = {
@@ -1428,8 +1546,12 @@ function handleFormSubmit(e) {
         amountCell: numberWithCommas(transferAmount),
         bankCell: selectedBank,
         customerInfoCell: customerInfo,
-        user: auth ? (auth.userType ? auth.userType.split('-')[0] : 'Unknown') : 'Unknown',
-        muted: false
+        user: auth
+            ? auth.userType
+                ? auth.userType.split("-")[0]
+                : "Unknown"
+            : "Unknown",
+        muted: false,
     };
 
     // Start loading and block interactions
@@ -1445,7 +1567,7 @@ function handleFormSubmit(e) {
         transferAmount: transferAmount,
         selectedBank: selectedBank,
         customerInfo: customerInfo,
-        currentDate: currentDate
+        currentDate: currentDate,
     };
 
     // Reset form IMMEDIATELY after getting data
@@ -1453,67 +1575,90 @@ function handleFormSubmit(e) {
     ngayck.valueAsDate = new Date(); // Set to current date for next entry
 
     // Upload to Firebase
-    collectionRef.doc("ck").get().then(doc => {
-        const updateData = doc.exists ?
-            { ["data"]: firebase.firestore.FieldValue.arrayUnion(dataToUpload) } :
-            { ["data"]: [dataToUpload] };
+    collectionRef
+        .doc("ck")
+        .get()
+        .then((doc) => {
+            const updateData = doc.exists
+                ? {
+                      ["data"]:
+                          firebase.firestore.FieldValue.arrayUnion(
+                              dataToUpload,
+                          ),
+                  }
+                : { ["data"]: [dataToUpload] };
 
-        const operation = doc.exists ?
-            collectionRef.doc("ck").update(updateData) :
-            collectionRef.doc("ck").set(updateData);
+            const operation = doc.exists
+                ? collectionRef.doc("ck").update(updateData)
+                : collectionRef.doc("ck").set(updateData);
 
-        return operation;
-    }).then(() => {
-        logAction('add', `Thêm giao dịch chuyển khoản: ${transferNote}`, null, dataToUpload);
-        invalidateCache();
-        
-        // Update arrays to include new data
-        arrayData.unshift(dataToUpload);
-        
-        // Update filtered data if applicable
-        const timestamp = parseFloat(dataToUpload.dateCell);
-        const itemDate = new Date(timestamp);
-        const formattedDate = formatDate(itemDate);
-        const rowDate = parseDisplayDate(formattedDate);
-        
-        const matchDate = checkDateInRange(rowDate, currentFilters.startDate, currentFilters.endDate);
-        let matchStatus = true;
-        if (currentFilters.status === "active") {
-            matchStatus = !dataToUpload.muted;
-        } else if (currentFilters.status === "completed") {
-            matchStatus = Boolean(dataToUpload.muted);
-        }
-        
-        if (matchDate && matchStatus) {
-            filteredData.unshift(dataToUpload);
-        }
-        
-        updateTotalAmount();
-        hideOperationLoading("Đã thêm giao dịch thành công!");
-        
-        // Focus on the first input field for continuous entry
-        setTimeout(() => {
-            const firstInput = document.getElementById('transferNote');
-            if (firstInput) {
-                firstInput.focus();
+            return operation;
+        })
+        .then(() => {
+            logAction(
+                "add",
+                `Thêm giao dịch chuyển khoản: ${transferNote}`,
+                null,
+                dataToUpload,
+            );
+            invalidateCache();
+
+            // Update arrays to include new data
+            arrayData.unshift(dataToUpload);
+
+            // Update filtered data if applicable
+            const timestamp = parseFloat(dataToUpload.dateCell);
+            const itemDate = new Date(timestamp);
+            const formattedDate = formatDate(itemDate);
+            const rowDate = parseDisplayDate(formattedDate);
+
+            const matchDate = checkDateInRange(
+                rowDate,
+                currentFilters.startDate,
+                currentFilters.endDate,
+            );
+            let matchStatus = true;
+            if (currentFilters.status === "active") {
+                matchStatus = !dataToUpload.muted;
+            } else if (currentFilters.status === "completed") {
+                matchStatus = Boolean(dataToUpload.muted);
             }
-        }, 100);
-        
-        console.log("Document uploaded successfully");
-    }).catch((error) => {
-        console.error("Error uploading document: ", error);
-        newRow.remove(); // Remove the row if upload fails
-        
-        // Restore form data on error
-        document.getElementById('transferNote').value = formData.transferNote;
-        transferAmountInput.value = numberWithCommas(formData.transferAmount);
-        document.getElementById('bank').value = formData.selectedBank;
-        document.getElementById('customerInfo').value = formData.customerInfo;
-        ngayck.valueAsDate = formData.currentDate;
-        
-        hideOperationLoading();
-        showError('Lỗi khi tải document lên.');
-    });
+
+            if (matchDate && matchStatus) {
+                filteredData.unshift(dataToUpload);
+            }
+
+            updateTotalAmount();
+            hideOperationLoading("Đã thêm giao dịch thành công!");
+
+            // Focus on the first input field for continuous entry
+            setTimeout(() => {
+                const firstInput = document.getElementById("transferNote");
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            }, 100);
+
+            console.log("Document uploaded successfully");
+        })
+        .catch((error) => {
+            console.error("Error uploading document: ", error);
+            newRow.remove(); // Remove the row if upload fails
+
+            // Restore form data on error
+            document.getElementById("transferNote").value =
+                formData.transferNote;
+            transferAmountInput.value = numberWithCommas(
+                formData.transferAmount,
+            );
+            document.getElementById("bank").value = formData.selectedBank;
+            document.getElementById("customerInfo").value =
+                formData.customerInfo;
+            ngayck.valueAsDate = formData.currentDate;
+
+            hideOperationLoading();
+            showError("Lỗi khi tải document lên.");
+        });
 }
 
 // =====================================================
@@ -1523,26 +1668,26 @@ function handleFormSubmit(e) {
 function initializeTableEvents() {
     if (!tableBody) return;
 
-    tableBody.addEventListener('click', function(e) {
+    tableBody.addEventListener("click", function (e) {
         // Block interactions during operations
         if (isOperationInProgress) {
-            showError('Có thao tác đang thực hiện, vui lòng đợi...');
+            showError("Có thao tác đang thực hiện, vui lòng đợi...");
             return;
         }
 
         const auth = getAuthState();
-        if (!auth || auth.checkLogin == '777') {
-            if (e.target.type === 'checkbox') {
+        if (!auth || auth.checkLogin == "777") {
+            if (e.target.type === "checkbox") {
                 e.target.checked = false;
             }
             return;
         }
 
-        if (e.target.classList.contains('edit-button')) {
+        if (e.target.classList.contains("edit-button")) {
             handleEditButton(e);
-        } else if (e.target.classList.contains('delete-button')) {
+        } else if (e.target.classList.contains("delete-button")) {
             handleDeleteButton(e);
-        } else if (e.target.type === 'checkbox') {
+        } else if (e.target.type === "checkbox") {
             handleCheckboxClick(e);
         }
     });
@@ -1551,13 +1696,13 @@ function initializeTableEvents() {
 function handleEditButton(e) {
     if (!editModal) return;
 
-    editModal.style.display = 'block';
+    editModal.style.display = "block";
 
-    const editDate = document.getElementById('editDate');
-    const editNote = document.getElementById('editNote');
-    const editAmount = document.getElementById('editAmount');
-    const editBank = document.getElementById('editBank');
-    const editInfo = document.getElementById('editInfo');
+    const editDate = document.getElementById("editDate");
+    const editNote = document.getElementById("editNote");
+    const editAmount = document.getElementById("editAmount");
+    const editBank = document.getElementById("editBank");
+    const editInfo = document.getElementById("editInfo");
 
     const row = e.target.parentNode.parentNode;
     const date = row.cells[0].innerText;
@@ -1570,11 +1715,25 @@ function handleEditButton(e) {
     const canEditAll = hasPermission(1);
 
     if (canEditAll) {
-        if (editDate) { editDate.disabled = false; editDate.value = date; }
-        if (editNote) { editNote.disabled = false; editNote.value = note; }
-        if (editAmount) { editAmount.disabled = false; editAmount.value = amount; }
-        if (editBank) { editBank.disabled = false; editBank.value = bank; }
-        if (editInfo) { editInfo.value = customerInfo; }
+        if (editDate) {
+            editDate.disabled = false;
+            editDate.value = date;
+        }
+        if (editNote) {
+            editNote.disabled = false;
+            editNote.value = note;
+        }
+        if (editAmount) {
+            editAmount.disabled = false;
+            editAmount.value = amount;
+        }
+        if (editBank) {
+            editBank.disabled = false;
+            editBank.value = bank;
+        }
+        if (editInfo) {
+            editInfo.value = customerInfo;
+        }
     } else {
         if (editDate) editDate.disabled = true;
         if (editNote) editNote.disabled = true;
@@ -1588,18 +1747,18 @@ function handleEditButton(e) {
 
 function handleDeleteButton(e) {
     if (!hasPermission(0)) {
-        showError('Không đủ quyền thực hiện chức năng này.');
+        showError("Không đủ quyền thực hiện chức năng này.");
         return;
     }
-    
+
     const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
     if (!confirmDelete) return;
 
     const row = e.target.closest("tr");
-    const uniqueId = row.getAttribute('data-unique-id');
-    
+    const uniqueId = row.getAttribute("data-unique-id");
+
     if (!row || !uniqueId) {
-        showError('Không tìm thấy ID giao dịch để xóa.');
+        showError("Không tìm thấy ID giao dịch để xóa.");
         return;
     }
 
@@ -1612,37 +1771,52 @@ function handleDeleteButton(e) {
         noteCell: row.cells[1].innerText,
         amountCell: row.cells[2].innerText,
         bankCell: row.cells[3].innerText,
-        customerInfoCell: row.cells[5].innerText
+        customerInfoCell: row.cells[5].innerText,
     };
 
-    collectionRef.doc("ck").get()
+    collectionRef
+        .doc("ck")
+        .get()
         .then((doc) => {
             if (!doc.exists) {
-                throw new Error('Document does not exist');
+                throw new Error("Document does not exist");
             }
 
             const data = doc.data();
             const dataArray = data["data"] || [];
-            
+
             // Use uniqueId to find and remove the item
-            const updatedArray = dataArray.filter(item => item.uniqueId !== uniqueId);
-            
+            const updatedArray = dataArray.filter(
+                (item) => item.uniqueId !== uniqueId,
+            );
+
             if (updatedArray.length === dataArray.length) {
                 // Fallback to dateCell if uniqueId not found
-                const updatedArrayFallback = dataArray.filter(item => item.dateCell !== row.querySelector("td").id);
-                return collectionRef.doc("ck").update({ "data": updatedArrayFallback });
+                const updatedArrayFallback = dataArray.filter(
+                    (item) => item.dateCell !== row.querySelector("td").id,
+                );
+                return collectionRef
+                    .doc("ck")
+                    .update({ data: updatedArrayFallback });
             }
-            
-            return collectionRef.doc("ck").update({ "data": updatedArray });
+
+            return collectionRef.doc("ck").update({ data: updatedArray });
         })
         .then(() => {
-            logAction('delete', `Xóa giao dịch: ${oldData.noteCell}`, oldData, null);
+            logAction(
+                "delete",
+                `Xóa giao dịch: ${oldData.noteCell}`,
+                oldData,
+                null,
+            );
             invalidateCache();
-            
+
             // Remove from arrays
-            arrayData = arrayData.filter(item => item.uniqueId !== uniqueId);
-            filteredData = filteredData.filter(item => item.uniqueId !== uniqueId);
-            
+            arrayData = arrayData.filter((item) => item.uniqueId !== uniqueId);
+            filteredData = filteredData.filter(
+                (item) => item.uniqueId !== uniqueId,
+            );
+
             row.remove();
             updateTotalAmount();
             hideOperationLoading("Đã xóa giao dịch thành công!");
@@ -1656,17 +1830,17 @@ function handleDeleteButton(e) {
 
 function handleCheckboxClick(e) {
     if (!hasPermission(1)) {
-        showError('Không đủ quyền thực hiện chức năng này.');
+        showError("Không đủ quyền thực hiện chức năng này.");
         e.target.checked = !e.target.checked;
         return;
     }
 
     const isChecked = e.target.checked;
     const row = e.target.parentNode.parentNode;
-    const uniqueId = row.getAttribute('data-unique-id');
-    const confirmationMessage = isChecked ? 
-        'Bạn có chắc đơn này đã được đi?' : 
-        'Đã hủy xác nhận đi đơn';
+    const uniqueId = row.getAttribute("data-unique-id");
+    const confirmationMessage = isChecked
+        ? "Bạn có chắc đơn này đã được đi?"
+        : "Đã hủy xác nhận đi đơn";
 
     if (!confirm(confirmationMessage)) {
         e.target.checked = !isChecked;
@@ -1675,20 +1849,20 @@ function handleCheckboxClick(e) {
 
     // Start loading and block interactions
     showOperationLoading("Đang cập nhật trạng thái...", "status_update");
-    
+
     // Apply visual changes for muted state
     if (isChecked) {
-        row.style.opacity = '0.4';
-        row.style.backgroundColor = '#f8f9fa';
-        row.classList.add('muted-row');
-        row.classList.remove('active-row');
+        row.style.opacity = "0.4";
+        row.style.backgroundColor = "#f8f9fa";
+        row.classList.add("muted-row");
+        row.classList.remove("active-row");
     } else {
-        row.style.opacity = '1.0';
-        row.style.backgroundColor = '';
-        row.classList.add('active-row');
-        row.classList.remove('muted-row');
+        row.style.opacity = "1.0";
+        row.style.backgroundColor = "";
+        row.classList.add("active-row");
+        row.classList.remove("muted-row");
     }
-    
+
     const tdRow = row.querySelector("td");
     const dataForLog = {
         uniqueId: uniqueId,
@@ -1697,54 +1871,65 @@ function handleCheckboxClick(e) {
         amountCell: row.cells[2].innerText,
         bankCell: row.cells[3].innerText,
         customerInfoCell: row.cells[5].innerText,
-        muted: isChecked
+        muted: isChecked,
     };
 
-    collectionRef.doc("ck").get()
+    collectionRef
+        .doc("ck")
+        .get()
         .then((doc) => {
             if (!doc.exists) {
-                throw new Error('Document does not exist');
+                throw new Error("Document does not exist");
             }
 
             const data = doc.data();
             const dataArray = data["data"] || [];
-            
+
             // Find item by uniqueId first, fallback to dateCell
-            let itemIndex = dataArray.findIndex(item => item.uniqueId === uniqueId);
+            let itemIndex = dataArray.findIndex(
+                (item) => item.uniqueId === uniqueId,
+            );
             if (itemIndex === -1) {
-                itemIndex = dataArray.findIndex(item => item.dateCell === tdRow.id);
+                itemIndex = dataArray.findIndex(
+                    (item) => item.dateCell === tdRow.id,
+                );
             }
-            
+
             if (itemIndex === -1) {
-                throw new Error('Item not found');
+                throw new Error("Item not found");
             }
-            
+
             dataArray[itemIndex].muted = isChecked;
-            
-            return collectionRef.doc("ck").update({ "data": dataArray });
+
+            return collectionRef.doc("ck").update({ data: dataArray });
         })
         .then(() => {
-            logAction('update', 
-                `${isChecked ? 'Đánh dấu đã đi đơn' : 'Hủy đánh dấu đi đơn'}: ${dataForLog.noteCell}`, 
-                { ...dataForLog, muted: !isChecked }, 
-                { ...dataForLog, muted: isChecked }
+            logAction(
+                "update",
+                `${isChecked ? "Đánh dấu đã đi đơn" : "Hủy đánh dấu đi đơn"}: ${dataForLog.noteCell}`,
+                { ...dataForLog, muted: !isChecked },
+                { ...dataForLog, muted: isChecked },
             );
             invalidateCache();
-            
+
             // Update arrays
-            const itemIndexInArray = arrayData.findIndex(item => item.uniqueId === uniqueId);
+            const itemIndexInArray = arrayData.findIndex(
+                (item) => item.uniqueId === uniqueId,
+            );
             if (itemIndexInArray !== -1) {
                 arrayData[itemIndexInArray].muted = isChecked;
             }
-            
-            const itemIndexInFiltered = filteredData.findIndex(item => item.uniqueId === uniqueId);
+
+            const itemIndexInFiltered = filteredData.findIndex(
+                (item) => item.uniqueId === uniqueId,
+            );
             if (itemIndexInFiltered !== -1) {
                 filteredData[itemIndexInFiltered].muted = isChecked;
             }
-            
+
             updateTotalAmount();
             hideOperationLoading("Đã cập nhật trạng thái thành công!");
-            
+
             // Re-sort table to move muted items to bottom
             setTimeout(() => {
                 rerenderTableWithCurrentData();
@@ -1753,18 +1938,18 @@ function handleCheckboxClick(e) {
         .catch((error) => {
             console.error("Error updating status:", error);
             hideOperationLoading();
-            showError('Lỗi khi cập nhật trạng thái');
+            showError("Lỗi khi cập nhật trạng thái");
             // Revert visual changes on error
             if (isChecked) {
-                row.style.opacity = '1.0';
-                row.style.backgroundColor = '';
-                row.classList.add('active-row');
-                row.classList.remove('muted-row');
+                row.style.opacity = "1.0";
+                row.style.backgroundColor = "";
+                row.classList.add("active-row");
+                row.classList.remove("muted-row");
             } else {
-                row.style.opacity = '0.4';
-                row.style.backgroundColor = '#f8f9fa';
-                row.classList.add('muted-row');
-                row.classList.remove('active-row');
+                row.style.opacity = "0.4";
+                row.style.backgroundColor = "#f8f9fa";
+                row.classList.add("muted-row");
+                row.classList.remove("active-row");
             }
             e.target.checked = !isChecked;
         });
@@ -1775,7 +1960,11 @@ function rerenderTableWithCurrentData() {
     const cachedData = getCachedData();
     if (cachedData) {
         renderTableFromData(cachedData, false);
-        if (currentFilters.startDate || currentFilters.endDate || currentFilters.status !== 'all') {
+        if (
+            currentFilters.startDate ||
+            currentFilters.endDate ||
+            currentFilters.status !== "all"
+        ) {
             applyFilters();
         }
     } else {
@@ -1789,12 +1978,12 @@ function rerenderTableWithCurrentData() {
 
 function closeModal() {
     if (isOperationInProgress) {
-        showError('Có thao tác đang thực hiện, vui lòng đợi...');
+        showError("Có thao tác đang thực hiện, vui lòng đợi...");
         return;
     }
-    
+
     if (editModal) {
-        editModal.style.display = 'none';
+        editModal.style.display = "none";
     }
     editingRow = null;
 }
@@ -1802,21 +1991,21 @@ function closeModal() {
 function saveChanges() {
     // Check if any operation is in progress
     if (isOperationInProgress) {
-        showError('Có thao tác đang thực hiện, vui lòng đợi...');
+        showError("Có thao tác đang thực hiện, vui lòng đợi...");
         return;
     }
-    
-    const editDate = document.getElementById('editDate');
-    const editNote = document.getElementById('editNote');
-    const editAmount = document.getElementById('editAmount');
-    const editBank = document.getElementById('editBank');
-    const editInfo = document.getElementById('editInfo');
-    
+
+    const editDate = document.getElementById("editDate");
+    const editNote = document.getElementById("editNote");
+    const editAmount = document.getElementById("editAmount");
+    const editBank = document.getElementById("editBank");
+    const editInfo = document.getElementById("editInfo");
+
     if (!editDate || !editNote || !editAmount || !editBank || !editInfo) {
-        showError('Các trường nhập liệu không tồn tại.');
+        showError("Các trường nhập liệu không tồn tại.");
         return;
     }
-    
+
     const dateValue = editDate.value;
     const noteValue = sanitizeInput(editNote.value.trim());
     const amountValue = editAmount.value.trim();
@@ -1825,32 +2014,32 @@ function saveChanges() {
 
     // Validation
     if (!isValidDateFormat(dateValue)) {
-        showError('Nhập đúng định dạng ngày: DD-MM-YY');
+        showError("Nhập đúng định dạng ngày: DD-MM-YY");
         return;
     }
 
     if (!noteValue || !amountValue || !bankValue) {
-        showError('Vui lòng điền đầy đủ thông tin bắt buộc.');
+        showError("Vui lòng điền đầy đủ thông tin bắt buộc.");
         return;
     }
 
-    const cleanAmount = amountValue.replace(/[,\.]/g, '');
+    const cleanAmount = amountValue.replace(/[,\.]/g, "");
     const numAmount = parseFloat(cleanAmount);
     if (isNaN(numAmount) || numAmount <= 0) {
-        showError('Số tiền không hợp lệ.');
+        showError("Số tiền không hợp lệ.");
         return;
     }
 
     if (!editingRow) {
-        showError('Không tìm thấy hàng cần chỉnh sửa.');
+        showError("Không tìm thấy hàng cần chỉnh sửa.");
         return;
     }
-    
-    const uniqueId = editingRow.getAttribute('data-unique-id');
+
+    const uniqueId = editingRow.getAttribute("data-unique-id");
     const tdRow = editingRow.querySelector("td");
-    
+
     if (!uniqueId && (!tdRow || !tdRow.id)) {
-        showError('Không tìm thấy ID của giao dịch.');
+        showError("Không tìm thấy ID của giao dịch.");
         return;
     }
 
@@ -1859,37 +2048,48 @@ function saveChanges() {
 
     try {
         const editDateTimestamp = convertToTimestamp(dateValue);
-        
-        collectionRef.doc("ck").get()
+
+        collectionRef
+            .doc("ck")
+            .get()
             .then((doc) => {
                 if (!doc.exists) {
-                    throw new Error('Document does not exist');
+                    throw new Error("Document does not exist");
                 }
 
                 const data = doc.data();
                 const dataArray = data["data"] || [];
-                
+
                 // Find item by uniqueId first, fallback to dateCell
-                let itemIndex = dataArray.findIndex(item => item.uniqueId === uniqueId);
+                let itemIndex = dataArray.findIndex(
+                    (item) => item.uniqueId === uniqueId,
+                );
                 if (itemIndex === -1) {
-                    itemIndex = dataArray.findIndex(item => item.dateCell === tdRow.id);
+                    itemIndex = dataArray.findIndex(
+                        (item) => item.dateCell === tdRow.id,
+                    );
                 }
-                
+
                 if (itemIndex === -1) {
-                    throw new Error('Transaction not found');
+                    throw new Error("Transaction not found");
                 }
 
                 const oldData = { ...dataArray[itemIndex] };
                 const auth = getAuthState();
-                
+
                 if (hasPermission(1)) {
                     // Full edit permissions
                     dataArray[itemIndex].dateCell = editDateTimestamp;
                     dataArray[itemIndex].noteCell = noteValue;
-                    dataArray[itemIndex].amountCell = numberWithCommas(numAmount);
+                    dataArray[itemIndex].amountCell =
+                        numberWithCommas(numAmount);
                     dataArray[itemIndex].bankCell = bankValue;
                     dataArray[itemIndex].customerInfoCell = infoValue;
-                    dataArray[itemIndex].user = auth ? (auth.userType ? auth.userType.split('-')[0] : 'Unknown') : 'Unknown';
+                    dataArray[itemIndex].user = auth
+                        ? auth.userType
+                            ? auth.userType.split("-")[0]
+                            : "Unknown"
+                        : "Unknown";
                     // Ensure uniqueId is preserved
                     if (!dataArray[itemIndex].uniqueId) {
                         dataArray[itemIndex].uniqueId = generateUniqueId();
@@ -1897,10 +2097,14 @@ function saveChanges() {
                 } else {
                     // Limited edit permissions
                     dataArray[itemIndex].customerInfoCell = infoValue;
-                    dataArray[itemIndex].user = auth ? (auth.userType ? auth.userType.split('-')[0] : 'Unknown') : 'Unknown';
+                    dataArray[itemIndex].user = auth
+                        ? auth.userType
+                            ? auth.userType.split("-")[0]
+                            : "Unknown"
+                        : "Unknown";
                 }
-                
-                return collectionRef.doc("ck").update({ "data": dataArray });
+
+                return collectionRef.doc("ck").update({ data: dataArray });
             })
             .then(() => {
                 // Update the row in the table
@@ -1908,37 +2112,47 @@ function saveChanges() {
                     editingRow.cells[0].textContent = dateValue;
                     editingRow.cells[0].id = editDateTimestamp;
                     editingRow.cells[1].textContent = noteValue;
-                    editingRow.cells[2].textContent = numberWithCommas(numAmount);
+                    editingRow.cells[2].textContent =
+                        numberWithCommas(numAmount);
                     editingRow.cells[3].textContent = bankValue;
                     editingRow.cells[5].textContent = infoValue;
                 } else {
                     editingRow.cells[5].textContent = infoValue;
                 }
-                
+
                 // Update arrays
-                const itemIndexInArray = arrayData.findIndex(item => item.uniqueId === uniqueId);
+                const itemIndexInArray = arrayData.findIndex(
+                    (item) => item.uniqueId === uniqueId,
+                );
                 if (itemIndexInArray !== -1) {
                     if (hasPermission(1)) {
-                        arrayData[itemIndexInArray].dateCell = editDateTimestamp;
+                        arrayData[itemIndexInArray].dateCell =
+                            editDateTimestamp;
                         arrayData[itemIndexInArray].noteCell = noteValue;
-                        arrayData[itemIndexInArray].amountCell = numberWithCommas(numAmount);
+                        arrayData[itemIndexInArray].amountCell =
+                            numberWithCommas(numAmount);
                         arrayData[itemIndexInArray].bankCell = bankValue;
                     }
                     arrayData[itemIndexInArray].customerInfoCell = infoValue;
                 }
-                
-                const itemIndexInFiltered = filteredData.findIndex(item => item.uniqueId === uniqueId);
+
+                const itemIndexInFiltered = filteredData.findIndex(
+                    (item) => item.uniqueId === uniqueId,
+                );
                 if (itemIndexInFiltered !== -1) {
                     if (hasPermission(1)) {
-                        filteredData[itemIndexInFiltered].dateCell = editDateTimestamp;
+                        filteredData[itemIndexInFiltered].dateCell =
+                            editDateTimestamp;
                         filteredData[itemIndexInFiltered].noteCell = noteValue;
-                        filteredData[itemIndexInFiltered].amountCell = numberWithCommas(numAmount);
+                        filteredData[itemIndexInFiltered].amountCell =
+                            numberWithCommas(numAmount);
                         filteredData[itemIndexInFiltered].bankCell = bankValue;
                     }
-                    filteredData[itemIndexInFiltered].customerInfoCell = infoValue;
+                    filteredData[itemIndexInFiltered].customerInfoCell =
+                        infoValue;
                 }
-                
-                logAction('edit', `Sửa giao dịch: ${noteValue}`, null, null);
+
+                logAction("edit", `Sửa giao dịch: ${noteValue}`, null, null);
                 invalidateCache();
                 updateTotalAmount();
                 hideOperationLoading("Đã lưu thay đổi thành công!");
@@ -1947,13 +2161,12 @@ function saveChanges() {
             .catch((error) => {
                 console.error("Error updating document:", error);
                 hideOperationLoading();
-                showError('Lỗi khi cập nhật dữ liệu');
+                showError("Lỗi khi cập nhật dữ liệu");
             });
-            
     } catch (error) {
-        console.error('Error in saveChanges:', error);
+        console.error("Error in saveChanges:", error);
         hideOperationLoading();
-        showError('Lỗi: ' + error.message);
+        showError("Lỗi: " + error.message);
     }
 }
 
@@ -1963,38 +2176,53 @@ function saveChanges() {
 
 function exportToExcel() {
     if (isOperationInProgress) {
-        showError('Có thao tác đang thực hiện, vui lòng đợi...');
+        showError("Có thao tác đang thực hiện, vui lòng đợi...");
         return;
     }
-    
+
     if (!hasPermission(1)) {
-        showError('Không có quyền xuất dữ liệu');
+        showError("Không có quyền xuất dữ liệu");
         return;
     }
 
     try {
         showOperationLoading("Đang chuẩn bị file Excel...", "export");
-        
+
         const wsData = [
-            ['Ngày', 'Ghi chú chuyển khoản', 'Số tiền chuyển', 'Ngân hàng', 'Đi đơn', 'Tên FB + SĐT']
+            [
+                "Ngày",
+                "Ghi chú chuyển khoản",
+                "Số tiền chuyển",
+                "Ngân hàng",
+                "Đi đơn",
+                "Tên FB + SĐT",
+            ],
         ];
 
-        const tableRows = document.querySelectorAll('#tableBody tr');
+        const tableRows = document.querySelectorAll("#tableBody tr");
         let exportedRowCount = 0;
-        
-        tableRows.forEach(function(row) {
-            if (row.style.display !== 'none' && row.cells && row.cells.length >= 6) {
+
+        tableRows.forEach(function (row) {
+            if (
+                row.style.display !== "none" &&
+                row.cells &&
+                row.cells.length >= 6
+            ) {
                 const rowData = [];
-                
-                rowData.push(row.cells[0].textContent || '');
-                rowData.push(row.cells[1].textContent || '');
-                rowData.push(row.cells[2].textContent || '');
-                rowData.push(row.cells[3].textContent || '');
-                
-                const checkbox = row.cells[4].querySelector('input[type="checkbox"]');
-                rowData.push(checkbox && checkbox.checked ? 'Đã đi đơn' : 'Chưa đi đơn');
-                rowData.push(row.cells[5].textContent || '');
-                
+
+                rowData.push(row.cells[0].textContent || "");
+                rowData.push(row.cells[1].textContent || "");
+                rowData.push(row.cells[2].textContent || "");
+                rowData.push(row.cells[3].textContent || "");
+
+                const checkbox = row.cells[4].querySelector(
+                    'input[type="checkbox"]',
+                );
+                rowData.push(
+                    checkbox && checkbox.checked ? "Đã đi đơn" : "Chưa đi đơn",
+                );
+                rowData.push(row.cells[5].textContent || "");
+
                 wsData.push(rowData);
                 exportedRowCount++;
             }
@@ -2002,31 +2230,32 @@ function exportToExcel() {
 
         if (exportedRowCount === 0) {
             hideOperationLoading();
-            showError('Không có dữ liệu để xuất ra Excel');
+            showError("Không có dữ liệu để xuất ra Excel");
             return;
         }
 
-        if (typeof XLSX === 'undefined') {
+        if (typeof XLSX === "undefined") {
             hideOperationLoading();
-            showError('Thư viện Excel không khả dụng. Vui lòng tải lại trang');
+            showError("Thư viện Excel không khả dụng. Vui lòng tải lại trang");
             return;
         }
 
         setTimeout(() => {
             const ws = XLSX.utils.aoa_to_sheet(wsData);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Dữ liệu chuyển khoản');
-            
-            const fileName = `dulieu_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.utils.book_append_sheet(wb, ws, "Dữ liệu chuyển khoản");
+
+            const fileName = `dulieu_${new Date().toISOString().split("T")[0]}.xlsx`;
             XLSX.writeFile(wb, fileName);
-            
-            hideOperationLoading(`Đã xuất ${exportedRowCount} giao dịch ra Excel!`);
+
+            hideOperationLoading(
+                `Đã xuất ${exportedRowCount} giao dịch ra Excel!`,
+            );
         }, 500);
-        
     } catch (error) {
-        console.error('Error exporting to Excel:', error);
+        console.error("Error exporting to Excel:", error);
         hideOperationLoading();
-        showError('Có lỗi xảy ra khi xuất dữ liệu ra Excel');
+        showError("Có lỗi xảy ra khi xuất dữ liệu ra Excel");
     }
 }
 
@@ -2036,19 +2265,21 @@ function exportToExcel() {
 
 function handleLogout() {
     if (isOperationInProgress) {
-        showError('Có thao tác đang thực hiện, vui lòng đợi trước khi đăng xuất...');
+        showError(
+            "Có thao tác đang thực hiện, vui lòng đợi trước khi đăng xuất...",
+        );
         return;
     }
-    
-    const confirmLogout = confirm('Bạn có chắc muốn đăng xuất?');
+
+    const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
     if (confirmLogout) {
         showOperationLoading("Đang đăng xuất...", "logout");
-        
+
         setTimeout(() => {
             clearAuthState();
             invalidateCache();
             hideOperationLoading();
-            window.location.href = '../index.html';
+            window.location.href = "../index.html";
         }, 1000);
     }
 }
@@ -2057,67 +2288,72 @@ function handleLogout() {
 // INITIALIZATION
 // =====================================================
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener("DOMContentLoaded", function () {
     // Check authentication
     const auth = getAuthState();
     if (!isAuthenticated()) {
-        window.location.href = '../index.html';
+        window.location.href = "../index.html";
         return;
     }
 
     // Update UI based on user
     if (auth.userType) {
-        const titleElement = document.querySelector('.tieude');
+        const titleElement = document.querySelector(".page-title");
         if (titleElement) {
-            titleElement.textContent += ' - ' + auth.displayName;
+            titleElement.textContent += " - " + auth.displayName;
         }
     }
 
     // Show main container
-    const parentContainer = document.getElementById('parentContainer');
+    const parentContainer = document.getElementById("parentContainer");
     if (parentContainer) {
-        parentContainer.style.display = 'flex';
-        parentContainer.style.justifyContent = 'center';
-        parentContainer.style.alignItems = 'center';
+        parentContainer.style.display = "flex";
+        parentContainer.style.justifyContent = "center";
+        parentContainer.style.alignItems = "center";
     }
 
     // Initialize components
     initializeForm();
     initializeTableEvents();
     updateTable();
-    
+
     // Add logout button event listener
-    const toggleLogoutButton = document.getElementById('toggleLogoutButton');
+    const toggleLogoutButton = document.getElementById("toggleLogoutButton");
     if (toggleLogoutButton) {
-        toggleLogoutButton.addEventListener('click', handleLogout);
+        toggleLogoutButton.addEventListener("click", handleLogout);
     }
 
     // Remove ads
-    const adsElement = document.querySelector('div[style*="position: fixed"][style*="z-index:9999999"]');
+    const adsElement = document.querySelector(
+        'div[style*="position: fixed"][style*="z-index:9999999"]',
+    );
     if (adsElement) {
         adsElement.remove();
     }
 
-    console.log('Money Transfer Management System initialized successfully with enhanced loading states');
+    console.log(
+        "Money Transfer Management System initialized successfully with enhanced loading states",
+    );
 });
 
 // Global error handler
-window.addEventListener('error', function(e) {
-    console.error('Global error:', e.error);
-    
+window.addEventListener("error", function (e) {
+    console.error("Global error:", e.error);
+
     // If an operation is in progress, unblock interactions
     if (isOperationInProgress) {
         hideOperationLoading();
     }
-    
-    showError('Có lỗi xảy ra. Vui lòng tải lại trang.');
+
+    showError("Có lỗi xảy ra. Vui lòng tải lại trang.");
 });
 
 // Handle page unload during operations
-window.addEventListener('beforeunload', function(e) {
+window.addEventListener("beforeunload", function (e) {
     if (isOperationInProgress) {
         e.preventDefault();
-        e.returnValue = 'Có thao tác đang thực hiện. Bạn có chắc muốn rời khỏi trang?';
+        e.returnValue =
+            "Có thao tác đang thực hiện. Bạn có chắc muốn rời khỏi trang?";
         return e.returnValue;
     }
 });

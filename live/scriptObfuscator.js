@@ -1,4 +1,441 @@
-// Image Management System - Enhanced Version with Updated Authentication
+// =====================================================
+// UI NOTIFICATION SYSTEM - FIXED VERSION
+// =====================================================
+
+class NotificationManager {
+    constructor() {
+        this.container = null;
+        this.notifications = new Map(); // Track multiple notifications
+        this.notificationCounter = 0; // Unique ID for each notification
+        this.init();
+    }
+
+    init() {
+        this.container = document.createElement("div");
+        this.container.id = "notification-container";
+        this.container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10001;
+            max-width: 400px;
+            pointer-events: none;
+        `;
+        document.body.appendChild(this.container);
+
+        this.injectStyles();
+
+        // Clean up any existing overlay on init (in case of page refresh issues)
+        setTimeout(() => {
+            this.forceHideOverlay();
+        }, 100);
+    }
+
+    injectStyles() {
+        if (document.getElementById("notification-styles")) return;
+
+        const style = document.createElement("style");
+        style.id = "notification-styles";
+        style.textContent = `
+            .notification {
+                padding: 15px 20px;
+                margin-bottom: 10px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                opacity: 0;
+                transform: translateX(100%);
+                transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                font-size: 14px;
+                font-weight: 500;
+                position: relative;
+                overflow: hidden;
+                max-width: 400px;
+                word-wrap: break-word;
+                pointer-events: auto;
+            }
+            
+            .notification.show {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            
+            .notification.success {
+                background: linear-gradient(135deg, #4CAF50, #45a049);
+                color: white;
+                border-left: 4px solid #2E7D32;
+            }
+            
+            .notification.error {
+                background: linear-gradient(135deg, #f44336, #d32f2f);
+                color: white;
+                border-left: 4px solid #c62828;
+            }
+            
+            .notification.info {
+                background: linear-gradient(135deg, #2196F3, #1976D2);
+                color: white;
+                border-left: 4px solid #1565C0;
+            }
+            
+            .notification.warning {
+                background: linear-gradient(135deg, #FF9800, #F57C00);
+                color: white;
+                border-left: 4px solid #E65100;
+            }
+            
+            .notification::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 0%;
+                background: rgba(255,255,255,0.2);
+                transition: width linear;
+            }
+            
+            .notification.with-progress::before {
+                animation: progress-bar linear;
+                animation-duration: var(--duration, 3000ms);
+            }
+            
+            @keyframes progress-bar {
+                from { width: 0%; }
+                to { width: 100%; }
+            }
+            
+            .notification .close-btn {
+                position: absolute;
+                top: 5px;
+                right: 10px;
+                background: none;
+                border: none;
+                color: inherit;
+                font-size: 18px;
+                cursor: pointer;
+                opacity: 0.7;
+                transition: opacity 0.2s;
+            }
+            
+            .notification .close-btn:hover {
+                opacity: 1;
+            }
+            
+            .loading-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.3);
+                z-index: 10000;
+                display: none;
+                backdrop-filter: blur(2px);
+            }
+            
+            .loading-overlay.show {
+                display: block;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    show(message, type = "info", duration = 3000, showOverlay = false) {
+        // If this is a loading notification, clear previous ones first
+        if (showOverlay || duration === 0) {
+            this.clearAll();
+        }
+
+        const notificationId = ++this.notificationCounter;
+        const notification = document.createElement("div");
+        notification.className = `notification ${type}`;
+        notification.dataset.id = notificationId;
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "close-btn";
+        closeBtn.innerHTML = "×";
+        closeBtn.onclick = () => this.remove(notificationId);
+
+        notification.textContent = message;
+        notification.appendChild(closeBtn);
+
+        // Add progress bar for timed notifications
+        if (duration > 0) {
+            notification.style.setProperty("--duration", duration + "ms");
+            notification.classList.add("with-progress");
+        }
+
+        this.container.appendChild(notification);
+        this.notifications.set(notificationId, {
+            element: notification,
+            type: type,
+            timeout: null,
+            showOverlay: showOverlay,
+        });
+
+        // Handle loading overlay
+        if (showOverlay) {
+            this.showOverlay();
+            document.body.style.overflow = "hidden";
+        }
+
+        // Animate in
+        requestAnimationFrame(() => {
+            notification.classList.add("show");
+        });
+
+        // Auto-hide with proper cleanup
+        if (duration > 0 && !showOverlay) {
+            const timeoutId = setTimeout(() => {
+                this.remove(notificationId);
+            }, duration);
+
+            this.notifications.get(notificationId).timeout = timeoutId;
+        }
+
+        return notificationId;
+    }
+
+    remove(notificationId) {
+        const notification = this.notifications.get(notificationId);
+        if (!notification) return;
+
+        // Clear timeout if exists
+        if (notification.timeout) {
+            clearTimeout(notification.timeout);
+        }
+
+        // Animate out
+        notification.element.classList.remove("show");
+
+        setTimeout(() => {
+            if (notification.element && notification.element.parentNode) {
+                notification.element.parentNode.removeChild(
+                    notification.element,
+                );
+            }
+            this.notifications.delete(notificationId);
+
+            // Hide overlay only if no more loading notifications exist
+            if (notification.showOverlay) {
+                this.checkAndHideOverlay();
+            }
+        }, 300);
+    }
+
+    clearAll() {
+        // Clear all notifications
+        for (const [id] of this.notifications) {
+            this.remove(id);
+        }
+        // Force hide overlay regardless
+        this.forceHideOverlay();
+    }
+
+    // Legacy method for backwards compatibility
+    clear() {
+        this.clearAll();
+    }
+
+    // Check if any loading notifications still exist before hiding overlay
+    checkAndHideOverlay() {
+        const hasLoadingNotifications = Array.from(
+            this.notifications.values(),
+        ).some((notification) => notification.showOverlay);
+
+        if (!hasLoadingNotifications) {
+            this.hideOverlay();
+        }
+    }
+
+    forceHideOverlay() {
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) {
+            overlay.classList.remove("show");
+        }
+        document.body.style.overflow = "auto";
+    }
+
+    showOverlay() {
+        let overlay = document.getElementById("loading-overlay");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.id = "loading-overlay";
+            overlay.className = "loading-overlay";
+            document.body.appendChild(overlay);
+        }
+        overlay.classList.add("show");
+    }
+
+    hideOverlay() {
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) {
+            overlay.classList.remove("show");
+        }
+        document.body.style.overflow = "auto";
+    }
+
+    loading(message = "Đang xử lý...") {
+        return this.show(message, "info", 0, true);
+    }
+
+    success(message, duration = 2000) {
+        return this.show(message, "success", duration);
+    }
+
+    error(message, duration = 4000) {
+        return this.show(message, "error", duration);
+    }
+
+    warning(message, duration = 3000) {
+        return this.show(message, "warning", duration);
+    }
+
+    // Method to update an existing notification (useful for progress updates)
+    update(notificationId, newMessage) {
+        const notification = this.notifications.get(notificationId);
+        if (notification) {
+            const closeBtn = notification.element.querySelector(".close-btn");
+            notification.element.textContent = newMessage;
+            notification.element.appendChild(closeBtn);
+        }
+    }
+
+    // Method to manually fix stuck overlay (can be called from console if needed)
+    fixStuckOverlay() {
+        console.log("Fixing stuck overlay...");
+        this.clearAll();
+        this.forceHideOverlay();
+
+        // Also clean up any orphaned overlay elements
+        const allOverlays = document.querySelectorAll(
+            ".loading-overlay, #loading-overlay",
+        );
+        allOverlays.forEach((overlay) => {
+            overlay.classList.remove("show");
+            overlay.style.display = "none";
+        });
+
+        document.body.style.overflow = "auto";
+        console.log("Overlay cleanup completed");
+    }
+}
+
+// =====================================================
+// GLOBAL INSTANCES AND INITIALIZATION
+// =====================================================
+
+// Global instances
+let notificationManager;
+let app;
+
+// Initialize when DOM is ready
+document.addEventListener("DOMContentLoaded", function () {
+    try {
+        // Ensure global instances are initialized
+        if (!authManager) {
+            throw new Error("AuthManager not initialized");
+        }
+        if (!cacheManager) {
+            throw new Error("CacheManager not initialized");
+        }
+
+        // Initialize notification system
+        notificationManager = new NotificationManager();
+
+        // Make notification functions globally available
+        window.showNotification = (message, type, duration) =>
+            notificationManager.show(message, type, duration);
+        window.hideNotification = () => notificationManager.clear();
+        window.showFloatingAlert = (message, isLoading, duration) => {
+            if (isLoading) {
+                notificationManager.loading(message);
+            } else {
+                notificationManager.show(message, "info", duration);
+            }
+        };
+        window.hideFloatingAlert = () => notificationManager.clear();
+
+        // Initialize main application
+        app = new ImageManagementApp();
+
+        // Setup periodic session check (mỗi 10 phút)
+        setInterval(
+            () => {
+                if (authManager && !authManager.checkAndRefreshSession()) {
+                    console.log("Session expired during periodic check");
+                    if (notificationManager) {
+                        notificationManager.error(
+                            "Phiên đăng nhập đã hết hạn. Đang chuyển về trang đăng nhập...",
+                        );
+                    }
+                    setTimeout(() => {
+                        window.location.href = "../index.html";
+                    }, 2000);
+                }
+            },
+            10 * 60 * 1000,
+        );
+    } catch (error) {
+        console.error("Application initialization error:", error);
+        if (notificationManager) {
+            notificationManager.error("Lỗi khởi tạo ứng dụng");
+        }
+        // Fallback error display
+        alert("Lỗi khởi tạo ứng dụng: " + error.message);
+    }
+});
+
+// Updated cleanup on page unload
+window.addEventListener("beforeunload", () => {
+    if (app && app.lazyLoader) {
+        app.lazyLoader.destroy();
+    }
+    if (cacheManager) {
+        cacheManager.cleanup();
+    }
+
+    // Refresh session timestamp before unload
+    if (authManager) {
+        authManager.refreshSession();
+    }
+});
+
+// Global error handler
+window.addEventListener("error", function (e) {
+    console.error("Global error:", e.error);
+    if (notificationManager) {
+        notificationManager.error("Có lỗi xảy ra. Vui lòng tải lại trang.");
+    }
+});
+
+// Export for debugging (remove in production)
+if (typeof window !== "undefined") {
+    window.debug = {
+        authManager: () => authManager,
+        cacheManager: () => cacheManager,
+        app: () => app,
+        // Utility methods for debugging
+        clearAuth: () => authManager && authManager.clearAuth(),
+        getAuthState: () => authManager && authManager.getAuthState(),
+        getCacheStats: () => cacheManager && cacheManager.getStats(),
+        invalidateCache: () => cacheManager && cacheManager.invalidate(),
+        refreshSession: () => authManager && authManager.refreshSession(),
+        checkSession: () => authManager && authManager.checkAndRefreshSession(),
+        // Emergency fixes
+        fixStuckOverlay: () =>
+            notificationManager && notificationManager.fixStuckOverlay(),
+        forceLogout: () => {
+            if (authManager) {
+                authManager.clearAuth();
+            }
+            window.location.href = "../index.html";
+        },
+    };
+
+    console.log("Debug utilities available via window.debug");
+    console.log("Available methods:", Object.keys(window.debug));
+} // Image Management System - Enhanced Version with Updated Authentication
 // Security, performance and maintainability improvements
 
 // =====================================================
@@ -183,7 +620,10 @@ class AuthManager {
         const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
         if (confirmLogout) {
             this.clearAuth();
-            cacheManager.invalidate();
+            // Safely call cacheManager if it exists
+            if (typeof cacheManager !== "undefined" && cacheManager) {
+                cacheManager.invalidate();
+            }
             window.location.href = "../index.html";
         }
     }
@@ -341,11 +781,15 @@ class CacheManager {
     }
 }
 
-// Global cache instance
-const cacheManager = new CacheManager();
+// Global instances - Initialize in correct order
+let authManager;
+let cacheManager;
 
-// Global auth instance
-const authManager = new AuthManager();
+// Initialize auth manager first
+authManager = new AuthManager();
+
+// Then initialize cache manager
+cacheManager = new CacheManager();
 
 // =====================================================
 // FIREBASE CONFIGURATION
@@ -829,7 +1273,7 @@ class ImageManagementApp {
     constructor() {
         this.firebase = null;
         this.lazyLoader = null;
-        this.categories = ["ao", "quan", "setvadam", "pkgd"];
+        this.categories = ["shirt", "pants", "dress-set", "accessories"];
         this.pathMapping = {
             Áo: "ao",
             Quần: "quan",
@@ -837,7 +1281,7 @@ class ImageManagementApp {
             PKGD: "pkgd",
         };
 
-        this.dom = {};
+        this.domElements = {};
         this.init();
     }
 
@@ -863,7 +1307,7 @@ class ImageManagementApp {
         this.injectStyles();
         this.setupControlButtons();
 
-        await this.updateDateFilterDropdown();
+        await this.updateLiveBatchFilterDropdown();
         await this.loadImages();
 
         // Setup periodic cache cleanup và session check
@@ -892,63 +1336,63 @@ class ImageManagementApp {
     }
 
     cacheDOMElements() {
-        this.dom = {
-            toggleFormButton: document.getElementById("toggleFormButton"),
+        this.domElements = {
+            toggleFormBtn: document.getElementById("toggleFormBtn"),
             dataForm: document.getElementById("dataForm"),
             productForm: document.getElementById("productForm"),
-            liveTable: document.querySelector(".live table"),
-            dateFilterDropdown: document.getElementById("dateFilter"),
-            dotLiveInput: document.getElementById("dotLive"),
-            phanLoaiSelect: document.getElementById("phanLoai"),
-            hinhAnhInput: document.getElementById("hinhAnhInput"),
-            addButton: document.getElementById("addButton"),
-            clearDataButton: document.getElementById("clearDataButton"),
-            toggleLogoutButton: document.getElementById("toggleLogoutButton"),
-            toggleDeleteButton: document.getElementById("toggleDeleteButton"),
-            liveDate: document.getElementById("liveDate"),
+            liveTable: document.querySelector(".inventory-table"),
+            liveBatchFilter: document.getElementById("liveBatchFilter"),
+            liveBatchInput: document.getElementById("liveBatchInput"),
+            categorySelect: document.getElementById("categorySelect"),
+            imageFileInput: document.getElementById("imageFileInput"),
+            addBtn: document.getElementById("addBtn"),
+            clearDataBtn: document.getElementById("clearDataBtn"),
+            toggleLogoutBtn: document.getElementById("toggleLogoutBtn"),
+            toggleDeleteBtn: document.getElementById("toggleDeleteBtn"),
+            liveBatchDisplay: document.getElementById("liveBatchDisplay"),
             parentContainer: document.getElementById("parentContainer"),
         };
     }
 
     setupEventListeners() {
         // Form toggle
-        if (this.dom.toggleFormButton) {
-            this.dom.toggleFormButton.addEventListener("click", () => {
+        if (this.domElements.toggleFormBtn) {
+            this.domElements.toggleFormBtn.addEventListener("click", () => {
                 this.toggleForm();
             });
         }
 
         // Form submission
-        if (this.dom.productForm) {
-            this.dom.productForm.addEventListener("submit", (e) => {
+        if (this.domElements.productForm) {
+            this.domElements.productForm.addEventListener("submit", (e) => {
                 this.handleFormSubmit(e);
             });
         }
 
         // Date filter
-        if (this.dom.dateFilterDropdown) {
-            this.dom.dateFilterDropdown.addEventListener("change", () => {
-                this.handleDateFilterChange();
+        if (this.domElements.liveBatchFilter) {
+            this.domElements.liveBatchFilter.addEventListener("change", () => {
+                this.handleLiveBatchFilterChange();
             });
         }
 
         // Clear form
-        if (this.dom.clearDataButton) {
-            this.dom.clearDataButton.addEventListener("click", () => {
+        if (this.domElements.clearDataBtn) {
+            this.domElements.clearDataBtn.addEventListener("click", () => {
                 this.clearForm();
             });
         }
 
         // Logout
-        if (this.dom.toggleLogoutButton) {
-            this.dom.toggleLogoutButton.addEventListener("click", () => {
+        if (this.domElements.toggleLogoutBtn) {
+            this.domElements.toggleLogoutBtn.addEventListener("click", () => {
                 this.handleLogout();
             });
         }
 
         // Delete
-        if (this.dom.toggleDeleteButton) {
-            this.dom.toggleDeleteButton.addEventListener("click", () => {
+        if (this.domElements.toggleDeleteBtn) {
+            this.domElements.toggleDeleteBtn.addEventListener("click", () => {
                 this.handleDelete();
             });
         }
@@ -957,16 +1401,16 @@ class ImageManagementApp {
     updateUserInterface() {
         const userInfo = authManager.getUserInfo();
         if (userInfo && userInfo.displayName) {
-            const titleElement = document.querySelector(".tieude");
+            const titleElement = document.querySelector(".page-title");
             if (titleElement) {
                 titleElement.textContent += " - " + userInfo.displayName;
             }
         }
 
-        if (this.dom.parentContainer) {
-            this.dom.parentContainer.style.display = "flex";
-            this.dom.parentContainer.style.justifyContent = "center";
-            this.dom.parentContainer.style.alignItems = "center";
+        if (this.domElements.parentContainer) {
+            this.domElements.parentContainer.style.display = "flex";
+            this.domElements.parentContainer.style.justifyContent = "center";
+            this.domElements.parentContainer.style.alignItems = "center";
         }
     }
 
@@ -978,10 +1422,12 @@ class ImageManagementApp {
     toggleForm() {
         if (authManager.hasPermission(777)) {
             const isHidden =
-                this.dom.dataForm.style.display === "none" ||
-                this.dom.dataForm.style.display === "";
-            this.dom.dataForm.style.display = isHidden ? "block" : "none";
-            this.dom.toggleFormButton.textContent = isHidden
+                this.domElements.dataForm.style.display === "none" ||
+                this.domElements.dataForm.style.display === "";
+            this.domElements.dataForm.style.display = isHidden
+                ? "block"
+                : "none";
+            this.domElements.toggleFormBtn.textContent = isHidden
                 ? "Ẩn biểu mẫu"
                 : "Hiện biểu mẫu";
         } else {
@@ -1000,26 +1446,26 @@ class ImageManagementApp {
         // Refresh session trước khi thực hiện action quan trọng
         authManager.refreshSession();
 
-        if (this.dom.addButton) {
-            this.dom.addButton.disabled = true;
+        if (this.domElements.addBtn) {
+            this.domElements.addBtn.disabled = true;
         }
 
         try {
-            const phanLoai = this.dom.phanLoaiSelect?.value;
-            const dotLiveValue = this.dom.dotLiveInput?.value;
+            const category = this.domElements.categorySelect?.value;
+            const liveBatchValue = this.domElements.liveBatchInput?.value;
 
-            if (!dotLiveValue) {
+            if (!liveBatchValue) {
                 notificationManager.error("Vui lòng chọn một đợt Live");
                 return;
             }
 
-            if (!phanLoai || !this.pathMapping[phanLoai]) {
+            if (!category || !this.pathMapping[category]) {
                 notificationManager.error("Vui lòng chọn phân loại hợp lệ");
                 return;
             }
 
-            const uploadPath = `live/${dotLiveValue}/${this.pathMapping[phanLoai]}/`;
-            const files = this.dom.hinhAnhInput?.files;
+            const uploadPath = `live/${liveBatchValue}/${this.pathMapping[category]}/`;
+            const files = this.domElements.imageFileInput?.files;
 
             if (!files || files.length === 0) {
                 notificationManager.error("Vui lòng chọn ít nhất một hình ảnh");
@@ -1031,8 +1477,8 @@ class ImageManagementApp {
             console.error("Form submission error:", error);
             notificationManager.error("Lỗi khi xử lý form");
         } finally {
-            if (this.dom.addButton) {
-                this.dom.addButton.disabled = false;
+            if (this.domElements.addBtn) {
+                this.domElements.addBtn.disabled = false;
             }
         }
     }
@@ -1136,42 +1582,42 @@ class ImageManagementApp {
         return true;
     }
 
-    handleDateFilterChange() {
-        const selectedDate = this.dom.dateFilterDropdown?.value;
+    handleLiveBatchFilterChange() {
+        const selectedBatch = this.domElements.liveBatchFilter?.value;
 
-        if (selectedDate === "all") {
-            if (this.dom.liveDate) {
-                this.dom.liveDate.textContent = "Tất cả";
+        if (selectedBatch === "all") {
+            if (this.domElements.liveBatchDisplay) {
+                this.domElements.liveBatchDisplay.textContent = "Tất cả";
             }
             this.showAllTableRows();
         } else {
-            if (this.dom.liveDate) {
-                this.dom.liveDate.textContent = selectedDate;
+            if (this.domElements.liveBatchDisplay) {
+                this.domElements.liveBatchDisplay.textContent = selectedBatch;
             }
-            this.filterTableRows(selectedDate);
+            this.filterTableRows(selectedBatch);
         }
 
         this.loadImages();
     }
 
     showAllTableRows() {
-        if (!this.dom.liveTable) return;
+        if (!this.domElements.liveTable) return;
 
-        for (const row of this.dom.liveTable.rows) {
+        for (const row of this.domElements.liveTable.rows) {
             if (row.cells[0] && row.cells[0].textContent !== "ĐỢT LIVE") {
                 row.style.display = "table-row";
             }
         }
     }
 
-    filterTableRows(selectedDate) {
-        if (!this.dom.liveTable) return;
+    filterTableRows(selectedBatch) {
+        if (!this.domElements.liveTable) return;
 
-        for (const row of this.dom.liveTable.rows) {
+        for (const row of this.domElements.liveTable.rows) {
             if (row.cells[0] && row.cells[0].textContent !== "ĐỢT LIVE") {
-                const rowDate = row.cells[0].textContent;
+                const rowBatch = row.cells[0].textContent;
                 row.style.display =
-                    selectedDate === rowDate ? "table-row" : "none";
+                    selectedBatch === rowBatch ? "table-row" : "none";
             }
         }
     }
@@ -1179,8 +1625,8 @@ class ImageManagementApp {
     async loadImages() {
         this.lazyLoader.resetProgress();
 
-        const selectedDate = this.dom.dateFilterDropdown?.value || "all";
-        const cacheKey = `import_${selectedDate}`;
+        const selectedBatch = this.domElements.liveBatchFilter?.value || "all";
+        const cacheKey = `import_${selectedBatch}`;
 
         // Check cache first
         const cachedData = cacheManager.get(cacheKey, "images");
@@ -1202,16 +1648,16 @@ class ImageManagementApp {
                 return;
             }
 
-            const datesToProcess =
-                selectedDate === "all"
+            const batchesToProcess =
+                selectedBatch === "all"
                     ? liveFolder.prefixes.map((folderRef) => folderRef.name)
-                    : [selectedDate];
+                    : [selectedBatch];
 
             const imageData = {};
 
             // Process dates with limited concurrency
-            for (const date of datesToProcess) {
-                await this.processDateImages(date, imageData);
+            for (const batch of batchesToProcess) {
+                await this.processBatchImages(batch, imageData);
             }
 
             // Cache the results
@@ -1230,17 +1676,17 @@ class ImageManagementApp {
         }
     }
 
-    async processDateImages(date, imageData) {
+    async processBatchImages(batch, imageData) {
         const categoryPromises = this.categories.map(async (category) => {
             try {
-                const urls = await this.loadCategoryImages(category, date);
+                const urls = await this.loadCategoryImages(category, batch);
                 if (!imageData[category]) {
                     imageData[category] = [];
                 }
                 imageData[category] = imageData[category].concat(urls || []);
             } catch (error) {
                 console.error(
-                    `Error loading ${category} images for ${date}:`,
+                    `Error loading ${category} images for ${batch}:`,
                     error,
                 );
             }
@@ -1249,10 +1695,10 @@ class ImageManagementApp {
         await Promise.allSettled(categoryPromises);
     }
 
-    async loadCategoryImages(category, date) {
-        const path = `live/${date}/${category}/`;
+    async loadCategoryImages(category, batch) {
+        const path = `live/${batch}/${this.getCategoryPath(category)}/`;
         const imageContainer = document.querySelector(
-            `.${category}product-row`,
+            `.${category}-product-row`,
         );
 
         if (!imageContainer) {
@@ -1306,10 +1752,20 @@ class ImageManagementApp {
         }
     }
 
+    getCategoryPath(category) {
+        const pathMap = {
+            shirt: "ao",
+            pants: "quan",
+            "dress-set": "setvadam",
+            accessories: "pkgd",
+        };
+        return pathMap[category] || category;
+    }
+
     renderImagesFromCache(imageData) {
         Object.keys(imageData).forEach((category) => {
             const imageContainer = document.querySelector(
-                `.${category}product-row`,
+                `.${category}-product-row`,
             );
             if (imageContainer && imageData[category]) {
                 imageData[category].forEach((url, index) => {
@@ -1328,7 +1784,7 @@ class ImageManagementApp {
     clearAllImageContainers() {
         this.categories.forEach((category) => {
             const imageContainer = document.querySelector(
-                `.${category}product-row`,
+                `.${category}-product-row`,
             );
             if (imageContainer) {
                 imageContainer.innerHTML = "";
@@ -1337,8 +1793,8 @@ class ImageManagementApp {
     }
 
     clearForm() {
-        if (this.dom.productForm) {
-            this.dom.productForm.reset();
+        if (this.domElements.productForm) {
+            this.domElements.productForm.reset();
         }
     }
 
@@ -1355,8 +1811,8 @@ class ImageManagementApp {
         // Refresh session trước khi thực hiện action quan trọng
         authManager.refreshSession();
 
-        const selectedDate = this.dom.dateFilterDropdown?.value;
-        if (!selectedDate || selectedDate === "all") {
+        const selectedBatch = this.domElements.liveBatchFilter?.value;
+        if (!selectedBatch || selectedBatch === "all") {
             notificationManager.error(
                 "Vui lòng chọn một đợt live cụ thể để xóa",
             );
@@ -1364,7 +1820,7 @@ class ImageManagementApp {
         }
 
         const confirmDelete = confirm(
-            `Bạn có chắc chắn muốn xóa đợt live ${selectedDate}? Hành động này không thể hoàn tác.`,
+            `Bạn có chắc chắn muốn xóa đợt live ${selectedBatch}? Hành động này không thể hoàn tác.`,
         );
         if (!confirmDelete) return;
 
@@ -1372,7 +1828,7 @@ class ImageManagementApp {
 
         try {
             const result = await this.firebase.deleteFolder(
-                `live/${selectedDate}`,
+                `live/${selectedBatch}`,
             );
 
             if (result.success) {
@@ -1392,35 +1848,36 @@ class ImageManagementApp {
         }
     }
 
-    async updateDateFilterDropdown() {
-        if (!this.dom.dateFilterDropdown) return;
+    async updateLiveBatchFilterDropdown() {
+        if (!this.domElements.liveBatchFilter) return;
 
         // Clear existing options except "Tất cả"
-        while (this.dom.dateFilterDropdown.options.length > 1) {
-            this.dom.dateFilterDropdown.remove(1);
+        while (this.domElements.liveBatchFilter.options.length > 1) {
+            this.domElements.liveBatchFilter.remove(1);
         }
 
         try {
             const liveFolder = await this.firebase.listFolder("live/");
-            const dates = liveFolder.prefixes.map(
+            const batches = liveFolder.prefixes.map(
                 (folderRef) => folderRef.name,
             );
 
-            dates
+            batches
                 .sort()
                 .reverse()
-                .forEach((date) => {
+                .forEach((batch) => {
                     const option = document.createElement("option");
-                    option.value = date;
-                    option.textContent = date;
-                    this.dom.dateFilterDropdown.appendChild(option);
+                    option.value = batch;
+                    option.textContent = batch;
+                    this.domElements.liveBatchFilter.appendChild(option);
                 });
 
-            if (this.dom.dotLiveInput) {
-                this.dom.dotLiveInput.value = dates.length > 0 ? dates[0] : "1";
+            if (this.domElements.liveBatchInput) {
+                this.domElements.liveBatchInput.value =
+                    batches.length > 0 ? batches[0] : "1";
             }
         } catch (error) {
-            console.error("Error updating date filter dropdown:", error);
+            console.error("Error updating live batch filter dropdown:", error);
             notificationManager.error("Lỗi khi tải danh sách ngày");
         }
     }
@@ -1434,50 +1891,6 @@ class ImageManagementApp {
             flex-wrap: wrap;
             justify-content: center;
         `;
-
-        const buttonStyle = `
-            padding: 10px 16px;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        `;
-
-        // Refresh button
-        const refreshButton = document.createElement("button");
-        //refreshButton.textContent = '🔄 Làm mới';
-        //refreshButton.onclick = () => this.forceRefresh();
-        //refreshButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #28a745, #20c997);';
-        //refreshButton.onmouseover = () => refreshButton.style.transform = 'translateY(-1px)';
-        //refreshButton.onmouseout = () => refreshButton.style.transform = 'translateY(0)';
-
-        // Performance stats button
-        const statsButton = document.createElement("button");
-        //statsButton.textContent = '📊 Thống kê';
-        //statsButton.onclick = () => this.showPerformanceStats();
-        //statsButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #17a2b8, #6f42c1);';
-        //statsButton.onmouseover = () => statsButton.style.transform = 'translateY(-1px)';
-        //statsButton.onmouseout = () => statsButton.style.transform = 'translateY(0)';
-
-        // Clear cache button
-        const clearCacheButton = document.createElement("button");
-        //clearCacheButton.textContent = '🗑️ Xóa cache';
-        //clearCacheButton.onclick = () => this.clearCache();
-        //clearCacheButton.style.cssText = buttonStyle + 'background: linear-gradient(135deg, #ffc107, #fd7e14);';
-        //clearCacheButton.onmouseover = () => clearCacheButton.style.transform = 'translateY(-1px)';
-        //clearCacheButton.onmouseout = () => clearCacheButton.style.transform = 'translateY(0)';
-
-        //controlsContainer.appendChild(refreshButton);
-        //controlsContainer.appendChild(statsButton);
-        //controlsContainer.appendChild(clearCacheButton);
-
-        //if (this.dom.parentContainer) {
-        //    this.dom.parentContainer.appendChild(controlsContainer);
-        //}
     }
 
     forceRefresh() {
@@ -1550,10 +1963,10 @@ Cache: ${stats.hitRate}% hit rate (${stats.cacheSize} entries)
         }
         
         /* THÊM PHẦN NÀY - Cải thiện style cho product-row containers */
-        .aoproduct-row,
-        .quanproduct-row, 
-        .setvadamproduct-row,
-        .pkgdproduct-row {
+        .shirt-product-row,
+        .pants-product-row, 
+        .dress-set-product-row,
+        .accessories-product-row {
             vertical-align: top !important;
             padding: 8px !important;
             min-height: 100px;
@@ -1568,427 +1981,4 @@ Cache: ${stats.hitRate}% hit rate (${stats.cacheSize} entries)
     `;
         document.head.appendChild(style);
     }
-}
-// =====================================================
-// UI NOTIFICATION SYSTEM - FIXED VERSION
-// =====================================================
-
-class NotificationManager {
-    constructor() {
-        this.container = null;
-        this.notifications = new Map(); // Track multiple notifications
-        this.notificationCounter = 0; // Unique ID for each notification
-        this.init();
-    }
-
-    init() {
-        this.container = document.createElement("div");
-        this.container.id = "notification-container";
-        this.container.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 10001;
-            max-width: 400px;
-            pointer-events: none;
-        `;
-        document.body.appendChild(this.container);
-
-        this.injectStyles();
-
-        // Clean up any existing overlay on init (in case of page refresh issues)
-        setTimeout(() => {
-            this.forceHideOverlay();
-        }, 100);
-    }
-
-    injectStyles() {
-        if (document.getElementById("notification-styles")) return;
-
-        const style = document.createElement("style");
-        style.id = "notification-styles";
-        style.textContent = `
-            .notification {
-                padding: 15px 20px;
-                margin-bottom: 10px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                opacity: 0;
-                transform: translateX(100%);
-                transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-                font-size: 14px;
-                font-weight: 500;
-                position: relative;
-                overflow: hidden;
-                max-width: 400px;
-                word-wrap: break-word;
-                pointer-events: auto;
-            }
-            
-            .notification.show {
-                opacity: 1;
-                transform: translateX(0);
-            }
-            
-            .notification.success {
-                background: linear-gradient(135deg, #4CAF50, #45a049);
-                color: white;
-                border-left: 4px solid #2E7D32;
-            }
-            
-            .notification.error {
-                background: linear-gradient(135deg, #f44336, #d32f2f);
-                color: white;
-                border-left: 4px solid #c62828;
-            }
-            
-            .notification.info {
-                background: linear-gradient(135deg, #2196F3, #1976D2);
-                color: white;
-                border-left: 4px solid #1565C0;
-            }
-            
-            .notification.warning {
-                background: linear-gradient(135deg, #FF9800, #F57C00);
-                color: white;
-                border-left: 4px solid #E65100;
-            }
-            
-            .notification::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                height: 100%;
-                width: 0%;
-                background: rgba(255,255,255,0.2);
-                transition: width linear;
-            }
-            
-            .notification.with-progress::before {
-                animation: progress-bar linear;
-                animation-duration: var(--duration, 3000ms);
-            }
-            
-            @keyframes progress-bar {
-                from { width: 0%; }
-                to { width: 100%; }
-            }
-            
-            .notification .close-btn {
-                position: absolute;
-                top: 5px;
-                right: 10px;
-                background: none;
-                border: none;
-                color: inherit;
-                font-size: 18px;
-                cursor: pointer;
-                opacity: 0.7;
-                transition: opacity 0.2s;
-            }
-            
-            .notification .close-btn:hover {
-                opacity: 1;
-            }
-            
-            .loading-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.3);
-                z-index: 10000;
-                display: none;
-                backdrop-filter: blur(2px);
-            }
-            
-            .loading-overlay.show {
-                display: block;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    show(message, type = "info", duration = 3000, showOverlay = false) {
-        // If this is a loading notification, clear previous ones first
-        if (showOverlay || duration === 0) {
-            this.clearAll();
-        }
-
-        const notificationId = ++this.notificationCounter;
-        const notification = document.createElement("div");
-        notification.className = `notification ${type}`;
-        notification.dataset.id = notificationId;
-
-        const closeBtn = document.createElement("button");
-        closeBtn.className = "close-btn";
-        closeBtn.innerHTML = "×";
-        closeBtn.onclick = () => this.remove(notificationId);
-
-        notification.textContent = message;
-        notification.appendChild(closeBtn);
-
-        // Add progress bar for timed notifications
-        if (duration > 0) {
-            notification.style.setProperty("--duration", duration + "ms");
-            notification.classList.add("with-progress");
-        }
-
-        this.container.appendChild(notification);
-        this.notifications.set(notificationId, {
-            element: notification,
-            type: type,
-            timeout: null,
-            showOverlay: showOverlay,
-        });
-
-        // Handle loading overlay
-        if (showOverlay) {
-            this.showOverlay();
-            document.body.style.overflow = "hidden";
-        }
-
-        // Animate in
-        requestAnimationFrame(() => {
-            notification.classList.add("show");
-        });
-
-        // Auto-hide with proper cleanup
-        if (duration > 0 && !showOverlay) {
-            const timeoutId = setTimeout(() => {
-                this.remove(notificationId);
-            }, duration);
-
-            this.notifications.get(notificationId).timeout = timeoutId;
-        }
-
-        return notificationId;
-    }
-
-    remove(notificationId) {
-        const notification = this.notifications.get(notificationId);
-        if (!notification) return;
-
-        // Clear timeout if exists
-        if (notification.timeout) {
-            clearTimeout(notification.timeout);
-        }
-
-        // Animate out
-        notification.element.classList.remove("show");
-
-        setTimeout(() => {
-            if (notification.element && notification.element.parentNode) {
-                notification.element.parentNode.removeChild(
-                    notification.element,
-                );
-            }
-            this.notifications.delete(notificationId);
-
-            // Hide overlay only if no more loading notifications exist
-            if (notification.showOverlay) {
-                this.checkAndHideOverlay();
-            }
-        }, 300);
-    }
-
-    clearAll() {
-        // Clear all notifications
-        for (const [id] of this.notifications) {
-            this.remove(id);
-        }
-        // Force hide overlay regardless
-        this.forceHideOverlay();
-    }
-
-    // Legacy method for backwards compatibility
-    clear() {
-        this.clearAll();
-    }
-
-    // Check if any loading notifications still exist before hiding overlay
-    checkAndHideOverlay() {
-        const hasLoadingNotifications = Array.from(
-            this.notifications.values(),
-        ).some((notification) => notification.showOverlay);
-
-        if (!hasLoadingNotifications) {
-            this.hideOverlay();
-        }
-    }
-
-    forceHideOverlay() {
-        const overlay = document.getElementById("loading-overlay");
-        if (overlay) {
-            overlay.classList.remove("show");
-        }
-        document.body.style.overflow = "auto";
-    }
-
-    showOverlay() {
-        let overlay = document.getElementById("loading-overlay");
-        if (!overlay) {
-            overlay = document.createElement("div");
-            overlay.id = "loading-overlay";
-            overlay.className = "loading-overlay";
-            document.body.appendChild(overlay);
-        }
-        overlay.classList.add("show");
-    }
-
-    hideOverlay() {
-        const overlay = document.getElementById("loading-overlay");
-        if (overlay) {
-            overlay.classList.remove("show");
-        }
-        document.body.style.overflow = "auto";
-    }
-
-    loading(message = "Đang xử lý...") {
-        return this.show(message, "info", 0, true);
-    }
-
-    success(message, duration = 2000) {
-        return this.show(message, "success", duration);
-    }
-
-    error(message, duration = 4000) {
-        return this.show(message, "error", duration);
-    }
-
-    warning(message, duration = 3000) {
-        return this.show(message, "warning", duration);
-    }
-
-    // Method to update an existing notification (useful for progress updates)
-    update(notificationId, newMessage) {
-        const notification = this.notifications.get(notificationId);
-        if (notification) {
-            const closeBtn = notification.element.querySelector(".close-btn");
-            notification.element.textContent = newMessage;
-            notification.element.appendChild(closeBtn);
-        }
-    }
-
-    // Method to manually fix stuck overlay (can be called from console if needed)
-    fixStuckOverlay() {
-        console.log("Fixing stuck overlay...");
-        this.clearAll();
-        this.forceHideOverlay();
-
-        // Also clean up any orphaned overlay elements
-        const allOverlays = document.querySelectorAll(
-            ".loading-overlay, #loading-overlay",
-        );
-        allOverlays.forEach((overlay) => {
-            overlay.classList.remove("show");
-            overlay.style.display = "none";
-        });
-
-        document.body.style.overflow = "auto";
-        console.log("Overlay cleanup completed");
-    }
-}
-
-// =====================================================
-// GLOBAL INSTANCES AND INITIALIZATION
-// =====================================================
-
-// Global instances
-let notificationManager;
-let app;
-
-// Initialize when DOM is ready
-document.addEventListener("DOMContentLoaded", function () {
-    try {
-        // Initialize notification system
-        notificationManager = new NotificationManager();
-
-        // Make notification functions globally available
-        window.showNotification = (message, type, duration) =>
-            notificationManager.show(message, type, duration);
-        window.hideNotification = () => notificationManager.clear();
-        window.showFloatingAlert = (message, isLoading, duration) => {
-            if (isLoading) {
-                notificationManager.loading(message);
-            } else {
-                notificationManager.show(message, "info", duration);
-            }
-        };
-        window.hideFloatingAlert = () => notificationManager.clear();
-
-        // Initialize main application
-        app = new ImageManagementApp();
-
-        // Setup periodic session check (mỗi 10 phút)
-        setInterval(
-            () => {
-                if (!authManager.checkAndRefreshSession()) {
-                    console.log("Session expired during periodic check");
-                    notificationManager.error(
-                        "Phiên đăng nhập đã hết hạn. Đang chuyển về trang đăng nhập...",
-                    );
-                    setTimeout(() => {
-                        window.location.href = "../index.html";
-                    }, 2000);
-                }
-            },
-            10 * 60 * 1000,
-        );
-    } catch (error) {
-        console.error("Application initialization error:", error);
-        if (notificationManager) {
-            notificationManager.error("Lỗi khởi tạo ứng dụng");
-        }
-    }
-});
-
-// Updated cleanup on page unload
-window.addEventListener("beforeunload", () => {
-    if (app && app.lazyLoader) {
-        app.lazyLoader.destroy();
-    }
-    if (cacheManager) {
-        cacheManager.cleanup();
-    }
-
-    // Refresh session timestamp before unload
-    if (authManager) {
-        authManager.refreshSession();
-    }
-});
-
-// Global error handler
-window.addEventListener("error", function (e) {
-    console.error("Global error:", e.error);
-    if (notificationManager) {
-        notificationManager.error("Có lỗi xảy ra. Vui lòng tải lại trang.");
-    }
-});
-
-// Export for debugging (remove in production)
-if (typeof window !== "undefined") {
-    window.debug = {
-        authManager,
-        cacheManager,
-        app: () => app,
-        // Utility methods for debugging
-        clearAuth: () => authManager.clearAuth(),
-        getAuthState: () => authManager.getAuthState(),
-        getCacheStats: () => cacheManager.getStats(),
-        invalidateCache: () => cacheManager.invalidate(),
-        refreshSession: () => authManager.refreshSession(),
-        checkSession: () => authManager.checkAndRefreshSession(),
-        // Emergency fixes
-        fixStuckOverlay: () => notificationManager.fixStuckOverlay(),
-        forceLogout: () => {
-            authManager.clearAuth();
-            window.location.href = "../index.html";
-        },
-    };
-
-    console.log("Debug utilities available via window.debug");
-    console.log("Available methods:", Object.keys(window.debug));
 }

@@ -1923,7 +1923,7 @@ async function initializeApplication() {
 
     // Update UI based on user
     if (auth.userType) {
-        const titleElement = document.querySelector(".tieude");
+        const titleElement = document.querySelector(".page-title");
         if (titleElement) {
             titleElement.textContent += " - " + auth.displayName;
         }

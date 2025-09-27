@@ -38,15 +38,15 @@
         </div>
         <!-- Top buttons -->
         <div class="top-buttons">
-            <button data-icon="➕" id="toggleFormButton">Hiện biểu mẫu</button>
-            <button data-icon="🗑️" id="toggleDeleteButton">Xóa</button>
-            <button data-icon="🚪" id="toggleLogoutButton">Đăng xuất</button>
+            <button data-icon="➕" id="toggleFormBtn">Hiện biểu mẫu</button>
+            <button data-icon="🗑️" id="toggleDeleteBtn">Xóa</button>
+            <button data-icon="🚪" id="toggleLogoutBtn">Đăng xuất</button>
         </div>
         <!-- Main content -->
         <div class="main-content">
             <div class="header">
                 <div id="parentContainer">
-                    <p class="tieude">HÌNH ẢNH LIVE ĐẦY ĐỦ</p>
+                    <p class="page-title">HÌNH ẢNH LIVE ĐẦY ĐỦ</p>
                 </div>
             </div>
             <!-- Data Form -->
@@ -54,12 +54,12 @@
                 <h1>Thêm Hình Ảnh Live</h1>
                 <form id="productForm">
                     <div class="form-group">
-                        <label for="dotLive">Đợt Live:</label>
-                        <input type="number" id="dotLive" required />
+                        <label for="liveBatchInput">Đợt Live:</label>
+                        <input type="number" id="liveBatchInput" required />
                     </div>
                     <div class="form-group">
-                        <label for="phanLoai">Phân loại:</label>
-                        <select id="phanLoai" required>
+                        <label for="categorySelect">Phân loại:</label>
+                        <select id="categorySelect" required>
                             <option value="Áo" selected>Áo</option>
                             <option value="Quần">Quần</option>
                             <option value="Set và Đầm">Set và Đầm</option>
@@ -67,50 +67,52 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="hinhAnhInput">Hình ảnh sản phẩm:</label>
+                        <label for="imageFileInput">Hình ảnh sản phẩm:</label>
                         <input
                             type="file"
-                            id="hinhAnhInput"
+                            id="imageFileInput"
                             accept="image/*"
                             multiple
                             required
                         />
                     </div>
                     <div class="center-button">
-                        <button type="submit" id="addButton">Thêm</button>
-                        <button type="button" id="clearDataButton">
-                            Reset
-                        </button>
+                        <button type="submit" id="addBtn">Thêm</button>
+                        <button type="button" id="clearDataBtn">Reset</button>
                     </div>
                 </form>
             </div>
             <!-- Filter Section -->
             <div class="filter-section">
                 <div class="filter-group">
-                    <label for="dateFilter">Lọc Đợt Live:</label>
-                    <select id="dateFilter">
+                    <label for="liveBatchFilter">Lọc Đợt Live:</label>
+                    <select id="liveBatchFilter">
                         <option disabled selected>Tùy chọn</option>
                     </select>
                 </div>
             </div>
             <!-- Table -->
             <div class="table-container">
-                <div class="live">
-                    <table>
-                        <tr>
-                            <th>ĐỢT LIVE</th>
-                            <th>Áo</th>
-                            <th>Quần</th>
-                            <th>Set và Đầm</th>
-                            <th>Phụ kiện và Giày Dép</th>
-                        </tr>
-                        <tr>
-                            <td id="liveDate"></td>
-                            <td class="aoproduct-row"></td>
-                            <td class="quanproduct-row"></td>
-                            <td class="setvadamproduct-row"></td>
-                            <td class="pkgdproduct-row"></td>
-                        </tr>
+                <div class="live-table-wrapper">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>ĐỢT LIVE</th>
+                                <th>Áo</th>
+                                <th>Quần</th>
+                                <th>Set và Đầm</th>
+                                <th>Phụ kiện và Giày Dép</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td id="liveBatchDisplay"></td>
+                                <td class="shirt-product-row"></td>
+                                <td class="pants-product-row"></td>
+                                <td class="dress-set-product-row"></td>
+                                <td class="accessories-product-row"></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
