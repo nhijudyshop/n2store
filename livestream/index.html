@@ -13,128 +13,43 @@
         />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="shortcut icon" href="../logo.jpg" />
-        <!-- The core Firebase JS SDK -->
+
+        <!-- Firebase SDKs -->
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-        <!-- The Firebase storage SDK -->
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-        <!-- The Firebase firestore SDK -->
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-        <!-- Load jQuery from a CDN -->
+
+        <!-- External Libraries -->
         <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-        <!-- CSS script -->
+
+        <!-- Common utilities -->
         <script src="../js/device-detector.js"></script>
-        <!-- Navigation Manager - Load trước khi load page scripts -->
         <script src="../js/navigation.js"></script>
         <script src="../js/common-utils.js"></script>
+
+        <!-- CSS Files -->
+        <link rel="stylesheet" href="main.css" />
+        <link rel="stylesheet" href="components.css" />
+        <link rel="stylesheet" href="totals.css" />
     </head>
-    <style>
-        /* Additional specific styles for total calculation */
-        .total-summary {
-            background: var(--primary-gradient);
-            color: white;
-            padding: 25px;
-            border-radius: var(--border-radius-large);
-            margin-bottom: 25px;
-            box-shadow: var(--shadow-medium);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .total-summary::before {
-            content: "";
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(
-                circle,
-                rgba(255, 255, 255, 0.1) 0%,
-                transparent 70%
-            );
-            animation: float 6s ease-in-out infinite;
-        }
-
-        .total-summary h2 {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .total-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .total-card {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: transform 0.3s ease;
-        }
-
-        .total-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .total-card h3 {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .total-card .amount {
-            font-size: 1.8rem;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .total-card .count {
-            font-size: 0.8rem;
-            opacity: 0.8;
-        }
-
-        @keyframes float {
-            0%,
-            100% {
-                transform: translateY(0px) rotate(0deg);
-            }
-            50% {
-                transform: translateY(-10px) rotate(180deg);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .total-grid {
-                grid-template-columns: 1fr;
-                gap: 15px;
-            }
-        }
-    </style>
 
     <body>
         <!-- Security Indicator -->
         <div class="security-indicator" id="securityIndicator">Secure</div>
+
         <!-- Performance Indicator -->
         <div class="performance-indicator" id="performanceIndicator">
             Fast Load
         </div>
+
         <!-- Top buttons -->
         <div class="top-buttons">
             <button data-icon="➕" id="toggleFormButton">Hiện biểu mẫu</button>
             <button data-icon="📤" onclick="exportToExcel()">Xuất Excel</button>
             <button data-icon="🚪" id="toggleLogoutButton">Đăng xuất</button>
         </div>
+
         <!-- Main content -->
         <div class="main-content">
             <div class="header">
@@ -142,6 +57,7 @@
                     <p class="page-title">BÁO CÁO LIVESTREAM</p>
                 </div>
             </div>
+
             <!-- Data Form -->
             <div id="dataForm" class="form-section" style="display: none">
                 <h1>Thêm Báo cáo Livestream</h1>
@@ -150,14 +66,7 @@
                         <label for="ngayLive">Ngày livestream:</label>
                         <input type="date" id="ngayLive" required />
                     </div>
-                    <div class="form-group">
-                        <label for="mauLive">Mẫu live:</label>
-                        <textarea
-                            id="mauLive"
-                            placeholder="VD: 20 mẫu"
-                            required
-                        ></textarea>
-                    </div>
+
                     <div class="form-group">
                         <label for="tienQC">Tiền QC:</label>
                         <input
@@ -167,14 +76,51 @@
                             required
                         />
                     </div>
+
                     <div class="form-group">
                         <label for="thoiGian">Thời gian:</label>
-                        <input
-                            type="text"
-                            id="thoiGian"
-                            placeholder="VD: 20:00 - 22:00 hoặc 2 tiếng"
-                        />
+                        <div
+                            id="thoiGianContainer"
+                            style="display: flex; gap: 5px; align-items: center"
+                        >
+                            <input
+                                type="number"
+                                id="hh1"
+                                min="0"
+                                max="23"
+                                placeholder="HH"
+                                style="width: 50px"
+                            />
+                            :
+                            <input
+                                type="number"
+                                id="mm1"
+                                min="0"
+                                max="59"
+                                placeholder="MM"
+                                style="width: 50px"
+                            />
+                            <span>đến</span>
+                            <input
+                                type="number"
+                                id="hh2"
+                                min="0"
+                                max="23"
+                                placeholder="HH"
+                                style="width: 50px"
+                            />
+                            :
+                            <input
+                                type="number"
+                                id="mm2"
+                                min="0"
+                                max="59"
+                                placeholder="MM"
+                                style="width: 50px"
+                            />
+                        </div>
                     </div>
+
                     <div class="form-group">
                         <label for="soMonLive">Số món trên live:</label>
                         <input
@@ -183,6 +129,7 @@
                             placeholder="VD: 50 món"
                         />
                     </div>
+
                     <div class="form-group" style="display: none">
                         <label for="soMonInbox">Số món inbox:</label>
                         <input
@@ -192,6 +139,7 @@
                             placeholder="VD: 30 đơn"
                         />
                     </div>
+
                     <div class="center-button">
                         <button type="submit" id="addButton">Thêm</button>
                         <button type="button" id="clearDataButton">
@@ -200,6 +148,7 @@
                     </div>
                 </form>
             </div>
+
             <!-- Total Summary Section -->
             <div class="total-summary fade-in">
                 <h2>Tổng kết Tiền QC</h2>
@@ -233,6 +182,7 @@
                     </div>
                 </div>
             </div>
+
             <!-- Table -->
             <div class="table-container">
                 <div class="ck">
@@ -240,7 +190,6 @@
                         <thead>
                             <tr>
                                 <th>Ngày</th>
-                                <th>Mẫu live</th>
                                 <th>Tiền QC</th>
                                 <th>Thời gian</th>
                                 <th>Số món trên live</th>
@@ -254,6 +203,7 @@
                 </div>
             </div>
         </div>
+
         <!-- Modal for editing -->
         <div id="editModal" class="modal">
             <div
@@ -266,8 +216,8 @@
                 "
             >
                 <span
+                    id="closeEditModalBtn"
                     class="close"
-                    onclick="closeModal()"
                     style="
                         position: sticky;
                         top: 0;
@@ -279,22 +229,20 @@
                         z-index: 10;
                         padding: 5px;
                     "
+                    >&times;</span
                 >
-                    &times;
-                </span>
                 <h2>Chỉnh sửa báo cáo livestream</h2>
+
                 <div class="form-group">
                     <label for="editDate">Ngày:</label>
                     <input type="date" id="editDate" />
                 </div>
-                <div class="form-group">
-                    <label for="editMauLive">Mẫu live:</label>
-                    <textarea id="editMauLive"></textarea>
-                </div>
+
                 <div class="form-group">
                     <label for="editTienQC">Tiền QC:</label>
                     <input type="text" id="editTienQC" />
                 </div>
+
                 <div class="form-group">
                     <label for="editTimeInputs">Thời gian:</label>
                     <div
@@ -347,17 +295,21 @@
                         </div>
                     </div>
                 </div>
+
                 <div class="form-group">
                     <label for="editSoMonLive">Số món trên live:</label>
                     <input type="text" id="editSoMonLive" />
                 </div>
+
                 <div class="form-group">
                     <label for="editSoMonInbox">Số món inbox:</label>
                     <input type="text" id="editSoMonInbox" />
                 </div>
+
                 <button onclick="saveUpdatedChanges()">Lưu</button>
             </div>
         </div>
+
         <!-- Enhanced Floating Alert -->
         <div id="floatingAlert">
             <div class="alert-content">
@@ -367,12 +319,20 @@
                 <div class="alert-text">Thông báo hiển thị!</div>
             </div>
         </div>
+
         <!-- Tooltip -->
         <div id="tooltip" class="tooltip"></div>
 
         <!-- Load JavaScript files in order -->
         <script src="config.js"></script>
-        <script src="table-management.js"></script>
-        <script src="ui-management.js"></script>
+        <script src="auth.js"></script>
+        <script src="cache.js"></script>
+        <script src="utils.js"></script>
+        <script src="totals.js"></script>
+        <script src="filters.js"></script>
+        <script src="table.js"></script>
+        <script src="forms.js"></script>
+        <script src="modals.js"></script>
+        <script src="main.js"></script>
     </body>
 </html>
