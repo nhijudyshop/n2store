@@ -1471,7 +1471,7 @@ function renderDataToTable(dataArray) {
             // Price buy input
             const priceBuyInput = document.createElement("input");
             priceBuyInput.type = "number";
-            priceBuyInput.value = order.giaMua || order.giaNhap || 0;
+            priceBuyInput.value = order.giaMua * 1000 || order.giaNhap || 0;
             priceBuyInput.min = "0";
             priceBuyInput.step = "any";
             priceBuyInput.className = "price-buy-input";
@@ -1486,7 +1486,7 @@ function renderDataToTable(dataArray) {
             // Price sell input
             const priceSellInput = document.createElement("input");
             priceSellInput.type = "number";
-            priceSellInput.value = order.giaBan || 0;
+            priceSellInput.value = order.giaBan * 1000 || 0;
             priceSellInput.min = "0";
             priceSellInput.step = "any";
             priceSellInput.className = "price-sell-input";
@@ -1924,19 +1924,23 @@ function exportToExcel() {
         const filteredData = applyFiltersToData(cachedData);
 
         const excelData = filteredData.map((order, index) => ({
-            STT: index + 1,
-            "Ngày đặt hàng": order.ngayDatHang || "",
-            "Nhà cung cấp": order.nhaCungCap || "",
-            "Hóa đơn": order.hoaDon || "",
-            "Tên sản phẩm": order.tenSanPham || "",
-            "Mã sản phẩm": order.maSanPham || "",
-            "Biến thể": order.bienThe || "",
-            "Số lượng": order.soLuong || "",
-            "Giá mua": order.giaMua || order.giaNhap || "",
-            "Giá bán": order.giaBan || "",
-            "Ghi chú": order.ghiChu || "",
-            "Người tạo": order.user || "",
-            "Thời gian tạo": order.thoiGianUpload || "",
+            "Loại sản phẩm": "Có thể lưu trữ",
+            "Mã sản phẩm": order.maSanPham,
+            "Mã chốt đơn": "",
+            "Tên sản phẩm": order.tenSanPham,
+            "Giá bán": order.giaBan * 1000,
+            "Giá mua": order.giaMua * 1000,
+            "Đơn vị": "CÁI",
+            "Nhóm sản phẩm": "QUẦN ÁO",
+            "Mã vạch": order.maSanPham,
+            "Khối lượng": "",
+            "Chiết khấu bán": "",
+            "Chiết khấu mua": "",
+            "Tồn kho": "",
+            "Giá vốn": "",
+            "Ghi chú": "",
+            "Cho phép bán ở công ty khác": "FALSE",
+            "Thuộc tính": "",
         }));
 
         // Tạo worksheet
