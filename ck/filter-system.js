@@ -1,5 +1,5 @@
-// filter-system.js
-// High-Performance Filter System
+// filter-system.js - Fixed
+// High-Performance Filter System with Fixed Checkbox Logic
 
 class FilterManager {
     constructor() {
@@ -389,9 +389,11 @@ class FilterManager {
                             if (endTime && itemTime > endTime) continue;
                         }
                         
-                        // Fast status check
-                        if (status === "active" && item.muted) continue;
-                        if (status === "completed" && !item.muted) continue;
+                        // FIXED: Status check with correct logic
+                        // status: "active" = chưa đi đơn = muted: false
+                        // status: "completed" = đã đi đơn = muted: true
+                        if (status === "active" && item.muted === true) continue;
+                        if (status === "completed" && item.muted === false) continue;
                         
                         filtered.push(item);
                     }
@@ -417,6 +419,13 @@ class FilterManager {
                 item._dateTime = itemDate.getTime();
                 item._index = index;
                 item._indexed = true;
+
+                // FIXED: Ensure muted is boolean
+                if (item.muted === undefined || item.muted === null) {
+                    item.muted = false; // Default: chưa đi đơn
+                } else {
+                    item.muted = Boolean(item.muted);
+                }
             }
             return item;
         });
@@ -524,6 +533,15 @@ class FilterManager {
             let filteredResults = [];
             let processedCount = 0;
 
+            console.log("Filtering with criteria:", {
+                startDate,
+                endDate,
+                status,
+                startTime,
+                endTime,
+                totalItems: data.length,
+            });
+
             const processChunk = (startIndex) => {
                 const endIndex = Math.min(
                     startIndex + this.chunkSize,
@@ -544,9 +562,15 @@ class FilterManager {
                         if (endTime && itemTime > endTime) continue;
                     }
 
-                    // Fast status check
-                    if (status === "active" && item.muted) continue;
-                    if (status === "completed" && !item.muted) continue;
+                    // FIXED: Status check with correct logic
+                    // status: "active" = chưa đi đơn = muted: false (checkbox unchecked)
+                    // status: "completed" = đã đi đơn = muted: true (checkbox checked)
+                    if (status === "active" && item.muted === true) {
+                        continue; // Skip items that are completed (muted=true) when looking for active
+                    }
+                    if (status === "completed" && item.muted === false) {
+                        continue; // Skip items that are active (muted=false) when looking for completed
+                    }
 
                     chunkResults.push(item);
                 }
@@ -569,6 +593,11 @@ class FilterManager {
 
                     nextTick(() => processChunk(endIndex));
                 } else {
+                    console.log("Filter completed:", {
+                        originalCount: data.length,
+                        filteredCount: filteredResults.length,
+                        criteria: { startDate, endDate, status },
+                    });
                     resolve(filteredResults);
                 }
             };
@@ -589,6 +618,12 @@ class FilterManager {
 
     async handleFilterResult(result, startTime) {
         const filterTime = performance.now() - startTime;
+
+        console.log("Filter result received:", {
+            resultCount: result.length,
+            filterTime: `${filterTime.toFixed(2)}ms`,
+            filters: this.filters,
+        });
 
         // Cache the result
         const filterHash = this.generateFilterHash(this.filters);
@@ -636,6 +671,8 @@ class FilterManager {
             }
 
             // Secondary sort: muted items to bottom (active first)
+            // muted = false (chưa đi đơn) should come first
+            // muted = true (đã đi đơn) should come last
             const mutedA = a.muted ? 1 : 0;
             const mutedB = b.muted ? 1 : 0;
             return mutedA - mutedB;
@@ -708,16 +745,28 @@ class FilterManager {
         renderBatch();
     }
 
+    // FIXED: createTableRow with proper checkbox logic
     createTableRow(item, formattedTime) {
         const newRow = domManager.create("tr");
 
+        console.log("Creating table row for item:", {
+            uniqueId: item.uniqueId,
+            muted: item.muted,
+            mutedType: typeof item.muted,
+            noteCell: item.noteCell,
+        });
+
         // Apply styling for muted items
-        if (item.muted) {
+        if (item.muted === true) {
+            // muted = true = đã đi đơn = dimmed appearance
             newRow.style.cssText = "opacity: 0.4; background-color: #f8f9fa;";
             newRow.classList.add(CSS_CLASSES.muted);
+            console.log("Applied muted styling (đã đi đơn)");
         } else {
+            // muted = false = chưa đi đơn = normal appearance
             newRow.style.cssText = "opacity: 1.0;";
             newRow.classList.add(CSS_CLASSES.active);
+            console.log("Applied active styling (chưa đi đơn)");
         }
 
         const cells = [
@@ -734,7 +783,11 @@ class FilterManager {
                     : "0",
             },
             { content: sanitizeInput(item.bankCell || "") },
-            { content: null, type: "checkbox", checked: Boolean(item.muted) },
+            {
+                content: null,
+                type: "checkbox",
+                checked: Boolean(item.muted), // FIXED: muted = true -> checked = true (đã đi đơn)
+            },
             { content: sanitizeInput(item.customerInfoCell || "") },
             { content: null, type: "edit" },
             { content: null, type: "delete", userId: item.user || "Unknown" },
@@ -746,6 +799,13 @@ class FilterManager {
             const cell = domManager.create("td");
 
             if (cellData.type === "checkbox") {
+                console.log("Creating checkbox with state:", {
+                    itemUniqueId: item.uniqueId,
+                    itemMuted: item.muted,
+                    checkboxChecked: cellData.checked,
+                    meaning: cellData.checked ? "đã đi đơn" : "chưa đi đơn",
+                });
+
                 const checkbox = domManager.create("input", {
                     attributes: {
                         type: "checkbox",
@@ -792,22 +852,45 @@ class FilterManager {
                 ? APP_STATE.filteredData
                 : APP_STATE.arrayData;
 
+        console.log("Calculating total amount:", {
+            dataSource: APP_STATE.filteredData.length > 0 ? "filtered" : "all",
+            itemCount: dataToCalculate.length,
+        });
+
         dataToCalculate.forEach((item) => {
+            // Only count items that are not muted (chưa đi đơn)
             if (!item.muted) {
                 const amountStr = item.amountCell || "0";
                 const cleanAmount = amountStr.toString().replace(/[,\.]/g, "");
                 const amount = parseFloat(cleanAmount);
                 if (!isNaN(amount)) {
                     totalAmount += amount;
+                    //console.log("Added to total:", {
+                    //    uniqueId: item.uniqueId,
+                    //    amount: amount,
+                    //    muted: item.muted,
+                    //    runningTotal: totalAmount,
+                    //});
                 }
+            } else {
+                //console.log("Skipped muted item:", {
+                //   uniqueId: item.uniqueId,
+                //    amount: item.amountCell,
+                //    muted: item.muted,
+                //});
             }
         });
 
         const totalAmountElement = domManager.get(SELECTORS.totalAmount);
         if (totalAmountElement) {
             totalAmountElement.innerText =
-                "Tổng Tiền: " + numberWithCommas(totalAmount) + ",000";
+                "💰 Tổng Tiền: " + numberWithCommas(totalAmount) + ",000";
         }
+
+        console.log("Total amount calculated:", {
+            totalAmount: totalAmount,
+            formattedTotal: numberWithCommas(totalAmount) + ",000",
+        });
     }
 
     // Filter event handlers
@@ -832,6 +915,11 @@ class FilterManager {
         this.filters.startDate = startDate;
         this.filters.endDate = endDate;
 
+        console.log("Date range changed:", {
+            startDate: startDate,
+            endDate: endDate,
+        });
+
         this.applyFilters();
     }
 
@@ -841,6 +929,17 @@ class FilterManager {
         const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
         if (statusFilter) {
             this.filters.status = statusFilter.value;
+
+            console.log("Status filter changed:", {
+                newStatus: statusFilter.value,
+                meaning:
+                    statusFilter.value === "all"
+                        ? "tất cả"
+                        : statusFilter.value === "active"
+                          ? "chưa đi đơn"
+                          : "đã đi đơn",
+            });
+
             this.applyFilters();
         }
     }
@@ -863,6 +962,8 @@ class FilterManager {
         this.filters.startDate = localISODate;
         this.filters.endDate = localISODate;
 
+        console.log("Set today filter:", localISODate);
+
         this.applyFilters();
     }
 
@@ -877,6 +978,8 @@ class FilterManager {
 
         this.filters.startDate = null;
         this.filters.endDate = null;
+
+        console.log("Set all filter (no date restrictions)");
 
         this.applyFilters();
     }
@@ -897,6 +1000,8 @@ class FilterManager {
             endDate: null,
             status: "all",
         };
+
+        console.log("Cleared all filters");
 
         this.applyFilters();
     }

@@ -1,5 +1,5 @@
-// virtual-scrolling.js
-// Advanced Virtual Scrolling Implementation
+// virtual-scrolling.js - Fixed
+// Advanced Virtual Scrolling Implementation with Fixed Checkbox Logic
 
 class VirtualScrollManager {
     constructor() {
@@ -243,6 +243,12 @@ class VirtualScrollManager {
             this.visibleRange.end,
         );
 
+        console.log("Rendering virtual items:", {
+            totalItems: this.data.length,
+            visibleRange: this.visibleRange,
+            visibleCount: visibleItems.length,
+        });
+
         visibleItems.forEach((item, index) => {
             const globalIndex = this.visibleRange.start + index;
             const row = this.createTableRow(item, globalIndex);
@@ -287,6 +293,7 @@ class VirtualScrollManager {
         );
     }
 
+    // FIXED: createTableRow with proper checkbox logic
     createTableRow(item, index) {
         if (!item) return null;
 
@@ -296,22 +303,40 @@ class VirtualScrollManager {
 
         if (!formattedTime) return null;
 
+        console.log("Creating virtual table row for item:", {
+            uniqueId: item.uniqueId,
+            muted: item.muted,
+            mutedType: typeof item.muted,
+            noteCell: item.noteCell,
+            index: index,
+        });
+
         const newRow = domManager.create("tr");
 
         // Enhanced styling with smooth transitions
-        newRow.style.cssText = `
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        transform: translateZ(0);
-        will-change: transform;
-        opacity: ${item.muted ? "0.4" : "1.0"};
-        background-color: ${item.muted ? "#f8f9fa" : "transparent"};
-    `;
-
-        // Apply classes for CSS animations
-        if (item.muted) {
+        // FIXED: Apply correct styling based on muted state
+        if (item.muted === true) {
+            // muted = true = đã đi đơn = dimmed appearance
+            newRow.style.cssText = `
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transform: translateZ(0);
+                will-change: transform;
+                opacity: 0.4;
+                background-color: #f8f9fa;
+            `;
             newRow.classList.add(CSS_CLASSES.muted);
+            console.log("Applied muted styling to virtual row (đã đi đơn)");
         } else {
+            // muted = false = chưa đi đơn = normal appearance
+            newRow.style.cssText = `
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transform: translateZ(0);
+                will-change: transform;
+                opacity: 1.0;
+                background-color: transparent;
+            `;
             newRow.classList.add(CSS_CLASSES.active);
+            console.log("Applied active styling to virtual row (chưa đi đơn)");
         }
 
         // Add virtual row class for performance
@@ -332,7 +357,11 @@ class VirtualScrollManager {
                     : "0",
             },
             { content: sanitizeInput(item.bankCell || "") },
-            { content: null, type: "checkbox", checked: Boolean(item.muted) },
+            {
+                content: null,
+                type: "checkbox",
+                checked: Boolean(item.muted), // FIXED: muted = true -> checked = true (đã đi đơn)
+            },
             { content: sanitizeInput(item.customerInfoCell || "") },
             { content: null, type: "edit" },
             { content: null, type: "delete", userId: item.user || "Unknown" },
@@ -350,6 +379,13 @@ class VirtualScrollManager {
         `;
 
             if (cellData.type === "checkbox") {
+                console.log("Creating virtual checkbox with state:", {
+                    itemUniqueId: item.uniqueId,
+                    itemMuted: item.muted,
+                    checkboxChecked: cellData.checked,
+                    meaning: cellData.checked ? "đã đi đơn" : "chưa đi đơn",
+                });
+
                 const checkbox = domManager.create("input", {
                     attributes: {
                         type: "checkbox",
