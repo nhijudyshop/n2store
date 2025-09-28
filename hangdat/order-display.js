@@ -1230,11 +1230,7 @@ function setupAutoReload() {
 function updateDataCountIndicator(count) {
     const titleElement = document.querySelector(".page-title");
     if (titleElement) {
-        const baseTitle = titleElement.textContent.split(" - ")[0];
-        const userPart = titleElement.textContent.includes(" - ")
-            ? ` - ${titleElement.textContent.split(" - ").slice(1).join(" - ")}`
-            : "";
-        titleElement.textContent = `${baseTitle}${userPart} (${count})`;
+        titleElement.textContent += " - " + auth.displayName;
     }
 
     document.title = `Đặt Hàng (${count})`;

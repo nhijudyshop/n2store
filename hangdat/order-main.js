@@ -208,7 +208,7 @@ async function initializeApplication() {
     if (auth.userType) {
         const titleElement = document.querySelector(".page-title");
         if (titleElement) {
-            titleElement.textContent += " - " + auth.userType.split("-")[0];
+            titleElement.textContent += " - " + auth.displayName;
         }
     }
 
@@ -489,7 +489,7 @@ async function initializeApplication() {
     if (auth.userType) {
         const titleElement = document.querySelector(".page-title");
         if (titleElement) {
-            titleElement.textContent += " - " + auth.userType.split("-")[0];
+            titleElement.textContent += " - " + auth.displayName;
         }
     }
 
