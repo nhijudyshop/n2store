@@ -60,11 +60,15 @@ function calculateTotalAmounts() {
         59,
     );
 
+    // Sửa logic tính tuần: Tuần bắt đầu từ thứ 2 (Monday)
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Nếu là CN thì lùi 6 ngày, nếu không thì lùi (dayOfWeek - 1) ngày
+    startOfWeek.setDate(today.getDate() - daysToMonday);
     startOfWeek.setHours(0, 0, 0, 0);
+
     const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Thêm 6 ngày để có 7 ngày (Thứ 2 đến CN)
     endOfWeek.setHours(23, 59, 59, 999);
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -85,6 +89,11 @@ function calculateTotalAmounts() {
         filtered: { amount: 0, count: 0 },
     };
 
+    // Debug log để kiểm tra
+    console.log("Today:", today.toLocaleDateString("vi-VN"));
+    console.log("Start of week:", startOfWeek.toLocaleDateString("vi-VN"));
+    console.log("End of week:", endOfWeek.toLocaleDateString("vi-VN"));
+
     arrayData.forEach((item) => {
         let amount = 0;
         if (item.tienQC) {
@@ -94,22 +103,33 @@ function calculateTotalAmounts() {
 
         const itemDate = new Date(parseInt(item.dateCell));
 
+        // Debug log cho từng item
+        console.log(
+            "Item date:",
+            itemDate.toLocaleDateString("vi-VN"),
+            "Amount:",
+            amount,
+        );
+
         totals.all.amount += amount;
         totals.all.count++;
 
         if (itemDate >= startOfToday && itemDate <= endOfToday) {
             totals.today.amount += amount;
             totals.today.count++;
+            console.log("Added to today:", amount);
         }
 
         if (itemDate >= startOfWeek && itemDate <= endOfWeek) {
             totals.week.amount += amount;
             totals.week.count++;
+            console.log("Added to week:", amount);
         }
 
         if (itemDate >= startOfMonth && itemDate <= endOfMonth) {
             totals.month.amount += amount;
             totals.month.count++;
+            console.log("Added to month:", amount);
         }
     });
 
@@ -125,6 +145,7 @@ function calculateTotalAmounts() {
         totals.filtered.count++;
     });
 
+    console.log("Week totals:", totals.week);
     return totals;
 }
 
