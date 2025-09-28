@@ -1925,22 +1925,22 @@ function exportToExcel() {
 
         const excelData = filteredData.map((order, index) => ({
             "Loại sản phẩm": "Có thể lưu trữ",
-            "Mã sản phẩm": order.maSanPham,
-            "Mã chốt đơn": "",
-            "Tên sản phẩm": order.tenSanPham,
+            "Mã sản phẩm": order.maSanPham.toString(),
+            "Mã chốt đơn": undefined,
+            "Tên sản phẩm": order.tenSanPham.toString(),
             "Giá bán": order.giaBan * 1000,
             "Giá mua": order.giaMua * 1000,
             "Đơn vị": "CÁI",
             "Nhóm sản phẩm": "QUẦN ÁO",
-            "Mã vạch": order.maSanPham,
-            "Khối lượng": "",
-            "Chiết khấu bán": "",
-            "Chiết khấu mua": "",
-            "Tồn kho": "",
-            "Giá vốn": "",
-            "Ghi chú": "",
+            "Mã vạch": order.maSanPham.toString(),
+            "Khối lượng": undefined,
+            "Chiết khấu bán": undefined,
+            "Chiết khấu mua": undefined,
+            "Tồn kho": undefined,
+            "Giá vốn": undefined,
+            "Ghi chú": undefined,
             "Cho phép bán ở công ty khác": "FALSE",
-            "Thuộc tính": "",
+            "Thuộc tính": undefined,
         }));
 
         // Tạo worksheet
