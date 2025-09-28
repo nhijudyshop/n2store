@@ -1227,14 +1227,7 @@ function setupAutoReload() {
 }
 
 // Update data count indicator
-function updateDataCountIndicator(count) {
-    const titleElement = document.querySelector(".page-title");
-    if (titleElement) {
-        titleElement.textContent += " - " + auth.displayName;
-    }
-
-    document.title = `Đặt Hàng (${count})`;
-}
+function updateDataCountIndicator(count) {}
 
 function preloadImagesAndCache(dataArray) {
     const imageUrls = [];

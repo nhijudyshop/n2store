@@ -878,29 +878,6 @@ body {
     z-index: 2;
 }
 
-/* ==================== REMOVE BUTTON ==================== */
-.remove-product-btn {
-    background: var(--danger-gradient);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: var(--transition-smooth);
-    box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
-}
-
-.remove-product-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 24px rgba(220, 53, 69, 0.4);
-}
-
 /* ==================== PREMIUM SUBMIT SECTION ==================== */
 .submit-section {
     padding: 40px;
@@ -1173,52 +1150,6 @@ body {
     border-bottom: none;
 }
 
-/* ==================== EDIT/DELETE BUTTONS ==================== */
-.edit-button,
-.delete-button {
-    padding: 8px 12px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: var(--transition-smooth);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.edit-button {
-    background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
-}
-
-.edit-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
-}
-
-.edit-button::before {
-    content: "✏️";
-    margin-right: 4px;
-}
-
-.delete-button {
-    background: var(--danger-gradient);
-    color: white;
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-}
-
-.delete-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
-}
-
-.delete-button::before {
-    content: "🗑️";
-    margin-right: 4px;
-}
-
 /* ==================== FLOATING ALERT ==================== */
 #floatingAlert {
     position: fixed;
@@ -1393,12 +1324,6 @@ body {
     .mini-upload {
         min-height: 70px;
         padding: 12px;
-    }
-
-    .remove-product-btn {
-        min-width: 36px;
-        height: 36px;
-        font-size: 16px;
     }
 
     .shared-info-section,
@@ -2107,4 +2032,432 @@ body {
     #uiLockOverlay {
         display: none !important;
     }
+}
+
+/* ==================== SMOOTH TABLE SCROLLING - ANTI-JITTER CSS ==================== */
+
+/* Enhanced smooth scrolling for all containers */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Premium table containers with smooth scrolling */
+.table-container,
+.products-table-container {
+    background: var(--glass-bg);
+    border-radius: 20px;
+    box-shadow:
+        var(--shadow-medium),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--glass-border);
+    margin: 32px 0;
+    overflow: hidden;
+    position: relative;
+    backdrop-filter: blur(20px);
+    transition: var(--transition-smooth);
+
+    /* CRITICAL: Smooth scrolling properties */
+    overflow-x: auto;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: rgba(102, 126, 234, 0.3) transparent; /* Firefox */
+
+    /* Prevent layout shifts during updates */
+    contain: layout style;
+    will-change: transform, opacity;
+}
+
+/* Webkit scrollbar styling for smooth appearance */
+.table-container::-webkit-scrollbar,
+.products-table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track,
+.products-table-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-thumb,
+.products-table-container::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover,
+.products-table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.5);
+}
+
+/* Enhanced table styling for smooth updates */
+.display-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    position: relative;
+    min-width: 1400px;
+    background: transparent;
+
+    /* Smooth transition for table updates */
+    transition:
+        opacity 0.3s ease,
+        transform 0.3s ease;
+
+    /* Optimize for smooth scrolling */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+
+.display-table.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Smooth row animations */
+.display-table tbody tr {
+    transition: var(--transition-smooth);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: transparent;
+
+    /* Optimize for animations */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+
+    /* Smooth entry animation */
+    animation: smoothRowEntry 0.4s ease-out;
+}
+
+@keyframes smoothRowEntry {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Row removal animation */
+.display-table tbody tr.removing {
+    animation: smoothRowExit 0.3s ease-in forwards;
+}
+
+@keyframes smoothRowExit {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+        max-height: 60px;
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-20px);
+        max-height: 0;
+    }
+}
+
+/* Smooth hover effects without layout shifts */
+.display-table tbody tr:hover {
+    background: linear-gradient(
+        135deg,
+        rgba(102, 126, 234, 0.08) 0%,
+        rgba(118, 75, 162, 0.05) 100%
+    );
+    transform: translateY(-1px);
+    box-shadow:
+        0 4px 16px rgba(102, 126, 234, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+    /* Prevent layout shift on hover */
+    will-change: transform, box-shadow;
+    backface-visibility: hidden;
+}
+
+/* Enhanced input styling for smooth interactions */
+.display-table input,
+.products-table input,
+.products-table select,
+.products-table textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    background: white;
+    color: #495057;
+    transition: var(--transition-smooth);
+    box-sizing: border-box;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+
+    /* Smooth focus transitions */
+    will-change: border-color, box-shadow, transform;
+}
+
+.display-table input:focus,
+.products-table input:focus,
+.products-table select:focus,
+.products-table textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow:
+        0 0 0 4px rgba(102, 126, 234, 0.12),
+        0 4px 16px rgba(102, 126, 234, 0.2),
+        inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px) scale(1.01);
+    background: #fefeff;
+}
+
+/* Prevent jitter on rapid updates */
+.image-with-price-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    min-height: 120px;
+
+    /* Stable container to prevent layout shifts */
+    contain: layout;
+    will-change: contents;
+}
+
+.image-with-price-container input {
+    width: 100% !important;
+    max-width: 90px;
+    padding: 12px 14px !important;
+    font-size: 13px !important;
+    font-weight: 700;
+    text-align: center;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    background: white;
+    transition: var(--transition-smooth);
+    box-sizing: border-box;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+    margin: 0 auto;
+
+    /* Prevent input jitter */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Smooth image loading and display */
+.display-table img,
+.products-table img,
+.mini-upload img {
+    max-width: 90px;
+    max-height: 90px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 3px solid white;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    margin: 3px;
+    position: relative;
+
+    /* Optimize image rendering for smooth interactions */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
+
+.display-table img:hover,
+.products-table img:hover {
+    transform: scale(2.8);
+    z-index: 1000;
+    border-color: #667eea;
+    box-shadow:
+        0 16px 64px rgba(0, 0, 0, 0.3),
+        0 0 0 6px rgba(102, 126, 234, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    border-radius: 16px;
+
+    /* Smooth zoom transition */
+    transition:
+        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+        border-color 0.3s ease,
+        box-shadow 0.3s ease,
+        border-radius 0.3s ease;
+}
+
+/* Loading state for smooth transitions */
+.table-loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.table-loading::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(2px);
+    z-index: 100;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 0.8;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* Smooth filter section */
+.filter-section {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    margin: 24px 0;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid #e9ecef;
+
+    /* Smooth transitions for filter updates */
+    transition:
+        box-shadow 0.3s ease,
+        transform 0.3s ease;
+    will-change: transform, box-shadow;
+}
+
+.filter-section:hover {
+    box-shadow: var(--shadow-medium);
+    transform: translateY(-2px);
+}
+
+/* Responsive smooth scrolling */
+@media (max-width: 1400px) {
+    .table-container,
+    .products-table-container {
+        margin: 20px -15px;
+        border-radius: 16px;
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+
+        /* Enhanced smooth scrolling for mobile */
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+    }
+
+    .display-table,
+    .products-table {
+        min-width: 1200px;
+
+        /* Optimize for mobile scrolling */
+        will-change: transform;
+        backface-visibility: hidden;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Mobile-optimized smooth scrolling */
+    .table-container,
+    .products-table-container {
+        -webkit-overflow-scrolling: touch;
+        overflow-x: auto;
+        overflow-y: visible;
+        scroll-snap-type: x proximity;
+    }
+
+    .display-table,
+    .products-table {
+        min-width: 1000px;
+        font-size: 12px;
+
+        /* Mobile performance optimization */
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        will-change: scroll-position;
+    }
+
+    /* Reduce animation complexity on mobile */
+    .display-table tbody tr {
+        animation: none;
+    }
+
+    .display-table tbody tr:hover {
+        transform: none;
+        box-shadow: none;
+        background: rgba(102, 126, 234, 0.1);
+    }
+
+    /* Simplified hover effects for mobile */
+    .display-table img:hover,
+    .products-table img:hover {
+        transform: scale(2.2);
+        transition: transform 0.2s ease;
+    }
+}
+
+/* Prevent zoom on input focus (mobile) */
+@media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="url"],
+    select,
+    textarea {
+        font-size: 16px !important; /* Prevent zoom on iOS */
+    }
+}
+
+/* High performance mode for older devices */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .display-table tbody tr {
+        animation: none;
+    }
+
+    .display-table img:hover,
+    .products-table img:hover {
+        transform: scale(1.1);
+    }
+}
+
+/* GPU acceleration for smooth performance */
+.display-table,
+.products-table,
+.table-container,
+.products-table-container {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: scroll-position;
+}
+
+/* Optimize for 60fps scrolling */
+.table-container *,
+.products-table-container * {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }

@@ -1,12 +1,11 @@
 // =====================================================
-// INTEGRATION SCRIPT - Cập nhật các hàm hiện có
+// FIXED INTEGRATION SCRIPT - Smooth Table Updates
 // =====================================================
 
-// Override các hàm trong order-crud.js để sử dụng hệ thống mới
 (function () {
     "use strict";
 
-    console.log("Integrating enhanced alert system...");
+    console.log("Integrating enhanced alert system with smooth updates...");
 
     // Wait for DOM to be ready
     if (document.readyState === "loading") {
@@ -64,12 +63,12 @@
 
                     showSuccess("Thêm đơn hàng thành công!");
 
-                    // Clear form and reload data
+                    // Clear form and reload data with smooth transition
                     clearForm();
 
-                    // RELOAD TABLE: Force refresh display
+                    // SMOOTH RELOAD: Use debounced reload with delay
                     invalidateCache();
-                    await displayOrderData();
+                    await smoothTableReload();
                 } catch (error) {
                     console.error("Error submitting order:", error);
                     showError("Lỗi: " + error.message);
@@ -167,8 +166,11 @@
 
                     showSuccess("Đã xóa thành công!");
 
-                    // Remove row
-                    if (row) row.remove();
+                    // SMOOTH REMOVE: Animate row removal then reload
+                    if (row) {
+                        await animateRowRemoval(row);
+                    }
+                    await smoothTableReload();
                 } catch (error) {
                     console.error("Lỗi khi xóa:", error);
                     showError("Lỗi khi xóa: " + error.message);
@@ -176,7 +178,7 @@
             };
         }
 
-        // Override updateOrderByID function
+        // Override updateOrderByID function with smooth updates
         if (typeof updateOrderByID !== "undefined") {
             const originalUpdateOrderByID = updateOrderByID;
             window.updateOrderByID = async function (event) {
@@ -332,6 +334,12 @@
                     input.defaultValue = newValue;
 
                     showSuccess("Cập nhật thành công!");
+
+                    // NO RELOAD FOR INDIVIDUAL UPDATES - just visual feedback
+                    input.style.background = "rgba(40, 167, 69, 0.1)";
+                    setTimeout(() => {
+                        input.style.background = "";
+                    }, 1000);
                 } catch (error) {
                     console.error("Lỗi khi cập nhật:", error);
                     showError("Lỗi khi cập nhật: " + error.message);
@@ -340,7 +348,7 @@
             };
         }
 
-        // Override displayOrderData function
+        // Override displayOrderData function with smooth loading
         if (typeof displayOrderData !== "undefined") {
             const originalDisplayOrderData = displayOrderData;
             window.displayOrderData = async function (forceReload = false) {
@@ -349,7 +357,7 @@
                     if (cachedData && !forceReload) {
                         showLoading("Sử dụng dữ liệu cache...");
                         const sortedCacheData = sortDataByNewest(cachedData);
-                        renderDataToTable(sortedCacheData);
+                        await smoothRenderDataToTable(sortedCacheData);
                         updateSuggestions(sortedCacheData);
                         showSuccess("Tải dữ liệu từ cache hoàn tất!");
                         return;
@@ -365,7 +373,7 @@
                             const migratedData = migrateOldPriceData(data.data);
                             const sortedData = sortDataByNewest(migratedData);
 
-                            renderDataToTable(sortedData);
+                            await smoothRenderDataToTable(sortedData);
                             updateSuggestions(sortedData);
                             preloadImagesAndCache(sortedData);
 
@@ -382,11 +390,15 @@
             };
         }
 
-        // Override deleteByFilter function
+        // Override deleteByFilter function with proper UI handling
         if (typeof deleteByFilter !== "undefined") {
             const originalDeleteByFilter = deleteByFilter;
             window.deleteByFilter = async function () {
-                if (!checkUILock()) return;
+                // CHECK UI LOCK FIRST
+                if (!checkUILock()) {
+                    console.warn("Delete by filter blocked - UI is locked");
+                    return;
+                }
 
                 try {
                     const auth = getAuthState();
@@ -445,7 +457,7 @@
 
                     // Clear cache and reload data
                     invalidateCache();
-                    await displayOrderData(true);
+                    await smoothTableReload(true);
 
                     // Clear filters after deletion
                     clearFilters();
@@ -512,7 +524,7 @@
             };
         }
 
-        // Override applyFilters function
+        // Override applyFilters function with smooth updates
         if (typeof applyFilters !== "undefined") {
             const originalApplyFilters = applyFilters;
             window.applyFilters = function () {
@@ -522,13 +534,14 @@
                     isFilteringInProgress = true;
                     showLoading("Đang lọc dữ liệu...");
 
+                    // Use longer delay for smooth filtering
                     setTimeout(() => {
                         try {
                             const cachedData = getCachedData();
                             if (cachedData) {
                                 const filteredData =
                                     applyFiltersToData(cachedData);
-                                renderDataToTable(cachedData);
+                                smoothRenderDataToTable(cachedData);
                                 updateSuggestions(cachedData);
                                 updateFilterResultsCount(
                                     filteredData,
@@ -544,7 +557,7 @@
                         } finally {
                             isFilteringInProgress = false;
                         }
-                    }, 100);
+                    }, 300); // Increased delay for smoother experience
                 } catch (error) {
                     console.error("Error in applyFilters:", error);
                     showError("Lỗi khi áp dụng bộ lọc");
@@ -556,8 +569,74 @@
         console.log("Enhanced alert system integration completed");
     }
 
-    // Add enhanced event listeners for form interactions
+    // =====================================================
+    // SMOOTH TABLE OPERATIONS
+    // =====================================================
+
+    // Smooth table reload with fade effect
+    async function smoothTableReload(forceReload = false) {
+        const tableContainer = document.querySelector(".table-container");
+        if (tableContainer) {
+            // Fade out
+            tableContainer.style.opacity = "0.6";
+            tableContainer.style.transition = "opacity 0.3s ease";
+
+            // Wait for fade effect
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            // Reload data
+            await displayOrderData(forceReload);
+
+            // Fade back in
+            tableContainer.style.opacity = "1";
+        } else {
+            await displayOrderData(forceReload);
+        }
+    }
+
+    // Smooth render with progressive loading
+    async function smoothRenderDataToTable(dataArray) {
+        if (!tbody) {
+            console.error("Table body not found");
+            return;
+        }
+
+        // Show loading state
+        tbody.style.opacity = "0.5";
+        tbody.style.transition = "opacity 0.2s ease";
+
+        // Small delay to show loading state
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Call original render function
+        if (typeof renderDataToTable === "function") {
+            renderDataToTable(dataArray);
+        }
+
+        // Fade back in
+        tbody.style.opacity = "1";
+    }
+
+    // Animate row removal
+    async function animateRowRemoval(row) {
+        if (!row) return;
+
+        row.style.transition = "all 0.3s ease";
+        row.style.opacity = "0";
+        row.style.transform = "translateX(-20px)";
+
+        // Wait for animation
+        await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Add enhanced event listeners for smooth interactions
     function addEnhancedEventListeners() {
+        // Smooth scroll for table
+        const tableContainer = document.querySelector(".table-container");
+        if (tableContainer) {
+            tableContainer.style.scrollBehavior = "smooth";
+        }
+
         // Form submission enhancement
         const forms = document.querySelectorAll("form");
         forms.forEach((form) => {
@@ -615,6 +694,11 @@
             return e.returnValue;
         }
     });
+
+    // Expose smooth functions globally
+    window.smoothTableReload = smoothTableReload;
+    window.smoothRenderDataToTable = smoothRenderDataToTable;
+    window.animateRowRemoval = animateRowRemoval;
 })();
 
-console.log("Integration script loaded successfully");
+console.log("Fixed integration script loaded successfully");
