@@ -1926,12 +1926,7 @@
                 );
 
                 // Mock supplier data - replace with actual data
-                const suppliers = [
-                    "Nhà cung cấp A",
-                    "Nhà cung cấp B",
-                    "Công ty TNHH ABC",
-                    "Doanh nghiệp XYZ",
-                ];
+                const suppliers = [];
 
                 input.addEventListener("input", function () {
                     const value = this.value.toLowerCase().trim();
@@ -2247,29 +2242,6 @@
             function getUserName() {
                 // This should get the actual user name from your auth system
                 return "User";
-            }
-
-            function showFloatingAlert(message, isLoading = false) {
-                const alert = document.getElementById("floatingAlert");
-                const text = alert.querySelector(".alert-text");
-                const spinner = alert.querySelector(".loading-spinner");
-
-                text.textContent = message;
-
-                if (isLoading) {
-                    spinner.style.display = "block";
-                    alert.classList.add("loading");
-                } else {
-                    spinner.style.display = "none";
-                    alert.classList.remove("loading");
-                }
-
-                alert.classList.add("show");
-            }
-
-            function hideFloatingAlert() {
-                const alert = document.getElementById("floatingAlert");
-                alert.classList.remove("show");
             }
 
             // Mock function - replace with your actual upload function
