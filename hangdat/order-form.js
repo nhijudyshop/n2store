@@ -240,12 +240,11 @@ async function handlePaste(event, container) {
 }
 
 // =====================================================
-// IMAGE COMPRESSION
+// OPTIMIZED IMAGE COMPRESSION
 // =====================================================
 
-async function compressImage(file) {
+async function compressImage(file, maxWidth = 400, quality = 0.7) {
     return new Promise((resolve) => {
-        const maxWidth = 500;
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = function (event) {
@@ -254,55 +253,120 @@ async function compressImage(file) {
             img.onload = function () {
                 const canvas = document.createElement("canvas");
                 const ctx = canvas.getContext("2d");
-                const width = img.width;
-                const height = img.height;
 
-                if (width > maxWidth) {
-                    const ratio = maxWidth / width;
-                    canvas.width = maxWidth;
-                    canvas.height = height * ratio;
-                } else {
-                    canvas.width = width;
-                    canvas.height = height;
-                }
+                // Calculate optimal dimensions
+                let { width, height } = calculateOptimalSize(
+                    img.width,
+                    img.height,
+                    maxWidth,
+                );
 
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.width = width;
+                canvas.height = height;
+
+                // Improved rendering quality
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = "high";
+                ctx.drawImage(img, 0, 0, width, height);
+
                 canvas.toBlob(
                     function (blob) {
-                        resolve(
-                            new File([blob], file.name, {
-                                type: file.type,
-                                lastModified: Date.now(),
-                            }),
-                        );
+                        const compressedFile = new File([blob], file.name, {
+                            type: "image/jpeg", // Force JPEG for better compression
+                            lastModified: Date.now(),
+                        });
+                        resolve(compressedFile);
                     },
-                    file.type,
-                    0.8,
+                    "image/jpeg",
+                    quality,
                 );
             };
         };
     });
 }
 
+function calculateOptimalSize(originalWidth, originalHeight, maxWidth) {
+    if (originalWidth <= maxWidth && originalHeight <= maxWidth) {
+        return { width: originalWidth, height: originalHeight };
+    }
+
+    const aspectRatio = originalWidth / originalHeight;
+
+    if (originalWidth > originalHeight) {
+        return {
+            width: maxWidth,
+            height: Math.round(maxWidth / aspectRatio),
+        };
+    } else {
+        return {
+            width: Math.round(maxWidth * aspectRatio),
+            height: maxWidth,
+        };
+    }
+}
+
 // =====================================================
-// IMAGE UPLOAD TO FIREBASE
+// OPTIMIZED FIREBASE UPLOAD WITH RETRY
 // =====================================================
 
-async function uploadImageToFirebase(file, type) {
+async function uploadImageToFirebase(file, type, retries = 3) {
     if (!file) return null;
 
+    // Additional compression for different image types
+    const compressionSettings = {
+        invoice: { maxWidth: 600, quality: 0.8 },
+        product: { maxWidth: 400, quality: 0.7 },
+        price: { maxWidth: 400, quality: 0.7 },
+    };
+
+    const settings = compressionSettings[type] || {
+        maxWidth: 400,
+        quality: 0.7,
+    };
+    const compressedFile = await compressImage(
+        file,
+        settings.maxWidth,
+        settings.quality,
+    );
+
+    console.log(
+        `Original size: ${(file.size / 1024).toFixed(2)}KB, Compressed: ${(compressedFile.size / 1024).toFixed(2)}KB`,
+    );
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            return await uploadToFirebaseStorage(compressedFile, type);
+        } catch (error) {
+            console.warn(`Upload attempt ${attempt + 1} failed:`, error);
+            if (attempt === retries - 1) throw error;
+
+            // Exponential backoff
+            await new Promise((resolve) =>
+                setTimeout(resolve, Math.pow(2, attempt) * 1000),
+            );
+        }
+    }
+}
+
+function uploadToFirebaseStorage(file, type) {
     return new Promise((resolve, reject) => {
-        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}.jpg`;
         const imageRef = storageRef.child(`dathang/${type}/${fileName}`);
 
         const uploadTask = imageRef.put(file, {
-            cacheControl: "public,max-age=31536000",
+            cacheControl: "public,max-age=2592000", // 30 days cache
+            contentType: "image/jpeg",
         });
 
         uploadTask.on(
             "state_changed",
             function (snapshot) {
-                // Progress tracking if needed
+                const progress =
+                    (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                if (progress % 25 === 0) {
+                    // Log every 25%
+                    console.log(`Upload ${type}: ${progress.toFixed(0)}%`);
+                }
             },
             function (error) {
                 console.error(`Error uploading ${type} image:`, error);
@@ -312,7 +376,9 @@ async function uploadImageToFirebase(file, type) {
                 uploadTask.snapshot.ref
                     .getDownloadURL()
                     .then(function (downloadURL) {
-                        console.log(`${type} image uploaded successfully`);
+                        console.log(
+                            `${type} image uploaded successfully: ${fileName}`,
+                        );
                         resolve(downloadURL);
                     })
                     .catch(reject);
@@ -440,7 +506,7 @@ function getRowImageData(row, type) {
 }
 
 // =====================================================
-// FORM SUBMISSION
+// OPTIMIZED FORM SUBMISSION WITH PARALLEL UPLOADS
 // =====================================================
 
 async function submitOrder() {
@@ -472,48 +538,20 @@ async function submitOrder() {
             tongNhan: 0,
         }));
 
-        // Process images and upload to Firebase
-        for (const order of orders) {
-            // Handle shared invoice image
-            if (formData.sharedData.invoiceImage) {
-                if (typeof formData.sharedData.invoiceImage !== "string") {
-                    order.anhHoaDon = await uploadImageToFirebase(
-                        formData.sharedData.invoiceImage,
-                        "invoice",
-                    );
-                } else {
-                    order.anhHoaDon = formData.sharedData.invoiceImage;
-                }
-            }
+        // OPTIMIZED: Upload all images in parallel
+        await processImagesOptimized(orders, formData.sharedData);
 
-            // Handle product-specific images
-            if (order.productImage) {
-                order.anhSanPham = await uploadImageToFirebase(
-                    order.productImage,
-                    "product",
-                );
-                delete order.productImage;
-            }
-
-            if (order.priceImage) {
-                order.anhGiaMua = await uploadImageToFirebase(
-                    order.priceImage,
-                    "price",
-                );
-                delete order.priceImage;
-            }
-        }
-
-        // Upload all orders to Firestore sequentially
-        for (const order of orders) {
-            await uploadToFirestore(order);
-        }
+        // OPTIMIZED: Upload all orders in batches
+        await uploadOrdersBatch(orders);
 
         hideFloatingAlert();
         showSuccess("Thêm đơn hàng thành công!");
 
         // Clear form and reload data
         clearForm();
+
+        // RELOAD TABLE: Force refresh display
+        invalidateCache();
         await displayOrderData();
     } catch (error) {
         console.error("Error submitting order:", error);
@@ -526,6 +564,105 @@ async function submitOrder() {
             submitBtn.textContent = "Thêm đơn hàng";
         }
     }
+}
+
+// OPTIMIZED: Process all images in parallel for faster upload
+async function processImagesOptimized(orders, sharedData) {
+    const uploadPromises = [];
+
+    // Shared invoice image (upload once, use for all orders)
+    let sharedInvoiceUrl = null;
+    if (sharedData.invoiceImage) {
+        if (typeof sharedData.invoiceImage !== "string") {
+            uploadPromises.push(
+                uploadImageToFirebase(sharedData.invoiceImage, "invoice").then(
+                    (url) => {
+                        sharedInvoiceUrl = url;
+                    },
+                ),
+            );
+        } else {
+            sharedInvoiceUrl = sharedData.invoiceImage;
+        }
+    }
+
+    // Product-specific images (parallel upload)
+    orders.forEach((order, index) => {
+        if (order.productImage) {
+            uploadPromises.push(
+                uploadImageToFirebase(order.productImage, "product").then(
+                    (url) => {
+                        orders[index].anhSanPham = url;
+                    },
+                ),
+            );
+        }
+
+        if (order.priceImage) {
+            uploadPromises.push(
+                uploadImageToFirebase(order.priceImage, "price").then((url) => {
+                    orders[index].anhGiaMua = url;
+                }),
+            );
+        }
+    });
+
+    // Wait for all uploads to complete
+    await Promise.all(uploadPromises);
+
+    // Apply shared invoice URL to all orders
+    if (sharedInvoiceUrl) {
+        orders.forEach((order) => {
+            order.anhHoaDon = sharedInvoiceUrl;
+        });
+    }
+
+    // Clean up file references
+    orders.forEach((order) => {
+        delete order.productImage;
+        delete order.priceImage;
+    });
+
+    updateUploadProgress(orders.length);
+}
+
+// OPTIMIZED: Upload orders using batch method for better performance
+async function uploadOrdersBatch(orders) {
+    try {
+        // Use optimized batch upload method
+        await uploadOrdersBatchToFirestore(orders);
+
+        // Single invalidate cache call after all uploads
+        invalidateCache();
+
+        showLoading(`Đã lưu thành công ${orders.length} đơn hàng`);
+    } catch (error) {
+        // If batch fails, fallback to individual uploads
+        console.warn(
+            "Batch upload failed, falling back to individual uploads:",
+            error,
+        );
+        await uploadOrdersIndividually(orders);
+    }
+}
+
+// Fallback method for individual uploads
+async function uploadOrdersIndividually(orders) {
+    for (let i = 0; i < orders.length; i++) {
+        const order = orders[i];
+        await uploadToFirestore(order);
+
+        // Update progress
+        showLoading(`Đang lưu đơn hàng... ${i + 1}/${orders.length}`);
+    }
+
+    // Single invalidate cache call after all uploads
+    invalidateCache();
+}
+
+// Progress indicator for uploads
+function updateUploadProgress(totalOrders) {
+    showLoading(`Đang tải ${totalOrders} ảnh lên Firebase...`);
 }
 
 // =====================================================

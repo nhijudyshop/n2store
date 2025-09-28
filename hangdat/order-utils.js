@@ -224,17 +224,35 @@ function sortDataByNewest(dataArray) {
 }
 
 // =====================================================
-// ALERT FUNCTIONS
+// ALERT FUNCTIONS - FIXED
 // =====================================================
 
 function showFloatingAlert(message, showSpinner = false, duration = 0) {
-    const alert = document.getElementById("floatingAlert");
+    let alert = document.getElementById("floatingAlert");
+
+    // Create alert if it doesn't exist
+    if (!alert) {
+        alert = document.createElement("div");
+        alert.id = "floatingAlert";
+        alert.innerHTML = `
+            <div class="alert-content">
+                <div class="loading-spinner" style="display: none">
+                    <div class="spinner"></div>
+                </div>
+                <div class="alert-text">Thông báo hiển thị!</div>
+            </div>
+        `;
+        document.body.appendChild(alert);
+    }
+
     const spinner = alert.querySelector(".loading-spinner");
     const text = alert.querySelector(".alert-text");
 
-    text.textContent = message;
-    spinner.style.display = showSpinner ? "block" : "none";
+    if (text) text.textContent = message;
+    if (spinner) spinner.style.display = showSpinner ? "block" : "none";
     alert.style.display = "block";
+
+    console.log(`Alert: ${message}`); // Debug log
 
     if (duration > 0) {
         setTimeout(() => {
@@ -245,26 +263,64 @@ function showFloatingAlert(message, showSpinner = false, duration = 0) {
 
 function hideFloatingAlert() {
     const alert = document.getElementById("floatingAlert");
-    alert.style.display = "none";
+    if (alert) {
+        alert.style.display = "none";
+    }
 }
 
 // Helper function to show loading state
 function showLoading(message) {
     showFloatingAlert(message, true);
+    setAlertClass("info");
 }
 
 // Helper function to show success message
 function showSuccess(message) {
     hideFloatingAlert();
-    showFloatingAlert(message, false);
-    setTimeout(hideFloatingAlert, 2000);
+    showFloatingAlert(message, false, 2000);
+    setAlertClass("success");
 }
 
 // Helper function to show error message
 function showError(message) {
     hideFloatingAlert();
-    showFloatingAlert(message, false);
-    setTimeout(hideFloatingAlert, 3000);
+    showFloatingAlert(message, false, 3000);
+    setAlertClass("error");
+}
+
+// Helper function to show warning message
+function showWarning(message) {
+    hideFloatingAlert();
+    showFloatingAlert(message, false, 3000);
+    setAlertClass("warning");
+}
+
+function setAlertClass(type) {
+    const alert = document.getElementById("floatingAlert");
+    if (alert) {
+        // Remove all alert classes
+        alert.classList.remove("success", "error", "warning", "info");
+        // Add the new class
+        if (type) {
+            alert.classList.add(type);
+        }
+    }
+}
+
+// Test function to verify alerts work
+function testAlerts() {
+    console.log("Testing alerts...");
+
+    showLoading("Testing loading...");
+    setTimeout(() => {
+        showSuccess("Success test!");
+        setTimeout(() => {
+            showError("Error test!");
+            setTimeout(() => {
+                showWarning("Warning test!");
+            }, 2000);
+        }, 2000);
+    }, 2000);
 }
 
 // =====================================================

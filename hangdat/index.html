@@ -175,13 +175,11 @@
                         <option value="all">Tất cả</option>
                     </select>
 
-                    <label for="dateFilter">Lọc ngày đặt hàng:</label>
-                    <select id="dateFilter">
-                        <option value="all">Tất cả</option>
-                        <option value="today">Hôm nay</option>
-                        <option value="week">Tuần này</option>
-                        <option value="month">Tháng này</option>
-                    </select>
+                    <label for="dateFrom">Từ ngày:</label>
+                    <input type="date" id="dateFrom" />
+
+                    <label for="dateTo">Đến ngày:</label>
+                    <input type="date" id="dateTo" />
 
                     <label for="filterProduct">Lọc sản phẩm:</label>
                     <input
@@ -189,6 +187,18 @@
                         id="filterProduct"
                         placeholder="Tìm kiếm sản phẩm..."
                     />
+                </div>
+
+                <div class="filter-actions">
+                    <button class="btn-filter" id="applyFilterBtn">
+                        Áp dụng lọc
+                    </button>
+                    <button class="btn-clear-filter" id="clearFilterBtn">
+                        Xóa lọc
+                    </button>
+                    <button class="btn-delete-filtered" id="deleteFilteredBtn">
+                        Xóa theo lọc
+                    </button>
                 </div>
             </div>
 
@@ -200,12 +210,12 @@
                             <th style="width: 6%">Ngày đặt</th>
                             <th style="width: 7%">Nhà cung cấp</th>
                             <th style="width: 8%">Hóa đơn</th>
-                            <th style="width: 30%">Tên sản phẩm</th>
-                            <th style="width: 9%">Mã SP</th>
-                            <th style="width: 9%">Biến thể</th>
-                            <th style="width: 1%">Số lượng</th>
-                            <th style="width: 15%">Ảnh SP</th>
-                            <th style="width: 15%">Ảnh giá mua</th>
+                            <th style="width: 25%">Tên sản phẩm</th>
+                            <th style="width: 8%">Mã SP</th>
+                            <th style="width: 8%">Biến thể</th>
+                            <th style="width: 6%">Số lượng</th>
+                            <th style="width: 12%">Ảnh SP</th>
+                            <th style="width: 12%">Ảnh giá mua</th>
                             <th style="width: 9%">Ghi chú</th>
                             <th style="width: 5%">Chỉnh sửa</th>
                             <th style="width: 5%">Xóa</th>
@@ -239,5 +249,7 @@
         <script src="order-crud.js"></script>
         <script src="order-display.js"></script>
         <script src="order-main.js"></script>
+
+        <script src="utility.js"></script>
     </body>
 </html>
