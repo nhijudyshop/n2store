@@ -5,6 +5,9 @@
 // CRUD OPERATIONS
 // =====================================================
 
+// EDIT ORDER BY ID
+async function editOrderByID(event) {}
+
 // DELETE ORDER BY ID
 async function deleteOrderByID(event) {
     const auth = getAuthState();
@@ -1341,7 +1344,7 @@ function renderDataToTable(dataArray) {
             tr.classList.add("product-group");
 
             const cells = [];
-            for (let j = 0; j < 14; j++) {
+            for (let j = 0; j < 12; j++) {
                 cells[j] = document.createElement("td");
             }
 
@@ -1380,19 +1383,19 @@ function renderDataToTable(dataArray) {
                         imageObserver.observe(img);
                         invoiceContainer.appendChild(img);
                     });
-                    cells[3].appendChild(invoiceContainer);
+                    cells[2].appendChild(invoiceContainer);
                 } else {
-                    cells[3].textContent = "—";
+                    cells[2].textContent = "—";
                 }
-                cells[3].rowSpan = groupSize;
-                cells[3].classList.add("merged-cell");
+                cells[2].rowSpan = groupSize;
+                cells[2].classList.add("merged-cell");
             } else {
                 // Skip shared data cells for subsequent rows in group
-                cells.splice(0, 4);
+                //cells.splice(0, 4);
             }
 
             // Product-specific data (always shown)
-            const productCellStart = index === 0 ? 4 : 0;
+            const productCellStart = index === 0 ? 3 : 0;
 
             // Product name
             cells[productCellStart].textContent = sanitizeInput(
@@ -1406,6 +1409,50 @@ function renderDataToTable(dataArray) {
             cells[productCellStart + 2].textContent = sanitizeInput(
                 order.bienThe || "",
             );
+
+            // Product images
+            if (order.anhSanPham) {
+                const productImgs = Array.isArray(order.anhSanPham)
+                    ? order.anhSanPham
+                    : [order.anhSanPham];
+                const productContainer = document.createElement("div");
+                productContainer.className = "product-row";
+                productImgs.forEach((imgUrl) => {
+                    const img = document.createElement("img");
+                    img.dataset.src = imgUrl;
+                    img.src =
+                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2RkZCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjIwIiB5PSIyNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSI+Li4uPC90ZXh0Pgo8L3N2Zz4K";
+                    img.alt = "Đang tải...";
+                    img.className = "product-image";
+                    totalImages++;
+                    imageObserver.observe(img);
+                    productContainer.appendChild(img);
+                });
+                cells[productCellStart + 4].appendChild(productContainer);
+            }
+
+            // Price images
+            if (order.anhGiaMua || order.anhGiaNhap) {
+                const priceImgs = Array.isArray(
+                    order.anhGiaMua || order.anhGiaNhap,
+                )
+                    ? order.anhGiaMua || order.anhGiaNhap
+                    : [order.anhGiaMua || order.anhGiaNhap];
+                const priceContainer = document.createElement("div");
+                priceContainer.className = "product-row";
+                priceImgs.forEach((imgUrl) => {
+                    const img = document.createElement("img");
+                    img.dataset.src = imgUrl;
+                    img.src =
+                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2RkZCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjIwIiB5PSIyNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSI+Li4uPC90ZXh0Pgo8L3N2Zz4K";
+                    img.alt = "Đang tải...";
+                    img.className = "product-image";
+                    totalImages++;
+                    imageObserver.observe(img);
+                    priceContainer.appendChild(img);
+                });
+                cells[productCellStart + 5].appendChild(priceContainer);
+            }
 
             // Quantity input
             const quantityInput = document.createElement("input");
@@ -1451,59 +1498,26 @@ function renderDataToTable(dataArray) {
             });
             cells[productCellStart + 5].appendChild(priceSellInput);
 
-            // Product images
-            if (order.anhSanPham) {
-                const productImgs = Array.isArray(order.anhSanPham)
-                    ? order.anhSanPham
-                    : [order.anhSanPham];
-                const productContainer = document.createElement("div");
-                productContainer.className = "product-row";
-                productImgs.forEach((imgUrl) => {
-                    const img = document.createElement("img");
-                    img.dataset.src = imgUrl;
-                    img.src =
-                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2RkZCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjIwIiB5PSIyNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSI+Li4uPC90ZXh0Pgo8L3N2Zz4K";
-                    img.alt = "Đang tải...";
-                    img.className = "product-image";
-                    totalImages++;
-                    imageObserver.observe(img);
-                    productContainer.appendChild(img);
-                });
-                cells[productCellStart + 6].appendChild(productContainer);
-            }
-
-            // Price images
-            if (order.anhGiaMua || order.anhGiaNhap) {
-                const priceImgs = Array.isArray(
-                    order.anhGiaMua || order.anhGiaNhap,
-                )
-                    ? order.anhGiaMua || order.anhGiaNhap
-                    : [order.anhGiaMua || order.anhGiaNhap];
-                const priceContainer = document.createElement("div");
-                priceContainer.className = "product-row";
-                priceImgs.forEach((imgUrl) => {
-                    const img = document.createElement("img");
-                    img.dataset.src = imgUrl;
-                    img.src =
-                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2RkZCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjIwIiB5PSIyNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSI+Li4uPC90ZXh0Pgo8L3N2Zz4K";
-                    img.alt = "Đang tải...";
-                    img.className = "product-image";
-                    totalImages++;
-                    imageObserver.observe(img);
-                    priceContainer.appendChild(img);
-                });
-                cells[productCellStart + 7].appendChild(priceContainer);
-            }
-
             // Notes
-            cells[productCellStart + 8].textContent = sanitizeInput(
+            cells[productCellStart + 6].textContent = sanitizeInput(
                 order.ghiChu || "",
             );
-            cells[productCellStart + 8].style.maxWidth = "150px";
-            cells[productCellStart + 8].style.overflow = "hidden";
-            cells[productCellStart + 8].style.textOverflow = "ellipsis";
-            cells[productCellStart + 8].style.whiteSpace = "nowrap";
-            if (order.ghiChu) cells[productCellStart + 8].title = order.ghiChu;
+            cells[productCellStart + 6].style.maxWidth = "150px";
+            cells[productCellStart + 6].style.overflow = "hidden";
+            cells[productCellStart + 6].style.textOverflow = "ellipsis";
+            cells[productCellStart + 6].style.whiteSpace = "nowrap";
+            if (order.ghiChu) cells[productCellStart + 6].title = order.ghiChu;
+
+            // Edit button
+            const editButton = document.createElement("button");
+            editButton.className = "edit-button";
+            editButton.setAttribute("data-order-id", order.id || "");
+            editButton.setAttribute(
+                "data-order-info",
+                `${sanitizeInput(order.tenSanPham || "")} - ${order.hoaDon || ""}`,
+            );
+            editButton.addEventListener("click", editOrderByID);
+            cells[productCellStart + 7].appendChild(editButton);
 
             // Delete button
             const deleteButton = document.createElement("button");
@@ -1514,7 +1528,7 @@ function renderDataToTable(dataArray) {
                 `${sanitizeInput(order.tenSanPham || "")} - ${order.hoaDon || ""}`,
             );
             deleteButton.addEventListener("click", deleteOrderByID);
-            cells[productCellStart + 9].appendChild(deleteButton);
+            cells[productCellStart + 8].appendChild(deleteButton);
 
             const auth = getAuthState();
             if (auth) {
