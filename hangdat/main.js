@@ -88,7 +88,7 @@ window.debugInventoryFunctions = {
     getAuthState,
     exportToExcel,
     updateOrderInventoryData,
-    removeInventoryDataFromOrder,
+    removeItemFromFirebase, // Fixed: Use the actual function name
     applyFilters,
     toggleView,
     resetForm: () => {

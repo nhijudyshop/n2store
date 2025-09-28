@@ -1,5 +1,5 @@
-// main-optimized.js - Phần 1: Constructor và Init Methods
-// Main application file with performance optimizations and fixed checkbox logic
+// main-optimized.js - FIXED VERSION
+// Phiên bản đã sửa lỗi checkbox và tối ưu hiệu suất
 
 class MoneyTransferApp {
     constructor() {
@@ -7,11 +7,8 @@ class MoneyTransferApp {
         this.db = null;
         this.collectionRef = null;
         this.historyCollectionRef = null;
-
         this.virtualScrollManager = null;
         this.filterManager = null;
-        this.authManager = null;
-
         this.isInitialized = false;
         this.initStartTime = performance.now();
 
@@ -40,13 +37,11 @@ class MoneyTransferApp {
             await this.loadInitialData();
 
             this.isInitialized = true;
-
             const initTime = performanceMonitor.end("appInit");
             console.log(
                 `App initialized successfully in ${initTime.toFixed(0)}ms`,
             );
 
-            // Show ready message
             if (window.showSuccess) {
                 window.showSuccess(
                     `Ứng dụng sẵn sàng (${initTime.toFixed(0)}ms)`,
@@ -94,7 +89,6 @@ class MoneyTransferApp {
             }
         }
 
-        // Show main container
         const parentContainer = domManager.get("#parentContainer");
         if (parentContainer) {
             parentContainer.style.cssText = `
@@ -107,7 +101,6 @@ class MoneyTransferApp {
 
     async initFirebase() {
         try {
-            // Initialize Firebase
             this.firebase = firebase.initializeApp(CONFIG.firebase);
             this.db = firebase.firestore();
             this.collectionRef = this.db.collection(
@@ -116,7 +109,6 @@ class MoneyTransferApp {
             this.historyCollectionRef = this.db.collection(
                 CONFIG.data.HISTORY_COLLECTION_NAME,
             );
-
             console.log("Firebase initialized successfully");
         } catch (error) {
             console.error("Firebase initialization failed:", error);
@@ -126,11 +118,9 @@ class MoneyTransferApp {
 
     initManagers() {
         try {
-            // Initialize Virtual Scroll Manager
             this.virtualScrollManager = new VirtualScrollManager();
             window.virtualScrollManager = this.virtualScrollManager;
 
-            // Initialize Filter Manager
             this.filterManager = new FilterManager();
             window.filterManager = this.filterManager;
 
@@ -143,15 +133,9 @@ class MoneyTransferApp {
 
     initUI() {
         try {
-            // Initialize form
             this.initForm();
-
-            // Initialize table events
             this.initTableEvents();
-
-            // Initialize other UI components
             this.initUIComponents();
-
             console.log("UI initialized successfully");
         } catch (error) {
             console.error("UI initialization failed:", error);
@@ -162,17 +146,18 @@ class MoneyTransferApp {
     initForm() {
         const ngayck = domManager.get(SELECTORS.ngayck);
         if (ngayck) {
-            ngayck.valueAsDate = new Date();
+            // FIXED: Set Vietnam today as default date
+            const vietnamToday = VietnamTime.getDateString();
+            ngayck.value = vietnamToday;
+
+            console.log("Form initialized with Vietnam date:", vietnamToday);
         }
 
-        // Toggle form button with enhanced animation
+        // Toggle form button (unchanged)
         const toggleFormButton = domManager.get(SELECTORS.toggleFormButton);
         const dataForm = domManager.get(SELECTORS.dataForm);
 
         if (toggleFormButton && dataForm) {
-            toggleFormButton.style.transition =
-                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
-
             toggleFormButton.addEventListener("click", () => {
                 if (APP_STATE.isOperationInProgress) {
                     if (window.showError) {
@@ -190,54 +175,19 @@ class MoneyTransferApp {
 
                     if (isHidden) {
                         dataForm.style.display = "block";
-                        dataForm.style.opacity = "0";
-                        dataForm.style.transform = "translateY(-20px)";
-                        dataForm.style.transition =
-                            "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)";
-
-                        requestAnimationFrame(() => {
-                            dataForm.style.opacity = "1";
-                            dataForm.style.transform = "translateY(0)";
-                        });
-
                         toggleFormButton.textContent = "Ẩn biểu mẫu";
-                        toggleFormButton.style.background =
-                            "linear-gradient(135deg, #dc3545, #c82333)";
 
                         setTimeout(() => {
                             const firstInput = domManager.get(
                                 SELECTORS.transferNote,
                             );
-                            if (firstInput) {
-                                firstInput.focus();
-                                firstInput.style.transition = "all 0.3s ease";
-                                firstInput.style.borderColor = "#667eea";
-                                firstInput.style.boxShadow =
-                                    "0 0 0 3px rgba(102, 126, 234, 0.25)";
-                            }
+                            if (firstInput) firstInput.focus();
                         }, 200);
                     } else {
-                        dataForm.style.transition =
-                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
-                        dataForm.style.opacity = "0";
-                        dataForm.style.transform = "translateY(-20px)";
-
-                        setTimeout(() => {
-                            dataForm.style.display = "none";
-                        }, 300);
-
+                        dataForm.style.display = "none";
                         toggleFormButton.textContent = "Hiện biểu mẫu";
-                        toggleFormButton.style.background = "";
                     }
                 } else {
-                    toggleFormButton.style.transform = "translateX(-5px)";
-                    setTimeout(() => {
-                        toggleFormButton.style.transform = "translateX(5px)";
-                        setTimeout(() => {
-                            toggleFormButton.style.transform = "";
-                        }, 100);
-                    }, 100);
-
                     if (window.showError) {
                         window.showError("Không có quyền truy cập form");
                     }
@@ -251,50 +201,16 @@ class MoneyTransferApp {
             moneyTransferForm.addEventListener("submit", (e) =>
                 this.handleFormSubmit(e),
             );
-
-            moneyTransferForm.addEventListener("keydown", (e) => {
-                if (e.ctrlKey && e.key === "Enter") {
-                    e.preventDefault();
-                    const submitBtn = moneyTransferForm.querySelector(
-                        'button[type="submit"]',
-                    );
-                    if (submitBtn) {
-                        submitBtn.style.transform = "scale(0.95)";
-                        setTimeout(() => {
-                            submitBtn.style.transform = "";
-                        }, 150);
-                    }
-                    this.handleFormSubmit(e);
-                }
-            });
         }
 
         // Amount input formatting
         const transferAmountInput = domManager.get(SELECTORS.transferAmount);
         if (transferAmountInput) {
-            transferAmountInput.style.transition = "all 0.3s ease";
-
-            transferAmountInput.addEventListener("focus", function () {
-                this.style.borderColor = "#667eea";
-                this.style.boxShadow = "0 0 0 3px rgba(102, 126, 234, 0.25)";
-                this.style.transform = "translateY(-1px)";
-            });
-
             transferAmountInput.addEventListener("blur", function () {
-                this.style.borderColor = "";
-                this.style.boxShadow = "";
-                this.style.transform = "";
-
                 let value = this.value.replace(/[,\.]/g, "");
                 value = parseFloat(value);
-
                 if (!isNaN(value) && value > 0) {
-                    this.style.color = "#28a745";
                     this.value = numberWithCommas(value);
-
-                    setTimeout(() => {
-                        this.style.color = "";
-                    }, 1000);
                 }
             });
         }
@@ -302,58 +218,24 @@ class MoneyTransferApp {
         // Clear form button
         const clearDataButton = domManager.get(SELECTORS.clearDataButton);
         if (clearDataButton) {
-            clearDataButton.style.transition =
-                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
-
             clearDataButton.addEventListener("click", () => {
-                if (APP_STATE.isOperationInProgress) {
-                    if (window.showError) {
-                        window.showError(
-                            "Có thao tác đang thực hiện, vui lòng đợi...",
-                        );
-                    }
-                    return;
-                }
-
-                clearDataButton.style.transform = "scale(0.95)";
-                setTimeout(() => {
-                    clearDataButton.style.transform = "";
-                }, 150);
+                if (APP_STATE.isOperationInProgress) return;
 
                 const formInputs = moneyTransferForm.querySelectorAll(
                     "input, select, textarea",
                 );
-                formInputs.forEach((input, index) => {
-                    setTimeout(() => {
-                        input.style.transition = "all 0.3s ease";
-                        input.style.opacity = "0.5";
-                        input.value = "";
-
-                        setTimeout(() => {
-                            input.style.opacity = "1";
-                        }, 200);
-                    }, index * 50);
+                formInputs.forEach((input) => {
+                    input.value = "";
                 });
 
+                // FIXED: Reset to Vietnam today
                 if (ngayck) {
-                    setTimeout(() => {
-                        ngayck.valueAsDate = new Date();
-                    }, formInputs.length * 50);
+                    ngayck.value = VietnamTime.getDateString();
                 }
 
-                setTimeout(
-                    () => {
-                        const firstInput = domManager.get(
-                            SELECTORS.transferNote,
-                        );
-                        if (firstInput) {
-                            firstInput.focus();
-                            firstInput.style.borderColor = "#667eea";
-                            firstInput.style.boxShadow =
-                                "0 0 0 3px rgba(102, 126, 234, 0.25)";
-                        }
-                    },
-                    formInputs.length * 50 + 100,
+                console.log(
+                    "Form reset with Vietnam date:",
+                    VietnamTime.getDateString(),
                 );
             });
         }
@@ -404,8 +286,7 @@ class MoneyTransferApp {
         window.saveChanges = () => this.saveChanges();
     }
 
-    // main-optimized.js - Phần 3: Data Loading và Firebase
-
+    // ===== DATA LOADING =====
     async loadInitialData() {
         try {
             performanceMonitor.start("initialDataLoad");
@@ -434,69 +315,31 @@ class MoneyTransferApp {
                         `Loading ${data["data"].length} transactions from Firebase...`,
                     );
 
-                    // DEBUG: Log raw data
-                    console.log("=== RAW FIREBASE DATA DEBUG ===");
-                    console.log("Total items:", data["data"].length);
-                    console.log("First 5 items from Firebase:");
-                    data["data"].slice(0, 5).forEach((item, index) => {
-                        //console.log(`Raw Item ${index}:`, {
-                        //    uniqueId: item.uniqueId,
-                        //    muted: item.muted,
-                        //    mutedType: typeof item.muted,
-                        //    noteCell: item.noteCell,
-                        //    originalItem: item,
-                        //});
-                    });
-
-                    // Process data with proper muted handling
+                    // FIXED: Process data with proper completed status
                     const processedData = data["data"].map((item) => {
                         const processedItem = ensureUniqueId(item);
 
-                        // CRITICAL: Ensure muted is boolean
-                        if (
-                            processedItem.muted === undefined ||
-                            processedItem.muted === null
-                        ) {
-                            processedItem.muted = false; // Default: chưa đi đơn
-                            //console.log(
-                            //    `Set default muted=false for item: ${processedItem.uniqueId}`,
-                            //);
+                        // CRITICAL FIX: Convert 'muted' to 'completed' with correct logic
+                        if (item.muted !== undefined) {
+                            // muted: true = đã đi đơn = completed: true
+                            // muted: false = chưa đi đơn = completed: false
+                            processedItem.completed = Boolean(item.muted);
+                            delete processedItem.muted; // Remove old property
                         } else {
-                            const oldMuted = processedItem.muted;
-                            processedItem.muted = Boolean(processedItem.muted);
-                            if (oldMuted !== processedItem.muted) {
-                                //console.log(
-                                //    `Converted muted from ${oldMuted} to ${processedItem.muted} for item: ${processedItem.uniqueId}`,
-                                //);
-                            }
+                            // Default for new items
+                            processedItem.completed = false; // Chưa đi đơn
                         }
 
                         return processedItem;
                     });
 
-                    // DEBUG: Log processed data
-                    console.log("=== PROCESSED DATA DEBUG ===");
-                    console.log("First 5 processed items:");
-                    processedData.slice(0, 5).forEach((item, index) => {
-                        //console.log(`Processed Item ${index}:`, {
-                        //    uniqueId: item.uniqueId,
-                        //    muted: item.muted,
-                        //    mutedType: typeof item.muted,
-                        //    noteCell: item.noteCell,
-                        //});
-                    });
-
-                    // Count muted vs unmuted items
-                    const mutedCount = processedData.filter(
-                        (item) => item.muted === true,
-                    ).length;
-                    const unmutedCount = processedData.filter(
-                        (item) => item.muted === false,
-                    ).length;
-                    console.log("Muted status summary:", {
+                    console.log("Data conversion summary:", {
                         total: processedData.length,
-                        muted: mutedCount,
-                        unmuted: unmutedCount,
+                        completed: processedData.filter(
+                            (item) => item.completed,
+                        ).length,
+                        active: processedData.filter((item) => !item.completed)
+                            .length,
                     });
 
                     cacheManager.set(processedData);
@@ -556,16 +399,21 @@ class MoneyTransferApp {
 
         APP_STATE.filteredData = [...sortedData];
 
-        // Apply today's filter by default
-        const today = new Date().toISOString().split("T")[0];
-        this.filterManager.filters.startDate = today;
-        this.filterManager.filters.endDate = today;
+        // FIXED: Apply today's filter using Vietnam timezone
+        const vietnamToday = VietnamTime.getDateString();
+        this.filterManager.filters.startDate = vietnamToday;
+        this.filterManager.filters.endDate = vietnamToday;
 
-        console.log("=== INITIAL RENDER DEBUG ===");
-        console.log("Data prepared for filtering:", {
-            arrayDataLength: APP_STATE.arrayData.length,
-            filteredDataLength: APP_STATE.filteredData.length,
-            todayFilter: today,
+        console.log("Initial render with Vietnam today filter:", {
+            vietnamToday: vietnamToday,
+            systemToday: new Date().toISOString().split("T")[0],
+            dataCount: sortedData.length,
+            sampleTimestamps: sortedData.slice(0, 3).map((item) => ({
+                timestamp: item.dateCell,
+                vietnamDate: VietnamTime.formatVietnamDate(
+                    parseFloat(item.dateCell),
+                ),
+            })),
         });
 
         // Apply initial filter
@@ -578,8 +426,7 @@ class MoneyTransferApp {
         performanceMonitor.end("renderInitialData");
     }
 
-    // main-optimized.js - Phần 4: Form Submit và Transaction Handling
-
+    // ===== FORM SUBMIT =====
     async handleFormSubmit(e) {
         e.preventDefault();
 
@@ -607,15 +454,6 @@ class MoneyTransferApp {
             }
 
             const newTransaction = this.createTransaction(formData);
-
-            console.log("=== NEW TRANSACTION DEBUG ===");
-            console.log("Created new transaction:", {
-                uniqueId: newTransaction.uniqueId,
-                muted: newTransaction.muted,
-                mutedType: typeof newTransaction.muted,
-                noteCell: newTransaction.noteCell,
-            });
-
             this.addTransactionToUI(newTransaction);
             this.resetForm();
             await this.uploadTransaction(newTransaction);
@@ -710,9 +548,13 @@ class MoneyTransferApp {
     }
 
     createTransaction(formData) {
-        const tempTimeStamp = new Date();
+        // FIXED: Handle Vietnam timezone properly
+        const vietnamDate = new Date(formData.currentDate.getTime());
+        const tempTimeStamp = VietnamTime.now();
+
+        // Create timestamp with Vietnam timezone
         const timestamp =
-            formData.currentDate.getTime() +
+            vietnamDate.getTime() +
             (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) *
                 1000;
 
@@ -730,10 +572,16 @@ class MoneyTransferApp {
                     ? auth.userType.split("-")[0]
                     : "Unknown"
                 : "Unknown",
-            muted: false, // CRITICAL: New transaction always starts as "chưa đi đơn"
+            completed: false, // New transaction starts as incomplete
         };
 
-        console.log("New transaction created with muted=false (chưa đi đơn)");
+        console.log("New transaction created with Vietnam timezone:", {
+            uniqueId: newTransaction.uniqueId,
+            timestamp: timestamp,
+            vietnamDate: VietnamTime.formatVietnamDate(timestamp),
+            originalDate: formData.currentDate,
+        });
+
         return newTransaction;
     }
 
@@ -751,29 +599,11 @@ class MoneyTransferApp {
                 formattedTime,
             );
             if (newRow) {
-                newRow.style.opacity = "0";
-                newRow.style.transform = "translateY(-20px) scale(0.95)";
-
                 if (tableBody.firstChild) {
                     tableBody.insertBefore(newRow, tableBody.firstChild);
                 } else {
                     tableBody.appendChild(newRow);
                 }
-
-                requestAnimationFrame(() => {
-                    newRow.style.transition =
-                        "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
-                    newRow.style.opacity = "1";
-                    newRow.style.transform = "translateY(0) scale(1)";
-                });
-
-                setTimeout(() => {
-                    newRow.style.background =
-                        "linear-gradient(135deg, #e8f5e8, #f0fff0)";
-                    setTimeout(() => {
-                        newRow.style.background = "";
-                    }, 2000);
-                }, 300);
             }
         }
     }
@@ -785,8 +615,13 @@ class MoneyTransferApp {
         if (moneyTransferForm) {
             moneyTransferForm.reset();
         }
+
         if (ngayck) {
-            ngayck.valueAsDate = new Date();
+            // FIXED: Reset to Vietnam today
+            const vietnamToday = VietnamTime.getDateString();
+            ngayck.value = vietnamToday;
+
+            console.log("Form reset to Vietnam date:", vietnamToday);
         }
     }
 
@@ -810,12 +645,20 @@ class MoneyTransferApp {
             .doc(CONFIG.data.COLLECTION_NAME)
             .get();
 
+        // FIXED: Store with 'muted' for backward compatibility but set it correctly
+        const transactionForFirebase = {
+            ...transaction,
+            muted: transaction.completed, // Convert completed back to muted for Firebase
+        };
+        delete transactionForFirebase.completed; // Remove the new field
+
         const updateData = doc.exists
             ? {
-                  ["data"]:
-                      firebase.firestore.FieldValue.arrayUnion(transaction),
+                  ["data"]: firebase.firestore.FieldValue.arrayUnion(
+                      transactionForFirebase,
+                  ),
               }
-            : { ["data"]: [transaction] };
+            : { ["data"]: [transactionForFirebase] };
 
         const operation = doc.exists
             ? this.collectionRef
@@ -828,9 +671,7 @@ class MoneyTransferApp {
         return operation;
     }
 
-    // main-optimized.js - Phần 5: CHECKBOX HANDLER - Phần quan trọng nhất để fix lỗi
-
-    // CRITICAL: Complete rewrite of checkbox handler with extensive debugging
+    // ===== CHECKBOX HANDLER - COMPLETELY REWRITTEN =====
     async handleCheckboxClick(e) {
         console.log("=== CHECKBOX CLICK START ===");
 
@@ -839,7 +680,7 @@ class MoneyTransferApp {
             if (window.showError) {
                 window.showError("Không đủ quyền thực hiện chức năng này.");
             }
-            e.target.checked = !e.target.checked; // Revert the change
+            e.preventDefault();
             return;
         }
 
@@ -848,57 +689,37 @@ class MoneyTransferApp {
         const uniqueId = row.getAttribute("data-unique-id");
         const newCheckedState = checkbox.checked;
 
-        console.log("Checkbox interaction detected:", {
+        console.log("Checkbox interaction:", {
             uniqueId: uniqueId,
             newCheckedState: newCheckedState,
-            elementTagName: checkbox.tagName,
-            elementType: checkbox.type,
+            meaning: newCheckedState ? "đã đi đơn" : "chưa đi đơn",
         });
 
-        // Find the item in our data to check current muted state
+        // Find the item in our data
         const currentItem = APP_STATE.arrayData.find(
             (item) => item.uniqueId === uniqueId,
         );
 
-        console.log("Current item state before change:", {
-            found: !!currentItem,
-            uniqueId: currentItem?.uniqueId,
-            currentMuted: currentItem?.muted,
-            currentMutedType: typeof currentItem?.muted,
-            noteCell: currentItem?.noteCell,
-        });
-
-        // Verification: checkbox state should match item.muted
-        if (currentItem) {
-            const expectedChecked = Boolean(currentItem.muted);
-            const actualChecked = !newCheckedState; // Before user click
-            console.log("State verification before change:", {
-                expectedCheckboxState: expectedChecked,
-                actualPreviousState: actualChecked,
-                isConsistent: expectedChecked === actualChecked,
-            });
+        if (!currentItem) {
+            console.error("Transaction not found");
+            e.preventDefault();
+            return;
         }
 
-        // User intention analysis
-        const userIntention = newCheckedState
-            ? "mark as completed (đã đi đơn)"
-            : "mark as active (chưa đi đơn)";
-        console.log("User intention:", userIntention);
+        console.log("Current item state:", {
+            uniqueId: currentItem.uniqueId,
+            currentCompleted: currentItem.completed,
+            noteCell: currentItem.noteCell,
+        });
 
-        // Confirmation messages
+        // User confirmation
         const confirmationMessage = newCheckedState
             ? "Bạn có chắc đơn này đã được đi?"
             : "Bạn có chắc muốn đánh dấu đơn này là chưa đi?";
 
-        console.log("Showing confirmation:", confirmationMessage);
-
         if (!confirm(confirmationMessage)) {
-            // User cancelled - revert checkbox state
-            checkbox.checked = !newCheckedState;
-            console.log(
-                "User cancelled, reverted checkbox to:",
-                !newCheckedState,
-            );
+            e.preventDefault();
+            console.log("User cancelled change");
             return;
         }
 
@@ -913,38 +734,27 @@ class MoneyTransferApp {
                 );
             }
 
-            // The new muted value should match the checkbox state
-            // newCheckedState = true means muted = true (đã đi đơn)
-            // newCheckedState = false means muted = false (chưa đi đơn)
-            const newMutedValue = newCheckedState;
+            // The new completed value should match the checkbox state
+            const newCompletedValue = newCheckedState;
 
             console.log("Updating to new state:", {
                 newCheckboxState: newCheckedState,
-                newMutedValue: newMutedValue,
-                meaning: newMutedValue
-                    ? "đã đi đơn (muted=true)"
-                    : "chưa đi đơn (muted=false)",
+                newCompletedValue: newCompletedValue,
+                meaning: newCompletedValue ? "đã đi đơn" : "chưa đi đơn",
             });
 
             // Update UI immediately
-            this.updateRowMutedState(row, newMutedValue);
+            this.updateRowCompletedState(row, newCompletedValue);
 
             // Update Firebase
-            await this.updateMutedStateInFirebase(uniqueId, row, newMutedValue);
+            await this.updateCompletedStateInFirebase(
+                uniqueId,
+                row,
+                newCompletedValue,
+            );
 
             // Update state
-            this.updateMutedStateInData(uniqueId, newMutedValue);
-
-            // Verify the update
-            const updatedItem = APP_STATE.arrayData.find(
-                (item) => item.uniqueId === uniqueId,
-            );
-            console.log("After update verification:", {
-                uniqueId: updatedItem?.uniqueId,
-                updatedMuted: updatedItem?.muted,
-                checkboxChecked: checkbox.checked,
-                stateConsistent: updatedItem?.muted === checkbox.checked,
-            });
+            this.updateCompletedStateInData(uniqueId, newCompletedValue);
 
             // Update total and cache
             if (this.filterManager) {
@@ -955,9 +765,9 @@ class MoneyTransferApp {
             const dataForLog = this.extractRowData(row);
             this.logAction(
                 "update",
-                `${newMutedValue ? "Đánh dấu đã đi đơn" : "Hủy đánh dấu đi đơn"}: ${dataForLog.noteCell}`,
-                { ...dataForLog, muted: !newMutedValue },
-                { ...dataForLog, muted: newMutedValue },
+                `${newCompletedValue ? "Đánh dấu đã đi đơn" : "Hủy đánh dấu đi đơn"}: ${dataForLog.noteCell}`,
+                { ...dataForLog, completed: !newCompletedValue },
+                { ...dataForLog, completed: newCompletedValue },
             );
 
             if (window.hideOperationLoading) {
@@ -971,14 +781,8 @@ class MoneyTransferApp {
             console.error("Error updating status:", error);
 
             // Revert UI changes
-            this.updateRowMutedState(row, !newMutedValue);
+            this.updateRowCompletedState(row, !newCompletedValue);
             checkbox.checked = !newCheckedState;
-
-            console.log(
-                "Error occurred, reverted checkbox to:",
-                !newCheckedState,
-            );
-            console.log("Error details:", error);
 
             if (window.hideOperationLoading) {
                 window.hideOperationLoading();
@@ -991,63 +795,169 @@ class MoneyTransferApp {
         }
     }
 
-    // Enhanced updateRowMutedState with detailed logging
-    updateRowMutedState(row, isMuted) {
+    // FIXED: Update row visual state based on completion status
+    updateRowCompletedState(row, isCompleted) {
         if (!row) {
-            console.error("updateRowMutedState: row is null");
+            console.error("updateRowCompletedState: row is null");
             return;
         }
 
         console.log("=== UPDATING ROW VISUAL STATE ===");
         console.log("Row update parameters:", {
-            isMuted: isMuted,
-            meaning: isMuted ? "muted (đã đi đơn)" : "active (chưa đi đơn)",
-            rowHasUniqueId: !!row.getAttribute("data-unique-id"),
+            isCompleted: isCompleted,
+            meaning: isCompleted
+                ? "completed (đã đi đơn)"
+                : "active (chưa đi đơn)",
         });
 
-        // Smooth transition for muted state
         row.style.transition = "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)";
 
-        if (isMuted === true) {
-            // isMuted = true = đã đi đơn = muted state = dimmed appearance
+        if (isCompleted === true) {
+            // Completed = đã đi đơn = dimmed appearance
             row.style.opacity = "0.4";
             row.style.backgroundColor = "#f8f9fa";
-            row.style.transform = "scale(0.98)";
             row.classList.add(CSS_CLASSES.muted);
             row.classList.remove(CSS_CLASSES.active);
-            console.log("Applied muted styling (đã đi đơn)");
+            console.log("Applied completed styling (đã đi đơn)");
         } else {
-            // isMuted = false = chưa đi đơn = active state = normal appearance
+            // Not completed = chưa đi đơn = normal appearance
             row.style.opacity = "1.0";
             row.style.backgroundColor = "";
-            row.style.transform = "scale(1)";
             row.classList.add(CSS_CLASSES.active);
             row.classList.remove(CSS_CLASSES.muted);
             console.log("Applied active styling (chưa đi đơn)");
         }
 
-        // Reset transform after animation
-        setTimeout(() => {
-            row.style.transform = "";
-        }, 400);
-
         console.log("Row visual state updated successfully");
     }
 
-    // main-optimized.js - Phần 6: Edit và Delete Handlers
+    // FIXED: Update data state
+    updateCompletedStateInData(uniqueId, newCompletedValue) {
+        console.log("=== UPDATING COMPLETED STATE IN DATA ===");
 
+        let arrayDataUpdated = false;
+        let filteredDataUpdated = false;
+
+        const updateCompleted = (item, sourceArray) => {
+            if (item.uniqueId === uniqueId) {
+                console.log(`Found item in ${sourceArray}:`, {
+                    uniqueId: item.uniqueId,
+                    oldCompleted: item.completed,
+                    newCompleted: newCompletedValue,
+                });
+                item.completed = newCompletedValue;
+                return true;
+            }
+            return false;
+        };
+
+        // Update arrayData
+        APP_STATE.arrayData.forEach((item) => {
+            if (updateCompleted(item, "arrayData")) {
+                arrayDataUpdated = true;
+            }
+        });
+
+        // Update filteredData
+        APP_STATE.filteredData.forEach((item) => {
+            if (updateCompleted(item, "filteredData")) {
+                filteredDataUpdated = true;
+            }
+        });
+
+        console.log("Data update verification:", {
+            arrayDataUpdated: arrayDataUpdated,
+            filteredDataUpdated: filteredDataUpdated,
+        });
+
+        console.log("=== DATA UPDATE COMPLETED ===");
+    }
+
+    // FIXED: Update Firebase with proper field conversion
+    async updateCompletedStateInFirebase(uniqueId, row, newCompletedValue) {
+        console.log("=== UPDATING FIREBASE ===");
+
+        const doc = await this.collectionRef
+            .doc(CONFIG.data.COLLECTION_NAME)
+            .get();
+        if (!doc.exists) {
+            throw new Error("Document does not exist");
+        }
+
+        const data = doc.data();
+        const dataArray = data["data"] || [];
+
+        let itemIndex = dataArray.findIndex(
+            (item) => item.uniqueId === uniqueId,
+        );
+
+        if (itemIndex === -1) {
+            itemIndex = dataArray.findIndex(
+                (item) => item.dateCell === row.querySelector("td").id,
+            );
+        }
+
+        if (itemIndex === -1) {
+            throw new Error("Item not found in Firebase");
+        }
+
+        console.log("Found item in Firebase:", {
+            index: itemIndex,
+            uniqueId: dataArray[itemIndex].uniqueId,
+            oldMuted: dataArray[itemIndex].muted,
+        });
+
+        // FIXED: Convert completed back to muted for Firebase storage
+        dataArray[itemIndex].muted = newCompletedValue;
+
+        console.log("Firebase item updated:", {
+            index: itemIndex,
+            newMuted: dataArray[itemIndex].muted,
+        });
+
+        const result = await this.collectionRef
+            .doc(CONFIG.data.COLLECTION_NAME)
+            .update({ data: dataArray });
+        console.log("Firebase update completed successfully");
+        return result;
+    }
+
+    // ===== OTHER HANDLERS =====
     handleEditButton(e) {
         const editModal = domManager.get(SELECTORS.editModal);
         if (!editModal) return;
 
-        editModal.style.display = "block";
+        const row = e.target.closest("tr");
+        if (!row) {
+            console.error("Could not find table row");
+            return;
+        }
 
-        const row = e.target.parentNode.parentNode;
-        const date = row.cells[0].innerText;
-        const note = row.cells[1].innerText;
-        const amount = row.cells[2].innerText;
-        const bank = row.cells[3].innerText;
-        const customerInfo = row.cells[5].innerText;
+        const uniqueId = row.getAttribute("data-unique-id");
+        if (!uniqueId) {
+            console.error("Could not find unique ID");
+            return;
+        }
+
+        const transaction = APP_STATE.arrayData.find(
+            (item) => item.uniqueId === uniqueId,
+        );
+
+        if (!transaction) {
+            console.error("Transaction not found in data:", uniqueId);
+            if (window.showError) {
+                window.showError("Không tìm thấy giao dịch để chỉnh sửa");
+            }
+            return;
+        }
+
+        console.log("Opening edit modal for transaction:", {
+            uniqueId: transaction.uniqueId,
+            originalTimestamp: transaction.dateCell,
+            vietnamDate: VietnamTime.formatVietnamDate(
+                parseFloat(transaction.dateCell),
+            ),
+        });
 
         const canEditAll = this.hasPermission(1);
 
@@ -1059,43 +969,122 @@ class MoneyTransferApp {
             editInfo: domManager.get(SELECTORS.editInfo),
         };
 
+        if (
+            !editFields.editDate ||
+            !editFields.editNote ||
+            !editFields.editAmount ||
+            !editFields.editBank ||
+            !editFields.editInfo
+        ) {
+            console.error("Edit form elements not found", editFields);
+            if (window.showError) {
+                window.showError("Không tìm thấy form chỉnh sửa");
+            }
+            return;
+        }
+
+        // FIXED: Convert timestamp to Vietnam date format for display
+        const timestamp = parseFloat(transaction.dateCell);
+        const formattedDate = VietnamTime.formatVietnamDate(timestamp); // DD-MM-YY format
+
         if (canEditAll) {
-            Object.entries(editFields).forEach(([key, element]) => {
-                if (element) {
-                    element.disabled = false;
-                    switch (key) {
-                        case "editDate":
-                            element.value = date;
-                            break;
-                        case "editNote":
-                            element.value = note;
-                            break;
-                        case "editAmount":
-                            element.value = amount;
-                            break;
-                        case "editBank":
-                            element.value = bank;
-                            break;
-                        case "editInfo":
-                            element.value = customerInfo;
-                            break;
-                    }
-                }
+            editFields.editDate.disabled = false;
+            editFields.editNote.disabled = false;
+            editFields.editAmount.disabled = false;
+            editFields.editBank.disabled = false;
+            editFields.editInfo.disabled = false;
+
+            editFields.editDate.value = formattedDate;
+            editFields.editNote.value = transaction.noteCell || "";
+            editFields.editAmount.value = transaction.amountCell || "";
+            editFields.editBank.value = transaction.bankCell || "";
+            editFields.editInfo.value = transaction.customerInfoCell || "";
+
+            console.log("Populated all edit fields with Vietnam date:", {
+                date: formattedDate,
+                note: transaction.noteCell,
+                amount: transaction.amountCell,
             });
         } else {
-            Object.entries(editFields).forEach(([key, element]) => {
-                if (element) {
-                    if (key === "editInfo") {
-                        element.disabled = false;
-                        element.value = customerInfo;
-                    } else {
-                        element.disabled = true;
-                    }
-                }
+            editFields.editDate.disabled = true;
+            editFields.editNote.disabled = true;
+            editFields.editAmount.disabled = true;
+            editFields.editBank.disabled = true;
+            editFields.editInfo.disabled = false;
+
+            editFields.editDate.value = formattedDate;
+            editFields.editNote.value = transaction.noteCell || "";
+            editFields.editAmount.value = transaction.amountCell || "";
+            editFields.editBank.value = transaction.bankCell || "";
+            editFields.editInfo.value = transaction.customerInfoCell || "";
+
+            [
+                editFields.editDate,
+                editFields.editNote,
+                editFields.editAmount,
+                editFields.editBank,
+            ].forEach((field) => {
+                field.style.backgroundColor = "#f8f9fa";
+                field.style.color = "#6c757d";
+                field.style.cursor = "not-allowed";
             });
+
+            editFields.editInfo.style.backgroundColor = "white";
+            editFields.editInfo.style.color = "#495057";
+            editFields.editInfo.style.cursor = "text";
+
+            console.log(
+                "Limited edit permissions - only customer info editable",
+            );
         }
 
         APP_STATE.editingRow = row;
+        APP_STATE.editingTransaction = transaction;
+
+        editModal.style.display = "block";
+
+        setTimeout(() => {
+            if (canEditAll) {
+                editFields.editNote.focus();
+            } else {
+                editFields.editInfo.focus();
+            }
+        }, 100);
+
+        console.log("Edit modal opened with Vietnam timezone support");
+    }
+
+    debugVietnamTimezone() {
+        const debug = VietnamTime.debug();
+
+        console.log("=== VIETNAM TIMEZONE DEBUG ===");
+        console.log("Current filter dates:", this.filterManager?.filters);
+
+        // Test với một số giao dịch
+        const sampleTransactions = APP_STATE.arrayData.slice(0, 5);
+        console.log("Sample transactions with Vietnam dates:");
+        sampleTransactions.forEach((tx, index) => {
+            const timestamp = parseFloat(tx.dateCell);
+            const vietnamDate = VietnamTime.formatVietnamDate(timestamp);
+            console.log(`Transaction ${index + 1}:`, {
+                uniqueId: tx.uniqueId,
+                timestamp: timestamp,
+                vietnamDate: vietnamDate,
+                noteCell: tx.noteCell,
+            });
+        });
+
+        // Test filter range
+        const today = VietnamTime.getDateString();
+        const todayRange = VietnamTime.getDateRange(today);
+        console.log("Today's filter range:", {
+            date: today,
+            range: todayRange,
+            startTime: new Date(todayRange.start),
+            endTime: new Date(todayRange.end),
+        });
+
+        return debug;
     }
 
     async handleDeleteButton(e) {
@@ -1126,7 +1115,6 @@ class MoneyTransferApp {
             }
 
             const oldData = this.extractRowData(row);
-
             await this.deleteFromFirebase(uniqueId, row);
 
             row.remove();
@@ -1172,13 +1160,25 @@ class MoneyTransferApp {
         if (editModal) {
             editModal.style.display = "none";
         }
+
+        // Clear editing state
         APP_STATE.editingRow = null;
+        APP_STATE.editingTransaction = null;
+
+        console.log("Edit modal closed and state cleared");
     }
 
     async saveChanges() {
         if (APP_STATE.isOperationInProgress) {
             if (window.showError) {
                 window.showError("Có thao tác đang thực hiện, vui lòng đợi...");
+            }
+            return;
+        }
+
+        if (!APP_STATE.editingRow || !APP_STATE.editingTransaction) {
+            if (window.showError) {
+                window.showError("Không tìm thấy giao dịch cần chỉnh sửa.");
             }
             return;
         }
@@ -1199,18 +1199,17 @@ class MoneyTransferApp {
             return;
         }
 
-        if (!APP_STATE.editingRow) {
-            if (window.showError) {
-                window.showError("Không tìm thấy hàng cần chỉnh sửa.");
-            }
-            return;
-        }
-
         try {
             this.blockInteraction("edit");
             if (window.showOperationLoading) {
                 window.showOperationLoading("Đang lưu thay đổi...", "edit");
             }
+
+            console.log("Saving changes for transaction:", {
+                uniqueId: APP_STATE.editingTransaction.uniqueId,
+                oldData: APP_STATE.editingTransaction,
+                newData: validation.data,
+            });
 
             await this.performEdit(editFields, validation.data);
 
@@ -1282,11 +1281,22 @@ class MoneyTransferApp {
     }
 
     async performEdit(editFields, validatedData) {
-        const uniqueId = APP_STATE.editingRow.getAttribute("data-unique-id");
-        const tdRow = APP_STATE.editingRow.querySelector("td");
+        const transaction = APP_STATE.editingTransaction;
+        const uniqueId = transaction.uniqueId;
 
-        const editDateTimestamp = convertToTimestamp(validatedData.dateValue);
+        console.log("Performing edit for transaction:", {
+            uniqueId: uniqueId,
+            currentData: transaction,
+            newData: validatedData,
+        });
 
+        // Convert date to timestamp if editing dates
+        let editDateTimestamp = transaction.dateCell; // Keep original if not changing
+        if (this.hasPermission(1) && validatedData.dateValue) {
+            editDateTimestamp = convertToTimestamp(validatedData.dateValue);
+        }
+
+        // Update Firebase
         const doc = await this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .get();
@@ -1301,13 +1311,14 @@ class MoneyTransferApp {
             (item) => item.uniqueId === uniqueId,
         );
         if (itemIndex === -1) {
+            // Fallback to dateCell matching
             itemIndex = dataArray.findIndex(
-                (item) => item.dateCell === tdRow.id,
+                (item) => item.dateCell === transaction.dateCell,
             );
         }
 
         if (itemIndex === -1) {
-            throw new Error("Transaction not found");
+            throw new Error("Transaction not found in Firebase");
         }
 
         const auth = this.getAuthState();
@@ -1317,7 +1328,9 @@ class MoneyTransferApp {
                 : "Unknown"
             : "Unknown";
 
+        // Update Firebase document
         if (this.hasPermission(1)) {
+            // Can edit all fields
             dataArray[itemIndex] = {
                 ...dataArray[itemIndex],
                 dateCell: editDateTimestamp,
@@ -1328,53 +1341,86 @@ class MoneyTransferApp {
                 user: userInfo,
             };
         } else {
-            dataArray[itemIndex].customerInfoCell = validatedData.infoValue;
-            dataArray[itemIndex].user = userInfo;
+            // Can only edit customer info
+            dataArray[itemIndex] = {
+                ...dataArray[itemIndex],
+                customerInfoCell: validatedData.infoValue,
+                user: userInfo,
+            };
         }
 
         await this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .update({ data: dataArray });
 
+        // Update local data and UI
         this.updateRowAfterEdit(validatedData);
-        this.updateStateAfterEdit(uniqueId, validatedData);
+        this.updateStateAfterEdit(uniqueId, validatedData, editDateTimestamp);
         cacheManager.invalidate();
 
         this.logAction(
             "edit",
-            `Sửa giao dịch: ${validatedData.noteValue}`,
-            null,
-            null,
+            `Sửa giao dịch: ${validatedData.noteValue || transaction.noteCell}`,
+            transaction,
+            dataArray[itemIndex],
         );
+
+        console.log("Edit completed successfully");
     }
 
     updateRowAfterEdit(validatedData) {
+        const row = APP_STATE.editingRow;
+        if (!row || !row.cells) return;
+
+        console.log("Updating row display with new data:", validatedData);
+
         if (this.hasPermission(1)) {
-            APP_STATE.editingRow.cells[0].textContent = validatedData.dateValue;
-            APP_STATE.editingRow.cells[0].id = convertToTimestamp(
-                validatedData.dateValue,
-            );
-            APP_STATE.editingRow.cells[1].textContent = validatedData.noteValue;
-            APP_STATE.editingRow.cells[2].textContent = numberWithCommas(
-                validatedData.numAmount,
-            );
-            APP_STATE.editingRow.cells[3].textContent = validatedData.bankValue;
-            APP_STATE.editingRow.cells[5].textContent = validatedData.infoValue;
+            // Update all visible cells
+            if (row.cells[0]) {
+                row.cells[0].textContent = validatedData.dateValue;
+                row.cells[0].id = convertToTimestamp(validatedData.dateValue);
+            }
+            if (row.cells[1])
+                row.cells[1].textContent = validatedData.noteValue;
+            if (row.cells[2])
+                row.cells[2].textContent = numberWithCommas(
+                    validatedData.numAmount,
+                );
+            if (row.cells[3])
+                row.cells[3].textContent = validatedData.bankValue;
+            if (row.cells[5])
+                row.cells[5].textContent = validatedData.infoValue;
         } else {
-            APP_STATE.editingRow.cells[5].textContent = validatedData.infoValue;
+            // Only update customer info
+            if (row.cells[5])
+                row.cells[5].textContent = validatedData.infoValue;
         }
+
+        // Add visual feedback for updated row
+        row.style.backgroundColor = "#e8f5e8";
+        setTimeout(() => {
+            row.style.backgroundColor = "";
+        }, 2000);
+
+        console.log("Row updated successfully");
     }
 
-    updateStateAfterEdit(uniqueId, validatedData) {
+    updateStateAfterEdit(uniqueId, validatedData, editDateTimestamp = null) {
         const updateItem = (item) => {
             if (item.uniqueId === uniqueId) {
                 if (this.hasPermission(1)) {
-                    item.dateCell = convertToTimestamp(validatedData.dateValue);
+                    if (editDateTimestamp) item.dateCell = editDateTimestamp;
                     item.noteCell = validatedData.noteValue;
                     item.amountCell = numberWithCommas(validatedData.numAmount);
                     item.bankCell = validatedData.bankValue;
                 }
                 item.customerInfoCell = validatedData.infoValue;
+
+                console.log("Updated item in state:", {
+                    uniqueId: item.uniqueId,
+                    noteCell: item.noteCell,
+                    customerInfoCell: item.customerInfoCell,
+                });
             }
         };
 
@@ -1386,8 +1432,7 @@ class MoneyTransferApp {
         }
     }
 
-    // main-optimized.js - Phần 7: Export và Logout
-
+    // ===== EXPORT AND LOGOUT =====
     exportToExcel() {
         if (APP_STATE.isOperationInProgress) {
             if (window.showError) {
@@ -1424,104 +1469,71 @@ class MoneyTransferApp {
                 ],
             ];
 
-            // FIX: Convert NodeList to Array
             const tableRows = Array.from(domManager.getAll("#tableBody tr"));
             let exportedRowCount = 0;
-            let processedRows = 0;
-            const totalRows = tableRows.length;
 
-            const processRowBatch = (startIndex, batchSize = 50) => {
-                const endIndex = Math.min(startIndex + batchSize, totalRows);
+            tableRows.forEach((row) => {
+                if (
+                    row.style.display !== "none" &&
+                    row.cells &&
+                    row.cells.length >= 6
+                ) {
+                    const rowData = [];
+                    rowData.push(row.cells[0].textContent || "");
+                    rowData.push(row.cells[1].textContent || "");
+                    rowData.push(row.cells[2].textContent || "");
+                    rowData.push(row.cells[3].textContent || "");
 
-                for (let i = startIndex; i < endIndex; i++) {
-                    const row = tableRows[i];
-                    if (
-                        row.style.display !== "none" &&
-                        row.cells &&
-                        row.cells.length >= 6
-                    ) {
-                        const rowData = [];
-                        rowData.push(row.cells[0].textContent || "");
-                        rowData.push(row.cells[1].textContent || "");
-                        rowData.push(row.cells[2].textContent || "");
-                        rowData.push(row.cells[3].textContent || "");
+                    const checkbox = row.cells[4].querySelector(
+                        'input[type="checkbox"]',
+                    );
+                    // FIXED: Correct export logic
+                    rowData.push(
+                        checkbox && checkbox.checked
+                            ? "Đã đi đơn"
+                            : "Chưa đi đơn",
+                    );
+                    rowData.push(row.cells[5].textContent || "");
 
-                        const checkbox = row.cells[4].querySelector(
-                            'input[type="checkbox"]',
-                        );
-                        // FIXED: Correct export logic
-                        rowData.push(
-                            checkbox && checkbox.checked
-                                ? "Đã đi đơn"
-                                : "Chưa đi đơn",
-                        );
-                        rowData.push(row.cells[5].textContent || "");
-
-                        wsData.push(rowData);
-                        exportedRowCount++;
-                    }
-                    processedRows++;
+                    wsData.push(rowData);
+                    exportedRowCount++;
                 }
+            });
 
-                const progress = Math.round((processedRows / totalRows) * 100);
-                if (window.showOperationLoading) {
-                    window.showOperationLoading(
-                        `Đang xử lý... ${progress}%`,
-                        "export",
+            if (exportedRowCount === 0) {
+                if (window.hideOperationLoading) {
+                    window.hideOperationLoading();
+                }
+                if (window.showError) {
+                    window.showError("Không có dữ liệu để xuất ra Excel");
+                }
+                return;
+            }
+
+            if (typeof XLSX === "undefined") {
+                if (window.hideOperationLoading) {
+                    window.hideOperationLoading();
+                }
+                if (window.showError) {
+                    window.showError(
+                        "Thư viện Excel không khả dụng. Vui lòng tải lại trang",
                     );
                 }
+                return;
+            }
 
-                if (endIndex < totalRows) {
-                    setTimeout(() => processRowBatch(endIndex), 10);
-                } else {
-                    finishExport();
-                }
-            };
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Dữ liệu chuyển khoản");
 
-            const finishExport = () => {
-                if (exportedRowCount === 0) {
-                    if (window.hideOperationLoading) {
-                        window.hideOperationLoading();
-                    }
-                    if (window.showError) {
-                        window.showError("Không có dữ liệu để xuất ra Excel");
-                    }
-                    return;
-                }
+            const fileName = `dulieu_${new Date().toISOString().split("T")[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
 
-                if (typeof XLSX === "undefined") {
-                    if (window.hideOperationLoading) {
-                        window.hideOperationLoading();
-                    }
-                    if (window.showError) {
-                        window.showError(
-                            "Thư viện Excel không khả dụng. Vui lòng tải lại trang",
-                        );
-                    }
-                    return;
-                }
-
-                setTimeout(() => {
-                    const ws = XLSX.utils.aoa_to_sheet(wsData);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(
-                        wb,
-                        ws,
-                        "Dữ liệu chuyển khoản",
-                    );
-
-                    const fileName = `dulieu_${new Date().toISOString().split("T")[0]}.xlsx`;
-                    XLSX.writeFile(wb, fileName);
-
-                    if (window.hideOperationLoading) {
-                        window.hideOperationLoading(
-                            `Đã xuất ${exportedRowCount} giao dịch ra Excel!`,
-                        );
-                    }
-                }, 500);
-            };
-
-            processRowBatch(0);
+            if (window.hideOperationLoading) {
+                window.hideOperationLoading(
+                    `Đã xuất ${exportedRowCount} giao dịch ra Excel!`,
+                );
+            }
         } catch (error) {
             console.error("Error exporting to Excel:", error);
             if (window.hideOperationLoading) {
@@ -1577,12 +1589,10 @@ class MoneyTransferApp {
         }
     }
 
-    // main-optimized.js - Phần 8: Utility Methods và Firebase Operations
-
+    // ===== UTILITY METHODS =====
     hasPermission(requiredLevel) {
         const auth = this.getAuthState();
         if (!auth) return false;
-
         const userLevel = parseInt(auth.checkLogin);
         return userLevel <= requiredLevel;
     }
@@ -1599,102 +1609,15 @@ class MoneyTransferApp {
     }
 
     removeFromState(uniqueId) {
-        const initialArrayLength = APP_STATE.arrayData.length;
-        const initialFilteredLength = APP_STATE.filteredData.length;
-
         APP_STATE.arrayData = APP_STATE.arrayData.filter(
             (item) => item.uniqueId !== uniqueId,
         );
         APP_STATE.filteredData = APP_STATE.filteredData.filter(
             (item) => item.uniqueId !== uniqueId,
         );
-
-        console.log("Removed item from state:", {
-            uniqueId: uniqueId,
-            arrayDataBefore: initialArrayLength,
-            arrayDataAfter: APP_STATE.arrayData.length,
-            filteredDataBefore: initialFilteredLength,
-            filteredDataAfter: APP_STATE.filteredData.length,
-        });
-    }
-
-    // Enhanced updateMutedStateInData with comprehensive logging
-    updateMutedStateInData(uniqueId, newMutedValue) {
-        console.log("=== UPDATING MUTED STATE IN DATA ===");
-        console.log("Update parameters:", {
-            uniqueId: uniqueId,
-            newMutedValue: newMutedValue,
-            newMutedType: typeof newMutedValue,
-        });
-
-        let arrayDataUpdated = false;
-        let filteredDataUpdated = false;
-
-        const updateMuted = (item, sourceArray) => {
-            if (item.uniqueId === uniqueId) {
-                console.log(`Found item in ${sourceArray}:`, {
-                    uniqueId: item.uniqueId,
-                    oldMuted: item.muted,
-                    newMuted: newMutedValue,
-                    noteCell: item.noteCell,
-                });
-                item.muted = newMutedValue;
-                return true;
-            }
-            return false;
-        };
-
-        // Update arrayData
-        APP_STATE.arrayData.forEach((item) => {
-            if (updateMuted(item, "arrayData")) {
-                arrayDataUpdated = true;
-            }
-        });
-
-        // Update filteredData
-        APP_STATE.filteredData.forEach((item) => {
-            if (updateMuted(item, "filteredData")) {
-                filteredDataUpdated = true;
-            }
-        });
-
-        // Verify the updates
-        const updatedArrayItem = APP_STATE.arrayData.find(
-            (item) => item.uniqueId === uniqueId,
-        );
-        const updatedFilteredItem = APP_STATE.filteredData.find(
-            (item) => item.uniqueId === uniqueId,
-        );
-
-        console.log("Data update verification:", {
-            arrayDataUpdated: arrayDataUpdated,
-            filteredDataUpdated: filteredDataUpdated,
-            arrayItem: updatedArrayItem
-                ? {
-                      uniqueId: updatedArrayItem.uniqueId,
-                      muted: updatedArrayItem.muted,
-                      mutedType: typeof updatedArrayItem.muted,
-                  }
-                : "not found",
-            filteredItem: updatedFilteredItem
-                ? {
-                      uniqueId: updatedFilteredItem.uniqueId,
-                      muted: updatedFilteredItem.muted,
-                      mutedType: typeof updatedFilteredItem.muted,
-                  }
-                : "not found",
-        });
-
-        if (!arrayDataUpdated && !filteredDataUpdated) {
-            console.error("Failed to update item in both arrays!");
-        }
-
-        console.log("=== DATA UPDATE COMPLETED ===");
     }
 
     async deleteFromFirebase(uniqueId, row) {
-        console.log("Deleting from Firebase:", { uniqueId: uniqueId });
-
         const doc = await this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .get();
@@ -1704,105 +1627,24 @@ class MoneyTransferApp {
 
         const data = doc.data();
         const dataArray = data["data"] || [];
-        console.log(
-            "Firebase data array length before delete:",
-            dataArray.length,
-        );
 
         const updatedArray = dataArray.filter(
             (item) => item.uniqueId !== uniqueId,
         );
 
         if (updatedArray.length === dataArray.length) {
-            console.log("uniqueId not found, trying dateCell fallback");
+            // Try fallback with dateCell
             const updatedArrayFallback = dataArray.filter(
                 (item) => item.dateCell !== row.querySelector("td").id,
             );
-
-            console.log(
-                "Firebase data array length after fallback delete:",
-                updatedArrayFallback.length,
-            );
-
             return this.collectionRef
                 .doc(CONFIG.data.COLLECTION_NAME)
                 .update({ data: updatedArrayFallback });
         }
 
-        console.log(
-            "Firebase data array length after delete:",
-            updatedArray.length,
-        );
-
         return this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .update({ data: updatedArray });
-    }
-
-    // Enhanced updateMutedStateInFirebase with detailed logging
-    async updateMutedStateInFirebase(uniqueId, row, newMutedValue) {
-        console.log("=== UPDATING FIREBASE ===");
-        console.log("Firebase update parameters:", {
-            uniqueId: uniqueId,
-            newMutedValue: newMutedValue,
-            newMutedType: typeof newMutedValue,
-        });
-
-        const doc = await this.collectionRef
-            .doc(CONFIG.data.COLLECTION_NAME)
-            .get();
-        if (!doc.exists) {
-            throw new Error("Document does not exist");
-        }
-
-        const data = doc.data();
-        const dataArray = data["data"] || [];
-        console.log("Firebase data array length:", dataArray.length);
-
-        let itemIndex = dataArray.findIndex(
-            (item) => item.uniqueId === uniqueId,
-        );
-
-        if (itemIndex === -1) {
-            console.log("Item not found by uniqueId, trying dateCell fallback");
-            itemIndex = dataArray.findIndex(
-                (item) => item.dateCell === row.querySelector("td").id,
-            );
-        }
-
-        if (itemIndex === -1) {
-            console.error("Item not found in Firebase by uniqueId or dateCell");
-            throw new Error("Item not found in Firebase");
-        }
-
-        console.log("Found item in Firebase:", {
-            index: itemIndex,
-            item: {
-                uniqueId: dataArray[itemIndex].uniqueId,
-                oldMuted: dataArray[itemIndex].muted,
-                oldMutedType: typeof dataArray[itemIndex].muted,
-                noteCell: dataArray[itemIndex].noteCell,
-            },
-        });
-
-        // Update the muted field
-        const oldMuted = dataArray[itemIndex].muted;
-        dataArray[itemIndex].muted = newMutedValue;
-
-        console.log("Firebase item updated:", {
-            index: itemIndex,
-            oldMuted: oldMuted,
-            newMuted: dataArray[itemIndex].muted,
-            changed: oldMuted !== dataArray[itemIndex].muted,
-        });
-
-        // Save to Firebase
-        const result = await this.collectionRef
-            .doc(CONFIG.data.COLLECTION_NAME)
-            .update({ data: dataArray });
-
-        console.log("Firebase update completed successfully");
-        return result;
     }
 
     logAction(
@@ -1838,215 +1680,49 @@ class MoneyTransferApp {
             });
     }
 
-    // main-optimized.js - Phần 9: Block/Unblock Interactions và Debug Methods
-
     blockInteraction(operationType) {
         APP_STATE.isOperationInProgress = true;
         APP_STATE.currentOperationType = operationType;
 
-        console.log(`Blocking interactions for operation: ${operationType}`);
-
-        // Disable form inputs
         const moneyTransferForm = domManager.get(SELECTORS.moneyTransferForm);
         if (moneyTransferForm) {
             const inputs = moneyTransferForm.querySelectorAll(
                 "input, select, button, textarea",
             );
             inputs.forEach((input) => {
-                input.setAttribute("data-original-disabled", input.disabled);
                 input.disabled = true;
             });
         }
 
-        // Disable table interactions
         const tableBody = domManager.get(SELECTORS.tableBody);
         if (tableBody) {
             tableBody.style.pointerEvents = "none";
             tableBody.style.opacity = "0.7";
         }
-
-        // Disable modal and action buttons
-        const modalButtons = domManager.getAll("#editModal button");
-        modalButtons.forEach((btn) => {
-            btn.setAttribute("data-original-disabled", btn.disabled);
-            btn.disabled = true;
-        });
-
-        const actionButtons = domManager.getAll(
-            ".filter-btn, #toggleFormButton, #toggleLogoutButton",
-        );
-        actionButtons.forEach((btn) => {
-            btn.setAttribute("data-original-disabled", btn.disabled);
-            btn.disabled = true;
-        });
-
-        console.log(`Interactions blocked for operation: ${operationType}`);
     }
 
     unblockInteraction() {
         APP_STATE.isOperationInProgress = false;
         APP_STATE.currentOperationType = null;
 
-        console.log("Unblocking interactions");
-
-        // Re-enable form inputs
         const moneyTransferForm = domManager.get(SELECTORS.moneyTransferForm);
         if (moneyTransferForm) {
             const inputs = moneyTransferForm.querySelectorAll(
                 "input, select, button, textarea",
             );
             inputs.forEach((input) => {
-                const originalDisabled = input.getAttribute(
-                    "data-original-disabled",
-                );
-                input.disabled = originalDisabled === "true";
-                input.removeAttribute("data-original-disabled");
+                input.disabled = false;
             });
         }
 
-        // Re-enable table interactions
         const tableBody = domManager.get(SELECTORS.tableBody);
         if (tableBody) {
             tableBody.style.pointerEvents = "auto";
             tableBody.style.opacity = "1";
         }
-
-        // Re-enable buttons
-        const modalButtons = domManager.getAll("#editModal button");
-        modalButtons.forEach((btn) => {
-            const originalDisabled = btn.getAttribute("data-original-disabled");
-            btn.disabled = originalDisabled === "true";
-            btn.removeAttribute("data-original-disabled");
-        });
-
-        const actionButtons = domManager.getAll(
-            ".filter-btn, #toggleFormButton, #toggleLogoutButton",
-        );
-        actionButtons.forEach((btn) => {
-            const originalDisabled = btn.getAttribute("data-original-disabled");
-            btn.disabled = originalDisabled === "true";
-            btn.removeAttribute("data-original-disabled");
-        });
-
-        console.log("Interactions unblocked");
     }
 
-    // Performance monitoring and debugging
-    getPerformanceStats() {
-        return {
-            app: {
-                isInitialized: this.isInitialized,
-                initTime: this.initStartTime,
-                currentOperation: APP_STATE.currentOperationType,
-            },
-            virtualScroll: this.virtualScrollManager
-                ? this.virtualScrollManager.getStats()
-                : null,
-            filter: this.filterManager ? this.filterManager.getStats() : null,
-            cache: cacheManager.getStats(),
-            performance: performanceMonitor.metrics,
-            device: deviceDetector.info,
-            state: {
-                arrayDataLength: APP_STATE.arrayData.length,
-                filteredDataLength: APP_STATE.filteredData.length,
-                isOperationInProgress: APP_STATE.isOperationInProgress,
-                mutedItemsCount: APP_STATE.arrayData.filter(
-                    (item) => item.muted === true,
-                ).length,
-                activeItemsCount: APP_STATE.arrayData.filter(
-                    (item) => item.muted === false,
-                ).length,
-            },
-        };
-    }
-
-    // Debug helper methods
-    debugCheckboxStates() {
-        console.log("=== DEBUGGING CHECKBOX STATES ===");
-
-        // Check data states
-        const arrayDataSample = APP_STATE.arrayData.slice(0, 10);
-        console.log("Sample from arrayData (first 10 items):");
-        arrayDataSample.forEach((item, index) => {
-            //console.log(`Array Item ${index}:`, {
-            //    uniqueId: item.uniqueId,
-            //    muted: item.muted,
-            //    mutedType: typeof item.muted,
-            //    noteCell: item.noteCell?.substring(0, 20) + "...",
-            //});
-        });
-
-        // Check UI states - FIX: Convert NodeList to Array
-        const checkboxes = Array.from(
-            domManager.getAll('#tableBody input[type="checkbox"]'),
-        );
-        console.log(`Found ${checkboxes.length} checkboxes in UI`);
-
-        checkboxes.slice(0, 10).forEach((checkbox, index) => {
-            const row = checkbox.closest("tr");
-            const uniqueId = row?.getAttribute("data-unique-id");
-            const dataItem = APP_STATE.arrayData.find(
-                (item) => item.uniqueId === uniqueId,
-            );
-
-            console.log(`Checkbox ${index}:`, {
-                uniqueId: uniqueId,
-                checkboxChecked: checkbox.checked,
-                dataItemMuted: dataItem?.muted,
-                consistent: checkbox.checked === Boolean(dataItem?.muted),
-            });
-        });
-
-        console.log("=== CHECKBOX DEBUG COMPLETED ===");
-    }
-
-    // Force fix all checkbox states
-    forceFixCheckboxStates() {
-        console.log("=== FORCE FIXING CHECKBOX STATES ===");
-
-        // FIX: Convert NodeList to Array
-        const checkboxes = Array.from(
-            domManager.getAll('#tableBody input[type="checkbox"]'),
-        );
-        let fixedCount = 0;
-
-        checkboxes.forEach((checkbox, index) => {
-            const row = checkbox.closest("tr");
-            const uniqueId = row?.getAttribute("data-unique-id");
-            const dataItem = APP_STATE.arrayData.find(
-                (item) => item.uniqueId === uniqueId,
-            );
-
-            if (dataItem) {
-                const expectedChecked = Boolean(dataItem.muted);
-                if (checkbox.checked !== expectedChecked) {
-                    console.log(`Fixing checkbox ${index}:`, {
-                        uniqueId: uniqueId,
-                        oldChecked: checkbox.checked,
-                        newChecked: expectedChecked,
-                        dataMuted: dataItem.muted,
-                    });
-                    checkbox.checked = expectedChecked;
-                    this.updateRowMutedState(row, dataItem.muted);
-                    fixedCount++;
-                }
-            }
-        });
-
-        console.log(`Fixed ${fixedCount} checkbox states`);
-
-        if (this.filterManager) {
-            this.filterManager.updateTotalAmount();
-        }
-
-        console.log("=== FORCE FIX COMPLETED ===");
-    }
-
-    // Cleanup and destroy
     destroy() {
-        console.log("Destroying MoneyTransferApp...");
-
-        // Destroy managers
         if (this.virtualScrollManager) {
             this.virtualScrollManager.destroy();
         }
@@ -2054,24 +1730,15 @@ class MoneyTransferApp {
             this.filterManager.destroy();
         }
 
-        // Clear performance monitoring
         performanceMonitor.metrics.clear();
-
-        // Clear throttles and debounces
         throttleManager.clearAll();
-
-        // Clear cache
         cacheManager.invalidate();
-
-        // Clear DOM cache
         domManager.clearCache();
 
-        // Reset state
         Object.assign(APP_STATE, {
             arrayData: [],
             filteredData: [],
             isOperationInProgress: false,
-            isFilteringInProgress: false,
             currentOperationType: null,
             editingRow: null,
         });
@@ -2079,69 +1746,26 @@ class MoneyTransferApp {
         this.isInitialized = false;
         console.log("MoneyTransferApp destroyed");
     }
-} // END OF CLASS
-
-// main-optimized.js - Phần 10: Global Functions và Event Handlers (CUỐI CÙNG)
+}
 
 // Global app instance
 let moneyTransferApp = null;
-
-// Debug helper functions - globally available
-window.debugCheckboxes = () => {
-    if (moneyTransferApp) {
-        moneyTransferApp.debugCheckboxStates();
-    } else {
-        console.log("App not initialized yet");
-    }
-};
-
-window.fixCheckboxes = () => {
-    if (moneyTransferApp) {
-        moneyTransferApp.forceFixCheckboxStates();
-    } else {
-        console.log("App not initialized yet");
-    }
-};
-
-window.getAppDebugInfo = () => {
-    if (moneyTransferApp) {
-        return {
-            stats: moneyTransferApp.getPerformanceStats(),
-            arrayData: APP_STATE.arrayData.slice(0, 5),
-            filteredData: APP_STATE.filteredData.slice(0, 5),
-            currentFilters: APP_STATE.currentFilters,
-        };
-    }
-    return null;
-};
 
 // Initialize app when DOM is loaded
 document.addEventListener("DOMContentLoaded", async function () {
     try {
         console.log("DOM loaded, initializing app...");
-
         moneyTransferApp = new MoneyTransferApp();
         await moneyTransferApp.init();
-
-        // Make app instance globally available for debugging
         window.moneyTransferApp = moneyTransferApp;
-        window.getAppStats = () => moneyTransferApp.getPerformanceStats();
-
         console.log(
-            "Money Transfer Management System initialized successfully with comprehensive checkbox logic fixes and enhanced debugging",
+            "Money Transfer Management System initialized successfully with FIXED checkbox logic",
         );
-
-        // Auto-debug checkboxes after 3 seconds
-        setTimeout(() => {
-            console.log("=== AUTO-DEBUGGING CHECKBOXES ===");
-            moneyTransferApp.debugCheckboxStates();
-        }, 3000);
     } catch (error) {
         console.error(
             "Failed to initialize Money Transfer Management System:",
             error,
         );
-
         if (window.showError) {
             window.showError(
                 "Không thể khởi tạo ứng dụng. Vui lòng tải lại trang.",
@@ -2153,15 +1777,12 @@ document.addEventListener("DOMContentLoaded", async function () {
 // Global error handler
 window.addEventListener("error", function (e) {
     console.error("Global error:", e.error);
-
-    // Unblock interactions if app is blocked
     if (moneyTransferApp && APP_STATE.isOperationInProgress) {
         moneyTransferApp.unblockInteraction();
         if (window.hideOperationLoading) {
             window.hideOperationLoading();
         }
     }
-
     if (window.showError) {
         window.showError("Có lỗi xảy ra. Vui lòng tải lại trang.");
     }
@@ -2177,22 +1798,7 @@ window.addEventListener("beforeunload", function (e) {
     }
 });
 
-// Performance monitoring
-if (window.performance && window.performance.observer) {
-    const observer = new PerformanceObserver((list) => {
-        list.getEntries().forEach((entry) => {
-            if (entry.entryType === "measure") {
-                console.log(
-                    `Performance: ${entry.name} took ${entry.duration.toFixed(2)}ms`,
-                );
-            }
-        });
-    });
-
-    observer.observe({ entryTypes: ["measure"] });
-}
-
-// Export for use in other modules
+// Export
 if (typeof module !== "undefined" && module.exports) {
     module.exports = { MoneyTransferApp };
 } else {

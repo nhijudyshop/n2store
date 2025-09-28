@@ -1,4 +1,4 @@
-// virtual-scrolling.js - Fixed
+// virtual-scrolling.js - FIXED VERSION
 // Advanced Virtual Scrolling Implementation with Fixed Checkbox Logic
 
 class VirtualScrollManager {
@@ -293,7 +293,7 @@ class VirtualScrollManager {
         );
     }
 
-    // FIXED: createTableRow with proper checkbox logic
+    // FIXED: createTableRow with proper checkbox logic for completed field
     createTableRow(item, index) {
         if (!item) return null;
 
@@ -305,36 +305,35 @@ class VirtualScrollManager {
 
         console.log("Creating virtual table row for item:", {
             uniqueId: item.uniqueId,
-            muted: item.muted,
-            mutedType: typeof item.muted,
+            completed: item.completed,
+            completedType: typeof item.completed,
             noteCell: item.noteCell,
             index: index,
         });
 
         const newRow = domManager.create("tr");
 
-        // Enhanced styling with smooth transitions
-        // FIXED: Apply correct styling based on muted state
-        if (item.muted === true) {
-            // muted = true = đã đi đơn = dimmed appearance
+        // FIXED: Apply correct styling based on completed state
+        if (item.completed === true) {
+            // completed = true = đã đi đơn = dimmed appearance
             newRow.style.cssText = `
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                transform: translateZ(0);
-                will-change: transform;
-                opacity: 0.4;
-                background-color: #f8f9fa;
-            `;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateZ(0);
+            will-change: transform;
+            opacity: 0.4;
+            background-color: #f8f9fa;
+        `;
             newRow.classList.add(CSS_CLASSES.muted);
-            console.log("Applied muted styling to virtual row (đã đi đơn)");
+            console.log("Applied completed styling to virtual row (đã đi đơn)");
         } else {
-            // muted = false = chưa đi đơn = normal appearance
+            // completed = false = chưa đi đơn = normal appearance
             newRow.style.cssText = `
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                transform: translateZ(0);
-                will-change: transform;
-                opacity: 1.0;
-                background-color: transparent;
-            `;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateZ(0);
+            will-change: transform;
+            opacity: 1.0;
+            background-color: transparent;
+        `;
             newRow.classList.add(CSS_CLASSES.active);
             console.log("Applied active styling to virtual row (chưa đi đơn)");
         }
@@ -360,7 +359,7 @@ class VirtualScrollManager {
             {
                 content: null,
                 type: "checkbox",
-                checked: Boolean(item.muted), // FIXED: muted = true -> checked = true (đã đi đơn)
+                checked: Boolean(item.completed), // FIXED: Will be processed specially
             },
             { content: sanitizeInput(item.customerInfoCell || "") },
             { content: null, type: "edit" },
@@ -381,44 +380,67 @@ class VirtualScrollManager {
             if (cellData.type === "checkbox") {
                 console.log("Creating virtual checkbox with state:", {
                     itemUniqueId: item.uniqueId,
-                    itemMuted: item.muted,
-                    checkboxChecked: cellData.checked,
+                    itemCompleted: item.completed,
+                    shouldBeChecked: cellData.checked,
                     meaning: cellData.checked ? "đã đi đơn" : "chưa đi đơn",
                 });
 
-                const checkbox = domManager.create("input", {
-                    attributes: {
-                        type: "checkbox",
-                        checked: cellData.checked,
-                    },
-                    styles: {
-                        width: "20px",
-                        height: "20px",
-                        cursor: "pointer",
-                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    },
+                // ✅ FIXED: Create checkbox the correct way
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = cellData.checked; // Use property, NOT attribute
+                checkbox.style.width = "20px";
+                checkbox.style.height = "20px";
+                checkbox.style.cursor = "pointer";
+                checkbox.style.transition =
+                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+
+                // Add data attribute for easier identification
+                checkbox.setAttribute("data-transaction-id", item.uniqueId);
+
+                // Enhanced checkbox styling
+                checkbox.style.appearance = "none";
+                checkbox.style.border = "2px solid #667eea";
+                checkbox.style.borderRadius = "6px";
+                checkbox.style.background = "white";
+                checkbox.style.position = "relative";
+
+                // Create checkmark with CSS
+                if (cellData.checked) {
+                    checkbox.style.background =
+                        "linear-gradient(135deg, #667eea, #764ba2)";
+                    checkbox.style.borderColor = "#667eea";
+                }
+
+                // Add event listener for visual feedback
+                checkbox.addEventListener("change", function () {
+                    if (this.checked) {
+                        this.style.background =
+                            "linear-gradient(135deg, #667eea, #764ba2)";
+                        this.style.borderColor = "#667eea";
+                    } else {
+                        this.style.background = "white";
+                        this.style.borderColor = "#667eea";
+                    }
                 });
+
+                // Verify checkbox state
+                console.log(
+                    "Virtual checkbox created - checked property:",
+                    checkbox.checked,
+                );
+
                 cell.appendChild(checkbox);
             } else if (cellData.type === "edit") {
-                const editButton = domManager.create("button", {
-                    className: "edit-button",
-                    styles: {
-                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                        transform: "translateZ(0)",
-                    },
-                });
+                const editButton = document.createElement("button");
+                editButton.className = "edit-button";
+
                 cell.appendChild(editButton);
             } else if (cellData.type === "delete") {
-                const deleteButton = domManager.create("button", {
-                    className: "delete-button",
-                    attributes: {
-                        "data-user": cellData.userId,
-                    },
-                    styles: {
-                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                        transform: "translateZ(0)",
-                    },
-                });
+                const deleteButton = document.createElement("button");
+                deleteButton.className = "delete-button";
+                deleteButton.setAttribute("data-user", cellData.userId);
+
                 cell.appendChild(deleteButton);
             } else {
                 cell.textContent = cellData.content;
@@ -434,7 +456,7 @@ class VirtualScrollManager {
 
         // Add staggered animation delay for smooth appearance
         setTimeout(() => {
-            newRow.style.opacity = item.muted ? "0.4" : "1.0";
+            newRow.style.opacity = item.completed ? "0.4" : "1.0";
             newRow.style.transform = "translateY(0) translateZ(0)";
         }, index * 5); // Stagger by 5ms per row
 

@@ -1,5 +1,5 @@
 // =====================================================
-// FORM HANDLER WITH PASTE FUNCTIONALITY
+// FORM HANDLER WITH PASTE FUNCTIONALITY AND AUTO TABLE REFRESH
 // =====================================================
 
 let formState = {
@@ -235,7 +235,7 @@ function addProductRow() {
             </div>
         </td>
         <td><input type="text" name="notes[]" placeholder="Ghi chú"></td>
-        <td><button type="button" class="btn btn-danger" onclick="removeProductRow(this)">🗑️</button></td>
+        <td><button type="button" class="delete-button" onclick="removeProductRow(this)"></button></td>
     `;
 
     tbody.appendChild(row);
@@ -280,9 +280,22 @@ async function handleFormSubmit(e) {
         // Reset form
         resetForm();
 
-        // Refresh data if in inventory view
-        if (!formState.isFormView) {
-            await refreshInventoryData();
+        // IMPROVED: Always refresh the table data after adding new order
+        // This ensures the table shows the new data immediately
+        try {
+            await refreshCachedDataAndTable();
+            console.log("Table refreshed successfully after adding new order");
+        } catch (refreshError) {
+            console.warn(
+                "Failed to refresh table after adding order:",
+                refreshError,
+            );
+            // Fallback: try to load fresh data
+            try {
+                await loadInventoryData();
+            } catch (loadError) {
+                console.error("Failed to load fresh data:", loadError);
+            }
         }
 
         hideFloatingAlert();
@@ -295,6 +308,18 @@ async function handleFormSubmit(e) {
             null,
             order,
         );
+
+        // Auto-switch to inventory view to show the new data
+        if (formState.isFormView) {
+            setTimeout(() => {
+                toggleView();
+                showFloatingAlert(
+                    "Đã chuyển sang xem danh sách sản phẩm mới!",
+                    false,
+                    2000,
+                );
+            }, 1000);
+        }
     } catch (error) {
         console.error("Lỗi khi lưu đơn hàng:", error);
         hideFloatingAlert();
@@ -447,7 +472,7 @@ async function saveOrderToFirebase(order) {
         // Save back to Firebase
         await collectionRef.doc("dathang").update({ data: orderData });
 
-        // Invalidate cache
+        // Invalidate cache so fresh data will be loaded
         invalidateCache();
 
         console.log("Đơn hàng đã được lưu thành công vào Firebase");
@@ -517,4 +542,4 @@ function loadFormCounters() {
 window.removeProductRow = removeProductRow;
 window.toggleView = toggleView;
 
-console.log("Enhanced form handler with paste functionality loaded");
+console.log("Enhanced form handler with auto table refresh loaded");

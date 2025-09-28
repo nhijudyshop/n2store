@@ -1,5 +1,5 @@
-// filter-system.js - Fixed
-// High-Performance Filter System with Fixed Checkbox Logic
+// filter-system.js - FIXED VERSION
+// High-Performance Filter System with CORRECTED Checkbox Logic
 
 class FilterManager {
     constructor() {
@@ -34,16 +34,19 @@ class FilterManager {
             existingFilter.remove();
         }
 
-        const today = new Date();
-        const tzOffset = today.getTimezoneOffset() * 60000;
-        const localISODate = new Date(today - tzOffset)
-            .toISOString()
-            .split("T")[0];
+        // FIXED: Use Vietnam timezone for today's date
+        const vietnamToday = VietnamTime.getDateString();
+
+        console.log("Creating filter UI with Vietnam date:", {
+            vietnamToday: vietnamToday,
+            systemDate: new Date().toISOString().split("T")[0],
+            vietnamTime: VietnamTime.now(),
+        });
 
         const filterContainer = domManager.create("div", {
             id: "improvedFilterSystem",
             className: "filter-system",
-            innerHTML: this.getFilterHTML(localISODate),
+            innerHTML: this.getFilterHTML(vietnamToday),
         });
 
         const tableContainer = domManager.get(SELECTORS.tableContainer);
@@ -54,231 +57,193 @@ class FilterManager {
             );
         }
 
-        // Set initial filter values
-        this.filters.startDate = localISODate;
-        this.filters.endDate = localISODate;
+        // Set initial filter values to Vietnam today
+        this.filters.startDate = vietnamToday;
+        this.filters.endDate = vietnamToday;
+
+        console.log("Filter initialized with Vietnam dates:", this.filters);
     }
 
+    // 2. getFilterHTML method - Updated with timezone indicator
     getFilterHTML(localISODate) {
         return `
-            <style>
-                .filter-system {
-                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-                    padding: 20px;
-                    border-radius: 12px;
-                    margin: 20px 0;
-                    border: 1px solid #dee2e6;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    transition: all 0.3s ease;
+        <style>
+            .filter-system {
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 20px;
+                border-radius: 12px;
+                margin: 20px 0;
+                border: 1px solid #dee2e6;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                transition: all 0.3s ease;
+                position: relative;
+            }
+            
+            .timezone-indicator {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: #e3f2fd;
+                color: #1976d2;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                border: 1px solid #bbdefb;
+            }
+            
+            .filter-row {
+                display: flex;
+                gap: 15px;
+                align-items: end;
+                flex-wrap: wrap;
+                margin-bottom: 15px;
+            }
+            
+            .filter-group {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                min-width: 150px;
+                position: relative;
+            }
+            
+            .filter-group label {
+                font-weight: 600;
+                color: #495057;
+                font-size: 14px;
+                margin-bottom: 5px;
+            }
+            
+            .filter-input, .filter-select {
+                padding: 10px 14px;
+                border: 2px solid #ced4da;
+                border-radius: 8px;
+                background: white;
+                font-size: 14px;
+                transition: all 0.3s ease;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            .filter-input:focus, .filter-select:focus {
+                outline: none;
+                border-color: #007bff;
+                box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+                transform: translateY(-1px);
+            }
+            
+            .filter-btn {
+                padding: 10px 18px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                margin-right: 8px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            
+            .filter-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+            
+            .clear-btn {
+                background: linear-gradient(135deg, #dc3545, #c82333);
+                color: white;
+            }
+            
+            .today-btn {
+                background: linear-gradient(135deg, #17a2b8, #138496);
+                color: white;
+            }
+            
+            .all-btn {
+                background: linear-gradient(135deg, #28a745, #218838);
+                color: white;
+            }
+            
+            .filter-info {
+                background: linear-gradient(135deg, #e7f3ff, #cce7ff);
+                border: 2px solid #b3d4fc;
+                padding: 12px;
+                border-radius: 8px;
+                font-size: 13px;
+                color: #0c5460;
+                text-align: center;
+                margin-top: 15px;
+                animation: slideIn 0.3s ease;
+            }
+            
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
                 }
-                
-                .filter-system:hover {
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
                 }
-                
+            }
+            
+            .hidden {
+                display: none;
+            }
+            
+            @media (max-width: 768px) {
                 .filter-row {
-                    display: flex;
-                    gap: 15px;
-                    align-items: end;
-                    flex-wrap: wrap;
-                    margin-bottom: 15px;
+                    flex-direction: column;
+                    align-items: stretch;
                 }
                 
                 .filter-group {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 5px;
-                    min-width: 150px;
-                    position: relative;
+                    min-width: auto;
                 }
                 
-                .filter-group label {
-                    font-weight: 600;
-                    color: #495057;
-                    font-size: 14px;
-                    margin-bottom: 5px;
+                .timezone-indicator {
+                    position: static;
+                    margin-bottom: 10px;
+                    align-self: flex-start;
                 }
-                
-                .filter-input, .filter-select {
-                    padding: 10px 14px;
-                    border: 2px solid #ced4da;
-                    border-radius: 8px;
-                    background: white;
-                    font-size: 14px;
-                    transition: all 0.3s ease;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                }
-                
-                .filter-input:focus, .filter-select:focus {
-                    outline: none;
-                    border-color: #007bff;
-                    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-                    transform: translateY(-1px);
-                }
-                
-                .filter-btn {
-                    padding: 10px 18px;
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 600;
-                    transition: all 0.3s ease;
-                    margin-right: 8px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                    position: relative;
-                    overflow: hidden;
-                }
-                
-                .filter-btn:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-                }
-                
-                .filter-btn:active {
-                    transform: translateY(0);
-                }
-                
-                .filter-btn:disabled {
-                    opacity: 0.6;
-                    cursor: not-allowed;
-                    transform: none;
-                }
-                
-                .clear-btn {
-                    background: linear-gradient(135deg, #dc3545, #c82333);
-                    color: white;
-                }
-                
-                .clear-btn:hover:not(:disabled) {
-                    background: linear-gradient(135deg, #c82333, #bd2130);
-                }
-                
-                .today-btn {
-                    background: linear-gradient(135deg, #17a2b8, #138496);
-                    color: white;
-                }
-                
-                .today-btn:hover:not(:disabled) {
-                    background: linear-gradient(135deg, #138496, #117a8b);
-                }
-                
-                .all-btn {
-                    background: linear-gradient(135deg, #28a745, #218838);
-                    color: white;
-                }
-                
-                .all-btn:hover:not(:disabled) {
-                    background: linear-gradient(135deg, #218838, #1e7e34);
-                }
-                
-                .filter-info {
-                    background: linear-gradient(135deg, #e7f3ff, #cce7ff);
-                    border: 2px solid #b3d4fc;
-                    padding: 12px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    color: #0c5460;
-                    text-align: center;
-                    margin-top: 15px;
-                    animation: slideIn 0.3s ease;
-                }
-                
-                @keyframes slideIn {
-                    from {
-                        opacity: 0;
-                        transform: translateY(-10px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                
-                .hidden {
-                    display: none;
-                }
-                
-                .filter-loading {
-                    position: relative;
-                }
-                
-                .filter-loading::after {
-                    content: '';
-                    position: absolute;
-                    top: 50%;
-                    right: 10px;
-                    width: 16px;
-                    height: 16px;
-                    margin-top: -8px;
-                    border: 2px solid #f3f3f3;
-                    border-top: 2px solid #007bff;
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                }
-                
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                
-                .filter-performance {
-                    font-size: 11px;
-                    color: #6c757d;
-                    margin-top: 8px;
-                    text-align: right;
-                }
-                
-                @media (max-width: 768px) {
-                    .filter-row {
-                        flex-direction: column;
-                        align-items: stretch;
-                    }
-                    
-                    .filter-group {
-                        min-width: auto;
-                    }
-                    
-                    .filter-btn {
-                        margin-bottom: 5px;
-                        margin-right: 0;
-                    }
-                }
-            </style>
-            
-            <div class="filter-row">
-                <div class="filter-group">
-                    <label>Từ ngày:</label>
-                    <input type="date" id="startDateFilter" class="filter-input" value="${localISODate}">
-                </div>
-                
-                <div class="filter-group">
-                    <label>Đến ngày:</label>
-                    <input type="date" id="endDateFilter" class="filter-input" value="${localISODate}">
-                </div>
-                
-                <div class="filter-group">
-                    <label for="statusFilterDropdown">Trạng thái:</label>
-                    <select id="statusFilterDropdown" class="filter-select">
-                        <option value="all">Tất cả</option>
-                        <option value="active">Chưa đi đơn</option>
-                        <option value="completed">Đã đi đơn</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>&nbsp;</label>
-                    <div>
-                        <button id="todayFilterBtn" class="filter-btn today-btn">📅 Hôm nay</button>
-                        <button id="allFilterBtn" class="filter-btn all-btn">📋 Tất cả</button>
-                        <button id="clearFiltersBtn" class="filter-btn clear-btn">🗑️ Xóa lọc</button>
-                    </div>
-                </div>
+            }
+        </style>
+        
+        <div class="timezone-indicator">GMT+7 (Vietnam Time)</div>
+        
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Từ ngày:</label>
+                <input type="date" id="startDateFilter" class="filter-input" value="${localISODate}">
             </div>
             
-            <div id="filterInfo" class="filter-info hidden"></div>
-            <div id="filterPerformance" class="filter-performance"></div>
-        `;
+            <div class="filter-group">
+                <label>Đến ngày:</label>
+                <input type="date" id="endDateFilter" class="filter-input" value="${localISODate}">
+            </div>
+            
+            <div class="filter-group">
+                <label for="statusFilterDropdown">Trạng thái:</label>
+                <select id="statusFilterDropdown" class="filter-select">
+                    <option value="all">Tất cả</option>
+                    <option value="active">Chưa đi đơn</option>
+                    <option value="completed">Đã đi đơn</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>&nbsp;</label>
+                <div>
+                    <button id="todayFilterBtn" class="filter-btn today-btn">📅 Hôm nay (VN)</button>
+                    <button id="allFilterBtn" class="filter-btn all-btn">📋 Tất cả</button>
+                    <button id="clearFiltersBtn" class="filter-btn clear-btn">🗑️ Xóa lọc</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="filterInfo" class="filter-info hidden"></div>
+        <div id="filterPerformance" class="filter-performance"></div>
+    `;
     }
 
     bindEvents() {
@@ -348,60 +313,73 @@ class FilterManager {
 
     getWorkerCode() {
         return `
-            self.onmessage = function(e) {
-                const { data, filters, chunkSize } = e.data;
-                
-                try {
-                    const result = filterData(data, filters, chunkSize);
-                    self.postMessage({
-                        success: true,
-                        result: result,
-                        filteredCount: result.length
-                    });
-                } catch (error) {
-                    self.postMessage({
-                        success: false,
-                        error: error.message
-                    });
-                }
-            };
+        // Vietnam timezone utilities for worker
+        const VietnamTime = {
+            VIETNAM_OFFSET: 7 * 60,
             
-            function filterData(data, filters, chunkSize) {
-                const { startDate, endDate, status } = filters;
+            getDateRange(dateString) {
+                if (!dateString) return null;
                 
-                // Pre-calculate date bounds
-                const startTime = startDate ? new Date(startDate + "T00:00:00").getTime() : null;
-                const endTime = endDate ? new Date(endDate + "T23:59:59").getTime() : null;
+                const [year, month, day] = dateString.split('-').map(Number);
+                const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+                const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
                 
-                const filtered = [];
-                
-                // Process in chunks to avoid blocking
-                for (let i = 0; i < data.length; i += chunkSize) {
-                    const chunk = data.slice(i, i + chunkSize);
-                    
-                    for (const item of chunk) {
-                        // Fast date check
-                        if (startTime || endTime) {
-                            const timestamp = parseFloat(item.dateCell);
-                            const itemTime = new Date(timestamp).getTime();
-                            
-                            if (startTime && itemTime < startTime) continue;
-                            if (endTime && itemTime > endTime) continue;
-                        }
-                        
-                        // FIXED: Status check with correct logic
-                        // status: "active" = chưa đi đơn = muted: false
-                        // status: "completed" = đã đi đơn = muted: true
-                        if (status === "active" && item.muted === true) continue;
-                        if (status === "completed" && item.muted === false) continue;
-                        
-                        filtered.push(item);
-                    }
-                }
-                
-                return filtered;
+                return {
+                    start: startOfDay.getTime(),
+                    end: endOfDay.getTime()
+                };
             }
-        `;
+        };
+        
+        self.onmessage = function(e) {
+            const { data, filters, chunkSize } = e.data;
+            
+            try {
+                const result = filterData(data, filters, chunkSize);
+                self.postMessage({
+                    success: true,
+                    result: result,
+                    filteredCount: result.length
+                });
+            } catch (error) {
+                self.postMessage({
+                    success: false,
+                    error: error.message
+                });
+            }
+        };
+        
+        function filterData(data, filters, chunkSize) {
+            const { startDate, endDate, status } = filters;
+            const filtered = [];
+            
+            // Get Vietnam date ranges
+            const startRange = startDate ? VietnamTime.getDateRange(startDate) : null;
+            const endRange = endDate ? VietnamTime.getDateRange(endDate) : null;
+            
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const chunk = data.slice(i, i + chunkSize);
+                
+                for (const item of chunk) {
+                    // Vietnam timezone date check
+                    if (startRange || endRange) {
+                        const timestamp = parseFloat(item.dateCell);
+                        
+                        if (startRange && timestamp < startRange.start) continue;
+                        if (endRange && timestamp > endRange.end) continue;
+                    }
+                    
+                    // Status check
+                    if (status === "active" && item.completed === true) continue;
+                    if (status === "completed" && item.completed === false) continue;
+                    
+                    filtered.push(item);
+                }
+            }
+            
+            return filtered;
+        }
+    `;
     }
 
     preprocessData(data) {
@@ -420,18 +398,23 @@ class FilterManager {
                 item._index = index;
                 item._indexed = true;
 
-                // FIXED: Ensure muted is boolean
-                if (item.muted === undefined || item.muted === null) {
-                    item.muted = false; // Default: chưa đi đơn
+                // FIXED: Ensure completed is boolean and properly set
+                if (item.completed === undefined || item.completed === null) {
+                    if (item.muted !== undefined) {
+                        // Convert from old muted field
+                        item.completed = Boolean(item.muted);
+                        delete item.muted;
+                    } else {
+                        item.completed = false; // Default: chưa đi đơn
+                    }
                 } else {
-                    item.muted = Boolean(item.muted);
+                    item.completed = Boolean(item.completed);
                 }
             }
             return item;
         });
 
         this.indexedData = indexed;
-
         performanceMonitor.end("preprocessData");
         return indexed;
     }
@@ -447,14 +430,12 @@ class FilterManager {
     getCachedFilter(hash) {
         const cached = this.filterCache.get(hash);
         if (cached && Date.now() - cached.timestamp < 30000) {
-            // 30 second cache
             return cached.result;
         }
         return null;
     }
 
     setCachedFilter(hash, result) {
-        // Limit cache size
         if (this.filterCache.size > 10) {
             const firstKey = this.filterCache.keys().next().value;
             this.filterCache.delete(firstKey);
@@ -522,24 +503,18 @@ class FilterManager {
         return new Promise((resolve) => {
             const { startDate, endDate, status } = this.filters;
 
-            // Pre-calculate date bounds once
-            const startTime = startDate
-                ? new Date(startDate + "T00:00:00").getTime()
-                : null;
-            const endTime = endDate
-                ? new Date(endDate + "T23:59:59").getTime()
-                : null;
-
             let filteredResults = [];
             let processedCount = 0;
 
-            console.log("Filtering with criteria:", {
+            console.log("Filtering with Vietnam timezone criteria:", {
                 startDate,
                 endDate,
                 status,
-                startTime,
-                endTime,
                 totalItems: data.length,
+                startRange: startDate
+                    ? VietnamTime.getDateRange(startDate)
+                    : null,
+                endRange: endDate ? VietnamTime.getDateRange(endDate) : null,
             });
 
             const processChunk = (startIndex) => {
@@ -552,25 +527,36 @@ class FilterManager {
                 // Process chunk
                 const chunkResults = [];
                 for (const item of chunk) {
-                    // Fast date check using pre-calculated timestamp
-                    if (startTime || endTime) {
-                        const itemTime =
-                            item._dateTime ||
-                            new Date(parseFloat(item.dateCell)).getTime();
+                    // FIXED: Vietnam timezone date filtering
+                    let passesDateFilter = true;
 
-                        if (startTime && itemTime < startTime) continue;
-                        if (endTime && itemTime > endTime) continue;
+                    if (startDate || endDate) {
+                        const timestamp = parseFloat(item.dateCell);
+
+                        // Get Vietnam date ranges for comparison
+                        if (startDate) {
+                            const startRange =
+                                VietnamTime.getDateRange(startDate);
+                            if (timestamp < startRange.start) {
+                                passesDateFilter = false;
+                            }
+                        }
+
+                        if (endDate && passesDateFilter) {
+                            const endRange = VietnamTime.getDateRange(endDate);
+                            if (timestamp > endRange.end) {
+                                passesDateFilter = false;
+                            }
+                        }
                     }
 
-                    // FIXED: Status check with correct logic
-                    // status: "active" = chưa đi đơn = muted: false (checkbox unchecked)
-                    // status: "completed" = đã đi đơn = muted: true (checkbox checked)
-                    if (status === "active" && item.muted === true) {
-                        continue; // Skip items that are completed (muted=true) when looking for active
-                    }
-                    if (status === "completed" && item.muted === false) {
-                        continue; // Skip items that are active (muted=false) when looking for completed
-                    }
+                    if (!passesDateFilter) continue;
+
+                    // Status check (unchanged)
+                    if (status === "active" && item.completed === true)
+                        continue;
+                    if (status === "completed" && item.completed === false)
+                        continue;
 
                     chunkResults.push(item);
                 }
@@ -586,17 +572,23 @@ class FilterManager {
 
                 // Continue processing or resolve
                 if (endIndex < data.length) {
-                    // Use requestIdleCallback or setTimeout for non-blocking processing
                     const nextTick =
                         window.requestIdleCallback ||
                         ((cb) => setTimeout(cb, 0));
-
                     nextTick(() => processChunk(endIndex));
                 } else {
-                    console.log("Filter completed:", {
+                    console.log("Vietnam timezone filter completed:", {
                         originalCount: data.length,
                         filteredCount: filteredResults.length,
                         criteria: { startDate, endDate, status },
+                        sampleTimestamps: filteredResults
+                            .slice(0, 3)
+                            .map((item) => ({
+                                timestamp: item.dateCell,
+                                vietnamDate: VietnamTime.formatVietnamDate(
+                                    parseFloat(item.dateCell),
+                                ),
+                            })),
                     });
                     resolve(filteredResults);
                 }
@@ -632,7 +624,7 @@ class FilterManager {
         // Update application state
         APP_STATE.filteredData = result;
 
-        // Sort results (maintain date order, muted items at bottom)
+        // Sort results (maintain date order, completed items at bottom)
         const sortedResults = this.sortFilterResults(result);
 
         // Update table display
@@ -670,12 +662,12 @@ class FilterManager {
                 return timestampB - timestampA;
             }
 
-            // Secondary sort: muted items to bottom (active first)
-            // muted = false (chưa đi đơn) should come first
-            // muted = true (đã đi đơn) should come last
-            const mutedA = a.muted ? 1 : 0;
-            const mutedB = b.muted ? 1 : 0;
-            return mutedA - mutedB;
+            // Secondary sort: completed items to bottom (active first)
+            // completed = false (chưa đi đơn) should come first
+            // completed = true (đã đi đơn) should come last
+            const completedA = a.completed ? 1 : 0;
+            const completedB = b.completed ? 1 : 0;
+            return completedA - completedB;
         });
     }
 
@@ -737,7 +729,6 @@ class FilterManager {
 
             // Continue if more items to render
             if (currentIndex < results.length) {
-                // Use requestAnimationFrame for smooth rendering
                 requestAnimationFrame(renderBatch);
             }
         };
@@ -751,19 +742,19 @@ class FilterManager {
 
         console.log("Creating table row for item:", {
             uniqueId: item.uniqueId,
-            muted: item.muted,
-            mutedType: typeof item.muted,
+            completed: item.completed,
+            completedType: typeof item.completed,
             noteCell: item.noteCell,
         });
 
-        // Apply styling for muted items
-        if (item.muted === true) {
-            // muted = true = đã đi đơn = dimmed appearance
+        // Apply styling for completed items
+        if (item.completed === true) {
+            // completed = true = đã đi đơn = dimmed appearance
             newRow.style.cssText = "opacity: 0.4; background-color: #f8f9fa;";
             newRow.classList.add(CSS_CLASSES.muted);
-            console.log("Applied muted styling (đã đi đơn)");
+            console.log("Applied completed styling (đã đi đơn)");
         } else {
-            // muted = false = chưa đi đơn = normal appearance
+            // completed = false = chưa đi đơn = normal appearance
             newRow.style.cssText = "opacity: 1.0;";
             newRow.classList.add(CSS_CLASSES.active);
             console.log("Applied active styling (chưa đi đơn)");
@@ -786,7 +777,7 @@ class FilterManager {
             {
                 content: null,
                 type: "checkbox",
-                checked: Boolean(item.muted), // FIXED: muted = true -> checked = true (đã đi đơn)
+                checked: Boolean(item.completed), // FIXED: Will be processed specially
             },
             { content: sanitizeInput(item.customerInfoCell || "") },
             { content: null, type: "edit" },
@@ -801,35 +792,43 @@ class FilterManager {
             if (cellData.type === "checkbox") {
                 console.log("Creating checkbox with state:", {
                     itemUniqueId: item.uniqueId,
-                    itemMuted: item.muted,
-                    checkboxChecked: cellData.checked,
+                    itemCompleted: item.completed,
+                    shouldBeChecked: cellData.checked,
                     meaning: cellData.checked ? "đã đi đơn" : "chưa đi đơn",
                 });
 
-                const checkbox = domManager.create("input", {
-                    attributes: {
-                        type: "checkbox",
-                        checked: cellData.checked,
-                    },
-                    styles: {
-                        width: "20px",
-                        height: "20px",
-                        cursor: "pointer",
-                    },
-                });
+                // ✅ FIXED: Create checkbox the correct way
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = cellData.checked; // Use property, NOT attribute
+                checkbox.style.width = "20px";
+                checkbox.style.height = "20px";
+                checkbox.style.cursor = "pointer";
+                checkbox.style.transition =
+                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+
+                // Add data attribute for easier identification
+                checkbox.setAttribute("data-transaction-id", item.uniqueId);
+
+                // Verify checkbox state
+                console.log(
+                    "Checkbox created - checked property:",
+                    checkbox.checked,
+                );
+
                 cell.appendChild(checkbox);
             } else if (cellData.type === "edit") {
-                const editButton = domManager.create("button", {
-                    className: "edit-button",
-                });
+                const editButton = document.createElement("button");
+                editButton.className = "edit-button";
+                editButton.style.cursor = "pointer";
+
                 cell.appendChild(editButton);
             } else if (cellData.type === "delete") {
-                const deleteButton = domManager.create("button", {
-                    className: "delete-button",
-                    attributes: {
-                        "data-user": cellData.userId,
-                    },
-                });
+                const deleteButton = document.createElement("button");
+                deleteButton.className = "delete-button";
+                deleteButton.setAttribute("data-user", cellData.userId);
+                deleteButton.style.cursor = "pointer";
+
                 cell.appendChild(deleteButton);
             } else {
                 cell.textContent = cellData.content;
@@ -845,6 +844,7 @@ class FilterManager {
         return newRow;
     }
 
+    // FIXED: Update total amount - only count active (not completed) transactions
     updateTotalAmount() {
         let totalAmount = 0;
         const dataToCalculate =
@@ -858,26 +858,14 @@ class FilterManager {
         });
 
         dataToCalculate.forEach((item) => {
-            // Only count items that are not muted (chưa đi đơn)
-            if (!item.muted) {
+            // FIXED: Only count items that are not completed (chưa đi đơn)
+            if (!item.completed) {
                 const amountStr = item.amountCell || "0";
                 const cleanAmount = amountStr.toString().replace(/[,\.]/g, "");
                 const amount = parseFloat(cleanAmount);
                 if (!isNaN(amount)) {
                     totalAmount += amount;
-                    //console.log("Added to total:", {
-                    //    uniqueId: item.uniqueId,
-                    //    amount: amount,
-                    //    muted: item.muted,
-                    //    runningTotal: totalAmount,
-                    //});
                 }
-            } else {
-                //console.log("Skipped muted item:", {
-                //   uniqueId: item.uniqueId,
-                //    amount: item.amountCell,
-                //    muted: item.muted,
-                //});
             }
         });
 
@@ -919,7 +907,6 @@ class FilterManager {
             startDate: startDate,
             endDate: endDate,
         });
-
         this.applyFilters();
     }
 
@@ -947,22 +934,23 @@ class FilterManager {
     setTodayFilter() {
         if (this.isProcessing || APP_STATE.isOperationInProgress) return;
 
-        const today = new Date();
-        const tzOffset = today.getTimezoneOffset() * 60000;
-        const localISODate = new Date(today - tzOffset)
-            .toISOString()
-            .split("T")[0];
+        // FIXED: Use Vietnam timezone for today
+        const vietnamToday = VietnamTime.getDateString();
+
+        console.log("Setting today filter with Vietnam date:", {
+            vietnamToday: vietnamToday,
+            systemToday: new Date().toISOString().split("T")[0],
+            vietnamTime: VietnamTime.now(),
+        });
 
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
 
-        if (startDateFilter) startDateFilter.value = localISODate;
-        if (endDateFilter) endDateFilter.value = localISODate;
+        if (startDateFilter) startDateFilter.value = vietnamToday;
+        if (endDateFilter) endDateFilter.value = vietnamToday;
 
-        this.filters.startDate = localISODate;
-        this.filters.endDate = localISODate;
-
-        console.log("Set today filter:", localISODate);
+        this.filters.startDate = vietnamToday;
+        this.filters.endDate = vietnamToday;
 
         this.applyFilters();
     }
@@ -980,7 +968,6 @@ class FilterManager {
         this.filters.endDate = null;
 
         console.log("Set all filter (no date restrictions)");
-
         this.applyFilters();
     }
 
@@ -1002,7 +989,6 @@ class FilterManager {
         };
 
         console.log("Cleared all filters");
-
         this.applyFilters();
     }
 
@@ -1042,7 +1028,7 @@ class FilterManager {
         if (visibleCount !== totalCount) {
             let filterText = `Hiển thị ${visibleCount.toLocaleString()} / ${totalCount.toLocaleString()} giao dịch`;
 
-            // Add date range info
+            // Add date range info with Vietnam timezone
             if (this.filters.startDate || this.filters.endDate) {
                 const startStr = this.filters.startDate
                     ? this.formatDateForDisplay(this.filters.startDate)
@@ -1053,14 +1039,14 @@ class FilterManager {
 
                 if (startStr && endStr) {
                     if (startStr === endStr) {
-                        filterText += ` (ngày ${startStr})`;
+                        filterText += ` (ngày ${startStr} - GMT+7)`;
                     } else {
-                        filterText += ` (từ ${startStr} đến ${endStr})`;
+                        filterText += ` (từ ${startStr} đến ${endStr} - GMT+7)`;
                     }
                 } else if (startStr) {
-                    filterText += ` (từ ${startStr})`;
+                    filterText += ` (từ ${startStr} - GMT+7)`;
                 } else if (endStr) {
-                    filterText += ` (đến ${endStr})`;
+                    filterText += ` (đến ${endStr} - GMT+7)`;
                 }
             }
 
@@ -1094,14 +1080,12 @@ class FilterManager {
     }
 
     showFilterSuccess(message) {
-        // Use existing floating alert system
         if (window.showSuccess) {
             window.showSuccess(message);
         }
     }
 
     showFilterError(message) {
-        // Use existing floating alert system
         if (window.showError) {
             window.showError(message);
         }

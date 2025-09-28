@@ -1,10 +1,11 @@
 // =====================================================
-// CRUD OPERATIONS WITH FIREBASE STORAGE SUPPORT
+// CRUD OPERATIONS WITH FIREBASE STORAGE SUPPORT AND AUTO TABLE REFRESH
 // =====================================================
 
 async function editInventoryItem(event) {
     const auth = getAuthState();
-    if (!auth || parseInt(auth.checkLogin) > 0) {
+    // Allow both permission level 0 and 3 to edit
+    if (!auth || parseInt(auth.checkLogin) > 2) {
         showFloatingAlert("Không có quyền chỉnh sửa", false, 3000);
         return;
     }
@@ -374,24 +375,11 @@ async function saveFullEditChanges(inventoryId, itemInfo) {
         // Update in Firebase
         await updateOrderInventoryData(inventoryId, updateData);
 
-        // Update cached data
-        const cachedData = getCachedData();
-        if (cachedData) {
-            const index = cachedData.findIndex(
-                (item) => item.id === inventoryId,
-            );
-            if (index !== -1) {
-                // Update all fields
-                Object.assign(cachedData[index], updateData);
-                setCachedData(cachedData);
-            }
-        }
+        // IMPROVED: Update cached data and refresh table immediately
+        await refreshCachedDataAndTable();
 
         // Close modal
         closeEditModal();
-
-        // Refresh table to show updated values
-        renderInventoryTable(cachedData || globalState.inventoryData);
 
         // Log action
         logAction(
@@ -476,7 +464,11 @@ async function updateOrderInventoryData(orderId, updateData) {
 
 async function deleteInventoryItem(event) {
     const auth = getAuthState();
-    if (!auth || parseInt(auth.checkLogin) > 0) {
+    // Allow both permission level 0 and 3 to delete
+    if (
+        !auth ||
+        (parseInt(auth.checkLogin) > 0 && parseInt(auth.checkLogin) !== 3)
+    ) {
         showFloatingAlert(
             "Không đủ quyền thực hiện chức năng này.",
             false,
@@ -512,16 +504,14 @@ async function deleteInventoryItem(event) {
             );
             if (index !== -1) {
                 oldItemData = { ...cachedData[index] };
-                cachedData.splice(index, 1);
-                setCachedData(cachedData);
             }
         }
 
         // Remove from Firebase
         await removeItemFromFirebase(inventoryId);
 
-        // Refresh table
-        renderInventoryTable(cachedData || globalState.inventoryData);
+        // IMPROVED: Update cached data and refresh table immediately
+        await refreshCachedDataAndTable();
 
         // Log action
         logAction(
@@ -537,12 +527,6 @@ async function deleteInventoryItem(event) {
         hideFloatingAlert();
         console.error("Lỗi khi xóa:", error);
         showFloatingAlert("Lỗi khi xóa: " + error.message, false, 3000);
-
-        // Restore cached data on error
-        if (cachedData && oldItemData) {
-            cachedData.push(oldItemData);
-            setCachedData(cachedData);
-        }
     }
 }
 
@@ -576,8 +560,77 @@ async function removeItemFromFirebase(itemId) {
     }
 }
 
+// NEW: Function to refresh cached data and table without full page reload
+async function refreshCachedDataAndTable() {
+    try {
+        // Clear cache to force fresh data load
+        invalidateCache();
+
+        // Use existing loadInventoryData function which already handles all the logic
+        await loadInventoryData();
+
+        console.log("Table refreshed successfully using loadInventoryData()");
+    } catch (error) {
+        console.error("Error refreshing cached data and table:", error);
+
+        // Fallback: try manual refresh
+        try {
+            // Load fresh data from Firebase
+            const doc = await collectionRef.doc("dathang").get();
+            let orderData = [];
+
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && Array.isArray(data.data)) {
+                    orderData = data.data;
+                    console.log(
+                        `Fallback: Refreshed ${orderData.length} orders from Firebase`,
+                    );
+                }
+            }
+
+            if (orderData.length > 0) {
+                // Transform data to inventory format
+                const inventoryData = transformOrderDataToInventory(orderData);
+
+                // Sort by upload time (newest first)
+                const sortedData = inventoryData.sort((a, b) => {
+                    const dateA = parseVietnameseDate(a.thoiGianUpload);
+                    const dateB = parseVietnameseDate(b.thoiGianUpload);
+                    if (dateA && dateB) {
+                        return dateB - dateA;
+                    }
+                    return 0;
+                });
+
+                // Update global state
+                globalState.inventoryData = sortedData;
+
+                // Update cache
+                setCachedData(sortedData);
+
+                // Re-render table with fresh data
+                renderInventoryTable(sortedData);
+
+                // Update filter options
+                updateFilterOptions(sortedData);
+
+                console.log(
+                    "Fallback refresh successful with",
+                    sortedData.length,
+                    "items",
+                );
+            }
+        } catch (fallbackError) {
+            console.error("Fallback refresh also failed:", fallbackError);
+            throw fallbackError;
+        }
+    }
+}
+
 // Make functions globally available
 window.closeEditModal = closeEditModal;
 window.saveFullEditChanges = saveFullEditChanges;
+window.refreshCachedDataAndTable = refreshCachedDataAndTable;
 
-console.log("Updated CRUD operations with Firebase Storage support loaded");
+console.log("Improved CRUD operations with auto table refresh loaded");

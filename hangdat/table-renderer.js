@@ -1,5 +1,5 @@
 // =====================================================
-// FIXED TABLE RENDERING WITH IMAGE DISPLAY DEBUG
+// FIXED TABLE RENDERING WITH UPDATED PRICE DISPLAY AND PERMISSIONS
 // =====================================================
 
 function renderInventoryTable(inventoryData) {
@@ -190,8 +190,11 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
 
             const buyPriceText = document.createElement("div");
             buyPriceText.className = "cell-text";
+            // UPDATED: Add 3 zeros to price display (multiply by 1000)
             buyPriceText.textContent =
-                item.giaMua > 0 ? formatCurrency(item.giaMua) : "Chưa có";
+                item.giaMua > 0
+                    ? formatCurrencyWithThousands(item.giaMua)
+                    : "Chưa có";
             productContainer.appendChild(buyPriceText);
 
             cells[7].appendChild(productContainer);
@@ -230,8 +233,11 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
 
             const sellPriceText = document.createElement("div");
             sellPriceText.className = "cell-text";
+            // UPDATED: Add 3 zeros to price display (multiply by 1000)
             sellPriceText.textContent =
-                item.giaBan > 0 ? formatCurrency(item.giaBan) : "Chưa có";
+                item.giaBan > 0
+                    ? formatCurrencyWithThousands(item.giaBan)
+                    : "Chưa có";
             priceContainer.appendChild(sellPriceText);
 
             cells[8].appendChild(priceContainer);
@@ -248,7 +254,7 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
             actionContainer.className = "action-buttons";
 
             const editButton = document.createElement("button");
-            editButton.className = "action-btn edit-btn";
+            editButton.className = "edit-button";
             editButton.setAttribute("data-inventory-id", item.id || "");
             editButton.setAttribute(
                 "data-inventory-info",
@@ -257,7 +263,7 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
             editButton.addEventListener("click", editInventoryItem);
 
             const deleteButton = document.createElement("button");
-            deleteButton.className = "action-btn delete-btn";
+            deleteButton.className = "delete-button";
             deleteButton.setAttribute("data-inventory-id", item.id || "");
             deleteButton.setAttribute(
                 "data-inventory-info",
@@ -270,7 +276,7 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
             cells[10].appendChild(actionContainer);
             tr.appendChild(cells[10]);
 
-            // Apply permissions
+            // UPDATED: Apply permissions - now includes permission level 3
             const auth = getAuthState();
             if (auth) {
                 applyRowPermissions(
@@ -286,8 +292,10 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
     });
 }
 
+// UPDATED: Apply permissions - now allows permission level 3 to edit
 function applyRowPermissions(row, editableElements, buttons, userRole) {
-    if (userRole !== 0) {
+    // Allow permissions 0 and 3 to edit and see buttons
+    if (userRole > 2) {
         editableElements.forEach((element) => {
             element.style.opacity = "0.6";
             element.style.cursor = "not-allowed";
@@ -345,7 +353,17 @@ function handleImageModalEscape(event) {
     }
 }
 
-// Format currency helper
+// UPDATED: New currency formatter that adds 3 zeros (multiplies by 1000)
+function formatCurrencyWithThousands(amount) {
+    // Multiply by 1000 to add 3 zeros
+    const adjustedAmount = amount * 1000;
+    return new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+    }).format(adjustedAmount);
+}
+
+// Keep original formatter for backward compatibility
 function formatCurrency(amount) {
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
@@ -436,5 +454,7 @@ window.openImageModal = openImageModal;
 window.closeImageModal = closeImageModal;
 window.debugDataStructure = debugDataStructure;
 
-console.log("Fixed table renderer with image display debug loaded");
+console.log(
+    "Fixed table renderer with updated price display and permissions loaded",
+);
 console.log("Use debugDataStructure() to inspect your data structure");

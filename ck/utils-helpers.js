@@ -1,5 +1,121 @@
-// utils-helpers.js
-// Utility Functions and Helpers
+// utils-helpers.js - Complete Version
+// Utility Functions and Helpers with Vietnam Timezone Support
+
+// =====================================================
+// VIETNAM TIMEZONE UTILITIES
+// =====================================================
+
+const VietnamTime = {
+    // Vietnam timezone offset: UTC+7
+    VIETNAM_OFFSET: 7 * 60, // 7 hours in minutes
+
+    // Get current Vietnam time
+    now() {
+        const utc = new Date();
+        // Note: This creates a Date object that represents Vietnam time
+        // but the timezone info is still system timezone
+        return new Date(utc.getTime() + this.VIETNAM_OFFSET * 60 * 1000);
+    },
+
+    // Convert any date to Vietnam timezone
+    toVietnamTime(date) {
+        if (!(date instanceof Date)) {
+            date = new Date(date);
+        }
+        return new Date(date.getTime() + this.VIETNAM_OFFSET * 60 * 1000);
+    },
+
+    // Get Vietnam date string (YYYY-MM-DD format for input[type="date"])
+    getDateString(date = null) {
+        if (date) {
+            // Convert provided date to Vietnam timezone
+            const vietnamDate = this.toVietnamTime(date);
+            return vietnamDate.toISOString().split("T")[0];
+        } else {
+            // Get current Vietnam date
+            const now = new Date();
+            const vietnamNow = new Date(
+                now.getTime() + this.VIETNAM_OFFSET * 60 * 1000,
+            );
+            return vietnamNow.toISOString().split("T")[0];
+        }
+    },
+
+    // Convert Vietnam date string to timestamp range for that day
+    getDateRange(dateString) {
+        if (!dateString) return null;
+
+        // Parse date string as local date (assumes system is set to Vietnam time)
+        const [year, month, day] = dateString.split("-").map(Number);
+
+        // Create dates in local timezone
+        const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+        const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+
+        return {
+            start: startOfDay.getTime(),
+            end: endOfDay.getTime(),
+        };
+    },
+
+    // Check if a timestamp falls within a Vietnam date
+    isInVietnamDate(timestamp, dateString) {
+        const range = this.getDateRange(dateString);
+        if (!range) return true; // No date filter
+
+        return timestamp >= range.start && timestamp <= range.end;
+    },
+
+    // Format timestamp to Vietnam date display (DD-MM-YY)
+    formatVietnamDate(timestamp) {
+        const date = new Date(timestamp);
+
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear() % 100;
+
+        return `${day}-${month}-${year}`;
+    },
+
+    // Get Vietnam time info for debugging
+    debug() {
+        const now = new Date();
+        const vnNow = this.now();
+        const vnDateString = this.getDateString();
+
+        const debugInfo = {
+            systemTime: now,
+            vietnamTime: vnNow,
+            vietnamDateString: vnDateString,
+            timeDifference: vnNow.getTime() - now.getTime(),
+            expectedDiff: 7 * 60 * 60 * 1000, // 7 hours in ms
+            systemTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+
+        console.log("Vietnam Time Debug:", debugInfo);
+        return debugInfo;
+    },
+
+    // Convert DD-MM-YY format to Date object
+    parseVietnamDate(dateStr) {
+        if (!dateStr || typeof dateStr !== "string") return null;
+
+        const parts = dateStr.split("-");
+        if (parts.length !== 3) return null;
+
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1; // Month is 0-indexed
+        let year = parseInt(parts[2]);
+
+        // Handle 2-digit years
+        if (year < 100) {
+            year = year < 50 ? 2000 + year : 1900 + year;
+        }
+
+        const result = new Date(year, month, day);
+        return isNaN(result.getTime()) ? null : result;
+    },
+};
 
 // =====================================================
 // PERFORMANCE UTILITIES
@@ -9,18 +125,25 @@ class PerformanceMonitor {
     constructor() {
         this.metrics = new Map();
         this.isEnabled = true;
+        this.history = [];
+        this.maxHistorySize = 100;
     }
 
     start(operation) {
         if (!this.isEnabled) return;
-        this.metrics.set(operation, {
+
+        const startData = {
             start: performance.now(),
             memory: performance.memory ? performance.memory.usedJSHeapSize : 0,
-        });
+            timestamp: Date.now(),
+        };
+
+        this.metrics.set(operation, startData);
     }
 
     end(operation) {
         if (!this.isEnabled) return;
+
         const metric = this.metrics.get(operation);
         if (metric) {
             const duration = performance.now() - metric.start;
@@ -28,30 +151,75 @@ class PerformanceMonitor {
                 ? performance.memory.usedJSHeapSize - metric.memory
                 : 0;
 
+            const result = {
+                operation,
+                duration,
+                memoryDelta,
+                timestamp: metric.timestamp,
+                endTime: Date.now(),
+            };
+
             console.log(
                 `Performance: ${operation} took ${duration.toFixed(2)}ms, memory: ${(memoryDelta / 1024 / 1024).toFixed(2)}MB`,
             );
 
             // Store for analysis
-            APP_STATE.performance[operation] = {
-                duration,
-                memoryDelta,
-                timestamp: Date.now(),
-            };
+            APP_STATE.performance[operation] = result;
+
+            // Add to history
+            this.history.push(result);
+            if (this.history.length > this.maxHistorySize) {
+                this.history.shift();
+            }
 
             this.metrics.delete(operation);
             return duration;
         }
+        return 0;
     }
 
     getAverage(operation) {
-        const metrics = Object.values(APP_STATE.performance)
+        const metrics = this.history
             .filter((m) => m.operation === operation)
             .map((m) => m.duration);
 
         return metrics.length > 0
             ? metrics.reduce((a, b) => a + b, 0) / metrics.length
             : 0;
+    }
+
+    getStats() {
+        return {
+            activeMetrics: this.metrics.size,
+            historySize: this.history.length,
+            isEnabled: this.isEnabled,
+            recentOperations: this.history.slice(-10),
+            averages: this.getOperationAverages(),
+        };
+    }
+
+    getOperationAverages() {
+        const operations = [...new Set(this.history.map((m) => m.operation))];
+        const averages = {};
+
+        operations.forEach((op) => {
+            averages[op] = this.getAverage(op);
+        });
+
+        return averages;
+    }
+
+    clear() {
+        this.metrics.clear();
+        this.history = [];
+    }
+
+    enable() {
+        this.isEnabled = true;
+    }
+
+    disable() {
+        this.isEnabled = false;
     }
 }
 
@@ -121,6 +289,15 @@ class ThrottleManager {
         this.debounced.forEach((data) => clearTimeout(data.timeoutId));
         this.debounced.clear();
     }
+
+    getStats() {
+        return {
+            throttledCount: this.throttled.size,
+            debouncedCount: this.debounced.size,
+            throttledKeys: Array.from(this.throttled.keys()),
+            debouncedKeys: Array.from(this.debounced.keys()),
+        };
+    }
 }
 
 const throttleManager = new ThrottleManager();
@@ -144,7 +321,10 @@ function ensureUniqueId(item) {
 
 function sanitizeInput(input) {
     if (typeof input !== "string") return "";
-    return input.replace(/[<>\"']/g, "").trim();
+    return input
+        .replace(/[<>"'&]/g, "") // Remove potentially dangerous characters
+        .replace(/\s+/g, " ") // Replace multiple spaces with single space
+        .trim();
 }
 
 function numberWithCommas(x) {
@@ -155,32 +335,19 @@ function numberWithCommas(x) {
 function formatDate(date) {
     if (!date || !(date instanceof Date)) return "";
 
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear() % 100;
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
+
     return `${day}-${month}-${year}`;
 }
 
 function parseDisplayDate(dateStr) {
-    if (!dateStr || typeof dateStr !== "string") return null;
-
-    const parts = dateStr.split("-");
-    if (parts.length !== 3) return null;
-
-    const day = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1;
-    let year = parseInt(parts[2]);
-
-    if (year < 100) {
-        year = year < 50 ? 2000 + year : 1900 + year;
-    }
-
-    const result = new Date(year, month, day);
-    return isNaN(result.getTime()) ? null : result;
+    return VietnamTime.parseVietnamDate(dateStr);
 }
 
 function convertToTimestamp(dateString) {
-    const tempTimeStamp = new Date();
+    const tempTimeStamp = VietnamTime.now();
     const parts = dateString.split("-");
 
     if (parts.length !== 3) {
@@ -217,6 +384,23 @@ function isValidDateFormat(dateStr) {
     return day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 0;
 }
 
+// Enhanced validation functions
+function validateEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+function validatePhoneNumber(phone) {
+    const phoneRegex = /^[0-9+\-\s()]{10,15}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ""));
+}
+
+function validateAmount(amount) {
+    const cleanAmount = amount.toString().replace(/[,\.]/g, "");
+    const numAmount = parseFloat(cleanAmount);
+    return !isNaN(numAmount) && numAmount > 0;
+}
+
 // =====================================================
 // CACHE UTILITIES
 // =====================================================
@@ -225,6 +409,12 @@ class CacheManager {
     constructor() {
         this.cache = APP_STATE.memoryCache;
         this.observers = new Set();
+        this.stats = {
+            hits: 0,
+            misses: 0,
+            sets: 0,
+            invalidations: 0,
+        };
     }
 
     get(key = "data") {
@@ -235,15 +425,20 @@ class CacheManager {
                     CONFIG.performance.CACHE_EXPIRY
                 ) {
                     console.log("Cache hit for:", key);
+                    this.stats.hits++;
                     return this.cache.data;
                 } else {
                     console.log("Cache expired for:", key);
                     this.invalidate();
+                    this.stats.misses++;
                 }
+            } else {
+                this.stats.misses++;
             }
         } catch (e) {
             console.warn("Error accessing cache:", e);
             this.invalidate();
+            this.stats.misses++;
         }
         return null;
     }
@@ -252,6 +447,7 @@ class CacheManager {
         try {
             this.cache.data = Array.isArray(data) ? [...data] : data;
             this.cache.timestamp = Date.now();
+            this.stats.sets++;
             console.log("Data cached successfully:", key);
             this.notifyObservers("cached", { key, data });
         } catch (e) {
@@ -262,6 +458,7 @@ class CacheManager {
     invalidate(key = "data") {
         this.cache.data = null;
         this.cache.timestamp = null;
+        this.stats.invalidations++;
         console.log("Cache invalidated:", key);
         this.notifyObservers("invalidated", { key });
     }
@@ -285,6 +482,15 @@ class CacheManager {
     }
 
     getStats() {
+        const hitRate =
+            this.stats.hits + this.stats.misses > 0
+                ? (
+                      (this.stats.hits /
+                          (this.stats.hits + this.stats.misses)) *
+                      100
+                  ).toFixed(2)
+                : 0;
+
         return {
             hasData: !!this.cache.data,
             timestamp: this.cache.timestamp,
@@ -292,7 +498,17 @@ class CacheManager {
             sizeEstimate: this.cache.data
                 ? JSON.stringify(this.cache.data).length
                 : 0,
+            observerCount: this.observers.size,
+            hitRate: `${hitRate}%`,
+            ...this.stats,
         };
+    }
+
+    clear() {
+        this.cache.data = null;
+        this.cache.timestamp = null;
+        this.stats = { hits: 0, misses: 0, sets: 0, invalidations: 0 };
+        this.observers.clear();
     }
 }
 
@@ -306,6 +522,43 @@ class DOMManager {
     constructor() {
         this.elementCache = new Map();
         this.observedElements = new Set();
+        this.mutationObserver = null;
+        this.initMutationObserver();
+    }
+
+    initMutationObserver() {
+        if (typeof MutationObserver !== "undefined") {
+            this.mutationObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === "childList") {
+                        // Clear cache for removed elements
+                        mutation.removedNodes.forEach((node) => {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                this.clearElementFromCache(node);
+                            }
+                        });
+                    }
+                });
+            });
+
+            this.mutationObserver.observe(document.body, {
+                childList: true,
+                subtree: true,
+            });
+        }
+    }
+
+    clearElementFromCache(element) {
+        // Remove element and its descendants from cache
+        this.elementCache.forEach((cachedElement, selector) => {
+            if (
+                !document.contains(cachedElement) ||
+                cachedElement === element ||
+                element.contains(cachedElement)
+            ) {
+                this.elementCache.delete(selector);
+            }
+        });
     }
 
     get(selector) {
@@ -339,7 +592,15 @@ class DOMManager {
 
         if (options.attributes) {
             Object.entries(options.attributes).forEach(([key, value]) => {
-                element.setAttribute(key, value);
+                // Handle checkbox checked specially
+                if (tagName === "input" && key === "checked") {
+                    element.checked = Boolean(value);
+                    console.log(
+                        `Set checkbox.checked property to: ${element.checked}`,
+                    );
+                } else {
+                    element.setAttribute(key, value);
+                }
             });
         }
 
@@ -355,6 +616,12 @@ class DOMManager {
             );
         }
 
+        if (options.dataset) {
+            Object.entries(options.dataset).forEach(([key, value]) => {
+                element.dataset[key] = value;
+            });
+        }
+
         return element;
     }
 
@@ -366,7 +633,7 @@ class DOMManager {
         this.elementCache.clear();
     }
 
-    // Batch DOM operations
+    // Batch DOM operations for better performance
     batch(operations) {
         const fragment = this.createFragment();
 
@@ -406,6 +673,63 @@ class DOMManager {
                 ...options,
             });
         }
+    }
+
+    // Add CSS classes with animation support
+    addClass(element, className, animate = false) {
+        if (!element) return;
+
+        if (animate) {
+            element.style.transition = "all 0.3s ease";
+        }
+
+        element.classList.add(className);
+    }
+
+    removeClass(element, className, animate = false) {
+        if (!element) return;
+
+        if (animate) {
+            element.style.transition = "all 0.3s ease";
+        }
+
+        element.classList.remove(className);
+    }
+
+    // Get computed styles
+    getStyles(element, properties = []) {
+        if (!element) return {};
+
+        const computedStyles = window.getComputedStyle(element);
+        const result = {};
+
+        if (properties.length === 0) {
+            return computedStyles;
+        }
+
+        properties.forEach((prop) => {
+            result[prop] = computedStyles.getPropertyValue(prop);
+        });
+
+        return result;
+    }
+
+    getStats() {
+        return {
+            cacheSize: this.elementCache.size,
+            observedElements: this.observedElements.size,
+            hasMutationObserver: !!this.mutationObserver,
+            cachedSelectors: Array.from(this.elementCache.keys()),
+        };
+    }
+
+    destroy() {
+        if (this.mutationObserver) {
+            this.mutationObserver.disconnect();
+            this.mutationObserver = null;
+        }
+        this.clearCache();
+        this.observedElements.clear();
     }
 }
 
@@ -465,7 +789,6 @@ class ArrayUtils {
             return array.sort(compareFn);
         }
 
-        // Use merge sort for large arrays
         return this.mergeSort(array, compareFn);
     }
 
@@ -521,6 +844,48 @@ class ArrayUtils {
             return groups;
         }, {});
     }
+
+    static partition(array, predicate) {
+        const truthy = [];
+        const falsy = [];
+
+        array.forEach((item) => {
+            if (predicate(item)) {
+                truthy.push(item);
+            } else {
+                falsy.push(item);
+            }
+        });
+
+        return [truthy, falsy];
+    }
+
+    static flatten(array, depth = 1) {
+        if (depth <= 0) return array.slice();
+
+        return array.reduce((acc, val) => {
+            if (Array.isArray(val)) {
+                acc.push(...this.flatten(val, depth - 1));
+            } else {
+                acc.push(val);
+            }
+            return acc;
+        }, []);
+    }
+
+    static unique(array) {
+        return [...new Set(array)];
+    }
+
+    static intersection(array1, array2) {
+        const set2 = new Set(array2);
+        return array1.filter((item) => set2.has(item));
+    }
+
+    static difference(array1, array2) {
+        const set2 = new Set(array2);
+        return array1.filter((item) => !set2.has(item));
+    }
 }
 
 // =====================================================
@@ -536,6 +901,7 @@ class DeviceDetector {
     detectDevice() {
         const userAgent = navigator.userAgent;
         const platform = navigator.platform;
+        const screen = window.screen;
 
         return {
             isMobile:
@@ -553,6 +919,20 @@ class DeviceDetector {
             hardwareConcurrency: navigator.hardwareConcurrency || 4,
             memory: navigator.deviceMemory || 4,
             connection: navigator.connection || null,
+            screen: {
+                width: screen.width,
+                height: screen.height,
+                availWidth: screen.availWidth,
+                availHeight: screen.availHeight,
+                pixelDepth: screen.pixelDepth,
+            },
+            viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+            },
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: navigator.language,
+            languages: navigator.languages,
         };
     }
 
@@ -562,6 +942,7 @@ class DeviceDetector {
         if (userAgent.includes("Safari") && !userAgent.includes("Chrome"))
             return "Safari";
         if (userAgent.includes("Edge")) return "Edge";
+        if (userAgent.includes("Opera")) return "Opera";
         return "Unknown";
     }
 
@@ -606,6 +987,12 @@ class DeviceDetector {
             else if (this.info.connection.effectiveType === "3g") score += 5;
         }
 
+        // Screen resolution
+        const totalPixels = this.info.screen.width * this.info.screen.height;
+        if (totalPixels > 2073600)
+            score += 10; // 1920x1080+
+        else if (totalPixels > 921600) score += 5; // 1280x720+
+
         return Math.max(0, Math.min(100, score));
     }
 
@@ -619,7 +1006,9 @@ class DeviceDetector {
                 batchSize: 100,
                 filterChunkSize: 3000,
                 enableAnimations: true,
-                enableVirtualScrolling: false, // High-end devices can handle full rendering
+                enableVirtualScrolling: false,
+                enableWebWorkers: true,
+                cacheSize: 1000,
             },
             medium: {
                 virtualRowHeight: 40,
@@ -628,6 +1017,8 @@ class DeviceDetector {
                 filterChunkSize: 2000,
                 enableAnimations: true,
                 enableVirtualScrolling: true,
+                enableWebWorkers: true,
+                cacheSize: 500,
             },
             low: {
                 virtualRowHeight: 35,
@@ -636,14 +1027,113 @@ class DeviceDetector {
                 filterChunkSize: 1000,
                 enableAnimations: false,
                 enableVirtualScrolling: true,
+                enableWebWorkers: false,
+                cacheSize: 100,
             },
         };
 
         return settings[profile];
     }
+
+    isInVietnam() {
+        return (
+            this.info.timezone.includes("Asia/Ho_Chi_Minh") ||
+            this.info.timezone.includes("Asia/Saigon") ||
+            this.info.language.includes("vi")
+        );
+    }
+
+    getStats() {
+        return {
+            ...this.info,
+            performanceProfile: this.performanceProfile,
+            performanceScore: this.calculatePerformanceScore(),
+            optimalSettings: this.getOptimalSettings(),
+            isInVietnam: this.isInVietnam(),
+        };
+    }
 }
 
 const deviceDetector = new DeviceDetector();
+
+// =====================================================
+// ERROR HANDLING UTILITIES
+// =====================================================
+
+class ErrorHandler {
+    constructor() {
+        this.errors = [];
+        this.maxErrors = 50;
+        this.setupGlobalHandlers();
+    }
+
+    setupGlobalHandlers() {
+        window.addEventListener("error", (event) => {
+            this.logError({
+                type: "javascript",
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error,
+                timestamp: Date.now(),
+            });
+        });
+
+        window.addEventListener("unhandledrejection", (event) => {
+            this.logError({
+                type: "promise",
+                message: event.reason?.message || "Unhandled promise rejection",
+                reason: event.reason,
+                timestamp: Date.now(),
+            });
+        });
+    }
+
+    logError(errorInfo) {
+        this.errors.push(errorInfo);
+
+        if (this.errors.length > this.maxErrors) {
+            this.errors.shift();
+        }
+
+        console.error("Error logged:", errorInfo);
+
+        // Send to analytics if available
+        if (window.gtag) {
+            window.gtag("event", "exception", {
+                description: errorInfo.message,
+                fatal: false,
+            });
+        }
+    }
+
+    getErrors() {
+        return this.errors;
+    }
+
+    clearErrors() {
+        this.errors = [];
+    }
+
+    getStats() {
+        return {
+            totalErrors: this.errors.length,
+            recentErrors: this.errors.slice(-10),
+            errorTypes: this.getErrorTypeStats(),
+        };
+    }
+
+    getErrorTypeStats() {
+        const types = {};
+        this.errors.forEach((error) => {
+            types[error.type] = (types[error.type] || 0) + 1;
+        });
+        return types;
+    }
+}
+
+const errorHandler = new ErrorHandler();
 
 // =====================================================
 // EXPORT UTILITIES
@@ -652,17 +1142,20 @@ const deviceDetector = new DeviceDetector();
 // Export all utilities
 if (typeof module !== "undefined" && module.exports) {
     module.exports = {
+        VietnamTime,
         PerformanceMonitor,
         ThrottleManager,
         CacheManager,
         DOMManager,
         ArrayUtils,
         DeviceDetector,
+        ErrorHandler,
         performanceMonitor,
         throttleManager,
         cacheManager,
         domManager,
         deviceDetector,
+        errorHandler,
         // Utility functions
         generateUniqueId,
         ensureUniqueId,
@@ -672,21 +1165,27 @@ if (typeof module !== "undefined" && module.exports) {
         parseDisplayDate,
         convertToTimestamp,
         isValidDateFormat,
+        validateEmail,
+        validatePhoneNumber,
+        validateAmount,
     };
 } else {
     // Browser environment
+    window.VietnamTime = VietnamTime;
     window.PerformanceMonitor = PerformanceMonitor;
     window.ThrottleManager = ThrottleManager;
     window.CacheManager = CacheManager;
     window.DOMManager = DOMManager;
     window.ArrayUtils = ArrayUtils;
     window.DeviceDetector = DeviceDetector;
+    window.ErrorHandler = ErrorHandler;
 
     window.performanceMonitor = performanceMonitor;
     window.throttleManager = throttleManager;
     window.cacheManager = cacheManager;
     window.domManager = domManager;
     window.deviceDetector = deviceDetector;
+    window.errorHandler = errorHandler;
 
     // Utility functions
     window.generateUniqueId = generateUniqueId;
@@ -697,4 +1196,27 @@ if (typeof module !== "undefined" && module.exports) {
     window.parseDisplayDate = parseDisplayDate;
     window.convertToTimestamp = convertToTimestamp;
     window.isValidDateFormat = isValidDateFormat;
+    window.validateEmail = validateEmail;
+    window.validatePhoneNumber = validatePhoneNumber;
+    window.validateAmount = validateAmount;
 }
+
+// Global debug functions
+window.debugVietnamTime = function () {
+    return VietnamTime.debug();
+};
+
+window.debugPerformance = function () {
+    return {
+        performance: performanceMonitor.getStats(),
+        throttle: throttleManager.getStats(),
+        cache: cacheManager.getStats(),
+        dom: domManager.getStats(),
+        device: deviceDetector.getStats(),
+        errors: errorHandler.getStats(),
+    };
+};
+
+console.log(
+    "Utils-helpers.js loaded successfully with Vietnam timezone support",
+);

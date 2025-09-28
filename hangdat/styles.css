@@ -1030,19 +1030,6 @@ body::before {
     box-shadow: 0 6px 20px rgba(55, 66, 250, 0.4);
 }
 
-.btn-danger {
-    background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
-    color: white;
-    padding: 6px 12px;
-    font-size: 12px;
-    box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
-}
-
-.btn-danger:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
-}
-
 /* Enhanced Table Styles for New Layout */
 .combined-cell {
     display: flex;
@@ -1088,44 +1075,6 @@ body::before {
     outline: none;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     transform: scale(1.05);
-}
-
-.action-buttons {
-    display: flex;
-    gap: 5px;
-    justify-content: center;
-}
-
-.action-btn {
-    padding: 6px 10px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    min-width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.edit-btn {
-    background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
-    color: white;
-    box-shadow: 0 2px 8px rgba(255, 167, 38, 0.3);
-}
-
-.delete-btn {
-    background: linear-gradient(135deg, #ef5350 0%, #f44336 100%);
-    color: white;
-    box-shadow: 0 2px 8px rgba(239, 83, 80, 0.3);
-}
-
-.action-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 /* Alert Styles */
@@ -1197,16 +1146,6 @@ body::before {
     .btn {
         width: 100%;
         justify-content: center;
-    }
-
-    .action-buttons {
-        flex-direction: column;
-        gap: 3px;
-    }
-
-    .action-btn {
-        width: 100%;
-        min-width: auto;
     }
 
     .combined-cell {
@@ -2274,45 +2213,6 @@ body::before {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-/* Action buttons */
-.action-buttons {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.action-btn {
-    padding: 8px 12px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    min-width: 35px;
-    height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.edit-btn {
-    background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%);
-    color: white;
-}
-
-.delete-btn {
-    background: linear-gradient(135deg, #ef5350 0%, #f44336 100%);
-    color: white;
-}
-
-.action-btn:hover {
-    transform: scale(1.1) translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-
 /* Statistics Grid */
 .stats-grid {
     display: grid;
@@ -2461,12 +2361,6 @@ body::before {
     background: linear-gradient(135deg, #3742fa 0%, #2f3542 100%);
     color: white;
     box-shadow: 0 4px 15px rgba(55, 66, 250, 0.3);
-}
-
-.btn-danger {
-    background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
-    color: white;
-    box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
 }
 
 .btn:hover {
