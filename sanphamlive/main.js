@@ -1,40 +1,153 @@
-// js/main.js - Main Application Logic
+// js/main.js - Main Application Logic with Firebase Integration
 
 // Global inventory data
 window.inventoryData = [];
+let realtimeUnsubscribe = null;
 
 // Initialize application
-document.addEventListener("DOMContentLoaded", function () {
-    console.log("Initializing Inventory Management System...");
+document.addEventListener("DOMContentLoaded", async function () {
+    console.log("Initializing Inventory Management System with Firebase...");
 
-    // Load data
-    loadInventoryData();
+    // Initialize Firebase first
+    const firebaseReady = initializeFirebase();
+
+    if (firebaseReady) {
+        // Wait a bit for Firebase to fully initialize
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Initialize Firebase service
+        const serviceReady = window.firebaseService.init();
+
+        if (serviceReady) {
+            console.log("✓ Firebase service ready");
+
+            // Load data from Firebase
+            await loadInventoryData();
+
+            // Setup real-time listener
+            setupRealtimeSync();
+        } else {
+            console.warn(
+                "⚠ Firebase service failed to initialize, using local mode",
+            );
+            loadInventoryData();
+        }
+    } else {
+        console.warn("⚠ Firebase not available, using local mode");
+        loadInventoryData();
+    }
 
     // Initialize modules
     initFilters();
     initModals();
     initFormHandlers();
     initHeaderButtons();
+    initOrderStatistics();
 
     // Initialize icons
     initIcons();
 
+    // Update sync status
+    updateSyncStatus();
+
     console.log("✓ Application initialized successfully");
 });
 
-// Load inventory data
-function loadInventoryData() {
-    const cachedData = getCachedData();
+// Load inventory data from Firebase or cache
+async function loadInventoryData() {
+    try {
+        showNotification("Đang tải dữ liệu...", "info");
 
-    if (cachedData && cachedData.length > 0) {
-        console.log("Loading from cache...");
-        window.inventoryData = cachedData;
+        if (window.isFirebaseInitialized()) {
+            // Load from Firebase
+            const data = await window.firebaseService.loadInventory();
+
+            if (data && data.length > 0) {
+                console.log(`✓ Loaded ${data.length} items from Firebase`);
+                window.inventoryData = data;
+                setCachedData(data);
+            } else {
+                // No data in Firebase, use sample data
+                console.log("No data in Firebase, using sample data");
+                window.inventoryData = SAMPLE_DATA;
+
+                // Save sample data to Firebase
+                for (const item of SAMPLE_DATA) {
+                    await window.firebaseService.addItem(item);
+                }
+            }
+        } else {
+            // Firebase not available, use cached or sample data
+            const cachedData = getCachedData();
+
+            if (cachedData && cachedData.length > 0) {
+                console.log("Loading from cache...");
+                window.inventoryData = cachedData;
+            } else {
+                console.log("Loading sample data...");
+                window.inventoryData = SAMPLE_DATA;
+                setCachedData(SAMPLE_DATA);
+            }
+        }
+
         applyFilters();
+        renderOrderStatistics();
+        showNotification("Tải dữ liệu thành công!", "success");
+    } catch (error) {
+        console.error("Error loading data:", error);
+        showNotification("Lỗi tải dữ liệu: " + error.message, "error");
+
+        // Fallback to cache
+        const cachedData = getCachedData();
+        if (cachedData) {
+            window.inventoryData = cachedData;
+            applyFilters();
+            renderOrderStatistics();
+        }
+    }
+}
+
+// Setup real-time sync with Firebase
+function setupRealtimeSync() {
+    if (!window.isFirebaseInitialized()) {
+        return;
+    }
+
+    try {
+        realtimeUnsubscribe = window.firebaseService.listenToInventory(
+            (data) => {
+                console.log("Real-time update received");
+                window.inventoryData = data;
+                setCachedData(data);
+                applyFilters();
+                renderOrderStatistics();
+                updateSyncStatus(true);
+            },
+        );
+
+        console.log("✓ Real-time sync enabled");
+    } catch (error) {
+        console.error("Error setting up real-time sync:", error);
+    }
+}
+
+// Update sync status indicator
+function updateSyncStatus(synced = false) {
+    const statusEl = document.getElementById("syncStatus");
+    if (!statusEl) return;
+
+    if (window.isFirebaseInitialized()) {
+        if (navigator.onLine) {
+            statusEl.innerHTML = synced
+                ? '<span style="color: #10b981;">● Đã đồng bộ</span>'
+                : '<span style="color: #3b82f6;">● Trực tuyến</span>';
+        } else {
+            statusEl.innerHTML =
+                '<span style="color: #f59e0b;">● Offline</span>';
+        }
     } else {
-        console.log("Loading sample data...");
-        window.inventoryData = SAMPLE_DATA;
-        setCachedData(SAMPLE_DATA);
-        applyFilters();
+        statusEl.innerHTML =
+            '<span style="color: #6b7280;">● Local Mode</span>';
     }
 }
 
@@ -61,6 +174,25 @@ function initFormHandlers() {
             }
         });
     }
+
+    // Add Enter key support for form submission
+    const formInputs = [
+        document.getElementById("supplier"),
+        document.getElementById("productName"),
+        document.getElementById("productCode"),
+        document.getElementById("supplierQty"),
+    ];
+
+    formInputs.forEach((input) => {
+        if (input) {
+            input.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSubmitProduct();
+                }
+            });
+        }
+    });
 }
 
 // Toggle form visibility
@@ -88,8 +220,8 @@ function toggleForm() {
     initIcons();
 }
 
-// Handle product submission
-function handleSubmitProduct() {
+// Handle product submission with Firebase
+async function handleSubmitProduct() {
     const supplierInput = document.getElementById("supplier");
     const productNameInput = document.getElementById("productName");
     const productCodeInput = document.getElementById("productCode");
@@ -121,6 +253,21 @@ function handleSubmitProduct() {
         return;
     }
 
+    // Check for duplicate product code
+    const isDuplicate = window.inventoryData.some(
+        (item) => item.productCode.toLowerCase() === productCode.toLowerCase(),
+    );
+
+    if (isDuplicate) {
+        if (
+            !confirm(
+                `Mã sản phẩm "${productCode}" đã tồn tại. Bạn có muốn thêm mới không?`,
+            )
+        ) {
+            return;
+        }
+    }
+
     // Create new item
     const newItem = {
         id: generateId(),
@@ -136,28 +283,57 @@ function handleSubmitProduct() {
         editHistory: [],
     };
 
-    // Add to inventory
-    window.inventoryData = [newItem, ...window.inventoryData];
-    setCachedData(window.inventoryData);
+    try {
+        showNotification("Đang thêm sản phẩm...", "info");
 
-    // Log action
-    logAction("add", `Thêm sản phẩm: ${productName}`);
+        // Add to Firebase
+        if (window.isFirebaseInitialized()) {
+            const firebaseId = await window.firebaseService.addItem(newItem);
+            console.log("✓ Product added with Firebase ID:", firebaseId);
 
-    // Clear form and hide
-    clearForm();
-    const formSection = document.getElementById("formSection");
-    if (formSection) formSection.classList.add("hidden");
+            // Don't manually update - let real-time listener handle it
+            // Or if no real-time listener, reload data
+            if (!realtimeUnsubscribe) {
+                await loadInventoryData();
+            }
+        } else {
+            // Fallback to local storage
+            window.inventoryData = [newItem, ...window.inventoryData];
+            setCachedData(window.inventoryData);
+            applyFilters();
+            renderOrderStatistics();
+        }
 
-    const toggleBtn = document.getElementById("toggleFormBtn");
-    if (toggleBtn) {
-        const btnText = toggleBtn.querySelector("span");
-        if (btnText) btnText.textContent = "Thêm SP";
+        // Log action
+        logAction("add", `Thêm sản phẩm: ${productName} (${productCode})`);
+
+        // Cleanup on page unload and hide
+        clearForm();
+        const formSection = document.getElementById("formSection");
+        if (formSection) formSection.classList.add("hidden");
+
+        const toggleBtn = document.getElementById("toggleFormBtn");
+        if (toggleBtn) {
+            const btnText = toggleBtn.querySelector("span");
+            if (btnText) btnText.textContent = "Thêm SP";
+        }
+
+        showNotification(
+            `Đã thêm sản phẩm "${productName}" thành công!`,
+            "success",
+        );
+
+        // Auto-focus on first input for quick data entry
+        setTimeout(() => {
+            const firstInput = document.getElementById("supplier");
+            if (firstInput && !formSection.classList.contains("hidden")) {
+                firstInput.focus();
+            }
+        }, 100);
+    } catch (error) {
+        console.error("Error adding product:", error);
+        showNotification("Lỗi thêm sản phẩm: " + error.message, "error");
     }
-
-    // Re-render table
-    applyFilters();
-
-    showNotification("Đã thêm sản phẩm thành công!", "success");
 }
 
 // Clear form
@@ -198,68 +374,87 @@ function handleExport() {
 
     const filename = `inventory_${getTodayVN()}.csv`;
     exportToCSV(filteredData, filename);
+
+    // Log export action
+    logAction("export", `Xuất ${filteredData.length} sản phẩm ra CSV`);
 }
-
-// Auto-save functionality (optional)
-let autoSaveInterval = null;
-
-function startAutoSave() {
-    // Auto-save every 5 minutes
-    autoSaveInterval = setInterval(
-        () => {
-            if (window.inventoryData && window.inventoryData.length > 0) {
-                setCachedData(window.inventoryData);
-                console.log("Auto-saved data to cache");
-            }
-        },
-        5 * 60 * 1000,
-    );
-}
-
-function stopAutoSave() {
-    if (autoSaveInterval) {
-        clearInterval(autoSaveInterval);
-        autoSaveInterval = null;
-    }
-}
-
-// Start auto-save
-startAutoSave();
 
 // Cleanup on page unload
 window.addEventListener("beforeunload", () => {
-    stopAutoSave();
+    // Unsubscribe from real-time listener
+    if (realtimeUnsubscribe) {
+        realtimeUnsubscribe();
+        console.log("Real-time listener unsubscribed");
+    }
 
     // Save current data before leaving
     if (window.inventoryData && window.inventoryData.length > 0) {
         setCachedData(window.inventoryData);
+        console.log("Data saved before page unload");
     }
 });
 
 // Handle online/offline status
 window.addEventListener("online", () => {
-    showNotification("Đã kết nối mạng", "success");
+    showNotification("Đã kết nối mạng - Đang đồng bộ...", "success");
+    updateSyncStatus();
+    console.log("✓ Online");
+
+    // Reload data from Firebase
+    if (window.isFirebaseInitialized()) {
+        loadInventoryData();
+    }
 });
 
 window.addEventListener("offline", () => {
     showNotification("Mất kết nối mạng - Dữ liệu được lưu cục bộ", "info");
+    updateSyncStatus();
+    console.log("⚠ Offline - Working in local mode");
 });
 
-// Performance monitoring
-const startTime = performance.now();
+// Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+    // Ctrl/Cmd + K: Toggle form
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        toggleForm();
+    }
 
-window.addEventListener("load", () => {
-    const loadTime = performance.now() - startTime;
-    console.log(`Page loaded in ${loadTime.toFixed(2)}ms`);
-
-    if (loadTime < 1000) {
-        console.log("✓ Performance: Excellent");
-    } else if (loadTime < 3000) {
-        console.log("⚠ Performance: Good");
-    } else {
-        console.log("⚠ Performance: Slow");
+    // Ctrl/Cmd + S: Save/Export
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleExport();
     }
 });
+
+// Debug commands
+window.showData = () => {
+    console.table(window.inventoryData);
+    return window.inventoryData;
+};
+
+window.clearData = async () => {
+    if (confirm("Clear all data? This cannot be undone!")) {
+        if (window.isFirebaseInitialized()) {
+            const itemIds = window.inventoryData.map((item) => item.id);
+            await window.firebaseService.deleteMultipleItems(itemIds);
+        }
+        window.inventoryData = [];
+        setCachedData([]);
+        applyFilters();
+        renderOrderStatistics();
+        console.log("✓ All data cleared");
+    }
+};
+
+window.syncData = async () => {
+    if (window.isFirebaseInitialized()) {
+        await loadInventoryData();
+        console.log("✓ Data synced from Firebase");
+    } else {
+        console.log("⚠ Firebase not initialized");
+    }
+};
 
 // Export main functions
 window.loadInventoryData = loadInventoryData;
@@ -267,5 +462,7 @@ window.handleSubmitProduct = handleSubmitProduct;
 window.toggleForm = toggleForm;
 window.clearForm = clearForm;
 window.handleExport = handleExport;
+window.updateSyncStatus = updateSyncStatus;
 
-console.log("✓ Main module loaded");
+console.log("✓ Main module with Firebase loaded");
+console.log("💡 Tip: Type syncData() in console to sync with Firebase");

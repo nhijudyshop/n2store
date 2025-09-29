@@ -1,4 +1,4 @@
-// js/table.js - Table Management
+// js/table.js - Table Management with Firebase Integration
 
 function renderTable(data) {
     const tableBody = document.getElementById("tableBody");
@@ -30,6 +30,13 @@ function renderTable(data) {
 
 function createTableRow(item) {
     const row = document.createElement("tr");
+
+    // Add visual indicator for unsynced items
+    const isLocalId = item.id && item.id.includes("_");
+    if (isLocalId && window.isFirebaseInitialized()) {
+        row.style.background = "#fff3cd"; // Light yellow background
+        row.title = "Sản phẩm đang đồng bộ...";
+    }
 
     // Date
     const dateCell = document.createElement("td");
@@ -178,7 +185,7 @@ function handleCopyCode(code, button) {
     }, 2000);
 }
 
-function handleDeleteItem(itemId) {
+async function handleDeleteItem(itemId) {
     if (!hasPermission(0)) {
         showNotification("Không có quyền xóa", "error");
         return;
@@ -188,41 +195,79 @@ function handleDeleteItem(itemId) {
         return;
     }
 
-    const inventory = window.inventoryData || [];
-    const updatedInventory = inventory.filter((item) => item.id !== itemId);
+    try {
+        showNotification("Đang xóa...", "info");
 
-    window.inventoryData = updatedInventory;
-    setCachedData(updatedInventory);
+        // Delete from Firebase
+        if (window.isFirebaseInitialized()) {
+            await window.firebaseService.deleteItem(itemId);
+        } else {
+            // Fallback to local delete
+            const inventory = window.inventoryData || [];
+            const updatedInventory = inventory.filter(
+                (item) => item.id !== itemId,
+            );
+            window.inventoryData = updatedInventory;
+            setCachedData(updatedInventory);
+        }
 
-    logAction("delete", "Xóa sản phẩm");
+        logAction("delete", "Xóa sản phẩm");
 
-    applyFilters();
-    showNotification("Đã xóa sản phẩm!", "success");
+        if (!window.isFirebaseInitialized()) {
+            applyFilters();
+            renderOrderStatistics();
+        }
+
+        showNotification("Đã xóa sản phẩm!", "success");
+    } catch (error) {
+        console.error("Error deleting item:", error);
+        showNotification("Lỗi xóa sản phẩm: " + error.message, "error");
+    }
 }
 
-function handleDeleteOrderCode(itemId, orderCode) {
-    const inventory = window.inventoryData || [];
-    const updatedInventory = inventory.map((item) => {
-        if (item.id === itemId) {
-            const newOrderCodes = item.orderCodes.filter(
-                (code) => code !== orderCode,
-            );
-            return {
-                ...item,
-                orderCodes: newOrderCodes,
-                customerOrders: newOrderCodes.length,
-            };
+async function handleDeleteOrderCode(itemId, orderCode) {
+    if (!confirm(`Bạn có chắc muốn xóa mã đơn hàng "${orderCode}"?`)) {
+        return;
+    }
+
+    try {
+        showNotification("Đang xóa...", "info");
+
+        // Delete from Firebase
+        if (window.isFirebaseInitialized()) {
+            await window.firebaseService.removeOrderCode(itemId, orderCode);
+        } else {
+            // Fallback to local delete
+            const inventory = window.inventoryData || [];
+            const updatedInventory = inventory.map((item) => {
+                if (item.id === itemId) {
+                    const newOrderCodes = item.orderCodes.filter(
+                        (code) => code !== orderCode,
+                    );
+                    return {
+                        ...item,
+                        orderCodes: newOrderCodes,
+                        customerOrders: newOrderCodes.length,
+                    };
+                }
+                return item;
+            });
+            window.inventoryData = updatedInventory;
+            setCachedData(updatedInventory);
         }
-        return item;
-    });
 
-    window.inventoryData = updatedInventory;
-    setCachedData(updatedInventory);
+        logAction("delete_order_code", `Xóa mã đơn hàng: ${orderCode}`);
 
-    logAction("delete_order_code", `Xóa mã đơn hàng: ${orderCode}`);
+        if (!window.isFirebaseInitialized()) {
+            applyFilters();
+            renderOrderStatistics();
+        }
 
-    applyFilters();
-    showNotification("Đã xóa mã đơn hàng!", "success");
+        showNotification("Đã xóa mã đơn hàng!", "success");
+    } catch (error) {
+        console.error("Error deleting order code:", error);
+        showNotification("Lỗi xóa mã đơn hàng: " + error.message, "error");
+    }
 }
 
 // Export functions

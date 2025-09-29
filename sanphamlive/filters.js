@@ -1,4 +1,4 @@
-// js/filters.js - Filter System
+// js/filters.js - Filter System with Firebase Integration
 
 let currentFilters = {
     startDate: "",
@@ -172,7 +172,7 @@ function updateDeleteFilteredButton(filteredCount) {
     }
 }
 
-function handleDeleteFiltered() {
+async function handleDeleteFiltered() {
     if (!hasPermission(0)) {
         showNotification("Không có quyền xóa", "error");
         return;
@@ -190,28 +190,42 @@ function handleDeleteFiltered() {
         return;
     }
 
-    // Get IDs of filtered items
-    const filteredIds = new Set(filtered.map((item) => item.id));
+    try {
+        showNotification("Đang xóa...", "info");
 
-    // Remove filtered items from inventory
-    const updatedInventory = inventory.filter(
-        (item) => !filteredIds.has(item.id),
-    );
+        // Get IDs of filtered items
+        const filteredIds = filtered.map((item) => item.id);
 
-    // Update global data
-    window.inventoryData = updatedInventory;
-    setCachedData(updatedInventory);
+        // Delete from Firebase
+        if (window.isFirebaseInitialized()) {
+            await window.firebaseService.deleteMultipleItems(filteredIds);
+        } else {
+            // Fallback to local delete
+            const filteredIdSet = new Set(filteredIds);
+            const updatedInventory = inventory.filter(
+                (item) => !filteredIdSet.has(item.id),
+            );
+            window.inventoryData = updatedInventory;
+            setCachedData(updatedInventory);
+        }
 
-    // Log action
-    logAction("delete_batch", `Xóa ${filtered.length} sản phẩm đã lọc`);
+        // Log action
+        logAction("delete_batch", `Xóa ${filtered.length} sản phẩm đã lọc`);
 
-    // Re-render table
-    renderTable(updatedInventory);
+        // Re-render table and statistics
+        if (!window.isFirebaseInitialized()) {
+            renderTable(window.inventoryData);
+            renderOrderStatistics();
+        }
 
-    // Reset filters
-    setAllFilter();
+        // Reset filters
+        setAllFilter();
 
-    showNotification(`Đã xóa ${filtered.length} sản phẩm!`, "success");
+        showNotification(`Đã xóa ${filtered.length} sản phẩm!`, "success");
+    } catch (error) {
+        console.error("Error deleting filtered items:", error);
+        showNotification("Lỗi xóa sản phẩm: " + error.message, "error");
+    }
 }
 
 function getFilteredData() {
@@ -228,3 +242,5 @@ window.applyFilters = applyFilters;
 window.filterInventoryData = filterInventoryData;
 window.getFilteredData = getFilteredData;
 window.currentFilters = currentFilters;
+
+console.log("✓ Filters module loaded");

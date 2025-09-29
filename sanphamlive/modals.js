@@ -1,4 +1,4 @@
-// js/modals.js - Modal Management
+// js/modals.js - Modal Management with Firebase Integration
 
 let currentEditingItem = null;
 let currentOrderItemId = null;
@@ -99,7 +99,7 @@ function closeEditModal() {
     currentEditingItem = null;
 }
 
-function handleSaveEdit() {
+async function handleSaveEdit() {
     const editSupplier = document.getElementById("editSupplier");
     const editProductName = document.getElementById("editProductName");
     const editProductCode = document.getElementById("editProductCode");
@@ -130,36 +130,56 @@ function handleSaveEdit() {
         return;
     }
 
-    const inventory = window.inventoryData || [];
-    const updatedInventory = inventory.map((item) => {
-        if (item.id === currentEditingItem.id) {
-            return {
-                ...item,
-                supplier: supplier,
-                productName: productName,
-                productCode: productCode,
-                supplierQty: supplierQty,
-                editHistory: [
-                    ...(item.editHistory || []),
-                    {
-                        timestamp: new Date().toISOString(),
-                        editedBy: getAuthState().userType,
-                        changes: "Chỉnh sửa thông tin sản phẩm",
-                    },
-                ],
-            };
+    try {
+        showNotification("Đang cập nhật...", "info");
+
+        const updates = {
+            supplier: supplier,
+            productName: productName,
+            productCode: productCode,
+            supplierQty: supplierQty,
+            editHistory: [
+                ...(currentEditingItem.editHistory || []),
+                {
+                    timestamp: new Date().toISOString(),
+                    editedBy: getAuthState().userType,
+                    changes: "Chỉnh sửa thông tin sản phẩm",
+                },
+            ],
+        };
+
+        // Update in Firebase
+        if (window.isFirebaseInitialized()) {
+            await window.firebaseService.updateItem(
+                currentEditingItem.id,
+                updates,
+            );
+        } else {
+            // Fallback to local update
+            const inventory = window.inventoryData || [];
+            const updatedInventory = inventory.map((item) => {
+                if (item.id === currentEditingItem.id) {
+                    return { ...item, ...updates };
+                }
+                return item;
+            });
+            window.inventoryData = updatedInventory;
+            setCachedData(updatedInventory);
         }
-        return item;
-    });
 
-    window.inventoryData = updatedInventory;
-    setCachedData(updatedInventory);
+        logAction("edit", `Chỉnh sửa sản phẩm: ${productName}`);
 
-    logAction("edit", `Chỉnh sửa sản phẩm: ${productName}`);
+        closeEditModal();
 
-    closeEditModal();
-    applyFilters();
-    showNotification("Đã cập nhật sản phẩm!", "success");
+        if (!window.isFirebaseInitialized()) {
+            applyFilters();
+        }
+
+        showNotification("Đã cập nhật sản phẩm!", "success");
+    } catch (error) {
+        console.error("Error updating item:", error);
+        showNotification("Lỗi cập nhật: " + error.message, "error");
+    }
 }
 
 // Order Modal Functions
@@ -187,7 +207,7 @@ function closeOrderModal() {
     currentOrderItemId = null;
 }
 
-function handleAddOrderCode() {
+async function handleAddOrderCode() {
     const newOrderCodeInput = document.getElementById("newOrderCode");
     if (!newOrderCodeInput) return;
 
@@ -198,27 +218,76 @@ function handleAddOrderCode() {
         return;
     }
 
-    const inventory = window.inventoryData || [];
-    const updatedInventory = inventory.map((item) => {
-        if (item.id === currentOrderItemId) {
-            const newOrderCodes = [...(item.orderCodes || []), orderCode];
-            return {
-                ...item,
-                orderCodes: newOrderCodes,
-                customerOrders: newOrderCodes.length,
-            };
+    try {
+        showNotification("Đang thêm mã đơn hàng...", "info");
+
+        // Find the item in current data
+        const item = window.inventoryData.find(
+            (i) => i.id === currentOrderItemId,
+        );
+
+        if (!item) {
+            showNotification("Không tìm thấy sản phẩm", "error");
+            return;
         }
-        return item;
-    });
 
-    window.inventoryData = updatedInventory;
-    setCachedData(updatedInventory);
+        // Add order code to Firebase
+        if (window.isFirebaseInitialized()) {
+            // Check if this is a Firebase ID (not local ID)
+            if (!window.isFirebaseId(currentOrderItemId)) {
+                showNotification(
+                    "Sản phẩm này chưa được đồng bộ lên Firebase. Vui lòng refresh trang.",
+                    "error",
+                );
+                console.log("Local ID detected:", currentOrderItemId);
+                closeOrderModal();
+                return;
+            }
 
-    logAction("add_order_code", `Thêm mã đơn hàng: ${orderCode}`);
+            await window.firebaseService.addOrderCode(
+                currentOrderItemId,
+                orderCode,
+            );
+        } else {
+            // Fallback to local update
+            const inventory = window.inventoryData || [];
+            const updatedInventory = inventory.map((item) => {
+                if (item.id === currentOrderItemId) {
+                    const newOrderCodes = [
+                        ...(item.orderCodes || []),
+                        orderCode,
+                    ];
+                    return {
+                        ...item,
+                        orderCodes: newOrderCodes,
+                        customerOrders: newOrderCodes.length,
+                    };
+                }
+                return item;
+            });
+            window.inventoryData = updatedInventory;
+            setCachedData(updatedInventory);
+            applyFilters();
+            renderOrderStatistics();
+        }
 
-    closeOrderModal();
-    applyFilters();
-    showNotification("Đã thêm mã đơn hàng!", "success");
+        logAction("add_order_code", `Thêm mã đơn hàng: ${orderCode}`);
+
+        closeOrderModal();
+
+        showNotification("Đã thêm mã đơn hàng!", "success");
+    } catch (error) {
+        console.error("Error adding order code:", error);
+
+        if (error.message && error.message.includes("No document to update")) {
+            showNotification(
+                "Sản phẩm chưa tồn tại trong Firebase. Vui lòng refresh trang và thử lại.",
+                "error",
+            );
+        } else {
+            showNotification("Lỗi thêm mã đơn hàng: " + error.message, "error");
+        }
+    }
 }
 
 // Export functions

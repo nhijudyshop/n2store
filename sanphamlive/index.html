@@ -5,9 +5,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Quản Lý Sản Phẩm Live</title>
 
-        <!-- CSS script 
-        <script src="../js/device-detector.js"></script>
-        -->
+        <!-- Firebase SDK - Load FIRST -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
         <!-- Navigation Manager - Load trước khi load page scripts -->
         <script src="../js/navigation.js"></script>
@@ -17,6 +17,8 @@
         <link rel="stylesheet" href="main.css" />
         <link rel="stylesheet" href="components.css" />
         <link rel="stylesheet" href="table.css" />
+        <link rel="stylesheet" href="order-statistics.css" />
+        <link rel="stylesheet" href="firebase-styles.css" />
 
         <!-- Lucide Icons CDN -->
         <script src="https://unpkg.com/lucide@latest"></script>
@@ -36,6 +38,7 @@
                         <h1>Quản Lý Sản Phẩm Live</h1>
                         <p class="subtitle">
                             Hệ thống quản lý sản phẩm từ nhà cung cấp
+                            <span id="syncStatus" class="sync-status"></span>
                         </p>
                     </div>
                 </div>
@@ -159,7 +162,7 @@
                         <tbody id="tableBody">
                             <tr>
                                 <td colspan="8" class="text-center">
-                                    Không có dữ liệu
+                                    Đang tải dữ liệu...
                                 </td>
                             </tr>
                         </tbody>
@@ -242,6 +245,11 @@
         </div>
 
         <!-- JavaScript Files - Load in order -->
+        <!-- Firebase files FIRST -->
+        <script src="firebase-config.js"></script>
+        <script src="firebase-service.js"></script>
+
+        <!-- Then app files -->
         <script src="config.js"></script>
         <script src="auth.js"></script>
         <script src="cache.js"></script>
@@ -250,6 +258,7 @@
         <script src="table.js"></script>
         <script src="modals.js"></script>
         <script src="main.js"></script>
+        <script src="order-statistics.js"></script>
 
         <!-- Initialize Lucide Icons -->
         <script>
