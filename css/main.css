@@ -1244,14 +1244,10 @@ tr.edited-row:hover {
     object-fit: cover;
     border-radius: 8px;
     cursor: pointer;
-    transition:
-        transform 0.3s ease,
-        box-shadow 0.3s ease; /* Chỉ transition những gì cần */
     border: 2px solid transparent;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
     margin: 0 auto;
-    transform-origin: center center; /* Đặt điểm gốc transform */
 }
 
 .nav-container {
@@ -2120,31 +2116,6 @@ table td .action-buttons,
     flex-wrap: wrap;
 }
 
-table td img,
-.table-container td img,
-.inventory-table td img {
-    display: block;
-    margin: 0 auto;
-    max-width: 80px;
-    max-height: 80px;
-    object-fit: cover;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    transition: var(--transition-fast);
-    position: relative;
-    z-index: 1;
-}
-
-table td img:hover,
-.table-container td img:hover,
-.inventory-table td img:hover {
-    transform: scale(2.5);
-    z-index: 1000;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-    border: 2px solid #667eea;
-}
-
 table td:empty::after,
 .table-container td:empty::after,
 .inventory-table td:empty::after {
@@ -2282,4 +2253,245 @@ table td:first-child,
     .stat-label {
         font-size: 12px;
     }
+}
+
+/* =====================================================
+   IMAGE HOVER FUNCTIONALITY STYLES
+   Thêm vào cuối file styles.css
+   ===================================================== */
+
+/* Hover preview - floating preview khi hover (desktop only) */
+.image-preview-hover {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    max-width: 400px;
+    max-height: 400px;
+    border: 3px solid #667eea;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    object-fit: contain;
+    background: white;
+    padding: 5px;
+    pointer-events: none; /* Không chặn events */
+    animation: hoverFadeIn 0.2s ease;
+}
+
+/* Full screen overlay khi click vào ảnh */
+.image-hover-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+    cursor: zoom-out;
+    animation: hoverFadeIn 0.3s ease;
+}
+
+.image-hover-overlay img {
+    max-width: 90vw;
+    max-height: 90vh;
+    width: auto;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.7);
+    object-fit: contain;
+    cursor: default;
+}
+
+.image-hover-overlay.active {
+    display: flex;
+}
+
+/* Product image styling với hover effect */
+.product-image {
+    cursor: zoom-in;
+    transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease,
+        filter 0.3s ease;
+    position: relative;
+}
+
+.product-image:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    filter: brightness(1.05);
+    z-index: 100;
+}
+
+/* Loading state cho ảnh */
+.product-image[src*="data:image/svg"] {
+    opacity: 0.5;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Copy notification */
+#copyNotification {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    font-weight: 500;
+    z-index: 9999;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#copyNotification.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+#copyNotification::before {
+    content: "✓";
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Animations */
+@keyframes hoverFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* Mobile: Tắt hover preview, chỉ giữ click to zoom */
+@media (max-width: 768px) {
+    .image-preview-hover {
+        display: none !important;
+    }
+
+    .product-image:hover {
+        transform: scale(1.02); /* Giảm scale trên mobile */
+    }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .image-preview-hover,
+    .image-hover-overlay img {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
+
+/* Dark mode support (nếu cần) */
+@media (prefers-color-scheme: dark) {
+    .image-preview-hover {
+        background: #1a1a1a;
+        border-color: #764ba2;
+    }
+}
+
+/* Print: ẩn overlay */
+@media print {
+    .image-hover-overlay,
+    .image-preview-hover {
+        display: none !important;
+    }
+}
+
+/* Accessibility: Focus states */
+.product-image:focus {
+    outline: 3px solid #667eea;
+    outline-offset: 2px;
+}
+
+.image-hover-overlay:focus {
+    outline: none;
+}
+
+/* Loading spinner cho lazy loading images */
+.product-image-loading {
+    position: relative;
+}
+
+.product-image-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: 50%;
+    border-top-color: #667eea;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Close button cho overlay (nếu muốn thêm) */
+.image-hover-overlay::before {
+    content: "✕";
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    z-index: 10001;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.image-hover-overlay::before:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+/* Smooth transitions */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.product-image,
+.image-hover-overlay,
+.image-preview-hover {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }

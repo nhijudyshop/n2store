@@ -333,7 +333,6 @@ class TableManager {
             id: userId,
         });
 
-        deleteButton.textContent = "🗑️";
         deleteButton.title = "Xóa mục này";
 
         cell.appendChild(deleteButton);

@@ -106,7 +106,7 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                     console.log("Found invoice image:", invoiceImageUrl);
                     const invoiceImg = document.createElement("img");
                     invoiceImg.src = invoiceImageUrl;
-                    invoiceImg.className = "cell-image";
+                    invoiceImg.className = "cell-image product-image";
                     invoiceImg.alt = "Hóa đơn";
                     invoiceImg.style.cursor = "pointer";
                     invoiceImg.onclick = () => openImageModal(invoiceImageUrl);
@@ -169,7 +169,7 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                 console.log("Found product image:", productImageUrl);
                 const productImg = document.createElement("img");
                 productImg.src = productImageUrl;
-                productImg.className = "cell-image";
+                productImg.className = "cell-image product-image";
                 productImg.alt = "Sản phẩm";
                 productImg.style.cursor = "pointer";
                 productImg.onclick = () => openImageModal(productImageUrl);
@@ -188,14 +188,14 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                 console.log("No product image found for item:", item.id);
             }
 
-            const buyPriceText = document.createElement("div");
-            buyPriceText.className = "cell-text";
+            const sellPriceText = document.createElement("div");
+            sellPriceText.className = "cell-text";
             // UPDATED: Add 3 zeros to price display (multiply by 1000)
-            buyPriceText.textContent =
-                item.giaMua > 0
-                    ? formatCurrencyWithThousands(item.giaMua)
+            sellPriceText.textContent =
+                item.giaBan > 0
+                    ? formatCurrencyWithThousands(item.giaBan)
                     : "Chưa có";
-            productContainer.appendChild(buyPriceText);
+            productContainer.appendChild(sellPriceText);
 
             cells[7].appendChild(productContainer);
             tr.appendChild(cells[7]);
@@ -215,7 +215,7 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                 console.log("Found price image:", priceImageUrl);
                 const priceImg = document.createElement("img");
                 priceImg.src = priceImageUrl;
-                priceImg.className = "cell-image";
+                priceImg.className = "cell-image product-image";
                 priceImg.alt = "Giá bán";
                 priceImg.style.cursor = "pointer";
                 priceImg.onclick = () => openImageModal(priceImageUrl);
@@ -231,14 +231,14 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                 console.log("No price image found for item:", item.id);
             }
 
-            const sellPriceText = document.createElement("div");
-            sellPriceText.className = "cell-text";
+            const buyPriceText = document.createElement("div");
+            buyPriceText.className = "cell-text";
             // UPDATED: Add 3 zeros to price display (multiply by 1000)
-            sellPriceText.textContent =
-                item.giaBan > 0
-                    ? formatCurrencyWithThousands(item.giaBan)
+            buyPriceText.textContent =
+                item.giaMua > 0
+                    ? formatCurrencyWithThousands(item.giaMua)
                     : "Chưa có";
-            priceContainer.appendChild(sellPriceText);
+            priceContainer.appendChild(buyPriceText);
 
             cells[8].appendChild(priceContainer);
             tr.appendChild(cells[8]);

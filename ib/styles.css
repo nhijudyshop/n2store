@@ -407,28 +407,6 @@ tbody td:last-child {
 }
 
 /* =====================================================
-   BUTTON STYLES
-   ===================================================== */
-.delete-button,
-.toggle-visibility {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
-}
-
-.delete-button:hover,
-.toggle-visibility:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
-}
-
-/* =====================================================
    ALERTS & NOTIFICATIONS
    ===================================================== */
 #floatingAlert {

@@ -21,6 +21,15 @@ const APP_CONFIG = {
     AUTH_STORAGE_KEY: "loginindex_auth",
 };
 
+// UI Configuration - ADD THIS
+const CONFIG = {
+    ui: {
+        toastDuration: 3000, // Duration for toast messages
+        animationDuration: 300, // Animation duration in ms
+        hoverDelay: 500, // Delay before showing image hover
+    },
+};
+
 // Global Variables
 let globalState = {
     inventoryData: [],
