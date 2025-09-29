@@ -41,6 +41,41 @@ function invalidateCache() {
 }
 
 // =====================================================
+// DISPLAY RECEIPT DATA FUNCTION
+// =====================================================
+
+async function displayReceiptData() {
+    const cachedData = getCachedData();
+    if (cachedData) {
+        showFloatingAlert("Sử dụng dữ liệu cache...", true);
+        const sortedCacheData = sortDataByNewest(cachedData);
+        renderDataToTable(sortedCacheData);
+        hideFloatingAlert();
+        showFloatingAlert("Tải dữ liệu từ cache hoàn tất!", false, 2000);
+        return;
+    }
+
+    showFloatingAlert("Đang tải dữ liệu từ server...", true);
+    try {
+        const doc = await collectionRef.doc("nhanhang").get();
+        if (doc.exists) {
+            const data = doc.data();
+            if (data && Array.isArray(data.data)) {
+                const sortedData = sortDataByNewest(data.data);
+                renderDataToTable(sortedData);
+                setCachedData(sortedData);
+            }
+        }
+        hideFloatingAlert();
+        showFloatingAlert("Tải dữ liệu hoàn tất!", false, 2000);
+    } catch (error) {
+        console.error(error);
+        hideFloatingAlert();
+        showFloatingAlert("Lỗi khi tải dữ liệu!", false, 3000);
+    }
+}
+
+// =====================================================
 // UTILITY FUNCTIONS
 // =====================================================
 
@@ -220,10 +255,16 @@ function parseVietnameseDate(dateString) {
     if (!dateString) return null;
 
     try {
-        const cleanDateString = dateString.replace(/,?\s*/g, " ").trim();
+        // Clean up the date string - remove comma and extra spaces
+        const cleanDateString = dateString
+            .replace(/,/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
 
         const patterns = [
+            // DD/MM/YYYY HH:MM or DD-MM-YYYY HH:MM
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})/,
+            // DD/MM/YYYY or DD-MM-YYYY
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
         ];
 
@@ -231,16 +272,22 @@ function parseVietnameseDate(dateString) {
             const match = cleanDateString.match(pattern);
             if (match) {
                 const [, day, month, year, hour = 0, minute = 0] = match;
-                return new Date(
+                const parsedDate = new Date(
                     parseInt(year),
                     parseInt(month) - 1,
                     parseInt(day),
                     parseInt(hour),
                     parseInt(minute),
                 );
+
+                // Validate the date is valid
+                if (!isNaN(parsedDate.getTime())) {
+                    return parsedDate;
+                }
             }
         }
 
+        // Try native Date parsing as fallback
         const date = new Date(dateString);
         return isNaN(date.getTime()) ? null : date;
     } catch (error) {

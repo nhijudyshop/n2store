@@ -2,12 +2,29 @@
 // Table rendering, filtering, and application initialization
 
 // =====================================================
+// GLOBAL FILTER STATE
+// =====================================================
+
+let customDateRange = {
+    start: null,
+    end: null,
+};
+
+// =====================================================
 // FILTER SYSTEM
 // =====================================================
 
 function applyFiltersToData(dataArray) {
     const filterUser = filterUserSelect.value;
     const filterDate = dateFilterSelect.value;
+
+    console.log("=== FILTER DEBUG ===");
+    console.log("Filter settings:", {
+        filterUser,
+        filterDate,
+        customDateRange,
+    });
+    console.log("Total records:", dataArray.length);
 
     return dataArray.filter((receipt) => {
         const matchUser =
@@ -16,6 +33,19 @@ function applyFiltersToData(dataArray) {
         let matchDate = true;
         if (filterDate !== "all") {
             const receiptDate = parseVietnameseDate(receipt.thoiGianNhan);
+
+            // DEBUG: Log first 3 records
+            if (dataArray.indexOf(receipt) < 3) {
+                console.log("Receipt:", {
+                    tenNguoiNhan: receipt.tenNguoiNhan,
+                    thoiGianNhan: receipt.thoiGianNhan,
+                    parsedDate: receiptDate,
+                    dateType: receiptDate
+                        ? receiptDate.constructor.name
+                        : "null",
+                });
+            }
+
             if (receiptDate) {
                 const today = new Date();
                 const todayStart = new Date(
@@ -32,6 +62,17 @@ function applyFiltersToData(dataArray) {
                     );
                     matchDate =
                         receiptDateStart.getTime() === todayStart.getTime();
+                } else if (filterDate === "yesterday") {
+                    const yesterday = new Date(
+                        todayStart.getTime() - 24 * 60 * 60 * 1000,
+                    );
+                    const receiptDateStart = new Date(
+                        receiptDate.getFullYear(),
+                        receiptDate.getMonth(),
+                        receiptDate.getDate(),
+                    );
+                    matchDate =
+                        receiptDateStart.getTime() === yesterday.getTime();
                 } else if (filterDate === "week") {
                     const weekAgo = new Date(
                         todayStart.getTime() - 7 * 24 * 60 * 60 * 1000,
@@ -44,6 +85,22 @@ function applyFiltersToData(dataArray) {
                         todayStart.getDate(),
                     );
                     matchDate = receiptDate >= monthAgo;
+                } else if (
+                    filterDate === "custom" &&
+                    customDateRange.start &&
+                    customDateRange.end
+                ) {
+                    const receiptDateStart = new Date(
+                        receiptDate.getFullYear(),
+                        receiptDate.getMonth(),
+                        receiptDate.getDate(),
+                    );
+                    const startDate = new Date(customDateRange.start);
+                    const endDate = new Date(customDateRange.end);
+                    endDate.setHours(23, 59, 59, 999); // Include end date fully
+                    matchDate =
+                        receiptDateStart >= startDate &&
+                        receiptDateStart <= endDate;
                 }
             }
         }
@@ -81,6 +138,45 @@ function applyFilters() {
 }
 
 // =====================================================
+// STATISTICS CALCULATION
+// =====================================================
+
+function calculateStatistics(dataArray) {
+    const filteredData = applyFiltersToData(dataArray);
+
+    const totalReceipts = filteredData.length;
+    const totalKg = filteredData.reduce(
+        (sum, receipt) => sum + (parseFloat(receipt.soKg) || 0),
+        0,
+    );
+    const totalKien = filteredData.reduce(
+        (sum, receipt) => sum + (parseFloat(receipt.soKien) || 0),
+        0,
+    );
+
+    return {
+        totalReceipts,
+        totalKg: totalKg.toFixed(2),
+        totalKien: totalKien.toFixed(2),
+    };
+}
+
+function updateStatisticsDisplay(dataArray) {
+    const stats = calculateStatistics(dataArray);
+
+    const totalReceiptsEl = document.getElementById("totalReceipts");
+    const totalKgEl = document.getElementById("totalKg");
+    const totalKienEl = document.getElementById("totalKien");
+
+    if (totalReceiptsEl)
+        totalReceiptsEl.textContent = numberWithCommas(stats.totalReceipts);
+    if (totalKgEl)
+        totalKgEl.textContent = numberWithCommas(stats.totalKg) + " kg";
+    if (totalKienEl)
+        totalKienEl.textContent = numberWithCommas(stats.totalKien);
+}
+
+// =====================================================
 // TABLE RENDERING
 // =====================================================
 
@@ -88,12 +184,15 @@ function renderDataToTable(dataArray) {
     const filteredData = applyFiltersToData(dataArray);
     tbody.innerHTML = "";
 
+    // Update statistics
+    updateStatisticsDisplay(dataArray);
+
     if (filteredData.length > 0) {
         var summaryRow = document.createElement("tr");
         summaryRow.style.backgroundColor = "#f8f9fa";
         summaryRow.style.fontWeight = "bold";
         var summaryTd = document.createElement("td");
-        summaryTd.colSpan = 7; // Updated to 7 columns for new Bao bì column
+        summaryTd.colSpan = 6;
         summaryTd.textContent = `Tổng: ${filteredData.length} phiếu nhận`;
         summaryTd.style.textAlign = "center";
         summaryTd.style.color = "#007bff";
@@ -141,7 +240,6 @@ function renderDataToTable(dataArray) {
 
         var cells = [];
         for (let j = 0; j < 6; j++) {
-            // Updated to 7 columns
             cells[j] = document.createElement("td");
         }
 
@@ -153,35 +251,6 @@ function renderDataToTable(dataArray) {
 
         // Số kiện
         cells[2].textContent = parseFloat(receipt.soKien);
-
-        // // Bao bì - NEW COLUMN
-        // if (receipt.baoBi) {
-        //     const packagingSpan = document.createElement("span");
-        //     packagingSpan.textContent = getPackagingText(receipt.baoBi);
-        //     packagingSpan.className = `packaging-status ${receipt.baoBi}`;
-        //     packagingSpan.style.padding = "4px 8px";
-        //     packagingSpan.style.borderRadius = "12px";
-        //     packagingSpan.style.fontSize = "12px";
-        //     packagingSpan.style.fontWeight = "600";
-        //     packagingSpan.style.textTransform = "uppercase";
-        //     packagingSpan.style.letterSpacing = "0.5px";
-
-        //     if (receipt.baoBi === "co") {
-        //         packagingSpan.style.backgroundColor = "rgba(40, 167, 69, 0.1)";
-        //         packagingSpan.style.color = "#28a745";
-        //         packagingSpan.style.border = "1px solid #28a745";
-        //     } else {
-        //         packagingSpan.style.backgroundColor = "rgba(220, 53, 69, 0.1)";
-        //         packagingSpan.style.color = "#dc3545";
-        //         packagingSpan.style.border = "1px solid #dc3545";
-        //     }
-
-        //     cells[3].appendChild(packagingSpan);
-        // } else {
-        //     cells[3].textContent = "Chưa xác định";
-        //     cells[3].style.color = "#6c757d";
-        //     cells[3].style.fontStyle = "italic";
-        // }
 
         // Hình ảnh
         if (receipt.anhNhanHang) {
@@ -265,7 +334,7 @@ function renderDataToTable(dataArray) {
         warningRow.style.backgroundColor = "#fff3cd";
         warningRow.style.color = "#856404";
         const warningTd = document.createElement("td");
-        warningTd.colSpan = 7;
+        warningTd.colSpan = 6;
         warningTd.textContent = `Hiển thị ${MAX_VISIBLE_ROWS} / ${filteredData.length} phiếu nhận. Sử dụng bộ lọc để xem dữ liệu cụ thể hơn.`;
         warningTd.style.textAlign = "center";
         warningTd.style.padding = "8px";
@@ -314,6 +383,50 @@ function updateDropdownOptions(fullDataArray) {
             filterUserSelect.value = currentSelectedValue;
         }
     }
+}
+
+// =====================================================
+// DATE RANGE FUNCTIONS
+// =====================================================
+
+function toggleDateRangeInputs() {
+    const dateRangeGroup = document.getElementById("dateRangeGroup");
+    const dateFilterValue = dateFilterSelect.value;
+
+    if (dateFilterValue === "custom") {
+        dateRangeGroup.style.display = "flex";
+    } else {
+        dateRangeGroup.style.display = "none";
+        customDateRange.start = null;
+        customDateRange.end = null;
+        applyFilters();
+    }
+}
+
+function applyDateRangeFilter() {
+    const startDateInput = document.getElementById("startDate");
+    const endDateInput = document.getElementById("endDate");
+
+    if (!startDateInput.value || !endDateInput.value) {
+        showError("Vui lòng chọn cả ngày bắt đầu và ngày kết thúc");
+        return;
+    }
+
+    const startDate = new Date(startDateInput.value);
+    const endDate = new Date(endDateInput.value);
+
+    if (startDate > endDate) {
+        showError("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc");
+        return;
+    }
+
+    customDateRange.start = startDateInput.value;
+    customDateRange.end = endDateInput.value;
+
+    applyFilters();
+    showSuccess(
+        `Đã lọc từ ${formatDate(startDate)} đến ${formatDate(endDate)}`,
+    );
 }
 
 // =====================================================
@@ -392,7 +505,34 @@ function initializeFilterEvents() {
         filterUserSelect.addEventListener("change", applyFilters);
     }
     if (dateFilterSelect) {
-        dateFilterSelect.addEventListener("change", applyFilters);
+        dateFilterSelect.addEventListener("change", () => {
+            toggleDateRangeInputs();
+            if (dateFilterSelect.value !== "custom") {
+                applyFilters();
+            }
+        });
+    }
+
+    // Date range filter button
+    const applyDateRangeBtn = document.getElementById("applyDateRange");
+    if (applyDateRangeBtn) {
+        applyDateRangeBtn.addEventListener("click", applyDateRangeFilter);
+    }
+
+    // Allow Enter key in date inputs
+    const startDateInput = document.getElementById("startDate");
+    const endDateInput = document.getElementById("endDate");
+
+    if (startDateInput) {
+        startDateInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") applyDateRangeFilter();
+        });
+    }
+
+    if (endDateInput) {
+        endDateInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") applyDateRangeFilter();
+        });
     }
 }
 
@@ -633,6 +773,8 @@ window.debugFunctions = {
     getPackagingText,
     showImageZoom,
     hideImageZoom,
+    calculateStatistics,
+    updateStatisticsDisplay,
 };
 
 console.log(

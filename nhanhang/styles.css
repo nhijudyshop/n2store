@@ -414,6 +414,46 @@
     box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
 }
 
+/* Statistics Section */
+.statistics-section {
+    max-width: 1200px;
+    margin: 20px auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 0 20px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
+    text-align: center;
+    color: white;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+}
+
+.stat-label {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    opacity: 0.9;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-top: 5px;
+}
+
 /* FIXED: Modal styling - Tránh xung đột với main.css */
 .receipt-modal,
 #editModal {
@@ -551,198 +591,6 @@
         opacity: 1;
         transform: translateY(0);
     }
-}
-
-/* FIXED: Responsive design - Cải thiện cho mobile */
-@media (max-width: 768px) {
-    .camera-preview,
-    #editCameraPreview {
-        max-width: 100%;
-        height: 350px;
-    }
-
-    .image-display-area {
-        max-width: 100%;
-        min-height: 250px;
-    }
-
-    .image-display-area img {
-        max-height: 300px;
-    }
-
-    .receipt-modal-imagebox img,
-    .edit-modal-imagebox img,
-    #currentImageContainer img {
-        max-width: 250px !important;
-        max-height: 250px !important;
-    }
-
-    .receipt-modal-content,
-    .edit-modal-content,
-    .modal-content {
-        width: 95%;
-        padding: 20px;
-        margin: 5% auto;
-        max-width: 95%;
-    }
-
-    .form-row {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-
-    .radio-options {
-        gap: 15px;
-    }
-
-    .radio-label {
-        min-width: 100px;
-        padding: 8px 15px;
-    }
-
-    .camera-controls {
-        flex-direction: column;
-        gap: 10px;
-        align-items: center;
-    }
-
-    .camera-button {
-        width: 100%;
-        max-width: 200px;
-        justify-content: center;
-    }
-}
-
-@media (max-width: 480px) {
-    .camera-preview,
-    #editCameraPreview {
-        height: 280px;
-    }
-
-    .image-display-area {
-        min-height: 200px;
-        padding: 15px;
-    }
-
-    .image-display-area img {
-        max-height: 250px;
-    }
-
-    .receipt-modal-imagebox img,
-    .edit-modal-imagebox img,
-    #currentImageContainer img {
-        max-width: 200px !important;
-        max-height: 200px !important;
-    }
-
-    .receipt-modal-header,
-    .edit-modal-header {
-        font-size: 18px;
-    }
-
-    .camera-section h3 {
-        font-size: 1.4rem;
-    }
-
-    .form-section h1 {
-        font-size: 2rem;
-    }
-
-    .radio-options {
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .radio-label {
-        width: 100%;
-        max-width: 200px;
-    }
-}
-
-/* FIXED: Loading states */
-.camera-button.loading {
-    pointer-events: none;
-    opacity: 0.8;
-    position: relative;
-}
-
-.camera-button.loading::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 16px;
-    height: 16px;
-    margin: -8px 0 0 -8px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: white;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* FIXED: Hide number input spinners - Tránh xung đột */
-.form-group input[type="number"]::-webkit-outer-spin-button,
-.form-group input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.form-group input[type="number"] {
-    -moz-appearance: textfield;
-    appearance: none;
-}
-
-/* FIXED: Utility classes riêng cho receipt */
-.receipt-hidden {
-    display: none !important;
-}
-
-.receipt-visible {
-    display: block !important;
-}
-
-.receipt-flex {
-    display: flex !important;
-}
-
-.receipt-loading {
-    opacity: 0.7;
-    pointer-events: none;
-    cursor: wait;
-}
-
-/* FIXED: Focus states */
-.camera-button:focus,
-.center-button button:focus {
-    outline: 2px solid #667eea;
-    outline-offset: 2px;
-}
-
-.camera-button:focus:not(:focus-visible) {
-    outline: none;
-}
-
-/* Success states */
-.camera-button.success {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-}
-
-.image-display-area.success {
-    border-color: #28a745;
-    background: #f8fff9;
-}
-
-.image-display-area.success::before {
-    content: "✅ ";
-    color: #28a745;
-    font-size: 16px;
 }
 
 /* Table styling */
@@ -951,4 +799,309 @@ table tbody tr:hover {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Date Range Filter Styling */
+.date-range-group {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px dashed #667eea;
+}
+
+.date-input-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.date-input-wrapper label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.date-input-wrapper input[type="date"] {
+    padding: 10px 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.date-input-wrapper input[type="date"]:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.apply-date-btn {
+    padding: 10px 25px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    white-space: nowrap;
+}
+
+.apply-date-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.apply-date-btn:active {
+    transform: translateY(0);
+}
+
+/* FIXED: Responsive design - Cải thiện cho mobile */
+@media (max-width: 768px) {
+    .statistics-section {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .stat-card {
+        padding: 20px;
+    }
+
+    .stat-value {
+        font-size: 28px;
+    }
+
+    .date-range-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .apply-date-btn {
+        width: 100%;
+    }
+
+    .camera-preview,
+    #editCameraPreview {
+        max-width: 100%;
+        height: 350px;
+    }
+
+    .image-display-area {
+        max-width: 100%;
+        min-height: 250px;
+    }
+
+    .image-display-area img {
+        max-height: 300px;
+    }
+
+    .receipt-modal-imagebox img,
+    .edit-modal-imagebox img,
+    #currentImageContainer img {
+        max-width: 250px !important;
+        max-height: 250px !important;
+    }
+
+    .receipt-modal-content,
+    .edit-modal-content,
+    .modal-content {
+        width: 95%;
+        padding: 20px;
+        margin: 5% auto;
+        max-width: 95%;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .radio-options {
+        gap: 15px;
+    }
+
+    .radio-label {
+        min-width: 100px;
+        padding: 8px 15px;
+    }
+
+    .camera-controls {
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .camera-button {
+        width: 100%;
+        max-width: 200px;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .statistics-section {
+        padding: 0 10px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    .stat-label {
+        font-size: 12px;
+    }
+
+    .camera-preview,
+    #editCameraPreview {
+        height: 280px;
+    }
+
+    .image-display-area {
+        min-height: 200px;
+        padding: 15px;
+    }
+
+    .image-display-area img {
+        max-height: 250px;
+    }
+
+    .receipt-modal-imagebox img,
+    .edit-modal-imagebox img,
+    #currentImageContainer img {
+        max-width: 200px !important;
+        max-height: 200px !important;
+    }
+
+    .receipt-modal-header,
+    .edit-modal-header {
+        font-size: 18px;
+    }
+
+    .camera-section h3 {
+        font-size: 1.4rem;
+    }
+
+    .form-section h1 {
+        font-size: 2rem;
+    }
+
+    .radio-options {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .radio-label {
+        width: 100%;
+        max-width: 200px;
+    }
+
+    .date-input-wrapper label {
+        font-size: 13px;
+    }
+
+    .date-input-wrapper input[type="date"] {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .apply-date-btn {
+        padding: 8px 20px;
+        font-size: 13px;
+    }
+}
+
+/* FIXED: Loading states */
+.camera-button.loading {
+    pointer-events: none;
+    opacity: 0.8;
+    position: relative;
+}
+
+.camera-button.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* FIXED: Hide number input spinners - Tránh xung đột */
+.form-group input[type="number"]::-webkit-outer-spin-button,
+.form-group input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.form-group input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: none;
+}
+
+/* FIXED: Utility classes riêng cho receipt */
+.receipt-hidden {
+    display: none !important;
+}
+
+.receipt-visible {
+    display: block !important;
+}
+
+.receipt-flex {
+    display: flex !important;
+}
+
+.receipt-loading {
+    opacity: 0.7;
+    pointer-events: none;
+    cursor: wait;
+}
+
+/* FIXED: Focus states */
+.camera-button:focus,
+.center-button button:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+.camera-button:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Success states */
+.camera-button.success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.image-display-area.success {
+    border-color: #28a745;
+    background: #f8fff9;
+}
+
+.image-display-area.success::before {
+    content: "✅ ";
+    color: #28a745;
+    font-size: 16px;
 }

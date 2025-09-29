@@ -147,42 +147,6 @@ function clearReceiptForm() {
 }
 
 // =====================================================
-// READ OPERATIONS
-// =====================================================
-
-// Display receipt data
-async function displayReceiptData() {
-    const cachedData = getCachedData();
-    if (cachedData) {
-        showFloatingAlert("Sử dụng dữ liệu cache...", true);
-        const sortedCacheData = sortDataByNewest(cachedData);
-        renderDataToTable(sortedCacheData);
-        hideFloatingAlert();
-        showFloatingAlert("Tải dữ liệu từ cache hoàn tất!", false, 2000);
-        return;
-    }
-
-    showFloatingAlert("Đang tải dữ liệu từ server...", true);
-    try {
-        const doc = await collectionRef.doc("nhanhang").get();
-        if (doc.exists) {
-            const data = doc.data();
-            if (data && Array.isArray(data.data)) {
-                const sortedData = sortDataByNewest(data.data);
-                renderDataToTable(sortedData);
-                setCachedData(sortedData);
-            }
-        }
-        hideFloatingAlert();
-        showFloatingAlert("Tải dữ liệu hoàn tất!", false, 2000);
-    } catch (error) {
-        console.error(error);
-        hideFloatingAlert();
-        showFloatingAlert("Lỗi khi tải dữ liệu!", false, 3000);
-    }
-}
-
-// =====================================================
 // UPDATE OPERATIONS
 // =====================================================
 
@@ -341,7 +305,7 @@ async function deleteReceiptByID(event) {
         info: receiptInfo,
         tenNguoiNhan: row.cells[0].textContent,
         soKg: row.cells[1].textContent,
-        thoiGianNhan: row.cells[2].textContent,
+        thoiGianNhan: row.cells[4].textContent,
     };
 
     showFloatingAlert("Đang xóa...", true);
@@ -384,8 +348,8 @@ async function deleteReceiptByID(event) {
         hideFloatingAlert();
         showFloatingAlert("Đã xóa thành công!", false, 2000);
 
-        // Remove row
-        if (row) row.remove();
+        // Refresh data to update table and statistics
+        await displayReceiptData();
     } catch (error) {
         hideFloatingAlert();
         console.error("Lỗi khi xoá:", error);
