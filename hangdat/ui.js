@@ -2,6 +2,15 @@
 // UI MANAGEMENT AND NOTIFICATIONS - FIXED VERSION
 // =====================================================
 
+// UI Configuration - ADD THIS
+const CONFIG = {
+    ui: {
+        toastDuration: 3000, // Duration for toast messages
+        animationDuration: 300, // Animation duration in ms
+        hoverDelay: 500, // Delay before showing image hover
+    },
+};
+
 class UIManager {
     constructor() {
         this.floatingAlert = document.getElementById("floatingAlert");
