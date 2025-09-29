@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quản Lý Sản Phẩm Live</title>
+
+        <!-- CSS script 
+        <script src="../js/device-detector.js"></script>
+        -->
+
+        <!-- Navigation Manager - Load trước khi load page scripts -->
+        <script src="../js/navigation.js"></script>
+        <script src="../js/common-utils.js"></script>
+
+        <!-- CSS Files -->
+        <link rel="stylesheet" href="main.css" />
+        <link rel="stylesheet" href="components.css" />
+        <link rel="stylesheet" href="table.css" />
+
+        <!-- Lucide Icons CDN -->
+        <script src="https://unpkg.com/lucide@latest"></script>
+    </head>
+    <body>
+        <!-- Notification -->
+        <div id="notification" class="notification hidden">
+            <span id="notificationText"></span>
+        </div>
+
+        <!-- Header -->
+        <div class="container">
+            <div class="header-card">
+                <div class="header-left">
+                    <i data-lucide="package" class="header-icon"></i>
+                    <div>
+                        <h1>Quản Lý Sản Phẩm Live</h1>
+                        <p class="subtitle">
+                            Hệ thống quản lý sản phẩm từ nhà cung cấp
+                        </p>
+                    </div>
+                </div>
+                <div class="header-buttons">
+                    <button id="toggleFormBtn" class="btn btn-primary">
+                        <i data-lucide="plus"></i>
+                        <span>Thêm SP</span>
+                    </button>
+                    <button id="exportBtn" class="btn btn-success">
+                        <i data-lucide="download"></i>
+                        <span>Xuất CSV</span>
+                    </button>
+                    <button id="logoutBtn" class="btn btn-danger">
+                        <i data-lucide="log-out"></i>
+                        <span>Đăng xuất</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Form Section -->
+            <div id="formSection" class="form-section hidden">
+                <h2>Thêm Sản Phẩm Mới</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nhà Cung Cấp</label>
+                        <input
+                            type="text"
+                            id="supplier"
+                            placeholder="Nhập tên NCC"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Tên Sản Phẩm</label>
+                        <input
+                            type="text"
+                            id="productName"
+                            placeholder="Nhập tên SP"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Mã Sản Phẩm</label>
+                        <input
+                            type="text"
+                            id="productCode"
+                            placeholder="Nhập mã SP"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>SL NCC Báo</label>
+                        <input
+                            type="number"
+                            id="supplierQty"
+                            placeholder="Nhập số lượng"
+                            min="0"
+                        />
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button id="submitBtn" class="btn btn-primary btn-block">
+                        Thêm Sản Phẩm
+                    </button>
+                    <button
+                        id="cancelFormBtn"
+                        class="btn btn-secondary btn-block"
+                    >
+                        Hủy
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label>Từ ngày</label>
+                        <input type="date" id="startDate" />
+                    </div>
+                    <div class="form-group">
+                        <label>Đến ngày</label>
+                        <input type="date" id="endDate" />
+                    </div>
+                    <div class="filter-buttons">
+                        <button id="todayBtn" class="btn btn-success-sm">
+                            Hôm nay
+                        </button>
+                        <button id="allBtn" class="btn btn-info-sm">
+                            Tất cả
+                        </button>
+                        <button id="clearBtn" class="btn btn-secondary-sm">
+                            Xóa lọc
+                        </button>
+                    </div>
+                    <div>
+                        <button
+                            id="deleteFilteredBtn"
+                            class="btn btn-danger-sm hidden"
+                        >
+                            Xóa đã lọc
+                        </button>
+                    </div>
+                </div>
+                <div id="filterInfo" class="filter-info hidden"></div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="table-section">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ngày</th>
+                                <th>NCC</th>
+                                <th>Tên SP</th>
+                                <th>Mã SP</th>
+                                <th class="text-center">SL NCC</th>
+                                <th class="text-center">SL Khách</th>
+                                <th>Mã ĐH</th>
+                                <th class="text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="8" class="text-center">
+                                    Không có dữ liệu
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Modal -->
+        <div id="editModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Chỉnh Sửa Sản Phẩm</h2>
+                    <button id="closeModalBtn" class="close-btn">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nhà Cung Cấp</label>
+                            <input type="text" id="editSupplier" />
+                        </div>
+                        <div class="form-group">
+                            <label>Tên Sản Phẩm</label>
+                            <input type="text" id="editProductName" />
+                        </div>
+                        <div class="form-group">
+                            <label>Mã Sản Phẩm</label>
+                            <input type="text" id="editProductCode" />
+                        </div>
+                        <div class="form-group">
+                            <label>SL NCC Báo</label>
+                            <input type="number" id="editSupplierQty" min="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveEditBtn" class="btn btn-primary btn-block">
+                        Lưu thay đổi
+                    </button>
+                    <button
+                        id="cancelEditBtn"
+                        class="btn btn-secondary btn-block"
+                    >
+                        Hủy
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Code Modal -->
+        <div id="orderModal" class="modal hidden">
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h2>Thêm Mã Đơn Hàng</h2>
+                    <button id="closeOrderModalBtn" class="close-btn">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Mã Đơn Hàng</label>
+                        <input
+                            type="text"
+                            id="newOrderCode"
+                            placeholder="Nhập mã ĐH"
+                        />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        id="addOrderCodeBtn"
+                        class="btn btn-primary btn-block"
+                    >
+                        Thêm
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- JavaScript Files - Load in order -->
+        <script src="config.js"></script>
+        <script src="auth.js"></script>
+        <script src="cache.js"></script>
+        <script src="utils.js"></script>
+        <script src="filters.js"></script>
+        <script src="table.js"></script>
+        <script src="modals.js"></script>
+        <script src="main.js"></script>
+
+        <!-- Initialize Lucide Icons -->
+        <script>
+            lucide.createIcons();
+        </script>
+    </body>
+</html>

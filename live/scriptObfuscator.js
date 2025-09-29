@@ -461,6 +461,11 @@ const CONFIG = {
     IMAGE_QUALITY: 0.8, // Compression quality
     SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours
     LAZY_LOAD_MARGIN: "50px 0px 100px 0px",
+    ui: {
+        toastDuration: 3000, // Duration for toast messages
+        animationDuration: 300, // Animation duration in ms
+        hoverDelay: 500, // Delay before showing image hover
+    },
 };
 
 // Authentication storage key - thống nhất với file 2

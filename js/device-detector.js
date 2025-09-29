@@ -10,7 +10,7 @@
     const CONFIG = {
         CSS_FILES: {
             desktop: "../css/main.css",
-            mobile: "../css/mobile.css",
+            mobile: "../css/main.css",
         },
         MOBILE_MAX_WIDTH: 768,
         MOBILE_PATTERNS: [

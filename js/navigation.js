@@ -29,6 +29,13 @@ const MENU_CONFIG = [
         permissionRequired: "livestream",
     },
     {
+        href: "../sanphamlive/index.html",
+        icon: "🛍️",
+        text: " SẢN PHẨM LIVESTREAM",
+        pageIdentifier: "sanphamlive",
+        permissionRequired: "sanphamlive",
+    },
+    {
         href: "../nhanhang/index.html",
         icon: "📦",
         text: "NHẬN HÀNG",

@@ -19,6 +19,12 @@ const AVAILABLE_PAGES = [
         description: "Xem báo cáo và thống kê livestream",
     },
     {
+        id: "sanphamlive",
+        icon: "🛍️",
+        name: "SẢN PHẨM LIVESTREAM",
+        description: "Xem thống kê sản phẩm livestream",
+    },
+    {
         id: "nhanhang",
         icon: "📦",
         name: "NHẬN HÀNG",
@@ -79,6 +85,7 @@ const PERMISSION_TEMPLATES = {
     admin: [
         "live",
         "livestream",
+        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
@@ -92,6 +99,7 @@ const PERMISSION_TEMPLATES = {
     manager: [
         "live",
         "livestream",
+        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
@@ -102,6 +110,7 @@ const PERMISSION_TEMPLATES = {
     staff: [
         "live",
         "livestream",
+        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
