@@ -1,0 +1,479 @@
+// js/forms.js - Form Management System (Updated for Morning/Evening Sessions)
+
+function initializeUpdatedForm() {
+    if (ngayLive) {
+        ngayLive.valueAsDate = new Date();
+    }
+
+    // Toggle form button
+    if (toggleFormButton) {
+        toggleFormButton.addEventListener("click", () => {
+            if (hasPermission(3)) {
+                if (
+                    dataForm.style.display === "none" ||
+                    dataForm.style.display === ""
+                ) {
+                    dataForm.style.display = "block";
+                    toggleFormButton.innerHTML =
+                        '<i data-lucide="x"></i><span>Đóng Form</span>';
+                } else {
+                    dataForm.style.display = "none";
+                    toggleFormButton.innerHTML =
+                        '<i data-lucide="plus-circle"></i><span>Thêm Báo Cáo</span>';
+                }
+                // Re-initialize Lucide icons
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            } else {
+                showError("Không có quyền truy cập form");
+            }
+        });
+    }
+
+    // Form submit handler
+    if (livestreamForm) {
+        livestreamForm.addEventListener("submit", handleUpdatedFormSubmit);
+    }
+
+    // Amount input formatting - Morning
+    const tienQCMorning = document.getElementById("tienQC_morning");
+    if (tienQCMorning) {
+        tienQCMorning.addEventListener("input", function () {
+            this.value = this.value.replace(/[^\d,]/g, "");
+        });
+
+        tienQCMorning.addEventListener("blur", function () {
+            let value = this.value.replace(/[,\.]/g, "");
+            value = parseFloat(value);
+
+            if (!isNaN(value) && value >= 0) {
+                this.value = numberWithCommas(value);
+            } else {
+                this.value = "";
+            }
+        });
+    }
+
+    // Amount input formatting - Evening
+    const tienQCEvening = document.getElementById("tienQC_evening");
+    if (tienQCEvening) {
+        tienQCEvening.addEventListener("input", function () {
+            this.value = this.value.replace(/[^\d,]/g, "");
+        });
+
+        tienQCEvening.addEventListener("blur", function () {
+            let value = this.value.replace(/[,\.]/g, "");
+            value = parseFloat(value);
+
+            if (!isNaN(value) && value >= 0) {
+                this.value = numberWithCommas(value);
+            } else {
+                this.value = "";
+            }
+        });
+    }
+
+    // Số món live input - Morning
+    const soMonLiveMorning = document.getElementById("soMonLive_morning");
+    if (soMonLiveMorning) {
+        soMonLiveMorning.addEventListener("input", function () {
+            this.value = this.value.replace(/[^\d]/g, "");
+        });
+    }
+
+    // Số món live input - Evening
+    const soMonLiveEvening = document.getElementById("soMonLive_evening");
+    if (soMonLiveEvening) {
+        soMonLiveEvening.addEventListener("input", function () {
+            this.value = this.value.replace(/[^\d]/g, "");
+        });
+    }
+
+    // Số món inbox - allow 0 value
+    const soMonInboxInput = document.getElementById("soMonInbox");
+    if (soMonInboxInput) {
+        soMonInboxInput.addEventListener("input", function () {
+            this.value = this.value.replace(/[^\d]/g, "");
+        });
+    }
+
+    // Clear form button
+    const clearDataButton = document.getElementById("clearDataButton");
+    if (clearDataButton) {
+        clearDataButton.addEventListener("click", function () {
+            const currentDate = new Date(ngayLive.value);
+            livestreamForm.reset();
+            ngayLive.valueAsDate = currentDate;
+        });
+    }
+}
+
+function handleUpdatedFormSubmit(e) {
+    e.preventDefault();
+
+    if (!hasPermission(3)) {
+        showError("Không có quyền thêm báo cáo");
+        return;
+    }
+
+    const currentDate = new Date(ngayLive.value);
+    const auth = getAuthState();
+    const userName = auth
+        ? auth.userType
+            ? auth.userType.split("-")[0]
+            : "Unknown"
+        : "Unknown";
+
+    // Collect data for both sessions
+    const morningData = collectSessionData("morning");
+    const eveningData = collectSessionData("evening");
+    const totalInbox = document.getElementById("soMonInbox").value.trim();
+
+    // Validate that at least one session has data
+    if (!morningData && !eveningData) {
+        showError(
+            "Vui lòng nhập dữ liệu cho ít nhất một phiên (Sáng hoặc Chiều)",
+        );
+        return;
+    }
+
+    // Validate total inbox
+    if (!totalInbox || isNaN(totalInbox) || parseInt(totalInbox) < 0) {
+        showError("Tổng số món inbox phải là số không âm");
+        return;
+    }
+
+    const reportsToUpload = [];
+
+    // Create morning report if has data
+    if (morningData) {
+        const morningReport = createReportObject(
+            currentDate,
+            morningData,
+            parseInt(totalInbox),
+            userName,
+        );
+        reportsToUpload.push(morningReport);
+    }
+
+    // Create evening report if has data
+    if (eveningData) {
+        const eveningReport = createReportObject(
+            currentDate,
+            eveningData,
+            eveningData.hasInbox ? parseInt(totalInbox) : 0,
+            userName,
+        );
+        reportsToUpload.push(eveningReport);
+    }
+
+    // Upload all reports
+    uploadReports(reportsToUpload, currentDate);
+}
+
+function collectSessionData(session) {
+    const prefix = session === "morning" ? "morning" : "evening";
+
+    const tienQCInput = document.getElementById(`tienQC_${prefix}`);
+    const startTimeInput = document.getElementById(`${prefix}_start_time`);
+    const endTimeInput = document.getElementById(`${prefix}_end_time`);
+    const soMonLiveInput = document.getElementById(`soMonLive_${prefix}`);
+
+    // Get values
+    let tienQC = tienQCInput ? tienQCInput.value.replace(/[,\.]/g, "") : "";
+    const startTime = startTimeInput ? startTimeInput.value : "";
+    const endTime = endTimeInput ? endTimeInput.value : "";
+    const soMonLive = soMonLiveInput ? soMonLiveInput.value.trim() : "";
+
+    // Check if this session has any data
+    const hasData = tienQC || startTime || endTime || soMonLive;
+
+    if (!hasData) {
+        return null;
+    }
+
+    // Validate if session has data
+    tienQC = parseFloat(tienQC);
+    if (isNaN(tienQC) || tienQC < 0) {
+        showError(
+            `Tiền QC phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+        );
+        return null;
+    }
+
+    if (!startTime || !endTime) {
+        showError(
+            `Vui lòng nhập đầy đủ thời gian cho phiên ${session === "morning" ? "Sáng" : "Chiều"}`,
+        );
+        return null;
+    }
+
+    const thoiGian = formatTimeRange(startTime, endTime);
+    if (!thoiGian) {
+        showError(
+            `Thời gian phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+        );
+        return null;
+    }
+
+    if (!soMonLive || isNaN(soMonLive) || parseInt(soMonLive) < 0) {
+        showError(
+            `Số món live phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+        );
+        return null;
+    }
+
+    return {
+        tienQC: tienQC,
+        thoiGian: thoiGian,
+        startTime: startTime,
+        soMonLive: parseInt(soMonLive),
+        hasInbox: session === "evening", // Only evening session gets inbox count
+    };
+}
+
+function createReportObject(currentDate, sessionData, inboxCount, userName) {
+    const tempTimeStamp = new Date();
+    const timestamp =
+        currentDate.getTime() +
+        (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
+    const uniqueId = generateUniqueId();
+
+    // Determine inbox value (only for evening or if specified)
+    let soMonInbox;
+    if (sessionData.hasInbox) {
+        if (inboxCount === 0) {
+            soMonInbox = ""; // Empty string when 0
+        } else {
+            soMonInbox = inboxCount + " món";
+        }
+    } else {
+        soMonInbox = ""; // Morning session doesn't have inbox
+    }
+
+    return {
+        id: uniqueId,
+        dateCell: timestamp.toString(),
+        tienQC: numberWithCommas(sessionData.tienQC),
+        thoiGian: sessionData.thoiGian,
+        soMonLive: sessionData.soMonLive + " món",
+        soMonInbox: soMonInbox,
+        user: userName,
+        createdBy: userName,
+        createdAt: new Date().toISOString(),
+        editHistory: [],
+    };
+}
+
+function uploadReports(reports, currentDate) {
+    showLoading(`Đang lưu ${reports.length} báo cáo...`);
+
+    collectionRef
+        .doc("reports")
+        .get()
+        .then((doc) => {
+            const updateData = doc.exists
+                ? {
+                      data: firebase.firestore.FieldValue.arrayUnion(
+                          ...reports,
+                      ),
+                  }
+                : { data: reports };
+
+            const operation = doc.exists
+                ? collectionRef.doc("reports").update(updateData)
+                : collectionRef.doc("reports").set(updateData);
+
+            return operation;
+        })
+        .then(() => {
+            // Log actions for all reports
+            reports.forEach((report) => {
+                logAction(
+                    "add",
+                    `Thêm báo cáo livestream: ${report.tienQC}`,
+                    null,
+                    report,
+                );
+            });
+
+            invalidateCache();
+            showSuccess(`Đã thêm ${reports.length} báo cáo thành công!`);
+
+            // Reset form
+            livestreamForm.reset();
+            ngayLive.valueAsDate = currentDate;
+
+            // Reload page to show new data
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        })
+        .catch((error) => {
+            console.error("Error uploading reports: ", error);
+            showError("Lỗi khi tải báo cáo lên.");
+        });
+}
+
+function handleEditButton(e) {
+    if (!editModal) return;
+
+    editModal.style.display = "block";
+
+    const editDate = document.getElementById("editDate");
+    const editTienQC = document.getElementById("editTienQC");
+    const editSoMonLive = document.getElementById("editSoMonLive");
+    const editSoMonInbox = document.getElementById("editSoMonInbox");
+
+    const hh1 = document.getElementById("editHh1");
+    const mm1 = document.getElementById("editMm1");
+    const hh2 = document.getElementById("editHh2");
+    const mm2 = document.getElementById("editMm2");
+
+    const row = e.target.parentNode.parentNode;
+    const date = row.cells[0].innerText;
+    const tienQC = row.cells[1].innerText;
+    const thoiGian = row.cells[2].innerText;
+    const soMonLive = row.cells[3].innerText;
+    const soMonInbox = row.cells[4].innerText;
+
+    const auth = getAuthState();
+    const userLevel = parseInt(auth.checkLogin);
+
+    // Set values for all fields first
+    if (editDate) {
+        let cleanDate = date;
+        const periodPattern = /\s*\((Sáng|Chiều|Tối)\)$/;
+        if (periodPattern.test(date)) {
+            cleanDate = date.replace(periodPattern, "").trim();
+        }
+
+        const parts = cleanDate.split("-");
+        if (parts.length === 3) {
+            const day = parts[0];
+            const month = parts[1];
+            let year = parseInt(parts[2]);
+            if (year < 100) {
+                year = year < 50 ? 2000 + year : 1900 + year;
+            }
+            editDate.value = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        }
+    }
+
+    if (editTienQC) {
+        editTienQC.value = tienQC;
+    }
+
+    // Parse time from format "Từ 20h00m đến 22h00m - 2h0m"
+    if (thoiGian && thoiGian.trim()) {
+        const timePattern =
+            /Từ\s+(\d{1,2})h(\d{1,2})m\s+đến\s+(\d{1,2})h(\d{1,2})m/;
+        const match = thoiGian.match(timePattern);
+
+        if (match) {
+            const [, startHour, startMin, endHour, endMin] = match;
+            if (hh1) hh1.value = startHour;
+            if (mm1) mm1.value = startMin;
+            if (hh2) hh2.value = endHour;
+            if (mm2) mm2.value = endMin;
+            if (hh1.value < 12 && !hasPermission(0)) {
+                editModal.style.display = "none";
+                return;
+            }
+        } else {
+            if (hh1) hh1.value = "";
+            if (mm1) mm1.value = "";
+            if (hh2) hh2.value = "";
+            if (mm2) mm2.value = "";
+        }
+    } else {
+        if (hh1) hh1.value = "";
+        if (mm1) mm1.value = "";
+        if (hh2) hh2.value = "";
+        if (mm2) mm2.value = "";
+    }
+
+    if (editSoMonLive) {
+        let cleanSoMonLive = soMonLive.replace(" món", "");
+        editSoMonLive.value = cleanSoMonLive;
+    }
+
+    // Handle soMonInbox - if empty, set to 0 for editing
+    if (editSoMonInbox) {
+        if (soMonInbox.trim() === "") {
+            editSoMonInbox.value = "0";
+        } else {
+            let cleanSoMonInbox = soMonInbox.replace(" món", "");
+            editSoMonInbox.value = cleanSoMonInbox;
+        }
+    }
+
+    // Apply permissions based on user level
+    if (userLevel <= 1) {
+        // Level 0 and 1: Full edit permission
+        if (editDate) editDate.disabled = false;
+        if (editTienQC) editTienQC.disabled = false;
+        if (hh1) hh1.disabled = false;
+        if (mm1) mm1.disabled = false;
+        if (hh2) hh2.disabled = false;
+        if (mm2) mm2.disabled = false;
+        if (editSoMonLive) editSoMonLive.disabled = false;
+        if (editSoMonInbox) editSoMonInbox.disabled = false;
+    } else if (userLevel === 2) {
+        // Level 2: Only can edit soMonInbox
+        if (editDate) {
+            editDate.disabled = true;
+            editDate.style.backgroundColor = "#f8f9fa";
+        }
+        if (editTienQC) {
+            editTienQC.readOnly = true;
+            editTienQC.style.backgroundColor = "#f8f9fa";
+        }
+        if (hh1) {
+            hh1.readOnly = true;
+            hh1.style.backgroundColor = "#f8f9fa";
+        }
+        if (mm1) {
+            mm1.readOnly = true;
+            mm1.style.backgroundColor = "#f8f9fa";
+        }
+        if (hh2) {
+            hh2.readOnly = true;
+            hh2.style.backgroundColor = "#f8f9fa";
+        }
+        if (mm2) {
+            mm2.readOnly = true;
+            mm2.style.backgroundColor = "#f8f9fa";
+        }
+        if (editSoMonLive) {
+            editSoMonLive.readOnly = true;
+            editSoMonLive.style.backgroundColor = "#f8f9fa";
+        }
+        if (editSoMonInbox) {
+            editSoMonInbox.disabled = false;
+            editSoMonInbox.readOnly = false;
+            editSoMonInbox.style.backgroundColor = "white";
+        }
+    } else {
+        // Level 3 and above: No edit permissions
+        if (editDate) editDate.disabled = true;
+        if (editTienQC) editTienQC.disabled = true;
+        if (hh1) hh1.disabled = true;
+        if (mm1) mm1.disabled = true;
+        if (hh2) hh2.disabled = true;
+        if (mm2) mm2.disabled = true;
+        if (editSoMonLive) editSoMonLive.disabled = true;
+        if (editSoMonInbox) editSoMonInbox.disabled = true;
+    }
+
+    editingRow = row;
+}
+
+// Export functions
+window.initializeUpdatedForm = initializeUpdatedForm;
+window.handleUpdatedFormSubmit = handleUpdatedFormSubmit;
+window.handleEditButton = handleEditButton;
+window.collectSessionData = collectSessionData;
+window.createReportObject = createReportObject;
+window.uploadReports = uploadReports;
