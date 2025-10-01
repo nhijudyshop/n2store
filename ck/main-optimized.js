@@ -1,5 +1,5 @@
-// main-optimized.js - FIXED VERSION
-// Phiên bản đã sửa lỗi checkbox và tối ưu hiệu suất
+// main-optimized.js - ENHANCED VERSION WITH FULL NOTIFICATIONS
+// Complete notification system for all actions
 
 class MoneyTransferApp {
     constructor() {
@@ -9,51 +9,113 @@ class MoneyTransferApp {
         this.historyCollectionRef = null;
         this.virtualScrollManager = null;
         this.filterManager = null;
+        this.notificationManager = null;
         this.isInitialized = false;
         this.initStartTime = performance.now();
+        this.activeNotificationId = null;
 
         console.log("MoneyTransferApp initializing...");
     }
 
     async init() {
+        let notificationId = null;
+
         try {
             performanceMonitor.start("appInit");
 
-            // Check authentication first
+            // Show loading notification
+            notificationId = this.showNotification(
+                "Đang khởi tạo ứng dụng...",
+                "loading",
+                0,
+                { showOverlay: true, persistent: true },
+            );
+
+            // Check authentication
             if (!this.checkAuthentication()) {
+                this.hideNotification(notificationId);
                 return;
             }
 
+            // Initialize NotificationManager
+            this.notificationManager = new NotificationManager();
+
             // Initialize Firebase
+            this.updateNotification(notificationId, "Đang kết nối Firebase...");
             await this.initFirebase();
 
             // Initialize managers
+            this.updateNotification(notificationId, "Đang khởi tạo modules...");
             this.initManagers();
 
             // Initialize UI
+            this.updateNotification(
+                notificationId,
+                "Đang chuẩn bị giao diện...",
+            );
             this.initUI();
 
             // Load initial data
+            this.updateNotification(notificationId, "Đang tải dữ liệu...");
             await this.loadInitialData();
 
             this.isInitialized = true;
             const initTime = performanceMonitor.end("appInit");
+
+            // Hide loading and show success
+            this.hideNotification(notificationId);
+            this.notificationManager.success(
+                `Ứng dụng sẵn sàng (${initTime.toFixed(0)}ms)`,
+                2000,
+                "Thành công",
+            );
+
             console.log(
                 `App initialized successfully in ${initTime.toFixed(0)}ms`,
             );
-
-            if (window.showSuccess) {
-                window.showSuccess(
-                    `Ứng dụng sẵn sàng (${initTime.toFixed(0)}ms)`,
-                );
-            }
         } catch (error) {
             console.error("App initialization failed:", error);
-            if (window.showError) {
-                window.showError(
-                    "Không thể khởi tạo ứng dụng: " + error.message,
-                );
+
+            if (notificationId) {
+                this.hideNotification(notificationId);
             }
+
+            this.notificationManager.error(
+                "Không thể khởi tạo ứng dụng: " + error.message,
+                5000,
+                "Lỗi khởi tạo",
+            );
+        }
+    }
+
+    // Notification helpers
+    showNotification(message, type = "info", duration = 0, options = {}) {
+        if (this.notificationManager) {
+            return this.notificationManager.show(
+                message,
+                type,
+                duration,
+                options,
+            );
+        }
+        // Fallback to window functions
+        if (window.showOperationLoading && type === "loading") {
+            window.showOperationLoading(message);
+        }
+        return null;
+    }
+
+    updateNotification(id, message) {
+        // For now, just log - could be enhanced to update existing notification
+        console.log("Update notification:", message);
+    }
+
+    hideNotification(id) {
+        if (this.notificationManager && id) {
+            this.notificationManager.remove(id);
+        }
+        if (window.hideOperationLoading) {
+            window.hideOperationLoading();
         }
     }
 
@@ -87,15 +149,6 @@ class MoneyTransferApp {
                 titleElement.textContent +=
                     " - " + (auth.displayName || auth.userType);
             }
-        }
-
-        const parentContainer = domManager.get("#parentContainer");
-        if (parentContainer) {
-            parentContainer.style.cssText = `
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            `;
         }
     }
 
@@ -146,25 +199,21 @@ class MoneyTransferApp {
     initForm() {
         const ngayck = domManager.get(SELECTORS.ngayck);
         if (ngayck) {
-            // FIXED: Set Vietnam today as default date
             const vietnamToday = VietnamTime.getDateString();
             ngayck.value = vietnamToday;
-
             console.log("Form initialized with Vietnam date:", vietnamToday);
         }
 
-        // Toggle form button (unchanged)
         const toggleFormButton = domManager.get(SELECTORS.toggleFormButton);
         const dataForm = domManager.get(SELECTORS.dataForm);
 
         if (toggleFormButton && dataForm) {
             toggleFormButton.addEventListener("click", () => {
                 if (APP_STATE.isOperationInProgress) {
-                    if (window.showError) {
-                        window.showError(
-                            "Có thao tác đang thực hiện, vui lòng đợi...",
-                        );
-                    }
+                    this.notificationManager.warning(
+                        "Có thao tác đang thực hiện, vui lòng đợi...",
+                        2000,
+                    );
                     return;
                 }
 
@@ -188,14 +237,15 @@ class MoneyTransferApp {
                         toggleFormButton.textContent = "Hiện biểu mẫu";
                     }
                 } else {
-                    if (window.showError) {
-                        window.showError("Không có quyền truy cập form");
-                    }
+                    this.notificationManager.error(
+                        "Không có quyền truy cập form",
+                        3000,
+                        "Không đủ quyền",
+                    );
                 }
             });
         }
 
-        // Form submit handler
         const moneyTransferForm = domManager.get(SELECTORS.moneyTransferForm);
         if (moneyTransferForm) {
             moneyTransferForm.addEventListener("submit", (e) =>
@@ -203,7 +253,6 @@ class MoneyTransferApp {
             );
         }
 
-        // Amount input formatting
         const transferAmountInput = domManager.get(SELECTORS.transferAmount);
         if (transferAmountInput) {
             transferAmountInput.addEventListener("blur", function () {
@@ -215,7 +264,6 @@ class MoneyTransferApp {
             });
         }
 
-        // Clear form button
         const clearDataButton = domManager.get(SELECTORS.clearDataButton);
         if (clearDataButton) {
             clearDataButton.addEventListener("click", () => {
@@ -228,15 +276,11 @@ class MoneyTransferApp {
                     input.value = "";
                 });
 
-                // FIXED: Reset to Vietnam today
                 if (ngayck) {
                     ngayck.value = VietnamTime.getDateString();
                 }
 
-                console.log(
-                    "Form reset with Vietnam date:",
-                    VietnamTime.getDateString(),
-                );
+                this.notificationManager.info("Đã xóa dữ liệu form", 1500);
             });
         }
     }
@@ -247,11 +291,10 @@ class MoneyTransferApp {
 
         tableBody.addEventListener("click", (e) => {
             if (APP_STATE.isOperationInProgress) {
-                if (window.showError) {
-                    window.showError(
-                        "Có thao tác đang thực hiện, vui lòng đợi...",
-                    );
-                }
+                this.notificationManager.warning(
+                    "Có thao tác đang thực hiện, vui lòng đợi...",
+                    2000,
+                );
                 return;
             }
 
@@ -263,12 +306,24 @@ class MoneyTransferApp {
                 return;
             }
 
-            if (e.target.classList.contains("edit-button")) {
+            // Check if click is on edit button or its children (icon)
+            const editButton = e.target.closest(".edit-button");
+            if (editButton) {
                 this.handleEditButton(e);
-            } else if (e.target.classList.contains("delete-button")) {
+                return;
+            }
+
+            // Check if click is on delete button or its children (icon)
+            const deleteButton = e.target.closest(".delete-button");
+            if (deleteButton) {
                 this.handleDeleteButton(e);
-            } else if (e.target.type === "checkbox") {
+                return;
+            }
+
+            // Check if click is on checkbox
+            if (e.target.type === "checkbox") {
                 this.handleCheckboxClick(e);
+                return;
             }
         });
     }
@@ -288,6 +343,8 @@ class MoneyTransferApp {
 
     // ===== DATA LOADING =====
     async loadInitialData() {
+        let notificationId = null;
+
         try {
             performanceMonitor.start("initialDataLoad");
 
@@ -296,13 +353,18 @@ class MoneyTransferApp {
                 console.log("Loading from cache...");
                 await this.renderInitialData(cachedData);
                 performanceMonitor.end("initialDataLoad");
+
+                this.notificationManager.success(
+                    `Đã tải ${cachedData.length} giao dịch từ bộ nhớ đệm`,
+                    2000,
+                );
                 return;
             }
 
             console.log("Loading from Firebase...");
-            if (window.showLoading) {
-                window.showLoading("Đang tải dữ liệu từ Firebase...");
-            }
+            notificationId = this.notificationManager.loadingData(
+                "Đang tải dữ liệu từ Firebase...",
+            );
 
             const doc = await this.collectionRef
                 .doc(CONFIG.data.COLLECTION_NAME)
@@ -315,19 +377,14 @@ class MoneyTransferApp {
                         `Loading ${data["data"].length} transactions from Firebase...`,
                     );
 
-                    // FIXED: Process data with proper completed status
                     const processedData = data["data"].map((item) => {
                         const processedItem = ensureUniqueId(item);
 
-                        // CRITICAL FIX: Convert 'muted' to 'completed' with correct logic
                         if (item.muted !== undefined) {
-                            // muted: true = đã đi đơn = completed: true
-                            // muted: false = chưa đi đơn = completed: false
                             processedItem.completed = Boolean(item.muted);
-                            delete processedItem.muted; // Remove old property
+                            delete processedItem.muted;
                         } else {
-                            // Default for new items
-                            processedItem.completed = false; // Chưa đi đơn
+                            processedItem.completed = false;
                         }
 
                         return processedItem;
@@ -345,33 +402,41 @@ class MoneyTransferApp {
                     cacheManager.set(processedData);
                     await this.renderInitialData(processedData);
 
-                    if (window.showSuccess) {
-                        window.showSuccess(
-                            `Đã tải xong ${processedData.length} giao dịch!`,
-                        );
-                    }
+                    this.hideNotification(notificationId);
+                    this.notificationManager.success(
+                        `Đã tải xong ${processedData.length} giao dịch!`,
+                        2000,
+                        "Hoàn thành",
+                    );
                 } else {
                     console.log("No data found or data array is empty");
                     this.filterManager.createFilterUI();
-                    if (window.showError) {
-                        window.showError("Không có dữ liệu");
-                    }
+
+                    this.hideNotification(notificationId);
+                    this.notificationManager.warning("Không có dữ liệu", 3000);
                 }
             } else {
                 console.log("Document does not exist");
                 this.filterManager.createFilterUI();
-                if (window.showError) {
-                    window.showError("Tài liệu không tồn tại");
-                }
+
+                this.hideNotification(notificationId);
+                this.notificationManager.error("Tài liệu không tồn tại", 3000);
             }
 
             performanceMonitor.end("initialDataLoad");
         } catch (error) {
             console.error("Error loading initial data:", error);
             this.filterManager.createFilterUI();
-            if (window.showError) {
-                window.showError("Lỗi khi tải dữ liệu từ Firebase");
+
+            if (notificationId) {
+                this.hideNotification(notificationId);
             }
+
+            this.notificationManager.error(
+                "Lỗi khi tải dữ liệu từ Firebase: " + error.message,
+                5000,
+                "Lỗi tải dữ liệu",
+            );
         }
     }
 
@@ -383,14 +448,8 @@ class MoneyTransferApp {
 
         performanceMonitor.start("renderInitialData");
 
-        if (window.showLoading) {
-            window.showLoading("Đang chuẩn bị dữ liệu...");
-        }
-
-        // Store in global state
         APP_STATE.arrayData = [...dataArray];
 
-        // Sort data by date (newest first)
         const sortedData = ArrayUtils.fastSort([...dataArray], (a, b) => {
             const timestampA = parseInt(a.dateCell) || 0;
             const timestampB = parseInt(b.dateCell) || 0;
@@ -399,29 +458,16 @@ class MoneyTransferApp {
 
         APP_STATE.filteredData = [...sortedData];
 
-        // FIXED: Apply today's filter using Vietnam timezone
         const vietnamToday = VietnamTime.getDateString();
         this.filterManager.filters.startDate = vietnamToday;
         this.filterManager.filters.endDate = vietnamToday;
 
         console.log("Initial render with Vietnam today filter:", {
             vietnamToday: vietnamToday,
-            systemToday: new Date().toISOString().split("T")[0],
             dataCount: sortedData.length,
-            sampleTimestamps: sortedData.slice(0, 3).map((item) => ({
-                timestamp: item.dateCell,
-                vietnamDate: VietnamTime.formatVietnamDate(
-                    parseFloat(item.dateCell),
-                ),
-            })),
         });
 
-        // Apply initial filter
         await this.filterManager.applyFilters(sortedData);
-
-        if (window.hideFloatingAlert) {
-            window.hideFloatingAlert();
-        }
 
         performanceMonitor.end("renderInitialData");
     }
@@ -431,31 +477,53 @@ class MoneyTransferApp {
         e.preventDefault();
 
         if (APP_STATE.isOperationInProgress) {
-            if (window.showError) {
-                window.showError("Có thao tác đang thực hiện, vui lòng đợi...");
-            }
+            this.notificationManager.warning(
+                "Có thao tác đang thực hiện, vui lòng đợi...",
+                2000,
+            );
             return;
         }
 
         if (!this.hasPermission(3)) {
-            if (window.showError) {
-                window.showError("Không có quyền thêm giao dịch");
-            }
+            this.notificationManager.error(
+                "Không có quyền thêm giao dịch",
+                3000,
+                "Không đủ quyền",
+            );
             return;
         }
 
         const formData = this.getFormData();
         if (!formData) return;
 
+        let notificationId = null;
+
         try {
             this.blockInteraction("add");
-            if (window.showOperationLoading) {
-                window.showOperationLoading("Đang thêm giao dịch...", "add");
-            }
+
+            notificationId = this.notificationManager.show(
+                "Đang thêm giao dịch...",
+                "info",
+                0,
+                {
+                    showOverlay: true,
+                    persistent: true,
+                    icon: "plus-circle",
+                    title: "Thêm giao dịch",
+                },
+            );
 
             const newTransaction = this.createTransaction(formData);
+
+            this.updateNotification(
+                notificationId,
+                "Đang cập nhật giao diện...",
+            );
             this.addTransactionToUI(newTransaction);
+
             this.resetForm();
+
+            this.updateNotification(notificationId, "Đang lưu vào Firebase...");
             await this.uploadTransaction(newTransaction);
 
             APP_STATE.arrayData.unshift(newTransaction);
@@ -468,9 +536,12 @@ class MoneyTransferApp {
                 newTransaction,
             );
 
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading("Đã thêm giao dịch thành công!");
-            }
+            this.hideNotification(notificationId);
+            this.notificationManager.success(
+                `Đã thêm giao dịch: ${formData.transferNote}`,
+                3000,
+                "Thành công",
+            );
 
             setTimeout(() => {
                 const firstInput = domManager.get(SELECTORS.transferNote);
@@ -486,12 +557,15 @@ class MoneyTransferApp {
 
             this.restoreFormData(formData);
 
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading();
+            if (notificationId) {
+                this.hideNotification(notificationId);
             }
-            if (window.showError) {
-                window.showError("Lỗi khi tải document lên.");
-            }
+
+            this.notificationManager.error(
+                "Lỗi khi thêm giao dịch: " + error.message,
+                5000,
+                "Lỗi",
+            );
         } finally {
             this.unblockInteraction();
         }
@@ -511,9 +585,10 @@ class MoneyTransferApp {
             !bank ||
             !customerInfo
         ) {
-            if (window.showError) {
-                window.showError("Không tìm thấy các trường form");
-            }
+            this.notificationManager.error(
+                "Không tìm thấy các trường form",
+                3000,
+            );
             return null;
         }
 
@@ -525,16 +600,20 @@ class MoneyTransferApp {
         const customerInfoValue = sanitizeInput(customerInfo.value);
 
         if (isNaN(amountValue) || amountValue <= 0) {
-            if (window.showError) {
-                window.showError("Vui lòng nhập số tiền chuyển hợp lệ.");
-            }
+            this.notificationManager.error(
+                "Vui lòng nhập số tiền chuyển hợp lệ",
+                3000,
+                "Dữ liệu không hợp lệ",
+            );
             return null;
         }
 
         if (!noteValue.trim()) {
-            if (window.showError) {
-                window.showError("Vui lòng nhập ghi chú chuyển khoản.");
-            }
+            this.notificationManager.error(
+                "Vui lòng nhập ghi chú chuyển khoản",
+                3000,
+                "Thiếu thông tin",
+            );
             return null;
         }
 
@@ -548,11 +627,9 @@ class MoneyTransferApp {
     }
 
     createTransaction(formData) {
-        // FIXED: Handle Vietnam timezone properly
         const vietnamDate = new Date(formData.currentDate.getTime());
         const tempTimeStamp = VietnamTime.now();
 
-        // Create timestamp with Vietnam timezone
         const timestamp =
             vietnamDate.getTime() +
             (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) *
@@ -572,15 +649,8 @@ class MoneyTransferApp {
                     ? auth.userType.split("-")[0]
                     : "Unknown"
                 : "Unknown",
-            completed: false, // New transaction starts as incomplete
+            completed: false,
         };
-
-        console.log("New transaction created with Vietnam timezone:", {
-            uniqueId: newTransaction.uniqueId,
-            timestamp: timestamp,
-            vietnamDate: VietnamTime.formatVietnamDate(timestamp),
-            originalDate: formData.currentDate,
-        });
 
         return newTransaction;
     }
@@ -617,11 +687,8 @@ class MoneyTransferApp {
         }
 
         if (ngayck) {
-            // FIXED: Reset to Vietnam today
             const vietnamToday = VietnamTime.getDateString();
             ngayck.value = vietnamToday;
-
-            console.log("Form reset to Vietnam date:", vietnamToday);
         }
     }
 
@@ -645,12 +712,11 @@ class MoneyTransferApp {
             .doc(CONFIG.data.COLLECTION_NAME)
             .get();
 
-        // FIXED: Store with 'muted' for backward compatibility but set it correctly
         const transactionForFirebase = {
             ...transaction,
-            muted: transaction.completed, // Convert completed back to muted for Firebase
+            muted: transaction.completed,
         };
-        delete transactionForFirebase.completed; // Remove the new field
+        delete transactionForFirebase.completed;
 
         const updateData = doc.exists
             ? {
@@ -671,15 +737,14 @@ class MoneyTransferApp {
         return operation;
     }
 
-    // ===== CHECKBOX HANDLER - COMPLETELY REWRITTEN =====
+    // ===== CHECKBOX HANDLER =====
     async handleCheckboxClick(e) {
-        console.log("=== CHECKBOX CLICK START ===");
-
         if (!this.hasPermission(1)) {
-            console.log("No permission to change checkbox");
-            if (window.showError) {
-                window.showError("Không đủ quyền thực hiện chức năng này.");
-            }
+            this.notificationManager.error(
+                "Không đủ quyền thực hiện chức năng này",
+                3000,
+                "Không đủ quyền",
+            );
             e.preventDefault();
             return;
         }
@@ -689,13 +754,6 @@ class MoneyTransferApp {
         const uniqueId = row.getAttribute("data-unique-id");
         const newCheckedState = checkbox.checked;
 
-        console.log("Checkbox interaction:", {
-            uniqueId: uniqueId,
-            newCheckedState: newCheckedState,
-            meaning: newCheckedState ? "đã đi đơn" : "chưa đi đơn",
-        });
-
-        // Find the item in our data
         const currentItem = APP_STATE.arrayData.find(
             (item) => item.uniqueId === uniqueId,
         );
@@ -706,57 +764,46 @@ class MoneyTransferApp {
             return;
         }
 
-        console.log("Current item state:", {
-            uniqueId: currentItem.uniqueId,
-            currentCompleted: currentItem.completed,
-            noteCell: currentItem.noteCell,
-        });
-
-        // User confirmation
         const confirmationMessage = newCheckedState
             ? "Bạn có chắc đơn này đã được đi?"
             : "Bạn có chắc muốn đánh dấu đơn này là chưa đi?";
 
         if (!confirm(confirmationMessage)) {
             e.preventDefault();
-            console.log("User cancelled change");
             return;
         }
 
-        console.log("User confirmed change, proceeding...");
+        let notificationId = null;
 
         try {
             this.blockInteraction("status_update");
-            if (window.showOperationLoading) {
-                window.showOperationLoading(
-                    "Đang cập nhật trạng thái...",
-                    "status_update",
-                );
-            }
 
-            // The new completed value should match the checkbox state
+            notificationId = this.notificationManager.show(
+                newCheckedState
+                    ? "Đang đánh dấu đã đi đơn..."
+                    : "Đang hủy đánh dấu...",
+                "info",
+                0,
+                {
+                    showOverlay: true,
+                    persistent: true,
+                    icon: "check-square",
+                    title: "Cập nhật",
+                },
+            );
+
             const newCompletedValue = newCheckedState;
 
-            console.log("Updating to new state:", {
-                newCheckboxState: newCheckedState,
-                newCompletedValue: newCompletedValue,
-                meaning: newCompletedValue ? "đã đi đơn" : "chưa đi đơn",
-            });
-
-            // Update UI immediately
             this.updateRowCompletedState(row, newCompletedValue);
 
-            // Update Firebase
             await this.updateCompletedStateInFirebase(
                 uniqueId,
                 row,
                 newCompletedValue,
             );
 
-            // Update state
             this.updateCompletedStateInData(uniqueId, newCompletedValue);
 
-            // Update total and cache
             if (this.filterManager) {
                 this.filterManager.updateTotalAmount();
             }
@@ -770,113 +817,66 @@ class MoneyTransferApp {
                 { ...dataForLog, completed: newCompletedValue },
             );
 
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading(
-                    "Đã cập nhật trạng thái thành công!",
-                );
-            }
-
-            console.log("=== CHECKBOX UPDATE COMPLETED SUCCESSFULLY ===");
+            this.hideNotification(notificationId);
+            this.notificationManager.success(
+                newCompletedValue
+                    ? "Đã đánh dấu đơn này đã đi"
+                    : "Đã hủy đánh dấu",
+                2000,
+                "Cập nhật thành công",
+            );
         } catch (error) {
             console.error("Error updating status:", error);
 
-            // Revert UI changes
             this.updateRowCompletedState(row, !newCompletedValue);
             checkbox.checked = !newCheckedState;
 
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading();
+            if (notificationId) {
+                this.hideNotification(notificationId);
             }
-            if (window.showError) {
-                window.showError("Lỗi khi cập nhật trạng thái");
-            }
+
+            this.notificationManager.error(
+                "Lỗi khi cập nhật trạng thái: " + error.message,
+                5000,
+                "Lỗi",
+            );
         } finally {
             this.unblockInteraction();
         }
     }
 
-    // FIXED: Update row visual state based on completion status
     updateRowCompletedState(row, isCompleted) {
-        if (!row) {
-            console.error("updateRowCompletedState: row is null");
-            return;
-        }
-
-        console.log("=== UPDATING ROW VISUAL STATE ===");
-        console.log("Row update parameters:", {
-            isCompleted: isCompleted,
-            meaning: isCompleted
-                ? "completed (đã đi đơn)"
-                : "active (chưa đi đơn)",
-        });
+        if (!row) return;
 
         row.style.transition = "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)";
 
         if (isCompleted === true) {
-            // Completed = đã đi đơn = dimmed appearance
             row.style.opacity = "0.4";
             row.style.backgroundColor = "#f8f9fa";
             row.classList.add(CSS_CLASSES.muted);
             row.classList.remove(CSS_CLASSES.active);
-            console.log("Applied completed styling (đã đi đơn)");
         } else {
-            // Not completed = chưa đi đơn = normal appearance
             row.style.opacity = "1.0";
             row.style.backgroundColor = "";
             row.classList.add(CSS_CLASSES.active);
             row.classList.remove(CSS_CLASSES.muted);
-            console.log("Applied active styling (chưa đi đơn)");
         }
-
-        console.log("Row visual state updated successfully");
     }
 
-    // FIXED: Update data state
     updateCompletedStateInData(uniqueId, newCompletedValue) {
-        console.log("=== UPDATING COMPLETED STATE IN DATA ===");
-
-        let arrayDataUpdated = false;
-        let filteredDataUpdated = false;
-
-        const updateCompleted = (item, sourceArray) => {
+        const updateCompleted = (item) => {
             if (item.uniqueId === uniqueId) {
-                console.log(`Found item in ${sourceArray}:`, {
-                    uniqueId: item.uniqueId,
-                    oldCompleted: item.completed,
-                    newCompleted: newCompletedValue,
-                });
                 item.completed = newCompletedValue;
                 return true;
             }
             return false;
         };
 
-        // Update arrayData
-        APP_STATE.arrayData.forEach((item) => {
-            if (updateCompleted(item, "arrayData")) {
-                arrayDataUpdated = true;
-            }
-        });
-
-        // Update filteredData
-        APP_STATE.filteredData.forEach((item) => {
-            if (updateCompleted(item, "filteredData")) {
-                filteredDataUpdated = true;
-            }
-        });
-
-        console.log("Data update verification:", {
-            arrayDataUpdated: arrayDataUpdated,
-            filteredDataUpdated: filteredDataUpdated,
-        });
-
-        console.log("=== DATA UPDATE COMPLETED ===");
+        APP_STATE.arrayData.forEach(updateCompleted);
+        APP_STATE.filteredData.forEach(updateCompleted);
     }
 
-    // FIXED: Update Firebase with proper field conversion
     async updateCompletedStateInFirebase(uniqueId, row, newCompletedValue) {
-        console.log("=== UPDATING FIREBASE ===");
-
         const doc = await this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .get();
@@ -901,41 +901,41 @@ class MoneyTransferApp {
             throw new Error("Item not found in Firebase");
         }
 
-        console.log("Found item in Firebase:", {
-            index: itemIndex,
-            uniqueId: dataArray[itemIndex].uniqueId,
-            oldMuted: dataArray[itemIndex].muted,
-        });
-
-        // FIXED: Convert completed back to muted for Firebase storage
         dataArray[itemIndex].muted = newCompletedValue;
 
-        console.log("Firebase item updated:", {
-            index: itemIndex,
-            newMuted: dataArray[itemIndex].muted,
-        });
-
-        const result = await this.collectionRef
+        return await this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .update({ data: dataArray });
-        console.log("Firebase update completed successfully");
-        return result;
     }
 
-    // ===== OTHER HANDLERS =====
+    // ===== EDIT HANDLERS =====
     handleEditButton(e) {
+        if (APP_STATE.isOperationInProgress) {
+            this.notificationManager.warning(
+                "Có thao tác đang thực hiện, vui lòng đợi...",
+                2000,
+            );
+            return;
+        }
+
         const editModal = domManager.get(SELECTORS.editModal);
-        if (!editModal) return;
+        if (!editModal) {
+            this.notificationManager.error(
+                "Không tìm thấy modal chỉnh sửa",
+                2000,
+            );
+            return;
+        }
 
         const row = e.target.closest("tr");
         if (!row) {
-            console.error("Could not find table row");
+            this.notificationManager.error("Không tìm thấy giao dịch", 2000);
             return;
         }
 
         const uniqueId = row.getAttribute("data-unique-id");
         if (!uniqueId) {
-            console.error("Could not find unique ID");
+            this.notificationManager.error("Không tìm thấy ID giao dịch", 2000);
             return;
         }
 
@@ -944,19 +944,18 @@ class MoneyTransferApp {
         );
 
         if (!transaction) {
-            console.error("Transaction not found in data:", uniqueId);
-            if (window.showError) {
-                window.showError("Không tìm thấy giao dịch để chỉnh sửa");
-            }
+            this.notificationManager.error(
+                "Không tìm thấy giao dịch để chỉnh sửa",
+                3000,
+            );
             return;
         }
 
         console.log("Opening edit modal for transaction:", {
             uniqueId: transaction.uniqueId,
-            originalTimestamp: transaction.dateCell,
-            vietnamDate: VietnamTime.formatVietnamDate(
-                parseFloat(transaction.dateCell),
-            ),
+            noteCell: transaction.noteCell,
+            timestamp: transaction.dateCell,
+            completed: transaction.completed,
         });
 
         const canEditAll = this.hasPermission(1);
@@ -976,17 +975,24 @@ class MoneyTransferApp {
             !editFields.editBank ||
             !editFields.editInfo
         ) {
-            console.error("Edit form elements not found", editFields);
-            if (window.showError) {
-                window.showError("Không tìm thấy form chỉnh sửa");
-            }
+            this.notificationManager.error(
+                "Không tìm thấy form chỉnh sửa",
+                3000,
+            );
             return;
         }
 
-        // FIXED: Convert timestamp to Vietnam date format for display
         const timestamp = parseFloat(transaction.dateCell);
-        const formattedDate = VietnamTime.formatVietnamDate(timestamp); // DD-MM-YY format
+        const formattedDate = VietnamTime.formatVietnamDate(timestamp);
 
+        // Populate form fields
+        editFields.editDate.value = formattedDate;
+        editFields.editNote.value = transaction.noteCell || "";
+        editFields.editAmount.value = transaction.amountCell || "";
+        editFields.editBank.value = transaction.bankCell || "";
+        editFields.editInfo.value = transaction.customerInfoCell || "";
+
+        // Set permissions and styling
         if (canEditAll) {
             editFields.editDate.disabled = false;
             editFields.editNote.disabled = false;
@@ -994,30 +1000,21 @@ class MoneyTransferApp {
             editFields.editBank.disabled = false;
             editFields.editInfo.disabled = false;
 
-            editFields.editDate.value = formattedDate;
-            editFields.editNote.value = transaction.noteCell || "";
-            editFields.editAmount.value = transaction.amountCell || "";
-            editFields.editBank.value = transaction.bankCell || "";
-            editFields.editInfo.value = transaction.customerInfoCell || "";
-
-            console.log("Populated all edit fields with Vietnam date:", {
-                date: formattedDate,
-                note: transaction.noteCell,
-                amount: transaction.amountCell,
+            // Reset styles for editable fields
+            Object.values(editFields).forEach((field) => {
+                field.style.backgroundColor = "white";
+                field.style.color = "#495057";
+                field.style.cursor = "text";
             });
         } else {
+            // Disable all except customer info
             editFields.editDate.disabled = true;
             editFields.editNote.disabled = true;
             editFields.editAmount.disabled = true;
             editFields.editBank.disabled = true;
             editFields.editInfo.disabled = false;
 
-            editFields.editDate.value = formattedDate;
-            editFields.editNote.value = transaction.noteCell || "";
-            editFields.editAmount.value = transaction.amountCell || "";
-            editFields.editBank.value = transaction.bankCell || "";
-            editFields.editInfo.value = transaction.customerInfoCell || "";
-
+            // Style disabled fields
             [
                 editFields.editDate,
                 editFields.editNote,
@@ -1029,12 +1026,14 @@ class MoneyTransferApp {
                 field.style.cursor = "not-allowed";
             });
 
+            // Style enabled field
             editFields.editInfo.style.backgroundColor = "white";
             editFields.editInfo.style.color = "#495057";
             editFields.editInfo.style.cursor = "text";
 
-            console.log(
-                "Limited edit permissions - only customer info editable",
+            this.notificationManager.info(
+                "Bạn chỉ có thể chỉnh sửa thông tin khách hàng",
+                3000,
             );
         }
 
@@ -1051,47 +1050,16 @@ class MoneyTransferApp {
             }
         }, 100);
 
-        console.log("Edit modal opened with Vietnam timezone support");
-    }
-
-    debugVietnamTimezone() {
-        const debug = VietnamTime.debug();
-
-        console.log("=== VIETNAM TIMEZONE DEBUG ===");
-        console.log("Current filter dates:", this.filterManager?.filters);
-
-        // Test với một số giao dịch
-        const sampleTransactions = APP_STATE.arrayData.slice(0, 5);
-        console.log("Sample transactions with Vietnam dates:");
-        sampleTransactions.forEach((tx, index) => {
-            const timestamp = parseFloat(tx.dateCell);
-            const vietnamDate = VietnamTime.formatVietnamDate(timestamp);
-            console.log(`Transaction ${index + 1}:`, {
-                uniqueId: tx.uniqueId,
-                timestamp: timestamp,
-                vietnamDate: vietnamDate,
-                noteCell: tx.noteCell,
-            });
-        });
-
-        // Test filter range
-        const today = VietnamTime.getDateString();
-        const todayRange = VietnamTime.getDateRange(today);
-        console.log("Today's filter range:", {
-            date: today,
-            range: todayRange,
-            startTime: new Date(todayRange.start),
-            endTime: new Date(todayRange.end),
-        });
-
-        return debug;
+        console.log("Edit modal opened successfully");
     }
 
     async handleDeleteButton(e) {
         if (!this.hasPermission(0)) {
-            if (window.showError) {
-                window.showError("Không đủ quyền thực hiện chức năng này.");
-            }
+            this.notificationManager.error(
+                "Không đủ quyền thực hiện chức năng này",
+                3000,
+                "Không đủ quyền",
+            );
             return;
         }
 
@@ -1102,19 +1070,25 @@ class MoneyTransferApp {
         const uniqueId = row.getAttribute("data-unique-id");
 
         if (!row || !uniqueId) {
-            if (window.showError) {
-                window.showError("Không tìm thấy ID giao dịch để xóa.");
-            }
+            this.notificationManager.error(
+                "Không tìm thấy ID giao dịch để xóa",
+                3000,
+            );
             return;
         }
 
+        let notificationId = null;
+
         try {
             this.blockInteraction("delete");
-            if (window.showOperationLoading) {
-                window.showOperationLoading("Đang xóa giao dịch...", "delete");
-            }
+
+            notificationId = this.notificationManager.deleting(
+                "Đang xóa giao dịch...",
+            );
 
             const oldData = this.extractRowData(row);
+
+            this.updateNotification(notificationId, "Đang xóa từ Firebase...");
             await this.deleteFromFirebase(uniqueId, row);
 
             row.remove();
@@ -1132,54 +1106,53 @@ class MoneyTransferApp {
                 null,
             );
 
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading("Đã xóa giao dịch thành công!");
-            }
+            this.hideNotification(notificationId);
+            this.notificationManager.success(
+                "Đã xóa giao dịch thành công",
+                2000,
+                "Thành công",
+            );
         } catch (error) {
             console.error("Error deleting transaction:", error);
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading();
+
+            if (notificationId) {
+                this.hideNotification(notificationId);
             }
-            if (window.showError) {
-                window.showError("Lỗi khi xóa giao dịch");
-            }
+
+            this.notificationManager.error(
+                "Lỗi khi xóa giao dịch: " + error.message,
+                5000,
+                "Lỗi",
+            );
         } finally {
             this.unblockInteraction();
         }
     }
 
     closeModal() {
-        if (APP_STATE.isOperationInProgress) {
-            if (window.showError) {
-                window.showError("Có thao tác đang thực hiện, vui lòng đợi...");
-            }
-            return;
-        }
-
         const editModal = domManager.get(SELECTORS.editModal);
         if (editModal) {
             editModal.style.display = "none";
         }
 
-        // Clear editing state
         APP_STATE.editingRow = null;
         APP_STATE.editingTransaction = null;
-
-        console.log("Edit modal closed and state cleared");
     }
 
     async saveChanges() {
         if (APP_STATE.isOperationInProgress) {
-            if (window.showError) {
-                window.showError("Có thao tác đang thực hiện, vui lòng đợi...");
-            }
+            this.notificationManager.warning(
+                "Có thao tác đang thực hiện, vui lòng đợi...",
+                2000,
+            );
             return;
         }
 
         if (!APP_STATE.editingRow || !APP_STATE.editingTransaction) {
-            if (window.showError) {
-                window.showError("Không tìm thấy giao dịch cần chỉnh sửa.");
-            }
+            this.notificationManager.error(
+                "Không tìm thấy giao dịch cần chỉnh sửa",
+                3000,
+            );
             return;
         }
 
@@ -1191,40 +1164,70 @@ class MoneyTransferApp {
             editInfo: domManager.get(SELECTORS.editInfo),
         };
 
+        console.log("Starting save changes for transaction:", {
+            uniqueId: APP_STATE.editingTransaction.uniqueId,
+            formValues: {
+                date: editFields.editDate?.value,
+                note: editFields.editNote?.value,
+                amount: editFields.editAmount?.value,
+                bank: editFields.editBank?.value,
+                info: editFields.editInfo?.value,
+            },
+        });
+
         const validation = this.validateEditForm(editFields);
         if (!validation.isValid) {
-            if (window.showError) {
-                window.showError(validation.message);
-            }
+            this.notificationManager.error(
+                validation.message,
+                3000,
+                "Dữ liệu không hợp lệ",
+            );
             return;
         }
 
+        let notificationId = null;
+
         try {
             this.blockInteraction("edit");
-            if (window.showOperationLoading) {
-                window.showOperationLoading("Đang lưu thay đổi...", "edit");
-            }
 
-            console.log("Saving changes for transaction:", {
-                uniqueId: APP_STATE.editingTransaction.uniqueId,
-                oldData: APP_STATE.editingTransaction,
-                newData: validation.data,
-            });
+            notificationId = this.notificationManager.show(
+                "Đang lưu thay đổi...",
+                "info",
+                0,
+                {
+                    showOverlay: true,
+                    persistent: true,
+                    icon: "save",
+                    title: "Lưu",
+                },
+            );
+
+            console.log("Validation passed, proceeding with edit...");
 
             await this.performEdit(editFields, validation.data);
 
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading("Đã lưu thay đổi thành công!");
-            }
+            this.hideNotification(notificationId);
+            this.notificationManager.success(
+                "Đã lưu thay đổi thành công",
+                2000,
+                "Thành công",
+            );
+
+            console.log("Save changes completed successfully");
+
             this.closeModal();
         } catch (error) {
             console.error("Error saving changes:", error);
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading();
+
+            if (notificationId) {
+                this.hideNotification(notificationId);
             }
-            if (window.showError) {
-                window.showError("Lỗi khi cập nhật dữ liệu");
-            }
+
+            this.notificationManager.error(
+                "Lỗi khi cập nhật dữ liệu: " + error.message,
+                5000,
+                "Lỗi",
+            );
         } finally {
             this.unblockInteraction();
         }
@@ -1237,15 +1240,23 @@ class MoneyTransferApp {
         if (!editDate || !editNote || !editAmount || !editBank || !editInfo) {
             return {
                 isValid: false,
-                message: "Các trường nhập liệu không tồn tại.",
+                message: "Các trường nhập liệu không tồn tại",
             };
         }
 
-        const dateValue = editDate.value;
+        const dateValue = editDate.value.trim();
         const noteValue = sanitizeInput(editNote.value.trim());
         const amountValue = editAmount.value.trim();
         const bankValue = sanitizeInput(editBank.value.trim());
         const infoValue = sanitizeInput(editInfo.value.trim());
+
+        console.log("Validating edit form:", {
+            dateValue,
+            noteValue,
+            amountValue,
+            bankValue,
+            infoValue,
+        });
 
         if (!isValidDateFormat(dateValue)) {
             return {
@@ -1257,15 +1268,17 @@ class MoneyTransferApp {
         if (!noteValue || !amountValue || !bankValue) {
             return {
                 isValid: false,
-                message: "Vui lòng điền đầy đủ thông tin bắt buộc.",
+                message: "Vui lòng điền đầy đủ thông tin bắt buộc",
             };
         }
 
         const cleanAmount = amountValue.replace(/[,\.]/g, "");
         const numAmount = parseFloat(cleanAmount);
         if (isNaN(numAmount) || numAmount <= 0) {
-            return { isValid: false, message: "Số tiền không hợp lệ." };
+            return { isValid: false, message: "Số tiền không hợp lệ" };
         }
+
+        console.log("Validation successful");
 
         return {
             isValid: true,
@@ -1284,19 +1297,26 @@ class MoneyTransferApp {
         const transaction = APP_STATE.editingTransaction;
         const uniqueId = transaction.uniqueId;
 
-        console.log("Performing edit for transaction:", {
+        console.log("=== PERFORMING EDIT ===");
+        console.log("Transaction to edit:", {
             uniqueId: uniqueId,
             currentData: transaction,
-            newData: validatedData,
         });
 
-        // Convert date to timestamp if editing dates
-        let editDateTimestamp = transaction.dateCell; // Keep original if not changing
+        let editDateTimestamp = transaction.dateCell;
+
+        // Only update date if user has permission and date was changed
         if (this.hasPermission(1) && validatedData.dateValue) {
-            editDateTimestamp = convertToTimestamp(validatedData.dateValue);
+            const newTimestamp = convertToTimestamp(validatedData.dateValue);
+            console.log("Date conversion:", {
+                original: transaction.dateCell,
+                newFormatted: validatedData.dateValue,
+                newTimestamp: newTimestamp,
+            });
+            editDateTimestamp = newTimestamp;
         }
 
-        // Update Firebase
+        // Load document from Firebase
         const doc = await this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .get();
@@ -1307,11 +1327,17 @@ class MoneyTransferApp {
         const data = doc.data();
         const dataArray = data["data"] || [];
 
+        console.log("Firebase data array length:", dataArray.length);
+
+        // Find item index
         let itemIndex = dataArray.findIndex(
             (item) => item.uniqueId === uniqueId,
         );
+
         if (itemIndex === -1) {
-            // Fallback to dateCell matching
+            console.warn(
+                "Item not found by uniqueId, trying dateCell fallback",
+            );
             itemIndex = dataArray.findIndex(
                 (item) => item.dateCell === transaction.dateCell,
             );
@@ -1321,6 +1347,9 @@ class MoneyTransferApp {
             throw new Error("Transaction not found in Firebase");
         }
 
+        console.log("Found item at index:", itemIndex);
+        console.log("Original item:", dataArray[itemIndex]);
+
         const auth = this.getAuthState();
         const userInfo = auth
             ? auth.userType
@@ -1328,11 +1357,11 @@ class MoneyTransferApp {
                 : "Unknown"
             : "Unknown";
 
-        // Update Firebase document
+        // Update item based on permissions
         if (this.hasPermission(1)) {
-            // Can edit all fields
+            // Full edit permission - update all fields
             dataArray[itemIndex] = {
-                ...dataArray[itemIndex],
+                ...dataArray[itemIndex], // Preserve all existing fields including 'muted'
                 dateCell: editDateTimestamp,
                 noteCell: validatedData.noteValue,
                 amountCell: numberWithCommas(validatedData.numAmount),
@@ -1340,24 +1369,33 @@ class MoneyTransferApp {
                 customerInfoCell: validatedData.infoValue,
                 user: userInfo,
             };
+            console.log("Updated with full permissions");
         } else {
-            // Can only edit customer info
+            // Limited permission - only update customer info
             dataArray[itemIndex] = {
-                ...dataArray[itemIndex],
+                ...dataArray[itemIndex], // Preserve all existing fields
                 customerInfoCell: validatedData.infoValue,
                 user: userInfo,
             };
+            console.log(
+                "Updated with limited permissions (customer info only)",
+            );
         }
 
+        console.log("Updated item:", dataArray[itemIndex]);
+
+        // Save to Firebase
         await this.collectionRef
             .doc(CONFIG.data.COLLECTION_NAME)
             .update({ data: dataArray });
+        console.log("Firebase update successful");
 
         // Update local data and UI
         this.updateRowAfterEdit(validatedData);
         this.updateStateAfterEdit(uniqueId, validatedData, editDateTimestamp);
         cacheManager.invalidate();
 
+        // Log the action
         this.logAction(
             "edit",
             `Sửa giao dịch: ${validatedData.noteValue || transaction.noteCell}`,
@@ -1365,14 +1403,17 @@ class MoneyTransferApp {
             dataArray[itemIndex],
         );
 
-        console.log("Edit completed successfully");
+        console.log("=== EDIT COMPLETED ===");
     }
 
     updateRowAfterEdit(validatedData) {
         const row = APP_STATE.editingRow;
-        if (!row || !row.cells) return;
+        if (!row || !row.cells) {
+            console.error("Cannot update row: row or cells not found");
+            return;
+        }
 
-        console.log("Updating row display with new data:", validatedData);
+        console.log("Updating row display with validated data:", validatedData);
 
         if (this.hasPermission(1)) {
             // Update all visible cells
@@ -1390,22 +1431,33 @@ class MoneyTransferApp {
                 row.cells[3].textContent = validatedData.bankValue;
             if (row.cells[5])
                 row.cells[5].textContent = validatedData.infoValue;
+
+            console.log("Updated all cells (full permission)");
         } else {
             // Only update customer info
             if (row.cells[5])
                 row.cells[5].textContent = validatedData.infoValue;
+
+            console.log("Updated customer info cell only (limited permission)");
         }
 
-        // Add visual feedback for updated row
-        row.style.backgroundColor = "#e8f5e8";
+        // Visual feedback
+        row.style.transition = "background-color 0.3s ease";
+        row.style.backgroundColor = "#d4edda";
+
         setTimeout(() => {
             row.style.backgroundColor = "";
         }, 2000);
 
-        console.log("Row updated successfully");
+        console.log("Row visual update completed");
     }
 
     updateStateAfterEdit(uniqueId, validatedData, editDateTimestamp = null) {
+        console.log("Updating state for uniqueId:", uniqueId);
+
+        let arrayDataUpdated = false;
+        let filteredDataUpdated = false;
+
         const updateItem = (item) => {
             if (item.uniqueId === uniqueId) {
                 if (this.hasPermission(1)) {
@@ -1418,45 +1470,76 @@ class MoneyTransferApp {
 
                 console.log("Updated item in state:", {
                     uniqueId: item.uniqueId,
-                    noteCell: item.noteCell,
-                    customerInfoCell: item.customerInfoCell,
+                    updated: item,
                 });
+
+                return true;
             }
+            return false;
         };
 
-        APP_STATE.arrayData.forEach(updateItem);
-        APP_STATE.filteredData.forEach(updateItem);
+        // Update arrayData
+        APP_STATE.arrayData.forEach((item) => {
+            if (updateItem(item)) {
+                arrayDataUpdated = true;
+            }
+        });
 
+        // Update filteredData
+        APP_STATE.filteredData.forEach((item) => {
+            if (updateItem(item)) {
+                filteredDataUpdated = true;
+            }
+        });
+
+        console.log("State update verification:", {
+            arrayDataUpdated,
+            filteredDataUpdated,
+        });
+
+        // Update total amount
         if (this.filterManager) {
             this.filterManager.updateTotalAmount();
         }
+
+        console.log("State update completed");
     }
 
     // ===== EXPORT AND LOGOUT =====
     exportToExcel() {
         if (APP_STATE.isOperationInProgress) {
-            if (window.showError) {
-                window.showError("Có thao tác đang thực hiện, vui lòng đợi...");
-            }
+            this.notificationManager.warning(
+                "Có thao tác đang thực hiện, vui lòng đợi...",
+                2000,
+            );
             return;
         }
 
         if (!this.hasPermission(1)) {
-            if (window.showError) {
-                window.showError("Không có quyền xuất dữ liệu");
-            }
+            this.notificationManager.error(
+                "Không có quyền xuất dữ liệu",
+                3000,
+                "Không đủ quyền",
+            );
             return;
         }
+
+        let notificationId = null;
 
         try {
             this.blockInteraction("export");
 
-            if (window.showOperationLoading) {
-                window.showOperationLoading(
-                    "Đang chuẩn bị file Excel...",
-                    "export",
-                );
-            }
+            notificationId = this.notificationManager.show(
+                "Đang chuẩn bị file Excel...",
+                "info",
+                0,
+                {
+                    showOverlay: true,
+                    persistent: true,
+                    icon: "file-spreadsheet",
+                    title: "Xuất Excel",
+                },
+            );
 
             const wsData = [
                 [
@@ -1487,7 +1570,6 @@ class MoneyTransferApp {
                     const checkbox = row.cells[4].querySelector(
                         'input[type="checkbox"]',
                     );
-                    // FIXED: Correct export logic
                     rowData.push(
                         checkbox && checkbox.checked
                             ? "Đã đi đơn"
@@ -1501,24 +1583,20 @@ class MoneyTransferApp {
             });
 
             if (exportedRowCount === 0) {
-                if (window.hideOperationLoading) {
-                    window.hideOperationLoading();
-                }
-                if (window.showError) {
-                    window.showError("Không có dữ liệu để xuất ra Excel");
-                }
+                this.hideNotification(notificationId);
+                this.notificationManager.warning(
+                    "Không có dữ liệu để xuất ra Excel",
+                    3000,
+                );
                 return;
             }
 
             if (typeof XLSX === "undefined") {
-                if (window.hideOperationLoading) {
-                    window.hideOperationLoading();
-                }
-                if (window.showError) {
-                    window.showError(
-                        "Thư viện Excel không khả dụng. Vui lòng tải lại trang",
-                    );
-                }
+                this.hideNotification(notificationId);
+                this.notificationManager.error(
+                    "Thư viện Excel không khả dụng. Vui lòng tải lại trang",
+                    5000,
+                );
                 return;
             }
 
@@ -1529,19 +1607,24 @@ class MoneyTransferApp {
             const fileName = `dulieu_${new Date().toISOString().split("T")[0]}.xlsx`;
             XLSX.writeFile(wb, fileName);
 
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading(
-                    `Đã xuất ${exportedRowCount} giao dịch ra Excel!`,
-                );
-            }
+            this.hideNotification(notificationId);
+            this.notificationManager.success(
+                `Đã xuất ${exportedRowCount} giao dịch ra file ${fileName}`,
+                3000,
+                "Xuất Excel thành công",
+            );
         } catch (error) {
             console.error("Error exporting to Excel:", error);
-            if (window.hideOperationLoading) {
-                window.hideOperationLoading();
+
+            if (notificationId) {
+                this.hideNotification(notificationId);
             }
-            if (window.showError) {
-                window.showError("Có lỗi xảy ra khi xuất dữ liệu ra Excel");
-            }
+
+            this.notificationManager.error(
+                "Có lỗi xảy ra khi xuất dữ liệu ra Excel: " + error.message,
+                5000,
+                "Lỗi xuất Excel",
+            );
         } finally {
             setTimeout(() => {
                 this.unblockInteraction();
@@ -1551,27 +1634,33 @@ class MoneyTransferApp {
 
     handleLogout() {
         if (APP_STATE.isOperationInProgress) {
-            if (window.showError) {
-                window.showError(
-                    "Có thao tác đang thực hiện, vui lòng đợi trước khi đăng xuất...",
-                );
-            }
+            this.notificationManager.warning(
+                "Có thao tác đang thực hiện, vui lòng đợi trước khi đăng xuất...",
+                3000,
+            );
             return;
         }
 
         const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
         if (confirmLogout) {
             this.blockInteraction("logout");
-            if (window.showOperationLoading) {
-                window.showOperationLoading("Đang đăng xuất...", "logout");
-            }
+
+            const notificationId = this.notificationManager.show(
+                "Đang đăng xuất...",
+                "info",
+                0,
+                {
+                    showOverlay: true,
+                    persistent: true,
+                    icon: "log-out",
+                    title: "Đăng xuất",
+                },
+            );
 
             setTimeout(() => {
                 this.clearAuthState();
                 cacheManager.invalidate();
-                if (window.hideOperationLoading) {
-                    window.hideOperationLoading();
-                }
+                this.hideNotification(notificationId);
                 window.location.href = "../index.html";
             }, 1000);
         }
@@ -1633,7 +1722,6 @@ class MoneyTransferApp {
         );
 
         if (updatedArray.length === dataArray.length) {
-            // Try fallback with dateCell
             const updatedArrayFallback = dataArray.filter(
                 (item) => item.dateCell !== row.querySelector("td").id,
             );
@@ -1759,17 +1847,28 @@ document.addEventListener("DOMContentLoaded", async function () {
         await moneyTransferApp.init();
         window.moneyTransferApp = moneyTransferApp;
         console.log(
-            "Money Transfer Management System initialized successfully with FIXED checkbox logic",
+            "Money Transfer Management System initialized successfully with FULL NOTIFICATIONS",
         );
     } catch (error) {
         console.error(
             "Failed to initialize Money Transfer Management System:",
             error,
         );
-        if (window.showError) {
+
+        // Fallback notification if NotificationManager not available
+        if (window.NotificationManager) {
+            const notificationManager = new NotificationManager();
+            notificationManager.error(
+                "Không thể khởi tạo ứng dụng. Vui lòng tải lại trang.",
+                0,
+                "Lỗi nghiêm trọng",
+            );
+        } else if (window.showError) {
             window.showError(
                 "Không thể khởi tạo ứng dụng. Vui lòng tải lại trang.",
             );
+        } else {
+            alert("Không thể khởi tạo ứng dụng. Vui lòng tải lại trang.");
         }
     }
 });
@@ -1777,14 +1876,16 @@ document.addEventListener("DOMContentLoaded", async function () {
 // Global error handler
 window.addEventListener("error", function (e) {
     console.error("Global error:", e.error);
+
     if (moneyTransferApp && APP_STATE.isOperationInProgress) {
         moneyTransferApp.unblockInteraction();
-        if (window.hideOperationLoading) {
-            window.hideOperationLoading();
+        if (moneyTransferApp.notificationManager) {
+            moneyTransferApp.notificationManager.error(
+                "Có lỗi xảy ra. Vui lòng tải lại trang.",
+                5000,
+                "Lỗi",
+            );
         }
-    }
-    if (window.showError) {
-        window.showError("Có lỗi xảy ra. Vui lòng tải lại trang.");
     }
 });
 
