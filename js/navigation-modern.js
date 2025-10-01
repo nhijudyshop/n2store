@@ -200,7 +200,10 @@ class UnifiedNavigationManager {
             this.userPermissions = MENU_CONFIG.map(
                 (item) => item.permissionRequired,
             ).filter(Boolean);
-            console.log("[Unified Nav] Admin - all permissions granted");
+            console.log(
+                "[Permission Load] Admin - all permissions granted:",
+                this.userPermissions,
+            );
             return;
         }
 
@@ -211,16 +214,20 @@ class UnifiedNavigationManager {
                 const userAuth = JSON.parse(authData);
                 if (
                     userAuth.pagePermissions &&
-                    Array.isArray(userAuth.pagePermissions)
+                    Array.isArray(userAuth.pagePermissions) &&
+                    userAuth.pagePermissions.length > 0
                 ) {
                     this.userPermissions = userAuth.pagePermissions;
-                    console.log("[Unified Nav] Loaded cached permissions");
+                    console.log(
+                        "[Permission Load] Loaded cached permissions:",
+                        this.userPermissions,
+                    );
                     return;
                 }
             }
         } catch (error) {
             console.error(
-                "[Unified Nav] Error loading cached permissions:",
+                "[Permission Load] Error loading cached permissions:",
                 error,
             );
         }
@@ -231,6 +238,13 @@ class UnifiedNavigationManager {
                 const authData = JSON.parse(
                     localStorage.getItem("loginindex_auth"),
                 );
+
+                if (!authData || !authData.username) {
+                    console.error("[Permission Load] No username in auth data");
+                    this.userPermissions = [];
+                    return;
+                }
+
                 const db = firebase.firestore();
                 const userDoc = await db
                     .collection("users")
@@ -241,26 +255,36 @@ class UnifiedNavigationManager {
                     const userData = userDoc.data();
                     this.userPermissions = userData.pagePermissions || [];
 
-                    // Cache for next time
+                    // ✅ FIXED: Cache vào localStorage để lần sau dùng
                     authData.pagePermissions = this.userPermissions;
                     localStorage.setItem(
                         "loginindex_auth",
                         JSON.stringify(authData),
                     );
+
                     console.log(
-                        "[Unified Nav] Loaded permissions from Firebase",
+                        "[Permission Load] Loaded from Firebase:",
+                        this.userPermissions,
                     );
                     return;
+                } else {
+                    console.error(
+                        "[Permission Load] User document not found in Firebase",
+                    );
                 }
             }
         } catch (error) {
             console.error(
-                "[Unified Nav] Error loading Firebase permissions:",
+                "[Permission Load] Error loading Firebase permissions:",
                 error,
             );
         }
 
+        // ✅ FIXED: Nếu không load được gì, set empty array
         this.userPermissions = [];
+        console.log(
+            "[Permission Load] No permissions loaded, defaulting to empty",
+        );
     }
 
     getCurrentPageIdentifier() {
@@ -306,14 +330,50 @@ class UnifiedNavigationManager {
     }
 
     checkPageAccess() {
-        if (!this.currentPage) return true;
+        // Nếu không xác định được trang hiện tại, cho phép truy cập
+        if (!this.currentPage) {
+            console.log("[Permission Check] No current page, allowing access");
+            return true;
+        }
+
+        // Tìm thông tin trang trong MENU_CONFIG
         const pageInfo = MENU_CONFIG.find(
             (item) => item.pageIdentifier === this.currentPage,
         );
-        if (!pageInfo) return true;
-        if (pageInfo.publicAccess) return true;
-        if (this.isAdmin) return true;
-        return this.userPermissions.includes(this.currentPage);
+
+        // Nếu không tìm thấy config, cho phép truy cập (trang không yêu cầu quyền)
+        if (!pageInfo) {
+            console.log(
+                "[Permission Check] Page not in MENU_CONFIG, allowing access",
+            );
+            return true;
+        }
+
+        // Nếu trang được đánh dấu là public, cho phép truy cập
+        if (pageInfo.publicAccess) {
+            console.log("[Permission Check] Public page, allowing access");
+            return true;
+        }
+
+        // Admin có quyền truy cập mọi trang
+        if (this.isAdmin) {
+            console.log("[Permission Check] Admin user, allowing access");
+            return true;
+        }
+
+        // ✅ FIXED: So sánh đúng với permissionRequired thay vì currentPage
+        const hasPermission = this.userPermissions.includes(
+            pageInfo.permissionRequired,
+        );
+
+        console.log("[Permission Check] Details:", {
+            currentPage: this.currentPage,
+            requiredPermission: pageInfo.permissionRequired,
+            userPermissions: this.userPermissions,
+            hasAccess: hasPermission,
+        });
+
+        return hasPermission;
     }
 
     // =====================================================
@@ -916,11 +976,23 @@ class UnifiedNavigationManager {
     }
 
     getAccessiblePages() {
-        return MENU_CONFIG.filter((item) => {
+        const accessible = MENU_CONFIG.filter((item) => {
+            // Admin có quyền truy cập tất cả
             if (this.isAdmin) return true;
+
+            // Nếu là trang chỉ dành cho admin, user thường không được phép
             if (item.adminOnly) return false;
+
+            // ✅ CORRECT: Kiểm tra permissionRequired
             return this.userPermissions.includes(item.permissionRequired);
         });
+
+        console.log(
+            "[Get Accessible] Found",
+            accessible.length,
+            "accessible pages",
+        );
+        return accessible;
     }
 
     // =====================================================
@@ -1866,33 +1938,69 @@ class UnifiedNavigationManager {
             (item) => item.pageIdentifier === this.currentPage,
         );
         const pageName = pageInfo ? pageInfo.text : this.currentPage;
+        const requiredPermission = pageInfo
+            ? pageInfo.permissionRequired
+            : "unknown";
+
+        // ✅ Lấy trang đầu tiên user có quyền truy cập
+        const accessiblePages = this.getAccessiblePages();
+        const firstAccessiblePage =
+            accessiblePages.length > 0 ? accessiblePages[0] : null;
+
+        console.error("[Access Denied]", {
+            page: this.currentPage,
+            pageName: pageName,
+            requiredPermission: requiredPermission,
+            userPermissions: this.userPermissions,
+            isAdmin: this.isAdmin,
+            firstAccessiblePage: firstAccessiblePage
+                ? firstAccessiblePage.pageIdentifier
+                : "none",
+        });
+
+        // ✅ Nếu không có trang nào accessible, redirect về login
+        if (!firstAccessiblePage) {
+            console.error(
+                "[Access Denied] No accessible pages found, redirecting to login",
+            );
+            window.location.href = "../index.html";
+            return;
+        }
+
+        const redirectUrl = firstAccessiblePage.href;
+        const redirectPageName = firstAccessiblePage.text;
 
         document.body.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; 
-                        background: linear-gradient(135deg, #6366f1, #4f46e5); padding: 20px;">
-                <div style="background: white; padding: ${this.isMobile ? "32px 20px" : "40px"}; border-radius: 16px; 
-                            max-width: ${this.isMobile ? "400px" : "500px"}; text-align: center; 
-                            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%;">
-                    <i data-lucide="alert-circle" style="width: ${this.isMobile ? "56px" : "64px"}; 
-                                                         height: ${this.isMobile ? "56px" : "64px"}; color: #ef4444; 
-                                                         margin: 0 auto ${this.isMobile ? "16px" : "20px"}; display: block;"></i>
-                    <h1 style="color: #ef4444; margin-bottom: ${this.isMobile ? "12px" : "16px"}; 
-                               font-size: ${this.isMobile ? "20px" : "24px"}; font-weight: 600;">
-                        Truy Cập Bị Từ Chối
-                    </h1>
-                    <p style="color: #6b7280; margin-bottom: ${this.isMobile ? "20px" : "24px"}; 
-                              line-height: ${this.isMobile ? "1.5" : "1.6"}; font-size: ${this.isMobile ? "14px" : "16px"};">
-                        Bạn không có quyền truy cập: <strong style="color: #111827;">${pageName}</strong>
-                    </p>
-                    <button onclick="window.location.href='../live/index.html'" 
-                            style="${this.isMobile ? "width: 100%" : ""}; padding: 12px 24px; background: #6366f1; 
-                                   color: white; border: none; border-radius: 8px; cursor: pointer; 
-                                   font-weight: 600; font-size: 14px;">
-                        Về Trang Chủ
-                    </button>
-                </div>
+        <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; 
+                    background: linear-gradient(135deg, #6366f1, #4f46e5); padding: 20px;">
+            <div style="background: white; padding: ${this.isMobile ? "32px 20px" : "40px"}; border-radius: 16px; 
+                        max-width: ${this.isMobile ? "400px" : "500px"}; text-align: center; 
+                        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%;">
+                <i data-lucide="alert-circle" style="width: ${this.isMobile ? "56px" : "64px"}; 
+                                                     height: ${this.isMobile ? "56px" : "64px"}; color: #ef4444; 
+                                                     margin: 0 auto ${this.isMobile ? "16px" : "20px"}; display: block;"></i>
+                <h1 style="color: #ef4444; margin-bottom: ${this.isMobile ? "12px" : "16px"}; 
+                           font-size: ${this.isMobile ? "20px" : "24px"}; font-weight: 600;">
+                    Truy Cập Bị Từ Chối
+                </h1>
+                <p style="color: #6b7280; margin-bottom: ${this.isMobile ? "12px" : "16px"}; 
+                          line-height: ${this.isMobile ? "1.5" : "1.6"}; font-size: ${this.isMobile ? "14px" : "16px"};">
+                    Bạn không có quyền truy cập: <strong style="color: #111827;">${pageName}</strong>
+                </p>
+                <p style="color: #9ca3af; margin-bottom: ${this.isMobile ? "20px" : "24px"}; font-size: 13px;">
+                    Quyền yêu cầu: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${requiredPermission}</code>
+                </p>
+                <button onclick="window.location.href='${redirectUrl}'" 
+                        style="${this.isMobile ? "width: 100%" : ""}; padding: 12px 24px; background: #6366f1; 
+                               color: white; border: none; border-radius: 8px; cursor: pointer; 
+                               font-weight: 600; font-size: 14px; transition: all 0.2s;"
+                        onmouseover="this.style.background='#4f46e5'"
+                        onmouseout="this.style.background='#6366f1'">
+                    Về ${redirectPageName}
+                </button>
             </div>
-        `;
+        </div>
+    `;
 
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
