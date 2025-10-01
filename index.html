@@ -2,40 +2,24 @@
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <title>Đăng Nhập - N2 Shop</title>
+        <title>Đăng Nhập</title>
         <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
         <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
-
         <!-- External CSS -->
         <link rel="stylesheet" href="./index/login-modern.css" />
-
-        <!-- Lucide Icons -->
-        <script src="https://unpkg.com/lucide@latest"></script>
-
-        <!-- Firebase SDKs -->
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     </head>
 
     <body>
         <div class="login-container">
-            <div id="cryptoStatus" class="crypto-status">
-                <i data-lucide="shield-check"></i>
-                <span>Loading...</span>
-            </div>
+            <div id="cryptoStatus" class="crypto-status">Loading...</div>
 
             <div class="brand">
                 <div class="brand-inner">
-                    <img
-                        src="./index/logo.jpg"
-                        alt="N2 Shop Logo"
-                        class="brand-logo"
-                    />
+                    <img src="./index/logo.jpg" alt="Logo" class="brand-logo" />
                     <h1 class="brand-text">N2 SHOP</h1>
                 </div>
                 <p>Hệ thống quản lý bán hàng</p>
@@ -44,11 +28,8 @@
             <div class="login-box">
                 <form id="loginForm">
                     <div class="form-group">
-                        <label for="username">
-                            <i data-lucide="user"></i>
-                            Tài khoản
-                        </label>
-                        <div class="input-wrapper">
+                        <label for="username">Tài khoản</label>
+                        <div class="input-wrapper username">
                             <input
                                 type="text"
                                 id="username"
@@ -57,16 +38,12 @@
                                 required
                                 autocomplete="username"
                             />
-                            <i data-lucide="user"></i>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="password">
-                            <i data-lucide="lock"></i>
-                            Mật khẩu
-                        </label>
-                        <div class="input-wrapper">
+                        <label for="password">Mật khẩu</label>
+                        <div class="input-wrapper password">
                             <input
                                 type="password"
                                 id="password"
@@ -75,7 +52,6 @@
                                 required
                                 autocomplete="current-password"
                             />
-                            <i data-lucide="lock"></i>
                         </div>
                     </div>
 
@@ -115,47 +91,16 @@
             </div>
         </div>
 
-        <script>
-            // Initialize Lucide icons
-            lucide.createIcons();
+        <!-- Firebase SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-            // Enhanced Remember Me functionality
-            function setupRememberMe() {
-                const checkbox = document.getElementById("rememberMe");
-                const duration = document.getElementById("rememberDuration");
+        <!-- Crypto Libraries -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
 
-                if (checkbox && duration) {
-                    checkbox.addEventListener("change", function () {
-                        duration.classList.toggle("show", this.checked);
-                        duration.textContent = this.checked
-                            ? "Sẽ giữ đăng nhập trong 30 ngày"
-                            : "";
-                    });
-                }
-            }
-
-            // Crypto status
-            function updateCryptoStatus() {
-                const statusEl = document.getElementById("cryptoStatus");
-                const statusText = statusEl.querySelector("span");
-                if (statusText) {
-                    statusText.textContent = "Bảo mật";
-                }
-                statusEl.classList.add("loaded");
-                setTimeout(() => {
-                    statusEl.style.opacity = "0";
-                }, 2000);
-            }
-
-            // Initialize on DOM ready
-            document.addEventListener("DOMContentLoaded", function () {
-                lucide.createIcons();
-                updateCryptoStatus();
-                setupRememberMe();
-            });
-        </script>
-
-        <!-- Login functionality -->
+        <!-- Login Script -->
         <script src="./index/login.js"></script>
     </body>
 </html>
