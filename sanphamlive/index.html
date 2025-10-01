@@ -87,128 +87,124 @@
                 </div>
             </header>
 
-                <!-- Form Section -->
-                <div id="formSection" class="form-section hidden">
-                    <h2>Thêm Sản Phẩm Mới</h2>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Nhà Cung Cấp</label>
-                            <input
-                                type="text"
-                                id="supplier"
-                                placeholder="Nhập tên NCC"
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label>Tên Sản Phẩm</label>
-                            <input
-                                type="text"
-                                id="productName"
-                                placeholder="Nhập tên SP"
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label>Mã Sản Phẩm</label>
-                            <input
-                                type="text"
-                                id="productCode"
-                                placeholder="Nhập mã SP"
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label>SL NCC Báo</label>
-                            <input
-                                type="number"
-                                id="supplierQty"
-                                placeholder="Nhập số lượng"
-                                min="0"
-                            />
-                        </div>
+            <!-- Form Section -->
+            <div id="formSection" class="form-section hidden">
+                <h2>Thêm Sản Phẩm Mới</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nhà Cung Cấp</label>
+                        <input
+                            type="text"
+                            id="supplier"
+                            placeholder="Nhập tên NCC"
+                        />
                     </div>
-                    <div class="form-actions">
-                        <button
-                            id="submitBtn"
-                            class="btn btn-primary btn-block"
-                        >
-                            <i data-lucide="check"></i>
-                            Thêm Sản Phẩm
+                    <div class="form-group">
+                        <label>Tên Sản Phẩm</label>
+                        <input
+                            type="text"
+                            id="productName"
+                            placeholder="Nhập tên SP"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>Mã Sản Phẩm</label>
+                        <input
+                            type="text"
+                            id="productCode"
+                            placeholder="Nhập mã SP"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>SL NCC Báo</label>
+                        <input
+                            type="number"
+                            id="supplierQty"
+                            placeholder="Nhập số lượng"
+                            min="0"
+                        />
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button id="submitBtn" class="btn btn-primary btn-block">
+                        <i data-lucide="check"></i>
+                        Thêm Sản Phẩm
+                    </button>
+                    <button
+                        id="cancelFormBtn"
+                        class="btn btn-secondary btn-block"
+                    >
+                        <i data-lucide="x"></i>
+                        Hủy
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label>Từ ngày</label>
+                        <input type="date" id="startDate" />
+                    </div>
+                    <div class="form-group">
+                        <label>Đến ngày</label>
+                        <input type="date" id="endDate" />
+                    </div>
+                    <div class="filter-buttons">
+                        <button id="todayBtn" class="btn-success-sm">
+                            <i data-lucide="calendar-days"></i>
+                            Hôm nay
                         </button>
-                        <button
-                            id="cancelFormBtn"
-                            class="btn btn-secondary btn-block"
-                        >
+                        <button id="allBtn" class="btn-info-sm">
+                            <i data-lucide="list"></i>
+                            Tất cả
+                        </button>
+                        <button id="clearBtn" class="btn-secondary-sm">
                             <i data-lucide="x"></i>
-                            Hủy
+                            Xóa lọc
+                        </button>
+                    </div>
+                    <div>
+                        <button
+                            id="deleteFilteredBtn"
+                            class="btn-danger-sm hidden"
+                        >
+                            <i data-lucide="trash-2"></i>
+                            Xóa đã lọc
                         </button>
                     </div>
                 </div>
+                <div id="filterInfo" class="filter-info hidden"></div>
+            </div>
 
-                <!-- Filter Section -->
-                <div class="filter-section">
-                    <div class="filter-grid">
-                        <div class="form-group">
-                            <label>Từ ngày</label>
-                            <input type="date" id="startDate" />
-                        </div>
-                        <div class="form-group">
-                            <label>Đến ngày</label>
-                            <input type="date" id="endDate" />
-                        </div>
-                        <div class="filter-buttons">
-                            <button id="todayBtn" class="btn-success-sm">
-                                <i data-lucide="calendar-days"></i>
-                                Hôm nay
-                            </button>
-                            <button id="allBtn" class="btn-info-sm">
-                                <i data-lucide="list"></i>
-                                Tất cả
-                            </button>
-                            <button id="clearBtn" class="btn-secondary-sm">
-                                <i data-lucide="x"></i>
-                                Xóa lọc
-                            </button>
-                        </div>
-                        <div>
-                            <button
-                                id="deleteFilteredBtn"
-                                class="btn-danger-sm hidden"
-                            >
-                                <i data-lucide="trash-2"></i>
-                                Xóa đã lọc
-                            </button>
-                        </div>
-                    </div>
-                    <div id="filterInfo" class="filter-info hidden"></div>
-                </div>
+            <!-- Order Statistics Container (will be injected by JS) -->
+            <div id="orderStatsContainer"></div>
 
-                <!-- Order Statistics Container (will be injected by JS) -->
-                <div id="orderStatsContainer"></div>
-
-                <!-- Table Section -->
-                <div class="table-section">
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Ngày</th>
-                                    <th>NCC</th>
-                                    <th>Tên SP</th>
-                                    <th>Mã SP</th>
-                                    <th class="text-center">SL NCC</th>
-                                    <th class="text-center">SL Khách</th>
-                                    <th>Mã ĐH</th>
-                                    <th class="text-center">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody">
-                                <tr>
-                                    <td colspan="8" class="text-center">
-                                        Đang tải dữ liệu...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+            <!-- Table Section -->
+            <div class="table-section">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ngày</th>
+                                <th>NCC</th>
+                                <th>Tên SP</th>
+                                <th>Mã SP</th>
+                                <th class="text-center">SL NCC</th>
+                                <th class="text-center">SL Khách</th>
+                                <th>Mã ĐH</th>
+                                <th class="text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="8" class="text-center">
+                                    Đang tải dữ liệu...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
@@ -309,83 +305,22 @@
 
         <!-- Initialize Lucide Icons & Sidebar -->
         <script>
-            // Initialize Lucide icons
             lucide.createIcons();
-
-            // Setup sidebar toggle for mobile
+        </script>
+        <script>
             document.addEventListener("DOMContentLoaded", function () {
-                const menuToggle = document.getElementById("menuToggle");
-                const sidebar = document.getElementById("sidebar");
-                const sidebarToggle = document.getElementById("sidebarToggle");
-                const sidebarToggleFixed =
-                    document.getElementById("sidebarToggleFixed");
-
-                // Mobile menu toggle
-                if (menuToggle && sidebar) {
-                    menuToggle.addEventListener("click", function () {
-                        sidebar.classList.toggle("active");
-                    });
-                }
-
-                // Desktop sidebar toggle (hide/show)
-                if (sidebarToggle && sidebar) {
-                    sidebarToggle.addEventListener("click", function () {
-                        sidebar.classList.toggle("collapsed");
-                        localStorage.setItem(
-                            "sidebarCollapsed",
-                            sidebar.classList.contains("collapsed"),
-                        );
-                    });
-                }
-
-                // Fixed toggle button (show sidebar)
-                if (sidebarToggleFixed && sidebar) {
-                    sidebarToggleFixed.addEventListener("click", function () {
-                        sidebar.classList.remove("collapsed");
-                        localStorage.setItem("sidebarCollapsed", "false");
-                    });
-                }
-
-                // Restore sidebar state
-                const sidebarCollapsed =
-                    localStorage.getItem("sidebarCollapsed");
-                if (sidebarCollapsed === "true" && window.innerWidth > 1024) {
-                    sidebar.classList.add("collapsed");
-                }
-
-                // Close sidebar when clicking outside (mobile)
-                document.addEventListener("click", function (e) {
-                    if (window.innerWidth <= 1024 && sidebar) {
-                        if (
-                            !sidebar.contains(e.target) &&
-                            menuToggle &&
-                            !menuToggle.contains(e.target) &&
-                            sidebar.classList.contains("active")
-                        ) {
-                            sidebar.classList.remove("active");
-                        }
-                    }
-                });
-
-                // Handle window resize
-                let resizeTimeout;
-                window.addEventListener("resize", function () {
-                    clearTimeout(resizeTimeout);
-                    resizeTimeout = setTimeout(function () {
-                        if (window.innerWidth <= 1024) {
-                            sidebar.classList.remove("collapsed");
-                        } else {
-                            const collapsed =
-                                localStorage.getItem("sidebarCollapsed");
-                            if (collapsed === "true") {
-                                sidebar.classList.add("collapsed");
+                setTimeout(() => {
+                    const fixedBtn = document.querySelector(
+                        ".sidebar-toggle-fixed",
+                    );
+                    if (fixedBtn) {
+                        fixedBtn.addEventListener("click", function () {
+                            if (window.navigationManager) {
+                                window.navigationManager.showSidebar();
                             }
-                        }
-                    }, 250);
-                });
-
-                // Reinitialize icons after DOM changes
-                lucide.createIcons();
+                        });
+                    }
+                }, 1000);
             });
         </script>
     </body>
