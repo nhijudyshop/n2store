@@ -2,7 +2,7 @@
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <title>Đăng Nhập</title>
+        <title>Đăng Nhập - N2 Shop</title>
         <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
         <meta
@@ -10,527 +10,32 @@
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
 
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-
-            body {
-                font-family:
-                    "Inter",
-                    "Segoe UI",
-                    -apple-system,
-                    BlinkMacSystemFont,
-                    "Roboto",
-                    "Helvetica Neue",
-                    Arial,
-                    sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 15px;
-                font-size: 14px;
-            }
-
-            .login-container {
-                background: rgba(255, 255, 255, 0.95);
-                padding: 30px 20px;
-                border-radius: 20px;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-                backdrop-filter: blur(20px);
-                width: 100%;
-                max-width: 400px;
-                text-align: center;
-                animation: slideUp 0.6s ease-out;
-            }
-
-            @keyframes slideUp {
-                from {
-                    opacity: 0;
-                    transform: translateY(30px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            .brand {
-                margin-bottom: 30px;
-            }
-
-            .brand-inner {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 10px;
-                margin-bottom: 8px;
-            }
-
-            .brand-logo {
-                width: 45px;
-                height: 45px;
-                object-fit: cover;
-                border-radius: 10%;
-            }
-
-            .brand-text {
-                font-size: 1.8rem;
-                font-weight: 300;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-            }
-
-            .brand p {
-                color: #6c757d;
-                font-size: 0.875rem;
-                font-weight: 400;
-            }
-
-            .login-box {
-                width: 100%;
-            }
-
-            .form-group {
-                margin-bottom: 18px;
-                text-align: left;
-            }
-
-            .form-group label {
-                display: block;
-                margin-bottom: 6px;
-                color: #2c3e50;
-                font-weight: 500;
-                font-size: 13px;
-            }
-
-            .input-wrapper {
-                position: relative;
-            }
-
-            .input-wrapper input {
-                width: 100%;
-                padding: 14px 16px 14px 45px;
-                border: 2px solid #e9ecef;
-                border-radius: 10px;
-                font-size: 15px;
-                transition: all 0.3s ease;
-                background: white;
-                color: #2c3e50;
-                outline: none;
-            }
-
-            .input-wrapper input:focus {
-                border-color: #667eea;
-                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            }
-
-            .input-wrapper input::placeholder {
-                color: #adb5bd;
-            }
-
-            .input-wrapper::before {
-                content: "";
-                position: absolute;
-                left: 15px;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 18px;
-                height: 18px;
-                background-size: contain;
-                opacity: 0.5;
-                z-index: 1;
-            }
-
-            .input-wrapper.username::before {
-                background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>');
-            }
-
-            .input-wrapper.password::before {
-                background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>');
-            }
-
-            .remember-me-group {
-                margin-bottom: 16px;
-                text-align: left;
-            }
-
-            .remember-me-container {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 13px;
-                color: #495057;
-                cursor: pointer;
-                padding: 6px 0;
-                user-select: none;
-            }
-
-            .remember-me-container:active {
-                opacity: 0.7;
-            }
-
-            .remember-me-container input[type="checkbox"] {
-                position: relative;
-                width: 18px;
-                height: 18px;
-                margin: 0;
-                cursor: pointer;
-                appearance: none;
-                border: 2px solid #e9ecef;
-                border-radius: 4px;
-                background: white;
-                transition: all 0.2s ease;
-                flex-shrink: 0;
-            }
-
-            .remember-me-container input[type="checkbox"]:checked {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border-color: #667eea;
-            }
-
-            .remember-me-container input[type="checkbox"]:checked::after {
-                content: "✓";
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                color: white;
-                font-size: 11px;
-                font-weight: bold;
-            }
-
-            .remember-text {
-                flex: 1;
-            }
-
-            .remember-duration {
-                font-size: 11px;
-                color: #6c757d;
-                margin-top: 4px;
-                padding-left: 26px;
-                display: none;
-            }
-
-            .remember-duration.show {
-                display: block;
-            }
-
-            #loginButton {
-                width: 100%;
-                padding: 15px 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 15px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
-                margin-top: 8px;
-                touch-action: manipulation;
-            }
-
-            #loginButton:active {
-                transform: scale(0.98);
-            }
-
-            #loginButton.loading {
-                pointer-events: none;
-                opacity: 0.8;
-                position: relative;
-            }
-
-            #loginButton.loading::after {
-                content: "";
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                width: 18px;
-                height: 18px;
-                margin: -9px 0 0 -9px;
-                border: 2px solid rgba(255, 255, 255, 0.3);
-                border-radius: 50%;
-                border-top-color: white;
-                animation: spin 1s linear infinite;
-            }
-
-            @keyframes spin {
-                to {
-                    transform: rotate(360deg);
-                }
-            }
-
-            .error-message,
-            .success-message {
-                padding: 10px 16px;
-                border-radius: 8px;
-                margin-top: 16px;
-                font-size: 13px;
-                font-weight: 500;
-                opacity: 0;
-                transform: translateY(-10px);
-                transition: all 0.3s ease;
-            }
-
-            .error-message {
-                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-                color: white;
-            }
-
-            .success-message {
-                background: linear-gradient(135deg, #51cf66 0%, #40c057 100%);
-                color: white;
-            }
-
-            .error-message.show,
-            .success-message.show {
-                opacity: 1;
-                transform: translateY(0);
-            }
-
-            .login-footer {
-                margin-top: 25px;
-                padding-top: 20px;
-                border-top: 1px solid #e9ecef;
-                color: #6c757d;
-                font-size: 12px;
-            }
-
-            .version-info {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 12px;
-            }
-
-            .version-badge {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 3px 10px;
-                border-radius: 12px;
-                font-size: 10px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-
-            .crypto-status {
-                position: absolute;
-                top: 8px;
-                right: 12px;
-                font-size: 11px;
-                color: #666;
-                transition: opacity 0.3s;
-            }
-
-            .crypto-status.loaded {
-                color: #28a745;
-            }
-
-            @media (min-width: 481px) {
-                .login-container {
-                    padding: 40px 35px;
-                    max-width: 420px;
-                }
-
-                .brand-logo {
-                    width: 50px;
-                    height: 50px;
-                }
-
-                .brand-text {
-                    font-size: 2rem;
-                }
-
-                .form-group {
-                    margin-bottom: 20px;
-                }
-
-                .input-wrapper input {
-                    padding: 15px 18px 15px 48px;
-                    font-size: 16px;
-                }
-
-                #loginButton {
-                    padding: 16px 22px;
-                    font-size: 16px;
-                }
-
-                .remember-me-container {
-                    font-size: 14px;
-                }
-            }
-
-            @media (min-width: 769px) {
-                .login-container {
-                    padding: 50px 45px;
-                    max-width: 450px;
-                    border-radius: 25px;
-                }
-
-                .brand {
-                    margin-bottom: 35px;
-                }
-
-                .brand-logo {
-                    width: 55px;
-                    height: 55px;
-                }
-
-                .brand-text {
-                    font-size: 2.2rem;
-                }
-
-                .brand p {
-                    font-size: 0.95rem;
-                }
-
-                .form-group {
-                    margin-bottom: 22px;
-                }
-
-                .form-group label {
-                    font-size: 14px;
-                    margin-bottom: 8px;
-                }
-
-                .input-wrapper input {
-                    padding: 16px 20px 16px 50px;
-                }
-
-                .input-wrapper::before {
-                    left: 18px;
-                    width: 20px;
-                    height: 20px;
-                }
-
-                #loginButton {
-                    padding: 17px 24px;
-                }
-
-                #loginButton:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-                }
-
-                .remember-duration {
-                    display: inline-block;
-                    margin-top: 0;
-                    margin-left: 8px;
-                    padding-left: 0;
-                    opacity: 0;
-                    transition: opacity 0.3s;
-                }
-
-                .remember-duration.show {
-                    opacity: 1;
-                }
-
-                .login-footer {
-                    margin-top: 30px;
-                }
-            }
-
-            @media (max-width: 360px) {
-                body {
-                    padding: 10px;
-                }
-
-                .login-container {
-                    padding: 25px 18px;
-                }
-
-                .brand-logo {
-                    width: 40px;
-                    height: 40px;
-                }
-
-                .brand-text {
-                    font-size: 1.6rem;
-                }
-
-                .input-wrapper input {
-                    padding: 12px 14px 12px 42px;
-                    font-size: 14px;
-                }
-
-                #loginButton {
-                    padding: 13px 18px;
-                    font-size: 14px;
-                }
-            }
-
-            @media (max-height: 600px) and (orientation: landscape) {
-                body {
-                    padding: 10px;
-                }
-
-                .login-container {
-                    padding: 20px;
-                    max-width: 500px;
-                }
-
-                .brand {
-                    margin-bottom: 15px;
-                }
-
-                .form-group {
-                    margin-bottom: 12px;
-                }
-
-                .login-footer {
-                    margin-top: 15px;
-                    padding-top: 15px;
-                }
-            }
-
-            @media (prefers-color-scheme: dark) {
-                .login-container {
-                    background: rgba(30, 30, 30, 0.95);
-                }
-
-                .input-wrapper input {
-                    background: rgba(255, 255, 255, 0.1);
-                    border-color: rgba(255, 255, 255, 0.2);
-                    color: #e9ecef;
-                }
-
-                .form-group label,
-                .remember-me-container {
-                    color: #e9ecef;
-                }
-
-                .remember-me-container input[type="checkbox"] {
-                    border-color: rgba(255, 255, 255, 0.3);
-                    background: rgba(255, 255, 255, 0.1);
-                }
-            }
-
-            @supports (-webkit-touch-callout: none) {
-                input {
-                    font-size: 16px !important;
-                }
-            }
-        </style>
+        <!-- External CSS -->
+        <link rel="stylesheet" href="./index/login-modern.css" />
+
+        <!-- Lucide Icons -->
+        <script src="https://unpkg.com/lucide@latest"></script>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     </head>
 
     <body>
         <div class="login-container">
-            <div id="cryptoStatus" class="crypto-status">Loading...</div>
+            <div id="cryptoStatus" class="crypto-status">
+                <i data-lucide="shield-check"></i>
+                <span>Loading...</span>
+            </div>
 
             <div class="brand">
                 <div class="brand-inner">
-                    <img src="./index/logo.jpg" alt="Logo" class="brand-logo" />
+                    <img
+                        src="./index/logo.jpg"
+                        alt="N2 Shop Logo"
+                        class="brand-logo"
+                    />
                     <h1 class="brand-text">N2 SHOP</h1>
                 </div>
                 <p>Hệ thống quản lý bán hàng</p>
@@ -539,8 +44,11 @@
             <div class="login-box">
                 <form id="loginForm">
                     <div class="form-group">
-                        <label for="username">Tài khoản</label>
-                        <div class="input-wrapper username">
+                        <label for="username">
+                            <i data-lucide="user"></i>
+                            Tài khoản
+                        </label>
+                        <div class="input-wrapper">
                             <input
                                 type="text"
                                 id="username"
@@ -549,12 +57,16 @@
                                 required
                                 autocomplete="username"
                             />
+                            <i data-lucide="user"></i>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="password">Mật khẩu</label>
-                        <div class="input-wrapper password">
+                        <label for="password">
+                            <i data-lucide="lock"></i>
+                            Mật khẩu
+                        </label>
+                        <div class="input-wrapper">
                             <input
                                 type="password"
                                 id="password"
@@ -563,6 +75,7 @@
                                 required
                                 autocomplete="current-password"
                             />
+                            <i data-lucide="lock"></i>
                         </div>
                     </div>
 
@@ -602,16 +115,47 @@
             </div>
         </div>
 
-        <!-- Firebase SDK -->
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+        <script>
+            // Initialize Lucide icons
+            lucide.createIcons();
 
-        <!-- Crypto Libraries -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
+            // Enhanced Remember Me functionality
+            function setupRememberMe() {
+                const checkbox = document.getElementById("rememberMe");
+                const duration = document.getElementById("rememberDuration");
 
-        <!-- Login Script -->
+                if (checkbox && duration) {
+                    checkbox.addEventListener("change", function () {
+                        duration.classList.toggle("show", this.checked);
+                        duration.textContent = this.checked
+                            ? "Sẽ giữ đăng nhập trong 30 ngày"
+                            : "";
+                    });
+                }
+            }
+
+            // Crypto status
+            function updateCryptoStatus() {
+                const statusEl = document.getElementById("cryptoStatus");
+                const statusText = statusEl.querySelector("span");
+                if (statusText) {
+                    statusText.textContent = "Bảo mật";
+                }
+                statusEl.classList.add("loaded");
+                setTimeout(() => {
+                    statusEl.style.opacity = "0";
+                }, 2000);
+            }
+
+            // Initialize on DOM ready
+            document.addEventListener("DOMContentLoaded", function () {
+                lucide.createIcons();
+                updateCryptoStatus();
+                setupRememberMe();
+            });
+        </script>
+
+        <!-- Login functionality -->
         <script src="./index/login.js"></script>
     </body>
 </html>
