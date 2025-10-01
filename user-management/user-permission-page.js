@@ -4,77 +4,77 @@ let auth = null;
 let currentMethod = "cryptojs";
 let users = [];
 
-// Available pages with their info
+// Available pages with their info - UPDATED TO LUCIDE ICONS
 const AVAILABLE_PAGES = [
     {
         id: "live",
-        icon: "📸",
+        icon: "camera",
         name: "HÌNH ẢNH LIVE ĐẦY ĐỦ",
         description: "Xem và quản lý hình ảnh live stream",
     },
     {
         id: "livestream",
-        icon: "📺",
+        icon: "video",
         name: "BÁO CÁO LIVESTREAM",
         description: "Xem báo cáo và thống kê livestream",
     },
     {
         id: "sanphamlive",
-        icon: "🛍️",
+        icon: "shopping-bag",
         name: "SẢN PHẨM LIVESTREAM",
         description: "Xem thống kê sản phẩm livestream",
     },
     {
         id: "nhanhang",
-        icon: "📦",
+        icon: "package",
         name: "NHẬN HÀNG",
         description: "Quản lý việc nhận hàng từ nhà cung cấp",
     },
     {
         id: "hangrotxa",
-        icon: "📋",
+        icon: "clipboard-list",
         name: "HÀNG RỚT - XẢ",
         description: "Quản lý hàng rớt và xả hàng",
     },
     {
         id: "ib",
-        icon: "💬",
+        icon: "message-square",
         name: "CHECK INBOX KHÁCH HÀNG",
         description: "Kiểm tra và quản lý tin nhắn khách hàng",
     },
     {
         id: "ck",
-        icon: "💳",
+        icon: "credit-card",
         name: "THÔNG TIN CHUYỂN KHOẢN",
         description: "Quản lý thông tin chuyển khoản",
     },
     {
         id: "hanghoan",
-        icon: "↩️",
+        icon: "rotate-ccw",
         name: "HÀNG HOÀN",
         description: "Xử lý hàng hoàn trả",
     },
     {
         id: "hangdat",
-        icon: "📝",
+        icon: "file-text",
         name: "HÀNG ĐẶT",
         description: "Quản lý đơn hàng đặt trước",
     },
     {
         id: "bangkiemhang",
-        icon: "✅",
+        icon: "check-square",
         name: "BẢNG KIỂM HÀNG",
         description: "Kiểm tra và xác nhận hàng hóa",
     },
     {
         id: "user-management",
-        icon: "👥",
+        icon: "users",
         name: "QUẢN LÝ TÀI KHOẢN",
         description: "Quản lý users và phân quyền (Admin only)",
     },
     {
         id: "history",
-        icon: "📊",
+        icon: "bar-chart-2",
         name: "LỊCH SỬ CHỈNH SỬA",
         description: "Xem lịch sử thay đổi dữ liệu (Admin only)",
     },
@@ -120,7 +120,7 @@ const PERMISSION_TEMPLATES = {
     viewer: ["live"],
 };
 
-// Initialize permissions grid
+// Initialize permissions grid with Lucide icons
 function initializePermissionsGrid(containerId, prefix = "") {
     const container = document.getElementById(containerId);
     container.innerHTML = "";
@@ -132,17 +132,22 @@ function initializePermissionsGrid(containerId, prefix = "") {
         const checkboxId = `${prefix}perm_${page.id}`;
 
         permissionItem.innerHTML = `
-                        <div class="permission-checkbox">
-                            <input type="checkbox" id="${checkboxId}" value="${page.id}" 
-                                   onchange="updatePermissionsSummary('${containerId.replace("Grid", "Summary")}', '${prefix}perm_')">
-                            <span class="permission-icon">${page.icon}</span>
-                            <span class="permission-text">${page.name}</span>
-                        </div>
-                        <div class="permission-description">${page.description}</div>
-                    `;
+            <div class="permission-checkbox">
+                <input type="checkbox" id="${checkboxId}" value="${page.id}" 
+                       onchange="updatePermissionsSummary('${containerId.replace("Grid", "Summary")}', '${prefix}perm_')">
+                <i data-lucide="${page.icon}" class="permission-icon"></i>
+                <span class="permission-text">${page.name}</span>
+            </div>
+            <div class="permission-description">${page.description}</div>
+        `;
 
         container.appendChild(permissionItem);
     });
+
+    // Initialize Lucide icons
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
 }
 
 // Update permissions summary
@@ -158,7 +163,6 @@ function updatePermissionsSummary(summaryId, prefix) {
         const countElement = summaryElement.querySelector(".permissions-count");
         countElement.textContent = `${selected}/${total} trang được chọn`;
 
-        // Update parent permission item styling
         document
             .querySelectorAll(`input[id^="${prefix}"]`)
             .forEach((checkbox) => {
@@ -178,13 +182,11 @@ function applyPermissionTemplate(templateName, formType = "edit") {
     const summaryId =
         formType === "new" ? "newPermissionsSummary" : "permissionsSummary";
 
-    // Clear all checkboxes first
     document.querySelectorAll(`input[id^="${prefix}"]`).forEach((checkbox) => {
         checkbox.checked = false;
     });
 
     if (templateName !== "clear" && PERMISSION_TEMPLATES[templateName]) {
-        // Apply template
         PERMISSION_TEMPLATES[templateName].forEach((pageId) => {
             const checkbox = document.getElementById(`${prefix}${pageId}`);
             if (checkbox) {
@@ -246,7 +248,13 @@ function checkAdminAccess() {
     }
 
     document.getElementById("mainContainer").style.display = "block";
-    setTimeout(connectFirebase, 500);
+
+    console.log("Admin access granted, connecting Firebase...");
+    setTimeout(() => {
+        console.log("Calling connectFirebase()...");
+        connectFirebase();
+    }, 500);
+
     return true;
 }
 
@@ -263,8 +271,27 @@ function showAccessDenied(reason = "") {
 
 // Firebase Configuration
 function connectFirebase() {
+    console.log("=== connectFirebase() called ===");
+    console.log("Checking Firebase availability...");
+    console.log("typeof firebase:", typeof firebase);
+
+    const statusEl = document.getElementById("firebaseStatus");
+
+    if (typeof firebase === "undefined") {
+        console.error(
+            "❌ Firebase is not loaded! Check if Firebase scripts are included in HTML",
+        );
+        if (statusEl) {
+            statusEl.textContent =
+                "❌ Lỗi: Firebase scripts chưa được load. Kiểm tra HTML có các thẻ <script> Firebase.";
+            statusEl.className = "output error";
+        }
+        return;
+    }
+
     try {
         if (!firebase.apps.length) {
+            console.log("Initializing Firebase...");
             const config = {
                 apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
                 authDomain: "n2shop-69e37.firebaseapp.com",
@@ -277,43 +304,76 @@ function connectFirebase() {
             const app = firebase.initializeApp(config);
             db = firebase.firestore();
             auth = firebase.auth();
+
+            console.log("✅ Firebase initialized successfully");
+            console.log("db:", !!db);
+            console.log("auth:", !!auth);
+        } else {
+            console.log("Firebase already initialized");
+            if (!db) {
+                db = firebase.firestore();
+                console.log("Firestore reference obtained");
+            }
+            if (!auth) {
+                auth = firebase.auth();
+                console.log("Auth reference obtained");
+            }
         }
 
-        document.getElementById("firebaseStatus").textContent =
-            "✅ Kết nối Firebase thành công!\nProject: n2shop-69e37\nTrạng thái: Admin Access Granted";
-        document.getElementById("firebaseStatus").className = "output success";
+        // Expose to window for debugging
+        window.db = db;
+        window.firebaseAuth = auth;
 
-        setTimeout(loadUsers, 1000);
+        // Update status element directly
+        if (statusEl) {
+            statusEl.textContent =
+                "✅ Kết nối Firebase thành công!\nProject: n2shop-69e37\nTrạng thái: Admin Access Granted";
+            statusEl.className = "output success";
+            console.log("✅ Firebase status updated in UI");
+        }
+
+        // Update stat card
+        const statFirebase = document.getElementById("statFirebase");
+        if (statFirebase) {
+            statFirebase.textContent = "Connected";
+            console.log("✅ Firebase stat card updated");
+        }
+
+        console.log("Scheduling loadUsers() in 1 second...");
+        setTimeout(() => {
+            console.log("Now calling loadUsers()...");
+            loadUsers();
+        }, 1000);
+
+        console.log("=== connectFirebase() completed ===");
     } catch (error) {
-        document.getElementById("firebaseStatus").textContent =
-            "❌ Lỗi kết nối Firebase: " + error.message;
-        document.getElementById("firebaseStatus").className = "output error";
+        console.error("❌ Firebase initialization error:", error);
+        if (statusEl) {
+            statusEl.textContent = "❌ Lỗi kết nối Firebase: " + error.message;
+            statusEl.className = "output error";
+        }
+
+        const statFirebase = document.getElementById("statFirebase");
+        if (statFirebase) {
+            statFirebase.textContent = "Error";
+        }
     }
-}
-
-// Tab Management
-function showTab(tabName) {
-    document.querySelectorAll(".tab-content").forEach((content) => {
-        content.classList.remove("active");
-    });
-    document.querySelectorAll(".tab").forEach((tab) => {
-        tab.classList.remove("active");
-    });
-
-    document.getElementById(tabName).classList.add("active");
-    event.target.classList.add("active");
 }
 
 // Load users with permissions
 async function loadUsers() {
     if (!db) {
-        alert("Firebase chưa được kết nối!");
+        showError("Firebase chưa được kết nối!");
         return;
     }
 
     const userList = document.getElementById("userList");
     userList.innerHTML =
-        '<div style="padding: 20px; text-align: center;">⏳ Đang tải dữ liệu...</div>';
+        '<div class="empty-state show"><i data-lucide="loader" class="spinning"></i><h3>Đang tải dữ liệu...</h3></div>';
+
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
 
     try {
         const snapshot = await db.collection("users").get();
@@ -328,7 +388,11 @@ async function loadUsers() {
 
         if (users.length === 0) {
             userList.innerHTML =
-                '<div style="padding: 20px; text-align: center;">📝 Không có tài khoản nào</div>';
+                '<div class="empty-state show"><i data-lucide="user-x"></i><h3>Không có tài khoản nào</h3></div>';
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+            updateStats(); // Update stats even if empty
             return;
         }
 
@@ -339,60 +403,58 @@ async function loadUsers() {
             return a.displayName.localeCompare(b.displayName);
         });
 
-        let html = "";
-        users.forEach((user, index) => {
-            const roleText = getRoleText(user.checkLogin);
-            const roleColor = getRoleColor(user.checkLogin);
-            const permissionCount = user.pagePermissions
-                ? user.pagePermissions.length
-                : 0;
+        // Use the modern renderUserList function that's already defined in index.html
+        if (typeof window.renderUserList === "function") {
+            window.renderUserList(users);
+        }
 
-            html += `
-                            <div class="user-item">
-                                <div class="user-info">
-                                    <strong style="color: ${roleColor};">${user.displayName}</strong> 
-                                    <span style="color: #666;">(${user.id})</span><br>
-                                    <small>
-                                        ${roleText} | 
-                                        🔑 ${permissionCount}/${AVAILABLE_PAGES.length} trang |
-                                        ${user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString("vi-VN") : "N/A"}
-                                        ${user.updatedAt ? " | Cập nhật: " + new Date(user.updatedAt.seconds * 1000).toLocaleDateString("vi-VN") : ""}
-                                    </small>
-                                </div>
-                                <div class="user-actions">
-                                    <button onclick="editUser('${user.id}')" title="Chỉnh sửa">✏️ Sửa</button>
-                                    <button class="danger" onclick="deleteUser('${user.id}')" title="Xóa tài khoản">🗑️ Xóa</button>
-                                    <button onclick="viewUserPermissions('${user.id}')" title="Xem quyền">👁️ Quyền</button>
-                                </div>
-                            </div>
-                        `;
-        });
-
-        userList.innerHTML = html;
+        // Update stats after loading users
+        updateStats();
     } catch (error) {
-        userList.innerHTML = `<div style="padding: 20px; color: red;">❌ Lỗi tải danh sách: ${error.message}</div>`;
-        console.error("Load users error:", error);
+        userList.innerHTML = `<div class="empty-state show"><i data-lucide="alert-circle"></i><h3>Lỗi tải danh sách</h3><p>${error.message}</p></div>`;
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+    }
+}
+
+// Update statistics
+function updateStats() {
+    if (users && Array.isArray(users)) {
+        const total = users.length;
+        const admins = users.filter((u) => u.checkLogin === 0).length;
+        const activeUsers = users.filter((u) => u.checkLogin <= 2).length; // Admin, User, Limited
+
+        const statTotalUsers = document.getElementById("statTotalUsers");
+        const statAdmins = document.getElementById("statAdmins");
+        const statActiveUsers = document.getElementById("statActiveUsers");
+        const statFirebase = document.getElementById("statFirebase");
+
+        if (statTotalUsers) statTotalUsers.textContent = total;
+        if (statAdmins) statAdmins.textContent = admins;
+        if (statActiveUsers) statActiveUsers.textContent = activeUsers;
+        if (statFirebase && db) statFirebase.textContent = "Connected";
     }
 }
 
 function getRoleText(checkLogin) {
     const roles = {
-        0: "👑 Admin",
-        1: "👤 User",
-        2: "🔒 Limited",
-        3: "💡 Basic",
-        777: "👥 Guest",
+        0: "Admin",
+        1: "User",
+        2: "Limited",
+        3: "Basic",
+        777: "Guest",
     };
-    return roles[checkLogin] || `⚠️ Unknown (${checkLogin})`;
+    return roles[checkLogin] || `Unknown (${checkLogin})`;
 }
 
 function getRoleColor(checkLogin) {
     const colors = {
-        0: "#e74c3c", // Admin - Red
-        1: "#3498db", // User - Blue
-        2: "#f39c12", // Limited - Orange
-        3: "#27ae60", // Basic - Green
-        777: "#95a5a6", // Guest - Gray
+        0: "#e74c3c",
+        1: "#3498db",
+        2: "#f39c12",
+        3: "#27ae60",
+        777: "#95a5a6",
     };
     return colors[checkLogin] || "#666";
 }
@@ -407,17 +469,16 @@ function editUser(username) {
     document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
-    // Set permissions
     const userPermissions = user.pagePermissions || [];
     setUserPermissions(userPermissions, "perm_");
 
-    showTab("manage");
+    document.querySelector('[data-tab="manage"]').click();
     document
-        .querySelector("#manage .section:nth-child(3)")
+        .querySelector("#manage .card:nth-child(3)")
         .scrollIntoView({ behavior: "smooth" });
 }
 
-// View user permissions
+// View user permissions with Lucide icons
 function viewUserPermissions(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
@@ -425,17 +486,19 @@ function viewUserPermissions(username) {
     const permissions = user.pagePermissions || [];
     const permissionNames = permissions.map((pid) => {
         const page = AVAILABLE_PAGES.find((p) => p.id === pid);
-        return page ? `${page.icon} ${page.name}` : pid;
+        return page ? `• ${page.name}` : `• ${pid}`;
     });
 
     const message = `
-🔑 Quyền truy cập của: ${user.displayName} (${user.id})
-👤 Vai trò: ${getRoleText(user.checkLogin)}
-📊 Tổng quyền: ${permissions.length}/${AVAILABLE_PAGES.length} trang
+QUYỀN TRUY CẬP
 
-📋 Các trang có quyền truy cập:
-${permissionNames.length > 0 ? permissionNames.join("\n") : "❌ Không có quyền truy cập trang nào"}
-                `.trim();
+Tài khoản: ${user.displayName} (${user.id})
+Vai trò: ${getRoleText(user.checkLogin)}
+Tổng quyền: ${permissions.length}/${AVAILABLE_PAGES.length} trang
+
+CÁC TRANG CÓ QUYỀN TRUY CẬP:
+${permissionNames.length > 0 ? permissionNames.join("\n") : "• Không có quyền truy cập trang nào"}
+    `.trim();
 
     alert(message);
 }
@@ -443,7 +506,7 @@ ${permissionNames.length > 0 ? permissionNames.join("\n") : "❌ Không có quy�
 // Update user with permissions
 async function updateUser() {
     if (!db) {
-        alert("Firebase chưa được kết nối!");
+        showError("Firebase chưa được kết nối!");
         return;
     }
 
@@ -455,17 +518,16 @@ async function updateUser() {
     const newPassword = document.getElementById("editNewPassword").value.trim();
 
     if (!username || !displayName) {
-        alert("Vui lòng nhập đầy đủ thông tin!");
+        showError("Vui lòng nhập đầy đủ thông tin!");
         return;
     }
 
-    // Get selected permissions
     const selectedPermissions = getSelectedPermissions("perm_");
 
-    const output = document.getElementById("editOutput");
-    output.style.display = "block";
-    showFloatingAlert("Đang cập nhật tài khoản...");
-    output.className = "output";
+    const loadingId = showFloatingAlert(
+        "Đang cập nhật tài khoản...",
+        "loading",
+    );
 
     try {
         let updateData = {
@@ -490,25 +552,30 @@ async function updateUser() {
 
         await db.collection("users").doc(username).update(updateData);
 
+        if (window.notify) {
+            window.notify.remove(loadingId);
+        }
+
         showSuccess(
-            `✅ Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\n🔑 Quyền truy cập: ${selectedPermissions.length}/${AVAILABLE_PAGES.length} trang${newPassword ? "\n🔐 Đã thay đổi password" : ""}`,
+            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nQuyền truy cập: ${selectedPermissions.length}/${AVAILABLE_PAGES.length} trang${newPassword ? "\nĐã thay đổi password" : ""}`,
         );
-        output.className = "output success";
 
         setTimeout(loadUsers, 1000);
         setTimeout(() => {
             clearEditForm();
         }, 3000);
     } catch (error) {
-        showError("❌ Lỗi cập nhật: " + error.message);
-        output.className = "output error";
+        if (window.notify) {
+            window.notify.remove(loadingId);
+        }
+        showError("Lỗi cập nhật: " + error.message);
     }
 }
 
 // Create user with permissions
 async function createUser() {
     if (!db) {
-        alert("Firebase chưa được kết nối!");
+        showError("Firebase chưa được kết nối!");
         return;
     }
 
@@ -523,33 +590,33 @@ async function createUser() {
     const checkLogin = parseInt(document.getElementById("newCheckLogin").value);
 
     if (!username || !password) {
-        alert("Vui lòng nhập username và password!");
+        showError("Vui lòng nhập username và password!");
         return;
     }
 
     if (!/^[a-z0-9_]+$/.test(username)) {
-        alert("Username chỉ được chứa chữ cái thường, số và dấu gạch dưới!");
+        showError(
+            "Username chỉ được chứa chữ cái thường, số và dấu gạch dưới!",
+        );
         return;
     }
 
     if (password.length < 6) {
-        alert("Password phải có ít nhất 6 ký tự!");
+        showError("Password phải có ít nhất 6 ký tự!");
         return;
     }
 
-    // Get selected permissions
     const selectedPermissions = getSelectedPermissions("newperm_");
 
-    const output = document.getElementById("createOutput");
-    output.style.display = "block";
-    showFloatingAlert("Đang tạo tài khoản...");
-    output.className = "output";
+    const loadingId = showFloatingAlert("Đang tạo tài khoản...", "loading");
 
     try {
         const userDoc = await db.collection("users").doc(username).get();
         if (userDoc.exists) {
-            showError("❌ Username đã tồn tại!");
-            output.className = "output error";
+            if (window.notify) {
+                window.notify.remove(loadingId);
+            }
+            showError("Username đã tồn tại!");
             return;
         }
 
@@ -573,36 +640,44 @@ async function createUser() {
                     .username,
             });
 
+        if (window.notify) {
+            window.notify.remove(loadingId);
+        }
+
         showSuccess(
-            `✅ Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\n🔑 Quyền truy cập: ${selectedPermissions.length}/${AVAILABLE_PAGES.length} trang\n🔐 Password đã được hash an toàn`,
+            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nQuyền truy cập: ${selectedPermissions.length}/${AVAILABLE_PAGES.length} trang\nPassword đã được hash an toàn`,
         );
-        output.className = "output success";
 
         clearCreateForm();
         setTimeout(loadUsers, 1000);
     } catch (error) {
-        showError("❌ Lỗi tạo tài khoản: " + error.message);
-        output.className = "output error";
+        if (window.notify) {
+            window.notify.remove(loadingId);
+        }
+        showError("Lỗi tạo tài khoản: " + error.message);
     }
 }
 
 // Load permissions overview
 async function loadPermissionsOverview() {
     if (!db) {
-        alert("Firebase chưa được kết nối!");
+        showError("Firebase chưa được kết nối!");
         return;
     }
 
     const overview = document.getElementById("permissionsOverview");
     overview.innerHTML =
-        '<div style="padding: 20px; text-align: center;">⏳ Đang tải dữ liệu...</div>';
+        '<div class="empty-state show"><i data-lucide="loader" class="spinning"></i><h3>Đang tải dữ liệu...</h3></div>';
+
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
 
     try {
         const snapshot = await db.collection("users").get();
         const permissionStats = {};
         const roleStats = {};
 
-        // Initialize stats
         AVAILABLE_PAGES.forEach((page) => {
             permissionStats[page.id] = {
                 name: page.name,
@@ -618,11 +693,9 @@ async function loadPermissionsOverview() {
             const user = doc.data();
             totalUsers++;
 
-            // Count by role
             const role = getRoleText(user.checkLogin);
             roleStats[role] = (roleStats[role] || 0) + 1;
 
-            // Count permissions
             const permissions = user.pagePermissions || [];
             permissions.forEach((permId) => {
                 if (permissionStats[permId]) {
@@ -634,29 +707,28 @@ async function loadPermissionsOverview() {
             });
         });
 
-        // Generate HTML
         let html = `
-                        <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                            <h3>📊 Thống Kê Tổng Quan</h3>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
-                    `;
+            <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h3><i data-lucide="bar-chart-2" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Thống Kê Tổng Quan</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+        `;
 
         Object.entries(roleStats).forEach(([role, count]) => {
             html += `
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: bold; color: #007bff;">${count}</div>
-                                <div style="font-size: 14px; color: #6c757d;">${role}</div>
-                            </div>
-                        `;
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #007bff;">${count}</div>
+                    <div style="font-size: 14px; color: #6c757d;">${role}</div>
+                </div>
+            `;
         });
 
         html += `
-                            </div>
-                        </div>
-                        <div style="background: white; padding: 20px; border-radius: 10px;">
-                            <h3>🔑 Thống Kê Quyền Truy Cập Từng Trang</h3>
-                            <div style="margin-top: 15px;">
-                    `;
+                </div>
+            </div>
+            <div style="background: white; padding: 20px; border-radius: 10px;">
+                <h3><i data-lucide="shield-check" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Thống Kê Quyền Truy Cập Từng Trang</h3>
+                <div style="margin-top: 15px;">
+        `;
 
         Object.entries(permissionStats).forEach(([pageId, stats]) => {
             const percentage =
@@ -664,40 +736,47 @@ async function loadPermissionsOverview() {
                     ? Math.round((stats.count / totalUsers) * 100)
                     : 0;
             html += `
-                            <div style="margin-bottom: 15px; padding: 15px; border: 1px solid #dee2e6; border-radius: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                    <span style="font-weight: bold;">${stats.icon} ${stats.name}</span>
-                                    <span style="background: #007bff; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
-                                        ${stats.count}/${totalUsers} (${percentage}%)
-                                    </span>
-                                </div>
-                                <div style="background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
-                                    <div style="background: #007bff; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
-                                </div>
-                                ${
-                                    stats.users.length > 0
-                                        ? `
-                                    <div style="margin-top: 8px; font-size: 12px; color: #6c757d;">
-                                        <strong>Users:</strong> ${stats.users.join(", ")}
-                                    </div>
-                                `
-                                        : ""
-                                }
-                            </div>
-                        `;
+                <div style="margin-bottom: 15px; padding: 15px; border: 1px solid #dee2e6; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: bold;"><i data-lucide="${stats.icon}" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-right:6px;"></i>${stats.name}</span>
+                        <span style="background: #007bff; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                            ${stats.count}/${totalUsers} (${percentage}%)
+                        </span>
+                    </div>
+                    <div style="background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
+                        <div style="background: #007bff; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+                    </div>
+                    ${
+                        stats.users.length > 0
+                            ? `
+                        <div style="margin-top: 8px; font-size: 12px; color: #6c757d;">
+                            <strong>Users:</strong> ${stats.users.join(", ")}
+                        </div>
+                    `
+                            : ""
+                    }
+                </div>
+            `;
         });
 
         html += "</div></div>";
         overview.innerHTML = html;
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
     } catch (error) {
-        overview.innerHTML = `<div style="padding: 20px; color: red;">❌ Lỗi tải thống kê: ${error.message}</div>`;
+        overview.innerHTML = `<div class="empty-state show"><i data-lucide="alert-circle"></i><h3>Lỗi tải thống kê</h3><p>${error.message}</p></div>`;
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
     }
 }
 
 // Export permissions report
 async function exportPermissions() {
     if (users.length === 0) {
-        alert("Vui lòng tải danh sách users trước!");
+        showError("Vui lòng tải danh sách users trước!");
         return;
     }
 
@@ -742,16 +821,16 @@ async function exportPermissions() {
         link.click();
         document.body.removeChild(link);
 
-        alert("✅ Đã xuất báo cáo quyền thành công!");
+        showSuccess("Đã xuất báo cáo quyền thành công!");
     } catch (error) {
-        alert("❌ Lỗi xuất báo cáo: " + error.message);
+        showError("Lỗi xuất báo cáo: " + error.message);
     }
 }
 
-// Delete user (existing function)
+// Delete user
 async function deleteUser(username) {
     if (!db) {
-        alert("Firebase chưa được kết nối!");
+        showError("Firebase chưa được kết nối!");
         return;
     }
 
@@ -760,18 +839,20 @@ async function deleteUser(username) {
 
     const adminCount = users.filter((u) => u.checkLogin === 0).length;
     if (user.checkLogin === 0 && adminCount === 1) {
-        alert(
-            "❌ Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.",
+        showError(
+            "Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.",
         );
         return;
     }
 
     const permissions = user.pagePermissions || [];
-    const confirmMsg = `⚠️ XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nQuyền hạn: ${getRoleText(user.checkLogin)}\n🔑 Quyền truy cập: ${permissions.length}/${AVAILABLE_PAGES.length} trang\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
+    const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nQuyền hạn: ${getRoleText(user.checkLogin)}\nQuyền truy cập: ${permissions.length}/${AVAILABLE_PAGES.length} trang\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
 
     if (!confirm(confirmMsg)) {
         return;
     }
+
+    const loadingId = showFloatingAlert("Đang xóa tài khoản...", "loading");
 
     try {
         await db.collection("users").doc(username).delete();
@@ -788,10 +869,17 @@ async function deleteUser(username) {
             console.log("Could not delete from auth_users:", authError);
         }
 
-        alert(`✅ Đã xóa tài khoản "${username}" thành công!`);
+        if (window.notify) {
+            window.notify.remove(loadingId);
+        }
+
+        showSuccess(`Đã xóa tài khoản "${username}" thành công!`);
         loadUsers();
     } catch (error) {
-        alert("❌ Lỗi xóa tài khoản: " + error.message);
+        if (window.notify) {
+            window.notify.remove(loadingId);
+        }
+        showError("Lỗi xóa tài khoản: " + error.message);
     }
 }
 
@@ -820,7 +908,7 @@ function clearCreateForm() {
     output.className = "output";
 }
 
-// Hash generation and verification functions (existing)
+// Hash generation functions
 document.querySelectorAll('input[name="method"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
         currentMethod = e.target.value;
@@ -836,7 +924,7 @@ async function generateHash() {
     const checkLogin = parseInt(document.getElementById("checkLogin").value);
 
     if (!username || !password) {
-        alert("Vui lòng nhập username và password!");
+        showError("Vui lòng nhập username và password!");
         return;
     }
 
@@ -864,7 +952,7 @@ async function generateHash() {
             currentMethod === "bcrypt" &&
             typeof bcrypt !== "undefined"
         ) {
-            showFloatingAlert("Đang tạo bcrypt hash...");
+            showFloatingAlert("Đang tạo bcrypt hash...", "loading");
             const saltRounds = 10;
             const hash = await bcrypt.hash(password, saltRounds);
 
@@ -888,7 +976,7 @@ async function generateHash() {
 }
 
 function displayHashResult(output, result) {
-    let text = `✅ Tạo hash thành công!\n\n`;
+    let text = `Tạo hash thành công!\n\n`;
     text += `Method: ${result.method}\n`;
     text += `Username: ${result.username}\n`;
     text += `Display Name: ${result.displayName}\n`;
@@ -913,7 +1001,7 @@ function displayHashResult(output, result) {
         2,
     );
 
-    showSuccess(text);
+    output.textContent = text;
     output.className = "output success";
 }
 
@@ -925,7 +1013,7 @@ async function verifyPassword() {
 
     if (!testPassword || !testHash) {
         output.style.display = "block";
-        showError("Vui lòng nhập password và hash để test!");
+        output.textContent = "Vui lòng nhập password và hash để test!";
         output.className = "output error";
         return;
     }
@@ -947,24 +1035,20 @@ async function verifyPassword() {
             isMatch = computedHash === testHash;
             method = "crypto-js";
         } else {
-            showError("Không thể xác định method hoặc thiếu salt!");
+            output.textContent = "Không thể xác định method hoặc thiếu salt!";
             output.className = "output error";
             return;
         }
 
         if (isMatch) {
-            showSuccess(
-                `✅ Password ĐÚNG!\nMethod: ${method}\nHash khớp với password đã nhập.`,
-            );
+            output.textContent = `Password ĐÚNG!\nMethod: ${method}\nHash khớp với password đã nhập.`;
             output.className = "output success";
         } else {
-            showError(
-                `❌ Password SAI!\nMethod: ${method}\nHash không khớp với password đã nhập.`,
-            );
+            output.textContent = `Password SAI!\nMethod: ${method}\nHash không khớp với password đã nhập.`;
             output.className = "output error";
         }
     } catch (error) {
-        showError("Lỗi: " + error.message);
+        output.textContent = "Lỗi: " + error.message;
         output.className = "output error";
     }
 }
@@ -981,7 +1065,7 @@ function clearHashForm() {
 }
 
 // Auto-fill display name
-document.getElementById("username").addEventListener("input", function () {
+document.getElementById("username")?.addEventListener("input", function () {
     const username = this.value.trim();
     if (username && !document.getElementById("displayName").value) {
         document.getElementById("displayName").value =
@@ -989,7 +1073,7 @@ document.getElementById("username").addEventListener("input", function () {
     }
 });
 
-document.getElementById("newUsername").addEventListener("input", function () {
+document.getElementById("newUsername")?.addEventListener("input", function () {
     const username = this.value.trim();
     if (username && !document.getElementById("newDisplayName").value) {
         document.getElementById("newDisplayName").value =
@@ -1005,7 +1089,6 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    // Initialize permissions grids
     initializePermissionsGrid("editPermissionsGrid", "perm_");
     initializePermissionsGrid("newPermissionsGrid", "newperm_");
 
@@ -1013,22 +1096,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setTimeout(() => {
         if (typeof CryptoJS !== "undefined" && typeof bcrypt !== "undefined") {
-            console.log("✅ Crypto libraries loaded successfully");
+            console.log("Crypto libraries loaded successfully");
         } else {
-            console.warn("⚠️ Some crypto libraries failed to load");
+            console.warn("Some crypto libraries failed to load");
         }
     }, 1000);
-});
-
-window.addEventListener("beforeunload", function () {
-    console.log("Page unloading, cleaning up...");
-});
-
-document.addEventListener("contextmenu", function (e) {
-    const checkLogin = localStorage.getItem("checkLogin");
-    if (checkLogin !== "0" && checkLogin !== 0) {
-        e.preventDefault();
-    }
 });
 
 console.log("Enhanced User Management System with Permissions initialized");

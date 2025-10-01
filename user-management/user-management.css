@@ -649,3 +649,219 @@ button.success {
         flex-direction: column;
     }
 }
+
+/* =====================================================
+   LUCIDE ICONS SUPPORT FOR USER MANAGEMENT
+   ===================================================== */
+
+/* Permission Icon Styling */
+.permission-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--primary, #6366f1);
+    margin-right: 8px;
+}
+
+.permission-item.granted .permission-icon {
+    color: var(--success, #10b981);
+}
+
+/* Spinning animation for loader icons */
+.spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Empty state icons */
+.empty-state i {
+    width: 64px;
+    height: 64px;
+    color: var(--text-tertiary, #9ca3af);
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+/* User role badge icons */
+.user-role-badge i {
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Button icons */
+.btn i,
+.btn-icon i {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.user-actions button i {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+}
+
+/* Permission grid icons */
+.permissions-grid .permission-checkbox i {
+    transition: color 0.2s ease;
+}
+
+.permission-item:hover .permission-icon {
+    color: var(--primary-dark, #4f46e5);
+}
+
+/* Stats section icons */
+.stat-icon i {
+    width: 28px;
+    height: 28px;
+    color: white;
+}
+
+/* Card header icons */
+.card-title i {
+    width: 24px;
+    height: 24px;
+    color: var(--primary, #6366f1);
+    margin-right: 8px;
+}
+
+/* Form label icons */
+.form-group label i {
+    width: 16px;
+    height: 16px;
+    color: var(--primary, #6366f1);
+    margin-right: 6px;
+}
+
+/* Tab icons */
+.tab-btn i {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+}
+
+/* Sidebar icons */
+.nav-item i {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+/* User avatar icons */
+.user-avatar i {
+    width: 24px;
+    height: 24px;
+}
+
+.user-avatar-large i {
+    width: 24px;
+    height: 24px;
+    color: white;
+}
+
+/* Template button icons */
+.template-btn i {
+    width: 14px;
+    height: 14px;
+    margin-right: 6px;
+}
+
+/* Breadcrumb icons */
+.breadcrumb i {
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+}
+
+/* Notification/Toast icons */
+.toast-icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* Search box icons */
+.search-box i {
+    width: 18px;
+    height: 18px;
+}
+
+/* Loading overlay enhancement */
+.loading-state i {
+    width: 48px;
+    height: 48px;
+    color: var(--text-tertiary, #9ca3af);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+/* Access Denied icons */
+.access-denied h1 i {
+    width: 48px;
+    height: 48px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .permission-icon {
+        width: 18px;
+        height: 18px;
+    }
+    
+    .empty-state i {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .card-title i {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* Ensure all Lucide icons maintain aspect ratio */
+[data-lucide] {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Icon color variants */
+.icon-primary {
+    color: var(--primary, #6366f1);
+}
+
+.icon-success {
+    color: var(--success, #10b981);
+}
+
+.icon-danger {
+    color: var(--danger, #ef4444);
+}
+
+.icon-warning {
+    color: var(--warning, #f59e0b);
+}
+
+.icon-info {
+    color: var(--info, #3b82f6);
+}
+
+/* Hover effects for interactive icons */
+.btn:hover i,
+.btn-icon:hover i {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+.permission-checkbox:hover .permission-icon {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
