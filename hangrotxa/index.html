@@ -2,233 +2,443 @@
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <title>Hàng rớt xả</title>
+        <title>Quản lý Hàng Rơi Xa</title>
         <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <link rel="preconnect" href="https://fonts.googleapis.com/" />
-        <link
-            rel="preconnect"
-            href="https://fonts.gstatic.com/"
-            crossorigin=""
-        />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="shortcut icon" href="../logo.jpg" />
 
-        <!-- The core Firebase JS SDK -->
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-        <!-- The Firebase storage SDK -->
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-        <!-- The Firebase firestore SDK -->
-        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-        <!-- Load jQuery from a CDN -->
-        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+        <!-- External CSS -->
+        <link rel="stylesheet" href="modern.css" />
+        <link rel="stylesheet" href="hangrotxa.css" />
 
-        <!-- CSS script -->
-        <script src="../js/device-detector.js"></script>
-
-        <!-- Navigation Manager - Load trước khi load page scripts -->
-        <script src="../js/navigation.js"></script>
+        <!-- Navigation Manager -->
+        <script src="navigation-modern.js"></script>
         <script src="../js/common-utils.js"></script>
+
+        <!-- Lucide Icons CDN -->
+        <script src="https://unpkg.com/lucide@latest"></script>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     </head>
 
     <body>
-        <!-- Security Indicator -->
-        <div class="security-indicator" id="securityIndicator">Secure</div>
-
-        <!-- Performance Indicator -->
-        <div class="performance-indicator" id="performanceIndicator">
-            Fast Load
-        </div>
-
-        <!-- Top buttons -->
-        <div class="top-buttons">
-            <button data-icon="➕" id="toggleFormButton">Hiện biểu mẫu</button>
-            <button data-icon="🚪" id="toggleLogoutButton">Đăng xuất</button>
-        </div>
-
-        <!-- Main content -->
-        <div class="main-content">
-            <div class="header">
-                <div id="parentContainer">
-                    <p class="page-title">HÀNG RỚT - XẢ</p>
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i data-lucide="zap"></i>
+                    <span>N2Shop</span>
                 </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i data-lucide="panel-left-close"></i>
+                </button>
             </div>
 
-            <!-- Data Form -->
-            <div id="dataForm" class="form-section" style="display: none">
-                <h1>Thêm Sản Phẩm</h1>
-                <form id="productForm">
-                    <div class="form-group">
-                        <label for="phanLoai">Phân loại:</label>
-                        <select id="phanLoai" required>
-                            <option value="Áo" selected>Áo</option>
-                            <option value="Quần">Quần</option>
-                            <option value="Set và Đầm">Set và Đầm</option>
-                            <option value="PKGD">Phụ kiện và Giày dép</option>
-                        </select>
-                    </div>
+            <nav class="sidebar-nav" id="sidebarNav">
+                <!-- Menu items auto-generated -->
+            </nav>
 
-                    <div class="form-group">
-                        <label for="dotLive">Đợt Live:</label>
-                        <input type="number" id="dotLive" required />
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i data-lucide="user-circle"></i>
                     </div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">Admin</div>
+                        <div class="user-role">Quản trị viên</div>
+                    </div>
+                </div>
+                <button class="btn-permissions" id="btnPermissions">
+                    <i data-lucide="shield-check"></i>
+                    <span>Xem Quyền Của Tôi</span>
+                </button>
+                <button class="btn-logout" id="btnLogout">
+                    <i data-lucide="log-out"></i>
+                    <span>Đăng xuất</span>
+                </button>
+            </div>
+        </aside>
 
-                    <div class="form-group">
-                        <label>Hình ảnh sản phẩm:</label>
-                        <div id="radioButtonsContainer">
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="btn-icon" id="menuToggle">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <div class="breadcrumb">
+                        <i data-lucide="home"></i>
+                        <span>Quản lý Hàng Rơi Xa</span>
+                    </div>
+                </div>
+                <div class="top-bar-right">
+                    <button class="btn btn-primary" id="toggleFormButton">
+                        <i data-lucide="plus-circle"></i>
+                        <span>Thêm Sản Phẩm</span>
+                    </button>
+                    <button
+                        class="btn-icon"
+                        id="btnRefresh"
+                        title="Làm mới dữ liệu"
+                    >
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                    <div class="search-box">
+                        <i data-lucide="search"></i>
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm..."
+                            id="searchInput"
+                        />
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Cards -->
+            <section class="stats-section">
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i data-lucide="package"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">Tổng Sản Phẩm</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i data-lucide="layers"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statCategories">4</div>
+                        <div class="stat-label">Danh Mục</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <i data-lucide="video"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statLiveSessions">0</div>
+                        <div class="stat-label">Đợt Live</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i data-lucide="box"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statQuantity">0</div>
+                        <div class="stat-label">Tổng Số Lượng</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Add Product Form Section -->
+            <section class="upload-section card" id="dataForm">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i data-lucide="file-plus"></i>
+                        <h2>Thêm Sản Phẩm Mới</h2>
+                    </div>
+                    <button class="btn-icon" id="closeForm">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <form id="productForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="tag"></i>
+                                    Phân loại
+                                </label>
+                                <select id="phanLoai" required>
+                                    <option value="Áo" selected>Áo</option>
+                                    <option value="Quần">Quần</option>
+                                    <option value="Set và Đầm">
+                                        Set và Đầm
+                                    </option>
+                                    <option value="PKGD">
+                                        Phụ kiện và Giày dép
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="calendar"></i>
+                                    Đợt Live
+                                </label>
+                                <input type="number" id="dotLive" required />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="image"></i>
+                                Hình ảnh sản phẩm
+                            </label>
+                            <div class="image-input-tabs">
+                                <button
+                                    type="button"
+                                    class="tab-input active"
+                                    data-type="clipboard"
+                                >
+                                    <i data-lucide="clipboard"></i>
+                                    Copy Paste
+                                </button>
+                                <button
+                                    type="button"
+                                    class="tab-input"
+                                    data-type="file"
+                                >
+                                    <i data-lucide="upload"></i>
+                                    Nhập file
+                                </button>
+                                <button
+                                    type="button"
+                                    class="tab-input"
+                                    data-type="link"
+                                >
+                                    <i data-lucide="link"></i>
+                                    Nhập link
+                                </button>
+                            </div>
+
+                            <!-- Hidden radio buttons for compatibility -->
                             <input
                                 type="radio"
                                 name="inputType"
                                 id="inputClipboard"
                                 checked
+                                style="display: none"
                             />
-                            <label for="inputClipboard">Copy Paste</label>
                             <input
                                 type="radio"
                                 name="inputType"
                                 id="inputFile"
+                                style="display: none"
                             />
-                            <label for="inputFile">Nhập file</label>
                             <input
                                 type="radio"
                                 name="inputType"
                                 id="inputLink"
+                                style="display: none"
                             />
-                            <label for="inputLink">Nhập link</label>
+                        </div>
+
+                        <div class="image-input-container">
+                            <!-- Clipboard paste area -->
+                            <div id="container" class="paste-area active">
+                                <i data-lucide="clipboard-paste"></i>
+                                <p>Dán ảnh ở đây...</p>
+                            </div>
+
+                            <!-- File upload -->
+                            <div
+                                id="inputFileContainer"
+                                class="file-upload-container"
+                            >
+                                <input
+                                    type="file"
+                                    id="hinhAnhInputFile"
+                                    multiple
+                                    accept="image/*"
+                                />
+                                <div class="file-upload-label">
+                                    <i data-lucide="upload-cloud"></i>
+                                    <p>Chọn hoặc kéo thả file ảnh</p>
+                                </div>
+                            </div>
+
+                            <!-- Link input -->
+                            <div
+                                id="inputLinkContainer"
+                                class="link-input-container"
+                            >
+                                <input
+                                    type="text"
+                                    id="hinhAnhInput"
+                                    placeholder="Nhập link hình ảnh (https://...)"
+                                />
+                            </div>
+
+                            <!-- Preview container -->
+                            <div
+                                id="hinhAnhContainer"
+                                class="image-preview-container"
+                            ></div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="package"></i>
+                                    Tên sản phẩm
+                                </label>
+                                <input
+                                    type="text"
+                                    id="tenSanPham"
+                                    list="suggestions"
+                                    required
+                                />
+                                <datalist id="suggestions"></datalist>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="ruler"></i>
+                                    Kích cỡ
+                                </label>
+                                <select id="kichCo" required>
+                                    <option value="FreeSize">FreeSize</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="2XL">2XL</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="34">34</option>
+                                    <option value="35">35</option>
+                                    <option value="36">36</option>
+                                    <option value="37">37</option>
+                                    <option value="38">38</option>
+                                    <option value="39">39</option>
+                                    <option value="40">40</option>
+                                    <option value="41">41</option>
+                                    <option value="42">42</option>
+                                    <option value="43">43</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="hash"></i>
+                                Số lượng
+                            </label>
+                            <input
+                                type="number"
+                                id="soLuong"
+                                min="1"
+                                required
+                            />
+                        </div>
+
+                        <div class="form-actions">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                id="clearDataButton"
+                            >
+                                <i data-lucide="rotate-ccw"></i>
+                                Reset
+                            </button>
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                                id="addButton"
+                            >
+                                <i data-lucide="check"></i>
+                                Thêm Sản Phẩm
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Product List Section -->
+            <section class="gallery-section card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i data-lucide="table"></i>
+                        <h2>Danh Sách Sản Phẩm</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button
+                            class="btn-icon"
+                            id="btnExport"
+                            title="Xuất Excel"
+                        >
+                            <i data-lucide="download"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Filters -->
+                    <div class="filter-section">
+                        <div class="filter-group">
+                            <i data-lucide="filter"></i>
+                            <select id="filterCategory">
+                                <option value="all">Tất cả phân loại</option>
+                                <option value="Áo">Áo</option>
+                                <option value="Quần">Quần</option>
+                                <option value="Set và Đầm">Set và Đầm</option>
+                                <option value="PKGD">
+                                    Phụ kiện và Giày dép
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <i data-lucide="video"></i>
+                            <select id="dateFilter">
+                                <option value="all">Tất cả đợt live</option>
+                            </select>
                         </div>
                     </div>
 
-                    <div id="container">
-                        <p>Dán ảnh ở đây…</p>
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Thứ tự</th>
+                                    <th>Đợt Live</th>
+                                    <th>Thời gian Upload</th>
+                                    <th>Phân loại</th>
+                                    <th>Hình ảnh</th>
+                                    <th>Tên sản phẩm</th>
+                                    <th>Kích cỡ</th>
+                                    <th>Số lượng</th>
+                                    <th>Xoá</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productTableBody">
+                                <!-- Data rows here -->
+                            </tbody>
+                        </table>
                     </div>
 
-                    <div id="inputFileContainer">
-                        <input
-                            type="file"
-                            id="hinhAnhInputFile"
-                            multiple
-                            accept="image/*"
-                        />
+                    <!-- Empty State -->
+                    <div class="empty-state" id="emptyState">
+                        <i data-lucide="inbox"></i>
+                        <h3>Chưa có sản phẩm</h3>
+                        <p>Thêm sản phẩm đầu tiên của bạn</p>
                     </div>
-
-                    <div id="inputLinkContainer">
-                        <input
-                            type="text"
-                            id="hinhAnhInput"
-                            placeholder="Nhập link hình ảnh (https://...)"
-                        />
-                    </div>
-
-                    <div id="hinhAnhContainer"></div>
-
-                    <div class="form-group">
-                        <label for="tenSanPham">Tên sản phẩm:</label>
-                        <input
-                            type="text"
-                            id="tenSanPham"
-                            list="suggestions"
-                            required
-                        />
-                        <datalist id="suggestions"></datalist>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="kichCo">Kích cỡ:</label>
-                        <select id="kichCo" required>
-                            <option value="FreeSize">FreeSize</option>
-                            <option value="S">S</option>
-                            <option value="M">M</option>
-                            <option value="L">L</option>
-                            <option value="XL">XL</option>
-                            <option value="2XL">2XL</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="34">34</option>
-                            <option value="35">35</option>
-                            <option value="36">36</option>
-                            <option value="37">37</option>
-                            <option value="38">38</option>
-                            <option value="39">39</option>
-                            <option value="40">40</option>
-                            <option value="41">41</option>
-                            <option value="42">42</option>
-                            <option value="43">43</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="soLuong">Số lượng:</label>
-                        <input type="number" id="soLuong" min="1" required />
-                    </div>
-
-                    <div class="center-button">
-                        <button type="submit" id="addButton">Thêm</button>
-                        <button type="button" id="clearDataButton">
-                            Reset
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Filter Section -->
-            <div class="filter-section">
-                <div class="filter-group">
-                    <label for="filterCategory">Chọn phân loại:</label>
-                    <select id="filterCategory">
-                        <option value="all">Tất cả</option>
-                        <option value="Áo">Áo</option>
-                        <option value="Quần">Quần</option>
-                        <option value="Set và Đầm">Set và Đầm</option>
-                        <option value="PKGD">Phụ kiện và Giày dép</option>
-                    </select>
-
-                    <label for="dateFilter">Lọc Đợt Live:</label>
-                    <select id="dateFilter">
-                        <option value="all">Tất cả</option>
-                    </select>
                 </div>
-            </div>
-
-            <!-- Table -->
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 5%">Thứ tự</th>
-                            <th style="width: 5%">Đợt Live</th>
-                            <th style="width: 10%">Thời gian Upload</th>
-                            <th style="width: 10%">Phân loại</th>
-                            <th style="width: 20%">Hình ảnh</th>
-                            <th style="width: 25%">Tên sản phẩm</th>
-                            <th style="width: 10%">Kích cỡ</th>
-                            <th style="width: 15%">Số lượng</th>
-                            <th style="width: 5%">Xoá</th>
-                        </tr>
-                    </thead>
-                    <tbody id="productTableBody">
-                        <!-- Dữ liệu sản phẩm tồn kho sẽ được thêm bằng JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Enhanced Floating Alert -->
-        <div id="floatingAlert">
-            <div class="alert-content">
-                <div class="loading-spinner" style="display: none">
-                    <div class="spinner"></div>
-                </div>
-                <div class="alert-text">Thông báo hiển thị!</div>
-            </div>
-        </div>
+            </section>
+        </main>
 
         <!-- Tooltip -->
         <div id="tooltip" class="tooltip"></div>
 
-        <!-- Original JavaScript file -->
-        <script src="scriptObfuscator.js"></script>
+        <!-- Scripts - LOAD IN CORRECT ORDER -->
+        <script src="../live/notification-system.js"></script>
+
+        <!-- Load modular JS files in correct order -->
+        <script src="auth.js"></script>
+        <script src="hangrotxa-config.js"></script>
+        <script src="hangrotxa-utils.js"></script>
+        <script src="hangrotxa-cache.js"></script>
+        <script src="hangrotxa-ui.js"></script>
+        <script src="hangrotxa-crud.js"></script>
+        <script src="hangrotxa-main.js"></script>
     </body>
 </html>
