@@ -10,12 +10,28 @@ class AuthManager {
 
     init() {
         try {
-            const authData = localStorage.getItem("loginindex_auth");
+            // Check sessionStorage first (for session-only login)
+            let authData = sessionStorage.getItem("loginindex_auth");
+            let isFromSession = true;
+
+            // If not in sessionStorage, check localStorage (for remembered login)
+            if (!authData) {
+                authData = localStorage.getItem("loginindex_auth");
+                isFromSession = false;
+            }
+
             if (authData) {
                 const auth = JSON.parse(authData);
-                if (this.isValidSession(auth)) {
+                if (this.isValidSession(auth, isFromSession)) {
                     this.currentUser = auth;
+                    console.log(
+                        "[AUTH] Valid session restored from",
+                        isFromSession ? "sessionStorage" : "localStorage",
+                    );
                     return true;
+                } else {
+                    console.log("[AUTH] Session expired, clearing data");
+                    this.clearAuth();
                 }
             }
         } catch (error) {
@@ -25,15 +41,27 @@ class AuthManager {
         return false;
     }
 
-    isValidSession(auth) {
+    isValidSession(auth, isFromSession = false) {
         if (!auth.isLoggedIn || !auth.userType || auth.checkLogin === undefined)
             return false;
 
-        const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
+        // Define session timeout based on source and remember preference
+        const SESSION_TIMEOUT = isFromSession
+            ? 8 * 60 * 60 * 1000 // 8 hours for session storage
+            : 30 * 24 * 60 * 60 * 1000; // 30 days for remembered login
+
+        // Check if session has expired
         if (auth.timestamp && Date.now() - auth.timestamp > SESSION_TIMEOUT) {
             console.log("Session expired");
             return false;
         }
+
+        // Check explicit expiry if exists
+        if (auth.expiresAt && Date.now() > auth.expiresAt) {
+            console.log("Session expired (explicit expiry)");
+            return false;
+        }
+
         return true;
     }
 
@@ -50,7 +78,14 @@ class AuthManager {
 
     getAuthState() {
         try {
-            const stored = localStorage.getItem("loginindex_auth");
+            // Check sessionStorage first
+            let stored = sessionStorage.getItem("loginindex_auth");
+
+            // If not in sessionStorage, check localStorage
+            if (!stored) {
+                stored = localStorage.getItem("loginindex_auth");
+            }
+
             if (stored) {
                 this.currentUser = JSON.parse(stored);
                 return this.currentUser;
@@ -67,7 +102,14 @@ class AuthManager {
 
     clearAuth() {
         this.currentUser = null;
+        // Clear from both storage locations
+        sessionStorage.removeItem("loginindex_auth");
         localStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("remember_login_preference");
+        // Clear legacy data
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
     }
 
     logout() {
@@ -82,26 +124,22 @@ class AuthManager {
 // INITIALIZE AUTHMANAGER IMMEDIATELY
 // =====================================================
 
-// Create fake auth for development if not exists
-if (!localStorage.getItem("loginindex_auth")) {
-    console.warn("[AUTH] No auth found, creating development auth...");
-    const devAuth = {
-        isLoggedIn: "true",
-        userType: "Admin-Developer",
-        checkLogin: "0",
-        timestamp: Date.now(),
-        username: "developer",
-        displayName: "Developer Mode",
-    };
-    localStorage.setItem("loginindex_auth", JSON.stringify(devAuth));
-    localStorage.setItem("checkLogin", "0");
-}
-
 // Initialize authManager IMMEDIATELY
 const authManager = new AuthManager();
 window.authManager = authManager;
 
 console.log("[AUTH] AuthManager initialized:", authManager.isAuthenticated());
+
+// Redirect to login if not authenticated (production mode)
+if (!authManager.isAuthenticated()) {
+    console.warn("[AUTH] User not authenticated, redirecting to login...");
+    // Allow a brief moment for any pending operations
+    setTimeout(() => {
+        if (!authManager.isAuthenticated()) {
+            window.location.href = "../index.html";
+        }
+    }, 500);
+}
 
 // =====================================================
 // LEGACY FUNCTIONS (for backward compatibility)
@@ -135,6 +173,7 @@ function clearAuthState() {
     authState = null;
     try {
         localStorage.removeItem("loginindex_auth");
+        sessionStorage.removeItem("loginindex_auth");
         clearLegacyAuth();
     } catch (error) {
         console.error("Error clearing auth state:", error);
@@ -146,6 +185,7 @@ function clearLegacyAuth() {
         localStorage.removeItem("isLoggedIn");
         localStorage.removeItem("userType");
         localStorage.removeItem("checkLogin");
+        localStorage.removeItem("remember_login_preference");
         sessionStorage.clear();
     } catch (error) {
         console.error("Error clearing legacy auth:", error);
