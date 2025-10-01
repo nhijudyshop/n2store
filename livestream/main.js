@@ -41,6 +41,15 @@ function injectEditHistoryCSS() {
     document.head.appendChild(style);
 }
 
+// Hide total-summary by default
+function hideTotalSummaryByDefault() {
+    const totalSummary = document.querySelector(".total-summary");
+    if (totalSummary) {
+        totalSummary.classList.add("hidden");
+        console.log("[INIT] Total summary hidden by default");
+    }
+}
+
 // Override existing functions to include total calculation updates
 function enhanceFilterFunctions() {
     // Store original function if it exists
@@ -83,6 +92,9 @@ function enhanceTableFunctions() {
         window.updateTable = function () {
             originalUpdateTable.call(this);
             setTimeout(() => {
+                // Hide total summary by default after table update
+                hideTotalSummaryByDefault();
+
                 if (typeof initializeTotalCalculation === "function") {
                     initializeTotalCalculation();
                 }
@@ -110,6 +122,9 @@ function initializeApplication() {
 
     // Initialize CSS styles for edit history
     injectEditHistoryCSS();
+
+    // Hide total summary by default
+    hideTotalSummaryByDefault();
 
     // Initialize components
     if (typeof initializeUpdatedForm === "function") {
@@ -168,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Initialize the application
         initializeApplication();
-    }, 300); // Increased timeout to ensure all scripts load
+    }, 300);
 });
 
 // Window load handler for final enhancements and modal setup
@@ -177,6 +192,9 @@ window.addEventListener("load", function () {
     setTimeout(() => {
         enhanceFilterFunctions();
         enhanceTableFunctions();
+
+        // Ensure total summary is hidden
+        hideTotalSummaryByDefault();
 
         // Setup modal close button if not already done
         const closeEditModalBtn = document.getElementById("closeEditModalBtn");
@@ -190,3 +208,4 @@ window.addEventListener("load", function () {
 
 // Export initialization function for potential manual calls
 window.initializeApplication = initializeApplication;
+window.hideTotalSummaryByDefault = hideTotalSummaryByDefault;

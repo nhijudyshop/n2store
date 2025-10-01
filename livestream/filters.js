@@ -1,4 +1,4 @@
-// js/filters.js - Filter System
+// js/filters.js - Filter System with Quick Filters
 
 function createFilterSystem() {
     if (document.getElementById("improvedFilterSystem")) {
@@ -13,28 +13,56 @@ function createFilterSystem() {
     filterContainer.id = "improvedFilterSystem";
     filterContainer.className = "filter-system";
     filterContainer.innerHTML = `
-        <div class="filter-row">
-            <div class="filter-group">
-                <label>Từ ngày:</label>
-                <input type="date" id="startDateFilter" class="filter-input" value="${localISODate}">
-            </div>
-            
-            <div class="filter-group">
-                <label>Đến ngày:</label>
-                <input type="date" id="endDateFilter" class="filter-input" value="${localISODate}">
-            </div>
-            
-            <div class="filter-group">
-                <label>&nbsp;</label>
-                <div>
-                    <button id="todayFilterBtn" class="filter-btn today-btn">Hôm nay</button>
-                    <button id="allFilterBtn" class="filter-btn all-btn">Tất cả</button>
-                    <button id="clearFiltersBtn" class="filter-btn clear-btn">Xóa lọc</button>
-                </div>
+        <div class="filter-header">
+            <h3 class="filter-title">
+                <i data-lucide="filter"></i>
+                Bộ lọc
+            </h3>
+            <div class="filter-header-actions">
+                <button id="toggleFilterBtn" class="btn-toggle-filter" title="Ẩn/Hiện bộ lọc">
+                    <i data-lucide="chevron-down"></i>
+                    <span>Hiện bộ lọc</span>
+                </button>
+                <button id="toggleTotalsBtn" class="btn-toggle-totals" title="Ẩn/Hiện tổng kết">
+                    <i data-lucide="eye-off"></i>
+                    <span>Hiện tổng kết</span>
+                </button>
             </div>
         </div>
-        
-        <div id="filterInfo" class="filter-info hidden"></div>
+
+        <div id="filterContent" class="filter-content collapsed">
+            <div class="quick-filters">
+                <button class="quick-filter-btn" data-filter="all">Tất cả</button>
+                <button class="quick-filter-btn" data-filter="today">Hôm nay</button>
+                <button class="quick-filter-btn" data-filter="yesterday">Hôm qua</button>
+                <button class="quick-filter-btn" data-filter="last7days">7 ngày qua</button>
+                <button class="quick-filter-btn" data-filter="last30days">30 ngày qua</button>
+                <button class="quick-filter-btn active" data-filter="thisweek">Tuần này</button>
+                <button class="quick-filter-btn" data-filter="thismonth">Tháng này</button>
+            </div>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Từ ngày:</label>
+                    <input type="date" id="startDateFilter" class="filter-input">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Đến ngày:</label>
+                    <input type="date" id="endDateFilter" class="filter-input">
+                </div>
+                
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <div>
+                        <button id="applyCustomFilterBtn" class="filter-btn apply-btn">Áp dụng</button>
+                        <button id="clearFiltersBtn" class="filter-btn clear-btn">Xóa lọc</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="filterInfo" class="filter-info hidden"></div>
+        </div>
     `;
 
     const tableContainer =
@@ -44,58 +72,104 @@ function createFilterSystem() {
         tableContainer.parentNode.insertBefore(filterContainer, tableContainer);
     }
 
-    currentFilters.startDate = localISODate;
-    currentFilters.endDate = localISODate;
-
     setTimeout(() => {
         attachFilterEventListeners();
+        initializeDefaultFilter();
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
     }, 100);
+}
+
+function initializeDefaultFilter() {
+    const thisWeekBtn = document.querySelector(
+        '.quick-filter-btn[data-filter="thisweek"]',
+    );
+    if (thisWeekBtn) {
+        setActiveQuickFilter(thisWeekBtn);
+    }
+
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - daysToMonday);
+    const startOfWeekISO = startOfWeek.toISOString().split("T")[0];
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    const endOfWeekISO = endOfWeek.toISOString().split("T")[0];
+
+    const startDateFilter = document.getElementById("startDateFilter");
+    const endDateFilter = document.getElementById("endDateFilter");
+
+    if (startDateFilter) startDateFilter.value = startOfWeekISO;
+    if (endDateFilter) endDateFilter.value = endOfWeekISO;
+}
+
+function toggleFilterContent() {
+    const filterContent = document.getElementById("filterContent");
+    const toggleBtn = document.getElementById("toggleFilterBtn");
+    const toggleIcon = toggleBtn.querySelector("i");
+    const toggleText = toggleBtn.querySelector("span");
+
+    if (filterContent) {
+        filterContent.classList.toggle("collapsed");
+
+        if (filterContent.classList.contains("collapsed")) {
+            toggleIcon.setAttribute("data-lucide", "chevron-down");
+            toggleText.textContent = "Hiện bộ lọc";
+        } else {
+            toggleIcon.setAttribute("data-lucide", "chevron-up");
+            toggleText.textContent = "Ẩn bộ lọc";
+        }
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+    }
 }
 
 function attachFilterEventListeners() {
     const startDateFilter = document.getElementById("startDateFilter");
     const endDateFilter = document.getElementById("endDateFilter");
-    const todayBtn = document.getElementById("todayFilterBtn");
-    const allBtn = document.getElementById("allFilterBtn");
+    const applyBtn = document.getElementById("applyCustomFilterBtn");
     const clearBtn = document.getElementById("clearFiltersBtn");
+    const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
+    const toggleTotalsBtn = document.getElementById("toggleTotalsBtn");
+    const toggleFilterBtn = document.getElementById("toggleFilterBtn");
 
     if (startDateFilter)
         startDateFilter.addEventListener("change", handleDateRangeChange);
     if (endDateFilter)
         endDateFilter.addEventListener("change", handleDateRangeChange);
-    if (todayBtn) todayBtn.addEventListener("click", setTodayFilter);
-    if (allBtn) allBtn.addEventListener("click", setAllFilter);
+    if (applyBtn) applyBtn.addEventListener("click", applyFilters);
     if (clearBtn) clearBtn.addEventListener("click", clearAllFilters);
+    if (toggleTotalsBtn)
+        toggleTotalsBtn.addEventListener("click", toggleTotals);
+    if (toggleFilterBtn)
+        toggleFilterBtn.addEventListener("click", toggleFilterContent);
 
-    applyFilters();
+    quickFilterBtns.forEach((btn) => {
+        btn.addEventListener("click", function () {
+            const filterType = this.getAttribute("data-filter");
+            setActiveQuickFilter(this);
+            applyQuickFilter(filterType);
+        });
+    });
 }
 
-function handleDateRangeChange() {
-    if (isFilteringInProgress) return;
-
-    const startDateFilter = document.getElementById("startDateFilter");
-    const endDateFilter = document.getElementById("endDateFilter");
-
-    if (!startDateFilter || !endDateFilter) return;
-
-    let startDate = startDateFilter.value;
-    let endDate = endDateFilter.value;
-
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-        [startDate, endDate] = [endDate, startDate];
-        startDateFilter.value = startDate;
-        endDateFilter.value = endDate;
+function setActiveQuickFilter(activeBtn) {
+    document.querySelectorAll(".quick-filter-btn").forEach((btn) => {
+        btn.classList.remove("active");
+    });
+    if (activeBtn) {
+        activeBtn.classList.add("active");
     }
-
-    currentFilters.startDate = startDate;
-    currentFilters.endDate = endDate;
-
-    debouncedApplyFilters();
 }
 
-function setTodayFilter() {
-    if (isFilteringInProgress) return;
-
+function applyQuickFilter(filterType) {
     const today = new Date();
     const tzOffset = today.getTimezoneOffset() * 60000;
     const localISODate = new Date(today - tzOffset).toISOString().split("T")[0];
@@ -103,28 +177,128 @@ function setTodayFilter() {
     const startDateFilter = document.getElementById("startDateFilter");
     const endDateFilter = document.getElementById("endDateFilter");
 
-    if (startDateFilter) startDateFilter.value = localISODate;
-    if (endDateFilter) endDateFilter.value = localISODate;
+    let startDate = "";
+    let endDate = "";
 
-    currentFilters.startDate = localISODate;
-    currentFilters.endDate = localISODate;
+    switch (filterType) {
+        case "all":
+            startDate = "";
+            endDate = "";
+            break;
+
+        case "today":
+            startDate = localISODate;
+            endDate = localISODate;
+            break;
+
+        case "yesterday":
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayISO = new Date(yesterday - tzOffset)
+                .toISOString()
+                .split("T")[0];
+            startDate = yesterdayISO;
+            endDate = yesterdayISO;
+            break;
+
+        case "last7days":
+            const last7days = new Date(today);
+            last7days.setDate(last7days.getDate() - 6);
+            const last7daysISO = new Date(last7days - tzOffset)
+                .toISOString()
+                .split("T")[0];
+            startDate = last7daysISO;
+            endDate = localISODate;
+            break;
+
+        case "last30days":
+            const last30days = new Date(today);
+            last30days.setDate(last30days.getDate() - 29);
+            const last30daysISO = new Date(last30days - tzOffset)
+                .toISOString()
+                .split("T")[0];
+            startDate = last30daysISO;
+            endDate = localISODate;
+            break;
+
+        case "thisweek":
+            const dayOfWeek = today.getDay();
+            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - daysToMonday);
+            const startOfWeekISO = new Date(startOfWeek - tzOffset)
+                .toISOString()
+                .split("T")[0];
+
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            const endOfWeekISO = new Date(endOfWeek - tzOffset)
+                .toISOString()
+                .split("T")[0];
+
+            startDate = startOfWeekISO;
+            endDate = endOfWeekISO;
+            break;
+
+        case "thismonth":
+            const startOfMonth = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                1,
+            );
+            const startOfMonthISO = new Date(startOfMonth - tzOffset)
+                .toISOString()
+                .split("T")[0];
+            startDate = startOfMonthISO;
+            endDate = localISODate;
+            break;
+    }
+
+    if (startDateFilter) startDateFilter.value = startDate;
+    if (endDateFilter) endDateFilter.value = endDate;
+
+    currentFilters.startDate = startDate || null;
+    currentFilters.endDate = endDate || null;
 
     applyFilters();
 }
 
-function setAllFilter() {
+function setThisWeekFilter(updateUI = true) {
     if (isFilteringInProgress) return;
 
-    const startDateFilter = document.getElementById("startDateFilter");
-    const endDateFilter = document.getElementById("endDateFilter");
+    const today = new Date();
+    const tzOffset = today.getTimezoneOffset() * 60000;
 
-    if (startDateFilter) startDateFilter.value = "";
-    if (endDateFilter) endDateFilter.value = "";
+    const dayOfWeek = today.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - daysToMonday);
+    const startOfWeekISO = new Date(startOfWeek - tzOffset)
+        .toISOString()
+        .split("T")[0];
 
-    currentFilters.startDate = null;
-    currentFilters.endDate = null;
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    const endOfWeekISO = new Date(endOfWeek - tzOffset)
+        .toISOString()
+        .split("T")[0];
 
-    applyFilters();
+    currentFilters.startDate = startOfWeekISO;
+    currentFilters.endDate = endOfWeekISO;
+
+    if (updateUI) {
+        const startDateFilter = document.getElementById("startDateFilter");
+        const endDateFilter = document.getElementById("endDateFilter");
+
+        if (startDateFilter) startDateFilter.value = startOfWeekISO;
+        if (endDateFilter) endDateFilter.value = endOfWeekISO;
+
+        applyFilters();
+    }
+}
+
+function handleDateRangeChange() {
+    setActiveQuickFilter(null);
 }
 
 function clearAllFilters() {
@@ -142,7 +316,35 @@ function clearAllFilters() {
         status: "all",
     };
 
+    const allBtn = document.querySelector(
+        '.quick-filter-btn[data-filter="all"]',
+    );
+    setActiveQuickFilter(allBtn);
+
     applyFilters();
+}
+
+function toggleTotals() {
+    const totalSummary = document.querySelector(".total-summary");
+    const toggleBtn = document.getElementById("toggleTotalsBtn");
+    const toggleIcon = toggleBtn.querySelector("i");
+    const toggleText = toggleBtn.querySelector("span");
+
+    if (totalSummary) {
+        totalSummary.classList.toggle("hidden");
+
+        if (totalSummary.classList.contains("hidden")) {
+            toggleIcon.setAttribute("data-lucide", "eye");
+            toggleText.textContent = "Hiện tổng kết";
+        } else {
+            toggleIcon.setAttribute("data-lucide", "eye-off");
+            toggleText.textContent = "Ẩn tổng kết";
+        }
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+    }
 }
 
 function debouncedApplyFilters() {
@@ -161,7 +363,13 @@ function applyFilters() {
     if (isFilteringInProgress) return;
 
     isFilteringInProgress = true;
-    showLoading("Đang lọc dữ liệu...");
+
+    let loadingNotificationId = null;
+    if (globalNotificationManager) {
+        loadingNotificationId = globalNotificationManager.loading(
+            "Đang lọc dữ liệu...",
+        );
+    }
 
     setTimeout(() => {
         try {
@@ -195,11 +403,20 @@ function applyFilters() {
 
             updateFilterInfo(visibleCount, rows.length);
 
-            hideFloatingAlert();
-            showSuccess(`Hiển thị ${visibleCount} báo cáo`);
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.success(
+                    `Hiển thị ${visibleCount} báo cáo`,
+                );
+            }
         } catch (error) {
             console.error("Error during filtering:", error);
-            showError("Có lỗi xảy ra khi lọc dữ liệu");
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.error(
+                    "Có lỗi xảy ra khi lọc dữ liệu",
+                );
+            }
         } finally {
             isFilteringInProgress = false;
         }
@@ -277,6 +494,9 @@ function formatDateForDisplay(dateStr) {
 window.createFilterSystem = createFilterSystem;
 window.attachFilterEventListeners = attachFilterEventListeners;
 window.applyFilters = applyFilters;
-window.setTodayFilter = setTodayFilter;
-window.setAllFilter = setAllFilter;
+window.setThisWeekFilter = setThisWeekFilter;
 window.clearAllFilters = clearAllFilters;
+window.applyQuickFilter = applyQuickFilter;
+window.toggleTotals = toggleTotals;
+window.toggleFilterContent = toggleFilterContent;
+window.initializeDefaultFilter = initializeDefaultFilter;

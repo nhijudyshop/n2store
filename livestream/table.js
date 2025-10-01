@@ -88,6 +88,26 @@ function hasInboxBeenEdited(item) {
     });
 }
 
+// Calculate default filter range (This Week)
+function getDefaultFilterRange() {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - daysToMonday);
+    const startOfWeekISO = startOfWeek.toISOString().split("T")[0];
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    const endOfWeekISO = endOfWeek.toISOString().split("T")[0];
+
+    return {
+        startDate: startOfWeekISO,
+        endDate: endOfWeekISO,
+    };
+}
+
 // Table Management Functions
 function renderTableFromData(dataArray, applyInitialFilter = false) {
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
@@ -98,10 +118,15 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
 
     arrayData = [...dataArray];
 
+    // Apply "This week" filter by default
     if (applyInitialFilter) {
-        const today = new Date().toISOString().split("T")[0];
-        currentFilters.startDate = today;
-        currentFilters.endDate = today;
+        const defaultRange = getDefaultFilterRange();
+        currentFilters.startDate = defaultRange.startDate;
+        currentFilters.endDate = defaultRange.endDate;
+        console.log(
+            "[TABLE] Applying default filter - This week:",
+            defaultRange,
+        );
     }
 
     // Sort data with enhanced time period sorting
@@ -160,7 +185,9 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
 
     createFilterSystem();
 
-    console.log(`Rendered ${sortedData.length} reports in grouped format`);
+    console.log(
+        `[TABLE] Rendered ${sortedData.length} reports in grouped format`,
+    );
 }
 
 function createGroupedTableRow(
@@ -351,7 +378,7 @@ function applyButtonPermissions(editBtn, deleteBtn, userRole) {
 function updateTable() {
     const cachedData = getCachedData();
     if (cachedData) {
-        console.log("Loading from cache...");
+        console.log("[TABLE] Loading from cache...");
         showLoading("Đang tải dữ liệu từ cache...");
         setTimeout(() => {
             renderTableFromData(cachedData, true);
@@ -360,7 +387,7 @@ function updateTable() {
         return;
     }
 
-    console.log("Loading from Firebase...");
+    console.log("[TABLE] Loading from Firebase...");
     showLoading("Đang tải dữ liệu từ Firebase...");
 
     collectionRef
@@ -374,18 +401,18 @@ function updateTable() {
                     setCachedData(data["data"]);
                     showSuccess("Đã tải xong dữ liệu!");
                 } else {
-                    console.log("No data found or data array is empty");
+                    console.log("[TABLE] No data found or data array is empty");
                     createFilterSystem();
                     showError("Không có dữ liệu");
                 }
             } else {
-                console.log("Document does not exist");
+                console.log("[TABLE] Document does not exist");
                 createFilterSystem();
                 showError("Tài liệu không tồn tại");
             }
         })
         .catch((error) => {
-            console.error("Error getting document:", error);
+            console.error("[TABLE] Error getting document:", error);
             createFilterSystem();
             showError("Lỗi khi tải dữ liệu từ Firebase");
         });
@@ -461,7 +488,7 @@ function handleDeleteButton(e) {
             showSuccess("Đã xóa báo cáo thành công!");
         })
         .catch((error) => {
-            console.error("Error deleting report:", error);
+            console.error("[TABLE] Error deleting report:", error);
             showError("Lỗi khi xóa báo cáo");
         });
 }
@@ -540,7 +567,7 @@ function exportToExcel() {
             showSuccess(`Đã xuất ${exportedRowCount} báo cáo ra Excel!`);
         }, 500);
     } catch (error) {
-        console.error("Error exporting to Excel:", error);
+        console.error("[TABLE] Error exporting to Excel:", error);
         showError("Có lỗi xảy ra khi xuất dữ liệu ra Excel");
     }
 }
@@ -556,3 +583,4 @@ window.groupDataByDate = groupDataByDate;
 window.createGroupedTableRow = createGroupedTableRow;
 window.handleDeleteButton = handleDeleteButton;
 window.hasInboxBeenEdited = hasInboxBeenEdited;
+window.getDefaultFilterRange = getDefaultFilterRange;

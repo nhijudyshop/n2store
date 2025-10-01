@@ -672,43 +672,6 @@
                 // Update stats periodically
                 setInterval(updateStats, 2000);
             });
-
-            // Legacy UI functions compatibility - use single global instance
-            function showLoading(message = "Đang xử lý...") {
-                if (globalNotificationManager) {
-                    globalNotificationManager.loading(message);
-                } else {
-                    console.log("[UI] Loading:", message);
-                }
-            }
-
-            function showSuccess(message) {
-                if (globalNotificationManager) {
-                    globalNotificationManager.success(message);
-                } else {
-                    console.log("[UI] Success:", message);
-                }
-            }
-
-            function showError(message) {
-                if (globalNotificationManager) {
-                    globalNotificationManager.error(message);
-                } else {
-                    console.error("[UI] Error:", message);
-                }
-            }
-
-            function hideFloatingAlert() {
-                if (globalNotificationManager) {
-                    globalNotificationManager.clearAll();
-                }
-            }
-
-            // Export to window
-            window.showLoading = showLoading;
-            window.showSuccess = showSuccess;
-            window.showError = showError;
-            window.hideFloatingAlert = hideFloatingAlert;
         </script>
     </body>
 </html>
