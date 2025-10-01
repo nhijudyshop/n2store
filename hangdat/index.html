@@ -449,25 +449,32 @@
                             <table class="inventory-table" id="inventoryTable">
                                 <thead>
                                     <tr>
+                                        <th style="width: 3%">
+                                            <input
+                                                type="checkbox"
+                                                id="selectAllCheckbox"
+                                                title="Chọn tất cả"
+                                            />
+                                        </th>
                                         <th style="width: 8%">Ngày đặt</th>
                                         <th style="width: 10%">Nhà cung cấp</th>
                                         <th style="width: 10%">Hóa đơn</th>
-                                        <th style="width: 12%">Tên sản phẩm</th>
-                                        <th style="width: 10%">Mã sản phẩm</th>
+                                        <th style="width: 11%">Tên sản phẩm</th>
+                                        <th style="width: 9%">Mã sản phẩm</th>
                                         <th style="width: 8%">Biến thể</th>
-                                        <th style="width: 8%">Số lượng</th>
-                                        <th style="width: 12%">
+                                        <th style="width: 7%">Số lượng</th>
+                                        <th style="width: 11%">
                                             Ảnh & Giá bán
                                         </th>
                                         <th style="width: 10%">Ảnh giá mua</th>
-                                        <th style="width: 8%">Ghi chú</th>
+                                        <th style="width: 9%">Ghi chú</th>
                                         <th style="width: 4%">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody id="orderTableBody">
                                     <tr>
                                         <td
-                                            colspan="11"
+                                            colspan="12"
                                             style="
                                                 text-align: center;
                                                 padding: 40px;
@@ -559,6 +566,7 @@
         <script src="main.js"></script>
         <script src="notification-system.js"></script>
         <script src="button-icons.js"></script>
+        <script src="bulk-delete.js"></script>
 
         <!-- Initialize Lucide Icons -->
         <script>

@@ -1,5 +1,5 @@
 // =====================================================
-// FIXED TABLE RENDERING WITH UPDATED PRICE DISPLAY AND PERMISSIONS
+// TABLE RENDERING WITH CHECKBOX FOR BULK DELETE
 // =====================================================
 
 function renderInventoryTable(inventoryData) {
@@ -12,26 +12,12 @@ function renderInventoryTable(inventoryData) {
     const filteredData = applyFiltersToInventory(inventoryData);
     tbody.innerHTML = "";
 
-    // Debug: Log first item to check data structure
-    if (filteredData.length > 0) {
-        console.log("Sample data structure for debugging:", filteredData[0]);
-        console.log("Available image fields:", {
-            anhHoaDon: filteredData[0].anhHoaDon,
-            anhSanPham: filteredData[0].anhSanPham,
-            anhGiaMua: filteredData[0].anhGiaMua,
-            // Also check alternative field names
-            invoiceImage: filteredData[0].invoiceImage,
-            productImage: filteredData[0].productImage,
-            priceImage: filteredData[0].priceImage,
-        });
-    }
-
     // Add summary row
     if (filteredData.length > 0) {
         const summaryRow = document.createElement("tr");
         summaryRow.className = "summary-row";
         const summaryTd = document.createElement("td");
-        summaryTd.colSpan = 11;
+        summaryTd.colSpan = 12; // Updated colspan for checkbox column
         summaryTd.innerHTML = `Hiển thị: <strong>${filteredData.length}</strong> sản phẩm`;
         summaryRow.appendChild(summaryTd);
         tbody.appendChild(summaryRow);
@@ -39,7 +25,7 @@ function renderInventoryTable(inventoryData) {
 
     // Group data by supplier and order date
     const groupedData = groupBySupplierAndDate(filteredData);
-    renderGroupedDataWithImageFix(groupedData, tbody);
+    renderGroupedDataWithCheckbox(groupedData, tbody);
 
     updateStatistics(filteredData);
 }
@@ -62,7 +48,7 @@ function groupBySupplierAndDate(data) {
     return Array.from(grouped.values());
 }
 
-function renderGroupedDataWithImageFix(groupedData, tbody) {
+function renderGroupedDataWithCheckbox(groupedData, tbody) {
     groupedData.forEach((group) => {
         const itemCount = group.items.length;
 
@@ -71,26 +57,42 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
             tr.className = "inventory-row supplier-group";
             tr.setAttribute("data-inventory-id", item.id || "");
 
-            // Create cells array
+            // Create cells array (now 12 cells including checkbox)
             const cells = [];
-            for (let j = 0; j < 11; j++) {
+            for (let j = 0; j < 12; j++) {
                 cells[j] = document.createElement("td");
             }
 
+            // 0. Checkbox column (NEW)
+            cells[0].className = "checkbox-cell";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "row-checkbox";
+            checkbox.dataset.itemId = item.id || "";
+            checkbox.addEventListener("change", function () {
+                if (this.checked) {
+                    tr.classList.add("selected");
+                } else {
+                    tr.classList.remove("selected");
+                }
+            });
+            cells[0].appendChild(checkbox);
+            tr.appendChild(cells[0]);
+
             // 1. Ngày đặt hàng - merge cells for same supplier+date
             if (index === 0) {
-                cells[0].textContent = item.ngayDatHang || "Chưa nhập";
-                cells[0].rowSpan = itemCount;
-                cells[0].className = "date-cell";
-                tr.appendChild(cells[0]);
+                cells[1].textContent = item.ngayDatHang || "Chưa nhập";
+                cells[1].rowSpan = itemCount;
+                cells[1].className = "date-cell";
+                tr.appendChild(cells[1]);
             }
 
             // 2. Nhà cung cấp - merge cells for same supplier+date
             if (index === 0) {
-                cells[1].textContent = sanitizeInput(item.nhaCungCap || "");
-                cells[1].rowSpan = itemCount;
-                cells[1].className = "supplier-cell";
-                tr.appendChild(cells[1]);
+                cells[2].textContent = sanitizeInput(item.nhaCungCap || "");
+                cells[2].rowSpan = itemCount;
+                cells[2].className = "supplier-cell";
+                tr.appendChild(cells[2]);
             }
 
             // 3. Hóa đơn (combined: image on top, text below)
@@ -98,20 +100,16 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                 const invoiceContainer = document.createElement("div");
                 invoiceContainer.className = "combined-cell";
 
-                // Check multiple possible field names for invoice image
                 const invoiceImageUrl =
                     item.anhHoaDon || item.invoiceImage || item.invoice_image;
 
                 if (invoiceImageUrl) {
-                    console.log("Found invoice image:", invoiceImageUrl);
                     const invoiceImg = document.createElement("img");
                     invoiceImg.src = invoiceImageUrl;
                     invoiceImg.className = "cell-image product-image";
                     invoiceImg.alt = "Hóa đơn";
                     invoiceImg.style.cursor = "pointer";
                     invoiceImg.onclick = () => openImageModal(invoiceImageUrl);
-
-                    // Add error handling for image loading
                     invoiceImg.onerror = function () {
                         console.error(
                             "Failed to load invoice image:",
@@ -119,10 +117,7 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                         );
                         this.style.display = "none";
                     };
-
                     invoiceContainer.appendChild(invoiceImg);
-                } else {
-                    console.log("No invoice image found for item:", item.id);
                 }
 
                 const invoiceText = document.createElement("div");
@@ -131,50 +126,46 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                     item.hoaDon || item.invoice || "Chưa có";
                 invoiceContainer.appendChild(invoiceText);
 
-                cells[2].appendChild(invoiceContainer);
-                cells[2].rowSpan = itemCount;
-                tr.appendChild(cells[2]);
+                cells[3].appendChild(invoiceContainer);
+                cells[3].rowSpan = itemCount;
+                tr.appendChild(cells[3]);
             }
 
             // 4. Tên sản phẩm
-            cells[3].textContent = sanitizeInput(item.tenSanPham || "");
-            tr.appendChild(cells[3]);
-
-            // 5. Mã sản phẩm
-            cells[4].textContent = sanitizeInput(item.maSanPham || "");
+            cells[4].textContent = sanitizeInput(item.tenSanPham || "");
             tr.appendChild(cells[4]);
 
-            // 6. Biến thể
-            cells[5].textContent = sanitizeInput(item.bienThe || "");
+            // 5. Mã sản phẩm
+            cells[5].textContent = sanitizeInput(item.maSanPham || "");
             tr.appendChild(cells[5]);
 
-            // 7. Số lượng (simple label, no editing)
+            // 6. Biến thể
+            cells[6].textContent = sanitizeInput(item.bienThe || "");
+            tr.appendChild(cells[6]);
+
+            // 7. Số lượng
             const quantityContainer = document.createElement("div");
             const quantityLabel = document.createElement("span");
             quantityLabel.className = "quantity-label";
             quantityLabel.textContent = item.soLuong || 0;
             quantityContainer.appendChild(quantityLabel);
-            cells[6].appendChild(quantityContainer);
-            tr.appendChild(cells[6]);
+            cells[7].appendChild(quantityContainer);
+            tr.appendChild(cells[7]);
 
-            // 8. Ảnh sản phẩm (combined: image on top, buy price below)
+            // 8. Ảnh sản phẩm + Giá bán
             const productContainer = document.createElement("div");
             productContainer.className = "combined-cell";
 
-            // Check multiple possible field names for product image
             const productImageUrl =
                 item.anhSanPham || item.productImage || item.product_image;
 
             if (productImageUrl) {
-                console.log("Found product image:", productImageUrl);
                 const productImg = document.createElement("img");
                 productImg.src = productImageUrl;
                 productImg.className = "cell-image product-image";
                 productImg.alt = "Sản phẩm";
                 productImg.style.cursor = "pointer";
                 productImg.onclick = () => openImageModal(productImageUrl);
-
-                // Add error handling for image loading
                 productImg.onerror = function () {
                     console.error(
                         "Failed to load product image:",
@@ -182,29 +173,24 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                     );
                     this.style.display = "none";
                 };
-
                 productContainer.appendChild(productImg);
-            } else {
-                console.log("No product image found for item:", item.id);
             }
 
             const sellPriceText = document.createElement("div");
             sellPriceText.className = "cell-text";
-            // UPDATED: Add 3 zeros to price display (multiply by 1000)
             sellPriceText.textContent =
                 item.giaBan > 0
                     ? formatCurrencyWithThousands(item.giaBan)
                     : "Chưa có";
             productContainer.appendChild(sellPriceText);
 
-            cells[7].appendChild(productContainer);
-            tr.appendChild(cells[7]);
+            cells[8].appendChild(productContainer);
+            tr.appendChild(cells[8]);
 
-            // 9. Giá bán (combined: price image on top, sell price below)
+            // 9. Ảnh giá + Giá mua
             const priceContainer = document.createElement("div");
             priceContainer.className = "combined-cell";
 
-            // Check multiple possible field names for price image
             const priceImageUrl =
                 item.anhGiaMua ||
                 item.priceImage ||
@@ -212,44 +198,37 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
                 item.anhGiaBan;
 
             if (priceImageUrl) {
-                console.log("Found price image:", priceImageUrl);
                 const priceImg = document.createElement("img");
                 priceImg.src = priceImageUrl;
                 priceImg.className = "cell-image product-image";
                 priceImg.alt = "Giá bán";
                 priceImg.style.cursor = "pointer";
                 priceImg.onclick = () => openImageModal(priceImageUrl);
-
-                // Add error handling for image loading
                 priceImg.onerror = function () {
                     console.error("Failed to load price image:", priceImageUrl);
                     this.style.display = "none";
                 };
-
                 priceContainer.appendChild(priceImg);
-            } else {
-                console.log("No price image found for item:", item.id);
             }
 
             const buyPriceText = document.createElement("div");
             buyPriceText.className = "cell-text";
-            // UPDATED: Add 3 zeros to price display (multiply by 1000)
             buyPriceText.textContent =
                 item.giaMua > 0
                     ? formatCurrencyWithThousands(item.giaMua)
                     : "Chưa có";
             priceContainer.appendChild(buyPriceText);
 
-            cells[8].appendChild(priceContainer);
-            tr.appendChild(cells[8]);
-
-            // 10. Ghi chú
-            cells[9].textContent = sanitizeInput(item.ghiChu || "");
-            cells[9].style.maxWidth = "150px";
-            cells[9].style.wordWrap = "break-word";
+            cells[9].appendChild(priceContainer);
             tr.appendChild(cells[9]);
 
-            // 11. Thao tác (Edit & Delete buttons)
+            // 10. Ghi chú
+            cells[10].textContent = sanitizeInput(item.ghiChu || "");
+            cells[10].style.maxWidth = "150px";
+            cells[10].style.wordWrap = "break-word";
+            tr.appendChild(cells[10]);
+
+            // 11. Thao tác
             const actionContainer = document.createElement("div");
             actionContainer.className = "action-buttons";
 
@@ -273,10 +252,10 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
 
             actionContainer.appendChild(editButton);
             actionContainer.appendChild(deleteButton);
-            cells[10].appendChild(actionContainer);
-            tr.appendChild(cells[10]);
+            cells[11].appendChild(actionContainer);
+            tr.appendChild(cells[11]);
 
-            // UPDATED: Apply permissions - now includes permission level 3
+            // Apply permissions
             const auth = getAuthState();
             if (auth) {
                 applyRowPermissions(
@@ -290,11 +269,14 @@ function renderGroupedDataWithImageFix(groupedData, tbody) {
             tbody.appendChild(tr);
         });
     });
+
+    // Update select all checkbox state
+    if (window.bulkDeleteManager) {
+        window.bulkDeleteManager.updateSelectAllCheckbox();
+    }
 }
 
-// UPDATED: Apply permissions - now allows permission level 3 to edit
 function applyRowPermissions(row, editableElements, buttons, userRole) {
-    // Allow permissions 0 and 3 to edit and see buttons
     if (userRole > 2) {
         editableElements.forEach((element) => {
             element.style.opacity = "0.6";
@@ -303,6 +285,13 @@ function applyRowPermissions(row, editableElements, buttons, userRole) {
         });
         buttons.forEach((button) => (button.style.display = "none"));
         row.style.opacity = "0.7";
+
+        // Also disable checkbox for users without permission
+        const checkbox = row.querySelector(".row-checkbox");
+        if (checkbox) {
+            checkbox.disabled = true;
+            checkbox.style.cursor = "not-allowed";
+        }
     } else {
         editableElements.forEach((element) => {
             element.style.opacity = "1";
@@ -314,15 +303,12 @@ function applyRowPermissions(row, editableElements, buttons, userRole) {
     }
 }
 
-// Open image in modal for better viewing
 function openImageModal(imageSrc) {
-    // Remove existing modal if any
     const existingModal = document.querySelector(".image-modal-overlay");
     if (existingModal) {
         existingModal.remove();
     }
 
-    // Create modal HTML
     const modalHTML = `
         <div class="image-modal-overlay" onclick="closeImageModal()">
             <div class="image-modal-content" onclick="event.stopPropagation()">
@@ -332,10 +318,7 @@ function openImageModal(imageSrc) {
         </div>
     `;
 
-    // Add modal to body
     document.body.insertAdjacentHTML("beforeend", modalHTML);
-
-    // Add escape key listener
     document.addEventListener("keydown", handleImageModalEscape);
 }
 
@@ -353,9 +336,7 @@ function handleImageModalEscape(event) {
     }
 }
 
-// UPDATED: New currency formatter that adds 3 zeros (multiplies by 1000)
 function formatCurrencyWithThousands(amount) {
-    // Multiply by 1000 to add 3 zeros
     const adjustedAmount = amount * 1000;
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
@@ -363,7 +344,6 @@ function formatCurrencyWithThousands(amount) {
     }).format(adjustedAmount);
 }
 
-// Keep original formatter for backward compatibility
 function formatCurrency(amount) {
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
@@ -371,7 +351,6 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-// Simplified statistics
 function updateStatistics(inventoryData) {
     const totalProducts = document.getElementById("totalProducts");
     const completedProducts = document.getElementById("completedProducts");
@@ -408,53 +387,9 @@ function updateStatistics(inventoryData) {
     if (completedProducts) completedProducts.textContent = withImages;
     if (partialProducts) partialProducts.textContent = withPrices;
     if (pendingProducts) pendingProducts.textContent = basic;
-
-    // Update labels
-    const labels = document.querySelectorAll(".stat-label");
-    if (labels[1]) labels[1].textContent = "Có ảnh";
-    if (labels[2]) labels[2].textContent = "Có giá";
-    if (labels[3]) labels[3].textContent = "Chưa đầy đủ";
 }
 
-// Debug function to inspect data structure
-function debugDataStructure() {
-    const cachedData = getCachedData();
-    if (cachedData && cachedData.length > 0) {
-        console.log("=== DATA STRUCTURE DEBUG ===");
-        console.log("Total items:", cachedData.length);
-        console.log("First item keys:", Object.keys(cachedData[0]));
-        console.log("Sample item:", cachedData[0]);
-
-        // Check for image fields
-        const imageFields = [
-            "anhHoaDon",
-            "anhSanPham",
-            "anhGiaMua",
-            "invoiceImage",
-            "productImage",
-            "priceImage",
-        ];
-        imageFields.forEach((field) => {
-            const hasField = cachedData.some((item) => item[field]);
-            console.log(`Field '${field}' exists:`, hasField);
-            if (hasField) {
-                const sampleValue = cachedData.find((item) => item[field])?.[
-                    field
-                ];
-                console.log(`Sample ${field}:`, sampleValue);
-            }
-        });
-    } else {
-        console.log("No cached data available for debugging");
-    }
-}
-
-// Make functions globally available
 window.openImageModal = openImageModal;
 window.closeImageModal = closeImageModal;
-window.debugDataStructure = debugDataStructure;
 
-console.log(
-    "Fixed table renderer with updated price display and permissions loaded",
-);
-console.log("Use debugDataStructure() to inspect your data structure");
+console.log("✅ Table renderer with bulk delete checkbox loaded");

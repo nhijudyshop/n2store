@@ -442,7 +442,7 @@ async function deleteInventoryItem(event) {
     const auth = getAuthState();
     if (
         !auth ||
-        (parseInt(auth.checkLogin) > 0 && parseInt(auth.checkLogin) !== 3)
+        (parseInt(auth.checkLogin) > 0 && parseInt(auth.checkLogin) !== 1)
     ) {
         notifyManager.warning("Không đủ quyền thực hiện chức năng này.");
         return;
