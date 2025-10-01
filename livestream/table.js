@@ -1,4 +1,4 @@
-// js/table.js - Table Management System
+// js/table.js - Table Management System with Grouped View
 
 // Enhanced Sorting Function with Time Period Priority
 function sortDataWithTimePeriod(dataArray) {
@@ -14,11 +14,9 @@ function sortDataWithTimePeriod(dataArray) {
 
         // If dates are the same, sort by time period within that date
         if (Math.abs(dateComparison) < 86400000) {
-            // Less than 24 hours difference
             const periodA = getTimePeriodFromData(a);
             const periodB = getTimePeriodFromData(b);
 
-            // Priority order: Sáng (1), Chiều (2), Tối (3)
             const periodPriority = { Sáng: 1, Chiều: 2, Tối: 3 };
 
             const priorityA = periodPriority[periodA] || 4;
@@ -52,6 +50,44 @@ function getTimePeriodFromData(item) {
     return null;
 }
 
+// Group data by date
+function groupDataByDate(dataArray) {
+    const grouped = {};
+
+    dataArray.forEach((item) => {
+        const timestamp = parseInt(item.dateCell);
+        const date = new Date(timestamp);
+        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+        if (!grouped[dateKey]) {
+            grouped[dateKey] = {
+                date: date,
+                dateKey: dateKey,
+                reports: [],
+            };
+        }
+
+        grouped[dateKey].reports.push(item);
+    });
+
+    return grouped;
+}
+
+// Check if inbox has been edited
+function hasInboxBeenEdited(item) {
+    if (!item.editHistory || item.editHistory.length === 0) {
+        return false;
+    }
+
+    // Check if any edit history entry modified soMonInbox
+    return item.editHistory.some((entry) => {
+        if (entry.newData && entry.oldData) {
+            return entry.newData.soMonInbox !== entry.oldData.soMonInbox;
+        }
+        return false;
+    });
+}
+
 // Table Management Functions
 function renderTableFromData(dataArray, applyInitialFilter = false) {
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
@@ -71,210 +107,244 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
     // Sort data with enhanced time period sorting
     const sortedData = sortDataWithTimePeriod(dataArray);
 
+    // Group by date
+    const groupedData = groupDataByDate(sortedData);
+
     tableBody.innerHTML = "";
-    const uniqueDates = new Set();
     const fragment = document.createDocumentFragment();
 
-    const maxRender = Math.min(sortedData.length, APP_CONFIG.MAX_VISIBLE_ROWS);
+    // Render grouped data
+    Object.keys(groupedData)
+        .sort((a, b) => new Date(b) - new Date(a))
+        .forEach((dateKey, groupIndex) => {
+            const group = groupedData[dateKey];
+            const reports = group.reports;
 
-    for (let i = 0; i < maxRender; i++) {
-        const item = sortedData[i];
-        const timestamp = parseFloat(item.dateCell);
-        const dateCellConvert = new Date(timestamp);
+            // Format display date
+            const displayDate = formatDate(group.date);
 
-        // Extract start time and create formatted date with period
-        let formattedTime = formatDate(dateCellConvert); // Basic format as fallback
-        if (item.thoiGian) {
-            const timePattern = /Từ\s+(\d{1,2})h(\d{1,2})m/;
-            const match = item.thoiGian.match(timePattern);
-            if (match) {
-                const startHour = parseInt(match[1]);
-                const startMin = parseInt(match[2]);
-                const startTime = `${startHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
-                formattedTime = formatDateWithPeriod(
-                    dateCellConvert,
-                    startTime,
-                );
+            // Calculate total inbox for this date (only if edited)
+            let totalInbox = "";
+            const eveningReport = reports.find(
+                (r) => getTimePeriodFromData(r) === "Chiều",
+            );
+            if (eveningReport && hasInboxBeenEdited(eveningReport)) {
+                if (
+                    eveningReport.soMonInbox &&
+                    eveningReport.soMonInbox !== "0" &&
+                    eveningReport.soMonInbox !== "0 món"
+                ) {
+                    const inboxValue = eveningReport.soMonInbox
+                        .toString()
+                        .replace(" món", "");
+                    totalInbox = inboxValue;
+                }
             }
-        }
 
-        if (formattedTime) {
-            uniqueDates.add(formattedTime);
-            const newRow = createTableRow(item, formattedTime);
-            fragment.appendChild(newRow);
-        }
-    }
+            // Create rows for each session
+            reports.forEach((item, index) => {
+                const newRow = createGroupedTableRow(
+                    item,
+                    displayDate,
+                    totalInbox,
+                    index === 0,
+                    reports.length,
+                    groupIndex,
+                    reports,
+                );
+                fragment.appendChild(newRow);
+            });
+        });
 
     tableBody.appendChild(fragment);
-    arrayDate = Array.from(uniqueDates);
 
     createFilterSystem();
 
-    console.log(
-        `Rendered ${maxRender} / ${sortedData.length} reports with time periods and proper sorting`,
-    );
+    console.log(`Rendered ${sortedData.length} reports in grouped format`);
 }
 
-function createTableRow(item, dateStr) {
+function createGroupedTableRow(
+    item,
+    dateStr,
+    totalInbox,
+    isFirstRow,
+    rowCount,
+    groupIndex,
+    allReportsInGroup,
+) {
     const newRow = document.createElement("tr");
+    const period = getTimePeriodFromData(item);
 
-    // Check if item has edit history
-    const hasEditHistory = item.editHistory && item.editHistory.length > 0;
+    // Alternating background colors
+    if (groupIndex % 2 === 0) {
+        if (period === "Sáng") {
+            newRow.classList.add("bg-muted/20");
+        } else {
+            newRow.classList.add("bg-muted/10");
+        }
+    }
 
     // Get auth state for styling decisions
     const auth = getAuthState();
     const isAdmin = auth && parseInt(auth.checkLogin) === 0;
 
-    // Apply styling based on edit history and admin status
-    if (hasEditHistory) {
-        if (isAdmin) {
-            newRow.classList.add("edited-row");
-            newRow.style.borderLeft = "4px solid #ffc107";
-            newRow.style.backgroundColor = "#fff3cd";
-            newRow.title = "Hàng này đã được chỉnh sửa - Click để xem lịch sử";
-            newRow.style.cursor = "pointer";
-        }
-    } else if (isAdmin) {
-        newRow.classList.add("admin-clickable-row");
-        newRow.style.borderLeft = "4px solid #17a2b8";
-        newRow.style.backgroundColor = "#d1ecf1";
-        newRow.style.cursor = "pointer";
-        newRow.title = "Click để xem thông tin tạo (Admin only)";
+    // Date cell (only on first row with rowspan)
+    if (isFirstRow) {
+        const dateCell = document.createElement("td");
+        dateCell.textContent = dateStr;
+        dateCell.className =
+            "p-4 align-middle text-center font-medium border-r";
+        dateCell.rowSpan = rowCount;
+        dateCell.setAttribute("data-id", item.id);
+        newRow.appendChild(dateCell);
     }
 
-    // Extract start time from thoiGian if available
-    let displayDate = dateStr;
-    if (item.thoiGian) {
-        const timePattern = /Từ\s+(\d{1,2})h(\d{1,2})m/;
-        const match = item.thoiGian.match(timePattern);
-        if (match) {
-            const startHour = parseInt(match[1]);
-            const startMin = parseInt(match[2]);
-            const startTime = `${startHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
+    // Tiền QC cell with badge
+    const tienQCCell = document.createElement("td");
+    tienQCCell.className = "p-4 align-middle text-center";
+    const tienQCValue = item.tienQC
+        ? numberWithCommas(
+              sanitizeInput(item.tienQC.toString()).replace(/[,\.]/g, ""),
+          )
+        : "0";
+    tienQCCell.innerHTML = `
+        <div class="flex flex-col items-center gap-1">
+            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors text-xs ${getPeriodBadgeClass(period)}">
+                ${period || ""}
+            </div>
+            <span class="text-sm font-medium">${tienQCValue}&nbsp;₫</span>
+        </div>
+    `;
+    newRow.appendChild(tienQCCell);
 
-            const dateParts = dateStr.split("-");
-            if (dateParts.length === 3) {
-                const day = parseInt(dateParts[0]);
-                const month = parseInt(dateParts[1]);
-                let year = parseInt(dateParts[2]);
-                if (year < 100) {
-                    year = year < 50 ? 2000 + year : 1900 + year;
-                }
-                const fullDate = new Date(year, month - 1, day);
-                displayDate = formatDateWithPeriod(fullDate, startTime);
-            }
+    // Thời gian cell with badge
+    const timeCell = document.createElement("td");
+    timeCell.className = "p-4 align-middle text-center";
+    const timeDisplay = formatTimeDisplay(item.thoiGian);
+    timeCell.innerHTML = `
+        <div class="flex flex-col items-center gap-1">
+            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors text-xs ${getPeriodBadgeClass(period)}">
+                ${period || ""}
+            </div>
+            <div class="text-sm whitespace-pre-line leading-tight">${timeDisplay}</div>
+        </div>
+    `;
+    newRow.appendChild(timeCell);
+
+    // Số món live cell with badge
+    const soMonLiveCell = document.createElement("td");
+    soMonLiveCell.className = "p-4 align-middle text-center";
+    const soMonLiveValue = item.soMonLive
+        ? item.soMonLive.toString().replace(" món", "")
+        : "0";
+    soMonLiveCell.innerHTML = `
+        <div class="flex flex-col items-center gap-1">
+            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors text-xs ${getPeriodBadgeClass(period)}">
+                ${period || ""}
+            </div>
+            <span class="text-sm font-medium">${soMonLiveValue}</span>
+        </div>
+    `;
+    newRow.appendChild(soMonLiveCell);
+
+    // Số món inbox cell (only on first row with rowspan) - only show if edited
+    if (isFirstRow) {
+        const inboxCell = document.createElement("td");
+        inboxCell.className =
+            "p-4 align-middle text-center font-medium border-l";
+        inboxCell.rowSpan = rowCount;
+        inboxCell.innerHTML = `<span class="text-lg font-bold text-primary">${totalInbox}</span>`;
+        newRow.appendChild(inboxCell);
+    }
+
+    // Combined action buttons cell (only on first row with rowspan)
+    if (isFirstRow) {
+        const actionCell = document.createElement("td");
+        actionCell.className = "p-4 align-middle text-center border-l";
+        actionCell.rowSpan = rowCount;
+
+        actionCell.innerHTML = `
+            <div class="flex justify-center gap-2">
+                <button class="edit-button inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3" title="Chỉnh sửa">
+                    <i data-lucide="edit-3"></i>
+                </button>
+                <button class="delete-button inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3" data-user="${item.user || "Unknown"}" title="Xóa">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </div>
+        `;
+
+        // Initialize Lucide icons
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        newRow.appendChild(actionCell);
+
+        // Apply role-based permissions
+        if (auth) {
+            const editBtn = actionCell.querySelector(".edit-button");
+            const deleteBtn = actionCell.querySelector(".delete-button");
+            applyButtonPermissions(
+                editBtn,
+                deleteBtn,
+                parseInt(auth.checkLogin),
+            );
         }
     }
 
-    // Helper function to format soMonInbox - show empty if 0
-    function formatSoMonInbox(value) {
-        if (!value || value === "0" || value === 0 || value === "0 món") {
-            return ""; // Return empty string when value is 0
-        }
-        if (typeof value === "string" && value.includes(" món")) {
-            return value;
-        }
-        return value + " món";
-    }
-
-    // Helper function to format other số món fields (soMonLive) - show "0 món" when 0
-    function formatSoMonOther(value) {
-        if (!value || value === "") {
-            return "0 món";
-        }
-        if (typeof value === "string" && value.includes(" món")) {
-            return value;
-        }
-        return value + " món";
-    }
-
-    const cells = [
-        { content: sanitizeInput(displayDate), id: item.id },
-        {
-            content: item.tienQC
-                ? numberWithCommas(
-                      sanitizeInput(item.tienQC.toString()).replace(
-                          /[,\.]/g,
-                          "",
-                      ),
-                  )
-                : "0",
-        },
-        { content: sanitizeInput(item.thoiGian || "") },
-        { content: formatSoMonOther(item.soMonLive) },
-        { content: formatSoMonInbox(item.soMonInbox) },
-        { content: null, type: "edit" },
-        { content: null, type: "delete", userId: item.user || "Unknown" },
-    ];
-
-    cells.forEach((cellData, index) => {
-        const cell = document.createElement("td");
-
-        if (cellData.type === "edit") {
-            const editButton = document.createElement("button");
-            editButton.className = "edit-button";
-            editButton.addEventListener("mouseenter", () => {
-                editButton.style.backgroundColor = "#f8f9fa";
-            });
-            editButton.addEventListener("mouseleave", () => {
-                editButton.style.backgroundColor = "transparent";
-            });
-            cell.appendChild(editButton);
-        } else if (cellData.type === "delete") {
-            const deleteButton = document.createElement("button");
-            deleteButton.className = "delete-button";
-            deleteButton.setAttribute("data-user", cellData.userId);
-            deleteButton.addEventListener("mouseenter", () => {
-                deleteButton.style.backgroundColor = "#ffe6e6";
-            });
-            deleteButton.addEventListener("mouseleave", () => {
-                deleteButton.style.backgroundColor = "transparent";
-            });
-            cell.appendChild(deleteButton);
-        } else {
-            cell.textContent = cellData.content;
-            if (cellData.id) cell.setAttribute("data-id", cellData.id);
-        }
-
-        newRow.appendChild(cell);
-    });
-
-    // Store edit history data on the row for tooltip access
-    if (hasEditHistory) {
-        newRow.setAttribute(
-            "data-edit-history",
-            JSON.stringify(item.editHistory),
-        );
-    }
-
-    // Apply role-based permissions
-    if (auth) {
-        applyRowPermissions(newRow, parseInt(auth.checkLogin));
-    }
+    // Store data on row for edit/delete operations
+    newRow.setAttribute("data-report-id", item.id);
+    newRow.setAttribute(
+        "data-all-reports",
+        JSON.stringify(allReportsInGroup.map((r) => r.id)),
+    );
 
     return newRow;
 }
 
-function applyRowPermissions(row, userRole) {
-    const editCell = row.cells[5]; // Edit button column
-    const deleteCell = row.cells[6]; // Delete button column
+function getPeriodBadgeClass(period) {
+    if (period === "Sáng") {
+        return "text-foreground";
+    } else if (period === "Chiều") {
+        return "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80";
+    } else {
+        return "border-transparent bg-primary text-primary-foreground";
+    }
+}
 
+function formatTimeDisplay(thoiGian) {
+    if (!thoiGian) return "";
+
+    const timePattern =
+        /Từ\s+(\d{1,2})h(\d{1,2})m\s+đến\s+(\d{1,2})h(\d{1,2})m\s+-\s+(.+)/;
+    const match = thoiGian.match(timePattern);
+
+    if (match) {
+        const [, startH, startM, endH, endM, duration] = match;
+        return `${startH.padStart(2, "0")}:${startM.padStart(2, "0")} - ${endH.padStart(2, "0")}:${endM.padStart(2, "0")}\n${duration}`;
+    }
+
+    return thoiGian;
+}
+
+function applyButtonPermissions(editBtn, deleteBtn, userRole) {
     if (userRole === 0) {
         // Admin: can edit and delete
-        editCell.style.visibility = "visible";
-        deleteCell.style.visibility = "visible";
+        editBtn.style.display = "inline-flex";
+        deleteBtn.style.display = "inline-flex";
     } else if (userRole === 1) {
         // Level 1: can edit but not delete
-        editCell.style.visibility = "visible";
-        deleteCell.style.visibility = "hidden";
+        editBtn.style.display = "inline-flex";
+        deleteBtn.style.display = "none";
     } else if (userRole === 2) {
         // Level 2: can edit (limited) but not delete
-        editCell.style.visibility = "visible";
-        deleteCell.style.visibility = "hidden";
+        editBtn.style.display = "inline-flex";
+        deleteBtn.style.display = "none";
     } else {
         // Level 3 and above: No permissions
-        editCell.style.visibility = "hidden";
-        deleteCell.style.visibility = "hidden";
+        editBtn.style.display = "none";
+        deleteBtn.style.display = "none";
     }
 }
 
@@ -331,9 +401,9 @@ function initializeTableEvents() {
             return;
         }
 
-        if (e.target.classList.contains("edit-button")) {
+        if (e.target.closest(".edit-button")) {
             handleEditButton(e);
-        } else if (e.target.classList.contains("delete-button")) {
+        } else if (e.target.closest(".delete-button")) {
             handleDeleteButton(e);
         }
     });
@@ -345,29 +415,22 @@ function handleDeleteButton(e) {
         return;
     }
 
-    const confirmDelete = confirm("Bạn có chắc chắn muốn xóa?");
+    const confirmDelete = confirm(
+        "Bạn có chắc chắn muốn xóa toàn bộ báo cáo ngày này?",
+    );
     if (!confirmDelete) return;
 
     const row = e.target.closest("tr");
-    const firstCell = row.querySelector("td");
+    const allReportIds = JSON.parse(
+        row.getAttribute("data-all-reports") || "[]",
+    );
 
-    if (!row || !firstCell) return;
-
-    const recordId = firstCell.getAttribute("data-id");
-    if (!recordId) {
+    if (allReportIds.length === 0) {
         showError("Không tìm thấy ID báo cáo");
         return;
     }
 
     showLoading("Đang xóa báo cáo...");
-
-    const oldData = {
-        id: recordId,
-        tienQC: row.cells[1].innerText,
-        thoiGian: row.cells[2].innerText,
-        soMonLive: row.cells[3].innerText,
-        soMonInbox: row.cells[4].innerText,
-    };
 
     collectionRef
         .doc("reports")
@@ -381,7 +444,7 @@ function handleDeleteButton(e) {
             const dataArray = data["data"] || [];
 
             const updatedArray = dataArray.filter(
-                (item) => item.id !== recordId,
+                (item) => !allReportIds.includes(item.id),
             );
 
             return collectionRef.doc("reports").update({ data: updatedArray });
@@ -389,12 +452,12 @@ function handleDeleteButton(e) {
         .then(() => {
             logAction(
                 "delete",
-                `Xóa báo cáo livestream: ${oldData.tienQC}`,
-                oldData,
+                `Xóa ${allReportIds.length} báo cáo livestream`,
+                null,
                 null,
             );
             invalidateCache();
-            row.remove();
+            updateTable();
             showSuccess("Đã xóa báo cáo thành công!");
         })
         .catch((error) => {
@@ -403,7 +466,6 @@ function handleDeleteButton(e) {
         });
 }
 
-// Export to Excel Function
 function exportToExcel() {
     if (!hasPermission(1)) {
         showError("Không có quyền xuất dữ liệu");
@@ -416,6 +478,7 @@ function exportToExcel() {
         const wsData = [
             [
                 "Ngày",
+                "Phiên",
                 "Tiền QC",
                 "Thời gian",
                 "Số món trên live",
@@ -427,18 +490,29 @@ function exportToExcel() {
         let exportedRowCount = 0;
 
         tableRows.forEach(function (row) {
-            if (
-                row.style.display !== "none" &&
-                row.cells &&
-                row.cells.length >= 5
-            ) {
+            if (row.style.display !== "none") {
                 const rowData = [];
 
-                rowData.push(row.cells[0].textContent || "");
-                rowData.push(row.cells[1].textContent || "");
-                rowData.push(row.cells[2].textContent || "");
-                rowData.push(row.cells[3].textContent || "");
-                rowData.push(row.cells[4].textContent || "");
+                // Check if this row has the date cell
+                const dateCell = row.cells[0];
+                if (dateCell && dateCell.classList.contains("border-r")) {
+                    rowData.push(dateCell.textContent.trim());
+                } else {
+                    rowData.push(""); // Empty for continuation rows
+                }
+
+                // Extract period from badge
+                const periodBadge = row.querySelector(".inline-flex");
+                const period = periodBadge
+                    ? periodBadge.textContent.trim()
+                    : "";
+                rowData.push(period);
+
+                // Extract values from cells
+                for (let i = 1; i < Math.min(row.cells.length, 5); i++) {
+                    const text = row.cells[i].textContent.trim();
+                    rowData.push(text);
+                }
 
                 wsData.push(rowData);
                 exportedRowCount++;
@@ -478,6 +552,7 @@ window.initializeTableEvents = initializeTableEvents;
 window.exportToExcel = exportToExcel;
 window.sortDataWithTimePeriod = sortDataWithTimePeriod;
 window.getTimePeriodFromData = getTimePeriodFromData;
-window.createTableRow = createTableRow;
-window.applyRowPermissions = applyRowPermissions;
+window.groupDataByDate = groupDataByDate;
+window.createGroupedTableRow = createGroupedTableRow;
 window.handleDeleteButton = handleDeleteButton;
+window.hasInboxBeenEdited = hasInboxBeenEdited;

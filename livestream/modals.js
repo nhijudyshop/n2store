@@ -27,12 +27,30 @@ function saveUpdatedChanges() {
         return;
     }
 
+    const cells = editingRow.cells;
+
+    // Find the date cell and related cells
+    let dateCell = null;
+    let cellIndex = 0;
+    for (let i = 0; i < cells.length; i++) {
+        if (cells[i].getAttribute("data-id")) {
+            dateCell = cells[i];
+            cellIndex = i;
+            break;
+        }
+    }
+
+    if (!dateCell) {
+        showError("Không tìm thấy thông tin ngày");
+        return;
+    }
+
     const currentRowData = {
-        date: editingRow.cells[0].innerText,
-        tienQC: editingRow.cells[1].innerText,
-        thoiGian: editingRow.cells[2].innerText,
-        soMonLive: editingRow.cells[3].innerText,
-        soMonInbox: editingRow.cells[4].innerText,
+        date: dateCell.innerText,
+        tienQC: cells[cellIndex + 1].innerText,
+        thoiGian: cells[cellIndex + 2].innerText,
+        soMonLive: cells[cellIndex + 3].innerText,
+        soMonInbox: cells[cellIndex + 4].innerText,
     };
 
     // Prepare values based on user permission level
@@ -58,7 +76,7 @@ function saveUpdatedChanges() {
             return;
         }
 
-        // Validate và format time
+        // Validate và format time (24h format)
         let formattedTime = "";
         const startHour = hh1.value.trim();
         const startMin = mm1.value.trim();
@@ -174,13 +192,7 @@ function saveUpdatedChanges() {
         return;
     }
 
-    const firstCell = editingRow.querySelector("td");
-    if (!firstCell) {
-        showError("Không tìm thấy cell đầu tiên.");
-        return;
-    }
-
-    const recordId = firstCell.getAttribute("data-id");
+    const recordId = dateCell.getAttribute("data-id");
     if (!recordId) {
         showError("Không tìm thấy ID của báo cáo.");
         return;
@@ -252,41 +264,7 @@ function saveUpdatedChanges() {
                 return collectionRef.doc("reports").update({ data: dataArray });
             })
             .then(() => {
-                // Update the row in the table with edit indicators
-                // Create display date with time period
-                let formattedDisplayDate = formatDate(
-                    new Date(parseInt(finalValues.dateCell)),
-                );
-
-                // Add time period if we have time information
-                if (finalValues.thoiGian) {
-                    const timePattern = /Từ\s+(\d{1,2})h(\d{1,2})m/;
-                    const match = finalValues.thoiGian.match(timePattern);
-                    if (match) {
-                        const startHour = parseInt(match[1]);
-                        const startMin = parseInt(match[2]);
-                        const startTime = `${startHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
-                        formattedDisplayDate = formatDateWithPeriod(
-                            new Date(parseInt(finalValues.dateCell)),
-                            startTime,
-                        );
-                    }
-                }
-
-                editingRow.cells[0].textContent = formattedDisplayDate;
-                editingRow.cells[0].setAttribute("data-id", recordId);
-                editingRow.cells[1].textContent = finalValues.tienQC;
-                editingRow.cells[2].textContent = finalValues.thoiGian;
-                editingRow.cells[3].textContent = finalValues.soMonLive;
-                editingRow.cells[4].textContent = finalValues.soMonInbox; // This will be empty when 0
-
-                // Add visual indicators for edited row
-                editingRow.classList.add("edited-row");
-                editingRow.style.borderLeft = "4px solid #ffc107";
-                editingRow.style.backgroundColor = "#fff3cd";
-                editingRow.title =
-                    "Hàng này đã được chỉnh sửa - Click để xem lịch sử (Admin only)";
-
+                // Reload table to reflect changes
                 const actionText =
                     userLevel === 2
                         ? "Sửa số món inbox"
@@ -300,6 +278,11 @@ function saveUpdatedChanges() {
                 invalidateCache();
                 showSuccess("Đã lưu thay đổi thành công!");
                 closeModal();
+
+                // Reload table to show updated inbox values
+                setTimeout(() => {
+                    updateTable();
+                }, 500);
             })
             .catch((error) => {
                 console.error("Error updating document:", error);
@@ -427,6 +410,7 @@ function showEditHistoryModal(editHistory, rowData) {
                     hour: "2-digit",
                     minute: "2-digit",
                     second: "2-digit",
+                    hour12: false, // Use 24h format
                 },
             );
 
@@ -557,11 +541,11 @@ function formatValueForModal(value, field) {
         return '<span style="color: #6c757d; font-style: italic;">Không có</span>';
     }
 
-    // Special formatting for date fields
+    // Special formatting for date fields (24h format)
     if (field === "dateCell" && !isNaN(value)) {
         const date = new Date(parseInt(value));
         if (!isNaN(date.getTime())) {
-            return date.toLocaleDateString("vi-VN");
+            return date.toLocaleString("vi-VN", { hour12: false });
         }
     }
 

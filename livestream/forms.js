@@ -1,4 +1,4 @@
-// js/forms.js - Form Management System (Updated for Morning/Evening Sessions)
+// js/forms.js - Form Management System (Updated - No Inbox Input)
 
 function initializeUpdatedForm() {
     if (ngayLive) {
@@ -90,14 +90,6 @@ function initializeUpdatedForm() {
         });
     }
 
-    // Số món inbox - allow 0 value
-    const soMonInboxInput = document.getElementById("soMonInbox");
-    if (soMonInboxInput) {
-        soMonInboxInput.addEventListener("input", function () {
-            this.value = this.value.replace(/[^\d]/g, "");
-        });
-    }
-
     // Clear form button
     const clearDataButton = document.getElementById("clearDataButton");
     if (clearDataButton) {
@@ -128,7 +120,6 @@ function handleUpdatedFormSubmit(e) {
     // Collect data for both sessions
     const morningData = collectSessionData("morning");
     const eveningData = collectSessionData("evening");
-    const totalInbox = document.getElementById("soMonInbox").value.trim();
 
     // Validate that at least one session has data
     if (!morningData && !eveningData) {
@@ -138,31 +129,25 @@ function handleUpdatedFormSubmit(e) {
         return;
     }
 
-    // Validate total inbox
-    if (!totalInbox || isNaN(totalInbox) || parseInt(totalInbox) < 0) {
-        showError("Tổng số món inbox phải là số không âm");
-        return;
-    }
-
     const reportsToUpload = [];
 
-    // Create morning report if has data
+    // Create morning report if has data - NO inbox
     if (morningData) {
         const morningReport = createReportObject(
             currentDate,
             morningData,
-            parseInt(totalInbox),
+            0, // No inbox for morning
             userName,
         );
         reportsToUpload.push(morningReport);
     }
 
-    // Create evening report if has data
+    // Create evening report if has data - NO inbox
     if (eveningData) {
         const eveningReport = createReportObject(
             currentDate,
             eveningData,
-            eveningData.hasInbox ? parseInt(totalInbox) : 0,
+            0, // No inbox for evening either
             userName,
         );
         reportsToUpload.push(eveningReport);
@@ -229,7 +214,7 @@ function collectSessionData(session) {
         thoiGian: thoiGian,
         startTime: startTime,
         soMonLive: parseInt(soMonLive),
-        hasInbox: session === "evening", // Only evening session gets inbox count
+        hasInbox: false, // Changed: no inbox in form
     };
 }
 
@@ -240,25 +225,13 @@ function createReportObject(currentDate, sessionData, inboxCount, userName) {
         (tempTimeStamp.getMinutes() * 60 + tempTimeStamp.getSeconds()) * 1000;
     const uniqueId = generateUniqueId();
 
-    // Determine inbox value (only for evening or if specified)
-    let soMonInbox;
-    if (sessionData.hasInbox) {
-        if (inboxCount === 0) {
-            soMonInbox = ""; // Empty string when 0
-        } else {
-            soMonInbox = inboxCount + " món";
-        }
-    } else {
-        soMonInbox = ""; // Morning session doesn't have inbox
-    }
-
     return {
         id: uniqueId,
         dateCell: timestamp.toString(),
         tienQC: numberWithCommas(sessionData.tienQC),
         thoiGian: sessionData.thoiGian,
         soMonLive: sessionData.soMonLive + " món",
-        soMonInbox: soMonInbox,
+        soMonInbox: "", // Always empty string for new reports
         user: userName,
         createdBy: userName,
         createdAt: new Date().toISOString(),
@@ -331,12 +304,30 @@ function handleEditButton(e) {
     const hh2 = document.getElementById("editHh2");
     const mm2 = document.getElementById("editMm2");
 
-    const row = e.target.parentNode.parentNode;
-    const date = row.cells[0].innerText;
-    const tienQC = row.cells[1].innerText;
-    const thoiGian = row.cells[2].innerText;
-    const soMonLive = row.cells[3].innerText;
-    const soMonInbox = row.cells[4].innerText;
+    const row = e.target.closest("tr");
+    const cells = row.cells;
+
+    // Find the date cell (first cell with data-id)
+    let dateCell = null;
+    let cellIndex = 0;
+    for (let i = 0; i < cells.length; i++) {
+        if (cells[i].getAttribute("data-id")) {
+            dateCell = cells[i];
+            cellIndex = i;
+            break;
+        }
+    }
+
+    if (!dateCell) {
+        showError("Không tìm thấy thông tin ngày");
+        return;
+    }
+
+    const date = dateCell.innerText;
+    const tienQC = cells[cellIndex + 1].innerText;
+    const thoiGian = cells[cellIndex + 2].innerText;
+    const soMonLive = cells[cellIndex + 3].innerText;
+    const soMonInbox = cells[cellIndex + 4].innerText;
 
     const auth = getAuthState();
     const userLevel = parseInt(auth.checkLogin);
