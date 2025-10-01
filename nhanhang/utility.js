@@ -388,11 +388,22 @@ function showError(message) {
 function exportToExcel() {
     const cachedData = getCachedData();
     if (!cachedData || cachedData.length === 0) {
-        showError("Không có dữ liệu để xuất");
+        notificationManager.error("Không có dữ liệu để xuất", 3000);
         return;
     }
 
-    showLoading("Đang tạo file Excel...");
+    let notifId = notificationManager.show(
+        "Đang tạo file Excel...",
+        "info",
+        0,
+        {
+            showOverlay: true,
+            persistent: true,
+            icon: "file-spreadsheet",
+            title: "Xuất Excel",
+        },
+    );
+
     try {
         const filteredData = applyFiltersToData(cachedData);
         const excelData = filteredData.map((receipt, index) => ({
@@ -416,10 +427,14 @@ function exportToExcel() {
         const fileName = `NhanHang_${vnDate.getDate()}-${vnDate.getMonth() + 1}-${vnDate.getFullYear()}.xlsx`;
         XLSX.writeFile(wb, fileName);
 
-        hideFloatingAlert();
-        showSuccess("Xuất Excel thành công!");
+        notificationManager.remove(notifId);
+        notificationManager.success(
+            `Xuất thành công ${filteredData.length} phiếu nhận!`,
+            2500,
+        );
     } catch (error) {
         console.error("Lỗi khi xuất Excel:", error);
-        showError("Lỗi khi xuất Excel!");
+        notificationManager.remove(notifId);
+        notificationManager.error("Lỗi khi xuất Excel: " + error.message, 4000);
     }
 }

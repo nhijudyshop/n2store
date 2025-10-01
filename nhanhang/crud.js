@@ -11,7 +11,7 @@ async function addReceipt(event) {
 
     const auth = getAuthState();
     if (!auth || auth.checkLogin == "777") {
-        showError("Không có quyền thêm phiếu nhận");
+        notificationManager.error("Không có quyền thêm phiếu nhận", 3000);
         return;
     }
 
@@ -25,25 +25,25 @@ async function addReceipt(event) {
 
     // Validation
     if (!tenNguoiNhan) {
-        showError("Vui lòng nhập tên người nhận");
+        notificationManager.error("Vui lòng nhập tên người nhận", 3000);
         document.getElementById("addButton").disabled = false;
         return;
     }
 
     if (isNaN(soKg) || soKg < 0) {
-        showError("Số kg phải lớn hơn hoặc bằng 0");
+        notificationManager.error("Số kg phải lớn hơn hoặc bằng 0", 3000);
         document.getElementById("addButton").disabled = false;
         return;
     }
 
     if (isNaN(soKien) || soKien < 0) {
-        showError("Số kiện phải lớn hơn hoặc bằng 0");
+        notificationManager.error("Số kiện phải lớn hơn hoặc bằng 0", 3000);
         document.getElementById("addButton").disabled = false;
         return;
     }
 
     if (!baoBi) {
-        showError("Vui lòng chọn trạng thái bao bì");
+        notificationManager.error("Vui lòng chọn trạng thái bao bì", 3000);
         document.getElementById("addButton").disabled = false;
         return;
     }
@@ -62,8 +62,10 @@ async function addReceipt(event) {
         user: getUserName(),
     };
 
+    let notifId = null;
+
     try {
-        showLoading("Đang xử lý phiếu nhận...");
+        notifId = notificationManager.saving("Đang xử lý phiếu nhận...");
 
         // Handle image upload if available
         const imageUrl = await uploadCapturedImage();
@@ -73,9 +75,15 @@ async function addReceipt(event) {
 
         // Upload to Firestore
         await uploadToFirestore(newReceiptData);
+
+        if (notifId) notificationManager.remove(notifId);
     } catch (error) {
         console.error("Lỗi trong quá trình thêm phiếu nhận:", error);
-        showError("Lỗi khi thêm phiếu nhận: " + error.message);
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.error(
+            "Lỗi khi thêm phiếu nhận: " + error.message,
+            4000,
+        );
         document.getElementById("addButton").disabled = false;
     }
 }
@@ -107,7 +115,7 @@ async function uploadToFirestore(receiptData) {
         invalidateCache();
 
         console.log("Document với ID tải lên thành công:", receiptData.id);
-        showSuccess("Thành công!");
+        notificationManager.success("Thêm phiếu nhận thành công!", 2500);
 
         // Reload table to show new item
         await displayReceiptData();
@@ -115,7 +123,7 @@ async function uploadToFirestore(receiptData) {
         document.getElementById("addButton").disabled = false;
         clearReceiptForm();
     } catch (error) {
-        showError("Lỗi khi tải lên...");
+        notificationManager.error("Lỗi khi tải lên: " + error.message, 4000);
         console.error("Lỗi khi tải document lên: ", error);
         document.getElementById("addButton").disabled = false;
     }
@@ -156,7 +164,7 @@ async function updateReceipt(event) {
 
     const auth = getAuthState();
     if (!auth || auth.checkLogin == "777") {
-        showError("Không có quyền cập nhật phiếu nhận");
+        notificationManager.error("Không có quyền cập nhật phiếu nhận", 3000);
         return;
     }
 
@@ -171,31 +179,33 @@ async function updateReceipt(event) {
 
     // Validation
     if (!tenNguoiNhan) {
-        showError("Vui lòng nhập tên người nhận");
+        notificationManager.error("Vui lòng nhập tên người nhận", 3000);
         updateButton.disabled = false;
         return;
     }
 
     if (isNaN(soKg) || soKg <= 0) {
-        showError("Số kg phải lớn hơn 0");
+        notificationManager.error("Số kg phải lớn hơn 0", 3000);
         updateButton.disabled = false;
         return;
     }
 
     if (isNaN(soKien) || soKien <= 0) {
-        showError("Số kiện phải lớn hơn 0");
+        notificationManager.error("Số kiện phải lớn hơn 0", 3000);
         updateButton.disabled = false;
         return;
     }
 
     if (!baoBi) {
-        showError("Vui lòng chọn trạng thái bao bì");
+        notificationManager.error("Vui lòng chọn trạng thái bao bì", 3000);
         updateButton.disabled = false;
         return;
     }
 
+    let notifId = null;
+
     try {
-        showLoading("Đang cập nhật phiếu nhận...");
+        notifId = notificationManager.saving("Đang cập nhật phiếu nhận...");
 
         // Get current data from Firestore
         const doc = await collectionRef.doc("nhanhang").get();
@@ -254,14 +264,16 @@ async function updateReceipt(event) {
         // Invalidate cache
         invalidateCache();
 
-        showSuccess("Cập nhật thành công!");
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.success("Cập nhật thành công!", 2500);
 
         // Close modal and refresh data
         closeEditModalFunction();
         await displayReceiptData();
     } catch (error) {
         console.error("Lỗi khi cập nhật:", error);
-        showError("Lỗi khi cập nhật: " + error.message);
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.error("Lỗi khi cập nhật: " + error.message, 4000);
     } finally {
         updateButton.disabled = false;
     }
@@ -275,9 +287,8 @@ async function updateReceipt(event) {
 async function deleteReceiptByID(event) {
     const auth = getAuthState();
     if (!auth || auth.checkLogin == "777") {
-        showFloatingAlert(
+        notificationManager.error(
             "Không đủ quyền thực hiện chức năng này.",
-            false,
             3000,
         );
         return;
@@ -288,7 +299,7 @@ async function deleteReceiptByID(event) {
     const receiptInfo = button.getAttribute("data-receipt-info");
 
     if (!receiptId) {
-        showFloatingAlert("Không tìm thấy ID phiếu nhận!", false, 3000);
+        notificationManager.error("Không tìm thấy ID phiếu nhận!", 3000);
         return;
     }
 
@@ -308,7 +319,7 @@ async function deleteReceiptByID(event) {
         thoiGianNhan: row.cells[4].textContent,
     };
 
-    showFloatingAlert("Đang xóa...", true);
+    let notifId = notificationManager.deleting("Đang xóa phiếu nhận...");
 
     try {
         const doc = await collectionRef.doc("nhanhang").get();
@@ -345,15 +356,15 @@ async function deleteReceiptByID(event) {
         // Invalidate cache
         invalidateCache();
 
-        hideFloatingAlert();
-        showFloatingAlert("Đã xóa thành công!", false, 2000);
+        notificationManager.remove(notifId);
+        notificationManager.success("Đã xóa thành công!", 2500);
 
         // Refresh data to update table and statistics
         await displayReceiptData();
     } catch (error) {
-        hideFloatingAlert();
+        notificationManager.remove(notifId);
         console.error("Lỗi khi xoá:", error);
-        showFloatingAlert("Lỗi khi xoá: " + error.message, false, 3000);
+        notificationManager.error("Lỗi khi xoá: " + error.message, 4000);
     }
 }
 
@@ -364,20 +375,22 @@ async function deleteReceiptByID(event) {
 // Migration function (Run once only)
 async function migrateDataWithIDs() {
     try {
-        showFloatingAlert("Đang kiểm tra và migration dữ liệu...", true);
+        const notifId = notificationManager.loadingData(
+            "Đang kiểm tra và migration dữ liệu...",
+        );
 
         const doc = await collectionRef.doc("nhanhang").get();
 
         if (!doc.exists) {
             console.log("Không có dữ liệu để migrate");
-            hideFloatingAlert();
+            notificationManager.remove(notifId);
             return;
         }
 
         const data = doc.data();
         if (!Array.isArray(data.data)) {
             console.log("Dữ liệu không hợp lệ");
-            hideFloatingAlert();
+            notificationManager.remove(notifId);
             return;
         }
 
@@ -414,7 +427,8 @@ async function migrateDataWithIDs() {
             console.log(
                 `Migration hoàn tất: Đã thêm ID cho ${migratedData.length} phiếu nhận và sắp xếp theo thời gian`,
             );
-            showFloatingAlert("Migration hoàn tất!", false, 3000);
+            notificationManager.remove(notifId);
+            notificationManager.success("Migration hoàn tất!", 2500);
         } else {
             // If no ID changes, just sort again
             const sortedData = sortDataByNewest(data.data);
@@ -435,19 +449,20 @@ async function migrateDataWithIDs() {
                     null,
                 );
                 console.log("Đã sắp xếp lại dữ liệu theo thời gian");
-                showFloatingAlert(
+                notificationManager.remove(notifId);
+                notificationManager.success(
                     "Đã sắp xếp dữ liệu theo thời gian mới nhất!",
-                    false,
                     2000,
                 );
             } else {
                 console.log("Tất cả dữ liệu đã có ID và đã được sắp xếp đúng");
-                showFloatingAlert("Dữ liệu đã có ID đầy đủ", false, 2000);
+                notificationManager.remove(notifId);
+                notificationManager.info("Dữ liệu đã có ID đầy đủ", 2000);
             }
         }
     } catch (error) {
         console.error("Lỗi trong quá trình migration:", error);
-        showFloatingAlert("Lỗi migration: " + error.message, false, 5000);
+        notificationManager.error("Lỗi migration: " + error.message, 5000);
     }
 }
 
@@ -459,7 +474,7 @@ async function migrateDataWithIDs() {
 function openEditModal(event) {
     const auth = getAuthState();
     if (!auth || auth.checkLogin == "777") {
-        showError("Không có quyền chỉnh sửa phiếu nhận");
+        notificationManager.error("Không có quyền chỉnh sửa phiếu nhận", 3000);
         return;
     }
 
@@ -467,20 +482,20 @@ function openEditModal(event) {
     const receiptId = button.getAttribute("data-receipt-id");
 
     if (!receiptId) {
-        showError("Không tìm thấy ID phiếu nhận!");
+        notificationManager.error("Không tìm thấy ID phiếu nhận!", 3000);
         return;
     }
 
     // Find receipt data
     const cachedData = getCachedData();
     if (!cachedData) {
-        showError("Không tìm thấy dữ liệu!");
+        notificationManager.error("Không tìm thấy dữ liệu!", 3000);
         return;
     }
 
     const receiptData = cachedData.find((item) => item.id === receiptId);
     if (!receiptData) {
-        showError("Không tìm thấy dữ liệu phiếu nhận!");
+        notificationManager.error("Không tìm thấy dữ liệu phiếu nhận!", 3000);
         return;
     }
 
@@ -550,6 +565,8 @@ function openEditModal(event) {
     if (editModal) {
         editModal.style.display = "block";
     }
+
+    notificationManager.info("Đã mở form chỉnh sửa", 1500);
 }
 
 // Close edit modal

@@ -121,7 +121,12 @@ function applyFiltersToData(dataArray) {
 const debouncedApplyFilters = debounce(() => {
     if (isFilteringInProgress) return;
     isFilteringInProgress = true;
-    showLoading("Đang lọc dữ liệu...");
+
+    const notifId = notificationManager.show("Đang lọc dữ liệu...", "info", 0, {
+        persistent: true,
+        icon: "filter",
+        title: "Lọc dữ liệu",
+    });
 
     setTimeout(() => {
         try {
@@ -131,11 +136,12 @@ const debouncedApplyFilters = debounce(() => {
             } else {
                 displayReceiptData();
             }
-            hideFloatingAlert();
-            showSuccess("Lọc dữ liệu hoàn tất!");
+            notificationManager.remove(notifId);
+            notificationManager.success("Lọc dữ liệu hoàn tất!", 2000);
         } catch (error) {
             console.error("Error during filtering:", error);
-            showError("Có lỗi xảy ra khi lọc dữ liệu");
+            notificationManager.remove(notifId);
+            notificationManager.error("Có lỗi xảy ra khi lọc dữ liệu", 3000);
         } finally {
             isFilteringInProgress = false;
         }
@@ -425,7 +431,10 @@ function applyDateRangeFilter() {
     const endDateInput = document.getElementById("endDate");
 
     if (!startDateInput.value || !endDateInput.value) {
-        showError("Vui lòng chọn cả ngày bắt đầu và ngày kết thúc");
+        notificationManager.warning(
+            "Vui lòng chọn cả ngày bắt đầu và ngày kết thúc",
+            3000,
+        );
         return;
     }
 
@@ -433,7 +442,10 @@ function applyDateRangeFilter() {
     const endDate = new Date(endDateInput.value);
 
     if (startDate > endDate) {
-        showError("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc");
+        notificationManager.warning(
+            "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc",
+            3000,
+        );
         return;
     }
 
@@ -441,8 +453,9 @@ function applyDateRangeFilter() {
     customDateRange.end = endDateInput.value;
 
     applyFilters();
-    showSuccess(
+    notificationManager.success(
         `Đã lọc từ ${formatDate(startDate)} đến ${formatDate(endDate)}`,
+        2500,
     );
 }
 
@@ -456,14 +469,17 @@ async function initializeWithMigration() {
         await displayReceiptData();
     } catch (error) {
         console.error("Lỗi khởi tạo:", error);
-        showFloatingAlert("Lỗi khởi tạo ứng dụng", false, 3000);
+        notificationManager.error(
+            "Lỗi khởi tạo ứng dụng: " + error.message,
+            4000,
+        );
     }
 }
 
 function toggleForm() {
     const auth = getAuthState();
     if (!auth || auth.checkLogin == "777") {
-        showError("Không có quyền truy cập biểu mẫu");
+        notificationManager.error("Không có quyền truy cập biểu mẫu", 3000);
         return;
     }
     const dataForm = document.getElementById("dataForm");
@@ -661,9 +677,12 @@ function hideImageZoom() {
 function handleLogout() {
     const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
     if (confirmLogout) {
-        clearAuthState();
-        invalidateCache();
-        window.location.href = "../index.html";
+        notificationManager.info("Đang đăng xuất...", 1500);
+        setTimeout(() => {
+            clearAuthState();
+            invalidateCache();
+            window.location.href = "../index.html";
+        }, 500);
     }
 }
 
@@ -675,7 +694,10 @@ async function initializeApplication() {
     const auth = getAuthState();
     if (!isAuthenticated()) {
         console.log("User not authenticated, redirecting to login");
-        window.location.href = "../index.html";
+        notificationManager.warning("Vui lòng đăng nhập", 2000);
+        setTimeout(() => {
+            window.location.href = "../index.html";
+        }, 1000);
         return;
     }
 
@@ -706,6 +728,7 @@ async function initializeApplication() {
     console.log(
         "Enhanced Goods Receipt Management System initialized successfully",
     );
+    notificationManager.success("Hệ thống đã sẵn sàng!", 2000);
 }
 
 // =====================================================
@@ -715,12 +738,12 @@ async function initializeApplication() {
 // Global error handlers
 window.addEventListener("error", function (e) {
     console.error("Global error:", e.error);
-    showError("Có lỗi xảy ra. Vui lòng tải lại trang.");
+    notificationManager.error("Có lỗi xảy ra. Vui lòng tải lại trang.", 5000);
 });
 
 window.addEventListener("unhandledrejection", function (e) {
     console.error("Unhandled promise rejection:", e.reason);
-    showError("Có lỗi xảy ra trong xử lý dữ liệu.");
+    notificationManager.error("Có lỗi xảy ra trong xử lý dữ liệu.", 4000);
 });
 
 // =====================================================
@@ -742,6 +765,58 @@ document.addEventListener("DOMContentLoaded", function () {
         adsElement.remove();
     }
     initializeApplication();
+
+    // Toggle upload section
+    const btnShowUpload = document.getElementById("btnShowUpload");
+    const uploadSection = document.getElementById("uploadSection");
+    const closeUpload = document.getElementById("closeUpload");
+
+    if (btnShowUpload && uploadSection) {
+        btnShowUpload.addEventListener("click", () => {
+            uploadSection.classList.toggle("show");
+            if (uploadSection.classList.contains("show")) {
+                uploadSection.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+                notificationManager.info("Đã mở form thêm phiếu", 1500);
+            }
+        });
+    }
+
+    if (closeUpload && uploadSection) {
+        closeUpload.addEventListener("click", () => {
+            uploadSection.classList.remove("show");
+        });
+    }
+
+    // Refresh button
+    const btnRefresh = document.getElementById("btnRefresh");
+    if (btnRefresh) {
+        btnRefresh.addEventListener("click", async () => {
+            const notifId = notificationManager.loadingData(
+                "Đang làm mới dữ liệu...",
+            );
+            try {
+                invalidateCache();
+                await displayReceiptData();
+                notificationManager.remove(notifId);
+                notificationManager.success("Đã làm mới dữ liệu!", 2000);
+            } catch (error) {
+                notificationManager.remove(notifId);
+                notificationManager.error(
+                    "Lỗi khi làm mới: " + error.message,
+                    3000,
+                );
+            }
+        });
+    }
+
+    // Export button
+    const btnExport = document.getElementById("btnExport");
+    if (btnExport) {
+        btnExport.addEventListener("click", exportToExcel);
+    }
 });
 
 // =====================================================
@@ -793,48 +868,6 @@ window.debugFunctions = {
     calculateStatistics,
     updateStatisticsDisplay,
 };
-
-// Thêm event listeners cho toggle upload section
-document.addEventListener("DOMContentLoaded", function () {
-    // Toggle upload section
-    const btnShowUpload = document.getElementById("btnShowUpload");
-    const uploadSection = document.getElementById("uploadSection");
-    const closeUpload = document.getElementById("closeUpload");
-
-    if (btnShowUpload && uploadSection) {
-        btnShowUpload.addEventListener("click", () => {
-            uploadSection.classList.toggle("show");
-            if (uploadSection.classList.contains("show")) {
-                uploadSection.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                });
-            }
-        });
-    }
-
-    if (closeUpload && uploadSection) {
-        closeUpload.addEventListener("click", () => {
-            uploadSection.classList.remove("show");
-        });
-    }
-
-    // Refresh button
-    const btnRefresh = document.getElementById("btnRefresh");
-    if (btnRefresh) {
-        btnRefresh.addEventListener("click", async () => {
-            invalidateCache();
-            await displayReceiptData();
-            showSuccess("Đã làm mới dữ liệu!");
-        });
-    }
-
-    // Export button
-    const btnExport = document.getElementById("btnExport");
-    if (btnExport) {
-        btnExport.addEventListener("click", exportToExcel);
-    }
-});
 
 console.log(
     "Enhanced Goods Receipt Management System with Packaging Support loaded successfully",

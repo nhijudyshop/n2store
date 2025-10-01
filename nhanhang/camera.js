@@ -42,8 +42,9 @@ function initializeCameraSystem() {
 
 // Start camera
 async function startCamera() {
+    let notifId = null;
     try {
-        showLoading("Đang khởi động camera...");
+        notifId = notificationManager.loading("Đang khởi động camera...");
 
         const constraints = {
             video: {
@@ -73,11 +74,11 @@ async function startCamera() {
         if (takePictureButton) takePictureButton.style.display = "inline-flex";
         if (cameraPreview) cameraPreview.style.display = "block";
 
-        hideFloatingAlert();
-        showSuccess("Camera đã sẵn sàng!");
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.success("Camera đã sẵn sàng!", 2000);
     } catch (error) {
         console.error("Error accessing camera:", error);
-        hideFloatingAlert();
+        if (notifId) notificationManager.remove(notifId);
 
         let errorMessage = "Không thể truy cập camera. ";
         if (error.name === "NotAllowedError") {
@@ -88,14 +89,14 @@ async function startCamera() {
             errorMessage += "Lỗi: " + error.message;
         }
 
-        showError(errorMessage);
+        notificationManager.error(errorMessage, 4000);
     }
 }
 
 // Take picture
 function takePicture() {
     if (!cameraVideo || !cameraCanvas) {
-        showError("Camera chưa sẵn sàng!");
+        notificationManager.error("Camera chưa sẵn sàng!", 3000);
         return;
     }
 
@@ -119,9 +120,12 @@ function takePicture() {
                     // Stop camera
                     stopCamera();
 
-                    showSuccess("Đã chụp ảnh thành công!");
+                    notificationManager.success(
+                        "Đã chụp ảnh thành công!",
+                        2000,
+                    );
                 } else {
-                    showError("Không thể chụp ảnh!");
+                    notificationManager.error("Không thể chụp ảnh!", 3000);
                 }
             },
             "image/jpeg",
@@ -129,7 +133,7 @@ function takePicture() {
         );
     } catch (error) {
         console.error("Error taking picture:", error);
-        showError("Lỗi khi chụp ảnh: " + error.message);
+        notificationManager.error("Lỗi khi chụp ảnh: " + error.message, 3000);
     }
 }
 
@@ -208,8 +212,9 @@ function stopCamera() {
 
 // Start camera for editing
 async function startEditCamera() {
+    let notifId = null;
     try {
-        showLoading("Đang khởi động camera...");
+        notifId = notificationManager.loading("Đang khởi động camera...");
 
         const constraints = {
             video: {
@@ -247,19 +252,22 @@ async function startEditCamera() {
 
         editKeepCurrentImage = false; // Reset when starting new camera
 
-        hideFloatingAlert();
-        showSuccess("Camera edit đã sẵn sàng!");
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.success("Camera edit đã sẵn sàng!", 2000);
     } catch (error) {
         console.error("Error accessing edit camera:", error);
-        hideFloatingAlert();
-        showError("Không thể truy cập camera: " + error.message);
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.error(
+            "Không thể truy cập camera: " + error.message,
+            4000,
+        );
     }
 }
 
 // Take picture for editing
 function takeEditPicture() {
     if (!editCameraVideo || !editCameraCanvas) {
-        showError("Camera chưa sẵn sàng!");
+        notificationManager.error("Camera chưa sẵn sàng!", 3000);
         return;
     }
 
@@ -279,9 +287,12 @@ function takeEditPicture() {
                     displayEditCapturedImage();
                     stopEditCamera();
 
-                    showSuccess("Đã chụp ảnh mới thành công!");
+                    notificationManager.success(
+                        "Đã chụp ảnh mới thành công!",
+                        2000,
+                    );
                 } else {
-                    showError("Không thể chụp ảnh!");
+                    notificationManager.error("Không thể chụp ảnh!", 3000);
                 }
             },
             "image/jpeg",
@@ -289,7 +300,7 @@ function takeEditPicture() {
         );
     } catch (error) {
         console.error("Error taking edit picture:", error);
-        showError("Lỗi khi chụp ảnh: " + error.message);
+        notificationManager.error("Lỗi khi chụp ảnh: " + error.message, 3000);
     }
 }
 
@@ -359,7 +370,7 @@ function keepCurrentImage() {
     stopEditCamera();
     resetEditCameraUI();
 
-    showSuccess("Sẽ giữ ảnh hiện tại!");
+    notificationManager.success("Sẽ giữ ảnh hiện tại!", 2000);
 }
 
 // Stop edit camera
@@ -405,7 +416,10 @@ async function uploadCapturedImage() {
         return null; // No image captured
     }
 
+    let notifId = null;
     try {
+        notifId = notificationManager.uploading(1, 1);
+
         const imageName = generateUniqueFileName();
         const imageRef = storageRef.child(`nhanhang/photos/` + imageName);
 
@@ -415,10 +429,18 @@ async function uploadCapturedImage() {
             uploadTask.on(
                 "state_changed",
                 function (snapshot) {
-                    // Progress can be shown here if needed
+                    // Calculate upload progress
+                    const progress =
+                        (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log("Upload is " + progress + "% done");
                 },
                 function (error) {
                     console.error("Error uploading image:", error);
+                    if (notifId) notificationManager.remove(notifId);
+                    notificationManager.error(
+                        "Lỗi khi tải ảnh lên: " + error.message,
+                        4000,
+                    );
                     reject(error);
                 },
                 function () {
@@ -426,14 +448,31 @@ async function uploadCapturedImage() {
                         .getDownloadURL()
                         .then(function (downloadURL) {
                             console.log("Image uploaded successfully");
+                            if (notifId) notificationManager.remove(notifId);
+                            notificationManager.success(
+                                "Tải ảnh lên thành công!",
+                                2000,
+                            );
                             resolve(downloadURL);
                         })
-                        .catch(reject);
+                        .catch((error) => {
+                            if (notifId) notificationManager.remove(notifId);
+                            notificationManager.error(
+                                "Lỗi khi lấy URL ảnh: " + error.message,
+                                4000,
+                            );
+                            reject(error);
+                        });
                 },
             );
         });
     } catch (error) {
         console.error("Error in image upload process:", error);
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.error(
+            "Lỗi trong quá trình upload: " + error.message,
+            4000,
+        );
         throw error;
     }
 }
@@ -444,7 +483,10 @@ async function uploadEditCapturedImage() {
         return null;
     }
 
+    let notifId = null;
     try {
+        notifId = notificationManager.uploading(1, 1);
+
         const imageName = generateUniqueFileName();
         const imageRef = storageRef.child(`nhanhang/photos/` + imageName);
 
@@ -453,9 +495,18 @@ async function uploadEditCapturedImage() {
 
             uploadTask.on(
                 "state_changed",
-                function (snapshot) {},
+                function (snapshot) {
+                    const progress =
+                        (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log("Edit image upload is " + progress + "% done");
+                },
                 function (error) {
                     console.error("Error uploading edit image:", error);
+                    if (notifId) notificationManager.remove(notifId);
+                    notificationManager.error(
+                        "Lỗi khi tải ảnh edit lên: " + error.message,
+                        4000,
+                    );
                     reject(error);
                 },
                 function () {
@@ -463,14 +514,31 @@ async function uploadEditCapturedImage() {
                         .getDownloadURL()
                         .then(function (downloadURL) {
                             console.log("Edit image uploaded successfully");
+                            if (notifId) notificationManager.remove(notifId);
+                            notificationManager.success(
+                                "Tải ảnh edit lên thành công!",
+                                2000,
+                            );
                             resolve(downloadURL);
                         })
-                        .catch(reject);
+                        .catch((error) => {
+                            if (notifId) notificationManager.remove(notifId);
+                            notificationManager.error(
+                                "Lỗi khi lấy URL ảnh edit: " + error.message,
+                                4000,
+                            );
+                            reject(error);
+                        });
                 },
             );
         });
     } catch (error) {
         console.error("Error in edit image upload process:", error);
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.error(
+            "Lỗi trong quá trình upload edit: " + error.message,
+            4000,
+        );
         throw error;
     }
 }
