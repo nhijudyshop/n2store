@@ -88,6 +88,9 @@ function openEditModal(item) {
     if (editModal) {
         editModal.classList.remove("hidden");
         initIcons();
+
+        // Focus first input
+        if (editSupplier) editSupplier.focus();
     }
 }
 
@@ -111,7 +114,7 @@ async function handleSaveEdit() {
         !editProductCode ||
         !editSupplierQty
     ) {
-        showNotification("Không tìm thấy form chỉnh sửa", "error");
+        notificationManager.error("Không tìm thấy form chỉnh sửa");
         return;
     }
 
@@ -121,18 +124,18 @@ async function handleSaveEdit() {
     const supplierQty = parseInt(editSupplierQty.value) || 0;
 
     if (!supplier || !productName || !productCode) {
-        showNotification("Vui lòng điền đầy đủ thông tin", "error");
+        notificationManager.warning("Vui lòng điền đầy đủ thông tin");
         return;
     }
 
     if (supplierQty < 0) {
-        showNotification("Số lượng không hợp lệ", "error");
+        notificationManager.error("Số lượng không hợp lệ");
         return;
     }
 
-    try {
-        showNotification("Đang cập nhật...", "info");
+    const savingId = notificationManager.saving("Đang cập nhật sản phẩm...");
 
+    try {
         const updates = {
             supplier: supplier,
             productName: productName,
@@ -175,10 +178,12 @@ async function handleSaveEdit() {
             applyFilters();
         }
 
-        showNotification("Đã cập nhật sản phẩm!", "success");
+        notificationManager.remove(savingId);
+        notificationManager.success("Đã cập nhật sản phẩm!");
     } catch (error) {
         console.error("Error updating item:", error);
-        showNotification("Lỗi cập nhật: " + error.message, "error");
+        notificationManager.remove(savingId);
+        notificationManager.error("Lỗi cập nhật: " + error.message);
     }
 }
 
@@ -214,20 +219,21 @@ async function handleAddOrderCode() {
     const orderCode = sanitizeInput(newOrderCodeInput.value);
 
     if (!orderCode) {
-        showNotification("Vui lòng nhập mã đơn hàng", "error");
+        notificationManager.warning("Vui lòng nhập mã đơn hàng");
         return;
     }
 
-    try {
-        showNotification("Đang thêm mã đơn hàng...", "info");
+    const addingId = notificationManager.processing("Đang thêm mã đơn hàng...");
 
+    try {
         // Find the item in current data
         const item = window.inventoryData.find(
             (i) => i.id === currentOrderItemId,
         );
 
         if (!item) {
-            showNotification("Không tìm thấy sản phẩm", "error");
+            notificationManager.remove(addingId);
+            notificationManager.error("Không tìm thấy sản phẩm");
             return;
         }
 
@@ -235,9 +241,9 @@ async function handleAddOrderCode() {
         if (window.isFirebaseInitialized()) {
             // Check if this is a Firebase ID (not local ID)
             if (!window.isFirebaseId(currentOrderItemId)) {
-                showNotification(
+                notificationManager.remove(addingId);
+                notificationManager.error(
                     "Sản phẩm này chưa được đồng bộ lên Firebase. Vui lòng refresh trang.",
-                    "error",
                 );
                 console.log("Local ID detected:", currentOrderItemId);
                 closeOrderModal();
@@ -275,17 +281,18 @@ async function handleAddOrderCode() {
 
         closeOrderModal();
 
-        showNotification("Đã thêm mã đơn hàng!", "success");
+        notificationManager.remove(addingId);
+        notificationManager.success("Đã thêm mã đơn hàng!");
     } catch (error) {
         console.error("Error adding order code:", error);
+        notificationManager.remove(addingId);
 
         if (error.message && error.message.includes("No document to update")) {
-            showNotification(
+            notificationManager.error(
                 "Sản phẩm chưa tồn tại trong Firebase. Vui lòng refresh trang và thử lại.",
-                "error",
             );
         } else {
-            showNotification("Lỗi thêm mã đơn hàng: " + error.message, "error");
+            notificationManager.error("Lỗi thêm mã đơn hàng: " + error.message);
         }
     }
 }

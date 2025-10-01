@@ -71,6 +71,8 @@ function setTodayFilter() {
     currentFilters.endDate = today;
 
     applyFilters();
+
+    notificationManager.info("Đã lọc dữ liệu hôm nay");
 }
 
 function setAllFilter() {
@@ -84,6 +86,8 @@ function setAllFilter() {
     currentFilters.endDate = "";
 
     applyFilters();
+
+    notificationManager.info("Hiển thị tất cả dữ liệu");
 }
 
 function clearFilters() {
@@ -112,6 +116,11 @@ function applyFilters() {
 
     // Update order statistics
     renderOrderStatistics();
+
+    // Update stats cards
+    if (typeof window.renderStatistics === "function") {
+        renderStatistics();
+    }
 }
 
 function filterInventoryData(data) {
@@ -188,7 +197,7 @@ function updateDeleteFilteredButton(filteredCount) {
 
 async function handleDeleteFiltered() {
     if (!hasPermission(0)) {
-        showNotification("Không có quyền xóa", "error");
+        notificationManager.error("Không có quyền xóa");
         return;
     }
 
@@ -196,7 +205,7 @@ async function handleDeleteFiltered() {
     const filtered = filterInventoryData(inventory);
 
     if (filtered.length === 0) {
-        showNotification("Không có sản phẩm để xóa", "error");
+        notificationManager.warning("Không có sản phẩm để xóa");
         return;
     }
 
@@ -204,9 +213,11 @@ async function handleDeleteFiltered() {
         return;
     }
 
-    try {
-        showNotification("Đang xóa...", "info");
+    const deletingId = notificationManager.deleting(
+        `Đang xóa ${filtered.length} sản phẩm...`,
+    );
 
+    try {
         // Get IDs of filtered items
         const filteredIds = filtered.map((item) => item.id);
 
@@ -235,10 +246,12 @@ async function handleDeleteFiltered() {
         // Reset filters
         setAllFilter();
 
-        showNotification(`Đã xóa ${filtered.length} sản phẩm!`, "success");
+        notificationManager.remove(deletingId);
+        notificationManager.success(`Đã xóa ${filtered.length} sản phẩm!`);
     } catch (error) {
         console.error("Error deleting filtered items:", error);
-        showNotification("Lỗi xóa sản phẩm: " + error.message, "error");
+        notificationManager.remove(deletingId);
+        notificationManager.error("Lỗi xóa sản phẩm: " + error.message);
     }
 }
 

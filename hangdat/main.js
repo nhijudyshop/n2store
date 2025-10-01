@@ -529,6 +529,7 @@ function resetForm() {
         form.reset();
     }
 
+    // Clear invoice image
     const invoicePasteArea = document.getElementById("invoiceImagePaste");
     if (invoicePasteArea) {
         const preview = document.getElementById("invoicePreview");
@@ -539,17 +540,21 @@ function resetForm() {
         delete invoicePasteArea._pastedFile;
     }
 
+    // Reset products table
     const tbody = document.getElementById("productsTableBody");
     if (tbody) {
         tbody.innerHTML = "";
         addProductRow();
     }
 
+    // FIXED: Reset date to TODAY in GMT+7
     const orderDate = document.getElementById("orderDate");
     if (orderDate) {
-        orderDate.value = new Date().toISOString().split("T")[0];
+        orderDate.value = getCurrentDateForInput(); // Set to today
     }
 }
+
+console.log("✅ Main application initialized (GMT+7 Vietnam timezone)");
 
 function initializeFormElements() {
     const orderForm = document.getElementById("orderForm");
@@ -558,9 +563,10 @@ function initializeFormElements() {
         return;
     }
 
+    // FIXED: Set date input to TODAY in GMT+7
     const orderDate = document.getElementById("orderDate");
     if (orderDate) {
-        orderDate.value = new Date().toISOString().split("T")[0];
+        orderDate.value = getCurrentDateForInput(); // Returns "2025-10-02" for today
     }
 
     const tbody = document.getElementById("productsTableBody");

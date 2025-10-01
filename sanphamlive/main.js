@@ -30,14 +30,15 @@ document.addEventListener("DOMContentLoaded", async function () {
             console.warn(
                 "⚠ Firebase service failed to initialize, using local mode",
             );
-            loadInventoryData();
+            await loadInventoryData();
         }
     } else {
         console.warn("⚠ Firebase not available, using local mode");
-        loadInventoryData();
+        await loadInventoryData();
     }
 
     // Initialize modules
+    initStatistics();
     initFilters();
     initModals();
     initFormHandlers();
@@ -55,9 +56,11 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 // Load inventory data from Firebase or cache
 async function loadInventoryData() {
-    try {
-        showNotification("Đang tải dữ liệu...", "info");
+    const loadingId = notificationManager.loadingData(
+        "Đang tải dữ liệu từ Firebase...",
+    );
 
+    try {
         if (window.isFirebaseInitialized()) {
             // Load from Firebase
             const data = await window.firebaseService.loadInventory();
@@ -92,10 +95,17 @@ async function loadInventoryData() {
 
         applyFilters();
         renderOrderStatistics();
-        showNotification("Tải dữ liệu thành công!", "success");
+        renderStatistics();
+
+        // Remove loading and show success
+        notificationManager.remove(loadingId);
+        notificationManager.success(
+            `Đã tải ${window.inventoryData.length} sản phẩm`,
+        );
     } catch (error) {
         console.error("Error loading data:", error);
-        showNotification("Lỗi tải dữ liệu: " + error.message, "error");
+        notificationManager.remove(loadingId);
+        notificationManager.error("Lỗi tải dữ liệu: " + error.message);
 
         // Fallback to cache
         const cachedData = getCachedData();
@@ -233,7 +243,7 @@ async function handleSubmitProduct() {
         !productCodeInput ||
         !supplierQtyInput
     ) {
-        showNotification("Không tìm thấy form", "error");
+        notificationManager.error("Không tìm thấy form");
         return;
     }
 
@@ -244,12 +254,12 @@ async function handleSubmitProduct() {
 
     // Validation
     if (!supplier || !productName || !productCode) {
-        showNotification("Vui lòng điền đầy đủ thông tin", "error");
+        notificationManager.warning("Vui lòng điền đầy đủ thông tin");
         return;
     }
 
     if (supplierQty < 0) {
-        showNotification("Số lượng không hợp lệ", "error");
+        notificationManager.error("Số lượng không hợp lệ");
         return;
     }
 
@@ -283,9 +293,9 @@ async function handleSubmitProduct() {
         editHistory: [],
     };
 
-    try {
-        showNotification("Đang thêm sản phẩm...", "info");
+    const addingId = notificationManager.saving("Đang thêm sản phẩm...");
 
+    try {
         // Add to Firebase
         if (window.isFirebaseInitialized()) {
             const firebaseId = await window.firebaseService.addItem(newItem);
@@ -307,7 +317,7 @@ async function handleSubmitProduct() {
         // Log action
         logAction("add", `Thêm sản phẩm: ${productName} (${productCode})`);
 
-        // Cleanup on page unload and hide
+        // Cleanup
         clearForm();
         const formSection = document.getElementById("formSection");
         if (formSection) formSection.classList.add("hidden");
@@ -318,10 +328,8 @@ async function handleSubmitProduct() {
             if (btnText) btnText.textContent = "Thêm SP";
         }
 
-        showNotification(
-            `Đã thêm sản phẩm "${productName}" thành công!`,
-            "success",
-        );
+        notificationManager.remove(addingId);
+        notificationManager.success(`Đã thêm "${productName}" thành công!`);
 
         // Auto-focus on first input for quick data entry
         setTimeout(() => {
@@ -332,7 +340,8 @@ async function handleSubmitProduct() {
         }, 100);
     } catch (error) {
         console.error("Error adding product:", error);
-        showNotification("Lỗi thêm sản phẩm: " + error.message, "error");
+        notificationManager.remove(addingId);
+        notificationManager.error("Lỗi thêm sản phẩm: " + error.message);
     }
 }
 
@@ -368,7 +377,7 @@ function handleExport() {
     const filteredData = getFilteredData();
 
     if (!filteredData || filteredData.length === 0) {
-        showNotification("Không có dữ liệu để xuất", "error");
+        notificationManager.warning("Không có dữ liệu để xuất");
         return;
     }
 
@@ -377,6 +386,8 @@ function handleExport() {
 
     // Log export action
     logAction("export", `Xuất ${filteredData.length} sản phẩm ra CSV`);
+
+    notificationManager.success(`Đã xuất ${filteredData.length} sản phẩm`);
 }
 
 // Cleanup on page unload
@@ -396,7 +407,7 @@ window.addEventListener("beforeunload", () => {
 
 // Handle online/offline status
 window.addEventListener("online", () => {
-    showNotification("Đã kết nối mạng - Đang đồng bộ...", "success");
+    notificationManager.success("Đã kết nối mạng - Đang đồng bộ...");
     updateSyncStatus();
     console.log("✓ Online");
 
@@ -407,7 +418,7 @@ window.addEventListener("online", () => {
 });
 
 window.addEventListener("offline", () => {
-    showNotification("Mất kết nối mạng - Dữ liệu được lưu cục bộ", "info");
+    notificationManager.info("Mất kết nối mạng - Dữ liệu được lưu cục bộ");
     updateSyncStatus();
     console.log("⚠ Offline - Working in local mode");
 });

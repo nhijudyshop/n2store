@@ -1,5 +1,5 @@
 // =====================================================
-// ENHANCED FILTERING SYSTEM WITH QUICK DATE FILTERS
+// FILTERS SYSTEM - FIXED DATE FILTERING FOR VIETNAM GMT+7
 // =====================================================
 
 let isFilteringInProgress = false;
@@ -14,122 +14,197 @@ function applyFiltersToInventory(dataArray) {
         "";
 
     return dataArray.filter((item) => {
-        // Quick date filter
         let matchDate = true;
 
-        if (quickFilter !== "all") {
+        // Quick date filter
+        if (quickFilter !== "all" && quickFilter !== "custom") {
             const itemDate =
                 parseVietnameseDate(item.ngayNhan) ||
-                parseVietnameseDate(item.ngayDatHang);
+                parseVietnameseDate(item.ngayDatHang) ||
+                parseVietnameseDate(item.thoiGianUpload);
 
             if (itemDate) {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
+                // Get current date in GMT+7
+                const now = new Date();
 
-                let startDate = new Date(today);
-                let endDate = new Date(today);
-                endDate.setHours(23, 59, 59, 999);
+                // Normalize to start of day (00:00:00)
+                const todayStart = new Date(
+                    now.getFullYear(),
+                    now.getMonth(),
+                    now.getDate(),
+                    0,
+                    0,
+                    0,
+                    0,
+                );
+
+                // Normalize item date to start of day for comparison
+                const itemDateStart = new Date(
+                    itemDate.getFullYear(),
+                    itemDate.getMonth(),
+                    itemDate.getDate(),
+                    0,
+                    0,
+                    0,
+                    0,
+                );
+
+                let startDate, endDate;
 
                 switch (quickFilter) {
                     case "today":
-                        // Already set to today
+                        startDate = new Date(todayStart);
+                        endDate = new Date(todayStart);
                         break;
 
                     case "yesterday":
-                        startDate.setDate(today.getDate() - 1);
+                        startDate = new Date(todayStart);
+                        startDate.setDate(startDate.getDate() - 1);
                         endDate = new Date(startDate);
-                        endDate.setHours(23, 59, 59, 999);
                         break;
 
                     case "last7days":
-                        startDate.setDate(today.getDate() - 6);
+                        startDate = new Date(todayStart);
+                        startDate.setDate(startDate.getDate() - 6); // 6 days ago + today = 7 days
+                        endDate = new Date(todayStart);
                         break;
 
                     case "last30days":
-                        startDate.setDate(today.getDate() - 29);
+                        startDate = new Date(todayStart);
+                        startDate.setDate(startDate.getDate() - 29); // 29 days ago + today = 30 days
+                        endDate = new Date(todayStart);
                         break;
 
                     case "thisMonth":
                         startDate = new Date(
-                            today.getFullYear(),
-                            today.getMonth(),
+                            now.getFullYear(),
+                            now.getMonth(),
                             1,
-                        );
-                        endDate = new Date(
-                            today.getFullYear(),
-                            today.getMonth() + 1,
+                            0,
+                            0,
+                            0,
                             0,
                         );
-                        endDate.setHours(23, 59, 59, 999);
+                        endDate = new Date(
+                            now.getFullYear(),
+                            now.getMonth() + 1,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                        );
                         break;
 
                     case "lastMonth":
                         startDate = new Date(
-                            today.getFullYear(),
-                            today.getMonth() - 1,
+                            now.getFullYear(),
+                            now.getMonth() - 1,
                             1,
-                        );
-                        endDate = new Date(
-                            today.getFullYear(),
-                            today.getMonth(),
+                            0,
+                            0,
+                            0,
                             0,
                         );
-                        endDate.setHours(23, 59, 59, 999);
+                        endDate = new Date(
+                            now.getFullYear(),
+                            now.getMonth(),
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                        );
                         break;
+
+                    default:
+                        startDate = new Date(todayStart);
+                        endDate = new Date(todayStart);
                 }
 
-                const itemDateOnly = new Date(itemDate);
-                itemDateOnly.setHours(0, 0, 0, 0);
-
+                // Compare dates (all normalized to 00:00:00)
                 matchDate =
-                    itemDateOnly >= startDate && itemDateOnly <= endDate;
+                    itemDateStart >= startDate && itemDateStart <= endDate;
+
+                // Debug logging (remove in production)
+                if (quickFilter === "today" || quickFilter === "yesterday") {
+                    console.log("Filter Debug:", {
+                        filter: quickFilter,
+                        itemRaw:
+                            item.ngayNhan ||
+                            item.ngayDatHang ||
+                            item.thoiGianUpload,
+                        itemDate: itemDateStart.toLocaleDateString("vi-VN"),
+                        startDate: startDate.toLocaleDateString("vi-VN"),
+                        endDate: endDate.toLocaleDateString("vi-VN"),
+                        match: matchDate,
+                    });
+                }
             } else {
                 matchDate = false;
             }
         }
 
-        // Custom date range filter (overrides quick filter if set)
+        // Custom date range filter
         if (dateFrom || dateTo) {
             const itemDate =
                 parseVietnameseDate(item.ngayNhan) ||
-                parseVietnameseDate(item.ngayDatHang);
+                parseVietnameseDate(item.ngayDatHang) ||
+                parseVietnameseDate(item.thoiGianUpload);
+
             if (itemDate) {
+                // Normalize to start of day
+                const itemDateStart = new Date(
+                    itemDate.getFullYear(),
+                    itemDate.getMonth(),
+                    itemDate.getDate(),
+                    0,
+                    0,
+                    0,
+                    0,
+                );
+
                 if (dateFrom) {
-                    const fromDate = new Date(dateFrom);
-                    const itemDateOnly = new Date(
-                        itemDate.getFullYear(),
-                        itemDate.getMonth(),
-                        itemDate.getDate(),
-                    );
-                    const fromDateOnly = new Date(
-                        fromDate.getFullYear(),
-                        fromDate.getMonth(),
-                        fromDate.getDate(),
-                    );
-                    if (itemDateOnly < fromDateOnly) {
-                        matchDate = false;
+                    const fromDate = parseVietnameseDate(dateFrom);
+                    if (fromDate) {
+                        const fromDateStart = new Date(
+                            fromDate.getFullYear(),
+                            fromDate.getMonth(),
+                            fromDate.getDate(),
+                            0,
+                            0,
+                            0,
+                            0,
+                        );
+                        if (itemDateStart < fromDateStart) {
+                            matchDate = false;
+                        }
                     }
                 }
+
                 if (dateTo && matchDate) {
-                    const toDate = new Date(dateTo);
-                    const itemDateOnly = new Date(
-                        itemDate.getFullYear(),
-                        itemDate.getMonth(),
-                        itemDate.getDate(),
-                    );
-                    const toDateOnly = new Date(
-                        toDate.getFullYear(),
-                        toDate.getMonth(),
-                        toDate.getDate(),
-                    );
-                    if (itemDateOnly > toDateOnly) {
-                        matchDate = false;
+                    const toDate = parseVietnameseDate(dateTo);
+                    if (toDate) {
+                        const toDateStart = new Date(
+                            toDate.getFullYear(),
+                            toDate.getMonth(),
+                            toDate.getDate(),
+                            0,
+                            0,
+                            0,
+                            0,
+                        );
+                        if (itemDateStart > toDateStart) {
+                            matchDate = false;
+                        }
                     }
                 }
+            } else {
+                matchDate = false;
             }
         }
 
-        // Enhanced product filter - search across ALL text fields
+        // Product filter - search across all fields
         let matchProduct = true;
         if (filterProductText) {
             const searchableFields = [
@@ -145,7 +220,6 @@ function applyFiltersToInventory(dataArray) {
                 item.giaBan?.toString(),
             ];
 
-            // Check if ANY field contains the search text
             matchProduct = searchableFields.some((field) => {
                 if (!field) return false;
                 return field
@@ -160,11 +234,9 @@ function applyFiltersToInventory(dataArray) {
 }
 
 function updateFilterOptions(fullDataArray) {
-    // No longer needed for supplier dropdown
-    // Can be kept empty or removed
+    // No longer needed
 }
 
-// FIXED: Use Utils.debounce instead of debounce
 const debouncedApplyFilters = Utils.debounce(() => {
     if (isFilteringInProgress) return;
     isFilteringInProgress = true;
@@ -203,7 +275,6 @@ function initializeFilterEvents() {
 
     if (quickDateFilter) {
         quickDateFilter.addEventListener("change", () => {
-            // Clear custom date range when using quick filter
             if (
                 quickDateFilter.value !== "all" &&
                 quickDateFilter.value !== "custom"
@@ -217,7 +288,6 @@ function initializeFilterEvents() {
 
     if (dateFromFilter) {
         dateFromFilter.addEventListener("change", () => {
-            // Set quick filter to "custom" when using date range
             if (quickDateFilter && dateFromFilter.value) {
                 quickDateFilter.value = "custom";
             }
@@ -227,7 +297,6 @@ function initializeFilterEvents() {
 
     if (dateToFilter) {
         dateToFilter.addEventListener("change", () => {
-            // Set quick filter to "custom" when using date range
             if (quickDateFilter && dateToFilter.value) {
                 quickDateFilter.value = "custom";
             }
@@ -236,7 +305,6 @@ function initializeFilterEvents() {
     }
 
     if (filterProductInput) {
-        // FIXED: Use Utils.debounce
         filterProductInput.addEventListener(
             "input",
             Utils.debounce(applyFilters, 300),
@@ -244,4 +312,73 @@ function initializeFilterEvents() {
     }
 }
 
-console.log("Enhanced filters system with quick date filters loaded");
+// Debug function to test date filtering
+window.debugDateFilter = function () {
+    const cachedData = getCachedData();
+    if (!cachedData || cachedData.length === 0) {
+        console.log("No data available");
+        return;
+    }
+
+    console.log("=== DATE FILTER DEBUG ===");
+    console.log("Total items:", cachedData.length);
+
+    // Show first few items with their dates
+    console.log("\nFirst 5 items dates:");
+    cachedData.slice(0, 5).forEach((item, i) => {
+        console.log(`Item ${i + 1}:`, {
+            ngayNhan: item.ngayNhan,
+            ngayDatHang: item.ngayDatHang,
+            thoiGianUpload: item.thoiGianUpload,
+            parsed: parseVietnameseDate(
+                item.ngayNhan || item.ngayDatHang || item.thoiGianUpload,
+            ),
+        });
+    });
+
+    // Test today filter
+    const now = new Date();
+    const todayStr = now.toLocaleDateString("vi-VN");
+    console.log("\nToday:", todayStr);
+
+    const todayItems = cachedData.filter((item) => {
+        const itemDate = parseVietnameseDate(
+            item.ngayNhan || item.ngayDatHang || item.thoiGianUpload,
+        );
+        if (!itemDate) return false;
+        const itemDateStart = new Date(
+            itemDate.getFullYear(),
+            itemDate.getMonth(),
+            itemDate.getDate(),
+            0,
+            0,
+            0,
+            0,
+        );
+        const todayStart = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            0,
+            0,
+            0,
+            0,
+        );
+        return itemDateStart.getTime() === todayStart.getTime();
+    });
+
+    console.log("Items matching today:", todayItems.length);
+    if (todayItems.length > 0) {
+        console.log(
+            "Sample today items:",
+            todayItems.slice(0, 3).map((item) => ({
+                tenSanPham: item.tenSanPham,
+                ngayDatHang: item.ngayDatHang,
+                ngayNhan: item.ngayNhan,
+            })),
+        );
+    }
+};
+
+console.log("✅ Filters system loaded (FIXED - GMT+7 Vietnam timezone)");
+console.log("Run debugDateFilter() in console to test date filtering");

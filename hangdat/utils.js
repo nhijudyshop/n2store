@@ -1,12 +1,11 @@
 // =====================================================
-// UTILITY FUNCTIONS WITH AGGRESSIVE COMPRESSION
+// UTILITY FUNCTIONS - FIXED DATE PARSING FOR GMT+7
 // =====================================================
 
 class Utils {
     // Format date to Vietnamese format
     static formatDate(date) {
         if (!date || !(date instanceof Date)) return "";
-
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
@@ -56,7 +55,7 @@ class Utils {
         return canvas.toDataURL("image/webp").indexOf("data:image/webp") === 0;
     }
 
-    // AGGRESSIVE Image Compression
+    // Image Compression
     static async compressImage(file, type = "storage") {
         const settings = CONFIG.performance.imageCompression[type];
 
@@ -73,7 +72,6 @@ class Utils {
                     let width = img.width;
                     let height = img.height;
 
-                    // Calculate new dimensions maintaining aspect ratio
                     if (width > height) {
                         if (width > settings.maxWidth) {
                             height = (height * settings.maxWidth) / width;
@@ -88,14 +86,10 @@ class Utils {
 
                     canvas.width = width;
                     canvas.height = height;
-
-                    // Use better image smoothing
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = "high";
-
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Choose format - WebP if supported, else JPEG
                     const useWebP =
                         CONFIG.performance.useWebP && Utils.supportsWebP();
                     const mimeType = useWebP ? "image/webp" : "image/jpeg";
@@ -106,16 +100,8 @@ class Utils {
                             const compressedFile = new File(
                                 [blob],
                                 file.name.replace(/\.[^/.]+$/, extension),
-                                {
-                                    type: mimeType,
-                                    lastModified: Date.now(),
-                                },
+                                { type: mimeType, lastModified: Date.now() },
                             );
-
-                            console.log(
-                                `Compressed: ${Utils.formatFileSize(file.size)} → ${Utils.formatFileSize(compressedFile.size)} (${((compressedFile.size / file.size) * 100).toFixed(1)}%)`,
-                            );
-
                             resolve(compressedFile);
                         },
                         mimeType,
@@ -126,7 +112,6 @@ class Utils {
         });
     }
 
-    // Validate image URL
     static isValidImageUrl(url) {
         return (
             url &&
@@ -136,12 +121,10 @@ class Utils {
         );
     }
 
-    // Check if device is mobile
     static isMobile() {
         return window.innerWidth <= 768;
     }
 
-    // Get optimal image size for device
     static getOptimalImageSize() {
         const width = window.innerWidth;
         if (width < 480) return { width: 250, height: 250 };
@@ -150,17 +133,14 @@ class Utils {
         return { width: 550, height: 550 };
     }
 
-    // Escape HTML to prevent XSS
     static escapeHtml(text) {
         const div = document.createElement("div");
         div.textContent = text;
         return div.innerHTML;
     }
 
-    // Create element with attributes
     static createElement(tag, attributes = {}, children = []) {
         const element = document.createElement(tag);
-
         Object.keys(attributes).forEach((key) => {
             if (key === "className") {
                 element.className = attributes[key];
@@ -172,7 +152,6 @@ class Utils {
                 element.setAttribute(key, attributes[key]);
             }
         });
-
         children.forEach((child) => {
             if (typeof child === "string") {
                 element.appendChild(document.createTextNode(child));
@@ -180,11 +159,9 @@ class Utils {
                 element.appendChild(child);
             }
         });
-
         return element;
     }
 
-    // Format file size
     static formatFileSize(bytes) {
         if (bytes === 0) return "0 Bytes";
         const k = 1024;
@@ -195,16 +172,16 @@ class Utils {
 }
 
 // =====================================================
-// STANDALONE UTILITY FUNCTIONS (Non-class methods)
+// STANDALONE UTILITY FUNCTIONS - FIXED GMT+7
 // =====================================================
 
-// Sanitize input to prevent XSS
+// Sanitize input
 function sanitizeInput(input) {
     if (typeof input !== "string") return "";
     return input.replace(/[<>"'&]/g, "").trim();
 }
 
-// Format date
+// Format date for display
 function formatDate(date) {
     if (!date || !(date instanceof Date)) return "";
     const year = date.getFullYear();
@@ -213,48 +190,114 @@ function formatDate(date) {
     return `${day}/${month}/${year}`;
 }
 
-// Parse Vietnamese date format
+// FIXED: Parse Vietnamese date - Now handles comma in datetime
 function parseVietnameseDate(dateString) {
     if (!dateString) return null;
 
     try {
-        const cleanDateString = dateString.replace(/,?\s*/g, " ").trim();
-        const patterns = [
-            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})/,
-            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
-        ];
+        // Clean up the string - remove extra spaces but keep structure
+        const cleanDateString = dateString.trim();
 
-        for (let pattern of patterns) {
-            const match = cleanDateString.match(pattern);
-            if (match) {
-                const [, day, month, year, hour = 0, minute = 0] = match;
-                return new Date(
-                    parseInt(year),
-                    parseInt(month) - 1,
-                    parseInt(day),
-                    parseInt(hour),
-                    parseInt(minute),
-                );
-            }
+        // Pattern 1: DD/MM/YYYY, HH:mm (with comma!)
+        const pattern1 =
+            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4}),?\s*(\d{1,2}):(\d{2})/;
+        const match1 = cleanDateString.match(pattern1);
+        if (match1) {
+            const [, day, month, year, hour, minute] = match1;
+            // Create date in LOCAL timezone (GMT+7)
+            return new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+                parseInt(hour),
+                parseInt(minute),
+                0,
+                0,
+            );
         }
 
+        // Pattern 2: DD/MM/YYYY (no time)
+        const pattern2 = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
+        const match2 = cleanDateString.match(pattern2);
+        if (match2) {
+            const [, day, month, year] = match2;
+            // Create date at midnight in LOCAL timezone (GMT+7)
+            return new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+                0,
+                0,
+                0,
+                0,
+            );
+        }
+
+        // Pattern 3: YYYY-MM-DD (ISO format from input[type="date"])
+        const pattern3 = /^(\d{4})-(\d{2})-(\d{2})$/;
+        const match3 = cleanDateString.match(pattern3);
+        if (match3) {
+            const [, year, month, day] = match3;
+            // Create date at midnight in LOCAL timezone (GMT+7)
+            return new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+                0,
+                0,
+                0,
+                0,
+            );
+        }
+
+        // Pattern 4: YYYY-MM-DD HH:mm:ss (ISO datetime)
+        const pattern4 = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/;
+        const match4 = cleanDateString.match(pattern4);
+        if (match4) {
+            const [, year, month, day, hour, minute, second] = match4;
+            return new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+                parseInt(hour),
+                parseInt(minute),
+                parseInt(second),
+                0,
+            );
+        }
+
+        // Fallback: try Date constructor
         const date = new Date(dateString);
-        return isNaN(date.getTime()) ? null : date;
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+
+        console.warn("Could not parse date:", dateString);
+        return null;
     } catch (error) {
         console.warn("Error parsing date:", dateString, error);
         return null;
     }
 }
 
-// Get formatted date time
+// FIXED: Get current date/time formatted in GMT+7
 function getFormattedDateTime() {
-    const currentDate = new Date();
-    const day = currentDate.getDate().toString().padStart(2, "0");
-    const month = (currentDate.getMonth() + 1).toString().padStart(2, "0");
-    const year = currentDate.getFullYear();
-    const hour = currentDate.getHours().toString().padStart(2, "0");
-    const minute = currentDate.getMinutes().toString().padStart(2, "0");
+    const now = new Date(); // This is already in local timezone (GMT+7)
+    const day = now.getDate().toString().padStart(2, "0");
+    const month = (now.getMonth() + 1).toString().padStart(2, "0");
+    const year = now.getFullYear();
+    const hour = now.getHours().toString().padStart(2, "0");
+    const minute = now.getMinutes().toString().padStart(2, "0");
     return `${day}/${month}/${year}, ${hour}:${minute}`;
+}
+
+// FIXED: Get current date in YYYY-MM-DD format for input[type="date"]
+function getCurrentDateForInput() {
+    const now = new Date(); // Local timezone (GMT+7)
+    const year = now.getFullYear();
+    const month = (now.getMonth() + 1).toString().padStart(2, "0");
+    const day = now.getDate().toString().padStart(2, "0");
+    return `${year}-${month}-${day}`;
 }
 
 // Generate unique ID
@@ -264,7 +307,7 @@ function generateUniqueID() {
     return `inv_${timestamp}_${random}`;
 }
 
-// Debounce function (standalone version for backward compatibility)
+// Debounce function
 function debounce(func, wait) {
     return Utils.debounce(func, wait);
 }
@@ -278,7 +321,7 @@ function logAction(
     pageName = "Đặt Hàng",
 ) {
     const logEntry = {
-        timestamp: new Date(),
+        timestamp: new Date(), // Local timezone (GMT+7)
         user: getUserName(),
         page: pageName,
         action: action,
@@ -294,7 +337,31 @@ function logAction(
         .catch((error) => console.error("Error saving log entry: ", error));
 }
 
+// Test function for date parsing
+window.testDateParsing = function () {
+    const testCases = [
+        "28/09/2025, 15:53",
+        "28/09/2025,15:53",
+        "28/09/2025 15:53",
+        "2025-09-28",
+        "02/10/2025",
+        "2/10/2025, 10:30",
+    ];
+
+    console.log("=== DATE PARSING TEST ===");
+    testCases.forEach((dateStr) => {
+        const parsed = parseVietnameseDate(dateStr);
+        console.log(
+            `"${dateStr}" →`,
+            parsed ? parsed.toLocaleString("vi-VN") : "NULL",
+        );
+    });
+};
+
 // Export Utils globally
 window.Utils = Utils;
+window.getCurrentDateForInput = getCurrentDateForInput;
+window.parseVietnameseDate = parseVietnameseDate;
 
-console.log("Utility functions loaded");
+console.log("✅ Utility functions loaded (FIXED DATE PARSING - GMT+7)");
+console.log("Run testDateParsing() to verify date parsing works");
