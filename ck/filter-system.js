@@ -1,5 +1,5 @@
-// filter-system.js - FIXED VERSION with Lucide Icons
-// High-Performance Filter System with CORRECTED Checkbox Logic
+// filter-system.js - FIXED VERSION with Lucide Icons and Quick Filters
+// High-Performance Filter System with CORRECTED Checkbox Logic and Hidden by Default
 
 class FilterManager {
     constructor() {
@@ -18,6 +18,7 @@ class FilterManager {
     }
 
     init() {
+        this.createFilterToggleButton(); // Create toggle button first
         this.createFilterUI();
         this.bindEvents();
         this.initializeWorker();
@@ -26,6 +27,73 @@ class FilterManager {
             "Filter system initialized with chunk size:",
             this.chunkSize,
         );
+    }
+
+    createFilterToggleButton() {
+        // Remove existing toggle if present
+        const existingToggle = document.getElementById("filterToggleContainer");
+        if (existingToggle) {
+            existingToggle.remove();
+        }
+
+        const toggleContainer = domManager.create("div", {
+            id: "filterToggleContainer",
+            className: "filter-toggle-container",
+            innerHTML: `
+                <button id="filterToggleBtn" class="filter-toggle-btn">
+                    <i data-lucide="sliders"></i>
+                    <span>Hiện Bộ Lọc</span>
+                </button>
+                <div class="filter-status-badge">
+                    <span>Đang lọc: <strong id="mainFilterLabel">Tháng Này</strong></span>
+                </div>
+            `,
+        });
+
+        const tableContainer = domManager.get(SELECTORS.tableContainer);
+        if (tableContainer && tableContainer.parentNode) {
+            tableContainer.parentNode.insertBefore(
+                toggleContainer,
+                tableContainer,
+            );
+        }
+
+        // Initialize Lucide icons
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        // Bind toggle event
+        const toggleBtn = document.getElementById("filterToggleBtn");
+        if (toggleBtn) {
+            toggleBtn.addEventListener("click", () =>
+                this.toggleFilterSystem(),
+            );
+        }
+    }
+
+    toggleFilterSystem() {
+        const filterSystem = domManager.get(SELECTORS.filterSystem);
+        const toggleBtn = document.getElementById("filterToggleBtn");
+
+        if (filterSystem && toggleBtn) {
+            filterSystem.classList.toggle("hidden");
+
+            const isHidden = filterSystem.classList.contains("hidden");
+            const btnText = toggleBtn.querySelector("span");
+            const btnIcon = toggleBtn.querySelector("i");
+
+            if (btnText) {
+                btnText.textContent = isHidden ? "Hiện Bộ Lọc" : "Ẩn Bộ Lọc";
+            }
+
+            if (btnIcon) {
+                btnIcon.setAttribute("data-lucide", isHidden ? "sliders" : "x");
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            }
+        }
     }
 
     createFilterUI() {
@@ -44,7 +112,7 @@ class FilterManager {
 
         const filterContainer = domManager.create("div", {
             id: "improvedFilterSystem",
-            className: "filter-system",
+            className: "filter-system hidden", // Hidden by default
             innerHTML: this.getFilterHTML(vietnamToday),
         });
 
@@ -56,24 +124,77 @@ class FilterManager {
             );
         }
 
-        this.filters.startDate = vietnamToday;
-        this.filters.endDate = vietnamToday;
+        // Set default to "This Month"
+        const thisMonthRange = this.getDateRange("thisMonth");
+        this.filters.startDate = thisMonthRange.start;
+        this.filters.endDate = thisMonthRange.end;
 
-        console.log("Filter initialized with Vietnam dates:", this.filters);
+        console.log(
+            "Filter initialized with This Month (hidden):",
+            this.filters,
+        );
     }
 
     getFilterHTML(localISODate) {
         return `
         <style>
+            .filter-toggle-container {
+                margin: 20px 20px 0 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .filter-toggle-btn {
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                cursor: pointer;
+                font-size: 15px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .filter-toggle-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            }
+
+            .filter-toggle-btn i {
+                width: 20px;
+                height: 20px;
+            }
+
+            .filter-status-badge {
+                padding: 8px 16px;
+                background: linear-gradient(135deg, #e7f3ff, #cce7ff);
+                border: 2px solid #b3d4fc;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                color: #0c5460;
+            }
+
             .filter-system {
                 background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
                 padding: 20px;
                 border-radius: 12px;
-                margin: 20px 0;
+                margin: 20px;
                 border: 1px solid #dee2e6;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 transition: all 0.3s ease;
                 position: relative;
+            }
+
+            .filter-system.hidden {
+                display: none;
             }
             
             .timezone-indicator {
@@ -87,6 +208,108 @@ class FilterManager {
                 font-size: 11px;
                 font-weight: 600;
                 border: 1px solid #bbdefb;
+            }
+
+            .quick-filter-toggle {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 15px;
+                padding-bottom: 15px;
+                border-bottom: 2px solid #dee2e6;
+            }
+
+            .quick-filter-toggle-btn {
+                padding: 8px 16px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .quick-filter-toggle-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            }
+
+            .quick-filter-toggle-btn i {
+                width: 16px;
+                height: 16px;
+            }
+
+            .quick-filter-label {
+                font-weight: 600;
+                color: #495057;
+                font-size: 14px;
+            }
+
+            .quick-filters {
+                display: none;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 15px;
+                padding: 15px;
+                background: white;
+                border-radius: 8px;
+                border: 2px solid #e9ecef;
+                animation: slideDown 0.3s ease;
+            }
+
+            .quick-filters.show {
+                display: flex;
+            }
+
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .quick-filter-btn {
+                padding: 8px 16px;
+                border: 2px solid #dee2e6;
+                background: white;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 600;
+                color: #495057;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .quick-filter-btn:hover {
+                border-color: #667eea;
+                color: #667eea;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            }
+
+            .quick-filter-btn.active {
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                border-color: #667eea;
+                color: white;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            }
+
+            .quick-filter-btn i {
+                width: 14px;
+                height: 14px;
             }
             
             .filter-row {
@@ -189,6 +412,12 @@ class FilterManager {
             }
             
             @media (max-width: 768px) {
+                .filter-toggle-container {
+                    flex-direction: column;
+                    gap: 10px;
+                    align-items: stretch;
+                }
+
                 .filter-row {
                     flex-direction: column;
                     align-items: stretch;
@@ -203,10 +432,58 @@ class FilterManager {
                     margin-bottom: 10px;
                     align-self: flex-start;
                 }
+
+                .quick-filters {
+                    gap: 8px;
+                }
+
+                .quick-filter-btn {
+                    font-size: 12px;
+                    padding: 6px 12px;
+                }
             }
         </style>
         
         <div class="timezone-indicator">GMT+7 (Vietnam Time)</div>
+
+        <div class="quick-filter-toggle">
+            <button id="quickFilterToggleBtn" class="quick-filter-toggle-btn">
+                <i data-lucide="filter"></i>
+                <span>Lọc Nhanh</span>
+            </button>
+            <span class="quick-filter-label">Đang lọc: <strong id="currentFilterLabel">Tháng Này</strong></span>
+        </div>
+
+        <div id="quickFilters" class="quick-filters">
+            <button class="quick-filter-btn" data-filter="all">
+                <i data-lucide="list"></i>
+                Tất Cả
+            </button>
+            <button class="quick-filter-btn" data-filter="today">
+                <i data-lucide="calendar"></i>
+                Hôm Nay
+            </button>
+            <button class="quick-filter-btn" data-filter="yesterday">
+                <i data-lucide="calendar-minus"></i>
+                Hôm Qua
+            </button>
+            <button class="quick-filter-btn" data-filter="last7days">
+                <i data-lucide="calendar-range"></i>
+                7 Ngày Qua
+            </button>
+            <button class="quick-filter-btn" data-filter="last30days">
+                <i data-lucide="calendar-clock"></i>
+                30 Ngày Qua
+            </button>
+            <button class="quick-filter-btn active" data-filter="thisMonth">
+                <i data-lucide="calendar-check"></i>
+                Tháng Này
+            </button>
+            <button class="quick-filter-btn" data-filter="lastMonth">
+                <i data-lucide="calendar-x"></i>
+                Tháng Trước
+            </button>
+        </div>
         
         <div class="filter-row">
             <div class="filter-group">
@@ -274,6 +551,186 @@ class FilterManager {
         if (allBtn) allBtn.addEventListener("click", () => this.setAllFilter());
         if (clearBtn)
             clearBtn.addEventListener("click", () => this.clearAllFilters());
+
+        // Quick filter toggle button
+        const quickFilterToggleBtn = document.getElementById(
+            "quickFilterToggleBtn",
+        );
+        if (quickFilterToggleBtn) {
+            quickFilterToggleBtn.addEventListener("click", () =>
+                this.toggleQuickFilters(),
+            );
+        }
+
+        // Quick filter buttons
+        const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
+        quickFilterBtns.forEach((btn) => {
+            btn.addEventListener("click", (e) => {
+                const filterType = e.currentTarget.getAttribute("data-filter");
+                this.applyQuickFilter(filterType);
+            });
+        });
+    }
+
+    toggleQuickFilters() {
+        const quickFilters = document.getElementById("quickFilters");
+        const toggleBtn = document.getElementById("quickFilterToggleBtn");
+
+        if (quickFilters) {
+            quickFilters.classList.toggle("show");
+
+            // Update button icon
+            const icon = toggleBtn.querySelector("i");
+            if (icon) {
+                const isShown = quickFilters.classList.contains("show");
+                icon.setAttribute(
+                    "data-lucide",
+                    isShown ? "filter-x" : "filter",
+                );
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            }
+        }
+    }
+
+    getDateRange(filterType) {
+        const now = new Date();
+        const today = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+        );
+
+        switch (filterType) {
+            case "all":
+                return { start: null, end: null };
+
+            case "today":
+                return {
+                    start: VietnamTime.getDateString(today),
+                    end: VietnamTime.getDateString(today),
+                };
+
+            case "yesterday":
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                return {
+                    start: VietnamTime.getDateString(yesterday),
+                    end: VietnamTime.getDateString(yesterday),
+                };
+
+            case "last7days":
+                const sevenDaysAgo = new Date(today);
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+                return {
+                    start: VietnamTime.getDateString(sevenDaysAgo),
+                    end: VietnamTime.getDateString(today),
+                };
+
+            case "last30days":
+                const thirtyDaysAgo = new Date(today);
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+                return {
+                    start: VietnamTime.getDateString(thirtyDaysAgo),
+                    end: VietnamTime.getDateString(today),
+                };
+
+            case "thisMonth":
+                const firstDayThisMonth = new Date(
+                    now.getFullYear(),
+                    now.getMonth(),
+                    1,
+                );
+                const lastDayThisMonth = new Date(
+                    now.getFullYear(),
+                    now.getMonth() + 1,
+                    0,
+                );
+                return {
+                    start: VietnamTime.getDateString(firstDayThisMonth),
+                    end: VietnamTime.getDateString(lastDayThisMonth),
+                };
+
+            case "lastMonth":
+                const firstDayLastMonth = new Date(
+                    now.getFullYear(),
+                    now.getMonth() - 1,
+                    1,
+                );
+                const lastDayLastMonth = new Date(
+                    now.getFullYear(),
+                    now.getMonth(),
+                    0,
+                );
+                return {
+                    start: VietnamTime.getDateString(firstDayLastMonth),
+                    end: VietnamTime.getDateString(lastDayLastMonth),
+                };
+
+            default:
+                return { start: null, end: null };
+        }
+    }
+
+    applyQuickFilter(filterType) {
+        if (this.isProcessing || APP_STATE.isOperationInProgress) {
+            console.log("Filter already in progress, skipping quick filter");
+            return;
+        }
+
+        const dateRange = this.getDateRange(filterType);
+        const startDateFilter = domManager.get(SELECTORS.startDateFilter);
+        const endDateFilter = domManager.get(SELECTORS.endDateFilter);
+
+        // Update date inputs
+        if (startDateFilter) startDateFilter.value = dateRange.start || "";
+        if (endDateFilter) endDateFilter.value = dateRange.end || "";
+
+        // Update filters
+        this.filters.startDate = dateRange.start;
+        this.filters.endDate = dateRange.end;
+
+        // Update active button
+        const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
+        quickFilterBtns.forEach((btn) => {
+            if (btn.getAttribute("data-filter") === filterType) {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
+        });
+
+        // Update labels
+        const labelMap = {
+            all: "Tất Cả",
+            today: "Hôm Nay",
+            yesterday: "Hôm Qua",
+            last7days: "7 Ngày Qua",
+            last30days: "30 Ngày Qua",
+            thisMonth: "Tháng Này",
+            lastMonth: "Tháng Trước",
+        };
+
+        const currentFilterLabel =
+            document.getElementById("currentFilterLabel");
+        const mainFilterLabel = document.getElementById("mainFilterLabel");
+
+        if (currentFilterLabel) {
+            currentFilterLabel.textContent =
+                labelMap[filterType] || "Tùy Chỉnh";
+        }
+        if (mainFilterLabel) {
+            mainFilterLabel.textContent = labelMap[filterType] || "Tùy Chỉnh";
+        }
+
+        console.log("Quick filter applied:", {
+            type: filterType,
+            dateRange: dateRange,
+        });
+
+        // Apply the filter
+        this.applyFilters();
     }
 
     initializeWorker() {
@@ -818,6 +1275,22 @@ class FilterManager {
         this.filters.startDate = startDate;
         this.filters.endDate = endDate;
 
+        // Update both labels to "Tùy Chỉnh"
+        const currentFilterLabel =
+            document.getElementById("currentFilterLabel");
+        const mainFilterLabel = document.getElementById("mainFilterLabel");
+
+        if (currentFilterLabel) {
+            currentFilterLabel.textContent = "Tùy Chỉnh";
+        }
+        if (mainFilterLabel) {
+            mainFilterLabel.textContent = "Tùy Chỉnh";
+        }
+
+        // Remove active class from all quick filter buttons
+        const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
+        quickFilterBtns.forEach((btn) => btn.classList.remove("active"));
+
         this.applyFilters();
     }
 
@@ -1024,6 +1497,13 @@ class FilterManager {
         const filterSystem = domManager.get(SELECTORS.filterSystem);
         if (filterSystem) {
             filterSystem.remove();
+        }
+
+        const toggleContainer = document.getElementById(
+            "filterToggleContainer",
+        );
+        if (toggleContainer) {
+            toggleContainer.remove();
         }
 
         console.log("Filter system destroyed");
