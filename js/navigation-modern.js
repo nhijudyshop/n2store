@@ -221,11 +221,17 @@ class ModernNavigationManager {
     getCurrentPageIdentifier() {
         const path = window.location.pathname;
 
-        for (const item of MENU_CONFIG) {
-            if (
-                path.includes(`/${item.pageIdentifier}/`) ||
-                path.includes(`${item.pageIdentifier}/index.html`)
-            ) {
+        // Sort by length descending để check path dài trước (sanphamlive trước live)
+        const sortedMenu = [...MENU_CONFIG].sort(
+            (a, b) => b.pageIdentifier.length - a.pageIdentifier.length,
+        );
+
+        for (const item of sortedMenu) {
+            // Check chính xác với boundary (/ hoặc index.html)
+            const pattern1 = `/${item.pageIdentifier}/`;
+            const pattern2 = `/${item.pageIdentifier}/index.html`;
+
+            if (path.includes(pattern1) || path.endsWith(pattern2)) {
                 return item.pageIdentifier;
             }
         }
