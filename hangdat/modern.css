@@ -1059,3 +1059,70 @@ button {
         transform: translateY(0);
     }
 }
+
+/* =====================================================
+   FILTER TOGGLE STYLES - FIXED VERSION
+   ===================================================== */
+
+/* Filter body - setup for animation */
+#filterBody {
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Collapsed state */
+#filterCard.filter-collapsed #filterBody {
+    max-height: 0 !important;
+    opacity: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+#filterCard.filter-collapsed .card-header {
+    border-bottom: none;
+}
+
+/* Toggle button styling */
+#toggleFilterBtn {
+    transition: all 0.2s ease;
+}
+
+#toggleFilterBtn:hover {
+    transform: scale(1.1);
+    background: var(--gray-100);
+}
+
+#toggleFilterBtn:active {
+    transform: scale(0.95);
+}
+
+/* Icon rotation animation */
+#toggleFilterBtn i {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth transitions */
+.filter-group {
+    transition: opacity 0.2s ease-in-out;
+}
+
+#filterCard.filter-collapsed .filter-group {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Visual improvements */
+#filterCard {
+    transition: all 0.3s ease;
+}
+
+#filterCard:not(.filter-collapsed) {
+    box-shadow: var(--shadow-sm);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #filterCard.filter-collapsed {
+        margin-bottom: 12px;
+    }
+}

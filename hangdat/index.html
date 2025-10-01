@@ -8,6 +8,65 @@
 
         <!-- External CSS -->
         <link rel="stylesheet" href="modern.css" />
+        <style>
+            /* Filter Toggle Styles */
+            #filterBody {
+                overflow: hidden;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            #filterCard.filter-collapsed #filterBody {
+                max-height: 0 !important;
+                opacity: 0;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+
+            #filterCard.filter-collapsed .card-header {
+                border-bottom: none;
+            }
+
+            /* Clickable header styles */
+            #filterCard .card-header {
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.2s ease;
+            }
+
+            #filterCard .card-header:hover {
+                background: var(--gray-50);
+            }
+
+            #filterCard .card-header:active {
+                background: var(--gray-100);
+            }
+
+            #toggleFilterBtn {
+                transition: all 0.2s ease;
+                pointer-events: none; /* Icon chỉ để xem, không click */
+            }
+
+            #toggleFilterBtn i {
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .filter-group {
+                transition: opacity 0.2s ease-in-out;
+            }
+
+            #filterCard.filter-collapsed .filter-group {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            #filterCard {
+                transition: all 0.3s ease;
+            }
+
+            #filterCard:not(.filter-collapsed) {
+                box-shadow: var(--shadow-sm);
+            }
+        </style>
 
         <!-- Navigation Manager -->
         <script src="navigation-modern.js"></script>
@@ -278,19 +337,26 @@
             <!-- Inventory Container -->
             <div id="inventoryContainer">
                 <!-- Filter Section -->
-                <section class="card">
+                <section class="card" id="filterCard">
                     <div class="card-header">
                         <div class="card-title">
                             <i data-lucide="filter"></i>
                             <h2>Bộ lọc dữ liệu</h2>
                         </div>
+                        <button
+                            class="btn-icon"
+                            id="toggleFilterBtn"
+                            title="Ẩn/Hiện bộ lọc"
+                        >
+                            <i data-lucide="chevron-up"></i>
+                        </button>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" id="filterBody">
                         <div class="filter-group">
                             <div>
-                                <label for="filterSupplier">
+                                <label for="quickDateFilter">
                                     <i
-                                        data-lucide="building"
+                                        data-lucide="zap"
                                         style="
                                             width: 16px;
                                             height: 16px;
@@ -298,10 +364,23 @@
                                             vertical-align: middle;
                                         "
                                     ></i>
-                                    Nhà cung cấp
+                                    Lọc nhanh
                                 </label>
-                                <select id="filterSupplier">
+                                <select id="quickDateFilter">
                                     <option value="all">Tất cả</option>
+                                    <option value="today">Hôm nay</option>
+                                    <option value="yesterday">Hôm qua</option>
+                                    <option value="last7days">
+                                        7 ngày qua
+                                    </option>
+                                    <option value="last30days">
+                                        30 ngày qua
+                                    </option>
+                                    <option value="thisMonth">Tháng này</option>
+                                    <option value="lastMonth">
+                                        Tháng trước
+                                    </option>
+                                    <option value="custom">Tùy chỉnh</option>
                                 </select>
                             </div>
                             <div>
@@ -345,12 +424,12 @@
                                             vertical-align: middle;
                                         "
                                     ></i>
-                                    Tìm kiếm
+                                    Tìm kiếm toàn bộ
                                 </label>
                                 <input
                                     type="text"
                                     id="filterProduct"
-                                    placeholder="Tìm theo tên hoặc mã..."
+                                    placeholder="Tìm trong toàn bộ dữ liệu..."
                                 />
                             </div>
                         </div>
@@ -472,6 +551,7 @@
         <script src="data-loader.js"></script>
         <script src="table-renderer.js"></script>
         <script src="filters.js"></script>
+        <script src="filter-toggle.js"></script>
         <script src="crud-operations.js"></script>
         <script src="export.js"></script>
         <script src="ui-components.js"></script>

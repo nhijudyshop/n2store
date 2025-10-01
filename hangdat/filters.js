@@ -1,12 +1,12 @@
 // =====================================================
-// FILTERING SYSTEM
+// ENHANCED FILTERING SYSTEM WITH QUICK DATE FILTERS
 // =====================================================
 
 let isFilteringInProgress = false;
 
 function applyFiltersToInventory(dataArray) {
-    const filterSupplier =
-        document.getElementById("filterSupplier")?.value || "all";
+    const quickFilter =
+        document.getElementById("quickDateFilter")?.value || "all";
     const dateFrom = document.getElementById("dateFromFilter")?.value || "";
     const dateTo = document.getElementById("dateToFilter")?.value || "";
     const filterProductText =
@@ -14,12 +14,81 @@ function applyFiltersToInventory(dataArray) {
         "";
 
     return dataArray.filter((item) => {
-        // Supplier filter
-        const matchSupplier =
-            filterSupplier === "all" || item.nhaCungCap === filterSupplier;
-
-        // Date range filter
+        // Quick date filter
         let matchDate = true;
+
+        if (quickFilter !== "all") {
+            const itemDate =
+                parseVietnameseDate(item.ngayNhan) ||
+                parseVietnameseDate(item.ngayDatHang);
+
+            if (itemDate) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                let startDate = new Date(today);
+                let endDate = new Date(today);
+                endDate.setHours(23, 59, 59, 999);
+
+                switch (quickFilter) {
+                    case "today":
+                        // Already set to today
+                        break;
+
+                    case "yesterday":
+                        startDate.setDate(today.getDate() - 1);
+                        endDate = new Date(startDate);
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+
+                    case "last7days":
+                        startDate.setDate(today.getDate() - 6);
+                        break;
+
+                    case "last30days":
+                        startDate.setDate(today.getDate() - 29);
+                        break;
+
+                    case "thisMonth":
+                        startDate = new Date(
+                            today.getFullYear(),
+                            today.getMonth(),
+                            1,
+                        );
+                        endDate = new Date(
+                            today.getFullYear(),
+                            today.getMonth() + 1,
+                            0,
+                        );
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+
+                    case "lastMonth":
+                        startDate = new Date(
+                            today.getFullYear(),
+                            today.getMonth() - 1,
+                            1,
+                        );
+                        endDate = new Date(
+                            today.getFullYear(),
+                            today.getMonth(),
+                            0,
+                        );
+                        endDate.setHours(23, 59, 59, 999);
+                        break;
+                }
+
+                const itemDateOnly = new Date(itemDate);
+                itemDateOnly.setHours(0, 0, 0, 0);
+
+                matchDate =
+                    itemDateOnly >= startDate && itemDateOnly <= endDate;
+            } else {
+                matchDate = false;
+            }
+        }
+
+        // Custom date range filter (overrides quick filter if set)
         if (dateFrom || dateTo) {
             const itemDate =
                 parseVietnameseDate(item.ngayNhan) ||
@@ -60,53 +129,39 @@ function applyFiltersToInventory(dataArray) {
             }
         }
 
-        // Product filter
-        const matchProduct =
-            !filterProductText ||
-            (item.tenSanPham &&
-                item.tenSanPham.toLowerCase().includes(filterProductText)) ||
-            (item.maSanPham &&
-                item.maSanPham.toLowerCase().includes(filterProductText));
+        // Enhanced product filter - search across ALL text fields
+        let matchProduct = true;
+        if (filterProductText) {
+            const searchableFields = [
+                item.tenSanPham,
+                item.maSanPham,
+                item.bienThe,
+                item.nhaCungCap,
+                item.hoaDon,
+                item.ghiChu,
+                item.ngayDatHang,
+                item.soLuong?.toString(),
+                item.giaMua?.toString(),
+                item.giaBan?.toString(),
+            ];
 
-        return matchSupplier && matchDate && matchProduct;
+            // Check if ANY field contains the search text
+            matchProduct = searchableFields.some((field) => {
+                if (!field) return false;
+                return field
+                    .toString()
+                    .toLowerCase()
+                    .includes(filterProductText);
+            });
+        }
+
+        return matchDate && matchProduct;
     });
 }
 
 function updateFilterOptions(fullDataArray) {
-    const filterSupplierSelect = document.getElementById("filterSupplier");
-    if (!filterSupplierSelect) return;
-
-    const suppliers = [
-        ...new Set(
-            fullDataArray
-                .map((item) => item.nhaCungCap)
-                .filter((supplier) => supplier),
-        ),
-    ];
-
-    const currentSelectedValue = filterSupplierSelect.value;
-
-    // Clear existing options except "Tất cả"
-    while (filterSupplierSelect.children.length > 1) {
-        filterSupplierSelect.removeChild(filterSupplierSelect.lastChild);
-    }
-
-    // Add supplier options
-    suppliers.forEach((supplier) => {
-        const option = document.createElement("option");
-        option.value = supplier;
-        option.textContent = supplier;
-        filterSupplierSelect.appendChild(option);
-    });
-
-    // Restore selected value if it still exists
-    if (
-        currentSelectedValue &&
-        currentSelectedValue !== "all" &&
-        suppliers.includes(currentSelectedValue)
-    ) {
-        filterSupplierSelect.value = currentSelectedValue;
-    }
+    // No longer needed for supplier dropdown
+    // Can be kept empty or removed
 }
 
 const debouncedApplyFilters = debounce(() => {
@@ -139,20 +194,45 @@ function applyFilters() {
 }
 
 function initializeFilterEvents() {
-    const filterSupplierSelect = document.getElementById("filterSupplier");
+    const quickDateFilter = document.getElementById("quickDateFilter");
     const dateFromFilter = document.getElementById("dateFromFilter");
     const dateToFilter = document.getElementById("dateToFilter");
     const filterProductInput = document.getElementById("filterProduct");
 
-    if (filterSupplierSelect) {
-        filterSupplierSelect.addEventListener("change", applyFilters);
+    if (quickDateFilter) {
+        quickDateFilter.addEventListener("change", () => {
+            // Clear custom date range when using quick filter
+            if (
+                quickDateFilter.value !== "all" &&
+                quickDateFilter.value !== "custom"
+            ) {
+                if (dateFromFilter) dateFromFilter.value = "";
+                if (dateToFilter) dateToFilter.value = "";
+            }
+            applyFilters();
+        });
     }
+
     if (dateFromFilter) {
-        dateFromFilter.addEventListener("change", applyFilters);
+        dateFromFilter.addEventListener("change", () => {
+            // Set quick filter to "custom" when using date range
+            if (quickDateFilter && dateFromFilter.value) {
+                quickDateFilter.value = "custom";
+            }
+            applyFilters();
+        });
     }
+
     if (dateToFilter) {
-        dateToFilter.addEventListener("change", applyFilters);
+        dateToFilter.addEventListener("change", () => {
+            // Set quick filter to "custom" when using date range
+            if (quickDateFilter && dateToFilter.value) {
+                quickDateFilter.value = "custom";
+            }
+            applyFilters();
+        });
     }
+
     if (filterProductInput) {
         filterProductInput.addEventListener(
             "input",
@@ -161,4 +241,4 @@ function initializeFilterEvents() {
     }
 }
 
-console.log("Filters system loaded");
+console.log("Enhanced filters system with quick date filters loaded");
