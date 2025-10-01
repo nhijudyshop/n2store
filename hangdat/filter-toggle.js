@@ -1,5 +1,5 @@
 // =====================================================
-// FILTER TOGGLE FUNCTIONALITY - CLICK HEADER VERSION
+// FILTER TOGGLE FUNCTIONALITY - DEFAULT COLLAPSED
 // =====================================================
 
 function initializeFilterToggle() {
@@ -13,13 +13,8 @@ function initializeFilterToggle() {
         return;
     }
 
-    // Force default collapsed state on first load
-    if (!localStorage.getItem("filterCollapsed")) {
-        localStorage.setItem("filterCollapsed", "true");
-    }
-
-    // State
-    let isCollapsed = true; // Mặc định ẩn
+    // State - DEFAULT COLLAPSED
+    let isCollapsed = true;
 
     // Function to collapse
     function collapse() {
@@ -103,19 +98,10 @@ function initializeFilterToggle() {
     // Event listener on entire card header
     cardHeader.addEventListener("click", toggle);
 
-    // Initialize with collapsed state (default)
-    const savedState = localStorage.getItem("filterCollapsed");
-    if (savedState === "false") {
-        isCollapsed = false;
-        expand();
-    } else {
-        // Default: collapsed
-        collapse();
-    }
+    // ALWAYS START COLLAPSED - ignore localStorage
+    collapse();
 
-    console.log(
-        "[FilterToggle] Initialized - Click header to toggle - Default: Collapsed",
-    );
+    console.log("[FilterToggle] Initialized - Default: COLLAPSED (always)");
 }
 
 // Initialize when DOM is ready
@@ -125,4 +111,4 @@ if (document.readyState === "loading") {
     initializeFilterToggle();
 }
 
-console.log("[FilterToggle] Script loaded");
+console.log("[FilterToggle] Script loaded - Always starts collapsed");

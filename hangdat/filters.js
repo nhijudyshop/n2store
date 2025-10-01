@@ -1,5 +1,5 @@
 // =====================================================
-// FILTERS SYSTEM - FIXED DATE FILTERING FOR VIETNAM GMT+7
+// FILTERS SYSTEM - DEFAULT TODAY FILTER
 // =====================================================
 
 let isFilteringInProgress = false;
@@ -65,13 +65,13 @@ function applyFiltersToInventory(dataArray) {
 
                     case "last7days":
                         startDate = new Date(todayStart);
-                        startDate.setDate(startDate.getDate() - 6); // 6 days ago + today = 7 days
+                        startDate.setDate(startDate.getDate() - 6);
                         endDate = new Date(todayStart);
                         break;
 
                     case "last30days":
                         startDate = new Date(todayStart);
-                        startDate.setDate(startDate.getDate() - 29); // 29 days ago + today = 30 days
+                        startDate.setDate(startDate.getDate() - 29);
                         endDate = new Date(todayStart);
                         break;
 
@@ -125,21 +125,6 @@ function applyFiltersToInventory(dataArray) {
                 // Compare dates (all normalized to 00:00:00)
                 matchDate =
                     itemDateStart >= startDate && itemDateStart <= endDate;
-
-                // Debug logging (remove in production)
-                if (quickFilter === "today" || quickFilter === "yesterday") {
-                    console.log("Filter Debug:", {
-                        filter: quickFilter,
-                        itemRaw:
-                            item.ngayNhan ||
-                            item.ngayDatHang ||
-                            item.thoiGianUpload,
-                        itemDate: itemDateStart.toLocaleDateString("vi-VN"),
-                        startDate: startDate.toLocaleDateString("vi-VN"),
-                        endDate: endDate.toLocaleDateString("vi-VN"),
-                        match: matchDate,
-                    });
-                }
             } else {
                 matchDate = false;
             }
@@ -273,6 +258,12 @@ function initializeFilterEvents() {
     const dateToFilter = document.getElementById("dateToFilter");
     const filterProductInput = document.getElementById("filterProduct");
 
+    // SET DEFAULT TO "TODAY"
+    if (quickDateFilter) {
+        quickDateFilter.value = "today";
+        console.log("Filter initialized with default: TODAY");
+    }
+
     if (quickDateFilter) {
         quickDateFilter.addEventListener("change", () => {
             if (
@@ -380,5 +371,5 @@ window.debugDateFilter = function () {
     }
 };
 
-console.log("✅ Filters system loaded (FIXED - GMT+7 Vietnam timezone)");
+console.log("✅ Filters system loaded - Default: TODAY");
 console.log("Run debugDateFilter() in console to test date filtering");
