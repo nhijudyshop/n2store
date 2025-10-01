@@ -458,12 +458,7 @@ class MoneyTransferApp {
 
         APP_STATE.filteredData = [...sortedData];
 
-        const vietnamToday = VietnamTime.getDateString();
-        this.filterManager.filters.startDate = vietnamToday;
-        this.filterManager.filters.endDate = vietnamToday;
-
         console.log("Initial render with Vietnam today filter:", {
-            vietnamToday: vietnamToday,
             dataCount: sortedData.length,
         });
 
