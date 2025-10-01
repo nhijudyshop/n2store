@@ -1,5 +1,6 @@
 /* =====================================================
-   MODERN NAVIGATION MANAGER - Complete Version with Hide/Show Sidebar
+   UNIFIED NAVIGATION MANAGER - PC + Mobile
+   Auto-detect device and render appropriate UI
    ===================================================== */
 
 // Menu Configuration with Permissions
@@ -8,6 +9,7 @@ const MENU_CONFIG = [
         href: "../live/index.html",
         icon: "image",
         text: "Hình Ảnh Live",
+        shortText: "Live",
         pageIdentifier: "live",
         permissionRequired: "live",
     },
@@ -15,6 +17,7 @@ const MENU_CONFIG = [
         href: "../livestream/index.html",
         icon: "video",
         text: "Báo Cáo Livestream",
+        shortText: "Báo Cáo",
         pageIdentifier: "livestream",
         permissionRequired: "livestream",
     },
@@ -22,6 +25,7 @@ const MENU_CONFIG = [
         href: "../sanphamlive/index.html",
         icon: "shopping-bag",
         text: "Sản Phẩm Livestream",
+        shortText: "Sản Phẩm",
         pageIdentifier: "sanphamlive",
         permissionRequired: "sanphamlive",
     },
@@ -29,6 +33,7 @@ const MENU_CONFIG = [
         href: "../nhanhang/index.html",
         icon: "scale",
         text: "Cân Nặng Hàng",
+        shortText: "Cân Hàng",
         pageIdentifier: "nhanhang",
         permissionRequired: "nhanhang",
     },
@@ -36,6 +41,7 @@ const MENU_CONFIG = [
         href: "../hangrotxa/index.html",
         icon: "clipboard-list",
         text: "Hàng Rơi - Xả",
+        shortText: "Rơi/Xả",
         pageIdentifier: "hangrotxa",
         permissionRequired: "hangrotxa",
     },
@@ -43,6 +49,7 @@ const MENU_CONFIG = [
         href: "../ib/index.html",
         icon: "message-circle",
         text: "Check Inbox Khách",
+        shortText: "Inbox",
         pageIdentifier: "ib",
         permissionRequired: "ib",
     },
@@ -50,6 +57,7 @@ const MENU_CONFIG = [
         href: "../ck/index.html",
         icon: "credit-card",
         text: "Thông Tin Chuyển Khoản",
+        shortText: "CK",
         pageIdentifier: "ck",
         permissionRequired: "ck",
     },
@@ -57,6 +65,7 @@ const MENU_CONFIG = [
         href: "../hanghoan/index.html",
         icon: "corner-up-left",
         text: "Hàng Hoàn",
+        shortText: "Hoàn",
         pageIdentifier: "hanghoan",
         permissionRequired: "hanghoan",
     },
@@ -64,6 +73,7 @@ const MENU_CONFIG = [
         href: "../hangdat/index.html",
         icon: "bookmark",
         text: "Hàng Đặt",
+        shortText: "Đặt",
         pageIdentifier: "hangdat",
         permissionRequired: "hangdat",
     },
@@ -71,6 +81,7 @@ const MENU_CONFIG = [
         href: "../bangkiemhang/index.html",
         icon: "check-square",
         text: "Bảng Kiểm Hàng",
+        shortText: "Kiểm",
         pageIdentifier: "bangkiemhang",
         permissionRequired: "bangkiemhang",
     },
@@ -78,6 +89,7 @@ const MENU_CONFIG = [
         href: "../user-management/index.html",
         icon: "users",
         text: "Quản Lý Tài Khoản",
+        shortText: "Users",
         pageIdentifier: "user-management",
         adminOnly: true,
         permissionRequired: "user-management",
@@ -86,26 +98,28 @@ const MENU_CONFIG = [
         href: "../history/index.html",
         icon: "bar-chart-2",
         text: "Lịch Sử Chỉnh Sửa",
+        shortText: "Lịch Sử",
         pageIdentifier: "history",
         adminOnly: true,
         permissionRequired: "history",
     },
 ];
 
-class ModernNavigationManager {
+class UnifiedNavigationManager {
     constructor() {
         this.currentPage = null;
         this.userPermissions = [];
         this.isAdmin = false;
+        this.isMobile = window.innerWidth <= 768;
         this.init();
     }
 
     async init() {
-        console.log("[Navigation] Starting initialization...");
+        console.log("[Unified Nav] Starting initialization...");
 
         // Check authentication
         if (!authManager || !authManager.isAuthenticated()) {
-            console.log("[Navigation] User not authenticated, redirecting...");
+            console.log("[Unified Nav] User not authenticated, redirecting...");
             window.location.href = "../index.html";
             return;
         }
@@ -114,38 +128,69 @@ class ModernNavigationManager {
             // Get user info
             const checkLogin = localStorage.getItem("checkLogin");
             this.isAdmin = checkLogin === "0" || checkLogin === 0;
-            console.log("[Navigation] Is Admin:", this.isAdmin);
+            console.log("[Unified Nav] Is Admin:", this.isAdmin);
 
             // Load permissions
             await this.loadUserPermissions();
             console.log(
-                "[Navigation] Permissions loaded:",
+                "[Unified Nav] Permissions loaded:",
                 this.userPermissions,
             );
 
             // Get current page
             this.currentPage = this.getCurrentPageIdentifier();
-            console.log("[Navigation] Current page:", this.currentPage);
+            console.log("[Unified Nav] Current page:", this.currentPage);
 
             // Check page access
             const hasAccess = this.checkPageAccess();
-            console.log("[Navigation] Has access to page:", hasAccess);
+            console.log("[Unified Nav] Has access to page:", hasAccess);
 
             if (!hasAccess) {
                 this.showAccessDenied();
                 return;
             }
 
-            // Build UI
+            // Detect device type
+            this.detectDevice();
+
+            // Build UI based on device
             this.renderNavigation();
             this.updateUserInfo();
             this.setupEventListeners();
-            this.initializeSidebarToggle();
             this.loadSettings();
 
-            console.log("[Navigation] Initialization complete!");
+            // Handle resize
+            window.addEventListener("resize", () => this.handleResize());
+
+            console.log("[Unified Nav] Initialization complete!");
         } catch (error) {
-            console.error("[Navigation] Initialization error:", error);
+            console.error("[Unified Nav] Initialization error:", error);
+        }
+    }
+
+    detectDevice() {
+        this.isMobile = window.innerWidth <= 768;
+        console.log(
+            "[Unified Nav] Device type:",
+            this.isMobile ? "Mobile" : "Desktop",
+        );
+    }
+
+    handleResize() {
+        const wasMobile = this.isMobile;
+        this.detectDevice();
+
+        // Rebuild UI if device type changed
+        if (wasMobile !== this.isMobile) {
+            console.log("[Unified Nav] Device type changed, rebuilding UI...");
+            this.renderNavigation();
+            this.setupEventListeners();
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+        } else if (!this.isMobile) {
+            // On desktop, handle sidebar state during resize
+            this.restoreSidebarState();
         }
     }
 
@@ -155,7 +200,7 @@ class ModernNavigationManager {
             this.userPermissions = MENU_CONFIG.map(
                 (item) => item.permissionRequired,
             ).filter(Boolean);
-            console.log("[Navigation] Admin - all permissions granted");
+            console.log("[Unified Nav] Admin - all permissions granted");
             return;
         }
 
@@ -169,13 +214,13 @@ class ModernNavigationManager {
                     Array.isArray(userAuth.pagePermissions)
                 ) {
                     this.userPermissions = userAuth.pagePermissions;
-                    console.log("[Navigation] Loaded cached permissions");
+                    console.log("[Unified Nav] Loaded cached permissions");
                     return;
                 }
             }
         } catch (error) {
             console.error(
-                "[Navigation] Error loading cached permissions:",
+                "[Unified Nav] Error loading cached permissions:",
                 error,
             );
         }
@@ -203,14 +248,14 @@ class ModernNavigationManager {
                         JSON.stringify(authData),
                     );
                     console.log(
-                        "[Navigation] Loaded permissions from Firebase",
+                        "[Unified Nav] Loaded permissions from Firebase",
                     );
                     return;
                 }
             }
         } catch (error) {
             console.error(
-                "[Navigation] Error loading Firebase permissions:",
+                "[Unified Nav] Error loading Firebase permissions:",
                 error,
             );
         }
@@ -220,49 +265,351 @@ class ModernNavigationManager {
 
     getCurrentPageIdentifier() {
         const path = window.location.pathname;
+        console.log("[Unified Nav] Current path:", path);
 
-        // Sort by length descending để check path dài trước (sanphamlive trước live)
+        // Normalize path - remove trailing slash and convert to lowercase
+        const normalizedPath = path.toLowerCase().replace(/\/$/, "");
+
+        // Sort menu by identifier length (longest first) to match most specific first
+        // This prevents "live" from matching before "livestream" or "sanphamlive"
         const sortedMenu = [...MENU_CONFIG].sort(
             (a, b) => b.pageIdentifier.length - a.pageIdentifier.length,
         );
 
         for (const item of sortedMenu) {
-            // Check chính xác với boundary (/ hoặc index.html)
-            const pattern1 = `/${item.pageIdentifier}/`;
-            const pattern2 = `/${item.pageIdentifier}/index.html`;
+            const identifier = item.pageIdentifier.toLowerCase();
 
-            if (path.includes(pattern1) || path.endsWith(pattern2)) {
-                return item.pageIdentifier;
+            // Check for exact folder match with boundaries
+            // Pattern 1: /identifier/ (with trailing content)
+            // Pattern 2: /identifier/index.html
+            // Pattern 3: /identifier (end of path)
+
+            const patterns = [
+                new RegExp(`/${identifier}/`, "i"), // /livestream/
+                new RegExp(`/${identifier}/index\\.html$`, "i"), // /livestream/index.html
+                new RegExp(`/${identifier}$`, "i"), // /livestream (exact end)
+            ];
+
+            // Test all patterns
+            for (const pattern of patterns) {
+                if (pattern.test(path)) {
+                    console.log(
+                        `[Unified Nav] Matched page: ${item.pageIdentifier} using pattern: ${pattern}`,
+                    );
+                    return item.pageIdentifier;
+                }
             }
         }
 
+        console.log("[Unified Nav] No page identifier matched");
         return null;
     }
 
     checkPageAccess() {
         if (!this.currentPage) return true;
-
         const pageInfo = MENU_CONFIG.find(
             (item) => item.pageIdentifier === this.currentPage,
         );
-
         if (!pageInfo) return true;
         if (pageInfo.publicAccess) return true;
         if (this.isAdmin) return true;
-
         return this.userPermissions.includes(this.currentPage);
     }
 
+    // =====================================================
+    // UNIFIED NAVIGATION RENDERING
+    // =====================================================
+
     renderNavigation() {
-        console.log("[Navigation] Rendering navigation menu...");
+        console.log("[Unified Nav] Rendering navigation...");
+
+        if (this.isMobile) {
+            this.renderMobileNavigation();
+        } else {
+            this.renderDesktopNavigation();
+        }
+    }
+
+    // =====================================================
+    // MOBILE NAVIGATION
+    // =====================================================
+
+    renderMobileNavigation() {
+        console.log("[Unified Nav] Rendering mobile UI...");
+
+        // Inject mobile styles FIRST
+        this.injectMobileStyles();
+
+        // Hide desktop sidebar if exists
+        const sidebar = document.getElementById("sidebar");
+        if (sidebar) {
+            sidebar.style.display = "none";
+            console.log("[Unified Nav] Desktop sidebar hidden");
+        }
+
+        // Remove any existing mobile elements first
+        const existingTopBar = document.querySelector(".mobile-top-bar");
+        const existingBottomNav = document.querySelector(".mobile-bottom-nav");
+        if (existingTopBar) existingTopBar.remove();
+        if (existingBottomNav) existingBottomNav.remove();
+
+        // Create mobile top bar
+        this.createMobileTopBar();
+
+        // Create mobile bottom navigation
+        this.createMobileBottomNav();
+
+        // Adjust main content padding - IMPORTANT!
+        const mainContent = document.querySelector(".main-content");
+        if (mainContent) {
+            mainContent.style.paddingTop = "60px";
+            mainContent.style.paddingBottom = "70px";
+            mainContent.style.position = "relative";
+            console.log("[Unified Nav] Main content padding adjusted");
+        }
+
+        // Force body to have mobile padding
+        document.body.style.paddingTop = "60px";
+        document.body.style.paddingBottom = "65px";
+
+        // Verify mobile nav exists
+        const bottomNavCheck = document.querySelector(".mobile-bottom-nav");
+        if (bottomNavCheck) {
+            console.log("[Unified Nav] ✅ Mobile bottom nav exists in DOM");
+            console.log(
+                "[Unified Nav] Bottom nav z-index:",
+                window.getComputedStyle(bottomNavCheck).zIndex,
+            );
+            console.log(
+                "[Unified Nav] Bottom nav display:",
+                window.getComputedStyle(bottomNavCheck).display,
+            );
+        } else {
+            console.error(
+                "[Unified Nav] ❌ Mobile bottom nav NOT found in DOM!",
+            );
+        }
+    }
+
+    createMobileTopBar() {
+        const existingBar = document.querySelector(".mobile-top-bar");
+        if (existingBar) existingBar.remove();
+
+        const topBar = document.createElement("div");
+        topBar.className = "mobile-top-bar";
+
+        const userInfo = authManager.getAuthState();
+        const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
+        const checkLogin = localStorage.getItem("checkLogin");
+        const roleName = roleMap[checkLogin] || "User";
+
+        topBar.innerHTML = `
+            <div class="mobile-top-content">
+                <div class="mobile-user-info">
+                    <div class="mobile-user-avatar">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div class="mobile-user-details">
+                        <div class="mobile-user-name">${userInfo?.displayName || userInfo?.username || "User"}</div>
+                        <div class="mobile-user-role">${roleName}</div>
+                    </div>
+                </div>
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <i data-lucide="menu"></i>
+                </button>
+            </div>
+        `;
+
+        document.body.insertBefore(topBar, document.body.firstChild);
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+    }
+
+    createMobileBottomNav() {
+        // Remove existing bottom nav if any
+        const existingNav = document.querySelector(".mobile-bottom-nav");
+        if (existingNav) existingNav.remove();
+
+        const bottomNav = document.createElement("div");
+        bottomNav.className = "mobile-bottom-nav";
+
+        // Get accessible pages
+        const accessiblePages = this.getAccessiblePages();
+
+        // Log for debugging
+        console.log(
+            "[Mobile Nav] Total accessible pages:",
+            accessiblePages.length,
+        );
+        console.log("[Mobile Nav] Current page identifier:", this.currentPage);
+
+        // Take first 5 pages for bottom nav
+        const bottomNavPages = accessiblePages.slice(0, 5);
+
+        console.log(
+            "[Mobile Nav] Bottom nav pages:",
+            bottomNavPages.map((p) => p.pageIdentifier),
+        );
+
+        bottomNavPages.forEach((item) => {
+            const navItem = document.createElement("a");
+            navItem.href = item.href;
+            navItem.className = "mobile-nav-item";
+
+            // Check if this is the current page
+            if (item.pageIdentifier === this.currentPage) {
+                navItem.classList.add("active");
+                console.log("[Mobile Nav] Active page:", item.pageIdentifier);
+            }
+
+            navItem.innerHTML = `
+                <i data-lucide="${item.icon}"></i>
+                <span>${item.shortText || item.text}</span>
+            `;
+
+            bottomNav.appendChild(navItem);
+        });
+
+        // Add "More" button if there are more than 5 pages
+        if (accessiblePages.length > 5) {
+            const moreBtn = document.createElement("button");
+            moreBtn.className = "mobile-nav-item mobile-more-btn";
+            moreBtn.innerHTML = `
+                <i data-lucide="more-horizontal"></i>
+                <span>Thêm</span>
+            `;
+            moreBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.showMobileMenu();
+            });
+            bottomNav.appendChild(moreBtn);
+        }
+
+        // Append to body
+        document.body.appendChild(bottomNav);
+
+        console.log(
+            "[Mobile Nav] Bottom nav created with",
+            bottomNav.children.length,
+            "items",
+        );
+
+        // Initialize Lucide icons
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+    }
+
+    showMobileMenu() {
+        const overlay = document.createElement("div");
+        overlay.className = "mobile-menu-overlay";
+
+        const menu = document.createElement("div");
+        menu.className = "mobile-menu-panel";
+
+        const accessiblePages = this.getAccessiblePages();
+
+        menu.innerHTML = `
+            <div class="mobile-menu-header">
+                <h3>Tất Cả Trang</h3>
+                <button class="mobile-menu-close" id="closeMobileMenu">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="mobile-menu-content">
+                ${accessiblePages
+                    .map(
+                        (item) => `
+                    <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
+                        <i data-lucide="${item.icon}"></i>
+                        <span>${item.text}</span>
+                        ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
+                    </a>
+                `,
+                    )
+                    .join("")}
+            </div>
+            <div class="mobile-menu-footer">
+                <button class="mobile-menu-action" id="mobileSettingsBtn">
+                    <i data-lucide="settings"></i>
+                    <span>Cài Đặt</span>
+                </button>
+                <button class="mobile-menu-action" id="mobileLogoutBtn">
+                    <i data-lucide="log-out"></i>
+                    <span>Đăng Xuất</span>
+                </button>
+            </div>
+        `;
+
+        overlay.appendChild(menu);
+        document.body.appendChild(overlay);
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        const closeBtn = menu.querySelector("#closeMobileMenu");
+        closeBtn.addEventListener("click", () => overlay.remove());
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        const settingsBtn = menu.querySelector("#mobileSettingsBtn");
+        settingsBtn.addEventListener("click", () => {
+            overlay.remove();
+            this.showSettings();
+        });
+
+        const logoutBtn = menu.querySelector("#mobileLogoutBtn");
+        logoutBtn.addEventListener("click", () => {
+            authManager.logout();
+        });
+    }
+
+    // =====================================================
+    // DESKTOP NAVIGATION
+    // =====================================================
+
+    renderDesktopNavigation() {
+        console.log("[Unified Nav] Rendering desktop UI...");
+
+        // Show desktop sidebar
+        const sidebar = document.getElementById("sidebar");
+        if (sidebar) {
+            sidebar.style.display = "";
+        }
+
+        // Remove mobile elements
+        const topBar = document.querySelector(".mobile-top-bar");
+        const bottomNav = document.querySelector(".mobile-bottom-nav");
+        if (topBar) topBar.remove();
+        if (bottomNav) bottomNav.remove();
+
+        // Reset main content padding
+        const mainContent = document.querySelector(".main-content");
+        if (mainContent) {
+            mainContent.style.paddingTop = "";
+            mainContent.style.paddingBottom = "";
+        }
+
+        // Render sidebar navigation
+        this.renderDesktopSidebar();
+
+        // Initialize sidebar toggle
+        this.initializeSidebarToggle();
+    }
+
+    renderDesktopSidebar() {
+        console.log("[Unified Nav] Rendering desktop sidebar...");
 
         const sidebarNav = document.querySelector(".sidebar-nav");
         if (!sidebarNav) {
-            console.error("[Navigation] Sidebar nav element not found!");
+            console.error("[Unified Nav] Sidebar nav element not found!");
             return;
         }
 
-        // Clear existing content
         sidebarNav.innerHTML = "";
 
         let renderedCount = 0;
@@ -274,22 +621,19 @@ class ModernNavigationManager {
 
             if (!hasPermission) {
                 console.log(
-                    `[Navigation] Skipping: ${menuItem.text} (no permission)`,
+                    `[Unified Nav] Skipping: ${menuItem.text} (no permission)`,
                 );
                 return;
             }
 
-            // Create nav item
             const navItem = document.createElement("a");
             navItem.href = menuItem.href;
             navItem.className = "nav-item";
 
-            // Mark active page
             if (menuItem.pageIdentifier === this.currentPage) {
                 navItem.classList.add("active");
             }
 
-            // Add content
             navItem.innerHTML = `
                 <i data-lucide="${menuItem.icon}"></i>
                 <span>${menuItem.text}</span>
@@ -299,27 +643,25 @@ class ModernNavigationManager {
             renderedCount++;
         });
 
-        console.log(`[Navigation] Rendered ${renderedCount} menu items`);
+        console.log(
+            `[Unified Nav] Rendered ${renderedCount} desktop menu items`,
+        );
 
-        // Add Settings button at the end of navigation
         this.addSettingsToNavigation(sidebarNav);
 
-        // Initialize Lucide icons
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
-            console.log("[Navigation] Lucide icons initialized");
+            console.log("[Unified Nav] Lucide icons initialized");
         }
     }
 
     addSettingsToNavigation(sidebarNav) {
-        // Create a divider
         const divider = document.createElement("div");
         divider.className = "nav-divider";
         divider.innerHTML =
             '<hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0;">';
         sidebarNav.appendChild(divider);
 
-        // Create Settings button
         const settingsBtn = document.createElement("button");
         settingsBtn.id = "btnSettings";
         settingsBtn.className = "nav-item nav-settings-btn";
@@ -329,7 +671,6 @@ class ModernNavigationManager {
         `;
         sidebarNav.appendChild(settingsBtn);
 
-        // Add styles for settings button
         if (!document.getElementById("settingsNavStyles")) {
             const style = document.createElement("style");
             style.id = "settingsNavStyles";
@@ -342,11 +683,9 @@ class ModernNavigationManager {
                     cursor: pointer;
                     margin-top: 8px;
                 }
-
                 .nav-settings-btn:hover {
                     background: rgba(255, 255, 255, 0.1) !important;
                 }
-
                 .nav-settings-btn i {
                     color: #fbbf24;
                 }
@@ -354,21 +693,153 @@ class ModernNavigationManager {
             document.head.appendChild(style);
         }
 
-        console.log("[Navigation] Settings button added to navigation");
+        console.log("[Unified Nav] Settings button added");
     }
+
+    // =====================================================
+    // SIDEBAR TOGGLE (Desktop Only)
+    // =====================================================
+
+    initializeSidebarToggle() {
+        const sidebar = document.getElementById("sidebar");
+        const sidebarToggle = document.getElementById("sidebarToggle");
+
+        if (!sidebar || !sidebarToggle) {
+            console.warn("[Unified Nav] Sidebar toggle elements not found");
+            return;
+        }
+
+        sidebarToggle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.toggleSidebar();
+        });
+
+        this.createFixedToggleButton();
+        this.restoreSidebarState();
+
+        console.log("[Unified Nav] Sidebar toggle initialized");
+    }
+
+    toggleSidebar() {
+        const sidebar = document.getElementById("sidebar");
+        if (!sidebar) return;
+
+        if (sidebar.classList.contains("collapsed")) {
+            this.showSidebar();
+        } else {
+            this.hideSidebar();
+        }
+    }
+
+    hideSidebar() {
+        const sidebar = document.getElementById("sidebar");
+        if (!sidebar) return;
+
+        sidebar.classList.add("collapsed");
+        localStorage.setItem("sidebarCollapsed", "true");
+
+        const sidebarToggle = document.getElementById("sidebarToggle");
+        const icon = sidebarToggle?.querySelector("i");
+        if (icon) {
+            icon.setAttribute("data-lucide", "panel-left-open");
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+        }
+
+        console.log("[Unified Nav] Sidebar hidden");
+    }
+
+    showSidebar() {
+        const sidebar = document.getElementById("sidebar");
+        if (!sidebar) return;
+
+        sidebar.classList.remove("collapsed");
+        localStorage.setItem("sidebarCollapsed", "false");
+
+        const sidebarToggle = document.getElementById("sidebarToggle");
+        const icon = sidebarToggle?.querySelector("i");
+        if (icon) {
+            icon.setAttribute("data-lucide", "panel-left-close");
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+        }
+
+        console.log("[Unified Nav] Sidebar shown");
+    }
+
+    createFixedToggleButton() {
+        const mainContent = document.querySelector(".main-content");
+        if (!mainContent) return;
+
+        if (document.querySelector(".sidebar-toggle-fixed")) return;
+
+        const fixedBtn = document.createElement("button");
+        fixedBtn.className = "sidebar-toggle-fixed";
+        fixedBtn.innerHTML = '<i data-lucide="panel-left-open"></i>';
+        fixedBtn.title = "Mở sidebar";
+
+        fixedBtn.addEventListener("click", () => {
+            this.showSidebar();
+        });
+
+        mainContent.appendChild(fixedBtn);
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        console.log("[Unified Nav] Fixed toggle button created");
+    }
+
+    restoreSidebarState() {
+        const sidebar = document.getElementById("sidebar");
+        const mainContent = document.querySelector(".main-content");
+
+        if (!sidebar || !mainContent) return;
+
+        if (window.innerWidth > 768) {
+            const storedState = localStorage.getItem("sidebarCollapsed");
+            const isCollapsed =
+                storedState === null ? true : storedState === "true";
+
+            if (storedState === null) {
+                localStorage.setItem("sidebarCollapsed", "true");
+            }
+
+            if (isCollapsed) {
+                sidebar.classList.add("collapsed");
+                mainContent.classList.add("expanded");
+
+                const sidebarToggle = document.getElementById("sidebarToggle");
+                const icon = sidebarToggle?.querySelector("i");
+                if (icon) {
+                    icon.setAttribute("data-lucide", "panel-left-open");
+                    if (typeof lucide !== "undefined") {
+                        lucide.createIcons();
+                    }
+                }
+
+                console.log("[Unified Nav] Sidebar state restored: collapsed");
+            }
+        }
+    }
+
+    // =====================================================
+    // SHARED FUNCTIONALITY
+    // =====================================================
 
     updateUserInfo() {
         const userInfo = authManager.getAuthState();
         if (!userInfo) return;
 
-        // Update user name
         const userName = document.getElementById("userName");
         if (userName) {
             userName.textContent =
                 userInfo.displayName || userInfo.username || "User";
         }
 
-        // Update user role
         const userRole = document.querySelector(".user-role");
         if (userRole) {
             const roleMap = {
@@ -381,15 +852,23 @@ class ModernNavigationManager {
             userRole.textContent = roleMap[checkLogin] || "User";
         }
 
-        console.log("[Navigation] User info updated");
+        console.log("[Unified Nav] User info updated");
     }
 
     setupEventListeners() {
-        // Mobile menu toggle
+        // Mobile menu button
+        const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+        if (mobileMenuBtn) {
+            mobileMenuBtn.addEventListener("click", () =>
+                this.showMobileMenu(),
+            );
+        }
+
+        // Desktop menu toggle
         const menuToggle = document.getElementById("menuToggle");
         const sidebar = document.getElementById("sidebar");
 
-        if (menuToggle && sidebar) {
+        if (menuToggle && sidebar && !this.isMobile) {
             menuToggle.addEventListener("click", () => {
                 sidebar.classList.toggle("active");
             });
@@ -397,7 +876,7 @@ class ModernNavigationManager {
 
         // Close sidebar when clicking outside (mobile)
         document.addEventListener("click", (e) => {
-            if (window.innerWidth <= 1024 && sidebar) {
+            if (window.innerWidth <= 768 && sidebar) {
                 if (
                     !sidebar.contains(e.target) &&
                     menuToggle &&
@@ -425,7 +904,7 @@ class ModernNavigationManager {
             });
         }
 
-        // Settings button
+        // Settings button (desktop)
         const btnSettings = document.getElementById("btnSettings");
         if (btnSettings) {
             btnSettings.addEventListener("click", () => {
@@ -433,150 +912,15 @@ class ModernNavigationManager {
             });
         }
 
-        console.log("[Navigation] Event listeners setup complete");
+        console.log("[Unified Nav] Event listeners setup complete");
     }
 
-    // =====================================================
-    // SIDEBAR HIDE/SHOW FUNCTIONALITY
-    // =====================================================
-
-    initializeSidebarToggle() {
-        const sidebar = document.getElementById("sidebar");
-        const sidebarToggle = document.getElementById("sidebarToggle");
-
-        if (!sidebar || !sidebarToggle) {
-            console.warn("[Navigation] Sidebar toggle elements not found");
-            return;
-        }
-
-        // Desktop sidebar toggle (ẩn/hiện)
-        sidebarToggle.addEventListener("click", (e) => {
-            e.stopPropagation();
-            this.hideSidebar();
+    getAccessiblePages() {
+        return MENU_CONFIG.filter((item) => {
+            if (this.isAdmin) return true;
+            if (item.adminOnly) return false;
+            return this.userPermissions.includes(item.permissionRequired);
         });
-
-        // Tạo nút toggle cố định
-        this.createFixedToggleButton();
-
-        // Khôi phục trạng thái sidebar
-        this.restoreSidebarState();
-
-        // Xử lý window resize
-        let resizeTimeout;
-        window.addEventListener("resize", () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                if (window.innerWidth <= 1024) {
-                    // Mobile mode: reset collapsed state
-                    sidebar.classList.remove("collapsed");
-                } else {
-                    // Desktop mode: khôi phục từ localStorage
-                    this.restoreSidebarState();
-                }
-            }, 250);
-        });
-
-        console.log("[Navigation] Sidebar toggle initialized");
-    }
-
-    // Ẩn sidebar
-    hideSidebar() {
-        const sidebar = document.getElementById("sidebar");
-        if (!sidebar) return;
-
-        sidebar.classList.add("collapsed");
-        localStorage.setItem("sidebarCollapsed", "true");
-
-        console.log("[Navigation] Sidebar hidden");
-    }
-
-    // Hiện sidebar
-    showSidebar() {
-        const sidebar = document.getElementById("sidebar");
-        if (!sidebar) return;
-
-        sidebar.classList.remove("collapsed");
-        localStorage.setItem("sidebarCollapsed", "false");
-
-        console.log("[Navigation] Sidebar shown");
-    }
-
-    // Toggle sidebar (ẩn/hiện)
-    toggleSidebar() {
-        const sidebar = document.getElementById("sidebar");
-        if (!sidebar) return;
-
-        if (sidebar.classList.contains("collapsed")) {
-            this.showSidebar();
-        } else {
-            this.hideSidebar();
-        }
-    }
-
-    // Tạo nút toggle cố định
-    createFixedToggleButton() {
-        const mainContent = document.querySelector(".main-content");
-        if (!mainContent) return;
-
-        // Kiểm tra nếu button đã tồn tại
-        if (document.querySelector(".sidebar-toggle-fixed")) return;
-
-        const fixedBtn = document.createElement("button");
-        fixedBtn.className = "sidebar-toggle-fixed";
-        fixedBtn.innerHTML = '<i data-lucide="panel-left-open"></i>';
-        fixedBtn.title = "Mở sidebar";
-
-        // Bấm vào nút để hiện sidebar
-        fixedBtn.addEventListener("click", () => {
-            this.showSidebar();
-        });
-
-        mainContent.appendChild(fixedBtn);
-
-        // Initialize Lucide icons
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
-        }
-
-        console.log("[Navigation] Fixed toggle button created");
-    }
-
-    // Khôi phục trạng thái sidebar từ localStorage
-    restoreSidebarState() {
-        const sidebar = document.getElementById("sidebar");
-        const mainContent = document.querySelector(".main-content");
-
-        if (!sidebar || !mainContent) return;
-
-        // Only restore on desktop
-        if (window.innerWidth > 1024) {
-            // Get stored state, default to collapsed if not set
-            const storedState = localStorage.getItem("sidebarCollapsed");
-            const isCollapsed =
-                storedState === null ? true : storedState === "true";
-
-            // Set default state in localStorage if not exists
-            if (storedState === null) {
-                localStorage.setItem("sidebarCollapsed", "true");
-            }
-
-            if (isCollapsed) {
-                sidebar.classList.add("collapsed");
-                mainContent.classList.add("expanded");
-
-                // Update icon
-                const sidebarToggle = document.getElementById("sidebarToggle");
-                const icon = sidebarToggle?.querySelector("i");
-                if (icon) {
-                    icon.setAttribute("data-lucide", "panel-left-open");
-                    if (typeof lucide !== "undefined") {
-                        lucide.createIcons();
-                    }
-                }
-
-                console.log("[Navigation] Sidebar state restored: collapsed");
-            }
-        }
     }
 
     // =====================================================
@@ -584,31 +928,23 @@ class ModernNavigationManager {
     // =====================================================
 
     loadSettings() {
-        // Load font size from localStorage (12px - 20px)
         const savedFontSize = localStorage.getItem("appFontSize") || "14";
         this.applyFontSize(parseInt(savedFontSize));
 
-        // Load theme from localStorage
         const savedTheme = localStorage.getItem("appTheme") || "light";
         this.applyTheme(savedTheme);
 
-        console.log("[Navigation] Settings loaded");
+        console.log("[Unified Nav] Settings loaded");
     }
 
     applyFontSize(size) {
-        // Ensure size is within limits (12-20px)
         const limitedSize = Math.max(12, Math.min(20, size));
-
-        // Apply to root element
         document.documentElement.style.setProperty(
             "--base-font-size",
             `${limitedSize}px`,
         );
-
-        // Apply to body
         document.body.style.fontSize = `${limitedSize}px`;
-
-        console.log(`[Navigation] Font size applied: ${limitedSize}px`);
+        console.log(`[Unified Nav] Font size applied: ${limitedSize}px`);
     }
 
     saveFontSize(size) {
@@ -622,8 +958,7 @@ class ModernNavigationManager {
         } else {
             document.documentElement.classList.remove("dark-mode");
         }
-
-        console.log(`[Navigation] Theme applied: ${theme}`);
+        console.log(`[Unified Nav] Theme applied: ${theme}`);
     }
 
     saveTheme(theme) {
@@ -636,7 +971,6 @@ class ModernNavigationManager {
             parseInt(localStorage.getItem("appFontSize")) || 14;
         const currentTheme = localStorage.getItem("appTheme") || "light";
 
-        // Create modal overlay
         const modal = document.createElement("div");
         modal.className = "settings-modal-overlay";
         modal.innerHTML = `
@@ -652,7 +986,6 @@ class ModernNavigationManager {
                 </div>
                 
                 <div class="settings-content">
-                    <!-- Theme Toggle -->
                     <div class="setting-group">
                         <label class="setting-label">
                             <i data-lucide="sun"></i>
@@ -670,7 +1003,6 @@ class ModernNavigationManager {
                         </div>
                     </div>
 
-                    <!-- Font Size Slider -->
                     <div class="setting-group">
                         <label class="setting-label">
                             <i data-lucide="type"></i>
@@ -701,7 +1033,6 @@ class ModernNavigationManager {
                         </div>
                     </div>
 
-                    <!-- Preview -->
                     <div class="setting-group">
                         <label class="setting-label">
                             <i data-lucide="eye"></i>
@@ -735,15 +1066,12 @@ class ModernNavigationManager {
 
         document.body.appendChild(modal);
 
-        // Initialize Lucide icons
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
 
-        // Add styles
         this.addSettingsStyles();
 
-        // Event listeners
         const closeBtn = modal.querySelector("#closeSettings");
         const saveBtn = modal.querySelector("#saveSettings");
         const resetBtn = modal.querySelector("#resetSettings");
@@ -754,36 +1082,28 @@ class ModernNavigationManager {
         let selectedFontSize = currentFontSize;
         let selectedTheme = currentTheme;
 
-        // Close modal
-        const closeModal = () => {
-            modal.remove();
-        };
+        const closeModal = () => modal.remove();
 
         closeBtn.addEventListener("click", closeModal);
         modal.addEventListener("click", (e) => {
             if (e.target === modal) closeModal();
         });
 
-        // Font size slider
         fontSlider.addEventListener("input", (e) => {
             selectedFontSize = parseInt(e.target.value);
             currentSizeLabel.textContent = `${selectedFontSize}px`;
-            // Preview the change
             this.applyFontSize(selectedFontSize);
         });
 
-        // Theme selection
         themeButtons.forEach((btn) => {
             btn.addEventListener("click", () => {
                 themeButtons.forEach((b) => b.classList.remove("active"));
                 btn.classList.add("active");
                 selectedTheme = btn.dataset.theme;
-                // Preview the change
                 this.applyTheme(selectedTheme);
             });
         });
 
-        // Reset settings
         resetBtn.addEventListener("click", () => {
             selectedFontSize = 14;
             selectedTheme = "light";
@@ -799,13 +1119,10 @@ class ModernNavigationManager {
             this.applyTheme("light");
         });
 
-        // Save settings
         saveBtn.addEventListener("click", () => {
             this.saveFontSize(selectedFontSize);
             this.saveTheme(selectedTheme);
             closeModal();
-
-            // Show success message
             this.showToast("Đã lưu cài đặt thành công!", "success");
         });
     }
@@ -816,7 +1133,6 @@ class ModernNavigationManager {
         const style = document.createElement("style");
         style.id = "settingsStyles";
         style.textContent = `
-            /* Dark Mode Variables */
             :root {
                 --bg-primary: #ffffff;
                 --bg-secondary: #f9fafb;
@@ -839,7 +1155,6 @@ class ModernNavigationManager {
                 --accent-color: #818cf8;
             }
 
-            /* Apply dark mode to body */
             .dark-mode body {
                 background: var(--bg-secondary);
                 color: var(--text-primary);
@@ -962,7 +1277,6 @@ class ModernNavigationManager {
                 color: var(--accent-color);
             }
 
-            /* Theme Toggle */
             .theme-toggle-container {
                 display: grid;
                 grid-template-columns: repeat(2, 1fr);
@@ -1004,7 +1318,6 @@ class ModernNavigationManager {
                 font-size: 14px;
             }
 
-            /* Font Size Slider */
             .font-size-slider-container {
                 background: var(--bg-secondary);
                 padding: 20px;
@@ -1153,7 +1466,6 @@ class ModernNavigationManager {
                 box-shadow: 0 4px 6px rgba(99, 102, 241, 0.3);
             }
 
-            /* Toast notification */
             .toast-notification {
                 position: fixed;
                 top: 20px;
@@ -1197,7 +1509,6 @@ class ModernNavigationManager {
                 font-size: 14px;
             }
 
-            /* Apply font size to body */
             body {
                 font-size: var(--base-font-size, 14px);
             }
@@ -1241,6 +1552,312 @@ class ModernNavigationManager {
     }
 
     // =====================================================
+    // MOBILE STYLES
+    // =====================================================
+
+    injectMobileStyles() {
+        if (document.getElementById("mobileNavStyles")) return;
+
+        const style = document.createElement("style");
+        style.id = "mobileNavStyles";
+        style.textContent = `
+            .mobile-top-bar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 60px;
+                background: linear-gradient(135deg, #6366f1, #4f46e5);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                z-index: 1000;
+            }
+
+            .mobile-top-content {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                height: 100%;
+                padding: 0 16px;
+            }
+
+            .mobile-user-info {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .mobile-user-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .mobile-user-avatar i {
+                width: 20px;
+                height: 20px;
+                color: white;
+            }
+
+            .mobile-user-details {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .mobile-user-name {
+                color: white;
+                font-weight: 600;
+                font-size: 14px;
+            }
+
+            .mobile-user-role {
+                color: rgba(255, 255, 255, 0.8);
+                font-size: 12px;
+            }
+
+            .mobile-menu-btn {
+                width: 40px;
+                height: 40px;
+                border: none;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .mobile-menu-btn:active {
+                transform: scale(0.95);
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+            .mobile-menu-btn i {
+                width: 24px;
+                height: 24px;
+                color: white;
+            }
+
+            .mobile-bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 65px;
+                background: white;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+                display: flex !important;
+                align-items: center;
+                justify-content: space-around;
+                padding: 8px 4px;
+                z-index: 1000;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+
+            .mobile-nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                padding: 8px 12px;
+                border-radius: 12px;
+                text-decoration: none;
+                color: #6b7280;
+                transition: all 0.2s;
+                flex: 1;
+                max-width: 80px;
+                background: none;
+                border: none;
+                cursor: pointer;
+            }
+
+            .mobile-nav-item i {
+                width: 24px;
+                height: 24px;
+                transition: all 0.2s;
+            }
+
+            .mobile-nav-item span {
+                font-size: 11px;
+                font-weight: 500;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+
+            .mobile-nav-item.active {
+                color: #6366f1;
+                background: rgba(99, 102, 241, 0.1);
+            }
+
+            .mobile-nav-item.active i {
+                transform: scale(1.1);
+            }
+
+            .mobile-nav-item:active {
+                transform: scale(0.95);
+            }
+
+            .mobile-menu-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2000;
+                display: flex;
+                align-items: flex-end;
+                animation: fadeIn 0.3s;
+            }
+
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+
+            .mobile-menu-panel {
+                width: 100%;
+                max-height: 80vh;
+                background: white;
+                border-radius: 20px 20px 0 0;
+                display: flex;
+                flex-direction: column;
+                animation: slideUp 0.3s;
+            }
+
+            @keyframes slideUp {
+                from { transform: translateY(100%); }
+                to { transform: translateY(0); }
+            }
+
+            .mobile-menu-header {
+                padding: 20px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .mobile-menu-header h3 {
+                margin: 0;
+                font-size: 18px;
+                font-weight: 600;
+                color: #111827;
+            }
+
+            .mobile-menu-close {
+                width: 36px;
+                height: 36px;
+                border: none;
+                background: #f3f4f6;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+            }
+
+            .mobile-menu-close i {
+                width: 20px;
+                height: 20px;
+                color: #6b7280;
+            }
+
+            .mobile-menu-content {
+                flex: 1;
+                overflow-y: auto;
+                padding: 12px;
+            }
+
+            .mobile-menu-item {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 16px;
+                border-radius: 12px;
+                text-decoration: none;
+                color: #374151;
+                margin-bottom: 4px;
+                transition: all 0.2s;
+                position: relative;
+            }
+
+            .mobile-menu-item:active {
+                background: #f3f4f6;
+                transform: scale(0.98);
+            }
+
+            .mobile-menu-item.active {
+                background: rgba(99, 102, 241, 0.1);
+                color: #6366f1;
+                font-weight: 600;
+            }
+
+            .mobile-menu-item i {
+                width: 24px;
+                height: 24px;
+                flex-shrink: 0;
+            }
+
+            .mobile-menu-item .check-icon {
+                margin-left: auto;
+                color: #10b981;
+            }
+
+            .mobile-menu-footer {
+                padding: 16px;
+                border-top: 1px solid #e5e7eb;
+                display: flex;
+                gap: 12px;
+            }
+
+            .mobile-menu-action {
+                flex: 1;
+                padding: 14px;
+                border: none;
+                border-radius: 12px;
+                background: #f3f4f6;
+                color: #374151;
+                font-weight: 600;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .mobile-menu-action:active {
+                transform: scale(0.95);
+                background: #e5e7eb;
+            }
+
+            .mobile-menu-action i {
+                width: 20px;
+                height: 20px;
+            }
+
+            @media (max-width: 768px) {
+                body {
+                    padding-top: 60px;
+                    padding-bottom: 65px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // =====================================================
     // ACCESS DENIED & PERMISSIONS
     // =====================================================
 
@@ -1253,28 +1870,26 @@ class ModernNavigationManager {
         document.body.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; 
                         background: linear-gradient(135deg, #6366f1, #4f46e5); padding: 20px;">
-                <div style="background: white; padding: 40px; border-radius: 16px; max-width: 500px; 
-                            text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
-                    <i data-lucide="alert-circle" style="width: 64px; height: 64px; color: #ef4444; 
-                                                         margin: 0 auto 20px; display: block;"></i>
-                    <h1 style="color: #ef4444; margin-bottom: 16px; font-size: 24px; font-weight: 600;">
+                <div style="background: white; padding: ${this.isMobile ? "32px 20px" : "40px"}; border-radius: 16px; 
+                            max-width: ${this.isMobile ? "400px" : "500px"}; text-align: center; 
+                            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%;">
+                    <i data-lucide="alert-circle" style="width: ${this.isMobile ? "56px" : "64px"}; 
+                                                         height: ${this.isMobile ? "56px" : "64px"}; color: #ef4444; 
+                                                         margin: 0 auto ${this.isMobile ? "16px" : "20px"}; display: block;"></i>
+                    <h1 style="color: #ef4444; margin-bottom: ${this.isMobile ? "12px" : "16px"}; 
+                               font-size: ${this.isMobile ? "20px" : "24px"}; font-weight: 600;">
                         Truy Cập Bị Từ Chối
                     </h1>
-                    <p style="color: #6b7280; margin-bottom: 24px; line-height: 1.6;">
-                        Bạn không có quyền truy cập trang: <strong style="color: #111827;">${pageName}</strong>
+                    <p style="color: #6b7280; margin-bottom: ${this.isMobile ? "20px" : "24px"}; 
+                              line-height: ${this.isMobile ? "1.5" : "1.6"}; font-size: ${this.isMobile ? "14px" : "16px"};">
+                        Bạn không có quyền truy cập: <strong style="color: #111827;">${pageName}</strong>
                     </p>
-                    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                        <button onclick="window.location.href='../live/index.html'" 
-                                style="padding: 12px 24px; background: #6366f1; color: white; border: none; 
-                                       border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">
-                            Về Trang Chủ
-                        </button>
-                        <button onclick="alert('Liên hệ Admin để được cấp quyền truy cập')" 
-                                style="padding: 12px 24px; background: #e5e7eb; color: #111827; border: none; 
-                                       border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">
-                            Liên Hệ Admin
-                        </button>
-                    </div>
+                    <button onclick="window.location.href='../live/index.html'" 
+                            style="${this.isMobile ? "width: 100%" : ""}; padding: 12px 24px; background: #6366f1; 
+                                   color: white; border: none; border-radius: 8px; cursor: pointer; 
+                                   font-weight: 600; font-size: 14px;">
+                        Về Trang Chủ
+                    </button>
                 </div>
             </div>
         `;
@@ -1284,24 +1899,11 @@ class ModernNavigationManager {
         }
     }
 
-    getAccessiblePages() {
-        return MENU_CONFIG.filter((item) => {
-            if (this.isAdmin) return true;
-            if (item.adminOnly) return false;
-            return this.userPermissions.includes(item.permissionRequired);
-        });
-    }
-
     showPermissionsSummary() {
         const accessiblePages = this.getAccessiblePages();
         const userInfo = authManager.getAuthState();
 
-        const roleMap = {
-            0: "Admin",
-            1: "Manager",
-            3: "Staff",
-            777: "Guest",
-        };
+        const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
         const checkLogin = localStorage.getItem("checkLogin");
         const roleName = roleMap[checkLogin] || "Unknown";
 
@@ -1326,25 +1928,19 @@ Liên hệ Administrator nếu cần thêm quyền truy cập.
 // INITIALIZATION
 // =====================================================
 
-// Wait for dependencies to load
 function waitForDependencies(callback, maxRetries = 15, delay = 300) {
     let retries = 0;
 
     const check = () => {
-        // Check if AuthManager is available
         if (typeof authManager !== "undefined" && authManager) {
-            console.log("[Navigation] Dependencies ready!");
+            console.log("[Unified Nav] Dependencies ready!");
             callback();
         } else if (retries < maxRetries) {
             retries++;
-            console.log(
-                `[Navigation] Waiting for dependencies... (${retries}/${maxRetries})`,
-            );
+            console.log(`[Unified Nav] Waiting... (${retries}/${maxRetries})`);
             setTimeout(check, delay);
         } else {
-            console.error(
-                "[Navigation] Dependencies failed to load, redirecting to login...",
-            );
+            console.error("[Unified Nav] Dependencies failed, redirecting...");
             window.location.href = "../index.html";
         }
     };
@@ -1352,19 +1948,15 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
     check();
 }
 
-// Initialize when DOM is ready
-let navigationManager;
+let unifiedNavigationManager;
 
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[Navigation] DOM loaded, waiting for dependencies...");
-
+    console.log("[Unified Nav] DOM loaded...");
     waitForDependencies(() => {
-        navigationManager = new ModernNavigationManager();
-        window.navigationManager = navigationManager;
+        unifiedNavigationManager = new UnifiedNavigationManager();
+        window.navigationManager = unifiedNavigationManager;
     });
 });
 
-// Export
-window.ModernNavigationManager = ModernNavigationManager;
-
-console.log("[Navigation] Script loaded successfully");
+window.UnifiedNavigationManager = UnifiedNavigationManager;
+console.log("[Unified Nav] Script loaded successfully");
