@@ -26,7 +26,15 @@ function initializeUpdatedForm() {
                     lucide.createIcons();
                 }
             } else {
-                showError("Không có quyền truy cập form");
+                if (globalNotificationManager) {
+                    globalNotificationManager.error(
+                        "Không có quyền truy cập form",
+                        3000,
+                        "Từ chối truy cập",
+                    );
+                } else {
+                    showError("Không có quyền truy cập form");
+                }
             }
         });
     }
@@ -97,6 +105,10 @@ function initializeUpdatedForm() {
             const currentDate = new Date(ngayLive.value);
             livestreamForm.reset();
             ngayLive.valueAsDate = currentDate;
+
+            if (globalNotificationManager) {
+                globalNotificationManager.info("Form đã được làm mới", 2000);
+            }
         });
     }
 }
@@ -105,7 +117,15 @@ function handleUpdatedFormSubmit(e) {
     e.preventDefault();
 
     if (!hasPermission(3)) {
-        showError("Không có quyền thêm báo cáo");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không có quyền thêm báo cáo",
+                3000,
+                "Từ chối truy cập",
+            );
+        } else {
+            showError("Không có quyền thêm báo cáo");
+        }
         return;
     }
 
@@ -123,31 +143,39 @@ function handleUpdatedFormSubmit(e) {
 
     // Validate that at least one session has data
     if (!morningData && !eveningData) {
-        showError(
-            "Vui lòng nhập dữ liệu cho ít nhất một phiên (Sáng hoặc Chiều)",
-        );
+        if (globalNotificationManager) {
+            globalNotificationManager.warning(
+                "Vui lòng nhập dữ liệu cho ít nhất một phiên (Sáng hoặc Chiều)",
+                4000,
+                "Thiếu dữ liệu",
+            );
+        } else {
+            showError(
+                "Vui lòng nhập dữ liệu cho ít nhất một phiên (Sáng hoặc Chiều)",
+            );
+        }
         return;
     }
 
     const reportsToUpload = [];
 
-    // Create morning report if has data - NO inbox
+    // Create morning report if has data
     if (morningData) {
         const morningReport = createReportObject(
             currentDate,
             morningData,
-            0, // No inbox for morning
+            0,
             userName,
         );
         reportsToUpload.push(morningReport);
     }
 
-    // Create evening report if has data - NO inbox
+    // Create evening report if has data
     if (eveningData) {
         const eveningReport = createReportObject(
             currentDate,
             eveningData,
-            0, // No inbox for evening either
+            0,
             userName,
         );
         reportsToUpload.push(eveningReport);
@@ -181,31 +209,63 @@ function collectSessionData(session) {
     // Validate if session has data
     tienQC = parseFloat(tienQC);
     if (isNaN(tienQC) || tienQC < 0) {
-        showError(
-            `Tiền QC phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
-        );
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Tiền QC phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+                3000,
+                "Dữ liệu không hợp lệ",
+            );
+        } else {
+            showError(
+                `Tiền QC phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+            );
+        }
         return null;
     }
 
     if (!startTime || !endTime) {
-        showError(
-            `Vui lòng nhập đầy đủ thời gian cho phiên ${session === "morning" ? "Sáng" : "Chiều"}`,
-        );
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Vui lòng nhập đầy đủ thời gian cho phiên ${session === "morning" ? "Sáng" : "Chiều"}`,
+                3000,
+                "Thiếu thông tin",
+            );
+        } else {
+            showError(
+                `Vui lòng nhập đầy đủ thời gian cho phiên ${session === "morning" ? "Sáng" : "Chiều"}`,
+            );
+        }
         return null;
     }
 
     const thoiGian = formatTimeRange(startTime, endTime);
     if (!thoiGian) {
-        showError(
-            `Thời gian phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
-        );
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Thời gian phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+                3000,
+                "Thời gian không hợp lệ",
+            );
+        } else {
+            showError(
+                `Thời gian phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+            );
+        }
         return null;
     }
 
     if (!soMonLive || isNaN(soMonLive) || parseInt(soMonLive) < 0) {
-        showError(
-            `Số món live phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
-        );
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Số món live phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+                3000,
+                "Dữ liệu không hợp lệ",
+            );
+        } else {
+            showError(
+                `Số món live phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+            );
+        }
         return null;
     }
 
@@ -214,7 +274,7 @@ function collectSessionData(session) {
         thoiGian: thoiGian,
         startTime: startTime,
         soMonLive: parseInt(soMonLive),
-        hasInbox: false, // Changed: no inbox in form
+        hasInbox: false,
     };
 }
 
@@ -231,7 +291,7 @@ function createReportObject(currentDate, sessionData, inboxCount, userName) {
         tienQC: numberWithCommas(sessionData.tienQC),
         thoiGian: sessionData.thoiGian,
         soMonLive: sessionData.soMonLive + " món",
-        soMonInbox: "", // Always empty string for new reports
+        soMonInbox: "",
         user: userName,
         createdBy: userName,
         createdAt: new Date().toISOString(),
@@ -240,7 +300,15 @@ function createReportObject(currentDate, sessionData, inboxCount, userName) {
 }
 
 function uploadReports(reports, currentDate) {
-    showLoading(`Đang lưu ${reports.length} báo cáo...`);
+    let uploadNotificationId = null;
+
+    if (globalNotificationManager) {
+        uploadNotificationId = globalNotificationManager.saving(
+            `Đang lưu ${reports.length} báo cáo...`,
+        );
+    } else {
+        showLoading(`Đang lưu ${reports.length} báo cáo...`);
+    }
 
     collectionRef
         .doc("reports")
@@ -261,31 +329,71 @@ function uploadReports(reports, currentDate) {
             return operation;
         })
         .then(() => {
-            // Log actions for all reports
+            // Log actions for all reports (safe call)
             reports.forEach((report) => {
-                logAction(
-                    "add",
-                    `Thêm báo cáo livestream: ${report.tienQC}`,
-                    null,
-                    report,
-                );
+                if (typeof logAction === "function") {
+                    logAction(
+                        "add",
+                        `Thêm báo cáo livestream: ${report.tienQC}`,
+                        null,
+                        report,
+                    );
+                } else {
+                    console.log(`[ACTION] Add report: ${report.tienQC}`);
+                }
             });
 
+            // Invalidate cache and reload table
             invalidateCache();
-            showSuccess(`Đã thêm ${reports.length} báo cáo thành công!`);
+
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.success(
+                    `Đã thêm ${reports.length} báo cáo thành công!`,
+                    2000,
+                    "Thành công",
+                );
+            } else {
+                showSuccess(`Đã thêm ${reports.length} báo cáo thành công!`);
+            }
 
             // Reset form
             livestreamForm.reset();
             ngayLive.valueAsDate = currentDate;
 
-            // Reload page to show new data
+            // Close form
+            if (dataForm) {
+                dataForm.style.display = "none";
+            }
+            if (toggleFormButton) {
+                toggleFormButton.innerHTML =
+                    '<i data-lucide="plus-circle"></i><span>Thêm Báo Cáo</span>';
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            }
+
+            // Reload table data with a slight delay for better UX
             setTimeout(() => {
-                location.reload();
-            }, 1000);
+                console.log("[FORMS] Reloading table after adding reports...");
+                if (typeof updateTable === "function") {
+                    updateTable(true); // Giữ nguyên filter hiện tại
+                }
+            }, 500);
         })
         .catch((error) => {
             console.error("Error uploading reports: ", error);
-            showError("Lỗi khi tải báo cáo lên.");
+
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.error(
+                    "Lỗi khi tải báo cáo lên: " + error.message,
+                    4000,
+                    "Lỗi",
+                );
+            } else {
+                showError("Lỗi khi tải báo cáo lên.");
+            }
         });
 }
 
@@ -319,7 +427,14 @@ function handleEditButton(e) {
     }
 
     if (!dateCell) {
-        showError("Không tìm thấy thông tin ngày");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không tìm thấy thông tin ngày",
+                3000,
+            );
+        } else {
+            showError("Không tìm thấy thông tin ngày");
+        }
         return;
     }
 
@@ -370,6 +485,13 @@ function handleEditButton(e) {
             if (mm2) mm2.value = endMin;
             if (hh1.value < 12 && !hasPermission(0)) {
                 editModal.style.display = "none";
+                if (globalNotificationManager) {
+                    globalNotificationManager.warning(
+                        "Bạn không có quyền chỉnh sửa phiên Sáng",
+                        3000,
+                        "Từ chối truy cập",
+                    );
+                }
                 return;
             }
         } else {

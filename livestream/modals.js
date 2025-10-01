@@ -23,7 +23,14 @@ function saveUpdatedChanges() {
 
     // Get current row data for comparison and fallback
     if (!editingRow) {
-        showError("Không tìm thấy hàng cần chỉnh sửa.");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không tìm thấy hàng cần chỉnh sửa",
+                3000,
+            );
+        } else {
+            showError("Không tìm thấy hàng cần chỉnh sửa.");
+        }
         return;
     }
 
@@ -41,7 +48,14 @@ function saveUpdatedChanges() {
     }
 
     if (!dateCell) {
-        showError("Không tìm thấy thông tin ngày");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không tìm thấy thông tin ngày",
+                3000,
+            );
+        } else {
+            showError("Không tìm thấy thông tin ngày");
+        }
         return;
     }
 
@@ -65,14 +79,30 @@ function saveUpdatedChanges() {
 
         // Validation for full edit permission
         if (!dateValue || !tienQCValue) {
-            showError("Vui lòng điền đầy đủ thông tin bắt buộc.");
+            if (globalNotificationManager) {
+                globalNotificationManager.warning(
+                    "Vui lòng điền đầy đủ thông tin bắt buộc",
+                    3000,
+                    "Thiếu thông tin",
+                );
+            } else {
+                showError("Vui lòng điền đầy đủ thông tin bắt buộc.");
+            }
             return;
         }
 
         const cleanAmount = tienQCValue.replace(/[,\.]/g, "");
         const numAmount = parseFloat(cleanAmount);
         if (isNaN(numAmount) || numAmount <= 0) {
-            showError("Số tiền QC không hợp lệ.");
+            if (globalNotificationManager) {
+                globalNotificationManager.error(
+                    "Số tiền QC không hợp lệ",
+                    3000,
+                    "Dữ liệu không hợp lệ",
+                );
+            } else {
+                showError("Số tiền QC không hợp lệ.");
+            }
             return;
         }
 
@@ -89,19 +119,43 @@ function saveUpdatedChanges() {
             formattedTime = formatTimeRange(startTime, endTime);
 
             if (!formattedTime) {
-                showError("Thời gian không hợp lệ.");
+                if (globalNotificationManager) {
+                    globalNotificationManager.error(
+                        "Thời gian không hợp lệ",
+                        3000,
+                        "Dữ liệu không hợp lệ",
+                    );
+                } else {
+                    showError("Thời gian không hợp lệ.");
+                }
                 return;
             }
         }
 
         // Validate số món - allow 0 values
         if (isNaN(soMonLiveValue) || parseInt(soMonLiveValue) < 0) {
-            showError("Số món trên live phải là số không âm.");
+            if (globalNotificationManager) {
+                globalNotificationManager.error(
+                    "Số món trên live phải là số không âm",
+                    3000,
+                    "Dữ liệu không hợp lệ",
+                );
+            } else {
+                showError("Số món trên live phải là số không âm.");
+            }
             return;
         }
 
         if (isNaN(soMonInboxValue) || parseInt(soMonInboxValue) < 0) {
-            showError("Số món inbox phải là số không âm (có thể là 0).");
+            if (globalNotificationManager) {
+                globalNotificationManager.error(
+                    "Số món inbox phải là số không âm (có thể là 0)",
+                    3000,
+                    "Dữ liệu không hợp lệ",
+                );
+            } else {
+                showError("Số món inbox phải là số không âm (có thể là 0).");
+            }
             return;
         }
 
@@ -136,7 +190,15 @@ function saveUpdatedChanges() {
 
         // Validate only soMonInbox
         if (isNaN(soMonInboxValue) || parseInt(soMonInboxValue) < 0) {
-            showError("Số món inbox phải là số không âm (có thể là 0).");
+            if (globalNotificationManager) {
+                globalNotificationManager.error(
+                    "Số món inbox phải là số không âm (có thể là 0)",
+                    3000,
+                    "Dữ liệu không hợp lệ",
+                );
+            } else {
+                showError("Số món inbox phải là số không âm (có thể là 0).");
+            }
             return;
         }
 
@@ -188,17 +250,39 @@ function saveUpdatedChanges() {
             soMonInbox: finalSoMonInbox, // Only this field changes
         };
     } else {
-        showError("Không có quyền chỉnh sửa.");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không có quyền chỉnh sửa",
+                3000,
+                "Từ chối truy cập",
+            );
+        } else {
+            showError("Không có quyền chỉnh sửa.");
+        }
         return;
     }
 
     const recordId = dateCell.getAttribute("data-id");
     if (!recordId) {
-        showError("Không tìm thấy ID của báo cáo.");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không tìm thấy ID của báo cáo",
+                3000,
+            );
+        } else {
+            showError("Không tìm thấy ID của báo cáo.");
+        }
         return;
     }
 
-    showLoading("Đang lưu thay đổi...");
+    let saveNotificationId = null;
+    if (globalNotificationManager) {
+        saveNotificationId = globalNotificationManager.saving(
+            "Đang lưu thay đổi...",
+        );
+    } else {
+        showLoading("Đang lưu thay đổi...");
+    }
 
     try {
         collectionRef
@@ -229,7 +313,7 @@ function saveUpdatedChanges() {
                 // Prepare new data
                 const newData = {
                     ...oldData,
-                    ...finalValues, // Apply the final values based on permission level
+                    ...finalValues,
                 };
 
                 // Create comprehensive edit history entry
@@ -264,33 +348,80 @@ function saveUpdatedChanges() {
                 return collectionRef.doc("reports").update({ data: dataArray });
             })
             .then(() => {
-                // Reload table to reflect changes
+                // Log action (safe call)
                 const actionText =
                     userLevel === 2
                         ? "Sửa số món inbox"
                         : "Sửa báo cáo livestream";
-                logAction(
-                    "edit",
-                    `${actionText}: ${finalValues.tienQC}`,
-                    null,
-                    null,
-                );
+
+                if (typeof logAction === "function") {
+                    logAction(
+                        "edit",
+                        `${actionText}: ${finalValues.tienQC}`,
+                        null,
+                        null,
+                    );
+                } else {
+                    console.log(
+                        `[ACTION] Edit: ${actionText}: ${finalValues.tienQC}`,
+                    );
+                }
+
+                // Invalidate cache
                 invalidateCache();
-                showSuccess("Đã lưu thay đổi thành công!");
+
+                // Close modal first
                 closeModal();
 
-                // Reload table to show updated inbox values
+                // Show success message
+                if (globalNotificationManager) {
+                    globalNotificationManager.clearAll();
+                    globalNotificationManager.success(
+                        "Đã lưu thay đổi thành công!",
+                        2000,
+                        "Thành công",
+                    );
+                } else {
+                    showSuccess("Đã lưu thay đổi thành công!");
+                }
+
+                // Reload table data
                 setTimeout(() => {
-                    updateTable();
+                    console.log(
+                        "[MODALS] Reloading table after editing report...",
+                    );
+                    if (typeof updateTable === "function") {
+                        updateTable(true); // Giữ nguyên filter hiện tại
+                    }
                 }, 500);
             })
             .catch((error) => {
                 console.error("Error updating document:", error);
-                showError("Lỗi khi cập nhật dữ liệu: " + error.message);
+
+                if (globalNotificationManager) {
+                    globalNotificationManager.clearAll();
+                    globalNotificationManager.error(
+                        "Lỗi khi cập nhật dữ liệu: " + error.message,
+                        4000,
+                        "Lỗi",
+                    );
+                } else {
+                    showError("Lỗi khi cập nhật dữ liệu: " + error.message);
+                }
             });
     } catch (error) {
         console.error("Error in saveUpdatedChanges:", error);
-        showError("Lỗi: " + error.message);
+
+        if (globalNotificationManager) {
+            globalNotificationManager.clearAll();
+            globalNotificationManager.error(
+                "Lỗi: " + error.message,
+                4000,
+                "Lỗi",
+            );
+        } else {
+            showError("Lỗi: " + error.message);
+        }
     }
 }
 
@@ -585,7 +716,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const closeEditModalBtn = document.getElementById("closeEditModalBtn");
         if (closeEditModalBtn) {
             closeEditModalBtn.addEventListener("click", closeModal);
-            console.log("Close modal button event listener attached");
+            console.log("[MODALS] Close modal button event listener attached");
         }
     }, 100);
 });
@@ -598,7 +729,9 @@ window.addEventListener("load", function () {
             // Remove existing listeners to prevent duplicates
             closeEditModalBtn.removeEventListener("click", closeModal);
             closeEditModalBtn.addEventListener("click", closeModal);
-            console.log("Modal close button re-attached on window load");
+            console.log(
+                "[MODALS] Modal close button re-attached on window load",
+            );
         }
     }, 100);
 });

@@ -1,5 +1,8 @@
 // js/table.js - Table Management System with Grouped View
 
+// Global variables
+let isFilterInitialized = false;
+
 // Enhanced Sorting Function with Time Period Priority
 function sortDataWithTimePeriod(dataArray) {
     return [...dataArray].sort((a, b) => {
@@ -118,7 +121,7 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
 
     arrayData = [...dataArray];
 
-    // Apply "This week" filter by default
+    // Chỉ apply "This week" filter lần đầu tiên
     if (applyInitialFilter) {
         const defaultRange = getDefaultFilterRange();
         currentFilters.startDate = defaultRange.startDate;
@@ -183,6 +186,7 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
 
     tableBody.appendChild(fragment);
 
+    // Tạo filter system nếu chưa có
     createFilterSystem();
 
     console.log(
@@ -284,48 +288,37 @@ function createGroupedTableRow(
         newRow.appendChild(inboxCell);
     }
 
-    // Combined action buttons cell (only on first row with rowspan)
-    if (isFirstRow) {
-        const actionCell = document.createElement("td");
-        actionCell.className = "p-4 align-middle text-center border-l";
-        actionCell.rowSpan = rowCount;
+    // Action buttons cell - SEPARATE for each row
+    const actionCell = document.createElement("td");
+    actionCell.className = "p-4 align-middle text-center border-l";
 
-        actionCell.innerHTML = `
-            <div class="flex justify-center gap-2">
-                <button class="edit-button inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3" title="Chỉnh sửa">
-                    <i data-lucide="edit-3"></i>
-                </button>
-                <button class="delete-button inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3" data-user="${item.user || "Unknown"}" title="Xóa">
-                    <i data-lucide="trash-2"></i>
-                </button>
-            </div>
-        `;
+    actionCell.innerHTML = `
+        <div class="flex justify-center gap-2">
+            <button class="edit-button inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3" title="Chỉnh sửa">
+                <i data-lucide="edit-3"></i>
+            </button>
+            <button class="delete-button inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3" data-user="${item.user || "Unknown"}" title="Xóa">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </div>
+    `;
 
-        // Initialize Lucide icons
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
-        }
-
-        newRow.appendChild(actionCell);
-
-        // Apply role-based permissions
-        if (auth) {
-            const editBtn = actionCell.querySelector(".edit-button");
-            const deleteBtn = actionCell.querySelector(".delete-button");
-            applyButtonPermissions(
-                editBtn,
-                deleteBtn,
-                parseInt(auth.checkLogin),
-            );
-        }
+    // Initialize Lucide icons
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
     }
 
-    // Store data on row for edit/delete operations
+    newRow.appendChild(actionCell);
+
+    // Apply role-based permissions
+    if (auth) {
+        const editBtn = actionCell.querySelector(".edit-button");
+        const deleteBtn = actionCell.querySelector(".delete-button");
+        applyButtonPermissions(editBtn, deleteBtn, parseInt(auth.checkLogin));
+    }
+
+    // Store data on row for edit/delete operations - INDIVIDUAL report ID only
     newRow.setAttribute("data-report-id", item.id);
-    newRow.setAttribute(
-        "data-all-reports",
-        JSON.stringify(allReportsInGroup.map((r) => r.id)),
-    );
 
     return newRow;
 }
@@ -375,20 +368,62 @@ function applyButtonPermissions(editBtn, deleteBtn, userRole) {
     }
 }
 
-function updateTable() {
+function updateTable(preserveCurrentFilter = false) {
     const cachedData = getCachedData();
     if (cachedData) {
         console.log("[TABLE] Loading from cache...");
-        showLoading("Đang tải dữ liệu từ cache...");
+        if (globalNotificationManager) {
+            globalNotificationManager.loadingData(
+                "Đang tải dữ liệu từ cache...",
+            );
+        } else {
+            showLoading("Đang tải dữ liệu từ cache...");
+        }
+
         setTimeout(() => {
-            renderTableFromData(cachedData, true);
-            hideFloatingAlert();
+            // Chỉ apply initial filter lần đầu tiên load trang
+            const shouldApplyInitialFilter =
+                !isFilterInitialized && !preserveCurrentFilter;
+            renderTableFromData(cachedData, shouldApplyInitialFilter);
+
+            if (shouldApplyInitialFilter) {
+                isFilterInitialized = true;
+            }
+
+            // Áp dụng lại filter hiện tại nếu cần
+            if (
+                preserveCurrentFilter &&
+                (currentFilters.startDate || currentFilters.endDate)
+            ) {
+                console.log("[TABLE] Re-applying current filter after reload");
+                setTimeout(() => {
+                    if (typeof applyFilters === "function") {
+                        // Tắt cờ để không hiển thị thông báo
+                        const tempFlag = isFilteringInProgress;
+                        isFilteringInProgress = false;
+                        applyFilters();
+                        isFilteringInProgress = tempFlag;
+                    }
+                }, 200);
+            }
+
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+            } else {
+                hideFloatingAlert();
+            }
         }, 100);
         return;
     }
 
     console.log("[TABLE] Loading from Firebase...");
-    showLoading("Đang tải dữ liệu từ Firebase...");
+    if (globalNotificationManager) {
+        globalNotificationManager.loadingData(
+            "Đang tải dữ liệu từ Firebase...",
+        );
+    } else {
+        showLoading("Đang tải dữ liệu từ Firebase...");
+    }
 
     collectionRef
         .doc("reports")
@@ -397,24 +432,87 @@ function updateTable() {
             if (doc.exists) {
                 const data = doc.data();
                 if (Array.isArray(data["data"]) && data["data"].length > 0) {
-                    renderTableFromData(data["data"], true);
+                    // Chỉ apply initial filter lần đầu tiên load trang
+                    const shouldApplyInitialFilter =
+                        !isFilterInitialized && !preserveCurrentFilter;
+                    renderTableFromData(data["data"], shouldApplyInitialFilter);
+
+                    if (shouldApplyInitialFilter) {
+                        isFilterInitialized = true;
+                    }
+
                     setCachedData(data["data"]);
-                    showSuccess("Đã tải xong dữ liệu!");
+
+                    // Áp dụng lại filter hiện tại nếu cần
+                    if (
+                        preserveCurrentFilter &&
+                        (currentFilters.startDate || currentFilters.endDate)
+                    ) {
+                        console.log(
+                            "[TABLE] Re-applying current filter after reload",
+                        );
+                        setTimeout(() => {
+                            if (typeof applyFilters === "function") {
+                                // Tắt cờ để không hiển thị thông báo
+                                const tempFlag = isFilteringInProgress;
+                                isFilteringInProgress = false;
+                                applyFilters();
+                                isFilteringInProgress = tempFlag;
+                            }
+                        }, 200);
+                    }
+
+                    if (globalNotificationManager) {
+                        globalNotificationManager.clearAll();
+                        globalNotificationManager.success(
+                            "Đã tải xong dữ liệu!",
+                            1500,
+                        );
+                    } else {
+                        showSuccess("Đã tải xong dữ liệu!");
+                    }
                 } else {
                     console.log("[TABLE] No data found or data array is empty");
                     createFilterSystem();
-                    showError("Không có dữ liệu");
+
+                    if (globalNotificationManager) {
+                        globalNotificationManager.clearAll();
+                        globalNotificationManager.warning(
+                            "Không có dữ liệu",
+                            2000,
+                        );
+                    } else {
+                        showError("Không có dữ liệu");
+                    }
                 }
             } else {
                 console.log("[TABLE] Document does not exist");
                 createFilterSystem();
-                showError("Tài liệu không tồn tại");
+
+                if (globalNotificationManager) {
+                    globalNotificationManager.clearAll();
+                    globalNotificationManager.error(
+                        "Tài liệu không tồn tại",
+                        2000,
+                    );
+                } else {
+                    showError("Tài liệu không tồn tại");
+                }
             }
         })
         .catch((error) => {
             console.error("[TABLE] Error getting document:", error);
             createFilterSystem();
-            showError("Lỗi khi tải dữ liệu từ Firebase");
+
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.error(
+                    "Lỗi khi tải dữ liệu từ Firebase",
+                    3000,
+                );
+            } else {
+                showError("Lỗi khi tải dữ liệu từ Firebase");
+            }
         });
 }
 
@@ -438,26 +536,41 @@ function initializeTableEvents() {
 
 function handleDeleteButton(e) {
     if (!hasPermission(0)) {
-        showError("Không đủ quyền thực hiện chức năng này.");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không đủ quyền thực hiện chức năng này",
+                3000,
+                "Từ chối truy cập",
+            );
+        } else {
+            showError("Không đủ quyền thực hiện chức năng này.");
+        }
         return;
     }
 
-    const confirmDelete = confirm(
-        "Bạn có chắc chắn muốn xóa toàn bộ báo cáo ngày này?",
-    );
+    const confirmDelete = confirm("Bạn có chắc chắn muốn xóa báo cáo này?");
     if (!confirmDelete) return;
 
     const row = e.target.closest("tr");
-    const allReportIds = JSON.parse(
-        row.getAttribute("data-all-reports") || "[]",
-    );
+    const reportId = row.getAttribute("data-report-id");
 
-    if (allReportIds.length === 0) {
-        showError("Không tìm thấy ID báo cáo");
+    if (!reportId) {
+        if (globalNotificationManager) {
+            globalNotificationManager.error("Không tìm thấy ID báo cáo", 3000);
+        } else {
+            showError("Không tìm thấy ID báo cáo");
+        }
         return;
     }
 
-    showLoading("Đang xóa báo cáo...");
+    let deleteNotificationId = null;
+    if (globalNotificationManager) {
+        deleteNotificationId = globalNotificationManager.deleting(
+            "Đang xóa báo cáo...",
+        );
+    } else {
+        showLoading("Đang xóa báo cáo...");
+    }
 
     collectionRef
         .doc("reports")
@@ -471,36 +584,153 @@ function handleDeleteButton(e) {
             const dataArray = data["data"] || [];
 
             const updatedArray = dataArray.filter(
-                (item) => !allReportIds.includes(item.id),
+                (item) => item.id !== reportId,
             );
 
             return collectionRef.doc("reports").update({ data: updatedArray });
         })
         .then(() => {
-            logAction(
-                "delete",
-                `Xóa ${allReportIds.length} báo cáo livestream`,
-                null,
-                null,
-            );
+            // Log action (safe call)
+            if (typeof logAction === "function") {
+                logAction("delete", `Xóa báo cáo livestream`, null, null);
+            } else {
+                console.log("[ACTION] Delete report");
+            }
+
+            // Invalidate cache
             invalidateCache();
-            updateTable();
-            showSuccess("Đã xóa báo cáo thành công!");
+
+            // Show success message
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.success(
+                    "Đã xóa báo cáo thành công!",
+                    2000,
+                    "Thành công",
+                );
+            } else {
+                showSuccess("Đã xóa báo cáo thành công!");
+            }
+
+            // Reload table data và giữ nguyên filter
+            setTimeout(() => {
+                console.log("[TABLE] Reloading table after deleting report...");
+                if (typeof updateTable === "function") {
+                    updateTable(true); // true = giữ nguyên filter hiện tại
+                }
+            }, 500);
         })
         .catch((error) => {
             console.error("[TABLE] Error deleting report:", error);
-            showError("Lỗi khi xóa báo cáo");
+
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.error(
+                    "Lỗi khi xóa báo cáo: " + error.message,
+                    4000,
+                    "Lỗi",
+                );
+            } else {
+                showError("Lỗi khi xóa báo cáo");
+            }
         });
 }
 
+// NEW: Render table with filtered data
+function renderFilteredTable(filteredData) {
+    if (!Array.isArray(filteredData)) {
+        console.error("Invalid filtered data");
+        return;
+    }
+
+    // Sort data with enhanced time period sorting
+    const sortedData = sortDataWithTimePeriod(filteredData);
+
+    // Group by date
+    const groupedData = groupDataByDate(sortedData);
+
+    tableBody.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+
+    // Render grouped data
+    Object.keys(groupedData)
+        .sort((a, b) => new Date(b) - new Date(a))
+        .forEach((dateKey, groupIndex) => {
+            const group = groupedData[dateKey];
+            const reports = group.reports;
+
+            // Format display date
+            const displayDate = formatDate(group.date);
+
+            // Calculate total inbox for this date (only if edited)
+            let totalInbox = "";
+            const eveningReport = reports.find(
+                (r) => getTimePeriodFromData(r) === "Chiều",
+            );
+            if (eveningReport && hasInboxBeenEdited(eveningReport)) {
+                if (
+                    eveningReport.soMonInbox &&
+                    eveningReport.soMonInbox !== "0" &&
+                    eveningReport.soMonInbox !== "0 món"
+                ) {
+                    const inboxValue = eveningReport.soMonInbox
+                        .toString()
+                        .replace(" món", "");
+                    totalInbox = inboxValue;
+                }
+            }
+
+            // Create rows for each session
+            reports.forEach((item, index) => {
+                const newRow = createGroupedTableRow(
+                    item,
+                    displayDate,
+                    totalInbox,
+                    index === 0,
+                    reports.length,
+                    groupIndex,
+                    reports,
+                );
+                fragment.appendChild(newRow);
+            });
+        });
+
+    tableBody.appendChild(fragment);
+
+    // Initialize Lucide icons for new content
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
+
+    console.log(`[TABLE] Rendered ${sortedData.length} filtered reports`);
+}
+
+// Export the new function
+window.renderFilteredTable = renderFilteredTable;
+
 function exportToExcel() {
     if (!hasPermission(1)) {
-        showError("Không có quyền xuất dữ liệu");
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không có quyền xuất dữ liệu",
+                3000,
+                "Từ chối truy cập",
+            );
+        } else {
+            showError("Không có quyền xuất dữ liệu");
+        }
         return;
     }
 
     try {
-        showLoading("Đang chuẩn bị file Excel...");
+        let exportNotificationId = null;
+        if (globalNotificationManager) {
+            exportNotificationId = globalNotificationManager.processing(
+                "Đang chuẩn bị file Excel...",
+            );
+        } else {
+            showLoading("Đang chuẩn bị file Excel...");
+        }
 
         const wsData = [
             [
@@ -547,12 +777,31 @@ function exportToExcel() {
         });
 
         if (exportedRowCount === 0) {
-            showError("Không có dữ liệu để xuất ra Excel");
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.warning(
+                    "Không có dữ liệu để xuất ra Excel",
+                    3000,
+                );
+            } else {
+                showError("Không có dữ liệu để xuất ra Excel");
+            }
             return;
         }
 
         if (typeof XLSX === "undefined") {
-            showError("Thư viện Excel không khả dụng. Vui lòng tải lại trang");
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.error(
+                    "Thư viện Excel không khả dụng. Vui lòng tải lại trang",
+                    4000,
+                    "Lỗi",
+                );
+            } else {
+                showError(
+                    "Thư viện Excel không khả dụng. Vui lòng tải lại trang",
+                );
+            }
             return;
         }
 
@@ -564,11 +813,30 @@ function exportToExcel() {
             const fileName = `baocao_livestream_${new Date().toISOString().split("T")[0]}.xlsx`;
             XLSX.writeFile(wb, fileName);
 
-            showSuccess(`Đã xuất ${exportedRowCount} báo cáo ra Excel!`);
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.success(
+                    `Đã xuất ${exportedRowCount} báo cáo ra Excel!`,
+                    2000,
+                    "Thành công",
+                );
+            } else {
+                showSuccess(`Đã xuất ${exportedRowCount} báo cáo ra Excel!`);
+            }
         }, 500);
     } catch (error) {
         console.error("[TABLE] Error exporting to Excel:", error);
-        showError("Có lỗi xảy ra khi xuất dữ liệu ra Excel");
+
+        if (globalNotificationManager) {
+            globalNotificationManager.clearAll();
+            globalNotificationManager.error(
+                "Có lỗi xảy ra khi xuất dữ liệu ra Excel: " + error.message,
+                4000,
+                "Lỗi",
+            );
+        } else {
+            showError("Có lỗi xảy ra khi xuất dữ liệu ra Excel");
+        }
     }
 }
 
@@ -584,3 +852,4 @@ window.createGroupedTableRow = createGroupedTableRow;
 window.handleDeleteButton = handleDeleteButton;
 window.hasInboxBeenEdited = hasInboxBeenEdited;
 window.getDefaultFilterRange = getDefaultFilterRange;
+window.isFilterInitialized = isFilterInitialized;

@@ -148,9 +148,9 @@ function initializeApplication() {
         closeEditModalBtn.addEventListener("click", closeModal);
     }
 
-    // Update table
+    // Update table - lần đầu sẽ áp dụng filter mặc định
     if (typeof updateTable === "function") {
-        updateTable();
+        updateTable(false); // false = áp dụng filter mặc định lần đầu
     }
 
     // Remove ads

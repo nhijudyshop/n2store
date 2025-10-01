@@ -207,3 +207,50 @@ window.showLoading = showLoading;
 window.showSuccess = showSuccess;
 window.showError = showError;
 window.hideFloatingAlert = hideFloatingAlert;
+
+// Action Logging System
+function logAction(action, description, oldValue = null, newValue = null) {
+    try {
+        const auth = getAuthState();
+        const userName = auth
+            ? auth.userType
+                ? auth.userType.split("-")[0]
+                : "Unknown"
+            : "Unknown";
+
+        const logEntry = {
+            timestamp: new Date().toISOString(),
+            user: userName,
+            action: action, // 'add', 'edit', 'delete'
+            description: description,
+            oldValue: oldValue,
+            newValue: newValue,
+        };
+
+        // Log to console
+        console.log(`[ACTION LOG] ${action.toUpperCase()}:`, logEntry);
+
+        // Optionally save to Firebase history collection
+        if (
+            typeof historyCollectionRef !== "undefined" &&
+            historyCollectionRef
+        ) {
+            historyCollectionRef
+                .add(logEntry)
+                .then(() => {
+                    console.log("[ACTION LOG] Saved to Firebase");
+                })
+                .catch((error) => {
+                    console.warn(
+                        "[ACTION LOG] Could not save to Firebase:",
+                        error,
+                    );
+                });
+        }
+    } catch (error) {
+        console.error("[ACTION LOG] Error logging action:", error);
+    }
+}
+
+// Export function
+window.logAction = logAction;

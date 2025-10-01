@@ -359,55 +359,62 @@ function debouncedApplyFilters() {
     }, APP_CONFIG.FILTER_DEBOUNCE_DELAY);
 }
 
+// FIXED: Re-render table with filtered data instead of hiding rows
 function applyFilters() {
     if (isFilteringInProgress) return;
+    if (!arrayData || arrayData.length === 0) return;
 
     isFilteringInProgress = true;
 
     let loadingNotificationId = null;
     if (globalNotificationManager) {
-        loadingNotificationId = globalNotificationManager.loading(
+        loadingNotificationId = globalNotificationManager.loadingData(
             "Đang lọc dữ liệu...",
         );
+    } else {
+        showLoading("Đang lọc dữ liệu...");
     }
 
     setTimeout(() => {
         try {
-            const rows = Array.from(tableBody.rows);
-            let visibleCount = 0;
+            // Filter the data array
+            let filteredData = arrayData;
 
-            rows.forEach((row, index) => {
-                if (index >= APP_CONFIG.MAX_VISIBLE_ROWS) {
-                    row.style.display = "none";
-                    return;
-                }
+            if (currentFilters.startDate || currentFilters.endDate) {
+                filteredData = arrayData.filter((item) => {
+                    const timestamp = parseInt(item.dateCell);
+                    const itemDate = new Date(timestamp);
 
-                const cells = row.cells;
-                if (cells.length > 0) {
-                    const dateText = cells[0].innerText;
-                    const rowDate = parseDisplayDate(dateText);
-                    const matchDate = checkDateInRange(
-                        rowDate,
+                    return checkDateInRange(
+                        itemDate,
                         currentFilters.startDate,
                         currentFilters.endDate,
                     );
+                });
+            }
 
-                    if (matchDate) {
-                        visibleCount++;
-                        row.style.display = "table-row";
-                    } else {
-                        row.style.display = "none";
-                    }
-                }
-            });
+            const visibleCount = filteredData.length;
 
-            updateFilterInfo(visibleCount, rows.length);
+            // Re-render table with filtered data
+            if (typeof renderFilteredTable === "function") {
+                renderFilteredTable(filteredData);
+            }
+
+            updateFilterInfo(visibleCount, arrayData.length);
 
             if (globalNotificationManager) {
                 globalNotificationManager.clearAll();
                 globalNotificationManager.success(
                     `Hiển thị ${visibleCount} báo cáo`,
+                    2000,
                 );
+            } else {
+                showSuccess(`Hiển thị ${visibleCount} báo cáo`);
+            }
+
+            // Update totals after filtering
+            if (typeof updateAllTotals === "function") {
+                setTimeout(() => updateAllTotals(), 100);
             }
         } catch (error) {
             console.error("Error during filtering:", error);
@@ -415,7 +422,11 @@ function applyFilters() {
                 globalNotificationManager.clearAll();
                 globalNotificationManager.error(
                     "Có lỗi xảy ra khi lọc dữ liệu",
+                    3000,
+                    "Lỗi",
                 );
+            } else {
+                showError("Có lỗi xảy ra khi lọc dữ liệu");
             }
         } finally {
             isFilteringInProgress = false;
@@ -500,3 +511,4 @@ window.applyQuickFilter = applyQuickFilter;
 window.toggleTotals = toggleTotals;
 window.toggleFilterContent = toggleFilterContent;
 window.initializeDefaultFilter = initializeDefaultFilter;
+window.checkDateInRange = checkDateInRange;
