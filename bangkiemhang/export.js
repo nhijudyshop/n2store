@@ -5,14 +5,26 @@
 function exportToExcel() {
     const cachedData = getCachedData();
     if (!cachedData || cachedData.length === 0) {
-        showFloatingAlert("Không có dữ liệu để xuất", false, 3000);
+        notificationManager.warning("Không có dữ liệu để xuất", 3000);
         return;
     }
 
-    showFloatingAlert("Đang tạo file Excel...", true);
+    const processingId = notificationManager.processing(
+        "Đang tạo file Excel...",
+    );
 
     try {
         const filteredData = applyFiltersToInventory(cachedData);
+
+        if (filteredData.length === 0) {
+            notificationManager.remove(processingId);
+            notificationManager.warning(
+                "Không có dữ liệu phù hợp với bộ lọc để xuất",
+                3000,
+            );
+            return;
+        }
+
         const excelData = filteredData.map((item, index) => ({
             STT: index + 1,
             "Ngày đặt hàng": item.ngayDatHang || "",
@@ -47,8 +59,12 @@ function exportToExcel() {
         const fileName = `KiemHang_${new Date().toLocaleDateString("vi-VN").replace(/\//g, "-")}_${new Date().getHours()}h${new Date().getMinutes()}.xlsx`;
         XLSX.writeFile(wb, fileName);
 
-        hideFloatingAlert();
-        showFloatingAlert("Xuất Excel thành công!", false, 2000);
+        notificationManager.remove(processingId);
+        notificationManager.success(
+            `Đã xuất ${filteredData.length} sản phẩm`,
+            2500,
+            "Xuất Excel thành công",
+        );
 
         // Log export action
         logAction(
@@ -57,8 +73,8 @@ function exportToExcel() {
         );
     } catch (error) {
         console.error("Lỗi khi xuất Excel:", error);
-        hideFloatingAlert();
-        showFloatingAlert("Lỗi khi xuất Excel: " + error.message, false, 3000);
+        notificationManager.remove(processingId);
+        notificationManager.error("Lỗi khi xuất Excel: " + error.message, 4000);
     }
 }
 

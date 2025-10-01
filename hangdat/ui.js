@@ -1,173 +1,197 @@
 // =====================================================
-// UI MANAGEMENT AND NOTIFICATIONS - FIXED VERSION
+// UI MANAGEMENT WITH ENHANCED HOVER
 // =====================================================
-
-// UI Configuration - ADD THIS
-const CONFIG = {
-    ui: {
-        toastDuration: 3000, // Duration for toast messages
-        animationDuration: 300, // Animation duration in ms
-        hoverDelay: 500, // Delay before showing image hover
-    },
-};
 
 class UIManager {
     constructor() {
-        this.floatingAlert = document.getElementById("floatingAlert");
-        this.alertText = this.floatingAlert?.querySelector(".alert-text");
-        this.loadingSpinner =
-            this.floatingAlert?.querySelector(".loading-spinner");
-        this.copyNotification = document.getElementById("copyNotification");
+        this.notificationManager = null;
         this.imageHoverOverlay = document.getElementById("imageHoverOverlay");
         this.hoverImage = document.getElementById("hoverImage");
+        this.currentHoverPreview = null;
 
+        this.initNotificationManager();
         this.initializeImageHover();
         this.initializeOverlayClose();
     }
 
-    // Helper: Check if mobile
-    isMobile() {
-        return (
-            window.innerWidth <= 768 ||
-            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-                navigator.userAgent,
-            )
-        );
-    }
-
-    // Helper: Get optimal image size
-    getOptimalImageSize() {
-        const width = Math.min(400, window.innerWidth * 0.9);
-        const height = Math.min(400, window.innerHeight * 0.9);
-        return { width, height };
+    // Initialize notification manager
+    initNotificationManager() {
+        if (typeof NotificationManager !== "undefined") {
+            this.notificationManager = new NotificationManager();
+        } else {
+            setTimeout(() => this.initNotificationManager(), 100);
+        }
     }
 
     // Show loading message
     showLoading(message = "Đang tải...") {
-        if (!this.floatingAlert) return;
-
-        this.alertText.textContent = message;
-        this.loadingSpinner.style.display = "flex";
-        this.floatingAlert.className = "alert-loading";
-        this.floatingAlert.style.display = "block";
-    }
-
-    // Show success message
-    showSuccess(message = "Thành công!") {
-        if (!this.floatingAlert) return;
-
-        this.alertText.textContent = message;
-        this.loadingSpinner.style.display = "none";
-        this.floatingAlert.className = "alert-success";
-        this.floatingAlert.style.display = "block";
-
-        setTimeout(() => this.hideAlert(), CONFIG.ui.toastDuration);
-    }
-
-    // Show error message
-    showError(message = "Có lỗi xảy ra!") {
-        if (!this.floatingAlert) return;
-
-        this.alertText.textContent = message;
-        this.loadingSpinner.style.display = "none";
-        this.floatingAlert.className = "alert-error";
-        this.floatingAlert.style.display = "block";
-
-        setTimeout(() => this.hideAlert(), CONFIG.ui.toastDuration);
-    }
-
-    // Hide alert
-    hideAlert() {
-        if (this.floatingAlert) {
-            this.floatingAlert.style.display = "none";
+        if (this.notificationManager) {
+            return this.notificationManager.loading(message);
         }
     }
 
-    // Show copy notification
-    showCopyNotification(message = "Đã copy link ảnh!") {
-        if (!this.copyNotification) return;
-
-        this.copyNotification.textContent = message;
-        this.copyNotification.classList.add("show");
-
-        setTimeout(() => {
-            this.copyNotification.classList.remove("show");
-        }, 2000);
+    showSuccess(message = "Thành công!", duration = 2000) {
+        if (this.notificationManager) {
+            this.notificationManager.clearAll();
+            return this.notificationManager.success(message, duration);
+        }
     }
 
-    // Initialize enhanced image hover functionality
+    showError(message = "Có lỗi xảy ra!", duration = 4000) {
+        if (this.notificationManager) {
+            this.notificationManager.clearAll();
+            return this.notificationManager.error(message, duration);
+        }
+    }
+
+    showWarning(message, duration = 3000) {
+        if (this.notificationManager) {
+            return this.notificationManager.warning(message, duration);
+        }
+    }
+
+    showInfo(message, duration = 3000) {
+        if (this.notificationManager) {
+            return this.notificationManager.info(message, duration);
+        }
+    }
+
+    hideAlert() {
+        if (this.notificationManager) {
+            this.notificationManager.clearAll();
+        }
+    }
+
+    showUploading(current, total) {
+        if (this.notificationManager) {
+            return this.notificationManager.uploading(current, total);
+        }
+    }
+
+    showDeleting(message = "Đang xóa...") {
+        if (this.notificationManager) {
+            return this.notificationManager.deleting(message);
+        }
+    }
+
+    // ENHANCED: Initialize image hover with smooth animations
     initializeImageHover() {
         let hoverTimeout;
+        let currentTarget = null;
 
-        // Event delegation for better performance
+        // Mouseover handler - show preview
         document.addEventListener("mouseover", (e) => {
             if (e.target.classList.contains("product-image")) {
+                currentTarget = e.target;
+
+                // Clear any existing timeout
+                clearTimeout(hoverTimeout);
+
+                // Show preview after delay
                 hoverTimeout = setTimeout(() => {
-                    this.showImageHover(e.target.src, e);
+                    if (currentTarget === e.target) {
+                        this.showImageHoverPreview(e.target.src, e);
+                    }
                 }, CONFIG.ui.hoverDelay);
             }
         });
 
+        // Mouseout handler - hide preview
         document.addEventListener("mouseout", (e) => {
             if (e.target.classList.contains("product-image")) {
                 clearTimeout(hoverTimeout);
-                this.hideImageHover();
+                currentTarget = null;
+                this.hideImageHoverPreview();
             }
         });
 
-        // Click to show full overlay
+        // Click handler - show full overlay
         document.addEventListener("click", (e) => {
             if (e.target.classList.contains("product-image")) {
                 e.preventDefault();
                 this.showImageOverlay(e.target.src);
             }
         });
+
+        // Mouse move handler - update preview position
+        document.addEventListener("mousemove", (e) => {
+            if (
+                this.currentHoverPreview &&
+                this.currentHoverPreview.style.display === "block"
+            ) {
+                this.updateHoverPosition(e);
+            }
+        });
     }
 
-    // Show image hover preview
-    showImageHover(imageSrc, event) {
-        if (!this.imageHoverOverlay || this.isMobile()) return;
+    // ENHANCED: Show image hover preview with smooth animation
+    showImageHoverPreview(imageSrc, event) {
+        // Don't show on mobile
+        if (Utils.isMobile()) return;
 
-        // Create or update preview image
-        let previewImg = document.querySelector(".image-preview-hover");
-        if (!previewImg) {
-            previewImg = document.createElement("img");
-            previewImg.className = "image-preview-hover";
-            previewImg.src = imageSrc;
-            document.body.appendChild(previewImg);
-        } else {
-            previewImg.src = imageSrc;
+        // Create or get preview element
+        if (!this.currentHoverPreview) {
+            this.currentHoverPreview = Utils.createElement("img", {
+                className: "image-preview-hover",
+            });
+            document.body.appendChild(this.currentHoverPreview);
         }
 
-        // Position the preview
-        const rect = event.target.getBoundingClientRect();
-        const optimalSize = this.getOptimalImageSize();
+        // Set image source
+        this.currentHoverPreview.src = imageSrc;
+        this.currentHoverPreview.style.display = "block";
 
-        previewImg.style.display = "block";
-        previewImg.style.maxWidth = optimalSize.width + "px";
-        previewImg.style.maxHeight = optimalSize.height + "px";
+        // Get optimal size
+        const optimalSize = Utils.getOptimalImageSize();
+        this.currentHoverPreview.style.maxWidth = optimalSize.width + "px";
+        this.currentHoverPreview.style.maxHeight = optimalSize.height + "px";
 
-        // Position to avoid viewport edges
-        let left = rect.right + 10;
-        let top = rect.top;
+        // Position preview
+        this.updateHoverPosition(event);
 
+        // Add show class for animation
+        requestAnimationFrame(() => {
+            this.currentHoverPreview.classList.add("show");
+        });
+    }
+
+    // Update hover preview position
+    updateHoverPosition(event) {
+        if (!this.currentHoverPreview) return;
+
+        const preview = this.currentHoverPreview;
+        const optimalSize = Utils.getOptimalImageSize();
+
+        // Calculate position (offset from cursor)
+        let left = event.clientX + 20;
+        let top = event.clientY + 20;
+
+        // Adjust if preview would go off-screen
         if (left + optimalSize.width > window.innerWidth) {
-            left = rect.left - optimalSize.width - 10;
+            left = event.clientX - optimalSize.width - 20;
         }
 
         if (top + optimalSize.height > window.innerHeight) {
-            top = window.innerHeight - optimalSize.height - 10;
+            top = window.innerHeight - optimalSize.height - 20;
         }
 
-        previewImg.style.left = Math.max(10, left) + "px";
-        previewImg.style.top = Math.max(10, top) + "px";
+        // Ensure minimum margins
+        left = Math.max(10, left);
+        top = Math.max(10, top);
+
+        preview.style.left = left + "px";
+        preview.style.top = top + "px";
     }
 
     // Hide image hover preview
-    hideImageHover() {
-        const previewImg = document.querySelector(".image-preview-hover");
-        if (previewImg) {
-            previewImg.style.display = "none";
+    hideImageHoverPreview() {
+        if (this.currentHoverPreview) {
+            this.currentHoverPreview.classList.remove("show");
+            setTimeout(() => {
+                if (this.currentHoverPreview) {
+                    this.currentHoverPreview.style.display = "none";
+                }
+            }, 300);
         }
     }
 
@@ -177,14 +201,17 @@ class UIManager {
 
         this.hoverImage.src = imageSrc;
         this.imageHoverOverlay.style.display = "flex";
-        document.body.style.overflow = "hidden"; // Prevent scrolling
+        document.body.style.overflow = "hidden";
+
+        // Hide hover preview when showing full overlay
+        this.hideImageHoverPreview();
     }
 
     // Hide image overlay
     hideImageOverlay() {
         if (this.imageHoverOverlay) {
             this.imageHoverOverlay.style.display = "none";
-            document.body.style.overflow = ""; // Restore scrolling
+            document.body.style.overflow = "";
         }
     }
 
@@ -192,7 +219,10 @@ class UIManager {
     initializeOverlayClose() {
         if (this.imageHoverOverlay) {
             this.imageHoverOverlay.addEventListener("click", (e) => {
-                if (e.target === this.imageHoverOverlay) {
+                if (
+                    e.target === this.imageHoverOverlay ||
+                    e.target === this.hoverImage
+                ) {
                     this.hideImageOverlay();
                 }
             });
@@ -208,19 +238,7 @@ class UIManager {
 
     // Update performance indicator
     updatePerformanceIndicator(loadTime) {
-        const indicator = document.getElementById("performanceIndicator");
-        if (indicator) {
-            if (loadTime < 1000) {
-                indicator.textContent = "Fast Load";
-                indicator.style.background = "#28a745";
-            } else if (loadTime < 3000) {
-                indicator.textContent = "Good Load";
-                indicator.style.background = "#ffc107";
-            } else {
-                indicator.textContent = "Slow Load";
-                indicator.style.background = "#dc3545";
-            }
-        }
+        console.log(`Performance: ${loadTime.toFixed(2)}ms`);
     }
 
     // Animate element entrance
@@ -235,19 +253,6 @@ class UIManager {
             },
             { once: true },
         );
-    }
-
-    // Smooth height transition for elements
-    smoothHeight(element, newHeight) {
-        if (!element) return;
-
-        element.style.transition = `height ${CONFIG.ui.animationDuration}ms ease`;
-        element.style.height = newHeight;
-
-        setTimeout(() => {
-            element.style.transition = "";
-            element.style.height = "";
-        }, CONFIG.ui.animationDuration);
     }
 
     // Show/hide form with animation
@@ -281,15 +286,39 @@ class UIManager {
             }, 300);
         }, duration);
     }
+
+    // Update stats
+    updateStats(data) {
+        if (!Array.isArray(data)) return;
+
+        const total = data.length;
+        const ao = data.filter((item) => item.phanLoai === "Áo").length;
+        const quan = data.filter((item) => item.phanLoai === "Quần").length;
+        const other = total - ao - quan;
+
+        const statElements = {
+            total: document.getElementById("statTotalInbox"),
+            ao: document.getElementById("statAo"),
+            quan: document.getElementById("statQuan"),
+            other: document.getElementById("statOther"),
+        };
+
+        if (statElements.total) statElements.total.textContent = total;
+        if (statElements.ao) statElements.ao.textContent = ao;
+        if (statElements.quan) statElements.quan.textContent = quan;
+        if (statElements.other) statElements.other.textContent = other;
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+    }
 }
 
 // Create global UI manager instance
 window.uiManager = new UIManager();
 
 // Global functions for backward compatibility
-window.showLoading = (message) => window.uiManager.showLoading(message);
-window.showSuccess = (message) => window.uiManager.showSuccess(message);
-window.showError = (message) => window.uiManager.showError(message);
-window.hideFloatingAlert = () => window.uiManager.hideAlert();
-
-console.log("✅ UIManager initialized successfully");
+window.showLoading = (message) => uiManager.showLoading(message);
+window.showSuccess = (message) => uiManager.showSuccess(message);
+window.showError = (message) => uiManager.showError(message);
+window.hideFloatingAlert = () => uiManager.hideAlert();

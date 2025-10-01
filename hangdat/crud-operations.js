@@ -1,12 +1,11 @@
 // =====================================================
-// CRUD OPERATIONS WITH FIREBASE STORAGE SUPPORT AND AUTO TABLE REFRESH
+// CRUD OPERATIONS WITH COMPREHENSIVE NOTIFICATIONS
 // =====================================================
 
 async function editInventoryItem(event) {
     const auth = getAuthState();
-    // Allow both permission level 0 and 3 to edit
     if (!auth || parseInt(auth.checkLogin) > 2) {
-        showFloatingAlert("Không có quyền chỉnh sửa", false, 3000);
+        notifyManager.warning("Không có quyền chỉnh sửa");
         return;
     }
 
@@ -15,31 +14,27 @@ async function editInventoryItem(event) {
     const itemInfo = button.getAttribute("data-inventory-info");
 
     if (!inventoryId) {
-        showFloatingAlert("Không tìm thấy ID sản phẩm!", false, 3000);
+        notifyManager.error("Không tìm thấy ID sản phẩm!");
         return;
     }
 
-    // Find the item data from cache
     const cachedData = getCachedData();
     const itemData = cachedData?.find((item) => item.id === inventoryId);
 
     if (!itemData) {
-        showFloatingAlert("Không tìm thấy thông tin sản phẩm!", false, 3000);
+        notifyManager.error("Không tìm thấy thông tin sản phẩm!");
         return;
     }
 
-    // Show edit modal for full row
     showFullEditModal(itemData);
 }
 
 function showFullEditModal(itemData) {
-    // Remove existing modal if any
     const existingModal = document.querySelector(".modal-overlay");
     if (existingModal) {
         existingModal.remove();
     }
 
-    // Create modal HTML
     const modalHTML = `
         <div class="modal-overlay show">
             <div class="edit-modal full-edit-modal">
@@ -168,17 +163,14 @@ function showFullEditModal(itemData) {
         </div>
     `;
 
-    // Add modal to body
     document.body.insertAdjacentHTML("beforeend", modalHTML);
 
-    // Setup paste areas
     const productImagePaste = document.getElementById("editProductImagePaste");
     const priceImagePaste = document.getElementById("editPriceImagePaste");
 
     if (productImagePaste) setupModalPasteArea(productImagePaste);
     if (priceImagePaste) setupModalPasteArea(priceImagePaste);
 
-    // Focus on first input
     setTimeout(() => {
         const firstInput = document.getElementById("editProductName");
         if (firstInput) {
@@ -187,17 +179,16 @@ function showFullEditModal(itemData) {
         }
     }, 100);
 
-    // Add escape key listener
     document.addEventListener("keydown", handleModalEscape);
+
+    notifyManager.info("Modal chỉnh sửa đã được mở", 2000);
 }
 
 function setupModalPasteArea(pasteArea) {
-    // Prevent default drag behaviors
     ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
         pasteArea.addEventListener(eventName, preventDefaults, false);
     });
 
-    // Highlight drop area
     ["dragenter", "dragover"].forEach((eventName) => {
         pasteArea.addEventListener(
             eventName,
@@ -214,7 +205,6 @@ function setupModalPasteArea(pasteArea) {
         );
     });
 
-    // Handle paste event
     pasteArea.addEventListener("paste", function (e) {
         e.preventDefault();
         const items = e.clipboardData?.items;
@@ -227,6 +217,7 @@ function setupModalPasteArea(pasteArea) {
                 const file = item.getAsFile();
                 if (file) {
                     displayModalPastedImage(file, pasteArea);
+                    notifyManager.success("Ảnh đã được dán thành công!", 1500);
                     break;
                 }
             }
@@ -237,7 +228,6 @@ function setupModalPasteArea(pasteArea) {
         }, 300);
     });
 
-    // Handle drop event
     pasteArea.addEventListener("drop", function (e) {
         e.preventDefault();
         const files = e.dataTransfer?.files;
@@ -246,10 +236,10 @@ function setupModalPasteArea(pasteArea) {
         const file = files[0];
         if (file.type.indexOf("image") !== -1) {
             displayModalPastedImage(file, pasteArea);
+            notifyManager.success("Ảnh đã được thả vào thành công!", 1500);
         }
     });
 
-    // Focus on click
     pasteArea.addEventListener("click", function () {
         this.focus();
     });
@@ -258,13 +248,11 @@ function setupModalPasteArea(pasteArea) {
 function displayModalPastedImage(file, pasteArea) {
     const reader = new FileReader();
     reader.onload = function (e) {
-        // Remove existing current image
         const currentImage = pasteArea.querySelector(".current-image");
         const noImage = pasteArea.querySelector(".no-image");
         if (currentImage) currentImage.remove();
         if (noImage) noImage.remove();
 
-        // Create new preview
         const preview = document.createElement("img");
         preview.src = e.target.result;
         preview.className = "image-preview new-image";
@@ -273,8 +261,6 @@ function displayModalPastedImage(file, pasteArea) {
 
         pasteArea.appendChild(preview);
         pasteArea.classList.add("has-image");
-
-        // Store file data
         pasteArea._pastedFile = file;
     };
     reader.readAsDataURL(file);
@@ -294,6 +280,7 @@ function closeEditModal() {
         }, 300);
     }
     document.removeEventListener("keydown", handleModalEscape);
+    notifyManager.info("Đã đóng modal chỉnh sửa", 1500);
 }
 
 function handleModalEscape(event) {
@@ -303,10 +290,9 @@ function handleModalEscape(event) {
 }
 
 async function saveFullEditChanges(inventoryId, itemInfo) {
-    try {
-        showFloatingAlert("Đang lưu thay đổi...", true);
+    const notifId = notifyManager.saving("Đang lưu thay đổi...");
 
-        // Get form values
+    try {
         const productName = document
             .getElementById("editProductName")
             .value.trim();
@@ -323,8 +309,8 @@ async function saveFullEditChanges(inventoryId, itemInfo) {
         const notes = document.getElementById("editNotes").value.trim();
 
         if (!productName) {
-            hideFloatingAlert();
-            showFloatingAlert("Tên sản phẩm không được để trống!", false, 3000);
+            notifyManager.remove(notifId);
+            notifyManager.warning("Tên sản phẩm không được để trống!");
             return;
         }
 
@@ -340,48 +326,55 @@ async function saveFullEditChanges(inventoryId, itemInfo) {
             updatedBy: getUserName(),
         };
 
-        // Handle image uploads if new images were pasted
         const productImagePaste = document.getElementById(
             "editProductImagePaste",
         );
         const priceImagePaste = document.getElementById("editPriceImagePaste");
 
-        if (productImagePaste && productImagePaste._pastedFile) {
-            try {
-                console.log("Uploading new product image...");
-                updateData.anhSanPham = await uploadImageToFirebaseStorage(
-                    productImagePaste._pastedFile,
-                    "dathang/product",
-                );
-                console.log("Product image uploaded:", updateData.anhSanPham);
-            } catch (error) {
-                console.warn("Không thể upload ảnh sản phẩm:", error);
+        let uploadCount = 0;
+        const totalUploads =
+            (productImagePaste?._pastedFile ? 1 : 0) +
+            (priceImagePaste?._pastedFile ? 1 : 0);
+
+        if (totalUploads > 0) {
+            notifyManager.remove(notifId);
+            const uploadId = notifyManager.uploading(0, totalUploads);
+
+            if (productImagePaste && productImagePaste._pastedFile) {
+                try {
+                    updateData.anhSanPham = await uploadImageToFirebaseStorage(
+                        productImagePaste._pastedFile,
+                        "dathang/product",
+                    );
+                    uploadCount++;
+                    notifyManager.remove(uploadId);
+                    notifyManager.uploading(uploadCount, totalUploads);
+                } catch (error) {
+                    console.warn("Không thể upload ảnh sản phẩm:", error);
+                }
             }
+
+            if (priceImagePaste && priceImagePaste._pastedFile) {
+                try {
+                    updateData.anhGiaMua = await uploadImageToFirebaseStorage(
+                        priceImagePaste._pastedFile,
+                        "dathang/price",
+                    );
+                    uploadCount++;
+                    notifyManager.remove(uploadId);
+                    notifyManager.uploading(uploadCount, totalUploads);
+                } catch (error) {
+                    console.warn("Không thể upload ảnh giá:", error);
+                }
+            }
+
+            notifyManager.remove(uploadId);
         }
 
-        if (priceImagePaste && priceImagePaste._pastedFile) {
-            try {
-                console.log("Uploading new price image...");
-                updateData.anhGiaMua = await uploadImageToFirebaseStorage(
-                    priceImagePaste._pastedFile,
-                    "dathang/price",
-                );
-                console.log("Price image uploaded:", updateData.anhGiaMua);
-            } catch (error) {
-                console.warn("Không thể upload ảnh giá:", error);
-            }
-        }
-
-        // Update in Firebase
         await updateOrderInventoryData(inventoryId, updateData);
-
-        // IMPROVED: Update cached data and refresh table immediately
         await refreshCachedDataAndTable();
-
-        // Close modal
         closeEditModal();
 
-        // Log action
         logAction(
             "edit",
             `Chỉnh sửa sản phẩm "${productName}" - ID: ${inventoryId}`,
@@ -389,35 +382,22 @@ async function saveFullEditChanges(inventoryId, itemInfo) {
             updateData,
         );
 
-        hideFloatingAlert();
-        showFloatingAlert("Lưu thay đổi thành công!", false, 2000);
+        notifyManager.success(`Đã lưu thay đổi cho "${productName}"!`);
     } catch (error) {
         console.error("Lỗi khi lưu thay đổi:", error);
-        hideFloatingAlert();
-        showFloatingAlert(
-            "Lỗi khi lưu thay đổi: " + error.message,
-            false,
-            3000,
-        );
+        notifyManager.remove(notifId);
+        notifyManager.error("Lỗi khi lưu: " + error.message);
     }
 }
 
 async function uploadImageToFirebaseStorage(file, folder) {
     try {
-        // Create a storage reference
         const storageRef = firebase.storage().ref();
         const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
         const imageRef = storageRef.child(fileName);
 
-        console.log(`Uploading image to: ${fileName}`);
-
-        // Upload file
         const snapshot = await imageRef.put(file);
-        console.log("Upload completed:", snapshot);
-
-        // Get download URL
         const downloadURL = await snapshot.ref.getDownloadURL();
-        console.log("Download URL:", downloadURL);
 
         return downloadURL;
     } catch (error) {
@@ -440,7 +420,6 @@ async function updateOrderInventoryData(orderId, updateData) {
             throw new Error("Không tìm thấy document dathang");
         }
 
-        // Find the order by ID
         const orderIndex = orderData.findIndex((order) => order.id === orderId);
 
         if (orderIndex !== -1) {
@@ -448,14 +427,11 @@ async function updateOrderInventoryData(orderId, updateData) {
                 ...orderData[orderIndex],
                 ...updateData,
             };
-            console.log("Updated order data:", orderData[orderIndex]);
         } else {
             throw new Error("Không tìm thấy đơn hàng để cập nhật");
         }
 
-        // Save back to Firebase
         await collectionRef.doc("dathang").update({ data: orderData });
-        console.log("Successfully updated Firebase with order data");
     } catch (error) {
         console.error("Error updating order data:", error);
         throw error;
@@ -464,16 +440,11 @@ async function updateOrderInventoryData(orderId, updateData) {
 
 async function deleteInventoryItem(event) {
     const auth = getAuthState();
-    // Allow both permission level 0 and 3 to delete
     if (
         !auth ||
         (parseInt(auth.checkLogin) > 0 && parseInt(auth.checkLogin) !== 3)
     ) {
-        showFloatingAlert(
-            "Không đủ quyền thực hiện chức năng này.",
-            false,
-            3000,
-        );
+        notifyManager.warning("Không đủ quyền thực hiện chức năng này.");
         return;
     }
 
@@ -482,19 +453,21 @@ async function deleteInventoryItem(event) {
     const itemInfo = button.getAttribute("data-inventory-info");
 
     if (!inventoryId) {
-        showFloatingAlert("Không tìm thấy ID sản phẩm!", false, 3000);
+        notifyManager.error("Không tìm thấy ID sản phẩm!");
         return;
     }
 
     const confirmMessage = `Bạn có chắc chắn muốn xóa sản phẩm "${itemInfo}"?\nID: ${inventoryId}`;
 
     const confirmDelete = confirm(confirmMessage);
-    if (!confirmDelete) return;
+    if (!confirmDelete) {
+        notifyManager.info("Đã hủy thao tác xóa", 2000);
+        return;
+    }
 
-    showFloatingAlert("Đang xóa sản phẩm...", true);
+    const notifId = notifyManager.deleting("Đang xóa sản phẩm...");
 
     try {
-        // Get old data for logging
         const cachedData = getCachedData();
         let oldItemData = null;
 
@@ -507,13 +480,9 @@ async function deleteInventoryItem(event) {
             }
         }
 
-        // Remove from Firebase
         await removeItemFromFirebase(inventoryId);
-
-        // IMPROVED: Update cached data and refresh table immediately
         await refreshCachedDataAndTable();
 
-        // Log action
         logAction(
             "delete",
             `Xóa sản phẩm "${itemInfo}" - ID: ${inventoryId}`,
@@ -521,12 +490,12 @@ async function deleteInventoryItem(event) {
             null,
         );
 
-        hideFloatingAlert();
-        showFloatingAlert("Đã xóa sản phẩm thành công!", false, 2000);
+        notifyManager.remove(notifId);
+        notifyManager.success(`Đã xóa sản phẩm "${itemInfo}"!`);
     } catch (error) {
-        hideFloatingAlert();
+        notifyManager.remove(notifId);
         console.error("Lỗi khi xóa:", error);
-        showFloatingAlert("Lỗi khi xóa: " + error.message, false, 3000);
+        notifyManager.error("Lỗi khi xóa: " + error.message);
     }
 }
 
@@ -544,38 +513,27 @@ async function removeItemFromFirebase(itemId) {
             throw new Error("Không tìm thấy document dathang");
         }
 
-        // Filter out the item to delete
         const filteredData = orderData.filter((order) => order.id !== itemId);
 
         if (filteredData.length === orderData.length) {
             throw new Error("Không tìm thấy sản phẩm để xóa");
         }
 
-        // Save back to Firebase
         await collectionRef.doc("dathang").update({ data: filteredData });
-        console.log("Successfully removed item from Firebase");
     } catch (error) {
         console.error("Error removing item from Firebase:", error);
         throw error;
     }
 }
 
-// NEW: Function to refresh cached data and table without full page reload
 async function refreshCachedDataAndTable() {
     try {
-        // Clear cache to force fresh data load
         invalidateCache();
-
-        // Use existing loadInventoryData function which already handles all the logic
         await loadInventoryData();
-
-        console.log("Table refreshed successfully using loadInventoryData()");
     } catch (error) {
         console.error("Error refreshing cached data and table:", error);
 
-        // Fallback: try manual refresh
         try {
-            // Load fresh data from Firebase
             const doc = await collectionRef.doc("dathang").get();
             let orderData = [];
 
@@ -583,17 +541,12 @@ async function refreshCachedDataAndTable() {
                 const data = doc.data();
                 if (data && Array.isArray(data.data)) {
                     orderData = data.data;
-                    console.log(
-                        `Fallback: Refreshed ${orderData.length} orders from Firebase`,
-                    );
                 }
             }
 
             if (orderData.length > 0) {
-                // Transform data to inventory format
                 const inventoryData = transformOrderDataToInventory(orderData);
 
-                // Sort by upload time (newest first)
                 const sortedData = inventoryData.sort((a, b) => {
                     const dateA = parseVietnameseDate(a.thoiGianUpload);
                     const dateB = parseVietnameseDate(b.thoiGianUpload);
@@ -603,23 +556,10 @@ async function refreshCachedDataAndTable() {
                     return 0;
                 });
 
-                // Update global state
                 globalState.inventoryData = sortedData;
-
-                // Update cache
                 setCachedData(sortedData);
-
-                // Re-render table with fresh data
                 renderInventoryTable(sortedData);
-
-                // Update filter options
                 updateFilterOptions(sortedData);
-
-                console.log(
-                    "Fallback refresh successful with",
-                    sortedData.length,
-                    "items",
-                );
             }
         } catch (fallbackError) {
             console.error("Fallback refresh also failed:", fallbackError);
@@ -628,9 +568,8 @@ async function refreshCachedDataAndTable() {
     }
 }
 
-// Make functions globally available
 window.closeEditModal = closeEditModal;
 window.saveFullEditChanges = saveFullEditChanges;
 window.refreshCachedDataAndTable = refreshCachedDataAndTable;
 
-console.log("Improved CRUD operations with auto table refresh loaded");
+console.log("CRUD operations with comprehensive notifications loaded");

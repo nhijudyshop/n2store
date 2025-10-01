@@ -5,11 +5,11 @@
 function exportToExcel() {
     const cachedData = getCachedData();
     if (!cachedData || cachedData.length === 0) {
-        showError("Không có dữ liệu để xuất");
+        notifyManager.warning("Không có dữ liệu để xuất");
         return;
     }
 
-    showLoading("Đang tạo file Excel...");
+    const notifId = notifyManager.processing("Đang tạo file Excel...");
 
     try {
         const filteredData = applyFiltersToInventory(cachedData);
@@ -41,13 +41,13 @@ function exportToExcel() {
         const fileName = `DatHang_${new Date().toLocaleDateString("vi-VN").replace(/\//g, "-")}.xlsx`;
         XLSX.writeFile(wb, fileName);
 
-        hideFloatingAlert();
-        showSuccess("Xuất Excel thành công!");
+        notifyManager.remove(notifId);
+        notifyManager.success(
+            `Đã xuất ${filteredData.length} sản phẩm ra Excel!`,
+        );
     } catch (error) {
         console.error("Error exporting Excel:", error);
-        showError("Lỗi khi xuất Excel!");
-        hideFloatingAlert();
+        notifyManager.remove(notifId);
+        notifyManager.error("Lỗi khi xuất Excel!");
     }
 }
-
-console.log("Export functionality loaded");

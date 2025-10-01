@@ -5,7 +5,7 @@
 async function editInventoryItem(event) {
     const auth = getAuthState();
     if (!auth || parseInt(auth.checkLogin) > 0) {
-        showFloatingAlert("Không có quyền chỉnh sửa", false, 3000);
+        notificationManager.warning("Không có quyền chỉnh sửa", 3000);
         return;
     }
 
@@ -14,7 +14,7 @@ async function editInventoryItem(event) {
     const itemInfo = button.getAttribute("data-inventory-info");
 
     if (!inventoryId) {
-        showFloatingAlert("Không tìm thấy ID sản phẩm!", false, 3000);
+        notificationManager.error("Không tìm thấy ID sản phẩm!", 3000);
         return;
     }
 
@@ -23,7 +23,7 @@ async function editInventoryItem(event) {
     const itemData = cachedData?.find((item) => item.id === inventoryId);
 
     if (!itemData) {
-        showFloatingAlert("Không tìm thấy thông tin sản phẩm!", false, 3000);
+        notificationManager.error("Không tìm thấy thông tin sản phẩm!", 3000);
         return;
     }
 
@@ -128,19 +128,18 @@ function handleModalEscape(event) {
 }
 
 async function saveModalChanges(inventoryId, itemInfo) {
+    const thucNhanInput = document.getElementById("thucNhanInput");
+    const tongNhanInput = document.getElementById("tongNhanInput");
+
+    const receivedValue = thucNhanInput
+        ? parseFloat(thucNhanInput.value) || 0
+        : 0;
+    const totalValue = tongNhanInput ? parseFloat(tongNhanInput.value) || 0 : 0;
+
+    // Show saving notification
+    const savingId = notificationManager.saving("Đang lưu thay đổi...");
+
     try {
-        showFloatingAlert("Đang lưu thay đổi...", true);
-
-        const thucNhanInput = document.getElementById("thucNhanInput");
-        const tongNhanInput = document.getElementById("tongNhanInput");
-
-        const receivedValue = thucNhanInput
-            ? parseFloat(thucNhanInput.value) || 0
-            : 0;
-        const totalValue = tongNhanInput
-            ? parseFloat(tongNhanInput.value) || 0
-            : 0;
-
         const updateData = {
             thucNhan: receivedValue,
             tongNhan: totalValue,
@@ -181,16 +180,17 @@ async function saveModalChanges(inventoryId, itemInfo) {
             updateData,
         );
 
-        hideFloatingAlert();
-        showFloatingAlert("Lưu thay đổi thành công!", false, 2000);
+        // Show success notification
+        notificationManager.remove(savingId);
+        notificationManager.success(
+            `Đã cập nhật "${itemInfo}"`,
+            2000,
+            "Lưu thành công",
+        );
     } catch (error) {
         console.error("Lỗi khi lưu thay đổi:", error);
-        hideFloatingAlert();
-        showFloatingAlert(
-            "Lỗi khi lưu thay đổi: " + error.message,
-            false,
-            3000,
-        );
+        notificationManager.remove(savingId);
+        notificationManager.error("Lỗi khi lưu: " + error.message, 4000);
     }
 }
 
@@ -232,9 +232,8 @@ async function updateOrderInventoryData(orderId, updateData) {
 async function deleteInventoryItem(event) {
     const auth = getAuthState();
     if (!auth || parseInt(auth.checkLogin) > 0) {
-        showFloatingAlert(
+        notificationManager.warning(
             "Không đủ quyền thực hiện chức năng này.",
-            false,
             3000,
         );
         return;
@@ -245,7 +244,7 @@ async function deleteInventoryItem(event) {
     const itemInfo = button.getAttribute("data-inventory-info");
 
     if (!inventoryId) {
-        showFloatingAlert("Không tìm thấy ID sản phẩm!", false, 3000);
+        notificationManager.error("Không tìm thấy ID sản phẩm!", 3000);
         return;
     }
 
@@ -254,7 +253,9 @@ async function deleteInventoryItem(event) {
     const confirmDelete = confirm(confirmMessage);
     if (!confirmDelete) return;
 
-    showFloatingAlert("Đang xóa thông tin kiểm kho...", true);
+    const deletingId = notificationManager.deleting(
+        "Đang xóa thông tin kiểm kho...",
+    );
 
     try {
         // Get old data for logging
@@ -286,12 +287,16 @@ async function deleteInventoryItem(event) {
             null,
         );
 
-        hideFloatingAlert();
-        showFloatingAlert("Đã xóa thông tin kiểm kho thành công!", false, 2000);
+        notificationManager.remove(deletingId);
+        notificationManager.success(
+            `Đã xóa "${itemInfo}"`,
+            2000,
+            "Xóa thành công",
+        );
     } catch (error) {
-        hideFloatingAlert();
         console.error("Lỗi khi xóa:", error);
-        showFloatingAlert("Lỗi khi xóa: " + error.message, false, 3000);
+        notificationManager.remove(deletingId);
+        notificationManager.error("Lỗi khi xóa: " + error.message, 4000);
 
         // Restore cached data on error
         if (cachedData && oldItemData) {

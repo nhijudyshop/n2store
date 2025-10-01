@@ -32,7 +32,6 @@ class NotificationManager {
         notification.className = `toast ${type}`;
         notification.dataset.id = notificationId;
 
-        // Icon mapping for Lucide
         const iconMap = {
             success: "check-circle",
             error: "x-circle",
@@ -43,7 +42,6 @@ class NotificationManager {
 
         const selectedIcon = icon || iconMap[type] || "bell";
 
-        // Build notification HTML
         const iconHtml = `<i data-lucide="${selectedIcon}" class="toast-icon ${type === "loading" ? "spinning" : ""}"></i>`;
         const titleHtml = title
             ? `<div class="toast-title">${title}</div>`
@@ -63,20 +61,17 @@ class NotificationManager {
             ${showProgress && duration > 0 ? '<div class="toast-progress"></div>' : ""}
         `;
 
-        // Close button handler
         const closeBtnEl = notification.querySelector(".toast-close");
         if (closeBtnEl) {
             closeBtnEl.onclick = () => this.remove(notificationId);
         }
 
-        // Progress bar animation
         if (showProgress && duration > 0) {
             notification.style.setProperty("--duration", duration + "ms");
         }
 
         this.container.appendChild(notification);
 
-        // Initialize Lucide icons
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
@@ -93,10 +88,8 @@ class NotificationManager {
             document.body.style.overflow = "hidden";
         }
 
-        // Animate in
         requestAnimationFrame(() => notification.classList.add("show"));
 
-        // Auto-remove after duration
         if (duration > 0 && !persistent) {
             const timeoutId = setTimeout(
                 () => this.remove(notificationId),
@@ -154,7 +147,7 @@ class NotificationManager {
         document.body.style.overflow = "auto";
     }
 
-    // Convenience methods with proper icons
+    // Convenience methods
     loading(message = "Đang xử lý...", title = null) {
         return this.show(message, "info", 0, {
             showOverlay: true,
@@ -192,7 +185,6 @@ class NotificationManager {
         });
     }
 
-    // Action-specific notifications
     uploading(current, total) {
         const message = `Đang tải lên ${current}/${total} ảnh`;
         return this.show(message, "info", 0, {
@@ -240,7 +232,7 @@ class NotificationManager {
     }
 }
 
-// Enhanced CSS for the new notification system
+// Enhanced CSS
 const notificationStyles = `
 <style>
 .toast-container {
@@ -433,5 +425,9 @@ const notificationStyles = `
 </style>
 `;
 
-// Inject styles
 document.head.insertAdjacentHTML("beforeend", notificationStyles);
+
+// Initialize global notification manager
+window.notifyManager = new NotificationManager();
+
+console.log("✅ NotificationManager initialized globally");

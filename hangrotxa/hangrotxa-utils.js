@@ -187,7 +187,7 @@ function logAction(action, description, oldData = null, newData = null) {
     const logEntry = {
         timestamp: new Date(),
         user: auth ? auth.displayName || auth.username || "Unknown" : "Unknown",
-        page: "Hàng rơi - xả",
+        page: "Hàng rớt - xả",
         action: action,
         description: description,
         oldData: oldData,

@@ -5,16 +5,21 @@
 async function loadInventoryData() {
     const cachedData = getCachedData();
     if (cachedData) {
-        showFloatingAlert("Sử dụng dữ liệu cache...", true);
+        const cacheId = notificationManager.info(
+            "Sử dụng dữ liệu cache...",
+            1500,
+        );
         globalState.inventoryData = cachedData;
         renderInventoryTable(cachedData);
         updateFilterOptions(cachedData);
-        hideFloatingAlert();
-        showFloatingAlert("Tải dữ liệu từ cache hoàn tất!", false, 2000);
+        notificationManager.remove(cacheId);
+        notificationManager.success("Tải dữ liệu từ cache hoàn tất!", 2000);
         return;
     }
 
-    showFloatingAlert("Đang tải dữ liệu đặt hàng từ Firebase...", true);
+    const loadingId = notificationManager.loadingData(
+        "Đang tải dữ liệu từ Firebase...",
+    );
 
     try {
         const doc = await collectionRef.doc("dathang").get();
@@ -26,32 +31,34 @@ async function loadInventoryData() {
                 orderData = data.data;
                 console.log(`Loaded ${orderData.length} orders from Firebase`);
             } else {
-                console.warn("No data array found in dathang document");
-                showFloatingAlert(
+                notificationManager.remove(loadingId);
+                notificationManager.warning(
                     "Không tìm thấy dữ liệu đặt hàng!",
-                    false,
                     3000,
                 );
+                console.warn("No data array found in dathang document");
                 return;
             }
         } else {
-            console.warn("dathang document does not exist");
-            showFloatingAlert(
+            notificationManager.remove(loadingId);
+            notificationManager.error(
                 "Không tìm thấy collection dathang!",
-                false,
                 3000,
             );
+            console.warn("dathang document does not exist");
             return;
         }
 
         if (orderData.length === 0) {
-            showFloatingAlert("Chưa có dữ liệu đặt hàng nào!", false, 3000);
+            notificationManager.remove(loadingId);
+            notificationManager.info("Chưa có dữ liệu đặt hàng nào!", 3000);
             const tbody = document.getElementById("orderTableBody");
             tbody.innerHTML =
                 '<tr><td colspan="9" style="text-align: center; padding: 40px; color: #6c757d;">Chưa có dữ liệu để hiển thị</td></tr>';
             return;
         }
 
+        // Transform and process data
         const inventoryData = transformOrderDataToInventory(orderData);
         const sortedData = inventoryData.sort((a, b) => {
             const dateA = parseVietnameseDate(a.ngayNhan);
@@ -67,12 +74,19 @@ async function loadInventoryData() {
         updateFilterOptions(sortedData);
         setCachedData(sortedData);
 
-        hideFloatingAlert();
-        showFloatingAlert("Tải dữ liệu hoàn tất!", false, 2000);
+        notificationManager.remove(loadingId);
+        notificationManager.success(
+            `Tải thành công ${sortedData.length} sản phẩm!`,
+            2000,
+            "Hoàn tất",
+        );
     } catch (error) {
         console.error("Error loading inventory data:", error);
-        hideFloatingAlert();
-        showFloatingAlert("Lỗi khi tải dữ liệu: " + error.message, false, 3000);
+        notificationManager.remove(loadingId);
+        notificationManager.error(
+            "Lỗi khi tải dữ liệu: " + error.message,
+            4000,
+        );
     }
 }
 
@@ -100,15 +114,24 @@ function transformOrderDataToInventory(orderData) {
 
 async function refreshInventoryData() {
     try {
-        showFloatingAlert("Đang làm mới dữ liệu...", true);
+        const refreshId = notificationManager.processing(
+            "Đang làm mới dữ liệu...",
+        );
         invalidateCache();
+
         await loadInventoryData();
-        hideFloatingAlert();
-        showFloatingAlert("Làm mới dữ liệu thành công!", false, 2000);
+
+        notificationManager.remove(refreshId);
+        notificationManager.success("Làm mới dữ liệu thành công!", 2000);
+
+        // Log refresh action
+        logAction("refresh", "Làm mới dữ liệu kiểm hàng");
     } catch (error) {
         console.error("Error refreshing inventory data:", error);
-        hideFloatingAlert();
-        showFloatingAlert("Lỗi khi làm mới dữ liệu!", false, 3000);
+        notificationManager.error(
+            "Lỗi khi làm mới dữ liệu: " + error.message,
+            4000,
+        );
     }
 }
 

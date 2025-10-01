@@ -1,20 +1,21 @@
 // =====================================================
-// DATA LOADING AND PROCESSING - UPDATED FOR FIREBASE STRUCTURE
+// DATA LOADING WITH COMPREHENSIVE NOTIFICATIONS
 // =====================================================
 
 async function loadInventoryData() {
     const cachedData = getCachedData();
     if (cachedData) {
-        showFloatingAlert("Sử dụng dữ liệu cache...", true);
+        notifyManager.info("Sử dụng dữ liệu cache...", 1500);
         globalState.inventoryData = cachedData;
         renderInventoryTable(cachedData);
         updateFilterOptions(cachedData);
-        hideFloatingAlert();
-        showFloatingAlert("Tải dữ liệu từ cache hoàn tất!", false, 2000);
+        notifyManager.success("Tải dữ liệu từ cache hoàn tất!", 2000);
         return;
     }
 
-    showFloatingAlert("Đang tải dữ liệu đặt hàng từ Firebase...", true);
+    const notifId = notifyManager.loadingData(
+        "Đang tải dữ liệu đặt hàng từ Firebase...",
+    );
 
     try {
         const doc = await collectionRef.doc("dathang").get();
@@ -27,35 +28,28 @@ async function loadInventoryData() {
                 console.log(`Loaded ${orderData.length} orders from Firebase`);
             } else {
                 console.warn("No data array found in dathang document");
-                showFloatingAlert(
-                    "Không tìm thấy dữ liệu đặt hàng!",
-                    false,
-                    3000,
-                );
+                notifyManager.remove(notifId);
+                notifyManager.warning("Không tìm thấy dữ liệu đặt hàng!");
                 return;
             }
         } else {
             console.warn("dathang document does not exist");
-            showFloatingAlert(
-                "Không tìm thấy collection dathang!",
-                false,
-                3000,
-            );
+            notifyManager.remove(notifId);
+            notifyManager.error("Không tìm thấy collection dathang!");
             return;
         }
 
         if (orderData.length === 0) {
-            showFloatingAlert("Chưa có dữ liệu đặt hàng nào!", false, 3000);
+            notifyManager.remove(notifId);
+            notifyManager.info("Chưa có dữ liệu đặt hàng nào!", 3000);
             const tbody = document.getElementById("orderTableBody");
             tbody.innerHTML =
                 '<tr><td colspan="11" style="text-align: center; padding: 40px; color: #6c757d;">Chưa có dữ liệu để hiển thị</td></tr>';
             return;
         }
 
-        // Transform data to inventory format with proper image field mapping
         const inventoryData = transformOrderDataToInventory(orderData);
 
-        // Sort by upload time (newest first)
         const sortedData = inventoryData.sort((a, b) => {
             const dateA = parseVietnameseDate(a.thoiGianUpload);
             const dateB = parseVietnameseDate(b.thoiGianUpload);
@@ -70,20 +64,17 @@ async function loadInventoryData() {
         updateFilterOptions(sortedData);
         setCachedData(sortedData);
 
-        hideFloatingAlert();
-        showFloatingAlert("Tải dữ liệu hoàn tất!", false, 2000);
+        notifyManager.remove(notifId);
+        notifyManager.success(
+            `Đã tải ${sortedData.length} sản phẩm thành công!`,
+            2000,
+        );
 
-        // Debug log to verify data structure
         console.log("Sample loaded data:", sortedData[0]);
-        console.log("Image fields check:", {
-            anhHoaDon: sortedData[0]?.anhHoaDon,
-            anhSanPham: sortedData[0]?.anhSanPham,
-            anhGiaMua: sortedData[0]?.anhGiaMua,
-        });
     } catch (error) {
         console.error("Error loading inventory data:", error);
-        hideFloatingAlert();
-        showFloatingAlert("Lỗi khi tải dữ liệu: " + error.message, false, 3000);
+        notifyManager.remove(notifId);
+        notifyManager.error("Lỗi khi tải dữ liệu: " + error.message);
     }
 }
 
@@ -93,7 +84,6 @@ function transformOrderDataToInventory(orderData) {
     return orderData
         .filter((order) => order.maSanPham || order.tenSanPham)
         .map((order) => ({
-            // Basic product info
             id: order.id || generateUniqueID(),
             ngayDatHang: order.ngayDatHang,
             ngayNhan: order.thoiGianUpload,
@@ -106,17 +96,11 @@ function transformOrderDataToInventory(orderData) {
             giaMua: order.giaMua || 0,
             giaBan: order.giaBan || 0,
             ghiChu: order.ghiChu || "",
-
-            // Image fields - directly map from Firebase structure
             anhHoaDon: order.anhHoaDon || null,
             anhSanPham: order.anhSanPham || null,
             anhGiaMua: order.anhGiaMua || null,
-
-            // Receiving quantities (for future use)
             thucNhan: order.thucNhan || 0,
             tongNhan: order.tongNhan || 0,
-
-            // Metadata
             thoiGianUpload: order.thoiGianUpload,
             user: order.user || getUserName(),
             lastUpdated:
@@ -130,19 +114,18 @@ function transformOrderDataToInventory(orderData) {
 }
 
 async function refreshInventoryData() {
+    const notifId = notifyManager.processing("Đang làm mới dữ liệu...");
+
     try {
-        showFloatingAlert("Đang làm mới dữ liệu...", true);
         invalidateCache();
         await loadInventoryData();
-        hideFloatingAlert();
-        showFloatingAlert("Làm mới dữ liệu thành công!", false, 2000);
+        notifyManager.remove(notifId);
+        notifyManager.success("Làm mới dữ liệu thành công!");
     } catch (error) {
         console.error("Error refreshing inventory data:", error);
-        hideFloatingAlert();
-        showFloatingAlert("Lỗi khi làm mới dữ liệu!", false, 3000);
+        notifyManager.remove(notifId);
+        notifyManager.error("Lỗi khi làm mới dữ liệu!");
     }
 }
 
-console.log(
-    "Updated data loader system loaded with proper Firebase structure mapping",
-);
+console.log("Data loader with comprehensive notifications loaded");

@@ -3,6 +3,7 @@
 // =====================================================
 
 let isFilteringInProgress = false;
+let currentFilterNotificationId = null;
 
 function applyFiltersToInventory(dataArray) {
     const filterSupplier =
@@ -112,22 +113,46 @@ function updateFilterOptions(fullDataArray) {
 const debouncedApplyFilters = debounce(() => {
     if (isFilteringInProgress) return;
     isFilteringInProgress = true;
-    showFloatingAlert("Đang lọc dữ liệu...", true);
+
+    // Show minimal notification for filtering
+    if (currentFilterNotificationId) {
+        notificationManager.remove(currentFilterNotificationId);
+    }
+    currentFilterNotificationId = notificationManager.info("Đang lọc...", 0);
 
     setTimeout(() => {
         try {
             const cachedData = getCachedData();
             if (cachedData) {
+                const filteredData = applyFiltersToInventory(cachedData);
                 renderInventoryTable(cachedData);
+
+                // Remove loading notification
+                if (currentFilterNotificationId) {
+                    notificationManager.remove(currentFilterNotificationId);
+                    currentFilterNotificationId = null;
+                }
+
+                // Show result notification
+                const resultId = notificationManager.success(
+                    `Tìm thấy ${filteredData.length} sản phẩm`,
+                    1500,
+                    "Lọc hoàn tất",
+                );
             } else {
                 loadInventoryData();
+                if (currentFilterNotificationId) {
+                    notificationManager.remove(currentFilterNotificationId);
+                    currentFilterNotificationId = null;
+                }
             }
-            hideFloatingAlert();
-            showFloatingAlert("Lọc dữ liệu hoàn tất!", false, 1000);
         } catch (error) {
             console.error("Error during filtering:", error);
-            hideFloatingAlert();
-            showFloatingAlert("Có lỗi xảy ra khi lọc dữ liệu", false, 3000);
+            if (currentFilterNotificationId) {
+                notificationManager.remove(currentFilterNotificationId);
+                currentFilterNotificationId = null;
+            }
+            notificationManager.error("Có lỗi xảy ra khi lọc dữ liệu", 3000);
         } finally {
             isFilteringInProgress = false;
         }

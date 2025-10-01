@@ -2,7 +2,14 @@
 // MAIN APPLICATION INITIALIZATION
 // =====================================================
 
+// Initialize NotificationManager globally
+let notificationManager;
+
 async function initializeInventorySystem() {
+    // Initialize notification system first
+    notificationManager = new NotificationManager();
+    window.notificationManager = notificationManager;
+
     // Check authentication
     const auth = getAuthState();
     if (!isAuthenticated()) {
@@ -23,8 +30,21 @@ async function initializeInventorySystem() {
     // Initialize filter events
     initializeFilterEvents();
 
-    // Load initial data
-    await loadInventoryData();
+    // Load initial data with notification
+    const loadingId = notificationManager.loadingData(
+        "Đang khởi tạo hệ thống...",
+    );
+    try {
+        await loadInventoryData();
+        notificationManager.remove(loadingId);
+        notificationManager.success("Hệ thống đã sẵn sàng!", 2000);
+    } catch (error) {
+        notificationManager.remove(loadingId);
+        notificationManager.error(
+            "Lỗi khởi tạo hệ thống: " + error.message,
+            4000,
+        );
+    }
 
     // Set up event listeners for buttons
     setupEventListeners();

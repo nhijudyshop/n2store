@@ -35,7 +35,7 @@ const MENU_CONFIG = [
     {
         href: "../hangrotxa/index.html",
         icon: "clipboard-list",
-        text: "Hàng Rơi - Xả",
+        text: "Hàng Rớt - Xả",
         pageIdentifier: "hangrotxa",
         permissionRequired: "hangrotxa",
     },

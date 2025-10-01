@@ -164,10 +164,12 @@ function updateFilterOptions(fullDataArray) {
     // Can be kept empty or removed
 }
 
-const debouncedApplyFilters = debounce(() => {
+// FIXED: Use Utils.debounce instead of debounce
+const debouncedApplyFilters = Utils.debounce(() => {
     if (isFilteringInProgress) return;
     isFilteringInProgress = true;
-    showFloatingAlert("Đang lọc dữ liệu...", true);
+
+    const notifId = notifyManager.processing("Đang lọc dữ liệu...");
 
     setTimeout(() => {
         try {
@@ -177,12 +179,12 @@ const debouncedApplyFilters = debounce(() => {
             } else {
                 loadInventoryData();
             }
-            hideFloatingAlert();
-            showFloatingAlert("Lọc dữ liệu hoàn tất!", false, 1000);
+            notifyManager.remove(notifId);
+            notifyManager.success("Lọc dữ liệu hoàn tất!", 1500);
         } catch (error) {
             console.error("Error during filtering:", error);
-            hideFloatingAlert();
-            showFloatingAlert("Có lỗi xảy ra khi lọc dữ liệu", false, 3000);
+            notifyManager.remove(notifId);
+            notifyManager.error("Có lỗi xảy ra khi lọc dữ liệu");
         } finally {
             isFilteringInProgress = false;
         }
@@ -234,9 +236,10 @@ function initializeFilterEvents() {
     }
 
     if (filterProductInput) {
+        // FIXED: Use Utils.debounce
         filterProductInput.addEventListener(
             "input",
-            debounce(applyFilters, 300),
+            Utils.debounce(applyFilters, 300),
         );
     }
 }

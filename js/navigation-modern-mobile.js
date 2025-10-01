@@ -40,8 +40,8 @@ const MENU_CONFIG = [
     {
         href: "../hangrotxa/index.html",
         icon: "clipboard-list",
-        text: "Hàng Rơi - Xả",
-        shortText: "Rơi/Xả",
+        text: "Hàng Rớt - Xả",
+        shortText: "Rớt/Xả",
         pageIdentifier: "hangrotxa",
         permissionRequired: "hangrotxa",
     },
@@ -167,7 +167,10 @@ class MobileNavigationManager {
 
     detectDevice() {
         this.isMobile = window.innerWidth <= 768;
-        console.log("[Mobile Nav] Device type:", this.isMobile ? "Mobile" : "Desktop");
+        console.log(
+            "[Mobile Nav] Device type:",
+            this.isMobile ? "Mobile" : "Desktop",
+        );
     }
 
     handleResize() {
@@ -192,7 +195,7 @@ class MobileNavigationManager {
     async loadUserPermissions() {
         if (this.isAdmin) {
             this.userPermissions = MENU_CONFIG.map(
-                (item) => item.permissionRequired
+                (item) => item.permissionRequired,
             ).filter(Boolean);
             return;
         }
@@ -201,7 +204,10 @@ class MobileNavigationManager {
             const authData = localStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
-                if (userAuth.pagePermissions && Array.isArray(userAuth.pagePermissions)) {
+                if (
+                    userAuth.pagePermissions &&
+                    Array.isArray(userAuth.pagePermissions)
+                ) {
                     this.userPermissions = userAuth.pagePermissions;
                     return;
                 }
@@ -216,7 +222,7 @@ class MobileNavigationManager {
     getCurrentPageIdentifier() {
         const path = window.location.pathname;
         const sortedMenu = [...MENU_CONFIG].sort(
-            (a, b) => b.pageIdentifier.length - a.pageIdentifier.length
+            (a, b) => b.pageIdentifier.length - a.pageIdentifier.length,
         );
 
         for (const item of sortedMenu) {
@@ -232,7 +238,7 @@ class MobileNavigationManager {
     checkPageAccess() {
         if (!this.currentPage) return true;
         const pageInfo = MENU_CONFIG.find(
-            (item) => item.pageIdentifier === this.currentPage
+            (item) => item.pageIdentifier === this.currentPage,
         );
         if (!pageInfo) return true;
         if (pageInfo.publicAccess) return true;
@@ -372,13 +378,17 @@ class MobileNavigationManager {
                 </button>
             </div>
             <div class="mobile-menu-content">
-                ${accessiblePages.map((item) => `
+                ${accessiblePages
+                    .map(
+                        (item) => `
                     <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
                         <i data-lucide="${item.icon}"></i>
                         <span>${item.text}</span>
                         ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
                     </a>
-                `).join("")}
+                `,
+                    )
+                    .join("")}
             </div>
             <div class="mobile-menu-footer">
                 <button class="mobile-menu-action" id="mobileSettingsBtn">
@@ -424,7 +434,7 @@ class MobileNavigationManager {
 
     renderDesktopNavigation() {
         console.log("[Mobile Nav] Rendering desktop navigation...");
-        
+
         const sidebar = document.getElementById("sidebar");
         if (sidebar) {
             sidebar.style.display = "";
@@ -770,12 +780,18 @@ class MobileNavigationManager {
 
         const userName = document.getElementById("userName");
         if (userName) {
-            userName.textContent = userInfo.displayName || userInfo.username || "User";
+            userName.textContent =
+                userInfo.displayName || userInfo.username || "User";
         }
 
         const userRole = document.querySelector(".user-role");
         if (userRole) {
-            const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
+            const roleMap = {
+                0: "Admin",
+                1: "Manager",
+                3: "Staff",
+                777: "Guest",
+            };
             const checkLogin = localStorage.getItem("checkLogin");
             userRole.textContent = roleMap[checkLogin] || "User";
         }
@@ -784,7 +800,9 @@ class MobileNavigationManager {
     setupEventListeners() {
         const mobileMenuBtn = document.getElementById("mobileMenuBtn");
         if (mobileMenuBtn) {
-            mobileMenuBtn.addEventListener("click", () => this.showMobileMenu());
+            mobileMenuBtn.addEventListener("click", () =>
+                this.showMobileMenu(),
+            );
         }
     }
 
@@ -798,7 +816,10 @@ class MobileNavigationManager {
 
     applyFontSize(size) {
         const limitedSize = Math.max(12, Math.min(20, size));
-        document.documentElement.style.setProperty("--base-font-size", `${limitedSize}px`);
+        document.documentElement.style.setProperty(
+            "--base-font-size",
+            `${limitedSize}px`,
+        );
         document.body.style.fontSize = `${limitedSize}px`;
     }
 
@@ -818,7 +839,7 @@ class MobileNavigationManager {
 
     showAccessDenied() {
         const pageInfo = MENU_CONFIG.find(
-            (item) => item.pageIdentifier === this.currentPage
+            (item) => item.pageIdentifier === this.currentPage,
         );
         const pageName = pageInfo ? pageInfo.text : this.currentPage;
 
