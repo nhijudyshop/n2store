@@ -2,12 +2,12 @@
 // CONFIGURATION
 // =====================================================
 const CONFIG = {
-    CACHE_EXPIRY: 10 * 60 * 1000,
+    CACHE_EXPIRY: 30 * 60 * 1000,
     MAX_CONCURRENT_LOADS: 4,
     BATCH_SIZE: 3,
-    MAX_IMAGE_SIZE: 600, // Giảm từ 800 xuống 600px
-    IMAGE_QUALITY: 0.7, // Giảm từ 0.8 xuống 0.7
-    UNIFORM_SIZE: 600, // Thêm: Kích thước chuẩn cho tất cả ảnh
+    MAX_IMAGE_SIZE: 600,
+    IMAGE_QUALITY: 0.7,
+    UNIFORM_SIZE: 600,
     SESSION_TIMEOUT: 24 * 60 * 60 * 1000,
     LAZY_LOAD_MARGIN: "50px 0px 100px 0px",
     ui: {
@@ -110,12 +110,13 @@ class AuthManager {
 }
 
 // =====================================================
-// CACHE MANAGER
+// ENHANCED CACHE MANAGER
 // =====================================================
 class CacheManager {
     constructor() {
         this.cache = new Map();
         this.maxAge = CONFIG.CACHE_EXPIRY;
+        this.stats = { hits: 0, misses: 0 };
     }
 
     set(key, value, type = "general") {
@@ -131,8 +132,19 @@ class CacheManager {
     get(key, type = "general") {
         const cacheKey = `${type}_${key}`;
         const cached = this.cache.get(cacheKey);
-        if (cached && cached.expires > Date.now()) return cached.value;
-        if (cached) this.cache.delete(cacheKey);
+
+        if (cached && cached.expires > Date.now()) {
+            this.stats.hits++;
+            console.log(`✓ Cache HIT: ${cacheKey}`);
+            return cached.value;
+        }
+
+        if (cached) {
+            this.cache.delete(cacheKey);
+        }
+
+        this.stats.misses++;
+        console.log(`✗ Cache MISS: ${cacheKey} - Sẽ tải từ Firebase`);
         return null;
     }
 
@@ -144,10 +156,52 @@ class CacheManager {
         } else {
             this.cache.clear();
         }
+        this.stats = { hits: 0, misses: 0 };
+    }
+
+    cleanExpired() {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [key, value] of this.cache.entries()) {
+            if (value.expires <= now) {
+                this.cache.delete(key);
+                cleaned++;
+            }
+        }
+        return cleaned;
+    }
+
+    invalidateBatch(batchName) {
+        let invalidated = 0;
+        for (const [key] of this.cache.entries()) {
+            if (key.includes(`live/${batchName}`)) {
+                this.cache.delete(key);
+                invalidated++;
+            }
+        }
+        console.log(
+            `Invalidated ${invalidated} cache entries for batch: ${batchName}`,
+        );
+        return invalidated;
+    }
+
+    getStats() {
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate =
+            total > 0 ? ((this.stats.hits / total) * 100).toFixed(1) : 0;
+
+        return {
+            size: this.cache.size,
+            hits: this.stats.hits,
+            misses: this.stats.misses,
+            hitRate: `${hitRate}%`,
+        };
     }
 
     invalidate() {
-        this.clear();
+        const cleaned = this.cleanExpired();
+        const stats = this.getStats();
+        console.log(`Cache cleaned: ${cleaned} expired entries. Stats:`, stats);
     }
 }
 
@@ -185,16 +239,29 @@ class FirebaseManager {
     async listFolder(path) {
         const cacheKey = `folder_${path}`;
         const cached = cacheManager.get(cacheKey, "folders");
-        if (cached) return cached;
+        if (cached) {
+            console.log(`📦 Sử dụng cache cho folder: ${path}`);
+            return cached;
+        }
 
+        console.log(`☁️ Tải từ Firebase: ${path}`);
         try {
             const result = await this.getStorageRef().child(path).listAll();
+
             const folderData = {
-                items: result.items,
-                prefixes: result.prefixes,
+                items: result.items.map((ref) => ({
+                    fullPath: ref.fullPath,
+                    name: ref.name,
+                })),
+                prefixes: result.prefixes.map((ref) => ({
+                    fullPath: ref.fullPath,
+                    name: ref.name,
+                })),
                 path,
             };
+
             cacheManager.set(cacheKey, folderData, "folders");
+            console.log(`💾 Đã lưu vào cache: ${path}`);
             return folderData;
         } catch (error) {
             console.error(`Error listing ${path}:`, error);
@@ -202,17 +269,21 @@ class FirebaseManager {
         }
     }
 
-    async getImageUrl(imageRef) {
-        const cacheKey = `url_${imageRef.fullPath}`;
+    async getImageUrl(imagePath) {
+        const cacheKey = `url_${imagePath}`;
         const cached = cacheManager.get(cacheKey, "urls");
-        if (cached) return cached;
+        if (cached) {
+            return cached;
+        }
 
         try {
+            const imageRef = this.getStorageRef().child(imagePath);
             const url = await imageRef.getDownloadURL();
+
             cacheManager.set(cacheKey, url, "urls");
             return url;
         } catch (error) {
-            console.error(`Error getting URL:`, error);
+            console.error(`Error getting URL for ${imagePath}:`, error);
             return null;
         }
     }
@@ -303,6 +374,11 @@ class LazyLoadManager {
     }
 
     queueImageLoad(img, priority = 1) {
+        if (!img.dataset.src) {
+            console.warn("Skipping image with no URL set");
+            return;
+        }
+
         const imageData = {
             element: img,
             url: img.dataset.src,
@@ -381,13 +457,6 @@ class LazyLoadManager {
 // IMAGE UTILITIES
 // =====================================================
 class ImageUtils {
-    /**
-     * Nén và chuẩn hóa ảnh thành kích thước vuông cố định
-     * @param {File} file - File ảnh gốc
-     * @param {number} targetSize - Kích thước đích (vuông)
-     * @param {number} quality - Chất lượng nén (0-1)
-     * @returns {Promise<File>} - File ảnh đã nén
-     */
     static async compressImage(
         file,
         targetSize = CONFIG.UNIFORM_SIZE,
@@ -403,11 +472,9 @@ class ImageUtils {
                     const canvas = document.createElement("canvas");
                     const ctx = canvas.getContext("2d");
 
-                    // Đặt canvas thành kích thước vuông cố định
                     canvas.width = targetSize;
                     canvas.height = targetSize;
 
-                    // Tính toán để crop ảnh về dạng vuông (cover mode)
                     const scale = Math.max(
                         targetSize / img.width,
                         targetSize / img.height,
@@ -419,15 +486,12 @@ class ImageUtils {
                     const offsetX = (targetSize - scaledWidth) / 2;
                     const offsetY = (targetSize - scaledHeight) / 2;
 
-                    // Cải thiện chất lượng render
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = "high";
 
-                    // Vẽ ảnh với background trắng (tránh transparent)
                     ctx.fillStyle = "#FFFFFF";
                     ctx.fillRect(0, 0, targetSize, targetSize);
 
-                    // Vẽ ảnh đã scale lên canvas
                     ctx.drawImage(
                         img,
                         offsetX,
@@ -436,13 +500,12 @@ class ImageUtils {
                         scaledHeight,
                     );
 
-                    // Chuyển về blob với compression
                     canvas.toBlob(
                         (blob) => {
                             const compressedFile = new File(
                                 [blob],
-                                file.name.replace(/\.[^/.]+$/, ".jpg"), // Đổi sang .jpg
-                                { type: "image/jpeg" }, // Force JPEG để nén tốt hơn
+                                file.name.replace(/\.[^/.]+$/, ".jpg"),
+                                { type: "image/jpeg" },
                             );
 
                             console.log(
@@ -450,7 +513,7 @@ class ImageUtils {
                             );
                             resolve(compressedFile);
                         },
-                        "image/jpeg", // Luôn dùng JPEG
+                        "image/jpeg",
                         quality,
                     );
                 };
@@ -459,17 +522,18 @@ class ImageUtils {
     }
 
     static createLazyImageElement(url, priority = "normal") {
-        // Tạo wrapper div để CSS aspect-ratio hoạt động
         const wrapper = document.createElement("div");
         wrapper.className = "image-item";
 
         const img = document.createElement("img");
         img.className = "product-image lazy-image";
-        img.dataset.src = url;
+        if (url) {
+            img.dataset.src = url;
+        }
         img.alt = "Đang tải...";
 
         wrapper.appendChild(img);
-        return wrapper; // Trả về wrapper, không phải img
+        return wrapper;
     }
 }
 
@@ -622,7 +686,6 @@ class ImageManagementApp {
     }
 
     setupEventListeners() {
-        // Upload form
         const uploadForm = document.getElementById("uploadForm");
         if (uploadForm) {
             uploadForm.addEventListener("submit", (e) =>
@@ -630,7 +693,6 @@ class ImageManagementApp {
             );
         }
 
-        // File upload area
         const fileUploadArea = document.getElementById("fileUploadArea");
         const imageFileInput = document.getElementById("imageFileInput");
         if (fileUploadArea && imageFileInput) {
@@ -642,13 +704,11 @@ class ImageManagementApp {
             );
         }
 
-        // Filter change
         const liveBatchFilter = document.getElementById("liveBatchFilter");
         if (liveBatchFilter) {
             liveBatchFilter.addEventListener("change", () => this.loadImages());
         }
 
-        // Category tabs
         document.querySelectorAll(".tab-btn").forEach((btn) => {
             btn.addEventListener("click", (e) => {
                 document
@@ -660,7 +720,6 @@ class ImageManagementApp {
             });
         });
 
-        // Buttons
         document
             .getElementById("btnShowUpload")
             ?.addEventListener("click", () => {
@@ -690,13 +749,15 @@ class ImageManagementApp {
         document
             .getElementById("btnClearCache")
             ?.addEventListener("click", () => {
-                if (confirm("Xóa cache?")) {
-                    cacheManager.invalidate();
+                if (confirm("Xóa toàn bộ cache và tải lại từ Firebase?")) {
+                    cacheManager.clear();
+                    const stats = cacheManager.getStats();
                     notificationManager.success(
-                        "Cache đã được xóa!",
-                        2000,
+                        `Cache đã được xóa! Stats: ${stats.hitRate} hit rate`,
+                        3000,
                         "Thành công",
                     );
+                    setTimeout(() => this.loadImages(), 500);
                 }
             });
 
@@ -704,14 +765,11 @@ class ImageManagementApp {
             .getElementById("btnDelete")
             ?.addEventListener("click", () => this.handleDelete());
 
-        // Note: btnLogout is handled by navigation-modern.js
-
         document.getElementById("btnReset")?.addEventListener("click", () => {
             document.getElementById("uploadForm")?.reset();
             document.getElementById("filePreview").innerHTML = "";
         });
 
-        // Sidebar toggle
         document.getElementById("menuToggle")?.addEventListener("click", () => {
             document.getElementById("sidebar")?.classList.toggle("active");
         });
@@ -774,12 +832,12 @@ class ImageManagementApp {
                 );
                 uploaded++;
 
-                // Update progress
                 notificationManager.remove(notifId);
                 notifId = notificationManager.uploading(uploaded, files.length);
             }
 
-            cacheManager.invalidate();
+            cacheManager.invalidateBatch(liveBatch);
+
             notificationManager.clearAll();
             notificationManager.success(
                 `Đã tải lên ${uploaded} ảnh thành công!`,
@@ -832,7 +890,8 @@ class ImageManagementApp {
             notificationManager.remove(notifId);
 
             if (result.success) {
-                cacheManager.invalidate();
+                cacheManager.invalidateBatch(selectedBatch);
+
                 notificationManager.success(
                     `Đã xóa ${result.deletedCount} file thành công!`,
                     3000,
@@ -891,11 +950,11 @@ class ImageManagementApp {
         imageGrid.innerHTML = "";
         this.lazyLoader.resetProgress();
 
-        const notifId = notificationManager.loadingData(
-            "Đang tải ảnh từ server...",
-        );
+        let notifId = notificationManager.loadingData("Đang quét thư mục...");
 
         try {
+            console.log("=== BẮT ĐẦU TẢI ẢNH ===");
+
             const liveFolder = await this.firebase.listFolder("live/");
             const batches =
                 selectedBatch === "all"
@@ -903,32 +962,88 @@ class ImageManagementApp {
                     : [selectedBatch];
 
             let totalImages = 0;
+            const imageDataList = [];
 
+            // BƯỚC 1: Thu thập tất cả thông tin ảnh
             for (const batch of batches) {
                 for (const cat of this.categories) {
                     const path = `live/${batch}/${this.getCategoryPath(cat)}/`;
                     const folder = await this.firebase.listFolder(path);
 
-                    for (const imageRef of folder.items) {
-                        const url = await this.firebase.getImageUrl(imageRef);
-                        if (url) {
-                            const wrapper =
-                                ImageUtils.createLazyImageElement(url);
-                            wrapper.dataset.category = cat;
-                            imageGrid.appendChild(wrapper);
+                    for (const item of folder.items) {
+                        const imagePath = item.fullPath;
 
-                            // SỬA: Observe thẻ img bên trong wrapper, không phải wrapper
-                            const imgElement =
-                                wrapper.querySelector(".product-image");
-                            if (imgElement) {
-                                this.lazyLoader.observe(imgElement);
-                            }
+                        const wrapper = ImageUtils.createLazyImageElement(null);
+                        wrapper.dataset.category = cat;
+                        wrapper.dataset.imagePath = imagePath;
+                        imageGrid.appendChild(wrapper);
 
-                            totalImages++;
+                        const imgElement =
+                            wrapper.querySelector(".product-image");
+                        if (imgElement) {
+                            imageDataList.push({
+                                element: imgElement,
+                                path: imagePath,
+                            });
                         }
+
+                        totalImages++;
                     }
                 }
             }
+
+            console.log(`📊 Tổng số ảnh: ${totalImages}`);
+
+            // BƯỚC 2: Tải URLs với tracking tiến trình
+            let loadedCount = 0;
+
+            notificationManager.remove(notifId);
+            notifId = notificationManager.loadingData(
+                `Đang tải URL: 0/${totalImages} (0%)`,
+            );
+
+            // Tải từng URL và cập nhật tiến trình
+            const urlPromises = imageDataList.map(async (imageData) => {
+                try {
+                    const url = await this.firebase.getImageUrl(imageData.path);
+                    if (url) {
+                        imageData.element.dataset.src = url;
+                    }
+
+                    loadedCount++;
+                    const percent = Math.round(
+                        (loadedCount / totalImages) * 100,
+                    );
+
+                    // Cập nhật notification mỗi 5 ảnh hoặc khi hoàn thành
+                    if (loadedCount % 5 === 0 || loadedCount === totalImages) {
+                        notificationManager.remove(notifId);
+                        notifId = notificationManager.loadingData(
+                            `Đang tải URL: ${loadedCount}/${totalImages} (${percent}%)`,
+                        );
+                    }
+                } catch (error) {
+                    console.error("Error loading URL:", error);
+                    imageData.element.classList.add("lazy-error");
+                }
+            });
+
+            await Promise.allSettled(urlPromises);
+
+            console.log("✅ Đã tải xong tất cả URLs");
+
+            // BƯỚC 3: Observe tất cả images
+            notificationManager.remove(notifId);
+            notifId = notificationManager.loadingData("Đang hiển thị ảnh...");
+
+            const allImages = imageGrid.querySelectorAll(".product-image");
+            allImages.forEach((img) => {
+                if (img.dataset.src) {
+                    this.lazyLoader.observe(img);
+                }
+            });
+
+            console.log(`👁️ Đã observe ${allImages.length} ảnh`);
 
             document.getElementById("statTotalImages").textContent =
                 totalImages;
@@ -936,11 +1051,16 @@ class ImageManagementApp {
             this.filterImagesByCategory();
 
             notificationManager.remove(notifId);
+
+            const stats = cacheManager.getStats();
             notificationManager.success(
-                `Đã tải ${totalImages} ảnh`,
+                `Đã tải ${totalImages} ảnh (Cache: ${stats.hitRate})`,
                 2000,
-                "Tải dữ liệu",
+                "Hoàn tất",
             );
+
+            console.log("=== KẾT THÚC TẢI ẢNH ===");
+            console.log("📈 Cache Stats:", stats);
         } catch (error) {
             console.error("Load error:", error);
             notificationManager.remove(notifId);
@@ -963,13 +1083,13 @@ class ImageManagementApp {
     }
 
     filterImagesByCategory() {
-        const images = document.querySelectorAll(".product-image");
-        images.forEach((img) => {
+        const images = document.querySelectorAll(".image-item");
+        images.forEach((item) => {
             if (this.currentCategory === "all") {
-                img.style.display = "block";
+                item.style.display = "block";
             } else {
-                img.style.display =
-                    img.dataset.category === this.currentCategory
+                item.style.display =
+                    item.dataset.category === this.currentCategory
                         ? "block"
                         : "none";
             }
@@ -987,14 +1107,12 @@ let uiManager;
 let app;
 
 document.addEventListener("DOMContentLoaded", function () {
-    // Initialize managers in order
     notificationManager = new NotificationManager();
     authManager = new AuthManager();
     cacheManager = new CacheManager();
     uiManager = new UIManager();
     app = new ImageManagementApp();
 
-    // Initialize Lucide icons
     if (typeof lucide !== "undefined") {
         lucide.createIcons();
     }
