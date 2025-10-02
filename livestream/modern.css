@@ -1003,7 +1003,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-    background: #f8f9fa !important;
+    background: white !important;
 }
 
 /* Date Group Separation - Thicker border between dates */
@@ -1113,7 +1113,7 @@ tbody tr.first-row-of-date td.date-cell {
    ===================================================== */
 
 tbody td.inbox-cell {
-    background: #fafafa;
+    background: white;
     border-left: 2px solid #dee2e6 !important;
     font-weight: 600;
 }
