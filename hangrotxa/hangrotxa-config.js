@@ -14,7 +14,7 @@ const firebaseConfig = {
 };
 
 // Cache configuration
-const CACHE_EXPIRY = 24 * 60 * 60 * 1000,
+const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 const BATCH_SIZE = 50;
 const MAX_VISIBLE_ROWS = 500;
 const FILTER_DEBOUNCE_DELAY = 300;
