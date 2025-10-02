@@ -1,3 +1,158 @@
+// =====================================================
+// CACHE MANAGER - Persistent Storage System
+// =====================================================
+class CacheManager {
+    constructor(config = {}) {
+        this.cache = new Map();
+        this.maxAge = config.CACHE_EXPIRY || 30 * 60 * 1000;
+        this.stats = { hits: 0, misses: 0 };
+        this.storageKey = config.storageKey || "n2shop_auth_cache";
+        this.saveTimeout = null;
+        this.loadFromStorage();
+    }
+
+    saveToStorage() {
+        try {
+            const cacheData = Array.from(this.cache.entries());
+            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+            console.log(`💾 Đã lưu ${cacheData.length} items vào cache`);
+        } catch (error) {
+            console.warn("Không thể lưu cache:", error);
+        }
+    }
+
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return;
+
+            const cacheData = JSON.parse(stored);
+            const now = Date.now();
+            let validCount = 0;
+
+            cacheData.forEach(([key, value]) => {
+                if (value.expires > now) {
+                    this.cache.set(key, value);
+                    validCount++;
+                }
+            });
+
+            console.log(`📦 Đã load ${validCount} items từ cache`);
+        } catch (error) {
+            console.warn("Không thể load cache:", error);
+        }
+    }
+
+    debouncedSave() {
+        if (this.saveTimeout) clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+            this.saveToStorage();
+        }, 2000);
+    }
+
+    set(key, value, type = "general") {
+        const cacheKey = `${type}_${key}`;
+        this.cache.set(cacheKey, {
+            value,
+            timestamp: Date.now(),
+            expires: Date.now() + this.maxAge,
+            type,
+        });
+        this.debouncedSave();
+    }
+
+    get(key, type = "general") {
+        const cacheKey = `${type}_${key}`;
+        const cached = this.cache.get(cacheKey);
+
+        if (cached && cached.expires > Date.now()) {
+            this.stats.hits++;
+            console.log(`✔ Cache HIT: ${cacheKey}`);
+            return cached.value;
+        }
+
+        if (cached) {
+            this.cache.delete(cacheKey);
+        }
+
+        this.stats.misses++;
+        console.log(`✗ Cache MISS: ${cacheKey}`);
+        return null;
+    }
+
+    clear(type = null) {
+        if (type) {
+            for (const [key, value] of this.cache.entries()) {
+                if (value.type === type) this.cache.delete(key);
+            }
+        } else {
+            this.cache.clear();
+            localStorage.removeItem(this.storageKey);
+        }
+        this.stats = { hits: 0, misses: 0 };
+        this.saveToStorage();
+    }
+
+    cleanExpired() {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [key, value] of this.cache.entries()) {
+            if (value.expires <= now) {
+                this.cache.delete(key);
+                cleaned++;
+            }
+        }
+        if (cleaned > 0) {
+            this.saveToStorage();
+            console.log(`🧹 Đã xóa ${cleaned} cache entries hết hạn`);
+        }
+        return cleaned;
+    }
+
+    invalidatePattern(pattern) {
+        let invalidated = 0;
+        for (const [key] of this.cache.entries()) {
+            if (key.includes(pattern)) {
+                this.cache.delete(key);
+                invalidated++;
+            }
+        }
+        this.saveToStorage();
+        console.log(
+            `Invalidated ${invalidated} cache entries matching: ${pattern}`,
+        );
+        return invalidated;
+    }
+
+    getStats() {
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate =
+            total > 0 ? ((this.stats.hits / total) * 100).toFixed(1) : 0;
+
+        return {
+            size: this.cache.size,
+            hits: this.stats.hits,
+            misses: this.stats.misses,
+            hitRate: `${hitRate}%`,
+            storageSize: this.getStorageSize(),
+        };
+    }
+
+    getStorageSize() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return "0 KB";
+            const sizeKB = (stored.length / 1024).toFixed(2);
+            return `${sizeKB} KB`;
+        } catch {
+            return "N/A";
+        }
+    }
+}
+
+// =====================================================
+// MAIN LOGIN SYSTEM
+// =====================================================
 document.addEventListener("DOMContentLoaded", function () {
     const firebaseConfig = {
         apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
@@ -13,18 +168,24 @@ document.addEventListener("DOMContentLoaded", function () {
     const db = firebase.firestore();
     const auth = firebase.auth();
 
+    // Initialize Cache Manager
+    const authCache = new CacheManager({
+        storageKey: "n2shop_auth_cache",
+        CACHE_EXPIRY: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
     // Enhanced authentication configuration
     const AUTH_CONFIG = {
-        SESSION_DURATION: 8 * 60 * 60 * 1000, // 8 hours for regular session
-        REMEMBER_DURATION: 30 * 24 * 60 * 60 * 1000, // 30 days for "remember me"
+        SESSION_DURATION: 8 * 60 * 60 * 1000,
+        REMEMBER_DURATION: 30 * 24 * 60 * 60 * 1000,
         MAX_LOGIN_ATTEMPTS: 5,
-        LOCKOUT_DURATION: 5 * 60 * 1000, // 5 minutes lockout
+        LOCKOUT_DURATION: 5 * 60 * 1000,
     };
 
     // Cache DOM elements
     const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
-    const rememberMeCheckbox = document.getElementById("rememberMe"); // New element
+    const rememberMeCheckbox = document.getElementById("rememberMe");
     const loginButton = document.getElementById("loginButton");
     const errorMessage = document.getElementById("errorMessage");
     const successMessage = document.getElementById("successMessage");
@@ -32,6 +193,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // Security: Rate limiting
     let loginAttempts = 0;
     let lastAttemptTime = 0;
+
+    // Clean expired cache on initialization
+    setTimeout(() => {
+        authCache.cleanExpired();
+        console.log("Cache stats:", authCache.getStats());
+    }, 2000);
 
     // Enhanced login handler
     async function handleLogin() {
@@ -63,19 +230,30 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         try {
-            // Step 1: Check user exists in Firestore
-            const userDocRef = db.collection("users").doc(username);
-            const userDoc = await userDocRef.get();
+            // Check cache first
+            const cachedUser = authCache.get(username, "user");
+            let userData;
 
-            if (!userDoc.exists) {
-                console.log("User not found in Firebase");
-                handleFailedLogin();
-                return;
+            if (cachedUser) {
+                console.log("✔ Sử dụng user data từ cache");
+                userData = cachedUser;
+            } else {
+                console.log("⚡ Fetching user data từ Firestore");
+                const userDocRef = db.collection("users").doc(username);
+                const userDoc = await userDocRef.get();
+
+                if (!userDoc.exists) {
+                    console.log("User not found in Firebase");
+                    handleFailedLogin();
+                    return;
+                }
+
+                userData = userDoc.data();
+                // Cache user data
+                authCache.set(username, userData, "user");
             }
 
-            const userData = userDoc.data();
-
-            // Step 2: Verify password
+            // Verify password
             let passwordMatch = await verifyUserPassword(password, userData);
 
             if (!passwordMatch) {
@@ -84,7 +262,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            // Step 3: Firebase Auth login
+            // Firebase Auth login
             let authResult;
             if (auth.currentUser) {
                 authResult = { user: auth.currentUser };
@@ -94,7 +272,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 console.log("Created new Firebase Auth session");
             }
 
-            // Step 4: Update auth_users collection
+            // Update auth_users collection
             try {
                 const authUserRef = db
                     .collection("auth_users")
@@ -125,7 +303,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             console.log("Firebase Auth successful:", authResult.user.uid);
 
-            // Step 5: Save session with remember me option
+            // Save session with cache
             await handleSuccessfulLogin(
                 username,
                 {
@@ -191,7 +369,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return false;
     }
 
-    // Enhanced successful login handler with remember me
+    // Enhanced successful login handler with cache
     async function handleSuccessfulLogin(
         username,
         userInfo,
@@ -200,33 +378,56 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             loginAttempts = 0;
 
-            // Load user permissions
+            // Load user permissions (with cache)
             let userPermissions = [];
-            try {
-                const userDocRef = db.collection("users").doc(username);
-                const userDoc = await userDocRef.get();
+            const cachedPermissions = authCache.get(
+                `${username}_permissions`,
+                "permissions",
+            );
 
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    userPermissions = userData.pagePermissions || [];
-                    console.log("User permissions loaded:", userPermissions);
-                }
-            } catch (error) {
-                console.error("Error loading user permissions:", error);
-                if (userInfo.checkLogin === "0" || userInfo.checkLogin === 0) {
-                    userPermissions = [
-                        "live",
-                        "livestream",
-                        "nhanhang",
-                        "hangrotxa",
-                        "ib",
-                        "ck",
-                        "hanghoan",
-                        "hangdat",
-                        "bangkiemhang",
-                        "user-management",
-                        "history",
-                    ];
+            if (cachedPermissions) {
+                console.log("✔ Sử dụng permissions từ cache");
+                userPermissions = cachedPermissions;
+            } else {
+                console.log("⚡ Fetching permissions từ Firestore");
+                try {
+                    const userDocRef = db.collection("users").doc(username);
+                    const userDoc = await userDocRef.get();
+
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        userPermissions = userData.pagePermissions || [];
+                        // Cache permissions
+                        authCache.set(
+                            `${username}_permissions`,
+                            userPermissions,
+                            "permissions",
+                        );
+                        console.log(
+                            "User permissions loaded:",
+                            userPermissions,
+                        );
+                    }
+                } catch (error) {
+                    console.error("Error loading user permissions:", error);
+                    if (
+                        userInfo.checkLogin === "0" ||
+                        userInfo.checkLogin === 0
+                    ) {
+                        userPermissions = [
+                            "live",
+                            "livestream",
+                            "nhanhang",
+                            "hangrotxa",
+                            "ib",
+                            "ck",
+                            "hanghoan",
+                            "hangdat",
+                            "bangkiemhang",
+                            "user-management",
+                            "history",
+                        ];
+                    }
                 }
             }
 
@@ -250,15 +451,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 isRemembered: rememberMe,
             };
 
-            // Save to appropriate storage based on remember me option
             const authDataString = JSON.stringify(authData);
 
             if (rememberMe) {
-                // Save to localStorage for persistent login (30 days)
                 localStorage.setItem("loginindex_auth", authDataString);
                 localStorage.setItem("remember_login_preference", "true");
-
-                // Also save legacy format for compatibility
                 localStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem(
                     "userType",
@@ -268,24 +465,23 @@ document.addEventListener("DOMContentLoaded", function () {
                     "checkLogin",
                     userInfo.checkLogin.toString(),
                 );
-
-                // Clear from sessionStorage if exists
                 sessionStorage.removeItem("loginindex_auth");
 
+                // Cache session data
+                authCache.set("current_session", authData, "session");
                 console.log(
                     "Session saved to localStorage (persistent for 30 days)",
                 );
             } else {
-                // Save to sessionStorage for session-only login
                 sessionStorage.setItem("loginindex_auth", authDataString);
-
-                // Clear from localStorage
                 localStorage.removeItem("loginindex_auth");
                 localStorage.removeItem("remember_login_preference");
                 localStorage.removeItem("isLoggedIn");
                 localStorage.removeItem("userType");
                 localStorage.removeItem("checkLogin");
 
+                // Cache session data
+                authCache.set("current_session", authData, "session");
                 console.log("Session saved to sessionStorage (session only)");
             }
 
@@ -296,7 +492,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 `Đăng nhập thành công! Chào mừng ${userInfo.displayName}. Sẽ giữ đăng nhập trong ${durationText}.`,
             );
 
-            // Delay redirect to ensure data is saved
+            // Log cache stats
+            console.log("📊 Cache statistics:", authCache.getStats());
+
             setTimeout(() => {
                 redirectToMainApp();
             }, 1500);
@@ -316,13 +514,11 @@ document.addEventListener("DOMContentLoaded", function () {
             ? AUTH_CONFIG.REMEMBER_DURATION
             : AUTH_CONFIG.SESSION_DURATION;
 
-        // Check if session has expired
         if (sessionAge > maxDuration) {
             console.log("Session expired due to age");
             return false;
         }
 
-        // Check explicit expiry if exists
         if (authData.expiresAt && now > authData.expiresAt) {
             console.log("Session expired due to explicit expiry");
             return false;
@@ -331,15 +527,28 @@ document.addEventListener("DOMContentLoaded", function () {
         return true;
     }
 
-    // Enhanced existing login check
+    // Enhanced existing login check with cache
     function checkExistingLogin() {
-        // Check localStorage first (for remembered logins)
+        // Check cache first
+        const cachedSession = authCache.get("current_session", "session");
+        if (
+            cachedSession &&
+            isValidSession(cachedSession, cachedSession.isRemembered)
+        ) {
+            console.log("✔ Sử dụng session từ cache");
+            showSuccess(`Chào mừng trở lại, ${cachedSession.displayName}`);
+            setTimeout(() => {
+                redirectToMainApp();
+            }, 1000);
+            return true;
+        }
+
+        // Check localStorage
         let authData = localStorage.getItem("loginindex_auth");
         let isFromLocalStorage = true;
         let isRemembered =
             localStorage.getItem("remember_login_preference") === "true";
 
-        // If not in localStorage, check sessionStorage
         if (!authData) {
             authData = sessionStorage.getItem("loginindex_auth");
             isFromLocalStorage = false;
@@ -354,6 +563,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     console.log(
                         `Valid ${isRemembered ? "persistent" : "session"} found, redirecting...`,
                     );
+
+                    // Cache valid session
+                    authCache.set("current_session", auth, "session");
 
                     const sessionTypeText = isRemembered
                         ? "đăng nhập dài hạn"
@@ -376,31 +588,32 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // Check legacy format for backward compatibility
         const legacyLogin = localStorage.getItem("isLoggedIn");
         if (legacyLogin === "true") {
             console.log("Found legacy session, migrating...");
-            // Could migrate here or just clear legacy data
             clearAllAuthData();
         }
 
         return false;
     }
 
-    // Clear all authentication data
+    // Clear all authentication data including cache
     function clearAllAuthData() {
-        // Clear enhanced auth data
+        // Clear cache
+        authCache.clear("session");
+        authCache.clear("user");
+        authCache.clear("permissions");
+
+        // Clear storage
         localStorage.removeItem("loginindex_auth");
         localStorage.removeItem("remember_login_preference");
         sessionStorage.removeItem("loginindex_auth");
-
-        // Clear legacy auth data
         localStorage.removeItem("isLoggedIn");
         localStorage.removeItem("userType");
         localStorage.removeItem("checkLogin");
-
-        // Clear session markers
         sessionStorage.removeItem("justLoggedIn");
+
+        console.log("🧹 Đã xóa tất cả auth data và cache");
     }
 
     // Rate limiting check
@@ -537,7 +750,6 @@ document.addEventListener("DOMContentLoaded", function () {
             passwordInput.addEventListener("keypress", handleKeyPress);
         }
 
-        // Handle remember me checkbox
         if (rememberMeCheckbox) {
             rememberMeCheckbox.addEventListener("change", function () {
                 const isChecked = this.checked;
@@ -561,10 +773,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Initialize the login system
     function initialize() {
-        console.log("Initializing enhanced login system...");
+        console.log("Initializing enhanced login system with cache...");
         setupEventListeners();
 
-        // Check for existing valid session
         setTimeout(() => {
             if (!checkExistingLogin()) {
                 console.log("No valid session, showing login form");
@@ -575,34 +786,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Start initialization
     initialize();
+
+    // Periodic cache cleanup (every 5 minutes)
+    setInterval(
+        () => {
+            const cleaned = authCache.cleanExpired();
+            if (cleaned > 0) {
+                console.log(
+                    `🧹 Auto cleanup: removed ${cleaned} expired entries`,
+                );
+            }
+        },
+        5 * 60 * 1000,
+    );
 });
-
-/*
-HTML Template for the checkbox (add this to your login form):
-
-<div class="form-group">
-    <label class="remember-me-container">
-        <input type="checkbox" id="rememberMe" name="rememberMe">
-        <span class="checkmark"></span>
-        Ghi nhớ đăng nhập (30 ngày)
-    </label>
-</div>
-
-CSS for styling (optional):
-.remember-me-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    color: #666;
-    cursor: pointer;
-}
-
-.remember-me-container input[type="checkbox"] {
-    margin: 0;
-}
-
-.remember-me-container:hover {
-    color: #333;
-}
-*/
