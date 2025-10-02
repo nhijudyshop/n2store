@@ -169,6 +169,7 @@
         align-items: center;
         gap: 10px;
         transition: all 0.3s ease;
+        cursor: default;
       }
 
       .progress-step.active {
@@ -179,6 +180,12 @@
       .progress-step.success {
         background: #e8f5e9;
         border-left-color: #4caf50;
+        cursor: pointer;
+      }
+
+      .progress-step.success:hover {
+        background: #c8e6c9;
+        transform: translateX(5px);
       }
 
       .progress-step.error {
@@ -188,6 +195,8 @@
 
       .step-icon {
         font-size: 20px;
+        min-width: 24px;
+        text-align: center;
       }
       .step-text {
         flex: 1;
@@ -238,6 +247,12 @@
         font-family: "Courier New", monospace;
         font-size: 13px;
         line-height: 1.6;
+      }
+
+      .detail-badge {
+        font-size: 11px;
+        color: #4caf50;
+        margin-left: auto;
       }
     </style>
   </head>
@@ -298,7 +313,7 @@
       </div>
 
       <div class="result" id="result">
-        <h2>✅ Kết quả cập nhật</h2>
+        <h2>✅ Chi tiết JSON</h2>
         <div class="json-container" id="resultContainer"></div>
       </div>
     </div>
@@ -313,6 +328,7 @@
 
       let excelFile = null;
       let imageFile = null;
+      const stepData = {};
 
       const headers = {
         accept: "application/json, text/plain, */*",
@@ -331,11 +347,30 @@
           reader.onerror = reject;
         });
 
-      const setStepStatus = (stepId, status) => {
+      const setStepStatus = (stepId, status, data = null) => {
         const step = $(stepId);
+        const stepText = step.querySelector(".step-text").textContent;
         step.className = `progress-step ${status}`;
+
         if (status === "active") {
-          step.innerHTML = `<div class="loader"></div><span class="step-text">${step.querySelector(".step-text").textContent}</span>`;
+          step.innerHTML = `<div class="loader"></div><span class="step-text">${stepText}</span>`;
+        } else if (status === "success") {
+          step.innerHTML = `<span class="step-icon">✅</span><span class="step-text">${stepText}</span><span class="detail-badge">👁️ Click xem chi tiết</span>`;
+          if (data) {
+            stepData[stepId] = data;
+            step.style.cursor = "pointer";
+            step.onclick = () => {
+              $("resultContainer").innerHTML =
+                `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+              show($("result"));
+              $("result").scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+              });
+            };
+          }
+        } else if (status === "error") {
+          step.innerHTML = `<span class="step-icon">❌</span><span class="step-text">${stepText}</span>`;
         }
       };
 
@@ -395,8 +430,8 @@
             },
           );
           if (!uploadRes.ok) throw new Error("Upload Excel thất bại");
-          setStepStatus("step1", "success");
-          await new Promise((r) => setTimeout(r, 500));
+          const uploadData = await uploadRes.json();
+          setStepStatus("step1", "success", uploadData);
 
           // Step 2: Get Product List
           setStepStatus("step2", "active");
@@ -416,7 +451,11 @@
             item.Id > max.Id ? item : max,
           );
           const productId = latestProduct.Id;
-          setStepStatus("step2", "success");
+          setStepStatus("step2", "success", {
+            productId,
+            latestProduct,
+            totalItems: items.length,
+          });
           await new Promise((r) => setTimeout(r, 500));
 
           // Step 3: Get Product Detail
@@ -430,13 +469,18 @@
           if (!detailRes.ok) throw new Error("Lấy chi tiết thất bại");
 
           const productDetail = await detailRes.json();
-          setStepStatus("step3", "success");
+          setStepStatus("step3", "success", productDetail);
           await new Promise((r) => setTimeout(r, 500));
 
           // Step 4: Process Image
           setStepStatus("step4", "active");
           const imageBase64 = await toBase64(imageFile);
-          setStepStatus("step4", "success");
+          setStepStatus("step4", "success", {
+            fileName: imageFile.name,
+            fileSize: imageFile.size,
+            fileType: imageFile.type,
+            base64Length: imageBase64.length,
+          });
           await new Promise((r) => setTimeout(r, 500));
 
           // Step 5: Update Product
@@ -454,11 +498,12 @@
           const result = await updateRes.json();
 
           if (updateRes.ok) {
-            setStepStatus("step5", "success");
+            setStepStatus("step5", "success", result);
             $("resultContainer").innerHTML =
               `<pre>${JSON.stringify(result, null, 2)}</pre>`;
             show($("result"));
           } else {
+            setStepStatus("step5", "error");
             throw new Error(result.error || "Cập nhật thất bại");
           }
         } catch (err) {
