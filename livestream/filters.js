@@ -118,10 +118,10 @@ function toggleFilterContent() {
         filterContent.classList.toggle("collapsed");
 
         if (filterContent.classList.contains("collapsed")) {
-            toggleIcon.setAttribute("data-lucide", "chevron-down");
+            //toggleIcon.setAttribute("data-lucide", "chevron-down");
             toggleText.textContent = "Hiện bộ lọc";
         } else {
-            toggleIcon.setAttribute("data-lucide", "chevron-up");
+            //toggleIcon.setAttribute("data-lucide", "chevron-up");
             toggleText.textContent = "Ẩn bộ lọc";
         }
 
