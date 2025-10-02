@@ -8,8 +8,8 @@
 class CacheManager {
     constructor(config = {}) {
         this.cache = new Map();
-        this.maxAge = config.CACHE_EXPIRY || 10 * 60 * 1000; // 10 minutes
-        this.stats = { hits: 0, misses: 0 };
+        ((this.maxAge = config.CACHE_EXPIRY || 24 * 60 * 60 * 1000),
+            (this.stats = { hits: 0, misses: 0 }));
         this.storageKey = config.storageKey || "loginindex_cache";
         this.saveTimeout = null;
         this.loadFromStorage();
@@ -164,7 +164,7 @@ class CacheManager {
 
 // Initialize new cache system
 const dataCache = new CacheManager({
-    CACHE_EXPIRY: 10 * 60 * 1000, // 10 minutes
+    CACHE_EXPIRY: 24 * 60 * 60 * 1000,
     storageKey: "loginindex_data_cache",
 });
 

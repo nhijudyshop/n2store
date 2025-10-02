@@ -16,7 +16,7 @@ const CONFIG = {
 
     // Cache Settings
     cache: {
-        expiry: 10 * 60 * 1000, // 10 minutes
+        expiry: 24 * 60 * 60 * 1000,
         batchSize: 50,
         maxVisibleRows: 500,
         filterDebounceDelay: 300, // Reduced for better responsiveness

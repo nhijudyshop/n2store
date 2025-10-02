@@ -2,7 +2,7 @@
 // CONFIGURATION
 // =====================================================
 const CONFIG = {
-    CACHE_EXPIRY: 30 * 60 * 1000,
+    CACHE_EXPIRY: 24 * 60 * 60 * 1000,
     MAX_CONCURRENT_LOADS: 4,
     BATCH_SIZE: 3,
     MAX_IMAGE_SIZE: 600,

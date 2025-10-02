@@ -17,7 +17,7 @@ const firebaseConfig = {
 
 // Cache configuration
 const CACHE_CONFIG = {
-    CACHE_EXPIRY: 10 * 60 * 1000, // 10 minutes
+    CACHE_EXPIRY: 24 * 60 * 60 * 1000,
     STORAGE_KEY: "hanghoan_cache",
 };
 

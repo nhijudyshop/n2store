@@ -15,7 +15,7 @@ const CONFIG = {
 
     // Performance Configuration
     performance: {
-        CACHE_EXPIRY: 10 * 60 * 1000, // 10 minutes
+        CACHE_EXPIRY: 24 * 60 * 60 * 1000,
         VIRTUAL_ROW_HEIGHT: 45, // Estimated row height in pixels
         VIRTUAL_BUFFER: 5, // Extra rows to render above/below viewport
         VISIBLE_ROWS_INITIAL: 30, // Initial rows to show

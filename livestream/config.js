@@ -13,7 +13,7 @@ const firebaseConfig = {
 
 // Application Configuration
 const APP_CONFIG = {
-    CACHE_EXPIRY: 10 * 60 * 1000, // 10 minutes
+    CACHE_EXPIRY: 24 * 60 * 60 * 1000,
     BATCH_SIZE: 50,
     MAX_VISIBLE_ROWS: 500,
     FILTER_DEBOUNCE_DELAY: 500,
