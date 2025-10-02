@@ -8,7 +8,6 @@ class TableManager {
         this.currentFilters = {
             category: CONFIG.categories.ALL,
         };
-        this.sortOrder = "newest";
         this.isLoading = false;
 
         this.initializeFirebase();
@@ -102,17 +101,18 @@ class TableManager {
     }
 
     // Render data to table
+    // Render data to table
     renderDataToTable(dataArray) {
         if (!Array.isArray(dataArray) || dataArray.length === 0) {
             console.log("No data to render");
             this.tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                        <i data-lucide="inbox" style="width: 48px; height: 48px; margin: 0 auto 1rem; display: block;"></i>
-                        <p>Chưa có dữ liệu inbox</p>
-                    </td>
-                </tr>
-            `;
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                    <i data-lucide="inbox" style="width: 48px; height: 48px; margin: 0 auto 1rem; display: block;"></i>
+                    <p>Chưa có dữ liệu inbox</p>
+                </td>
+            </tr>
+        `;
             if (typeof lucide !== "undefined") {
                 lucide.createIcons();
             }
@@ -121,16 +121,13 @@ class TableManager {
 
         const startTime = performance.now();
 
-        // Sort data - newest first
+        // ✅ Không cần reverse nữa vì dữ liệu đã được sắp xếp đúng từ Firestore
         let processedDataArray = [...dataArray];
-        if (this.sortOrder === "newest") {
-            processedDataArray = processedDataArray.reverse();
-        }
 
         // Clear current table
         this.tbody.innerHTML = "";
 
-        // Render rows
+        // Render rows - dữ liệu mới nhất sẽ ở index 0
         processedDataArray.forEach((dataItem, index) => {
             this.createTableRow(dataItem, index + 1);
         });
@@ -275,14 +272,14 @@ class TableManager {
         // Highlight new row
         uiManager.highlightElement(row);
 
-        // Update stats
+        // Update stats (cache already updated in uploadToFirestore)
         const cachedData = cacheManager.getCachedData();
-        if (cachedData) {
-            cachedData.unshift(dataItem);
-            cacheManager.setCachedData(cachedData);
-            if (uiManager && typeof uiManager.updateStats === "function") {
-                uiManager.updateStats(cachedData);
-            }
+        if (
+            cachedData &&
+            uiManager &&
+            typeof uiManager.updateStats === "function"
+        ) {
+            uiManager.updateStats(cachedData);
         }
     }
 
@@ -318,6 +315,7 @@ class TableManager {
         this.performDelete(row, button, itemId);
     }
 
+    // Perform deletion
     // Perform deletion
     async performDelete(row, button, itemId) {
         const oldData = {
@@ -358,8 +356,10 @@ class TableManager {
                 null,
             );
 
+            // ✅ Update cache với dữ liệu mới
+            cacheManager.setCachedData(data);
+
             // Update UI
-            cacheManager.invalidateCache();
             row.remove();
             this.updateRowIndexes();
 
@@ -394,19 +394,20 @@ class TableManager {
         try {
             const doc = await this.collectionRef.doc("ib").get();
 
-            const operation = doc.exists
-                ? this.collectionRef.doc("ib").update({
-                      data: firebase.firestore.FieldValue.arrayUnion(
-                          dataToUpload,
-                      ),
-                  })
-                : this.collectionRef.doc("ib").set({
-                      data: firebase.firestore.FieldValue.arrayUnion(
-                          dataToUpload,
-                      ),
-                  });
+            if (doc.exists) {
+                // ✅ Lấy dữ liệu hiện tại và thêm item mới vào ĐẦU mảng
+                const currentData = doc.data().data || [];
+                currentData.unshift(dataToUpload); // Thêm vào đầu thay vì dùng arrayUnion
 
-            await operation;
+                await this.collectionRef.doc("ib").update({
+                    data: currentData,
+                });
+            } else {
+                // Nếu chưa có document, tạo mới
+                await this.collectionRef.doc("ib").set({
+                    data: [dataToUpload],
+                });
+            }
 
             // Log the action
             this.logAction(
@@ -416,8 +417,11 @@ class TableManager {
                 formData,
             );
 
-            // Update UI
-            cacheManager.invalidateCache();
+            // ✅ Update cache với dữ liệu mới ở đầu
+            const cachedData = cacheManager.getCachedData() || [];
+            cachedData.unshift(dataToUpload);
+            cacheManager.setCachedData(cachedData);
+
             console.log("Document uploaded successfully with ID:", uniqueId);
             uiManager.showSuccess("Thành công!");
 

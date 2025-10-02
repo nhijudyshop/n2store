@@ -19,7 +19,13 @@ const BATCH_SIZE = 50;
 const MAX_VISIBLE_ROWS = 500;
 const FILTER_DEBOUNCE_DELAY = 300;
 
-// Firebase metadata
+// Firebase metadata - OPTIMIZED FOR FASTER UPLOADS
+var optimizedMetadata = {
+    cacheControl: "public,max-age=31536000,immutable",
+    contentType: "image/jpeg",
+};
+
+// Legacy metadata (kept for compatibility)
 var newMetadata = {
     cacheControl: "public,max-age=31536000",
 };
@@ -63,13 +69,14 @@ window.HangRotXaConfig = {
     BATCH_SIZE,
     MAX_VISIBLE_ROWS,
     FILTER_DEBOUNCE_DELAY,
+    optimizedMetadata, // NEW: Optimized for speed
     newMetadata,
     app,
     db,
     storageRef,
     collectionRef,
     historyCollectionRef,
-    notificationManager: null, // Will be set in main
+    notificationManager: null,
     imageUrlFile,
     imgArray,
     searchFilter,

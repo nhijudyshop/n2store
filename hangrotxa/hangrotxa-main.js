@@ -136,6 +136,7 @@ async function initializeApplication() {
     initializeFilterEvents();
     ui.initializeTooltipHandlers();
     ui.initializeSearch();
+    ui.initializeImageHoverPreview(); // ✅ NEW: Initialize image hover preview
 
     // Initialize data with migration
     await cache.initializeWithMigration();

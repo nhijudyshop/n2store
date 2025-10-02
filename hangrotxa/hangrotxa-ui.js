@@ -256,6 +256,92 @@ function initializeSearch() {
 }
 
 // =====================================================
+// IMAGE HOVER PREVIEW - RESTORED FUNCTIONALITY
+// =====================================================
+
+function initializeImageHoverPreview() {
+    const config = window.HangRotXaConfig;
+
+    // Create hover overlay if it doesn't exist
+    let imageHoverOverlay = document.getElementById("imageHoverOverlay");
+    if (!imageHoverOverlay) {
+        imageHoverOverlay = document.createElement("div");
+        imageHoverOverlay.id = "imageHoverOverlay";
+        document.body.appendChild(imageHoverOverlay);
+    }
+
+    // Create hover preview element if it doesn't exist
+    let imagePreviewHover = document.querySelector(".image-preview-hover");
+    if (!imagePreviewHover) {
+        imagePreviewHover = document.createElement("img");
+        imagePreviewHover.className = "image-preview-hover";
+        document.body.appendChild(imagePreviewHover);
+    }
+
+    // Event delegation for table images
+    if (config.tbody) {
+        config.tbody.addEventListener("mouseover", function (e) {
+            const img = e.target.closest("td img");
+            if (img && img.src && !img.src.includes("data:image/svg")) {
+                const actualSrc = img.dataset.src || img.src;
+                imagePreviewHover.src = actualSrc;
+                imagePreviewHover.style.display = "block";
+            }
+        });
+
+        config.tbody.addEventListener("mousemove", function (e) {
+            const img = e.target.closest("td img");
+            if (img && imagePreviewHover.style.display === "block") {
+                const offsetX = 20;
+                const offsetY = 20;
+                const maxWidth = 400;
+                const maxHeight = 400;
+
+                let left = e.pageX + offsetX;
+                let top = e.pageY + offsetY;
+
+                // Keep preview within viewport
+                if (left + maxWidth > window.innerWidth) {
+                    left = e.pageX - maxWidth - offsetX;
+                }
+                if (top + maxHeight > window.innerHeight) {
+                    top = e.pageY - maxHeight - offsetY;
+                }
+
+                imagePreviewHover.style.left = left + "px";
+                imagePreviewHover.style.top = top + "px";
+            }
+        });
+
+        config.tbody.addEventListener("mouseout", function (e) {
+            const img = e.target.closest("td img");
+            if (img) {
+                imagePreviewHover.style.display = "none";
+            }
+        });
+
+        // Click to view fullscreen
+        config.tbody.addEventListener("click", function (e) {
+            const img = e.target.closest("td img");
+            if (img && img.src && !img.src.includes("data:image/svg")) {
+                const actualSrc = img.dataset.src || img.src;
+                const fullscreenImg = document.createElement("img");
+                fullscreenImg.src = actualSrc;
+
+                imageHoverOverlay.innerHTML = "";
+                imageHoverOverlay.appendChild(fullscreenImg);
+                imageHoverOverlay.style.display = "flex";
+
+                // Close on click
+                imageHoverOverlay.onclick = function () {
+                    imageHoverOverlay.style.display = "none";
+                };
+            }
+        });
+    }
+}
+
+// =====================================================
 // TABLE RENDERING
 // =====================================================
 
@@ -367,6 +453,7 @@ function renderDataToTable(dataArray) {
         img.alt = "Đang tải...";
         img.style.width = "50px";
         img.style.height = "50px";
+        img.style.cursor = "pointer";
 
         totalImages++;
         imageObserver.observe(img);
@@ -569,4 +656,5 @@ window.HangRotXaUI = {
     renderDataToTable,
     updateSuggestions,
     initializeTooltipHandlers,
+    initializeImageHoverPreview, // NEW: Export hover function
 };

@@ -1,5 +1,5 @@
 // =====================================================
-// IMAGE PROCESSING AND UPLOAD HANDLER
+// IMAGE PROCESSING AND UPLOAD HANDLER - OPTIMIZED
 // =====================================================
 
 class ImageHandler {
@@ -137,7 +137,13 @@ class ImageHandler {
             if (items[i].type.indexOf("image") !== -1) {
                 hasImageData = true;
                 const blob = items[i].getAsFile();
-                const file = new File([blob], `image${type.toUpperCase()}.jpg`);
+                const file = new File(
+                    [blob],
+                    `image${type.toUpperCase()}.jpg`,
+                    {
+                        type: "image/jpeg",
+                    },
+                );
 
                 // Create img element for preview
                 const imgElement = Utils.createElement("img", {
@@ -147,8 +153,24 @@ class ImageHandler {
 
                 container.appendChild(imgElement);
 
+                // Show compression indicator
+                const originalSize = file.size;
+                console.log(
+                    `Original size: ${Utils.formatFileSize(originalSize)}`,
+                );
+
                 // Compress and store image
-                const compressedFile = await Utils.compressImage(file);
+                const compressedFile = await Utils.compressImage(
+                    file,
+                    600,
+                    0.7,
+                );
+                console.log(
+                    `Compressed size: ${Utils.formatFileSize(compressedFile.size)}`,
+                );
+                console.log(
+                    `Compression ratio: ${((1 - compressedFile.size / originalSize) * 100).toFixed(1)}%`,
+                );
 
                 if (type === "sp") {
                     this.imgArray.push(compressedFile);
@@ -178,11 +200,17 @@ class ImageHandler {
         const imagesRef = storageRef.child("ib/sp");
         this.imageUrlFile = [];
 
-        uiManager.showSuccess("Đang tải ảnh sản phẩm...");
+        const totalImages = files.length;
+        let uploadedCount = 0;
+        const notificationId = uiManager.showUploading(0, totalImages);
 
         try {
             const uploadPromises = Array.from(files).map(async (file) => {
-                const compressedFile = await Utils.compressImage(file);
+                const compressedFile = await Utils.compressImage(
+                    file,
+                    600,
+                    0.7,
+                );
                 const imageRef = imagesRef.child(
                     file.name + Utils.generateUniqueFileName(),
                 );
@@ -192,13 +220,30 @@ class ImageHandler {
                 );
                 const downloadURL = await uploadTask.ref.getDownloadURL();
                 this.imageUrlFile.push(downloadURL);
+
+                // Update progress
+                uploadedCount++;
+                if (uiManager.notificationManager) {
+                    uiManager.notificationManager.remove(notificationId);
+                    uiManager.showUploading(uploadedCount, totalImages);
+                }
+
+                return downloadURL;
             });
 
             await Promise.all(uploadPromises);
+
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
+
             formData.sp = this.imageUrlFile;
             return this.handleCustomerData(formData);
         } catch (error) {
             console.error("Error uploading product images:", error);
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
             throw new Error("Lỗi khi tải ảnh sản phẩm lên!");
         }
     }
@@ -216,9 +261,10 @@ class ImageHandler {
 
         const storageRef = firebase.storage().ref();
         const imagesRef = storageRef.child("ib/sp");
-        const giaTriText = [];
+        const totalImages = this.imgArray.length;
 
-        uiManager.showLoading("Đang tải ảnh sản phẩm...");
+        let uploadedCount = 0;
+        const notificationId = uiManager.showUploading(0, totalImages);
 
         try {
             const uploadPromises = this.imgArray.map(async (file) => {
@@ -226,14 +272,30 @@ class ImageHandler {
                 const imageRef = imagesRef.child(imageName);
                 const uploadTask = await imageRef.put(file, STORAGE_METADATA);
                 const downloadURL = await uploadTask.ref.getDownloadURL();
+
+                // Update progress
+                uploadedCount++;
+                if (uiManager.notificationManager) {
+                    uiManager.notificationManager.remove(notificationId);
+                    uiManager.showUploading(uploadedCount, totalImages);
+                }
+
                 return downloadURL;
             });
 
             const urls = await Promise.all(uploadPromises);
+
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
+
             formData.sp = urls;
             return this.handleCustomerData(formData);
         } catch (error) {
             console.error("Product upload error:", error);
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
             throw new Error("Lỗi tải lên ảnh sản phẩm!");
         }
     }
@@ -244,9 +306,17 @@ class ImageHandler {
         const imagesRef = storageRef.child("ib/kh");
         this.imageUrlFileKH = [];
 
+        const totalImages = files.length;
+        let uploadedCount = 0;
+        const notificationId = uiManager.showUploading(0, totalImages);
+
         try {
             const uploadPromises = Array.from(files).map(async (file) => {
-                const compressedFile = await Utils.compressImage(file);
+                const compressedFile = await Utils.compressImage(
+                    file,
+                    600,
+                    0.7,
+                );
                 const imageRef = imagesRef.child(
                     file.name + Utils.generateUniqueFileName(),
                 );
@@ -256,13 +326,30 @@ class ImageHandler {
                 );
                 const downloadURL = await uploadTask.ref.getDownloadURL();
                 this.imageUrlFileKH.push(downloadURL);
+
+                // Update progress
+                uploadedCount++;
+                if (uiManager.notificationManager) {
+                    uiManager.notificationManager.remove(notificationId);
+                    uiManager.showUploading(uploadedCount, totalImages);
+                }
+
+                return downloadURL;
             });
 
             await Promise.all(uploadPromises);
+
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
+
             formData.kh = this.imageUrlFileKH;
             return window.tableManager.uploadToFirestore(formData);
         } catch (error) {
             console.error("Error uploading customer images:", error);
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
             throw new Error("Lỗi khi tải ảnh khách hàng lên!");
         }
     }
@@ -280,6 +367,10 @@ class ImageHandler {
 
         const storageRef = firebase.storage().ref();
         const imagesRef = storageRef.child("ib/kh");
+        const totalImages = this.imgArrayKH.length;
+
+        let uploadedCount = 0;
+        const notificationId = uiManager.showUploading(0, totalImages);
 
         try {
             const uploadPromises = this.imgArrayKH.map(async (file) => {
@@ -287,14 +378,30 @@ class ImageHandler {
                 const imageRef = imagesRef.child(imageName);
                 const uploadTask = await imageRef.put(file, STORAGE_METADATA);
                 const downloadURL = await uploadTask.ref.getDownloadURL();
+
+                // Update progress
+                uploadedCount++;
+                if (uiManager.notificationManager) {
+                    uiManager.notificationManager.remove(notificationId);
+                    uiManager.showUploading(uploadedCount, totalImages);
+                }
+
                 return downloadURL;
             });
 
             const urls = await Promise.all(uploadPromises);
+
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
+
             formData.kh = urls;
             return window.tableManager.uploadToFirestore(formData);
         } catch (error) {
             console.error("Customer upload error:", error);
+            if (uiManager.notificationManager) {
+                uiManager.notificationManager.clearAll();
+            }
             throw new Error("Lỗi tải lên ảnh khách hàng!");
         }
     }
@@ -339,7 +446,13 @@ class ImageHandler {
             const container = document.getElementById(id);
             if (container) {
                 const images = container.querySelectorAll("img");
-                images.forEach((img) => img.remove());
+                images.forEach((img) => {
+                    // Revoke blob URLs to free memory
+                    if (img.src.startsWith("blob:")) {
+                        URL.revokeObjectURL(img.src);
+                    }
+                    img.remove();
+                });
             }
         });
 
@@ -356,6 +469,8 @@ class ImageHandler {
             const linkInputs = hinhAnhContainer.querySelectorAll("input");
             linkInputs.forEach((input) => input.remove());
         }
+
+        console.log("Image data cleared and memory freed");
     }
 }
 
