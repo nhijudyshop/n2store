@@ -86,6 +86,15 @@ const MENU_CONFIG = [
         permissionRequired: "bangkiemhang",
     },
     {
+        href: "../tpos-import/index.html",
+        icon: "upload",
+        text: "Nhập Dữ Liệu TPOS",
+        shortText: "TPOS",
+        pageIdentifier: "tpos-import",
+        adminOnly: true,
+        permissionRequired: "tpos-import",
+    },
+    {
         href: "../user-management/index.html",
         icon: "users",
         text: "Quản Lý Tài Khoản",
@@ -255,7 +264,7 @@ class UnifiedNavigationManager {
                     const userData = userDoc.data();
                     this.userPermissions = userData.pagePermissions || [];
 
-                    // ✅ FIXED: Cache vào localStorage để lần sau dùng
+                    // Cache to localStorage
                     authData.pagePermissions = this.userPermissions;
                     localStorage.setItem(
                         "loginindex_auth",
@@ -280,7 +289,6 @@ class UnifiedNavigationManager {
             );
         }
 
-        // ✅ FIXED: Nếu không load được gì, set empty array
         this.userPermissions = [];
         console.log(
             "[Permission Load] No permissions loaded, defaulting to empty",
@@ -291,11 +299,8 @@ class UnifiedNavigationManager {
         const path = window.location.pathname;
         console.log("[Unified Nav] Current path:", path);
 
-        // Normalize path - remove trailing slash and convert to lowercase
         const normalizedPath = path.toLowerCase().replace(/\/$/, "");
 
-        // Sort menu by identifier length (longest first) to match most specific first
-        // This prevents "live" from matching before "livestream" or "sanphamlive"
         const sortedMenu = [...MENU_CONFIG].sort(
             (a, b) => b.pageIdentifier.length - a.pageIdentifier.length,
         );
@@ -303,18 +308,12 @@ class UnifiedNavigationManager {
         for (const item of sortedMenu) {
             const identifier = item.pageIdentifier.toLowerCase();
 
-            // Check for exact folder match with boundaries
-            // Pattern 1: /identifier/ (with trailing content)
-            // Pattern 2: /identifier/index.html
-            // Pattern 3: /identifier (end of path)
-
             const patterns = [
-                new RegExp(`/${identifier}/`, "i"), // /livestream/
-                new RegExp(`/${identifier}/index\\.html$`, "i"), // /livestream/index.html
-                new RegExp(`/${identifier}$`, "i"), // /livestream (exact end)
+                new RegExp(`/${identifier}/`, "i"),
+                new RegExp(`/${identifier}/index\\.html$`, "i"),
+                new RegExp(`/${identifier}$`, "i"),
             ];
 
-            // Test all patterns
             for (const pattern of patterns) {
                 if (pattern.test(path)) {
                     console.log(
@@ -330,18 +329,15 @@ class UnifiedNavigationManager {
     }
 
     checkPageAccess() {
-        // Nếu không xác định được trang hiện tại, cho phép truy cập
         if (!this.currentPage) {
             console.log("[Permission Check] No current page, allowing access");
             return true;
         }
 
-        // Tìm thông tin trang trong MENU_CONFIG
         const pageInfo = MENU_CONFIG.find(
             (item) => item.pageIdentifier === this.currentPage,
         );
 
-        // Nếu không tìm thấy config, cho phép truy cập (trang không yêu cầu quyền)
         if (!pageInfo) {
             console.log(
                 "[Permission Check] Page not in MENU_CONFIG, allowing access",
@@ -349,19 +345,16 @@ class UnifiedNavigationManager {
             return true;
         }
 
-        // Nếu trang được đánh dấu là public, cho phép truy cập
         if (pageInfo.publicAccess) {
             console.log("[Permission Check] Public page, allowing access");
             return true;
         }
 
-        // Admin có quyền truy cập mọi trang
         if (this.isAdmin) {
             console.log("[Permission Check] Admin user, allowing access");
             return true;
         }
 
-        // ✅ FIXED: So sánh đúng với permissionRequired thay vì currentPage
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
@@ -397,29 +390,22 @@ class UnifiedNavigationManager {
     renderMobileNavigation() {
         console.log("[Unified Nav] Rendering mobile UI...");
 
-        // Inject mobile styles FIRST
         this.injectMobileStyles();
 
-        // Hide desktop sidebar if exists
         const sidebar = document.getElementById("sidebar");
         if (sidebar) {
             sidebar.style.display = "none";
             console.log("[Unified Nav] Desktop sidebar hidden");
         }
 
-        // Remove any existing mobile elements first
         const existingTopBar = document.querySelector(".mobile-top-bar");
         const existingBottomNav = document.querySelector(".mobile-bottom-nav");
         if (existingTopBar) existingTopBar.remove();
         if (existingBottomNav) existingBottomNav.remove();
 
-        // Create mobile top bar
         this.createMobileTopBar();
-
-        // Create mobile bottom navigation
         this.createMobileBottomNav();
 
-        // Adjust main content padding - IMPORTANT!
         const mainContent = document.querySelector(".main-content");
         if (mainContent) {
             mainContent.style.paddingTop = "60px";
@@ -428,22 +414,12 @@ class UnifiedNavigationManager {
             console.log("[Unified Nav] Main content padding adjusted");
         }
 
-        // Force body to have mobile padding
         document.body.style.paddingTop = "60px";
         document.body.style.paddingBottom = "65px";
 
-        // Verify mobile nav exists
         const bottomNavCheck = document.querySelector(".mobile-bottom-nav");
         if (bottomNavCheck) {
             console.log("[Unified Nav] ✅ Mobile bottom nav exists in DOM");
-            console.log(
-                "[Unified Nav] Bottom nav z-index:",
-                window.getComputedStyle(bottomNavCheck).zIndex,
-            );
-            console.log(
-                "[Unified Nav] Bottom nav display:",
-                window.getComputedStyle(bottomNavCheck).display,
-            );
         } else {
             console.error(
                 "[Unified Nav] ❌ Mobile bottom nav NOT found in DOM!",
@@ -488,24 +464,20 @@ class UnifiedNavigationManager {
     }
 
     createMobileBottomNav() {
-        // Remove existing bottom nav if any
         const existingNav = document.querySelector(".mobile-bottom-nav");
         if (existingNav) existingNav.remove();
 
         const bottomNav = document.createElement("div");
         bottomNav.className = "mobile-bottom-nav";
 
-        // Get accessible pages
         const accessiblePages = this.getAccessiblePages();
 
-        // Log for debugging
         console.log(
             "[Mobile Nav] Total accessible pages:",
             accessiblePages.length,
         );
         console.log("[Mobile Nav] Current page identifier:", this.currentPage);
 
-        // Take first 5 pages for bottom nav
         const bottomNavPages = accessiblePages.slice(0, 5);
 
         console.log(
@@ -518,7 +490,6 @@ class UnifiedNavigationManager {
             navItem.href = item.href;
             navItem.className = "mobile-nav-item";
 
-            // Check if this is the current page
             if (item.pageIdentifier === this.currentPage) {
                 navItem.classList.add("active");
                 console.log("[Mobile Nav] Active page:", item.pageIdentifier);
@@ -532,7 +503,6 @@ class UnifiedNavigationManager {
             bottomNav.appendChild(navItem);
         });
 
-        // Add "More" button if there are more than 5 pages
         if (accessiblePages.length > 5) {
             const moreBtn = document.createElement("button");
             moreBtn.className = "mobile-nav-item mobile-more-btn";
@@ -547,7 +517,6 @@ class UnifiedNavigationManager {
             bottomNav.appendChild(moreBtn);
         }
 
-        // Append to body
         document.body.appendChild(bottomNav);
 
         console.log(
@@ -556,7 +525,6 @@ class UnifiedNavigationManager {
             "items",
         );
 
-        // Initialize Lucide icons
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
@@ -635,29 +603,23 @@ class UnifiedNavigationManager {
     renderDesktopNavigation() {
         console.log("[Unified Nav] Rendering desktop UI...");
 
-        // Show desktop sidebar
         const sidebar = document.getElementById("sidebar");
         if (sidebar) {
             sidebar.style.display = "";
         }
 
-        // Remove mobile elements
         const topBar = document.querySelector(".mobile-top-bar");
         const bottomNav = document.querySelector(".mobile-bottom-nav");
         if (topBar) topBar.remove();
         if (bottomNav) bottomNav.remove();
 
-        // Reset main content padding
         const mainContent = document.querySelector(".main-content");
         if (mainContent) {
             mainContent.style.paddingTop = "";
             mainContent.style.paddingBottom = "";
         }
 
-        // Render sidebar navigation
         this.renderDesktopSidebar();
-
-        // Initialize sidebar toggle
         this.initializeSidebarToggle();
     }
 
@@ -916,7 +878,6 @@ class UnifiedNavigationManager {
     }
 
     setupEventListeners() {
-        // Mobile menu button
         const mobileMenuBtn = document.getElementById("mobileMenuBtn");
         if (mobileMenuBtn) {
             mobileMenuBtn.addEventListener("click", () =>
@@ -924,7 +885,6 @@ class UnifiedNavigationManager {
             );
         }
 
-        // Desktop menu toggle
         const menuToggle = document.getElementById("menuToggle");
         const sidebar = document.getElementById("sidebar");
 
@@ -934,7 +894,6 @@ class UnifiedNavigationManager {
             });
         }
 
-        // Close sidebar when clicking outside (mobile)
         document.addEventListener("click", (e) => {
             if (window.innerWidth <= 768 && sidebar) {
                 if (
@@ -948,7 +907,6 @@ class UnifiedNavigationManager {
             }
         });
 
-        // Logout button
         const btnLogout = document.getElementById("btnLogout");
         if (btnLogout) {
             btnLogout.addEventListener("click", () => {
@@ -956,7 +914,6 @@ class UnifiedNavigationManager {
             });
         }
 
-        // Permissions button
         const btnPermissions = document.getElementById("btnPermissions");
         if (btnPermissions) {
             btnPermissions.addEventListener("click", () => {
@@ -964,7 +921,6 @@ class UnifiedNavigationManager {
             });
         }
 
-        // Settings button (desktop)
         const btnSettings = document.getElementById("btnSettings");
         if (btnSettings) {
             btnSettings.addEventListener("click", () => {
@@ -977,13 +933,8 @@ class UnifiedNavigationManager {
 
     getAccessiblePages() {
         const accessible = MENU_CONFIG.filter((item) => {
-            // Admin có quyền truy cập tất cả
             if (this.isAdmin) return true;
-
-            // Nếu là trang chỉ dành cho admin, user thường không được phép
             if (item.adminOnly) return false;
-
-            // ✅ CORRECT: Kiểm tra permissionRequired
             return this.userPermissions.includes(item.permissionRequired);
         });
 
@@ -1942,7 +1893,6 @@ class UnifiedNavigationManager {
             ? pageInfo.permissionRequired
             : "unknown";
 
-        // ✅ Lấy trang đầu tiên user có quyền truy cập
         const accessiblePages = this.getAccessiblePages();
         const firstAccessiblePage =
             accessiblePages.length > 0 ? accessiblePages[0] : null;
@@ -1958,7 +1908,6 @@ class UnifiedNavigationManager {
                 : "none",
         });
 
-        // ✅ Nếu không có trang nào accessible, redirect về login
         if (!firstAccessiblePage) {
             console.error(
                 "[Access Denied] No accessible pages found, redirecting to login",

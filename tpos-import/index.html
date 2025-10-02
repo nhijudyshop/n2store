@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Import Excel - TPOS</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        padding: 40px;
+        max-width: 500px;
+        width: 100%;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: #333;
+        font-size: 28px;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        color: #666;
+        font-size: 14px;
+      }
+
+      .upload-area {
+        border: 2px dashed #667eea;
+        border-radius: 15px;
+        padding: 40px 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: #f8f9ff;
+      }
+
+      .upload-area:hover {
+        border-color: #764ba2;
+        background: #f0f2ff;
+      }
+
+      .upload-area.dragover {
+        border-color: #764ba2;
+        background: #e8ebff;
+        transform: scale(1.02);
+      }
+
+      .upload-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+      }
+
+      .upload-text {
+        color: #333;
+        font-size: 16px;
+        margin-bottom: 10px;
+      }
+
+      .upload-hint {
+        color: #999;
+        font-size: 13px;
+      }
+
+      #excelInput {
+        display: none;
+      }
+
+      .file-info {
+        margin-top: 20px;
+        padding: 15px;
+        background: #e8f5e9;
+        border-radius: 10px;
+        display: none;
+      }
+
+      .file-info.show {
+        display: block;
+      }
+
+      .file-name {
+        color: #2e7d32;
+        font-weight: 600;
+        margin-bottom: 5px;
+      }
+
+      .file-size {
+        color: #66bb6a;
+        font-size: 13px;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 15px;
+        margin-top: 20px;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-submit {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: none;
+      }
+
+      .btn-submit.show {
+        display: block;
+      }
+
+      .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn-submit:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .status {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        display: none;
+      }
+
+      .status.show {
+        display: block;
+      }
+
+      .status.success {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      .status.error {
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .status.loading {
+        background: #e3f2fd;
+        color: #1565c0;
+      }
+
+      .loader {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        margin-right: 10px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📊 Import Excel</h1>
+        <p>Tải lên file Excel để import dữ liệu</p>
+      </div>
+
+      <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">Kéo thả file hoặc click để chọn</div>
+        <div class="upload-hint">Hỗ trợ: .xlsx, .xls</div>
+      </div>
+
+      <input type="file" id="excelInput" accept=".xlsx,.xls" />
+
+      <div class="file-info" id="fileInfo">
+        <div class="file-name" id="fileName"></div>
+        <div class="file-size" id="fileSize"></div>
+      </div>
+
+      <button class="btn btn-submit" id="submitBtn">⬆️ Upload File</button>
+
+      <div class="status" id="status"></div>
+    </div>
+
+    <script>
+      const uploadArea = document.getElementById("uploadArea");
+      const excelInput = document.getElementById("excelInput");
+      const fileInfo = document.getElementById("fileInfo");
+      const fileName = document.getElementById("fileName");
+      const fileSize = document.getElementById("fileSize");
+      const submitBtn = document.getElementById("submitBtn");
+      const status = document.getElementById("status");
+
+      let selectedFile = null;
+
+      // Click để chọn file
+      uploadArea.addEventListener("click", () => {
+        excelInput.click();
+      });
+
+      // Khi chọn file
+      excelInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          handleFile(file);
+        }
+      });
+
+      // Drag and drop
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+
+      uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("dragover");
+      });
+
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          handleFile(file);
+        }
+      });
+
+      function handleFile(file) {
+        selectedFile = file;
+        fileName.textContent = `📄 ${file.name}`;
+        fileSize.textContent = `Kích thước: ${(file.size / 1024).toFixed(2)} KB`;
+        fileInfo.classList.add("show");
+        submitBtn.classList.add("show");
+        status.classList.remove("show");
+      }
+
+      submitBtn.addEventListener("click", async () => {
+        if (!selectedFile) return;
+
+        submitBtn.disabled = true;
+        showStatus("loading", "Đang tải lên...");
+
+        try {
+          await importExcel(selectedFile);
+        } catch (err) {
+          showStatus("error", `Lỗi: ${err.message}`);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+
+      function showStatus(type, message) {
+        status.className = `status show ${type}`;
+        if (type === "loading") {
+          status.innerHTML = `<div class="loader"></div>${message}`;
+        } else {
+          status.textContent = message;
+        }
+      }
+
+      async function importExcel(file) {
+        const toBase64 = (file) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+              resolve(reader.result.split(",")[1]);
+            };
+            reader.onerror = (error) => reject(error);
+          });
+
+        try {
+          const fileBase64 = await toBase64(file);
+          const response = await fetch(
+            "https://tomato.tpos.vn/odata/ProductTemplate/ODataService.ActionImportSimple",
+            {
+              method: "POST",
+              headers: {
+                accept: "application/json, text/plain, */*",
+                authorization:
+                  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI2ODgxNTgxYi1jZTc1LTRjMWQtYmM4ZC0yNjEwMzAzYzAzN2EiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjY2MzA3MjlkLWJlM2MtNDcwOS1iOWJjLWM2YjNmNzc2ZGYyZSIsImlhdCI6IjE3NTkzODc4NjciLCJuYmYiOjE3NTkzODc4NjcsImV4cCI6MTc2MDY4Mzg2NywiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.38Srsqs7uhUknlXr08NgtH34ZCBg9TuZ-geO2IrdYcU",
+                "content-type": "application/json;charset=UTF-8",
+                origin: "https://tomato.tpos.vn",
+                referer: "https://tomato.tpos.vn/",
+                tposappversion: "5.9.10.1",
+              },
+              body: JSON.stringify({
+                do_inventory: false,
+                file: fileBase64,
+                version: "2701",
+              }),
+            },
+          );
+
+          const data = await response.json();
+          console.log("Kết quả:", data);
+
+          if (response.ok) {
+            showStatus("success", "✅ Upload thành công!");
+          } else {
+            showStatus("error", `❌ Lỗi: ${data.error || "Có lỗi xảy ra"}`);
+          }
+        } catch (err) {
+          console.error("Lỗi:", err);
+          showStatus("error", `❌ Lỗi: ${err.message}`);
+          throw err;
+        }
+      }
+    </script>
+    <script src="auth.js"></script>
+  </body>
+</html>
