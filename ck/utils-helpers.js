@@ -1,4 +1,4 @@
-// utils-helpers.js - Complete Version
+// utils-helpers.js - Complete Version with Enhanced Cache
 // Utility Functions and Helpers with Vietnam Timezone Support
 
 // =====================================================
@@ -12,8 +12,6 @@ const VietnamTime = {
     // Get current Vietnam time
     now() {
         const utc = new Date();
-        // Note: This creates a Date object that represents Vietnam time
-        // but the timezone info is still system timezone
         return new Date(utc.getTime() + this.VIETNAM_OFFSET * 60 * 1000);
     },
 
@@ -28,11 +26,9 @@ const VietnamTime = {
     // Get Vietnam date string (YYYY-MM-DD format for input[type="date"])
     getDateString(date = null) {
         if (date) {
-            // Convert provided date to Vietnam timezone
             const vietnamDate = this.toVietnamTime(date);
             return vietnamDate.toISOString().split("T")[0];
         } else {
-            // Get current Vietnam date
             const now = new Date();
             const vietnamNow = new Date(
                 now.getTime() + this.VIETNAM_OFFSET * 60 * 1000,
@@ -45,10 +41,7 @@ const VietnamTime = {
     getDateRange(dateString) {
         if (!dateString) return null;
 
-        // Parse date string as local date (assumes system is set to Vietnam time)
         const [year, month, day] = dateString.split("-").map(Number);
-
-        // Create dates in local timezone
         const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
         const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
 
@@ -61,7 +54,7 @@ const VietnamTime = {
     // Check if a timestamp falls within a Vietnam date
     isInVietnamDate(timestamp, dateString) {
         const range = this.getDateRange(dateString);
-        if (!range) return true; // No date filter
+        if (!range) return true;
 
         return timestamp >= range.start && timestamp <= range.end;
     },
@@ -88,7 +81,7 @@ const VietnamTime = {
             vietnamTime: vnNow,
             vietnamDateString: vnDateString,
             timeDifference: vnNow.getTime() - now.getTime(),
-            expectedDiff: 7 * 60 * 60 * 1000, // 7 hours in ms
+            expectedDiff: 7 * 60 * 60 * 1000,
             systemTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         };
 
@@ -104,10 +97,9 @@ const VietnamTime = {
         if (parts.length !== 3) return null;
 
         const day = parseInt(parts[0]);
-        const month = parseInt(parts[1]) - 1; // Month is 0-indexed
+        const month = parseInt(parts[1]) - 1;
         let year = parseInt(parts[2]);
 
-        // Handle 2-digit years
         if (year < 100) {
             year = year < 50 ? 2000 + year : 1900 + year;
         }
@@ -163,10 +155,8 @@ class PerformanceMonitor {
                 `Performance: ${operation} took ${duration.toFixed(2)}ms, memory: ${(memoryDelta / 1024 / 1024).toFixed(2)}MB`,
             );
 
-            // Store for analysis
             APP_STATE.performance[operation] = result;
 
-            // Add to history
             this.history.push(result);
             if (this.history.length > this.maxHistorySize) {
                 this.history.shift();
@@ -322,8 +312,8 @@ function ensureUniqueId(item) {
 function sanitizeInput(input) {
     if (typeof input !== "string") return "";
     return input
-        .replace(/[<>"'&]/g, "") // Remove potentially dangerous characters
-        .replace(/\s+/g, " ") // Replace multiple spaces with single space
+        .replace(/[<>"'&]/g, "")
+        .replace(/\s+/g, " ")
         .trim();
 }
 
@@ -384,7 +374,6 @@ function isValidDateFormat(dateStr) {
     return day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 0;
 }
 
-// Enhanced validation functions
 function validateEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -402,12 +391,13 @@ function validateAmount(amount) {
 }
 
 // =====================================================
-// CACHE UTILITIES
+// ENHANCED CACHE UTILITIES WITH PERSISTENT STORAGE
 // =====================================================
 
 class CacheManager {
     constructor() {
-        this.cache = APP_STATE.memoryCache;
+        this.cache = new Map();
+        this.memoryCache = APP_STATE.memoryCache;
         this.observers = new Set();
         this.stats = {
             hits: 0,
@@ -415,53 +405,265 @@ class CacheManager {
             sets: 0,
             invalidations: 0,
         };
+
+        // Persistent storage settings
+        this.storageKey = "app_persistent_cache";
+        this.maxAge = CONFIG.performance.CACHE_EXPIRY;
+        this.saveTimeout = null;
+        this.enablePersistence = true;
+
+        // Initialize
+        this.loadFromStorage();
+        this.startCleanupInterval();
     }
 
-    get(key = "data") {
+    // ===== PERSISTENT STORAGE METHODS =====
+
+    saveToStorage() {
+        if (!this.enablePersistence) return;
+
         try {
-            if (this.cache.data && this.cache.timestamp) {
-                if (
-                    Date.now() - this.cache.timestamp <
-                    CONFIG.performance.CACHE_EXPIRY
-                ) {
-                    console.log("Cache hit for:", key);
-                    this.stats.hits++;
-                    return this.cache.data;
-                } else {
-                    console.log("Cache expired for:", key);
-                    this.invalidate();
-                    this.stats.misses++;
+            const cacheData = [];
+            const now = Date.now();
+
+            for (const [key, value] of this.cache.entries()) {
+                if (value.expires > now) {
+                    cacheData.push([key, value]);
                 }
-            } else {
-                this.stats.misses++;
             }
+
+            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+            console.log(
+                `💾 Cache: Saved ${cacheData.length} items to localStorage`,
+            );
+        } catch (error) {
+            console.warn("Cache: Cannot save to localStorage:", error);
+            if (error.name === "QuotaExceededError") {
+                this.clearOldestEntries(10);
+            }
+        }
+    }
+
+    loadFromStorage() {
+        if (!this.enablePersistence) return;
+
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) {
+                console.log("📦 Cache: No stored cache found");
+                return;
+            }
+
+            const cacheData = JSON.parse(stored);
+            const now = Date.now();
+            let validCount = 0;
+
+            cacheData.forEach(([key, value]) => {
+                if (value.expires > now) {
+                    this.cache.set(key, value);
+                    validCount++;
+                }
+            });
+
+            console.log(
+                `📦 Cache: Loaded ${validCount} items from localStorage`,
+            );
+
+            if (validCount > 0) {
+                this.syncToMemoryCache();
+            }
+        } catch (error) {
+            console.warn("Cache: Cannot load from localStorage:", error);
+            localStorage.removeItem(this.storageKey);
+        }
+    }
+
+    debouncedSave() {
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+        }
+
+        this.saveTimeout = setTimeout(() => {
+            this.saveToStorage();
+        }, 2000);
+    }
+
+    // ===== CORE CACHE METHODS =====
+
+    get(key = "data") {
+        const cacheKey = this.buildKey(key);
+
+        try {
+            const cached = this.cache.get(cacheKey);
+
+            if (cached && cached.expires > Date.now()) {
+                console.log(`✔ Cache HIT: ${cacheKey}`);
+                this.stats.hits++;
+
+                if (key === "data") {
+                    this.memoryCache.data = cached.value;
+                    this.memoryCache.timestamp = cached.timestamp;
+                }
+
+                return cached.value;
+            }
+
+            if (cached) {
+                console.log(`⌛ Cache EXPIRED: ${cacheKey}`);
+                this.cache.delete(cacheKey);
+                this.debouncedSave();
+            }
+
+            if (
+                key === "data" &&
+                this.memoryCache.data &&
+                this.memoryCache.timestamp
+            ) {
+                if (Date.now() - this.memoryCache.timestamp < this.maxAge) {
+                    console.log(`✔ Memory Cache HIT: ${key}`);
+                    this.stats.hits++;
+                    return this.memoryCache.data;
+                }
+            }
+
+            console.log(`✗ Cache MISS: ${cacheKey}`);
+            this.stats.misses++;
         } catch (e) {
-            console.warn("Error accessing cache:", e);
-            this.invalidate();
+            console.warn("Cache get error:", e);
             this.stats.misses++;
         }
+
         return null;
     }
 
     set(data, key = "data") {
+        const cacheKey = this.buildKey(key);
+
         try {
-            this.cache.data = Array.isArray(data) ? [...data] : data;
-            this.cache.timestamp = Date.now();
+            const cacheEntry = {
+                value: Array.isArray(data) ? [...data] : data,
+                timestamp: Date.now(),
+                expires: Date.now() + this.maxAge,
+                type: "general",
+                key: key,
+            };
+
+            this.cache.set(cacheKey, cacheEntry);
             this.stats.sets++;
-            console.log("Data cached successfully:", key);
+
+            if (key === "data") {
+                this.memoryCache.data = cacheEntry.value;
+                this.memoryCache.timestamp = cacheEntry.timestamp;
+            }
+
+            console.log(`💾 Cache SET: ${cacheKey}`);
+
             this.notifyObservers("cached", { key, data });
+            this.debouncedSave();
         } catch (e) {
-            console.warn("Cannot cache data:", e);
+            console.warn("Cache set error:", e);
         }
     }
 
     invalidate(key = "data") {
-        this.cache.data = null;
-        this.cache.timestamp = null;
+        const cacheKey = this.buildKey(key);
+
+        this.cache.delete(cacheKey);
         this.stats.invalidations++;
-        console.log("Cache invalidated:", key);
+
+        if (key === "data") {
+            this.memoryCache.data = null;
+            this.memoryCache.timestamp = null;
+        }
+
+        console.log(`🗑️ Cache INVALIDATED: ${cacheKey}`);
         this.notifyObservers("invalidated", { key });
+        this.debouncedSave();
     }
+
+    // ===== ADVANCED METHODS =====
+
+    invalidatePattern(pattern) {
+        let invalidated = 0;
+
+        for (const [key] of this.cache.entries()) {
+            if (key.includes(pattern)) {
+                this.cache.delete(key);
+                invalidated++;
+            }
+        }
+
+        if (invalidated > 0) {
+            this.stats.invalidations += invalidated;
+            console.log(
+                `🗑️ Cache: Invalidated ${invalidated} entries matching: ${pattern}`,
+            );
+            this.debouncedSave();
+        }
+
+        return invalidated;
+    }
+
+    cleanExpired() {
+        const now = Date.now();
+        let cleaned = 0;
+
+        for (const [key, value] of this.cache.entries()) {
+            if (value.expires <= now) {
+                this.cache.delete(key);
+                cleaned++;
+            }
+        }
+
+        if (cleaned > 0) {
+            console.log(`🧹 Cache: Cleaned ${cleaned} expired entries`);
+            this.debouncedSave();
+        }
+
+        return cleaned;
+    }
+
+    clearOldestEntries(count = 10) {
+        const entries = Array.from(this.cache.entries());
+        entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+        for (let i = 0; i < Math.min(count, entries.length); i++) {
+            this.cache.delete(entries[i][0]);
+        }
+
+        console.log(`🧹 Cache: Removed ${count} oldest entries`);
+        this.saveToStorage();
+    }
+
+    startCleanupInterval() {
+        setInterval(
+            () => {
+                const cleaned = this.cleanExpired();
+                if (cleaned > 0) {
+                    console.log(
+                        `🧹 Cache: Auto-cleanup removed ${cleaned} entries`,
+                    );
+                }
+            },
+            5 * 60 * 1000,
+        );
+    }
+
+    // ===== UTILITY METHODS =====
+
+    buildKey(key, type = "general") {
+        return `${type}_${key}`;
+    }
+
+    syncToMemoryCache() {
+        const dataCache = this.cache.get(this.buildKey("data"));
+        if (dataCache) {
+            this.memoryCache.data = dataCache.value;
+            this.memoryCache.timestamp = dataCache.timestamp;
+        }
+    }
+
+    // ===== OBSERVER PATTERN =====
 
     addObserver(callback) {
         this.observers.add(callback);
@@ -481,34 +683,107 @@ class CacheManager {
         });
     }
 
+    // ===== STATISTICS & DEBUG =====
+
     getStats() {
+        const total = this.stats.hits + this.stats.misses;
         const hitRate =
-            this.stats.hits + this.stats.misses > 0
-                ? (
-                      (this.stats.hits /
-                          (this.stats.hits + this.stats.misses)) *
-                      100
-                  ).toFixed(2)
-                : 0;
+            total > 0 ? ((this.stats.hits / total) * 100).toFixed(2) : 0;
 
         return {
-            hasData: !!this.cache.data,
-            timestamp: this.cache.timestamp,
-            age: this.cache.timestamp ? Date.now() - this.cache.timestamp : 0,
-            sizeEstimate: this.cache.data
-                ? JSON.stringify(this.cache.data).length
+            cacheSize: this.cache.size,
+            hasData: !!this.memoryCache.data,
+            timestamp: this.memoryCache.timestamp,
+            age: this.memoryCache.timestamp
+                ? Date.now() - this.memoryCache.timestamp
                 : 0,
             observerCount: this.observers.size,
             hitRate: `${hitRate}%`,
+            storageSize: this.getStorageSize(),
+            enablePersistence: this.enablePersistence,
             ...this.stats,
         };
     }
 
-    clear() {
-        this.cache.data = null;
-        this.cache.timestamp = null;
-        this.stats = { hits: 0, misses: 0, sets: 0, invalidations: 0 };
+    getStorageSize() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return "0 KB";
+            const sizeKB = (stored.length / 1024).toFixed(2);
+            return `${sizeKB} KB`;
+        } catch {
+            return "N/A";
+        }
+    }
+
+    getDetailedInfo() {
+        const entries = Array.from(this.cache.entries()).map(
+            ([key, value]) => ({
+                key,
+                type: value.type,
+                age: Date.now() - value.timestamp,
+                expiresIn: value.expires - Date.now(),
+                size: JSON.stringify(value.value).length,
+            }),
+        );
+
+        return {
+            ...this.getStats(),
+            entries: entries.sort((a, b) => b.age - a.age),
+        };
+    }
+
+    // ===== CLEANUP =====
+
+    clear(type = null) {
+        if (type) {
+            for (const [key, value] of this.cache.entries()) {
+                if (value.type === type) {
+                    this.cache.delete(key);
+                }
+            }
+        } else {
+            this.cache.clear();
+            this.memoryCache.data = null;
+            this.memoryCache.timestamp = null;
+            localStorage.removeItem(this.storageKey);
+        }
+
+        this.stats = {
+            hits: 0,
+            misses: 0,
+            sets: 0,
+            invalidations: 0,
+        };
+
         this.observers.clear();
+        console.log("🗑️ Cache: Cleared all data");
+    }
+
+    destroy() {
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+            this.saveToStorage();
+        }
+
+        this.clear();
+        console.log("Cache Manager destroyed");
+    }
+
+    // ===== CONFIGURATION =====
+
+    setPersistence(enabled) {
+        this.enablePersistence = enabled;
+        console.log(`Cache persistence ${enabled ? "enabled" : "disabled"}`);
+
+        if (!enabled) {
+            localStorage.removeItem(this.storageKey);
+        }
+    }
+
+    setMaxAge(maxAge) {
+        this.maxAge = maxAge;
+        console.log(`Cache max age set to ${maxAge}ms`);
     }
 }
 
@@ -531,7 +806,6 @@ class DOMManager {
             this.mutationObserver = new MutationObserver((mutations) => {
                 mutations.forEach((mutation) => {
                     if (mutation.type === "childList") {
-                        // Clear cache for removed elements
                         mutation.removedNodes.forEach((node) => {
                             if (node.nodeType === Node.ELEMENT_NODE) {
                                 this.clearElementFromCache(node);
@@ -549,7 +823,6 @@ class DOMManager {
     }
 
     clearElementFromCache(element) {
-        // Remove element and its descendants from cache
         this.elementCache.forEach((cachedElement, selector) => {
             if (
                 !document.contains(cachedElement) ||
@@ -564,7 +837,6 @@ class DOMManager {
     get(selector) {
         if (this.elementCache.has(selector)) {
             const element = this.elementCache.get(selector);
-            // Verify element is still in DOM
             if (element && document.contains(element)) {
                 return element;
             }
@@ -592,12 +864,8 @@ class DOMManager {
 
         if (options.attributes) {
             Object.entries(options.attributes).forEach(([key, value]) => {
-                // Handle checkbox checked specially
                 if (tagName === "input" && key === "checked") {
                     element.checked = Boolean(value);
-                    console.log(
-                        `Set checkbox.checked property to: ${element.checked}`,
-                    );
                 } else {
                     element.setAttribute(key, value);
                 }
@@ -633,7 +901,6 @@ class DOMManager {
         this.elementCache.clear();
     }
 
-    // Batch DOM operations for better performance
     batch(operations) {
         const fragment = this.createFragment();
 
@@ -654,7 +921,6 @@ class DOMManager {
         return fragment;
     }
 
-    // Efficient element visibility check
     isVisible(element) {
         return !!(
             element.offsetWidth ||
@@ -663,7 +929,6 @@ class DOMManager {
         );
     }
 
-    // Scroll into view with performance considerations
     scrollIntoView(element, options = {}) {
         if (element && typeof element.scrollIntoView === "function") {
             element.scrollIntoView({
@@ -675,7 +940,6 @@ class DOMManager {
         }
     }
 
-    // Add CSS classes with animation support
     addClass(element, className, animate = false) {
         if (!element) return;
 
@@ -696,7 +960,6 @@ class DOMManager {
         element.classList.remove(className);
     }
 
-    // Get computed styles
     getStyles(element, properties = []) {
         if (!element) return {};
 
@@ -964,34 +1227,26 @@ class DeviceDetector {
     }
 
     calculatePerformanceScore() {
-        let score = 50; // Base score
+        let score = 50;
 
-        // CPU cores
         score += Math.min(this.info.hardwareConcurrency * 10, 40);
-
-        // Memory
         score += Math.min(this.info.memory * 5, 20);
 
-        // Device type
         if (this.info.isDesktop) score += 20;
         else if (this.info.isTablet) score += 10;
-        else score -= 10; // Mobile penalty
+        else score -= 10;
 
-        // Browser
         if (this.info.browser === "Chrome") score += 10;
         else if (this.info.browser === "Firefox") score += 5;
 
-        // Connection
         if (this.info.connection) {
             if (this.info.connection.effectiveType === "4g") score += 10;
             else if (this.info.connection.effectiveType === "3g") score += 5;
         }
 
-        // Screen resolution
         const totalPixels = this.info.screen.width * this.info.screen.height;
-        if (totalPixels > 2073600)
-            score += 10; // 1920x1080+
-        else if (totalPixels > 921600) score += 5; // 1280x720+
+        if (totalPixels > 2073600) score += 10;
+        else if (totalPixels > 921600) score += 5;
 
         return Math.max(0, Math.min(100, score));
     }
@@ -1099,7 +1354,6 @@ class ErrorHandler {
 
         console.error("Error logged:", errorInfo);
 
-        // Send to analytics if available
         if (window.gtag) {
             window.gtag("event", "exception", {
                 description: errorInfo.message,
@@ -1139,7 +1393,6 @@ const errorHandler = new ErrorHandler();
 // EXPORT UTILITIES
 // =====================================================
 
-// Export all utilities
 if (typeof module !== "undefined" && module.exports) {
     module.exports = {
         VietnamTime,
@@ -1156,7 +1409,6 @@ if (typeof module !== "undefined" && module.exports) {
         domManager,
         deviceDetector,
         errorHandler,
-        // Utility functions
         generateUniqueId,
         ensureUniqueId,
         sanitizeInput,
@@ -1170,7 +1422,6 @@ if (typeof module !== "undefined" && module.exports) {
         validateAmount,
     };
 } else {
-    // Browser environment
     window.VietnamTime = VietnamTime;
     window.PerformanceMonitor = PerformanceMonitor;
     window.ThrottleManager = ThrottleManager;
@@ -1187,7 +1438,6 @@ if (typeof module !== "undefined" && module.exports) {
     window.deviceDetector = deviceDetector;
     window.errorHandler = errorHandler;
 
-    // Utility functions
     window.generateUniqueId = generateUniqueId;
     window.ensureUniqueId = ensureUniqueId;
     window.sanitizeInput = sanitizeInput;
@@ -1217,6 +1467,9 @@ window.debugPerformance = function () {
     };
 };
 
-console.log(
-    "Utils-helpers.js loaded successfully with Vietnam timezone support",
-);
+window.debugCache = function () {
+    console.table(cacheManager.getDetailedInfo().entries);
+    return cacheManager.getStats();
+};
+
+console.log("Utils-helpers.js loaded with enhanced persistent cache system");
