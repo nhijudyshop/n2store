@@ -82,7 +82,6 @@ function hasInboxBeenEdited(item) {
         return false;
     }
 
-    // Check if any edit history entry modified soMonInbox
     return item.editHistory.some((entry) => {
         if (entry.newData && entry.oldData) {
             return entry.newData.soMonInbox !== entry.oldData.soMonInbox;
@@ -121,7 +120,6 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
 
     arrayData = [...dataArray];
 
-    // Chỉ apply "This week" filter lần đầu tiên
     if (applyInitialFilter) {
         const defaultRange = getDefaultFilterRange();
         currentFilters.startDate = defaultRange.startDate;
@@ -132,26 +130,20 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
         );
     }
 
-    // Sort data with enhanced time period sorting
     const sortedData = sortDataWithTimePeriod(dataArray);
-
-    // Group by date
     const groupedData = groupDataByDate(sortedData);
 
     tableBody.innerHTML = "";
     const fragment = document.createDocumentFragment();
 
-    // Render grouped data
     Object.keys(groupedData)
         .sort((a, b) => new Date(b) - new Date(a))
         .forEach((dateKey, groupIndex) => {
             const group = groupedData[dateKey];
             const reports = group.reports;
 
-            // Format display date
             const displayDate = formatDate(group.date);
 
-            // Calculate total inbox for this date (only if edited)
             let totalInbox = "";
             const eveningReport = reports.find(
                 (r) => getTimePeriodFromData(r) === "Chiều",
@@ -169,7 +161,6 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
                 }
             }
 
-            // Create rows for each session
             reports.forEach((item, index) => {
                 const newRow = createGroupedTableRow(
                     item,
@@ -185,8 +176,6 @@ function renderTableFromData(dataArray, applyInitialFilter = false) {
         });
 
     tableBody.appendChild(fragment);
-
-    // Tạo filter system nếu chưa có
     createFilterSystem();
 
     console.log(
@@ -206,91 +195,77 @@ function createGroupedTableRow(
     const newRow = document.createElement("tr");
     const period = getTimePeriodFromData(item);
 
-    // Alternating background colors
-    if (groupIndex % 2 === 0) {
-        if (period === "Sáng") {
-            newRow.classList.add("bg-muted/20");
-        } else {
-            newRow.classList.add("bg-muted/10");
-        }
+    // Add class for first row of each date group
+    if (isFirstRow) {
+        newRow.classList.add("first-row-of-date");
     }
 
-    // Get auth state for styling decisions
     const auth = getAuthState();
-    const isAdmin = auth && parseInt(auth.checkLogin) === 0;
 
     // Date cell (only on first row with rowspan)
     if (isFirstRow) {
         const dateCell = document.createElement("td");
         dateCell.textContent = dateStr;
-        dateCell.className =
-            "p-4 align-middle text-center font-medium border-r";
+        dateCell.className = "date-cell";
         dateCell.rowSpan = rowCount;
         dateCell.setAttribute("data-id", item.id);
         newRow.appendChild(dateCell);
     }
 
-    // Tiền QC cell with badge
+    // Tiền QC cell with badge ON TOP
     const tienQCCell = document.createElement("td");
-    tienQCCell.className = "p-4 align-middle text-center";
     const tienQCValue = item.tienQC
         ? numberWithCommas(
               sanitizeInput(item.tienQC.toString()).replace(/[,\.]/g, ""),
           )
         : "0";
+
+    const periodBadgeClass = getPeriodBadgeClass(period);
+
     tienQCCell.innerHTML = `
-        <div class="flex flex-col items-center gap-1">
-            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors text-xs ${getPeriodBadgeClass(period)}">
-                ${period || ""}
-            </div>
-            <span class="text-sm font-medium">${tienQCValue}&nbsp;₫</span>
+        <div class="period-column-content">
+            <span class="period-badge ${periodBadgeClass}">${period || ""}</span>
+            <span class="period-data-value">${tienQCValue}&nbsp;₫</span>
         </div>
     `;
     newRow.appendChild(tienQCCell);
 
-    // Thời gian cell with badge
+    // Thời gian cell with badge ON TOP
     const timeCell = document.createElement("td");
-    timeCell.className = "p-4 align-middle text-center";
     const timeDisplay = formatTimeDisplay(item.thoiGian);
     timeCell.innerHTML = `
-        <div class="flex flex-col items-center gap-1">
-            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors text-xs ${getPeriodBadgeClass(period)}">
-                ${period || ""}
-            </div>
-            <div class="text-sm whitespace-pre-line leading-tight">${timeDisplay}</div>
+        <div class="period-column-content">
+            <span class="period-badge ${periodBadgeClass}">${period || ""}</span>
+            <div class="period-data-value" style="white-space: pre-line; line-height: 1.4;">${timeDisplay}</div>
         </div>
     `;
     newRow.appendChild(timeCell);
 
-    // Số món live cell with badge
+    // Số món live cell with badge ON TOP
     const soMonLiveCell = document.createElement("td");
-    soMonLiveCell.className = "p-4 align-middle text-center";
     const soMonLiveValue = item.soMonLive
         ? item.soMonLive.toString().replace(" món", "")
         : "0";
     soMonLiveCell.innerHTML = `
-        <div class="flex flex-col items-center gap-1">
-            <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors text-xs ${getPeriodBadgeClass(period)}">
-                ${period || ""}
-            </div>
-            <span class="text-sm font-medium">${soMonLiveValue}</span>
+        <div class="period-column-content">
+            <span class="period-badge ${periodBadgeClass}">${period || ""}</span>
+            <span class="period-data-value">${soMonLiveValue}</span>
         </div>
     `;
     newRow.appendChild(soMonLiveCell);
 
-    // Số món inbox cell (only on first row with rowspan) - only show if edited
+    // Số món inbox cell (only on first row with rowspan)
     if (isFirstRow) {
         const inboxCell = document.createElement("td");
-        inboxCell.className =
-            "p-4 align-middle text-center font-medium border-l";
+        inboxCell.className = "inbox-cell";
         inboxCell.rowSpan = rowCount;
         inboxCell.innerHTML = `<span class="text-lg font-bold text-primary">${totalInbox}</span>`;
         newRow.appendChild(inboxCell);
     }
 
-    // Action buttons cell - SEPARATE for each row
+    // Action buttons cell
     const actionCell = document.createElement("td");
-    actionCell.className = "p-4 align-middle text-center border-l";
+    actionCell.className = "action-cell";
 
     actionCell.innerHTML = `
         <div class="flex justify-center gap-2">
@@ -303,21 +278,18 @@ function createGroupedTableRow(
         </div>
     `;
 
-    // Initialize Lucide icons
     if (typeof lucide !== "undefined") {
         lucide.createIcons();
     }
 
     newRow.appendChild(actionCell);
 
-    // Apply role-based permissions
     if (auth) {
         const editBtn = actionCell.querySelector(".edit-button");
         const deleteBtn = actionCell.querySelector(".delete-button");
         applyButtonPermissions(editBtn, deleteBtn, parseInt(auth.checkLogin));
     }
 
-    // Store data on row for edit/delete operations - INDIVIDUAL report ID only
     newRow.setAttribute("data-report-id", item.id);
 
     return newRow;
@@ -325,12 +297,13 @@ function createGroupedTableRow(
 
 function getPeriodBadgeClass(period) {
     if (period === "Sáng") {
-        return "text-foreground";
+        return "morning";
     } else if (period === "Chiều") {
-        return "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80";
-    } else {
-        return "border-transparent bg-primary text-primary-foreground";
+        return "afternoon";
+    } else if (period === "Tối") {
+        return "evening";
     }
+    return "";
 }
 
 function formatTimeDisplay(thoiGian) {
@@ -350,19 +323,15 @@ function formatTimeDisplay(thoiGian) {
 
 function applyButtonPermissions(editBtn, deleteBtn, userRole) {
     if (userRole === 0) {
-        // Admin: can edit and delete
         editBtn.style.display = "inline-flex";
         deleteBtn.style.display = "inline-flex";
     } else if (userRole === 1) {
-        // Level 1: can edit but not delete
         editBtn.style.display = "inline-flex";
         deleteBtn.style.display = "none";
     } else if (userRole === 2) {
-        // Level 2: can edit (limited) but not delete
         editBtn.style.display = "inline-flex";
         deleteBtn.style.display = "none";
     } else {
-        // Level 3 and above: No permissions
         editBtn.style.display = "none";
         deleteBtn.style.display = "none";
     }
@@ -381,7 +350,6 @@ function updateTable(preserveCurrentFilter = false) {
         }
 
         setTimeout(() => {
-            // Chỉ apply initial filter lần đầu tiên load trang
             const shouldApplyInitialFilter =
                 !isFilterInitialized && !preserveCurrentFilter;
             renderTableFromData(cachedData, shouldApplyInitialFilter);
@@ -390,7 +358,6 @@ function updateTable(preserveCurrentFilter = false) {
                 isFilterInitialized = true;
             }
 
-            // Áp dụng lại filter hiện tại nếu cần
             if (
                 preserveCurrentFilter &&
                 (currentFilters.startDate || currentFilters.endDate)
@@ -398,7 +365,6 @@ function updateTable(preserveCurrentFilter = false) {
                 console.log("[TABLE] Re-applying current filter after reload");
                 setTimeout(() => {
                     if (typeof applyFilters === "function") {
-                        // Tắt cờ để không hiển thị thông báo
                         const tempFlag = isFilteringInProgress;
                         isFilteringInProgress = false;
                         applyFilters();
@@ -432,7 +398,6 @@ function updateTable(preserveCurrentFilter = false) {
             if (doc.exists) {
                 const data = doc.data();
                 if (Array.isArray(data["data"]) && data["data"].length > 0) {
-                    // Chỉ apply initial filter lần đầu tiên load trang
                     const shouldApplyInitialFilter =
                         !isFilterInitialized && !preserveCurrentFilter;
                     renderTableFromData(data["data"], shouldApplyInitialFilter);
@@ -443,7 +408,6 @@ function updateTable(preserveCurrentFilter = false) {
 
                     setCachedData(data["data"]);
 
-                    // Áp dụng lại filter hiện tại nếu cần
                     if (
                         preserveCurrentFilter &&
                         (currentFilters.startDate || currentFilters.endDate)
@@ -453,7 +417,6 @@ function updateTable(preserveCurrentFilter = false) {
                         );
                         setTimeout(() => {
                             if (typeof applyFilters === "function") {
-                                // Tắt cờ để không hiển thị thông báo
                                 const tempFlag = isFilteringInProgress;
                                 isFilteringInProgress = false;
                                 applyFilters();
@@ -516,7 +479,6 @@ function updateTable(preserveCurrentFilter = false) {
         });
 }
 
-// Table Event Handlers
 function initializeTableEvents() {
     if (!tableBody) return;
 
@@ -590,17 +552,14 @@ function handleDeleteButton(e) {
             return collectionRef.doc("reports").update({ data: updatedArray });
         })
         .then(() => {
-            // Log action (safe call)
             if (typeof logAction === "function") {
                 logAction("delete", `Xóa báo cáo livestream`, null, null);
             } else {
                 console.log("[ACTION] Delete report");
             }
 
-            // Invalidate cache
             invalidateCache();
 
-            // Show success message
             if (globalNotificationManager) {
                 globalNotificationManager.clearAll();
                 globalNotificationManager.success(
@@ -612,11 +571,10 @@ function handleDeleteButton(e) {
                 showSuccess("Đã xóa báo cáo thành công!");
             }
 
-            // Reload table data và giữ nguyên filter
             setTimeout(() => {
                 console.log("[TABLE] Reloading table after deleting report...");
                 if (typeof updateTable === "function") {
-                    updateTable(true); // true = giữ nguyên filter hiện tại
+                    updateTable(true);
                 }
             }, 500);
         })
@@ -636,33 +594,26 @@ function handleDeleteButton(e) {
         });
 }
 
-// NEW: Render table with filtered data
 function renderFilteredTable(filteredData) {
     if (!Array.isArray(filteredData)) {
         console.error("Invalid filtered data");
         return;
     }
 
-    // Sort data with enhanced time period sorting
     const sortedData = sortDataWithTimePeriod(filteredData);
-
-    // Group by date
     const groupedData = groupDataByDate(sortedData);
 
     tableBody.innerHTML = "";
     const fragment = document.createDocumentFragment();
 
-    // Render grouped data
     Object.keys(groupedData)
         .sort((a, b) => new Date(b) - new Date(a))
         .forEach((dateKey, groupIndex) => {
             const group = groupedData[dateKey];
             const reports = group.reports;
 
-            // Format display date
             const displayDate = formatDate(group.date);
 
-            // Calculate total inbox for this date (only if edited)
             let totalInbox = "";
             const eveningReport = reports.find(
                 (r) => getTimePeriodFromData(r) === "Chiều",
@@ -680,7 +631,6 @@ function renderFilteredTable(filteredData) {
                 }
             }
 
-            // Create rows for each session
             reports.forEach((item, index) => {
                 const newRow = createGroupedTableRow(
                     item,
@@ -697,16 +647,12 @@ function renderFilteredTable(filteredData) {
 
     tableBody.appendChild(fragment);
 
-    // Initialize Lucide icons for new content
     if (typeof lucide !== "undefined") {
         lucide.createIcons();
     }
 
     console.log(`[TABLE] Rendered ${sortedData.length} filtered reports`);
 }
-
-// Export the new function
-window.renderFilteredTable = renderFilteredTable;
 
 function exportToExcel() {
     if (!hasPermission(1)) {
@@ -750,22 +696,19 @@ function exportToExcel() {
             if (row.style.display !== "none") {
                 const rowData = [];
 
-                // Check if this row has the date cell
                 const dateCell = row.cells[0];
-                if (dateCell && dateCell.classList.contains("border-r")) {
+                if (dateCell && dateCell.classList.contains("date-cell")) {
                     rowData.push(dateCell.textContent.trim());
                 } else {
-                    rowData.push(""); // Empty for continuation rows
+                    rowData.push("");
                 }
 
-                // Extract period from badge
-                const periodBadge = row.querySelector(".inline-flex");
+                const periodBadge = row.querySelector(".period-badge");
                 const period = periodBadge
                     ? periodBadge.textContent.trim()
                     : "";
                 rowData.push(period);
 
-                // Extract values from cells
                 for (let i = 1; i < Math.min(row.cells.length, 5); i++) {
                     const text = row.cells[i].textContent.trim();
                     rowData.push(text);
@@ -853,3 +796,6 @@ window.handleDeleteButton = handleDeleteButton;
 window.hasInboxBeenEdited = hasInboxBeenEdited;
 window.getDefaultFilterRange = getDefaultFilterRange;
 window.isFilterInitialized = isFilterInitialized;
+window.renderFilteredTable = renderFilteredTable;
+window.getPeriodBadgeClass = getPeriodBadgeClass;
+window.formatTimeDisplay = formatTimeDisplay;

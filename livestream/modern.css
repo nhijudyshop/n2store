@@ -943,7 +943,7 @@ button {
 }
 
 /* =====================================================
-   TABLE - MAIN SECTION
+   TABLE - MAIN SECTION (Clean Design with Date Separation)
    ===================================================== */
 
 .table-container {
@@ -962,10 +962,14 @@ button {
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
-/* Header */
+/* =====================================================
+   HEADER
+   ===================================================== */
+
 thead {
     position: sticky;
     top: 0;
@@ -988,104 +992,147 @@ thead th:last-child {
     border-right: none;
 }
 
-/* Body */
+/* =====================================================
+   BODY ROWS
+   ===================================================== */
+
 tbody tr {
-    border-bottom: 1px solid #e9ecef;
-    transition: background-color var(--transition-fast);
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.15s ease;
+    background: white;
 }
 
 tbody tr:hover {
     background: #f8f9fa !important;
 }
 
+/* Date Group Separation - Thicker border between dates */
+tbody tr.first-row-of-date {
+    border-top: 3px solid #dee2e6;
+}
+
+/* Add top border for ALL cells in first row of date group */
+tbody tr.first-row-of-date td {
+    border-top: 3px solid #dee2e6;
+}
+
 tbody td {
-    padding: 12px 20px;
+    padding: 14px 20px;
     color: var(--text-secondary);
     font-size: 14px;
     text-align: center;
     vertical-align: middle;
-    border-right: 1px solid #e9ecef;
+    border-right: 1px solid #f0f0f0;
 }
 
 tbody td:last-child {
     border-right: none;
 }
 
-/* Date Column */
-tbody td.p-4.align-middle.text-center.font-medium.border-r {
-    font-weight: 600;
-    font-size: 15px;
-    color: #212529;
-    background: #f8f9fa;
-    border-right: 2px solid #dee2e6 !important;
-}
+/* =====================================================
+   PERIOD BADGES - Fixed Position, Always Aligned
+   ===================================================== */
 
-/* Inbox Column */
-tbody td.p-4.align-middle.text-center.font-medium.border-l {
-    background: #f8f9fa;
-    border-left: 2px solid #dee2e6 !important;
-    border-right: 2px solid #dee2e6 !important;
-}
-
-/* Actions Column */
-tbody td.p-4.align-middle.text-center.border-l {
-    background: #f8f9fa;
-    border-left: 2px solid #dee2e6 !important;
-}
-
-/* Period Badges */
-.inline-flex.rounded-full {
+.period-badge {
     display: inline-block;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 11px;
     font-weight: 600;
-    margin-bottom: 6px;
+    border: 1px solid;
+    margin-bottom: 8px;
+    min-width: 50px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
-/* Sáng - Blue */
-.inline-flex.text-foreground {
+/* Morning Badge - Blue */
+.period-badge.morning {
     background: #e3f2fd;
-    color: #1976d2;
-    border: 1px solid #90caf9;
+    color: #1565c0;
+    border-color: #90caf9;
 }
 
-/* Chiều - Orange */
-.inline-flex.border-transparent.bg-secondary {
-    background: #fff3e0 !important;
-    color: #f57c00 !important;
-    border: 1px solid #ffb74d !important;
+/* Afternoon Badge - Orange */
+.period-badge.afternoon {
+    background: #fff3e0;
+    color: #e65100;
+    border-color: #ffb74d;
 }
 
-/* Content Displays */
-.flex.flex-col.items-center.gap-1 {
+/* Evening Badge - Purple */
+.period-badge.evening {
+    background: #f3e5f5;
+    color: #6a1b9a;
+    border-color: #ba68c8;
+}
+
+/* =====================================================
+   COLUMN CONTENT - Badge Always at Top, Aligned
+   ===================================================== */
+
+.period-column-content {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    justify-content: flex-start;
+    min-height: 60px;
 }
 
-.text-sm.font-medium {
-    font-size: 15px;
-    font-weight: 600;
-    color: #212529;
-}
-
-.text-sm.whitespace-pre-line {
+.period-data-value {
     font-size: 14px;
-    color: #495057;
-    line-height: 1.4;
-    white-space: pre-line;
+    font-weight: 500;
+    color: #212529;
+    text-align: center;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Inbox Total */
+/* =====================================================
+   DATE CELL - Clear Separation
+   ===================================================== */
+
+tbody td.date-cell {
+    font-weight: 600;
+    font-size: 15px;
+    color: #212529;
+    background: #fafafa;
+    border-right: 2px solid #dee2e6 !important;
+    border-left: 3px solid #dee2e6;
+}
+
+/* First date cell of each group */
+tbody tr.first-row-of-date td.date-cell {
+    border-top: 3px solid #dee2e6;
+}
+
+/* =====================================================
+   INBOX & ACTION COLUMNS
+   ===================================================== */
+
+tbody td.inbox-cell {
+    background: #fafafa;
+    border-left: 2px solid #dee2e6 !important;
+    font-weight: 600;
+}
+
+tbody td.action-cell {
+    background: #fafafa;
+    border-left: 1px solid #e9ecef !important;
+}
+
 .text-lg.font-bold.text-primary {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: #2196f3;
 }
 
-/* Action Buttons with Lucide Icons */
+/* =====================================================
+   ACTION BUTTONS
+   ===================================================== */
+
 .flex.justify-center.gap-2 {
     display: flex;
     justify-content: center;
@@ -1120,23 +1167,70 @@ tbody td.p-4.align-middle.text-center.border-l {
     background: #e3f2fd !important;
     border-color: #2196f3 !important;
     color: #2196f3 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
 }
 
 .delete-button:hover {
     background: #ffebee !important;
     border-color: #f44336 !important;
     color: #f44336 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(244, 67, 54, 0.2);
 }
 
-/* Alternating Rows */
-tbody tr:nth-child(4n + 1),
-tbody tr:nth-child(4n + 2) {
-    background: #fafafa;
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
+
+@media (max-width: 768px) {
+    thead th,
+    tbody td {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .edit-button,
+    .delete-button {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    .period-badge {
+        font-size: 10px;
+        padding: 2px 8px;
+        min-width: 45px;
+    }
+
+    .period-data-value {
+        font-size: 13px;
+    }
+
+    .period-column-content {
+        min-height: 50px;
+    }
 }
 
-tbody tr:nth-child(4n + 3),
-tbody tr:nth-child(4n + 4) {
-    background: white;
+/* =====================================================
+   SCROLLBAR
+   ===================================================== */
+
+.table-wrapper::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
 /* =====================================================
@@ -1196,7 +1290,7 @@ tbody tr:nth-child(4n + 4) {
 }
 
 /* =====================================================
-   MODAL
+   MODAL - Updated for Edit Form
    ===================================================== */
 
 .modal {
@@ -1212,59 +1306,112 @@ tbody tr:nth-child(4n + 4) {
     justify-content: center;
 }
 
+.modal[style*="display: flex"] {
+    display: flex !important;
+}
+
 .modal-content {
     background: white;
     border-radius: var(--radius-lg);
-    padding: var(--spacing-xl);
     max-width: 600px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: var(--shadow-xl);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-lg);
-    padding-bottom: var(--spacing-md);
+    padding: var(--spacing-lg) var(--spacing-xl);
     border-bottom: 1px solid var(--border);
+    background: linear-gradient(
+        135deg,
+        var(--primary) 0%,
+        var(--primary-dark) 100%
+    );
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .modal-header h3 {
     font-size: 1.25rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: white;
+    margin: 0;
 }
 
 .modal-close {
     width: 32px;
     height: 32px;
     border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 50%;
     cursor: pointer;
     font-size: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: var(--transition-fast);
+    line-height: 1;
 }
 
 .modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: var(--spacing-xl);
+}
+
+/* Responsive Modal */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .modal-body {
+        padding: var(--spacing-lg);
+    }
+
+    /* Stack form columns on mobile */
+    .modal-body [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Scrollbar styling for modal */
+.modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
     background: var(--gray-100);
+    border-radius: var(--radius);
 }
 
-.time-inputs {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--spacing-sm);
+.modal-content::-webkit-scrollbar-thumb {
+    background: var(--gray-400);
+    border-radius: var(--radius);
 }
 
-.time-inputs input {
-    text-align: center;
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
 }
 
 /* =====================================================

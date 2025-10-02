@@ -492,11 +492,15 @@
         </main>
 
         <!-- Edit Modal -->
-        <div class="modal" id="editModal">
-            <div class="modal-content">
+        <div class="modal" id="editModal" style="display: none">
+            <div class="modal-content" style="max-width: 800px">
                 <div class="modal-header">
                     <h3>Chỉnh Sửa Báo Cáo</h3>
-                    <button class="modal-close" id="closeEditModalBtn">
+                    <button
+                        class="modal-close"
+                        id="closeEditModalBtn"
+                        type="button"
+                    >
                         &times;
                     </button>
                 </div>
@@ -506,53 +510,259 @@
                             <label>Ngày</label>
                             <input type="date" id="editDate" />
                         </div>
-                        <div class="form-group">
-                            <label>Tiền QC</label>
-                            <input type="text" id="editTienQC" />
-                        </div>
-                        <div class="form-group">
-                            <label>Thời Gian</label>
-                            <div class="time-inputs">
-                                <input
-                                    type="number"
-                                    id="editHh1"
-                                    placeholder="HH"
-                                    min="0"
-                                    max="23"
-                                />
-                                <input
-                                    type="number"
-                                    id="editMm1"
-                                    placeholder="MM"
-                                    min="0"
-                                    max="59"
-                                />
-                                <span class="time-separator">→</span>
-                                <span></span>
-                                <input
-                                    type="number"
-                                    id="editHh2"
-                                    placeholder="HH"
-                                    min="0"
-                                    max="23"
-                                />
-                                <input
-                                    type="number"
-                                    id="editMm2"
-                                    placeholder="MM"
-                                    min="0"
-                                    max="59"
-                                />
+
+                        <!-- Grid 2 cột: Sáng và Chiều -->
+                        <div
+                            style="
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: var(--spacing-lg);
+                                margin-bottom: var(--spacing-lg);
+                            "
+                        >
+                            <!-- Phiên Sáng -->
+                            <div
+                                style="
+                                    padding: var(--spacing-md);
+                                    background: var(--gray-50);
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                "
+                            >
+                                <h4
+                                    style="
+                                        text-align: center;
+                                        font-size: 1rem;
+                                        font-weight: 600;
+                                        color: var(--text-primary);
+                                        margin-bottom: var(--spacing-md);
+                                    "
+                                >
+                                    <i
+                                        data-lucide="sunrise"
+                                        style="
+                                            width: 18px;
+                                            height: 18px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-right: 6px;
+                                        "
+                                    ></i>
+                                    Phiên Sáng
+                                </h4>
+
+                                <div
+                                    class="form-group"
+                                    style="margin-bottom: var(--spacing-md)"
+                                >
+                                    <label style="font-size: 0.875rem"
+                                        >Tiền QC (VNĐ)</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="editTienQC_morning"
+                                        placeholder="0"
+                                    />
+                                </div>
+
+                                <div
+                                    class="form-group"
+                                    style="margin-bottom: var(--spacing-md)"
+                                >
+                                    <label style="font-size: 0.875rem"
+                                        >Thời Gian Live</label
+                                    >
+                                    <div
+                                        style="
+                                            display: grid;
+                                            grid-template-columns: 1fr 1fr;
+                                            gap: var(--spacing-sm);
+                                        "
+                                    >
+                                        <div>
+                                            <label
+                                                style="
+                                                    font-size: 0.75rem;
+                                                    color: var(
+                                                        --text-secondary
+                                                    );
+                                                    margin-bottom: 4px;
+                                                    display: block;
+                                                "
+                                                >Giờ bắt đầu</label
+                                            >
+                                            <input
+                                                type="time"
+                                                id="editMorning_start_time"
+                                                step="60"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label
+                                                style="
+                                                    font-size: 0.75rem;
+                                                    color: var(
+                                                        --text-secondary
+                                                    );
+                                                    margin-bottom: 4px;
+                                                    display: block;
+                                                "
+                                                >Giờ kết thúc</label
+                                            >
+                                            <input
+                                                type="time"
+                                                id="editMorning_end_time"
+                                                step="60"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="form-group"
+                                    style="margin-bottom: 0"
+                                >
+                                    <label style="font-size: 0.875rem"
+                                        >Số Món Trên Live</label
+                                    >
+                                    <input
+                                        type="number"
+                                        id="editSoMonLive_morning"
+                                        placeholder="0"
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+
+                            <!-- Phiên Chiều -->
+                            <div
+                                style="
+                                    padding: var(--spacing-md);
+                                    background: var(--gray-50);
+                                    border-radius: var(--radius);
+                                    border: 1px solid var(--border);
+                                "
+                            >
+                                <h4
+                                    style="
+                                        text-align: center;
+                                        font-size: 1rem;
+                                        font-weight: 600;
+                                        color: var(--text-primary);
+                                        margin-bottom: var(--spacing-md);
+                                    "
+                                >
+                                    <i
+                                        data-lucide="sunset"
+                                        style="
+                                            width: 18px;
+                                            height: 18px;
+                                            display: inline-block;
+                                            vertical-align: middle;
+                                            margin-right: 6px;
+                                        "
+                                    ></i>
+                                    Phiên Chiều
+                                </h4>
+
+                                <div
+                                    class="form-group"
+                                    style="margin-bottom: var(--spacing-md)"
+                                >
+                                    <label style="font-size: 0.875rem"
+                                        >Tiền QC (VNĐ)</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="editTienQC_evening"
+                                        placeholder="0"
+                                    />
+                                </div>
+
+                                <div
+                                    class="form-group"
+                                    style="margin-bottom: var(--spacing-md)"
+                                >
+                                    <label style="font-size: 0.875rem"
+                                        >Thời Gian Live</label
+                                    >
+                                    <div
+                                        style="
+                                            display: grid;
+                                            grid-template-columns: 1fr 1fr;
+                                            gap: var(--spacing-sm);
+                                        "
+                                    >
+                                        <div>
+                                            <label
+                                                style="
+                                                    font-size: 0.75rem;
+                                                    color: var(
+                                                        --text-secondary
+                                                    );
+                                                    margin-bottom: 4px;
+                                                    display: block;
+                                                "
+                                                >Giờ bắt đầu</label
+                                            >
+                                            <input
+                                                type="time"
+                                                id="editEvening_start_time"
+                                                step="60"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label
+                                                style="
+                                                    font-size: 0.75rem;
+                                                    color: var(
+                                                        --text-secondary
+                                                    );
+                                                    margin-bottom: 4px;
+                                                    display: block;
+                                                "
+                                                >Giờ kết thúc</label
+                                            >
+                                            <input
+                                                type="time"
+                                                id="editEvening_end_time"
+                                                step="60"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="form-group"
+                                    style="margin-bottom: 0"
+                                >
+                                    <label style="font-size: 0.875rem"
+                                        >Số Món Trên Live</label
+                                    >
+                                    <input
+                                        type="number"
+                                        id="editSoMonLive_evening"
+                                        placeholder="0"
+                                        min="0"
+                                    />
+                                </div>
                             </div>
                         </div>
+
+                        <!-- Số Món Inbox (chung cho cả ngày) -->
                         <div class="form-group">
-                            <label>Số Món Live</label>
-                            <input type="number" id="editSoMonLive" min="0" />
+                            <label>
+                                <i data-lucide="inbox"></i>
+                                Số Món Inbox (Tổng trong ngày)
+                            </label>
+                            <input
+                                type="number"
+                                id="editSoMonInbox"
+                                min="0"
+                                placeholder="0"
+                            />
                         </div>
-                        <div class="form-group">
-                            <label>Số Món Inbox</label>
-                            <input type="number" id="editSoMonInbox" min="0" />
-                        </div>
+
                         <div class="form-actions">
                             <button
                                 type="button"

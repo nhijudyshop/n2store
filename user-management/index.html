@@ -8,6 +8,7 @@
 
         <!-- External CSS -->
         <link rel="stylesheet" href="modern.css" />
+        <link rel="stylesheet" href="detailed-permissions.css" />
 
         <!-- Lucide Icons -->
         <script src="https://unpkg.com/lucide@latest"></script>
@@ -140,10 +141,6 @@
                                 <i data-lucide="shield-check"></i>
                                 Quyền Truy Cập
                             </button>
-                            <button class="tab-btn" data-tab="tools">
-                                <i data-lucide="settings"></i>
-                                Tools
-                            </button>
                         </div>
                     </div>
                 </section>
@@ -263,87 +260,11 @@
                                 </div>
                             </div>
 
-                            <!-- Permissions Section -->
-                            <div class="permissions-section">
-                                <h3>
-                                    <i data-lucide="shield-check"></i>
-                                    Quyền Truy Cập Các Trang
-                                </h3>
-                                <p
-                                    style="
-                                        color: var(--text-secondary);
-                                        font-size: 0.875rem;
-                                        margin-bottom: var(--spacing-md);
-                                    "
-                                >
-                                    Chọn các trang mà user này có thể truy cập
-                                </p>
-
-                                <div class="role-template">
-                                    <h4>
-                                        <i data-lucide="layout-template"></i>
-                                        Template theo vai trò:
-                                    </h4>
-                                    <div class="template-buttons">
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('admin')"
-                                        >
-                                            <i data-lucide="crown"></i>
-                                            Admin
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('manager')"
-                                        >
-                                            <i data-lucide="briefcase"></i>
-                                            Manager
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('staff')"
-                                        >
-                                            <i data-lucide="users"></i>
-                                            Staff
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('viewer')"
-                                        >
-                                            <i data-lucide="eye"></i>
-                                            Viewer
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('clear')"
-                                        >
-                                            <i data-lucide="trash-2"></i>
-                                            Xóa tất cả
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div
-                                    class="permissions-summary"
-                                    id="permissionsSummary"
-                                >
-                                    <span class="permissions-count"
-                                        >0/12 trang được chọn</span
-                                    >
-                                </div>
-
-                                <div
-                                    class="permissions-grid"
-                                    id="editPermissionsGrid"
-                                >
-                                    <!-- Generated by JS -->
-                                </div>
-                            </div>
+                            <!-- Detailed Permissions Section -->
+                            <div
+                                id="editDetailedPermissions"
+                                class="detailed-permissions-container"
+                            ></div>
 
                             <div class="form-actions">
                                 <button
@@ -440,88 +361,11 @@
                                 </div>
                             </div>
 
-                            <!-- Permissions Section -->
-                            <div class="permissions-section">
-                                <h3>
-                                    <i data-lucide="shield-check"></i>
-                                    Quyền Truy Cập Các Trang
-                                </h3>
-                                <p
-                                    style="
-                                        color: var(--text-secondary);
-                                        font-size: 0.875rem;
-                                        margin-bottom: var(--spacing-md);
-                                    "
-                                >
-                                    Chọn các trang mà user mới này có thể truy
-                                    cập
-                                </p>
-
-                                <div class="role-template">
-                                    <h4>
-                                        <i data-lucide="layout-template"></i>
-                                        Template theo vai trò:
-                                    </h4>
-                                    <div class="template-buttons">
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('admin', 'new')"
-                                        >
-                                            <i data-lucide="crown"></i>
-                                            Admin
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('manager', 'new')"
-                                        >
-                                            <i data-lucide="briefcase"></i>
-                                            Manager
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('staff', 'new')"
-                                        >
-                                            <i data-lucide="users"></i>
-                                            Staff
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('viewer', 'new')"
-                                        >
-                                            <i data-lucide="eye"></i>
-                                            Viewer
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary template-btn"
-                                            onclick="applyPermissionTemplate('clear', 'new')"
-                                        >
-                                            <i data-lucide="trash-2"></i>
-                                            Xóa tất cả
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div
-                                    class="permissions-summary"
-                                    id="newPermissionsSummary"
-                                >
-                                    <span class="permissions-count"
-                                        >0/12 trang được chọn</span
-                                    >
-                                </div>
-
-                                <div
-                                    class="permissions-grid"
-                                    id="newPermissionsGrid"
-                                >
-                                    <!-- Generated by JS -->
-                                </div>
-                            </div>
+                            <!-- Detailed Permissions Section -->
+                            <div
+                                id="newDetailedPermissions"
+                                class="detailed-permissions-container"
+                            ></div>
 
                             <div class="form-actions">
                                 <button
@@ -554,7 +398,7 @@
                     </section>
                 </div>
 
-                <!-- Tab: Permissions -->
+                <!-- Tab: Permissions Overview -->
                 <div id="permissions" class="tab-content">
                     <section class="card">
                         <div class="card-header">
@@ -590,220 +434,6 @@
                         </div>
                     </section>
                 </div>
-
-                <!-- Tab: Tools -->
-                <div id="tools" class="tab-content">
-                    <section class="card">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <i data-lucide="hash"></i>
-                                <h2>Tạo Hash Password</h2>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div
-                                class="method-selector"
-                                style="margin-bottom: var(--spacing-lg)"
-                            >
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                        margin-right: var(--spacing-lg);
-                                    "
-                                >
-                                    <input
-                                        type="radio"
-                                        name="method"
-                                        value="cryptojs"
-                                        checked
-                                        style="
-                                            width: auto;
-                                            margin-right: var(--spacing-sm);
-                                        "
-                                    />
-                                    Crypto-JS (Nhanh)
-                                </label>
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                    "
-                                >
-                                    <input
-                                        type="radio"
-                                        name="method"
-                                        value="bcrypt"
-                                        style="
-                                            width: auto;
-                                            margin-right: var(--spacing-sm);
-                                        "
-                                    />
-                                    bcrypt (An toàn hơn)
-                                </label>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>
-                                        <i data-lucide="user"></i>
-                                        Username
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="username"
-                                        placeholder="Nhập username"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <label>
-                                        <i data-lucide="key"></i>
-                                        Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        id="password"
-                                        placeholder="Nhập password"
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>
-                                        <i data-lucide="tag"></i>
-                                        Tên hiển thị
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="displayName"
-                                        placeholder="Tên hiển thị"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <label>
-                                        <i data-lucide="shield"></i>
-                                        Quyền hạn
-                                    </label>
-                                    <select id="checkLogin">
-                                        <option value="0">Admin (0)</option>
-                                        <option value="1" selected>
-                                            User (1)
-                                        </option>
-                                        <option value="2">Limited (2)</option>
-                                        <option value="3">Basic (3)</option>
-                                        <option value="777">Guest (777)</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-actions">
-                                <button
-                                    type="button"
-                                    class="btn btn-secondary"
-                                    onclick="clearHashForm()"
-                                >
-                                    <i data-lucide="refresh-cw"></i>
-                                    Xóa Form
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn btn-primary"
-                                    onclick="generateHash()"
-                                >
-                                    <i data-lucide="hash"></i>
-                                    Tạo Hash
-                                </button>
-                            </div>
-
-                            <div
-                                id="hashOutput"
-                                style="
-                                    display: none;
-                                    margin-top: var(--spacing-lg);
-                                    padding: var(--spacing-lg);
-                                    background: var(--gray-50);
-                                    border-radius: var(--radius);
-                                    font-family: monospace;
-                                    font-size: 0.875rem;
-                                    white-space: pre-wrap;
-                                    word-break: break-all;
-                                "
-                            ></div>
-                        </div>
-                    </section>
-
-                    <section class="card">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <i data-lucide="check-circle"></i>
-                                <h2>Kiểm Tra Password</h2>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>
-                                        <i data-lucide="key"></i>
-                                        Test Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        id="testPassword"
-                                        placeholder="Nhập password để test"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <label>
-                                        <i data-lucide="hexagon"></i>
-                                        Salt (Crypto-JS)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="testSalt"
-                                        placeholder="Salt từ hash output"
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label>
-                                    <i data-lucide="hash"></i>
-                                    Hash để so sánh
-                                </label>
-                                <textarea
-                                    id="testHash"
-                                    rows="3"
-                                    placeholder="Paste hash để kiểm tra"
-                                    style="font-family: monospace"
-                                ></textarea>
-                            </div>
-
-                            <div class="form-actions">
-                                <button
-                                    type="button"
-                                    class="btn btn-primary"
-                                    onclick="verifyPassword()"
-                                >
-                                    <i data-lucide="check"></i>
-                                    Kiểm Tra
-                                </button>
-                            </div>
-
-                            <div
-                                id="verifyOutput"
-                                style="
-                                    display: none;
-                                    margin-top: var(--spacing-lg);
-                                    padding: var(--spacing-lg);
-                                    background: var(--gray-50);
-                                    border-radius: var(--radius);
-                                    font-size: 0.875rem;
-                                "
-                            ></div>
-                        </div>
-                    </section>
-                </div>
             </main>
         </div>
 
@@ -813,7 +443,6 @@
         <script>
             // Create compatibility elements before loading other scripts
             (function () {
-                // Create hidden currentUser element for compatibility
                 const currentUser = document.createElement("div");
                 currentUser.id = "currentUser";
                 currentUser.style.display = "none";
@@ -822,14 +451,12 @@
                     document.body.firstChild,
                 );
 
-                // Override checkAdminAccess to sync with userName
                 window.addEventListener("load", () => {
                     const userNameEl = document.getElementById("userName");
                     const currentUserEl =
                         document.getElementById("currentUser");
 
                     if (userNameEl && currentUserEl) {
-                        // Create sync function
                         const syncNames = () => {
                             if (
                                 currentUserEl.textContent &&
@@ -841,7 +468,6 @@
                             }
                         };
 
-                        // Sync immediately and on changes
                         syncNames();
                         const observer = new MutationObserver(syncNames);
                         observer.observe(currentUserEl, {
@@ -853,9 +479,13 @@
                 });
             })();
         </script>
+
         <script src="image-system.js"></script>
         <script src="auth-with-cache-manager.js"></script>
-        <script src="user-permission-page.js"></script>
+        <script src="detailed-permissions-config.js"></script>
+        <script src="detailed-permissions-ui.js"></script>
+        <script src="user-management-enhanced.js"></script>
+
         <script>
             // Initialize
             document.addEventListener("DOMContentLoaded", () => {
@@ -904,176 +534,23 @@
                         if (typeof loadUsers === "function") loadUsers();
                     });
 
-                // Update stats when users load
-                const originalLoadUsers = window.loadUsers;
-                if (originalLoadUsers) {
-                    window.loadUsers = async function () {
-                        await originalLoadUsers();
-                        updateStats();
+                // Sidebar toggle
+                document
+                    .getElementById("sidebarToggle")
+                    ?.addEventListener("click", () => {
+                        document
+                            .getElementById("sidebar")
+                            ?.classList.toggle("collapsed");
+                    });
 
-                        // Re-render with modern design
-                        if (window.users && window.users.length > 0) {
-                            window.renderUserList(window.users);
-                        }
-                    };
-                }
+                document
+                    .getElementById("menuToggle")
+                    ?.addEventListener("click", () => {
+                        document
+                            .getElementById("sidebar")
+                            ?.classList.toggle("active");
+                    });
             });
-
-            // Update stats
-            function updateStats() {
-                if (window.users && Array.isArray(window.users)) {
-                    const total = window.users.length;
-                    const admins = window.users.filter(
-                        (u) => u.checkLogin === 0,
-                    ).length;
-
-                    document.getElementById("statTotalUsers").textContent =
-                        total;
-                    document.getElementById("statAdmins").textContent = admins;
-                    document.getElementById("statActiveUsers").textContent =
-                        total;
-                    document.getElementById("statFirebase").textContent =
-                        "Connected";
-                }
-            }
-
-            // Override getRoleText with Lucide icons
-            window.getRoleText = function (checkLogin) {
-                const roles = {
-                    0: '<i data-lucide="crown" style="width:12px;height:12px;display:inline-block;vertical-align:middle"></i> Admin',
-                    1: '<i data-lucide="user" style="width:12px;height:12px;display:inline-block;vertical-align:middle"></i> User',
-                    2: '<i data-lucide="lock" style="width:12px;height:12px;display:inline-block;vertical-align:middle"></i> Limited',
-                    3: '<i data-lucide="circle" style="width:12px;height:12px;display:inline-block;vertical-align:middle"></i> Basic',
-                    777: '<i data-lucide="user-x" style="width:12px;height:12px;display:inline-block;vertical-align:middle"></i> Guest',
-                };
-                return roles[checkLogin] || `Unknown (${checkLogin})`;
-            };
-
-            // Render user list with modern design
-            window.renderUserList = function (users) {
-                const userList = document.getElementById("userList");
-                const emptyState = userList.querySelector(".empty-state");
-
-                if (!users || users.length === 0) {
-                    if (emptyState) emptyState.classList.add("show");
-                    return;
-                }
-
-                if (emptyState) emptyState.classList.remove("show");
-
-                let html = "";
-                users.forEach((user) => {
-                    const roleClass = getRoleClass(user.checkLogin);
-                    const roleIcon = getRoleIcon(user.checkLogin);
-                    const permissionCount = user.pagePermissions
-                        ? user.pagePermissions.length
-                        : 0;
-                    const totalPages = window.AVAILABLE_PAGES
-                        ? window.AVAILABLE_PAGES.length
-                        : 12;
-                    const createdDate = user.createdAt
-                        ? new Date(
-                              user.createdAt.seconds * 1000,
-                          ).toLocaleDateString("vi-VN")
-                        : "N/A";
-                    const updatedDate = user.updatedAt
-                        ? " | Cập nhật: " +
-                          new Date(
-                              user.updatedAt.seconds * 1000,
-                          ).toLocaleDateString("vi-VN")
-                        : "";
-
-                    html += `
-                        <div class="user-list-item">
-                            <div class="user-list-info">
-                                <div class="user-avatar-large">
-                                    <i data-lucide="user"></i>
-                                </div>
-                                <div class="user-list-details">
-                                    <div class="user-list-name">${user.displayName} <span style="color: var(--text-tertiary); font-weight: normal">(${user.id})</span></div>
-                                    <div class="user-list-meta">
-                                        <span class="user-role-badge ${roleClass}">
-                                            <i data-lucide="${roleIcon}"></i>
-                                            ${getRoleName(user.checkLogin)}
-                                        </span>
-                                        <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPages} trang</span>
-                                        <span><i data-lucide="calendar" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${createdDate}${updatedDate}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="user-list-actions">
-                                <button class="btn-icon" onclick="editUser('${user.id}')" title="Chỉnh sửa">
-                                    <i data-lucide="edit"></i>
-                                </button>
-                                <button class="btn-icon" onclick="viewUserPermissions('${user.id}')" title="Xem quyền">
-                                    <i data-lucide="eye"></i>
-                                </button>
-                                <button class="btn-icon danger" onclick="deleteUser('${user.id}')" title="Xóa">
-                                    <i data-lucide="trash-2"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                userList.innerHTML = html;
-                lucide.createIcons();
-            };
-
-            function getRoleClass(checkLogin) {
-                const classes = {
-                    0: "admin",
-                    1: "user",
-                    2: "limited",
-                    3: "basic",
-                    777: "guest",
-                };
-                return classes[checkLogin] || "user";
-            }
-
-            function getRoleIcon(checkLogin) {
-                const icons = {
-                    0: "crown",
-                    1: "user",
-                    2: "lock",
-                    3: "circle",
-                    777: "user-x",
-                };
-                return icons[checkLogin] || "user";
-            }
-
-            function getRoleName(checkLogin) {
-                const names = {
-                    0: "Admin",
-                    1: "User",
-                    2: "Limited",
-                    3: "Basic",
-                    777: "Guest",
-                };
-                return names[checkLogin] || "Unknown";
-            }
-
-            // Helper functions
-            function showFloatingAlert(message, type = "info") {
-                if (window.notify) {
-                    if (type === "loading") {
-                        return window.notify.loading(message);
-                    }
-                    window.notify.show(message, type, 3000);
-                }
-            }
-
-            function showSuccess(message) {
-                if (window.notify) {
-                    window.notify.success(message);
-                }
-            }
-
-            function showError(message) {
-                if (window.notify) {
-                    window.notify.error(message);
-                }
-            }
         </script>
     </body>
 </html>

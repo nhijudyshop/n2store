@@ -1,49 +1,81 @@
-// js/modals.js - Modal Management System
+// =====================================================
+// MODAL MANAGEMENT SYSTEM - Fixed Stack Overflow
+// =====================================================
 
+// Close Modal Function
 function closeModal() {
+    const editModal = document.getElementById("editModal");
     if (editModal) {
         editModal.style.display = "none";
     }
     editingRow = null;
+    window.editingContext = null;
 }
 
-function saveUpdatedChanges() {
-    const editDate = document.getElementById("editDate");
-    const editTienQC = document.getElementById("editTienQC");
-    const editSoMonLive = document.getElementById("editSoMonLive");
-    const editSoMonInbox = document.getElementById("editSoMonInbox");
+// Clear all edit modal fields
+function clearEditModalFields() {
+    const allInputs = [
+        "editDate",
+        "editTienQC_morning",
+        "editMorning_start_time",
+        "editMorning_end_time",
+        "editSoMonLive_morning",
+        "editTienQC_evening",
+        "editEvening_start_time",
+        "editEvening_end_time",
+        "editSoMonLive_evening",
+        "editSoMonInbox",
+    ];
 
-    const hh1 = document.getElementById("editHh1");
-    const mm1 = document.getElementById("editMm1");
-    const hh2 = document.getElementById("editHh2");
-    const mm2 = document.getElementById("editMm2");
+    allInputs.forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.value = "";
+            input.disabled = false;
+            input.readOnly = false;
+            input.style.backgroundColor = "white";
+        }
+    });
+}
 
-    const auth = getAuthState();
-    const userLevel = parseInt(auth.checkLogin);
+// Handle Edit Button Click
+function handleEditButton(e) {
+    const editModal = document.getElementById("editModal");
+    if (!editModal) return;
 
-    // Get current row data for comparison and fallback
-    if (!editingRow) {
+    const row = e.target.closest("tr");
+    const reportId = row.getAttribute("data-report-id");
+
+    if (!reportId) {
         if (globalNotificationManager) {
-            globalNotificationManager.error(
-                "Không tìm thấy hàng cần chỉnh sửa",
-                3000,
-            );
-        } else {
-            showError("Không tìm thấy hàng cần chỉnh sửa.");
+            globalNotificationManager.error("Không tìm thấy ID báo cáo", 3000);
         }
         return;
     }
 
-    const cells = editingRow.cells;
+    // Find the clicked report from arrayData
+    const clickedReport = arrayData.find((item) => item.id === reportId);
 
-    // Find the date cell and related cells
-    let dateCell = null;
-    let cellIndex = 0;
-    for (let i = 0; i < cells.length; i++) {
-        if (cells[i].getAttribute("data-id")) {
-            dateCell = cells[i];
-            cellIndex = i;
-            break;
+    if (!clickedReport) {
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không tìm thấy dữ liệu báo cáo",
+                3000,
+            );
+        }
+        return;
+    }
+
+    // Get period of clicked report
+    const clickedPeriod = getTimePeriodFromData(clickedReport);
+
+    // Find date cell
+    let dateCell = row.querySelector("[data-id]");
+    if (!dateCell) {
+        let currentRow = row.previousElementSibling;
+        while (currentRow && !dateCell) {
+            dateCell = currentRow.querySelector("[data-id]");
+            currentRow = currentRow.previousElementSibling;
         }
     }
 
@@ -53,685 +85,568 @@ function saveUpdatedChanges() {
                 "Không tìm thấy thông tin ngày",
                 3000,
             );
-        } else {
-            showError("Không tìm thấy thông tin ngày");
         }
         return;
     }
 
-    const currentRowData = {
-        date: dateCell.innerText,
-        tienQC: cells[cellIndex + 1].innerText,
-        thoiGian: cells[cellIndex + 2].innerText,
-        soMonLive: cells[cellIndex + 3].innerText,
-        soMonInbox: cells[cellIndex + 4].innerText,
-    };
+    const currentDate = dateCell.innerText.trim();
 
-    // Prepare values based on user permission level
-    let finalValues = {};
+    // Get all reports for this date from arrayData
+    const reportsForDate = arrayData.filter((item) => {
+        const itemDate = formatDate(new Date(parseInt(item.dateCell)));
+        return itemDate === currentDate;
+    });
 
-    if (userLevel <= 1) {
-        // Level 0 and 1 can edit everything - validate all fields
-        const dateValue = editDate.value;
-        const tienQCValue = editTienQC.value.trim();
-        const soMonLiveValue = editSoMonLive.value.trim();
-        const soMonInboxValue = editSoMonInbox.value.trim();
+    // Separate reports by period
+    const morningReport = reportsForDate.find(
+        (r) => getTimePeriodFromData(r) === "Sáng",
+    );
+    const eveningReport = reportsForDate.find(
+        (r) => getTimePeriodFromData(r) === "Chiều",
+    );
 
-        // Validation for full edit permission
-        if (!dateValue || !tienQCValue) {
-            if (globalNotificationManager) {
-                globalNotificationManager.warning(
-                    "Vui lòng điền đầy đủ thông tin bắt buộc",
-                    3000,
-                    "Thiếu thông tin",
-                );
-            } else {
-                showError("Vui lòng điền đầy đủ thông tin bắt buộc.");
-            }
-            return;
-        }
+    // Get auth state for permissions
+    const auth = getAuthState();
+    const userLevel = parseInt(auth.checkLogin);
 
-        const cleanAmount = tienQCValue.replace(/[,\.]/g, "");
-        const numAmount = parseFloat(cleanAmount);
-        if (isNaN(numAmount) || numAmount <= 0) {
-            if (globalNotificationManager) {
-                globalNotificationManager.error(
-                    "Số tiền QC không hợp lệ",
-                    3000,
-                    "Dữ liệu không hợp lệ",
-                );
-            } else {
-                showError("Số tiền QC không hợp lệ.");
-            }
-            return;
-        }
-
-        // Validate và format time (24h format)
-        let formattedTime = "";
-        const startHour = hh1.value.trim();
-        const startMin = mm1.value.trim();
-        const endHour = hh2.value.trim();
-        const endMin = mm2.value.trim();
-
-        if (startHour && startMin && endHour && endMin) {
-            const startTime = `${startHour.padStart(2, "0")}:${startMin.padStart(2, "0")}`;
-            const endTime = `${endHour.padStart(2, "0")}:${endMin.padStart(2, "0")}`;
-            formattedTime = formatTimeRange(startTime, endTime);
-
-            if (!formattedTime) {
-                if (globalNotificationManager) {
-                    globalNotificationManager.error(
-                        "Thời gian không hợp lệ",
-                        3000,
-                        "Dữ liệu không hợp lệ",
-                    );
-                } else {
-                    showError("Thời gian không hợp lệ.");
-                }
-                return;
-            }
-        }
-
-        // Validate số món - allow 0 values
-        if (isNaN(soMonLiveValue) || parseInt(soMonLiveValue) < 0) {
-            if (globalNotificationManager) {
-                globalNotificationManager.error(
-                    "Số món trên live phải là số không âm",
-                    3000,
-                    "Dữ liệu không hợp lệ",
-                );
-            } else {
-                showError("Số món trên live phải là số không âm.");
-            }
-            return;
-        }
-
-        if (isNaN(soMonInboxValue) || parseInt(soMonInboxValue) < 0) {
-            if (globalNotificationManager) {
-                globalNotificationManager.error(
-                    "Số món inbox phải là số không âm (có thể là 0)",
-                    3000,
-                    "Dữ liệu không hợp lệ",
-                );
-            } else {
-                showError("Số món inbox phải là số không âm (có thể là 0).");
-            }
-            return;
-        }
-
-        // Convert date back to timestamp
-        const dateObj = new Date(dateValue);
-        const editDateTimestamp =
-            dateObj.getTime() +
-            (new Date().getMinutes() * 60 + new Date().getSeconds()) * 1000;
-
-        // Format data with suffixes
-        const finalSoMonLive = parseInt(soMonLiveValue) + " món";
-
-        // Handle soMonInbox - empty string when 0, otherwise add suffix
-        let finalSoMonInbox;
-        const soMonInboxNumber = parseInt(soMonInboxValue);
-        if (soMonInboxNumber === 0) {
-            finalSoMonInbox = ""; // Save empty string when 0
-        } else {
-            finalSoMonInbox = soMonInboxNumber + " món";
-        }
-
-        finalValues = {
-            dateCell: editDateTimestamp.toString(),
-            tienQC: numberWithCommas(numAmount),
-            thoiGian: formattedTime || currentRowData.thoiGian,
-            soMonLive: finalSoMonLive,
-            soMonInbox: finalSoMonInbox,
-        };
-    } else if (userLevel === 2) {
-        // Level 2 can only edit soMonInbox
-        const soMonInboxValue = editSoMonInbox.value.trim();
-
-        // Validate only soMonInbox
-        if (isNaN(soMonInboxValue) || parseInt(soMonInboxValue) < 0) {
-            if (globalNotificationManager) {
-                globalNotificationManager.error(
-                    "Số món inbox phải là số không âm (có thể là 0)",
-                    3000,
-                    "Dữ liệu không hợp lệ",
-                );
-            } else {
-                showError("Số món inbox phải là số không âm (có thể là 0).");
-            }
-            return;
-        }
-
-        // Keep all other values from current row, only change soMonInbox
-        let currentDateTimestamp;
-        try {
-            // Parse current date back to timestamp for consistency
-            let cleanDate = currentRowData.date;
-            const periodPattern = /\s*\((Sáng|Chiều|Tối)\)$/;
-            if (periodPattern.test(currentRowData.date)) {
-                cleanDate = currentRowData.date
-                    .replace(periodPattern, "")
-                    .trim();
-            }
-
-            const parts = cleanDate.split("-");
-            if (parts.length === 3) {
-                const day = parseInt(parts[0]);
-                const month = parseInt(parts[1]);
-                let year = parseInt(parts[2]);
-                if (year < 100) {
-                    year = year < 50 ? 2000 + year : 1900 + year;
-                }
-                const dateObj = new Date(year, month - 1, day);
-                currentDateTimestamp =
-                    dateObj.getTime() +
-                    (new Date().getMinutes() * 60 + new Date().getSeconds()) *
-                        1000;
-            }
-        } catch (error) {
-            console.error("Error parsing current date:", error);
-            currentDateTimestamp = Date.now();
-        }
-
-        // Handle soMonInbox - empty string when 0, otherwise add suffix
-        let finalSoMonInbox;
-        const soMonInboxNumber = parseInt(soMonInboxValue);
-        if (soMonInboxNumber === 0) {
-            finalSoMonInbox = ""; // Save empty string when 0
-        } else {
-            finalSoMonInbox = soMonInboxNumber + " món";
-        }
-
-        finalValues = {
-            dateCell: currentDateTimestamp.toString(),
-            tienQC: currentRowData.tienQC,
-            thoiGian: currentRowData.thoiGian,
-            soMonLive: currentRowData.soMonLive,
-            soMonInbox: finalSoMonInbox, // Only this field changes
-        };
-    } else {
+    // Check permissions for morning session
+    if (clickedPeriod === "Sáng" && !hasPermission(0)) {
         if (globalNotificationManager) {
-            globalNotificationManager.error(
-                "Không có quyền chỉnh sửa",
+            globalNotificationManager.warning(
+                "Bạn không có quyền chỉnh sửa phiên Sáng",
                 3000,
                 "Từ chối truy cập",
             );
-        } else {
-            showError("Không có quyền chỉnh sửa.");
         }
         return;
     }
 
-    const recordId = dateCell.getAttribute("data-id");
-    if (!recordId) {
-        if (globalNotificationManager) {
-            globalNotificationManager.error(
-                "Không tìm thấy ID của báo cáo",
-                3000,
-            );
-        } else {
-            showError("Không tìm thấy ID của báo cáo.");
+    // Clear all fields first
+    clearEditModalFields();
+
+    // Set date
+    const editDate = document.getElementById("editDate");
+    if (editDate && currentDate) {
+        const parts = currentDate.split("-");
+        if (parts.length === 3) {
+            const day = parts[0];
+            const month = parts[1];
+            let year = parseInt(parts[2]);
+            if (year < 100) {
+                year = year < 50 ? 2000 + year : 1900 + year;
+            }
+            editDate.value = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
         }
-        return;
     }
 
-    let saveNotificationId = null;
-    if (globalNotificationManager) {
-        saveNotificationId = globalNotificationManager.saving(
-            "Đang lưu thay đổi...",
-        );
+    // Populate fields
+    if (morningReport) {
+        populateSessionFields("morning", morningReport);
+    }
+
+    if (eveningReport) {
+        populateSessionFields("evening", eveningReport);
+    }
+
+    // Populate inbox
+    const editSoMonInbox = document.getElementById("editSoMonInbox");
+    if (editSoMonInbox) {
+        if (eveningReport && eveningReport.soMonInbox) {
+            const cleanInbox = eveningReport.soMonInbox
+                .toString()
+                .replace(" món", "")
+                .trim();
+            editSoMonInbox.value = cleanInbox || "0";
+        } else {
+            editSoMonInbox.value = "0";
+        }
+    }
+
+    // Apply permissions
+    applyEditModalPermissions(userLevel);
+
+    // Store editing context
+    editingRow = row;
+    window.editingContext = {
+        dateCell: dateCell,
+        morningReport: morningReport,
+        eveningReport: eveningReport,
+        currentDate: currentDate,
+        clickedPeriod: clickedPeriod,
+        clickedReport: clickedReport,
+    };
+
+    // Show modal
+    editModal.style.display = "flex";
+
+    // Initialize Lucide icons
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
+
+    console.log(
+        `[EDIT] Opening modal for ${clickedPeriod} session on ${currentDate}`,
+    );
+}
+
+// Populate session fields
+function populateSessionFields(session, reportData) {
+    const prefix = session === "morning" ? "Morning" : "Evening";
+
+    const tienQCInput = document.getElementById(`editTienQC_${session}`);
+    const startTimeInput = document.getElementById(`edit${prefix}_start_time`);
+    const endTimeInput = document.getElementById(`edit${prefix}_end_time`);
+    const soMonLiveInput = document.getElementById(`editSoMonLive_${session}`);
+
+    if (reportData) {
+        if (tienQCInput) {
+            tienQCInput.value = reportData.tienQC || "";
+        }
+
+        if (reportData.thoiGian) {
+            const timePattern =
+                /Từ\s+(\d{1,2})h(\d{1,2})m\s+đến\s+(\d{1,2})h(\d{1,2})m/;
+            const match = reportData.thoiGian.match(timePattern);
+
+            if (match) {
+                const [, startHour, startMin, endHour, endMin] = match;
+                if (startTimeInput) {
+                    startTimeInput.value = `${startHour.padStart(2, "0")}:${startMin.padStart(2, "0")}`;
+                }
+                if (endTimeInput) {
+                    endTimeInput.value = `${endHour.padStart(2, "0")}:${endMin.padStart(2, "0")}`;
+                }
+            }
+        }
+
+        if (soMonLiveInput && reportData.soMonLive) {
+            const cleanSoMon = reportData.soMonLive
+                .toString()
+                .replace(" món", "")
+                .trim();
+            soMonLiveInput.value = cleanSoMon || "0";
+        }
     } else {
-        showLoading("Đang lưu thay đổi...");
-    }
-
-    try {
-        collectionRef
-            .doc("reports")
-            .get()
-            .then((doc) => {
-                if (!doc.exists) {
-                    throw new Error("Document does not exist");
-                }
-
-                const data = doc.data();
-                const dataArray = data["data"] || [];
-
-                const itemIndex = dataArray.findIndex(
-                    (item) => item.id === recordId,
-                );
-                if (itemIndex === -1) {
-                    throw new Error("Report not found");
-                }
-
-                const oldData = { ...dataArray[itemIndex] };
-                const currentUser = auth
-                    ? auth.userType
-                        ? auth.userType.split("-")[0]
-                        : "Unknown"
-                    : "Unknown";
-
-                // Prepare new data
-                const newData = {
-                    ...oldData,
-                    ...finalValues,
-                };
-
-                // Create comprehensive edit history entry
-                const editHistoryEntry = {
-                    timestamp: new Date().toISOString(),
-                    editedBy: currentUser,
-                    oldData: {
-                        dateCell: oldData.dateCell,
-                        tienQC: oldData.tienQC,
-                        thoiGian: oldData.thoiGian,
-                        soMonLive: oldData.soMonLive,
-                        soMonInbox: oldData.soMonInbox,
-                    },
-                    newData: {
-                        dateCell: newData.dateCell,
-                        tienQC: newData.tienQC,
-                        thoiGian: newData.thoiGian,
-                        soMonLive: newData.soMonLive,
-                        soMonInbox: newData.soMonInbox,
-                    },
-                };
-
-                // Initialize or update edit history
-                if (!newData.editHistory) {
-                    newData.editHistory = [];
-                }
-                newData.editHistory.push(editHistoryEntry);
-
-                // Update the item in array
-                dataArray[itemIndex] = newData;
-
-                return collectionRef.doc("reports").update({ data: dataArray });
-            })
-            .then(() => {
-                // Log action (safe call)
-                const actionText =
-                    userLevel === 2
-                        ? "Sửa số món inbox"
-                        : "Sửa báo cáo livestream";
-
-                if (typeof logAction === "function") {
-                    logAction(
-                        "edit",
-                        `${actionText}: ${finalValues.tienQC}`,
-                        null,
-                        null,
-                    );
-                } else {
-                    console.log(
-                        `[ACTION] Edit: ${actionText}: ${finalValues.tienQC}`,
-                    );
-                }
-
-                // Invalidate cache
-                invalidateCache();
-
-                // Close modal first
-                closeModal();
-
-                // Show success message
-                if (globalNotificationManager) {
-                    globalNotificationManager.clearAll();
-                    globalNotificationManager.success(
-                        "Đã lưu thay đổi thành công!",
-                        2000,
-                        "Thành công",
-                    );
-                } else {
-                    showSuccess("Đã lưu thay đổi thành công!");
-                }
-
-                // Reload table data
-                setTimeout(() => {
-                    console.log(
-                        "[MODALS] Reloading table after editing report...",
-                    );
-                    if (typeof updateTable === "function") {
-                        updateTable(true); // Giữ nguyên filter hiện tại
-                    }
-                }, 500);
-            })
-            .catch((error) => {
-                console.error("Error updating document:", error);
-
-                if (globalNotificationManager) {
-                    globalNotificationManager.clearAll();
-                    globalNotificationManager.error(
-                        "Lỗi khi cập nhật dữ liệu: " + error.message,
-                        4000,
-                        "Lỗi",
-                    );
-                } else {
-                    showError("Lỗi khi cập nhật dữ liệu: " + error.message);
-                }
-            });
-    } catch (error) {
-        console.error("Error in saveUpdatedChanges:", error);
-
-        if (globalNotificationManager) {
-            globalNotificationManager.clearAll();
-            globalNotificationManager.error(
-                "Lỗi: " + error.message,
-                4000,
-                "Lỗi",
-            );
-        } else {
-            showError("Lỗi: " + error.message);
-        }
+        if (tienQCInput) tienQCInput.value = "";
+        if (startTimeInput) startTimeInput.value = "";
+        if (endTimeInput) endTimeInput.value = "";
+        if (soMonLiveInput) soMonLiveInput.value = "";
     }
 }
 
-// Edit History Modal Functions
-function showEditHistoryModal(editHistory, rowData) {
-    console.log("showEditHistoryModal called with:", editHistory, rowData);
+// Apply edit modal permissions
+function applyEditModalPermissions(userLevel) {
+    const allInputs = [
+        "editDate",
+        "editTienQC_morning",
+        "editMorning_start_time",
+        "editMorning_end_time",
+        "editSoMonLive_morning",
+        "editTienQC_evening",
+        "editEvening_start_time",
+        "editEvening_end_time",
+        "editSoMonLive_evening",
+        "editSoMonInbox",
+    ];
 
-    // Remove existing modal if any
-    removeEditHistoryModal();
-
-    // Create modal overlay
-    const modalOverlay = document.createElement("div");
-    modalOverlay.id = "editHistoryModalOverlay";
-    modalOverlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 10000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    `;
-
-    // Create modal content
-    const modal = document.createElement("div");
-    modal.id = "editHistoryModal";
-    modal.style.cssText = `
-        background: white;
-        border-radius: 12px;
-        padding: 0;
-        max-width: 600px;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        position: relative;
-        margin: 20px;
-        width: 90%;
-    `;
-
-    // Build modal content
-    let modalContent = `
-        <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 12px 12px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        ">
-            <h3 style="margin: 0; font-size: 18px;">Lịch sử chỉnh sửa</h3>
-            <button id="closeHistoryModalBtn" style="
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
-                width: 30px;
-                height: 30px;
-                border-radius: 50%;
-                cursor: pointer;
-                font-size: 18px;
-                font-weight: bold;
-            ">&times;</button>
-        </div>
-        <div style="padding: 20px;">
-    `;
-
-    // Show current data info
-    modalContent += `
-        <div style="
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-        ">
-            <h4 style="margin: 0 0 10px 0; color: #2c3e50;">Thông tin hiện tại:</h4>
-            <div style="font-size: 14px; color: #495057;">
-                <strong>Tiền QC:</strong> ${rowData.tienQC || "N/A"}<br>
-                <strong>Thời gian:</strong> ${rowData.thoiGian || "N/A"}<br>
-                <strong>Số món live:</strong> ${rowData.soMonLive || "N/A"}<br>
-                <strong>Số món inbox:</strong> ${rowData.soMonInbox || "N/A"}
-            </div>
-        </div>
-    `;
-
-    // Check if there's edit history
-    if (!editHistory || editHistory.length === 0) {
-        modalContent += `
-            <div style="
-                text-align: center;
-                padding: 30px;
-                color: #6c757d;
-                font-style: italic;
-            ">
-                Không có lịch sử chỉnh sửa
-            </div>
-        `;
+    if (userLevel <= 1) {
+        allInputs.forEach((id) => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.disabled = false;
+                input.readOnly = false;
+                input.style.backgroundColor = "white";
+            }
+        });
+    } else if (userLevel === 2) {
+        allInputs.forEach((id) => {
+            const input = document.getElementById(id);
+            if (input) {
+                if (id === "editSoMonInbox") {
+                    input.disabled = false;
+                    input.readOnly = false;
+                    input.style.backgroundColor = "white";
+                } else {
+                    input.readOnly = true;
+                    input.style.backgroundColor = "#f8f9fa";
+                }
+            }
+        });
     } else {
-        // Sort edit history by timestamp (newest first)
-        const sortedHistory = [...editHistory].sort(
-            (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
-        );
+        allInputs.forEach((id) => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.disabled = true;
+                input.style.backgroundColor = "#f8f9fa";
+            }
+        });
+    }
+}
 
-        modalContent +=
-            '<h4 style="margin: 0 0 15px 0; color: #2c3e50;">Lịch sử chỉnh sửa:</h4>';
+// Collect edit session data
+function collectEditSessionData(session, existingReport) {
+    const tienQCInput = document.getElementById(`editTienQC_${session}`);
+    const startTimeInput = document.getElementById(
+        `edit${session === "morning" ? "Morning" : "Evening"}_start_time`,
+    );
+    const endTimeInput = document.getElementById(
+        `edit${session === "morning" ? "Morning" : "Evening"}_end_time`,
+    );
+    const soMonLiveInput = document.getElementById(`editSoMonLive_${session}`);
 
-        sortedHistory.forEach((history, index) => {
-            const editDate = new Date(history.timestamp).toLocaleString(
-                "vi-VN",
-                {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false, // Use 24h format
-                },
+    const tienQC = tienQCInput ? tienQCInput.value.trim() : "";
+    const startTime = startTimeInput ? startTimeInput.value : "";
+    const endTime = endTimeInput ? endTimeInput.value : "";
+    const soMonLive = soMonLiveInput ? soMonLiveInput.value.trim() : "";
+
+    if (!tienQC && !startTime && !endTime && !soMonLive) {
+        return null;
+    }
+
+    const cleanAmount = tienQC.replace(/[,\.]/g, "");
+    const numAmount = parseFloat(cleanAmount);
+
+    if (isNaN(numAmount) || numAmount < 0) {
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Tiền QC phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+                3000,
             );
+        }
+        return null;
+    }
 
-            modalContent += `
-                <div style="
-                    border: 1px solid #dee2e6;
-                    border-radius: 8px;
-                    margin-bottom: 15px;
-                    overflow: hidden;
-                ">
-                    <div style="
-                        background: #e9ecef;
-                        padding: 10px 15px;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        font-size: 13px;
-                    ">
-                        <span style="
-                            background: #667eea;
-                            color: white;
-                            padding: 2px 8px;
-                            border-radius: 12px;
-                            font-weight: 600;
-                            font-size: 11px;
-                        ">#${sortedHistory.length - index}</span>
-                        <span style="font-weight: 600; color: #2c3e50;">${history.editedBy || "Unknown"}</span>
-                        <span style="color: #6c757d; font-size: 11px;">${editDate}</span>
-                    </div>
-                    <div style="padding: 15px;">
-                        ${renderEditChangesForModal(history.oldData, history.newData)}
-                    </div>
-                </div>
-            `;
+    if (!startTime || !endTime) {
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Vui lòng nhập đầy đủ thời gian cho phiên ${session === "morning" ? "Sáng" : "Chiều"}`,
+                3000,
+            );
+        }
+        return null;
+    }
+
+    const thoiGian = formatTimeRange(startTime, endTime);
+    if (!thoiGian) {
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Thời gian phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+                3000,
+            );
+        }
+        return null;
+    }
+
+    if (!soMonLive || isNaN(soMonLive) || parseInt(soMonLive) < 0) {
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                `Số món live phiên ${session === "morning" ? "Sáng" : "Chiều"} không hợp lệ`,
+                3000,
+            );
+        }
+        return null;
+    }
+
+    return {
+        tienQC: numberWithCommas(numAmount),
+        thoiGian: thoiGian,
+        soMonLive: parseInt(soMonLive) + " món",
+        soMonInbox: existingReport ? existingReport.soMonInbox : "",
+    };
+}
+
+// FIXED: Create clean data objects without circular references
+function createCleanReportData(reportData) {
+    // Only copy necessary fields, avoiding any potential circular references
+    return {
+        id: reportData.id,
+        dateCell: reportData.dateCell,
+        tienQC: reportData.tienQC,
+        thoiGian: reportData.thoiGian,
+        soMonLive: reportData.soMonLive,
+        soMonInbox: reportData.soMonInbox || "",
+        user: reportData.user,
+        createdBy: reportData.createdBy,
+        createdAt: reportData.createdAt,
+        editHistory: Array.isArray(reportData.editHistory)
+            ? [...reportData.editHistory]
+            : [],
+    };
+}
+
+// Save updated changes - FIXED to prevent stack overflow
+function saveUpdatedChanges() {
+    const auth = getAuthState();
+    const userLevel = parseInt(auth.checkLogin);
+
+    if (!window.editingContext) {
+        if (globalNotificationManager) {
+            globalNotificationManager.error(
+                "Không tìm thấy thông tin chỉnh sửa",
+                3000,
+            );
+        }
+        return;
+    }
+
+    const { morningReport, eveningReport } = window.editingContext;
+
+    const morningData = collectEditSessionData("morning", morningReport);
+    const eveningData = collectEditSessionData("evening", eveningReport);
+
+    const editSoMonInbox = document.getElementById("editSoMonInbox");
+    const inboxValue = editSoMonInbox ? parseInt(editSoMonInbox.value) || 0 : 0;
+
+    if (userLevel <= 1) {
+        if (!morningData && !eveningData) {
+            if (globalNotificationManager) {
+                globalNotificationManager.warning(
+                    "Vui lòng nhập dữ liệu cho ít nhất một phiên",
+                    3000,
+                );
+            }
+            return;
+        }
+    }
+
+    if (globalNotificationManager) {
+        globalNotificationManager.saving("Đang lưu thay đổi...");
+    }
+
+    const updates = [];
+    const currentUser = auth.userType ? auth.userType.split("-")[0] : "Unknown";
+
+    // Morning session update
+    if (morningReport && morningData) {
+        const cleanOldData = createCleanReportData(morningReport);
+        const cleanNewData = createCleanReportData({
+            ...morningReport,
+            ...morningData,
+        });
+
+        updates.push({
+            id: morningReport.id,
+            oldData: cleanOldData,
+            newData: cleanNewData,
+        });
+    } else if (!morningReport && morningData && userLevel <= 1) {
+        const editDate = document.getElementById("editDate");
+        const dateObj = new Date(editDate.value);
+        const timestamp =
+            dateObj.getTime() +
+            (new Date().getMinutes() * 60 + new Date().getSeconds()) * 1000;
+
+        updates.push({
+            id: null,
+            newData: createCleanReportData({
+                id: generateUniqueId(),
+                dateCell: timestamp.toString(),
+                ...morningData,
+                user: currentUser,
+                createdBy: currentUser,
+                createdAt: new Date().toISOString(),
+                editHistory: [],
+            }),
         });
     }
 
-    modalContent += "</div>";
-    modal.innerHTML = modalContent;
-    modalOverlay.appendChild(modal);
-    document.body.appendChild(modalOverlay);
+    // Evening session update
+    if (eveningReport && eveningData) {
+        const cleanOldData = createCleanReportData(eveningReport);
+        const cleanNewData = createCleanReportData({
+            ...eveningReport,
+            ...eveningData,
+            soMonInbox: inboxValue === 0 ? "" : `${inboxValue} món`,
+        });
 
-    // Add event listener for close button
-    const closeBtn = document.getElementById("closeHistoryModalBtn");
-    if (closeBtn) {
-        closeBtn.addEventListener("click", removeEditHistoryModal);
+        updates.push({
+            id: eveningReport.id,
+            oldData: cleanOldData,
+            newData: cleanNewData,
+        });
+    } else if (!eveningReport && eveningData && userLevel <= 1) {
+        const editDate = document.getElementById("editDate");
+        const dateObj = new Date(editDate.value);
+        const timestamp =
+            dateObj.getTime() +
+            (new Date().getMinutes() * 60 + new Date().getSeconds()) * 1000;
+
+        updates.push({
+            id: null,
+            newData: createCleanReportData({
+                id: generateUniqueId(),
+                dateCell: timestamp.toString(),
+                ...eveningData,
+                soMonInbox: inboxValue === 0 ? "" : `${inboxValue} món`,
+                user: currentUser,
+                createdBy: currentUser,
+                createdAt: new Date().toISOString(),
+                editHistory: [],
+            }),
+        });
+    } else if (eveningReport && userLevel === 2) {
+        const cleanOldData = createCleanReportData(eveningReport);
+        const cleanNewData = createCleanReportData({
+            ...eveningReport,
+            soMonInbox: inboxValue === 0 ? "" : `${inboxValue} món`,
+        });
+
+        updates.push({
+            id: eveningReport.id,
+            oldData: cleanOldData,
+            newData: cleanNewData,
+        });
     }
 
-    // Close on overlay click
-    modalOverlay.addEventListener("click", function (e) {
-        if (e.target === modalOverlay) {
-            removeEditHistoryModal();
-        }
-    });
-
-    // Close on ESC key
-    document.addEventListener("keydown", handleModalKeydown);
+    // Apply updates
+    performFirebaseUpdate(updates, currentUser);
 }
 
-function renderEditChangesForModal(oldData, newData) {
-    if (!oldData || !newData) {
-        return '<em style="color: #6c757d;">Không có dữ liệu thay đổi</em>';
-    }
-
-    const changes = [];
-    const allKeys = new Set([...Object.keys(oldData), ...Object.keys(newData)]);
-
-    // Define field display names
-    const fieldNames = {
-        dateCell: "Ngày",
-        tienQC: "Tiền QC",
-        thoiGian: "Thời gian",
-        soMonLive: "Số món trên live",
-        soMonInbox: "Số món inbox",
-    };
-
-    allKeys.forEach((key) => {
-        // Skip metadata fields
-        if (
-            ["id", "user", "editHistory", "createdBy", "createdAt"].includes(
-                key,
-            )
-        ) {
-            return;
+// FIXED: Separate function for Firebase update with clean data
+function performFirebaseUpdate(updates, currentUser) {
+    if (updates.length === 0) {
+        if (globalNotificationManager) {
+            globalNotificationManager.clearAll();
+            globalNotificationManager.warning(
+                "Không có thay đổi nào để lưu",
+                2000,
+            );
         }
-
-        const oldValue = oldData[key];
-        const newValue = newData[key];
-
-        if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-            const fieldName = fieldNames[key] || key;
-            const formattedOldValue = formatValueForModal(oldValue, key);
-            const formattedNewValue = formatValueForModal(newValue, key);
-
-            changes.push(`
-                <div style="
-                    margin-bottom: 10px;
-                    padding: 10px;
-                    background: #f8f9fa;
-                    border-radius: 6px;
-                    border-left: 3px solid #dee2e6;
-                ">
-                    <div style="font-weight: 600; color: #495057; margin-bottom: 5px; font-size: 13px;">
-                        ${fieldName}:
-                    </div>
-                    <div style="margin-left: 10px;">
-                        <div style="margin: 3px 0; font-size: 12px; display: flex; align-items: flex-start; gap: 8px;">
-                            <span style="color: #dc3545; font-weight: 600; min-width: 30px;">Cũ:</span> 
-                            <span style="word-break: break-word;">${formattedOldValue}</span>
-                        </div>
-                        <div style="margin: 3px 0; font-size: 12px; display: flex; align-items: flex-start; gap: 8px;">
-                            <span style="color: #28a745; font-weight: 600; min-width: 30px;">Mới:</span> 
-                            <span style="word-break: break-word;">${formattedNewValue}</span>
-                        </div>
-                    </div>
-                </div>
-            `);
-        }
-    });
-
-    return changes.length > 0
-        ? changes.join("")
-        : '<em style="color: #28a745;">Không có thay đổi</em>';
-}
-
-function formatValueForModal(value, field) {
-    if (value === null || value === undefined) {
-        return '<span style="color: #6c757d; font-style: italic;">Không có</span>';
+        closeModal();
+        return;
     }
 
-    // Special formatting for date fields (24h format)
-    if (field === "dateCell" && !isNaN(value)) {
-        const date = new Date(parseInt(value));
-        if (!isNaN(date.getTime())) {
-            return date.toLocaleString("vi-VN", { hour12: false });
-        }
-    }
+    collectionRef
+        .doc("reports")
+        .get()
+        .then((doc) => {
+            if (!doc.exists) {
+                throw new Error("Document does not exist");
+            }
 
-    // Truncate very long strings
-    const stringValue = value.toString();
-    if (stringValue.length > 100) {
-        return stringValue.substring(0, 100) + "...";
-    }
+            const data = doc.data();
+            let dataArray = data["data"] || [];
 
-    return stringValue;
-}
+            // Create a clean copy of the array
+            const cleanDataArray = dataArray.map((item) =>
+                createCleanReportData(item),
+            );
 
-function handleModalKeydown(event) {
-    if (event.key === "Escape") {
-        removeEditHistoryModal();
-    }
-}
+            updates.forEach((update) => {
+                if (update.id) {
+                    const itemIndex = cleanDataArray.findIndex(
+                        (item) => item.id === update.id,
+                    );
+                    if (itemIndex !== -1) {
+                        const editHistoryEntry = {
+                            timestamp: new Date().toISOString(),
+                            editedBy: currentUser,
+                            oldData: update.oldData,
+                            newData: update.newData,
+                        };
 
-function removeEditHistoryModal() {
-    const modal = document.getElementById("editHistoryModalOverlay");
-    if (modal) {
-        modal.remove();
-        document.removeEventListener("keydown", handleModalKeydown);
-    }
+                        const updatedReport = createCleanReportData(
+                            update.newData,
+                        );
+                        updatedReport.editHistory = [
+                            ...(update.newData.editHistory || []),
+                            editHistoryEntry,
+                        ];
+
+                        cleanDataArray[itemIndex] = updatedReport;
+                    }
+                } else {
+                    cleanDataArray.push(createCleanReportData(update.newData));
+                }
+            });
+
+            // Update with clean data
+            return collectionRef
+                .doc("reports")
+                .update({ data: cleanDataArray });
+        })
+        .then(() => {
+            if (typeof logAction === "function") {
+                logAction(
+                    "edit",
+                    `Sửa báo cáo livestream (${updates.length} phiên)`,
+                    null,
+                    null,
+                );
+            }
+
+            invalidateCache();
+            closeModal();
+
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.success(
+                    "Đã lưu thay đổi thành công!",
+                    2000,
+                );
+            }
+
+            // Reload table after a delay
+            setTimeout(() => {
+                if (typeof updateTable === "function") {
+                    updateTable(true);
+                }
+            }, 500);
+        })
+        .catch((error) => {
+            console.error("Error updating:", error);
+            if (globalNotificationManager) {
+                globalNotificationManager.clearAll();
+                globalNotificationManager.error(
+                    "Lỗi khi cập nhật: " + error.message,
+                    4000,
+                );
+            }
+        });
 }
 
 // Export functions
 window.closeModal = closeModal;
 window.saveUpdatedChanges = saveUpdatedChanges;
-window.showEditHistoryModal = showEditHistoryModal;
-window.removeEditHistoryModal = removeEditHistoryModal;
+window.handleEditButton = handleEditButton;
+window.populateSessionFields = populateSessionFields;
+window.applyEditModalPermissions = applyEditModalPermissions;
+window.collectEditSessionData = collectEditSessionData;
+window.performFirebaseUpdate = performFirebaseUpdate;
+window.clearEditModalFields = clearEditModalFields;
+window.createCleanReportData = createCleanReportData;
 
 // Setup close modal event listener when DOM is ready
 document.addEventListener("DOMContentLoaded", function () {
-    // Setup close button for edit modal with delay to ensure DOM is ready
     setTimeout(() => {
         const closeEditModalBtn = document.getElementById("closeEditModalBtn");
         if (closeEditModalBtn) {
-            closeEditModalBtn.addEventListener("click", closeModal);
+            const newBtn = closeEditModalBtn.cloneNode(true);
+            closeEditModalBtn.parentNode.replaceChild(
+                newBtn,
+                closeEditModalBtn,
+            );
+            newBtn.addEventListener("click", closeModal);
             console.log("[MODALS] Close modal button event listener attached");
         }
-    }, 100);
-});
 
-// Additional safety setup for modal close functionality
-window.addEventListener("load", function () {
-    setTimeout(() => {
-        const closeEditModalBtn = document.getElementById("closeEditModalBtn");
-        if (closeEditModalBtn && typeof closeModal === "function") {
-            // Remove existing listeners to prevent duplicates
-            closeEditModalBtn.removeEventListener("click", closeModal);
-            closeEditModalBtn.addEventListener("click", closeModal);
-            console.log(
-                "[MODALS] Modal close button re-attached on window load",
-            );
+        const editModal = document.getElementById("editModal");
+        if (editModal) {
+            editModal.addEventListener("click", function (e) {
+                if (e.target === editModal) {
+                    closeModal();
+                }
+            });
         }
+
+        document.addEventListener("keydown", function (e) {
+            if (
+                e.key === "Escape" &&
+                editModal &&
+                editModal.style.display === "flex"
+            ) {
+                closeModal();
+            }
+        });
     }, 100);
 });
