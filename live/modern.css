@@ -748,7 +748,7 @@ button {
 
 .file-preview-item {
     position: relative;
-    aspect-ratio: 1;
+    aspect-ratio: 1; /* Vuông */
     border-radius: var(--radius);
     overflow: hidden;
     border: 2px solid var(--border);
@@ -758,6 +758,7 @@ button {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
 }
 
 .file-preview-item .remove-file {
@@ -888,7 +889,7 @@ button {
 
 .image-item {
     position: relative;
-    aspect-ratio: 1;
+    aspect-ratio: 1; /* Đảm bảo container luôn vuông */
     border-radius: var(--radius-md);
     overflow: hidden;
     background: var(--gray-100);
@@ -901,10 +902,12 @@ button {
     box-shadow: var(--shadow-md);
 }
 
-.image-item img {
+.image-item img,
+.product-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: cover; /* Crop ảnh để fit vuông */
+    object-position: center;
     display: block;
 }
 
@@ -1085,6 +1088,11 @@ button {
     .stats-section {
         padding: var(--spacing-lg);
     }
+
+    .image-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: var(--spacing-md);
+    }
 }
 
 @media (max-width: 480px) {
@@ -1102,6 +1110,10 @@ button {
 
     .form-row {
         grid-template-columns: 1fr;
+    }
+
+    .image-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     }
 }
 

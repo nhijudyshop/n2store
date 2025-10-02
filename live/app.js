@@ -5,8 +5,9 @@ const CONFIG = {
     CACHE_EXPIRY: 10 * 60 * 1000,
     MAX_CONCURRENT_LOADS: 4,
     BATCH_SIZE: 3,
-    MAX_IMAGE_SIZE: 800,
-    IMAGE_QUALITY: 0.8,
+    MAX_IMAGE_SIZE: 600, // Giảm từ 800 xuống 600px
+    IMAGE_QUALITY: 0.7, // Giảm từ 0.8 xuống 0.7
+    UNIFORM_SIZE: 600, // Thêm: Kích thước chuẩn cho tất cả ảnh
     SESSION_TIMEOUT: 24 * 60 * 60 * 1000,
     LAZY_LOAD_MARGIN: "50px 0px 100px 0px",
     ui: {
@@ -380,9 +381,16 @@ class LazyLoadManager {
 // IMAGE UTILITIES
 // =====================================================
 class ImageUtils {
+    /**
+     * Nén và chuẩn hóa ảnh thành kích thước vuông cố định
+     * @param {File} file - File ảnh gốc
+     * @param {number} targetSize - Kích thước đích (vuông)
+     * @param {number} quality - Chất lượng nén (0-1)
+     * @returns {Promise<File>} - File ảnh đã nén
+     */
     static async compressImage(
         file,
-        maxWidth = CONFIG.MAX_IMAGE_SIZE,
+        targetSize = CONFIG.UNIFORM_SIZE,
         quality = CONFIG.IMAGE_QUALITY,
     ) {
         return new Promise((resolve) => {
@@ -394,29 +402,55 @@ class ImageUtils {
                 img.onload = () => {
                     const canvas = document.createElement("canvas");
                     const ctx = canvas.getContext("2d");
-                    let { width, height } = img;
 
-                    if (width > maxWidth) {
-                        const ratio = maxWidth / width;
-                        width = maxWidth;
-                        height = height * ratio;
-                    }
+                    // Đặt canvas thành kích thước vuông cố định
+                    canvas.width = targetSize;
+                    canvas.height = targetSize;
 
-                    canvas.width = width;
-                    canvas.height = height;
+                    // Tính toán để crop ảnh về dạng vuông (cover mode)
+                    const scale = Math.max(
+                        targetSize / img.width,
+                        targetSize / img.height,
+                    );
+
+                    const scaledWidth = img.width * scale;
+                    const scaledHeight = img.height * scale;
+
+                    const offsetX = (targetSize - scaledWidth) / 2;
+                    const offsetY = (targetSize - scaledHeight) / 2;
+
+                    // Cải thiện chất lượng render
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = "high";
-                    ctx.drawImage(img, 0, 0, width, height);
 
+                    // Vẽ ảnh với background trắng (tránh transparent)
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.fillRect(0, 0, targetSize, targetSize);
+
+                    // Vẽ ảnh đã scale lên canvas
+                    ctx.drawImage(
+                        img,
+                        offsetX,
+                        offsetY,
+                        scaledWidth,
+                        scaledHeight,
+                    );
+
+                    // Chuyển về blob với compression
                     canvas.toBlob(
                         (blob) => {
-                            resolve(
-                                new File([blob], file.name, {
-                                    type: file.type,
-                                }),
+                            const compressedFile = new File(
+                                [blob],
+                                file.name.replace(/\.[^/.]+$/, ".jpg"), // Đổi sang .jpg
+                                { type: "image/jpeg" }, // Force JPEG để nén tốt hơn
                             );
+
+                            console.log(
+                                `Nén: ${(file.size / 1024).toFixed(1)}KB → ${(compressedFile.size / 1024).toFixed(1)}KB`,
+                            );
+                            resolve(compressedFile);
                         },
-                        file.type,
+                        "image/jpeg", // Luôn dùng JPEG
                         quality,
                     );
                 };
