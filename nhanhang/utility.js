@@ -1,12 +1,11 @@
 // Enhanced Goods Receipt Management System - Utility Functions
-// Helper functions for data processing, formatting, and validation
+// Helper functions with NEW CACHE SYSTEM integration
 
 // =====================================================
 // TIMEZONE HELPER - GMT+7 Vietnam
 // =====================================================
 
 function getVietnamDate(date = new Date()) {
-    // Convert to Vietnam timezone (GMT+7)
     const utcTime = date.getTime() + date.getTimezoneOffset() * 60000;
     const vietnamTime = new Date(utcTime + 7 * 3600000);
     return vietnamTime;
@@ -26,23 +25,19 @@ function getVietnamDateAtMidnight(date = new Date()) {
 }
 
 // =====================================================
-// CACHE FUNCTIONS
+// NEW CACHE FUNCTIONS - Using CacheManager
 // =====================================================
 
 function getCachedData() {
     try {
-        if (memoryCache.data && memoryCache.timestamp) {
-            if (Date.now() - memoryCache.timestamp < CACHE_EXPIRY) {
-                console.log("Using cached data - will sort before rendering");
-                return sortDataByNewest([...memoryCache.data]);
-            } else {
-                console.log("Cache expired, clearing");
-                invalidateCache();
-            }
+        const cached = dataCache.get("receipts", "data");
+        if (cached) {
+            console.log("✅ Using cached data - will sort before rendering");
+            return sortDataByNewest([...cached]);
         }
     } catch (e) {
         console.warn("Error accessing cache:", e);
-        invalidateCache();
+        dataCache.clear("data");
     }
     return null;
 }
@@ -50,18 +45,26 @@ function getCachedData() {
 function setCachedData(data) {
     try {
         const sortedData = sortDataByNewest([...data]);
-        memoryCache.data = sortedData;
-        memoryCache.timestamp = Date.now();
-        console.log("Data sorted and cached successfully");
+        dataCache.set("receipts", sortedData, "data");
+        console.log("✅ Data sorted and cached successfully");
     } catch (e) {
         console.warn("Cannot cache data:", e);
     }
 }
 
 function invalidateCache() {
-    memoryCache.data = null;
-    memoryCache.timestamp = null;
-    console.log("Cache invalidated");
+    dataCache.clear("data");
+    console.log("🗑️ Cache invalidated");
+}
+
+// Get cache statistics
+function getCacheStats() {
+    return dataCache.getStats();
+}
+
+// Invalidate specific patterns (useful for targeted updates)
+function invalidateCachePattern(pattern) {
+    return dataCache.invalidatePattern(pattern);
 }
 
 // =====================================================
@@ -69,6 +72,7 @@ function invalidateCache() {
 // =====================================================
 
 async function displayReceiptData() {
+    // Try cache first
     const cachedData = getCachedData();
     if (cachedData) {
         const sortedCacheData = sortDataByNewest(cachedData);
@@ -282,16 +286,13 @@ function parseVietnameseDate(dateString) {
     if (!dateString) return null;
 
     try {
-        // Clean up the date string
         const cleanDateString = dateString
             .replace(/,/g, "")
             .replace(/\s+/g, " ")
             .trim();
 
         const patterns = [
-            // DD/MM/YYYY HH:MM or DD-MM-YYYY HH:MM
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\s+(\d{1,2}):(\d{2})/,
-            // DD/MM/YYYY or DD-MM-YYYY
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
         ];
 
@@ -299,7 +300,6 @@ function parseVietnameseDate(dateString) {
             const match = cleanDateString.match(pattern);
             if (match) {
                 const [, day, month, year, hour = 0, minute = 0] = match;
-                // Create date - this will be interpreted as local time
                 const parsedDate = new Date(
                     parseInt(year),
                     parseInt(month) - 1,
@@ -308,14 +308,12 @@ function parseVietnameseDate(dateString) {
                     parseInt(minute),
                 );
 
-                // Validate the date is valid
                 if (!isNaN(parsedDate.getTime())) {
                     return parsedDate;
                 }
             }
         }
 
-        // Try native Date parsing as fallback
         const date = new Date(dateString);
         return isNaN(date.getTime()) ? null : date;
     } catch (error) {
@@ -341,7 +339,7 @@ function extractTimestampFromId(id) {
 
 // =====================================================
 // UI ALERT FUNCTIONS - USE NOTIFICATION MANAGER
-// ===================================================== */
+// =====================================================
 
 function showLoading(message) {
     if (window.notificationManager) {
@@ -438,3 +436,36 @@ function exportToExcel() {
         notificationManager.error("Lỗi khi xuất Excel: " + error.message, 4000);
     }
 }
+
+// =====================================================
+// CACHE DEBUG FUNCTIONS
+// =====================================================
+
+window.cacheDebug = {
+    getStats: () => {
+        console.table(dataCache.getStats());
+        return dataCache.getStats();
+    },
+    clear: () => {
+        dataCache.clear();
+        console.log("Cache cleared");
+    },
+    viewCache: () => {
+        const data = getCachedData();
+        console.log("Cached data:", data);
+        return data;
+    },
+    cleanExpired: () => {
+        const cleaned = dataCache.cleanExpired();
+        console.log(`Cleaned ${cleaned} expired entries`);
+        return cleaned;
+    },
+    invalidatePattern: (pattern) => {
+        const invalidated = dataCache.invalidatePattern(pattern);
+        console.log(`Invalidated ${invalidated} entries matching: ${pattern}`);
+        return invalidated;
+    },
+};
+
+console.log("✅ Utility functions loaded with NEW CACHE SYSTEM");
+console.log("💡 Use window.cacheDebug for cache management");

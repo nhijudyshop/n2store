@@ -61,11 +61,18 @@ async function loadInventoryData() {
         // Transform and process data
         const inventoryData = transformOrderDataToInventory(orderData);
         const sortedData = inventoryData.sort((a, b) => {
-            const dateA = parseVietnameseDate(a.ngayNhan);
-            const dateB = parseVietnameseDate(b.ngayNhan);
+            // Sắp xếp theo ngày đặt hàng (mới nhất lên trước)
+            const dateA = parseVietnameseDate(a.ngayDatHang);
+            const dateB = parseVietnameseDate(b.ngayDatHang);
+
             if (dateA && dateB) {
-                return dateB - dateA;
+                return dateB - dateA; // Ngày mới hơn (lớn hơn) sẽ lên trước
             }
+
+            // Nếu một trong hai không có ngày đặt hàng
+            if (dateA && !dateB) return -1; // A lên trước
+            if (!dateA && dateB) return 1; // B lên trước
+
             return 0;
         });
 

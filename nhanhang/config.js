@@ -1,33 +1,188 @@
 // Enhanced Goods Receipt Management System - Configuration
-// Firebase config and global constants
+// Firebase config and global constants with NEW CACHE SYSTEM
+
+// =====================================================
+// CACHE MANAGER CLASS - PERSISTENT WITH LOCALSTORAGE
+// =====================================================
+
+class CacheManager {
+    constructor(config = {}) {
+        this.cache = new Map();
+        this.maxAge = config.CACHE_EXPIRY || 10 * 60 * 1000; // 10 minutes
+        this.stats = { hits: 0, misses: 0 };
+        this.storageKey = config.storageKey || "loginindex_cache";
+        this.saveTimeout = null;
+        this.loadFromStorage();
+    }
+
+    saveToStorage() {
+        try {
+            const cacheData = Array.from(this.cache.entries());
+            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+            console.log(`💾 Đã lưu ${cacheData.length} items vào localStorage`);
+        } catch (error) {
+            console.warn("Không thể lưu cache:", error);
+        }
+    }
+
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return;
+
+            const cacheData = JSON.parse(stored);
+            const now = Date.now();
+            let validCount = 0;
+
+            cacheData.forEach(([key, value]) => {
+                if (value.expires > now) {
+                    this.cache.set(key, value);
+                    validCount++;
+                }
+            });
+
+            console.log(`📦 Đã load ${validCount} items từ localStorage`);
+        } catch (error) {
+            console.warn("Không thể load cache:", error);
+            // Clear corrupted cache
+            localStorage.removeItem(this.storageKey);
+        }
+    }
+
+    debouncedSave() {
+        if (this.saveTimeout) clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+            this.saveToStorage();
+        }, 2000);
+    }
+
+    set(key, value, type = "general") {
+        const cacheKey = `${type}_${key}`;
+        this.cache.set(cacheKey, {
+            value,
+            timestamp: Date.now(),
+            expires: Date.now() + this.maxAge,
+            type,
+        });
+        this.debouncedSave();
+    }
+
+    get(key, type = "general") {
+        const cacheKey = `${type}_${key}`;
+        const cached = this.cache.get(cacheKey);
+
+        if (cached && cached.expires > Date.now()) {
+            this.stats.hits++;
+            console.log(`✔ Cache HIT: ${cacheKey}`);
+            return cached.value;
+        }
+
+        if (cached) {
+            this.cache.delete(cacheKey);
+            this.debouncedSave();
+        }
+
+        this.stats.misses++;
+        console.log(`✗ Cache MISS: ${cacheKey}`);
+        return null;
+    }
+
+    clear(type = null) {
+        if (type) {
+            for (const [key, value] of this.cache.entries()) {
+                if (value.type === type) {
+                    this.cache.delete(key);
+                }
+            }
+        } else {
+            this.cache.clear();
+            localStorage.removeItem(this.storageKey);
+        }
+        this.stats = { hits: 0, misses: 0 };
+        console.log(`🗑️ Cache cleared${type ? ` for type: ${type}` : ""}`);
+    }
+
+    cleanExpired() {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [key, value] of this.cache.entries()) {
+            if (value.expires <= now) {
+                this.cache.delete(key);
+                cleaned++;
+            }
+        }
+        if (cleaned > 0) {
+            this.debouncedSave();
+        }
+        return cleaned;
+    }
+
+    invalidatePattern(pattern) {
+        let invalidated = 0;
+        for (const [key] of this.cache.entries()) {
+            if (key.includes(pattern)) {
+                this.cache.delete(key);
+                invalidated++;
+            }
+        }
+        this.debouncedSave();
+        console.log(
+            `Invalidated ${invalidated} cache entries matching: ${pattern}`,
+        );
+        return invalidated;
+    }
+
+    getStats() {
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate =
+            total > 0 ? ((this.stats.hits / total) * 100).toFixed(1) : 0;
+
+        return {
+            size: this.cache.size,
+            hits: this.stats.hits,
+            misses: this.stats.misses,
+            hitRate: `${hitRate}%`,
+            storageSize: this.getStorageSize(),
+        };
+    }
+
+    getStorageSize() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return "0 KB";
+            const sizeKB = (stored.length / 1024).toFixed(2);
+            return `${sizeKB} KB`;
+        } catch {
+            return "N/A";
+        }
+    }
+}
 
 // =====================================================
 // CONFIGURATION & INITIALIZATION
 // =====================================================
 
-// Cache configuration - using in-memory storage instead of localStorage
-const CACHE_KEY = "loginindex_auth";
-const CACHE_EXPIRY = 10 * 60 * 1000; // 10 minutes
+// Initialize new cache system
+const dataCache = new CacheManager({
+    CACHE_EXPIRY: 10 * 60 * 1000, // 10 minutes
+    storageKey: "loginindex_data_cache",
+});
+
+// Legacy constants
 const BATCH_SIZE = 50;
 const MAX_VISIBLE_ROWS = 500;
 const FILTER_DEBOUNCE_DELAY = 500;
 
-// UI Configuration - ADD THIS
+// UI Configuration
 const CONFIG = {
     ui: {
-        toastDuration: 3000, // Duration for toast messages
-        animationDuration: 300, // Animation duration in ms
-        hoverDelay: 500, // Delay before showing image hover
+        toastDuration: 3000,
+        animationDuration: 300,
+        hoverDelay: 500,
     },
 };
 
-// In-memory cache object
-let memoryCache = {
-    data: null,
-    timestamp: null,
-};
-
-// Create file metadata to update
+// Create file metadata
 var newMetadata = {
     cacheControl: "public,max-age=31536000",
 };
@@ -252,3 +407,17 @@ const authManager = {
 
 // Make it globally available
 window.authManager = authManager;
+
+// Auto clean expired cache every 5 minutes
+setInterval(
+    () => {
+        const cleaned = dataCache.cleanExpired();
+        if (cleaned > 0) {
+            console.log(`🧹 Auto-cleaned ${cleaned} expired cache entries`);
+        }
+    },
+    5 * 60 * 1000,
+);
+
+// Log cache stats on page load
+console.log("📊 Cache Stats:", dataCache.getStats());

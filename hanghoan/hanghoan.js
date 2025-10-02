@@ -1,5 +1,5 @@
-// Hang Hoan Management System - Modern UI Version with Complete Notifications
-// Updated to use NotificationManager with full notification coverage
+// Hang Hoan Management System - Modern UI Version with Persistent Cache
+// Updated to use localStorage-based persistent cache system
 
 // =====================================================
 // CONFIGURATION & INITIALIZATION
@@ -16,22 +16,174 @@ const firebaseConfig = {
 };
 
 // Cache configuration
-const CACHE_EXPIRY = 10 * 60 * 1000;
+const CACHE_CONFIG = {
+    CACHE_EXPIRY: 10 * 60 * 1000, // 10 minutes
+    STORAGE_KEY: "hanghoan_cache",
+};
+
 const BATCH_SIZE = 50;
 const MAX_VISIBLE_ROWS = 500;
 const FILTER_DEBOUNCE_DELAY = 300;
-
-// In-memory cache
-let memoryCache = {
-    data: null,
-    timestamp: null,
-};
 
 // Initialize Firebase
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const collectionRef = db.collection("hanghoan");
 const historyCollectionRef = db.collection("edit_history");
+
+// =====================================================
+// PERSISTENT CACHE MANAGER CLASS
+// =====================================================
+class PersistentCacheManager {
+    constructor(config = {}) {
+        this.cache = new Map();
+        this.maxAge = config.CACHE_EXPIRY || CACHE_CONFIG.CACHE_EXPIRY;
+        this.stats = { hits: 0, misses: 0 };
+        this.storageKey = config.storageKey || CACHE_CONFIG.STORAGE_KEY;
+        this.saveTimeout = null;
+        this.loadFromStorage();
+    }
+
+    saveToStorage() {
+        try {
+            const cacheData = Array.from(this.cache.entries());
+            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+            console.log(`💾 Đã lưu ${cacheData.length} items vào localStorage`);
+        } catch (error) {
+            console.warn("Không thể lưu cache:", error);
+        }
+    }
+
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return;
+
+            const cacheData = JSON.parse(stored);
+            const now = Date.now();
+            let validCount = 0;
+
+            cacheData.forEach(([key, value]) => {
+                if (value.expires > now) {
+                    this.cache.set(key, value);
+                    validCount++;
+                }
+            });
+
+            console.log(`📦 Đã load ${validCount} items từ localStorage`);
+        } catch (error) {
+            console.warn("Không thể load cache:", error);
+        }
+    }
+
+    debouncedSave() {
+        if (this.saveTimeout) clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+            this.saveToStorage();
+        }, 2000);
+    }
+
+    set(key, value, type = "general") {
+        const cacheKey = `${type}_${key}`;
+        this.cache.set(cacheKey, {
+            value,
+            timestamp: Date.now(),
+            expires: Date.now() + this.maxAge,
+            type,
+        });
+        this.debouncedSave();
+    }
+
+    get(key, type = "general") {
+        const cacheKey = `${type}_${key}`;
+        const cached = this.cache.get(cacheKey);
+
+        if (cached && cached.expires > Date.now()) {
+            this.stats.hits++;
+            console.log(`✔ Cache HIT: ${cacheKey}`);
+            return cached.value;
+        }
+
+        if (cached) {
+            this.cache.delete(cacheKey);
+        }
+
+        this.stats.misses++;
+        console.log(`✗ Cache MISS: ${cacheKey}`);
+        return null;
+    }
+
+    clear(type = null) {
+        if (type) {
+            for (const [key, value] of this.cache.entries()) {
+                if (value.type === type) this.cache.delete(key);
+            }
+        } else {
+            this.cache.clear();
+            localStorage.removeItem(this.storageKey);
+        }
+        this.stats = { hits: 0, misses: 0 };
+        this.saveToStorage();
+    }
+
+    cleanExpired() {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [key, value] of this.cache.entries()) {
+            if (value.expires <= now) {
+                this.cache.delete(key);
+                cleaned++;
+            }
+        }
+        if (cleaned > 0) {
+            this.saveToStorage();
+        }
+        return cleaned;
+    }
+
+    invalidatePattern(pattern) {
+        let invalidated = 0;
+        for (const [key] of this.cache.entries()) {
+            if (key.includes(pattern)) {
+                this.cache.delete(key);
+                invalidated++;
+            }
+        }
+        this.saveToStorage();
+        console.log(
+            `Invalidated ${invalidated} cache entries matching: ${pattern}`,
+        );
+        return invalidated;
+    }
+
+    getStats() {
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate =
+            total > 0 ? ((this.stats.hits / total) * 100).toFixed(1) : 0;
+
+        return {
+            size: this.cache.size,
+            hits: this.stats.hits,
+            misses: this.stats.misses,
+            hitRate: `${hitRate}%`,
+            storageSize: this.getStorageSize(),
+        };
+    }
+
+    getStorageSize() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return "0 KB";
+            const sizeKB = (stored.length / 1024).toFixed(2);
+            return `${sizeKB} KB`;
+        } catch {
+            return "N/A";
+        }
+    }
+}
+
+// Initialize cache manager
+const cacheManager = new PersistentCacheManager(CACHE_CONFIG);
 
 // Notification Manager
 let notificationManager;
@@ -52,7 +204,7 @@ let filterTimeout = null;
 let currentLoadingNotification = null;
 
 // =====================================================
-// NOTIFICATION FUNCTIONS (using NotificationManager)
+// NOTIFICATION FUNCTIONS
 // =====================================================
 
 function showLoading(message = "Đang xử lý...") {
@@ -90,38 +242,29 @@ function showInfo(message) {
 }
 
 // =====================================================
-// CACHE FUNCTIONS
+// CACHE FUNCTIONS - Using Persistent Cache
 // =====================================================
 
 function getCachedData() {
-    try {
-        if (memoryCache.data && memoryCache.timestamp) {
-            if (Date.now() - memoryCache.timestamp < CACHE_EXPIRY) {
-                return memoryCache.data;
-            } else {
-                invalidateCache();
-            }
-        }
-    } catch (e) {
-        console.warn("Error accessing cache:", e);
-        invalidateCache();
-    }
-    return null;
+    return cacheManager.get("hanghoan_data", "hanghoan");
 }
 
 function setCachedData(data) {
-    try {
-        memoryCache.data = Array.isArray(data) ? [...data] : data;
-        memoryCache.timestamp = Date.now();
-    } catch (e) {
-        console.warn("Cannot cache data:", e);
-    }
+    cacheManager.set("hanghoan_data", data, "hanghoan");
 }
 
 function invalidateCache() {
-    memoryCache.data = null;
-    memoryCache.timestamp = null;
+    cacheManager.clear("hanghoan");
+    console.log("Cache invalidated");
 }
+
+// Clean expired cache periodically
+setInterval(() => {
+    const cleaned = cacheManager.cleanExpired();
+    if (cleaned > 0) {
+        console.log(`Cleaned ${cleaned} expired cache entries`);
+    }
+}, 60000); // Every minute
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -216,7 +359,6 @@ function updateStats(dataArray) {
         const completed = dataArray.filter((item) => item.muted).length;
         const pending = total - completed;
 
-        // This month
         const now = new Date();
         const firstDayOfMonth = new Date(
             now.getFullYear(),
@@ -246,6 +388,8 @@ function updateTable() {
     if (cachedData) {
         try {
             renderTableFromData(cachedData);
+            updateStats(cachedData);
+            hideLoading(); // Đảm bảo tắt loading khi dùng cache
             return;
         } catch (error) {
             console.error("Error rendering from cache:", error);
@@ -293,7 +437,6 @@ function renderTableFromData(dataArray) {
 
         const filteredData = applyFiltersToData(dataArray);
 
-        // Update empty state
         const emptyState = document.getElementById("emptyState");
         if (filteredData.length === 0) {
             emptyState.classList.add("show");
@@ -320,7 +463,6 @@ function renderTableFromData(dataArray) {
         tableBody.appendChild(fragment);
         updateSuggestions();
 
-        // Initialize Lucide icons
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
@@ -349,19 +491,16 @@ function applyFiltersToData(dataArray) {
             : null;
 
         return dataArray.filter((item) => {
-            // Channel filter
             const channelText = (item.shipValue || "").trim().toLowerCase();
             const channelMatch =
                 channelFilter === "all" || channelText === channelFilter;
 
-            // Scenario filter
             const scenarioText = (item.scenarioValue || "")
                 .trim()
                 .toLowerCase();
             const scenarioMatch =
                 scenarioFilter === "all" || scenarioText === scenarioFilter;
 
-            // Date filter
             const timestamp = parseFloat(item.duyetHoanValue);
             const dateMatch =
                 !timestampStartDate ||
@@ -369,13 +508,11 @@ function applyFiltersToData(dataArray) {
                 (timestamp / 1000 >= timestampStartDate &&
                     timestamp / 1000 <= timestampEndDate);
 
-            // Status filter
             const statusMatch =
                 statusFilter === "all" ||
                 (statusFilter === "active" && !item.muted) ||
                 (statusFilter === "completed" && item.muted);
 
-            // Search filter
             const searchMatch =
                 !searchFilter ||
                 Object.values(item).some((val) =>
@@ -448,7 +585,6 @@ function renderSingleRow(item, sttNumber) {
             newRow.appendChild(cell);
         });
 
-        // Apply permissions
         if (authManager) {
             const auth = authManager.getAuthState();
             if (auth) {
@@ -511,7 +647,6 @@ function initializeForm() {
             });
         }
 
-        // Close form button
         const closeForm = document.getElementById("closeForm");
         if (closeForm) {
             closeForm.addEventListener("click", () => {
@@ -525,7 +660,6 @@ function initializeForm() {
             form.addEventListener("submit", handleFormSubmit);
         }
 
-        // Clear button
         const clearDataButton = document.getElementById("clearDataButton");
         if (clearDataButton) {
             clearDataButton.addEventListener("click", () => {
@@ -691,7 +825,6 @@ function handleEditButton(e) {
         editModal.classList.add("show");
         editModal.style.display = "flex";
 
-        // Initialize Lucide icons in modal
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
@@ -754,7 +887,6 @@ function handleDeleteButton(e) {
                 row.remove();
                 showSuccess("Đã xóa đơn hàng thành công!");
 
-                // Update stats after deletion
                 setTimeout(() => updateTable(), 500);
             })
             .catch((error) => {
@@ -1062,7 +1194,6 @@ function initializeFilters() {
             }
         });
 
-        // Search input
         if (searchInput) {
             searchInput.addEventListener("input", (e) => {
                 searchFilter = e.target.value;
@@ -1074,7 +1205,6 @@ function initializeFilters() {
             });
         }
 
-        // Refresh button
         const btnRefresh = document.getElementById("btnRefresh");
         if (btnRefresh) {
             btnRefresh.addEventListener("click", () => {
@@ -1099,7 +1229,6 @@ function initializeFilters() {
 
 document.addEventListener("DOMContentLoaded", function () {
     try {
-        // Check authentication
         if (!authManager || !authManager.isAuthenticated()) {
             showError("Phiên đăng nhập hết hạn, đang chuyển hướng...");
             setTimeout(() => {
@@ -1108,33 +1237,34 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        // Initialize notification manager
         notificationManager = new NotificationManager();
         showInfo("Đang khởi tạo hệ thống...", 1500);
 
-        // Initialize components
         initializeForm();
         initializeTableEvents();
         initializeFilters();
 
-        // Load initial data
-        showLoading("Đang tải dữ liệu ban đầu...");
+        // Chỉ show loading nếu không có cache
+        const cachedData = getCachedData();
+        if (!cachedData) {
+            showLoading("Đang tải dữ liệu ban đầu...");
+        }
+
         setTimeout(() => {
             updateTable();
         }, 300);
 
-        // Save button in modal
         const saveButton = document.getElementById("saveButton");
         if (saveButton) {
             saveButton.addEventListener("click", saveChanges);
         }
 
-        // Initialize Lucide icons
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
 
         console.log("Hang Hoan Management System initialized successfully");
+        console.log("Cache stats:", cacheManager.getStats());
     } catch (error) {
         console.error("Critical initialization error:", error);
         if (notificationManager) {
@@ -1147,6 +1277,5 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 });
 
-// Export for global use
 window.closeModal = closeModal;
 window.saveChanges = saveChanges;
