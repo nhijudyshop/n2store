@@ -886,3 +886,200 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* =====================================================
+   MODERN FILTER STYLES - ADD TO styles.css
+   ===================================================== */
+
+/* Filter Header - Make it clickable */
+.filter-header {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+}
+
+.filter-header:hover {
+    background: var(--gray-50);
+}
+
+.filter-header.collapsed {
+    border-bottom: none;
+}
+
+.filter-toggle {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    color: var(--gray-500);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.filter-toggle:hover {
+    background: var(--gray-100);
+    transform: scale(1.1);
+}
+
+.filter-toggle i {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+.filter-header.collapsed .filter-toggle i {
+    transform: rotate(0deg);
+}
+
+.filter-header:not(.collapsed) .filter-toggle i {
+    transform: rotate(180deg);
+}
+
+/* Filter Body - Collapsible */
+.filter-body {
+    max-height: 500px;
+    opacity: 1;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.filter-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Filters Grid - Responsive */
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.filter-item-wide {
+    grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+    .filter-item-wide {
+        grid-column: span 1;
+    }
+}
+
+/* Filter Inputs Enhanced */
+.filter-select,
+.filter-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.15s ease;
+    background: white;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+
+.filter-select:hover,
+.filter-input:hover {
+    border-color: var(--gray-300);
+}
+
+/* Filter Item Label */
+.filter-item label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    color: var(--gray-900);
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.filter-item label i {
+    width: 16px;
+    height: 16px;
+    color: var(--primary);
+}
+
+/* Filter Count Badge */
+.filter-count {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--gray-200);
+}
+
+.count-badge {
+    background: var(--gray-100);
+    padding: 6px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary);
+    transition: all 0.2s ease;
+}
+
+.count-badge:hover {
+    background: var(--primary);
+    color: white;
+}
+
+/* Filter Card Shadow on Expand */
+.filters-section.card {
+    transition: box-shadow 0.3s ease;
+}
+
+.filter-header:not(.collapsed) ~ .card-body {
+    box-shadow: none;
+}
+
+/* Quick Filter Select Highlight */
+#quickFilter {
+    font-weight: 500;
+}
+
+#quickFilter option[value="all"] {
+    font-weight: 600;
+}
+
+/* Animation for filter results */
+@keyframes filterResultFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.inventory-table tbody {
+    animation: filterResultFadeIn 0.3s ease;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-count {
+        justify-content: center;
+    }
+}

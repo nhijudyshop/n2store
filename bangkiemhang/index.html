@@ -131,16 +131,40 @@
                 </div>
             </section>
 
-            <!-- Filters -->
             <section class="filters-section card">
-                <div class="card-header">
+                <div
+                    class="card-header filter-header collapsed"
+                    id="filterHeader"
+                >
                     <div class="card-title">
                         <i data-lucide="filter"></i>
-                        <h2>Bộ Lọc</h2>
+                        <h2>Bộ Lọc Dữ Liệu</h2>
                     </div>
+                    <button class="filter-toggle" id="filterToggle">
+                        <i data-lucide="chevron-down" id="filterToggleIcon"></i>
+                    </button>
                 </div>
-                <div class="card-body">
+                <div class="card-body filter-body collapsed" id="filterBody">
                     <div class="filters-grid">
+                        <!-- Quick Filter -->
+                        <div class="filter-item">
+                            <label>
+                                <i data-lucide="zap"></i>
+                                Lọc Nhanh
+                            </label>
+                            <select id="quickFilter" class="filter-select">
+                                <option value="all">Tất cả</option>
+                                <option value="today">Hôm nay</option>
+                                <option value="yesterday">Hôm qua</option>
+                                <option value="last7days">7 ngày qua</option>
+                                <option value="last30days">30 ngày qua</option>
+                                <option value="thisMonth">Tháng này</option>
+                                <option value="lastMonth">Tháng trước</option>
+                                <option value="custom">Tùy chỉnh</option>
+                            </select>
+                        </div>
+
+                        <!-- Supplier Filter -->
                         <div class="filter-item">
                             <label>
                                 <i data-lucide="building"></i>
@@ -150,6 +174,8 @@
                                 <option value="all">Tất cả</option>
                             </select>
                         </div>
+
+                        <!-- Date From -->
                         <div class="filter-item">
                             <label>
                                 <i data-lucide="calendar"></i>
@@ -161,6 +187,8 @@
                                 class="filter-input"
                             />
                         </div>
+
+                        <!-- Date To -->
                         <div class="filter-item">
                             <label>
                                 <i data-lucide="calendar"></i>
@@ -172,18 +200,25 @@
                                 class="filter-input"
                             />
                         </div>
-                        <div class="filter-item">
+
+                        <!-- Global Search -->
+                        <div class="filter-item filter-item-wide">
                             <label>
                                 <i data-lucide="search"></i>
-                                Tìm Sản Phẩm
+                                Tìm Kiếm Toàn Bộ
                             </label>
                             <input
                                 type="text"
                                 id="filterProduct"
                                 class="filter-input"
-                                placeholder="Tên hoặc mã..."
+                                placeholder="Tìm trong toàn bộ dữ liệu..."
                             />
                         </div>
+                    </div>
+
+                    <!-- Filter Count -->
+                    <div class="filter-count" id="filterCount">
+                        <span class="count-badge">0 sản phẩm</span>
                     </div>
                 </div>
             </section>
