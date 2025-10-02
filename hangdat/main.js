@@ -1,5 +1,5 @@
 // =====================================================
-// MAIN APPLICATION INITIALIZATION WITH FORM INTEGRATION
+// MAIN APPLICATION INITIALIZATION WITH OPTIMIZED UPLOADS
 // =====================================================
 
 // Form state
@@ -158,22 +158,30 @@ function setupPasteHandlers() {
 }
 
 // =====================================================
-// FIREBASE UPLOAD FUNCTIONS
+// OPTIMIZED FIREBASE UPLOAD - AGGRESSIVE COMPRESSION
 // =====================================================
 
 async function uploadImageToFirebase(file, folder) {
     try {
-        const compressedFile = await Utils.compressImage(file, "storage");
+        console.log(
+            `Uploading to ${folder}:`,
+            file.name,
+            Utils.formatFileSize(file.size),
+        );
+
+        // Sử dụng compression mạnh
+        const compressedFile = await Utils.compressImageAggressive(file);
+
+        console.log(`Compressed:`, Utils.formatFileSize(compressedFile.size));
 
         const storageRef = firebase.storage().ref();
         const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
         const imageRef = storageRef.child(fileName);
 
-        console.log(`Uploading image to: ${fileName}`);
-
-        const snapshot = await imageRef.put(compressedFile);
+        const snapshot = await imageRef.put(compressedFile, STORAGE_METADATA);
         const downloadURL = await snapshot.ref.getDownloadURL();
 
+        console.log(`✅ Uploaded successfully: ${fileName}`);
         return downloadURL;
     } catch (error) {
         console.error("Error uploading image to Firebase Storage:", error);
@@ -181,8 +189,163 @@ async function uploadImageToFirebase(file, folder) {
     }
 }
 
+// =====================================================
+// OPTIMIZED: PARALLEL IMAGE UPLOAD
+// =====================================================
+
+async function buildOrderFromForm(formData) {
+    console.log("🔄 Building order from form...");
+
+    const order = {
+        id: generateUniqueID(),
+        ngayDatHang: formData.get("orderDate"),
+        nhaCungCap: formData.get("supplier"),
+        hoaDon: formData.get("invoice"),
+        anhHoaDon: null,
+        products: [],
+        thoiGianUpload: getFormattedDateTime(),
+        createdBy: getUserName(),
+    };
+
+    // Collect all upload tasks
+    const uploadTasks = [];
+
+    // Invoice image upload task
+    const invoicePasteArea = document.getElementById("invoiceImagePaste");
+    if (invoicePasteArea && invoicePasteArea._pastedFile) {
+        uploadTasks.push({
+            type: "invoice",
+            file: invoicePasteArea._pastedFile,
+            folder: "dathang/invoices",
+        });
+    }
+
+    const productNames = formData.getAll("productName[]");
+    const productCodes = formData.getAll("productCode[]");
+    const variants = formData.getAll("variant[]");
+    const quantities = formData.getAll("quantity[]");
+    const buyPrices = formData.getAll("buyPrice[]");
+    const sellPrices = formData.getAll("sellPrice[]");
+    const notes = formData.getAll("notes[]");
+    const productRows = document.querySelectorAll("#productsTableBody tr");
+
+    console.log(`📦 Processing ${productNames.length} products...`);
+
+    // Build products array and collect image upload tasks
+    for (let i = 0; i < productNames.length; i++) {
+        if (productNames[i].trim()) {
+            const product = {
+                id: generateUniqueID(),
+                tenSanPham: productNames[i].trim(),
+                maSanPham: productCodes[i] || "",
+                bienThe: variants[i] || "",
+                soLuong: parseInt(quantities[i]) || 0,
+                giaMua: parseFloat(buyPrices[i]) || 0,
+                giaBan: parseFloat(sellPrices[i]) || 0,
+                anhSanPham: null,
+                anhGiaMua: null,
+                ghiChu: notes[i] || "",
+            };
+
+            const row = productRows[i];
+            if (row) {
+                const pasteAreas = row.querySelectorAll(".paste-area");
+
+                // Collect product image upload task
+                if (pasteAreas[0] && pasteAreas[0]._pastedFile) {
+                    uploadTasks.push({
+                        type: "product",
+                        productIndex: order.products.length,
+                        field: "anhSanPham",
+                        file: pasteAreas[0]._pastedFile,
+                        folder: "dathang/products",
+                    });
+                }
+
+                // Collect price image upload task
+                if (pasteAreas[1] && pasteAreas[1]._pastedFile) {
+                    uploadTasks.push({
+                        type: "product",
+                        productIndex: order.products.length,
+                        field: "anhGiaMua",
+                        file: pasteAreas[1]._pastedFile,
+                        folder: "dathang/prices",
+                    });
+                }
+            }
+
+            order.products.push(product);
+        }
+    }
+
+    console.log(`📸 Total images to upload: ${uploadTasks.length}`);
+
+    // ===== PARALLEL UPLOAD - Upload all images simultaneously =====
+    if (uploadTasks.length > 0) {
+        const uploadId = notifyManager.uploading(0, uploadTasks.length);
+        let uploadedCount = 0;
+
+        try {
+            console.log("⚡ Starting parallel upload...");
+
+            // Upload all images in parallel
+            const uploadPromises = uploadTasks.map(async (task, index) => {
+                try {
+                    console.log(
+                        `📤 [${index + 1}/${uploadTasks.length}] Uploading ${task.type}...`,
+                    );
+                    const url = await uploadImageToFirebase(
+                        task.file,
+                        task.folder,
+                    );
+                    uploadedCount++;
+                    notifyManager.remove(uploadId);
+                    notifyManager.uploading(uploadedCount, uploadTasks.length);
+                    console.log(
+                        `✅ [${uploadedCount}/${uploadTasks.length}] Uploaded ${task.type}`,
+                    );
+                    return { ...task, url };
+                } catch (error) {
+                    console.warn(`❌ Failed to upload ${task.type}:`, error);
+                    uploadedCount++;
+                    notifyManager.remove(uploadId);
+                    notifyManager.uploading(uploadedCount, uploadTasks.length);
+                    return { ...task, url: null };
+                }
+            });
+
+            // Wait for all uploads to complete
+            const results = await Promise.all(uploadPromises);
+            console.log("✅ All uploads completed!");
+
+            // Assign URLs back to order object
+            results.forEach((result) => {
+                if (result.url) {
+                    if (result.type === "invoice") {
+                        order.anhHoaDon = result.url;
+                    } else if (result.type === "product") {
+                        order.products[result.productIndex][result.field] =
+                            result.url;
+                    }
+                }
+            });
+
+            notifyManager.remove(uploadId);
+        } catch (error) {
+            console.error("❌ Error in parallel upload:", error);
+            notifyManager.remove(uploadId);
+            throw error;
+        }
+    }
+
+    console.log("✅ Order built successfully:", order);
+    return order;
+}
+
 async function saveOrderToFirebase(order) {
     try {
+        console.log("💾 Saving order to Firebase...");
+
         const doc = await collectionRef.doc("dathang").get();
         let orderData = [];
 
@@ -192,6 +355,8 @@ async function saveOrderToFirebase(order) {
                 orderData = data.data;
             }
         }
+
+        console.log(`📊 Current orders in database: ${orderData.length}`);
 
         order.products.forEach((product) => {
             const orderEntry = {
@@ -218,9 +383,9 @@ async function saveOrderToFirebase(order) {
         await collectionRef.doc("dathang").update({ data: orderData });
         invalidateCache();
 
-        console.log("Đơn hàng đã được lưu thành công vào Firebase");
+        console.log(`✅ Order saved! Total orders now: ${orderData.length}`);
     } catch (error) {
-        console.error("Lỗi khi lưu đơn hàng:", error);
+        console.error("❌ Error saving order:", error);
         throw error;
     }
 }
@@ -229,129 +394,9 @@ async function saveOrderToFirebase(order) {
 // FORM SUBMISSION HANDLERS
 // =====================================================
 
-async function buildOrderFromForm(formData) {
-    const order = {
-        id: generateUniqueID(),
-        ngayDatHang: formData.get("orderDate"),
-        nhaCungCap: formData.get("supplier"),
-        hoaDon: formData.get("invoice"),
-        anhHoaDon: null,
-        products: [],
-        thoiGianUpload: getFormattedDateTime(),
-        createdBy: getUserName(),
-    };
-
-    const invoicePasteArea = document.getElementById("invoiceImagePaste");
-    if (invoicePasteArea && invoicePasteArea._pastedFile) {
-        try {
-            const uploadId = notifyManager.uploading(0, 1);
-            order.anhHoaDon = await uploadImageToFirebase(
-                invoicePasteArea._pastedFile,
-                "dathang/invoices",
-            );
-            notifyManager.remove(uploadId);
-        } catch (error) {
-            console.warn("Không thể upload ảnh hóa đơn:", error);
-        }
-    }
-
-    const productNames = formData.getAll("productName[]");
-    const productCodes = formData.getAll("productCode[]");
-    const variants = formData.getAll("variant[]");
-    const quantities = formData.getAll("quantity[]");
-    const buyPrices = formData.getAll("buyPrice[]");
-    const sellPrices = formData.getAll("sellPrice[]");
-    const notes = formData.getAll("notes[]");
-
-    const productRows = document.querySelectorAll("#productsTableBody tr");
-
-    const totalImages = Array.from(productRows).reduce((count, row) => {
-        const pasteAreas = row.querySelectorAll(".paste-area");
-        return (
-            count +
-            (pasteAreas[0]?._pastedFile ? 1 : 0) +
-            (pasteAreas[1]?._pastedFile ? 1 : 0)
-        );
-    }, 0);
-
-    let uploadedCount = 0;
-    let uploadId = null;
-
-    if (totalImages > 0) {
-        uploadId = notifyManager.uploading(uploadedCount, totalImages);
-    }
-
-    for (let i = 0; i < productNames.length; i++) {
-        if (productNames[i].trim()) {
-            const product = {
-                id: generateUniqueID(),
-                tenSanPham: productNames[i].trim(),
-                maSanPham: productCodes[i] || "",
-                bienThe: variants[i] || "",
-                soLuong: parseInt(quantities[i]) || 0,
-                giaMua: parseFloat(buyPrices[i]) || 0,
-                giaBan: parseFloat(sellPrices[i]) || 0,
-                anhSanPham: null,
-                anhGiaMua: null,
-                ghiChu: notes[i] || "",
-            };
-
-            const row = productRows[i];
-            if (row) {
-                const pasteAreas = row.querySelectorAll(".paste-area");
-
-                if (pasteAreas[0] && pasteAreas[0]._pastedFile) {
-                    try {
-                        product.anhSanPham = await uploadImageToFirebase(
-                            pasteAreas[0]._pastedFile,
-                            "dathang/products",
-                        );
-                        uploadedCount++;
-                        if (uploadId) {
-                            notifyManager.remove(uploadId);
-                            uploadId = notifyManager.uploading(
-                                uploadedCount,
-                                totalImages,
-                            );
-                        }
-                    } catch (error) {
-                        console.warn("Không thể upload ảnh sản phẩm:", error);
-                    }
-                }
-
-                if (pasteAreas[1] && pasteAreas[1]._pastedFile) {
-                    try {
-                        product.anhGiaMua = await uploadImageToFirebase(
-                            pasteAreas[1]._pastedFile,
-                            "dathang/prices",
-                        );
-                        uploadedCount++;
-                        if (uploadId) {
-                            notifyManager.remove(uploadId);
-                            uploadId = notifyManager.uploading(
-                                uploadedCount,
-                                totalImages,
-                            );
-                        }
-                    } catch (error) {
-                        console.warn("Không thể upload ảnh giá:", error);
-                    }
-                }
-            }
-
-            order.products.push(product);
-        }
-    }
-
-    if (uploadId) {
-        notifyManager.remove(uploadId);
-    }
-
-    return order;
-}
-
 async function handleFormSubmit(e) {
     e.preventDefault();
+    console.log("📝 Form submitted!");
 
     try {
         const notifId = notifyManager.processing("Đang xử lý đơn hàng...");
@@ -365,17 +410,27 @@ async function handleFormSubmit(e) {
             return;
         }
 
+        notifyManager.remove(notifId);
+        const saveId = notifyManager.saving("Đang lưu vào Firebase...");
+
         await saveOrderToFirebase(order);
+
+        notifyManager.remove(saveId);
+
         resetForm();
 
         try {
+            const refreshId = notifyManager.processing(
+                "Đang làm mới dữ liệu...",
+            );
             await refreshCachedDataAndTable();
+            notifyManager.remove(refreshId);
         } catch (refreshError) {
-            console.warn("Failed to refresh table:", refreshError);
+            console.warn("⚠️ Failed to refresh table:", refreshError);
             try {
                 await loadInventoryData();
             } catch (loadError) {
-                console.error("Failed to load fresh data:", loadError);
+                console.error("❌ Failed to load fresh data:", loadError);
             }
         }
 
@@ -386,9 +441,9 @@ async function handleFormSubmit(e) {
             order,
         );
 
-        notifyManager.remove(notifId);
         notifyManager.success(
             `Đã lưu đơn hàng với ${order.products.length} sản phẩm!`,
+            3000,
         );
 
         if (formState.isFormView) {
@@ -401,7 +456,7 @@ async function handleFormSubmit(e) {
             }, 1000);
         }
     } catch (error) {
-        console.error("Lỗi khi lưu đơn hàng:", error);
+        console.error("❌ Error saving order:", error);
         notifyManager.error("Lỗi khi lưu đơn hàng: " + error.message);
     }
 }
@@ -547,14 +602,12 @@ function resetForm() {
         addProductRow();
     }
 
-    // FIXED: Reset date to TODAY in GMT+7
+    // Set date to today
     const orderDate = document.getElementById("orderDate");
     if (orderDate) {
-        orderDate.value = getCurrentDateForInput(); // Set to today
+        orderDate.value = getCurrentDateForInput();
     }
 }
-
-console.log("✅ Main application initialized (GMT+7 Vietnam timezone)");
 
 function initializeFormElements() {
     const orderForm = document.getElementById("orderForm");
@@ -563,10 +616,10 @@ function initializeFormElements() {
         return;
     }
 
-    // FIXED: Set date input to TODAY in GMT+7
+    // Set date to today
     const orderDate = document.getElementById("orderDate");
     if (orderDate) {
-        orderDate.value = getCurrentDateForInput(); // Returns "2025-10-02" for today
+        orderDate.value = getCurrentDateForInput();
     }
 
     const tbody = document.getElementById("productsTableBody");
@@ -577,7 +630,7 @@ function initializeFormElements() {
     setupPasteHandlers();
     loadFormCounters();
 
-    console.log("Form elements initialized");
+    console.log("✅ Form elements initialized");
 }
 
 // =====================================================
@@ -625,7 +678,7 @@ function setupEventListeners() {
         });
     }
 
-    console.log("Event listeners setup complete");
+    console.log("✅ Event listeners setup complete");
 }
 
 // =====================================================
@@ -633,9 +686,11 @@ function setupEventListeners() {
 // =====================================================
 
 async function initializeInventorySystem() {
+    console.log("🚀 Starting inventory system initialization...");
+
     const auth = getAuthState();
     if (!isAuthenticated()) {
-        console.log("User not authenticated, redirecting to login");
+        console.log("⚠️ User not authenticated, redirecting to login");
         // Uncomment for production:
         // window.location.href = '../index.html';
         // return;
@@ -648,13 +703,24 @@ async function initializeInventorySystem() {
         }
     }
 
-    initializeFilterEvents();
-    await loadInventoryData();
-    setupEventListeners();
-    initializeFormElements();
+    try {
+        console.log("🔧 Initializing filters...");
+        initializeFilterEvents();
 
-    console.log("Inventory Management System initialized successfully");
-    console.log('Data source: Firebase collection "dathang"');
+        console.log("📊 Loading inventory data...");
+        await loadInventoryData();
+
+        console.log("🎯 Setting up event listeners...");
+        setupEventListeners();
+
+        console.log("📝 Initializing form elements...");
+        initializeFormElements();
+
+        console.log("✅ Inventory Management System initialized successfully");
+    } catch (error) {
+        console.error("❌ Error initializing system:", error);
+        notifyManager.error("Lỗi khởi tạo hệ thống: " + error.message);
+    }
 }
 
 // =====================================================
@@ -662,14 +728,14 @@ async function initializeInventorySystem() {
 // =====================================================
 
 document.addEventListener("DOMContentLoaded", function () {
+    console.log("📄 DOM Content Loaded");
+
     document.body.style.pointerEvents = "auto";
     document.body.style.userSelect = "auto";
     document.body.style.overflow = "auto";
     document.body.style.cursor = "default";
 
     initializeInventorySystem();
-
-    console.log("Enhanced Inventory System loaded successfully");
 });
 
 // =====================================================
@@ -697,4 +763,4 @@ window.debugInventoryFunctions = {
     formState: () => formState,
 };
 
-console.log("Enhanced main application initialized");
+console.log("✅ Main application initialized with parallel uploads");

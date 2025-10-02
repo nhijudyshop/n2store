@@ -1,5 +1,5 @@
 // =====================================================
-// CONFIGURATION & CONSTANTS
+// OPTIMIZED CONFIGURATION FOR FASTER UPLOADS
 // =====================================================
 
 const CONFIG = {
@@ -22,28 +22,33 @@ const CONFIG = {
         filterDebounceDelay: 300,
     },
 
-    // Performance Settings - IMAGE COMPRESSION
+    // OPTIMIZED: More aggressive compression for faster uploads
     performance: {
         imageCompression: {
             thumbnail: {
-                maxWidth: 300,
-                maxHeight: 300,
-                quality: 0.6,
+                maxWidth: 200,
+                maxHeight: 200,
+                quality: 0.5,
             },
             preview: {
-                maxWidth: 600,
-                maxHeight: 600,
-                quality: 0.7,
+                maxWidth: 400,
+                maxHeight: 400,
+                quality: 0.6,
             },
             storage: {
-                maxWidth: 1200,
-                maxHeight: 1200,
-                quality: 0.75,
+                maxWidth: 800, // Giảm từ 1200
+                maxHeight: 800, // Giảm từ 1200
+                quality: 0.6, // Giảm từ 0.75
             },
+        },
+        upload: {
+            maxConcurrent: 3, // Upload tối đa 3 ảnh cùng lúc
+            timeout: 60000,
+            retryAttempts: 2,
         },
         lazyLoadOffset: 100,
         virtualScrollThreshold: 100,
-        useWebP: true,
+        useWebP: false,
     },
 
     // UI Settings
@@ -51,6 +56,8 @@ const CONFIG = {
         animationDuration: 300,
         toastDuration: 3000,
         hoverDelay: 150,
+        showUploadProgress: true,
+        showCompressionProgress: true,
     },
 };
 
@@ -60,6 +67,16 @@ const APP_CONFIG = {
     MAX_VISIBLE_ROWS: CONFIG.cache.maxVisibleRows,
     FILTER_DEBOUNCE_DELAY: CONFIG.cache.filterDebounceDelay,
     AUTH_STORAGE_KEY: "loginindex_auth",
+};
+
+// Storage metadata for optimized caching
+const STORAGE_METADATA = {
+    contentType: "image/jpeg",
+    cacheControl: "public,max-age=31536000",
+    customMetadata: {
+        compressed: "true",
+        quality: "0.6",
+    },
 };
 
 // Global Variables
@@ -83,5 +100,6 @@ const historyCollectionRef = db.collection("edit_history");
 
 // Export for use in other modules
 window.CONFIG = CONFIG;
+window.STORAGE_METADATA = STORAGE_METADATA;
 
 console.log("Configuration loaded successfully");

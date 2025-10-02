@@ -1,5 +1,5 @@
 // =====================================================
-// UTILITY FUNCTIONS - FIXED DATE PARSING FOR GMT+7
+// UTILITY FUNCTIONS WITH AGGRESSIVE COMPRESSION
 // =====================================================
 
 class Utils {
@@ -15,7 +15,7 @@ class Utils {
     // Generate unique filename
     static generateUniqueFileName() {
         return (
-            Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".png"
+            Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".jpg"
         );
     }
 
@@ -55,7 +55,7 @@ class Utils {
         return canvas.toDataURL("image/webp").indexOf("data:image/webp") === 0;
     }
 
-    // Image Compression
+    // OPTIMIZED: Standard Image Compression (for edit modal, etc.)
     static async compressImage(file, type = "storage") {
         const settings = CONFIG.performance.imageCompression[type];
 
@@ -90,26 +90,109 @@ class Utils {
                     ctx.imageSmoothingQuality = "high";
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    const useWebP =
-                        CONFIG.performance.useWebP && Utils.supportsWebP();
-                    const mimeType = useWebP ? "image/webp" : "image/jpeg";
-                    const extension = useWebP ? ".webp" : ".jpg";
-
                     canvas.toBlob(
                         function (blob) {
                             const compressedFile = new File(
                                 [blob],
-                                file.name.replace(/\.[^/.]+$/, extension),
-                                { type: mimeType, lastModified: Date.now() },
+                                file.name.replace(/\.[^/.]+$/, ".jpg"),
+                                {
+                                    type: "image/jpeg",
+                                    lastModified: Date.now(),
+                                },
                             );
                             resolve(compressedFile);
                         },
-                        mimeType,
+                        "image/jpeg",
                         settings.quality,
                     );
                 };
             };
         });
+    }
+
+    // NEW: Super Aggressive Compression for Form Uploads
+    static async compressImageAggressive(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function () {
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Max 800px on longest side
+                    const MAX_SIZE = 800;
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height = (height * MAX_SIZE) / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width = (width * MAX_SIZE) / height;
+                            height = MAX_SIZE;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = "high";
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 0.6 quality JPEG
+                    canvas.toBlob(
+                        function (blob) {
+                            const compressedFile = new File(
+                                [blob],
+                                file.name.replace(/\.[^/.]+$/, ".jpg"),
+                                {
+                                    type: "image/jpeg",
+                                    lastModified: Date.now(),
+                                },
+                            );
+
+                            console.log(
+                                `Nén: ${Utils.formatFileSize(file.size)} → ${Utils.formatFileSize(compressedFile.size)}`,
+                            );
+                            resolve(compressedFile);
+                        },
+                        "image/jpeg",
+                        0.6,
+                    );
+                };
+            };
+        });
+    }
+
+    // Batch compress multiple images in parallel
+    static async compressImageBatch(files, onProgress) {
+        let completed = 0;
+
+        const compressionPromises = Array.from(files).map(
+            async (file, index) => {
+                try {
+                    const compressed =
+                        await Utils.compressImageAggressive(file);
+                    completed++;
+                    if (onProgress) {
+                        onProgress(completed, files.length);
+                    }
+                    return compressed;
+                } catch (error) {
+                    console.error(`Lỗi nén file ${index}:`, error);
+                    return file;
+                }
+            },
+        );
+
+        return await Promise.all(compressionPromises);
     }
 
     static isValidImageUrl(url) {
@@ -172,16 +255,52 @@ class Utils {
 }
 
 // =====================================================
-// STANDALONE UTILITY FUNCTIONS - FIXED GMT+7
+// UPLOAD QUEUE MANAGER FOR CONTROLLED PARALLEL UPLOADS
 // =====================================================
 
-// Sanitize input
+class UploadQueueManager {
+    constructor(maxConcurrent = 3) {
+        this.maxConcurrent = maxConcurrent;
+        this.queue = [];
+        this.active = 0;
+    }
+
+    async add(uploadFn) {
+        return new Promise((resolve, reject) => {
+            this.queue.push({ uploadFn, resolve, reject });
+            this.process();
+        });
+    }
+
+    async process() {
+        if (this.active >= this.maxConcurrent || this.queue.length === 0) {
+            return;
+        }
+
+        this.active++;
+        const { uploadFn, resolve, reject } = this.queue.shift();
+
+        try {
+            const result = await uploadFn();
+            resolve(result);
+        } catch (error) {
+            reject(error);
+        } finally {
+            this.active--;
+            this.process();
+        }
+    }
+}
+
+// =====================================================
+// STANDALONE UTILITY FUNCTIONS
+// =====================================================
+
 function sanitizeInput(input) {
     if (typeof input !== "string") return "";
     return input.replace(/[<>"'&]/g, "").trim();
 }
 
-// Format date for display
 function formatDate(date) {
     if (!date || !(date instanceof Date)) return "";
     const year = date.getFullYear();
@@ -190,21 +309,17 @@ function formatDate(date) {
     return `${day}/${month}/${year}`;
 }
 
-// FIXED: Parse Vietnamese date - Now handles comma in datetime
 function parseVietnameseDate(dateString) {
     if (!dateString) return null;
 
     try {
-        // Clean up the string - remove extra spaces but keep structure
         const cleanDateString = dateString.trim();
 
-        // Pattern 1: DD/MM/YYYY, HH:mm (with comma!)
         const pattern1 =
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4}),?\s*(\d{1,2}):(\d{2})/;
         const match1 = cleanDateString.match(pattern1);
         if (match1) {
             const [, day, month, year, hour, minute] = match1;
-            // Create date in LOCAL timezone (GMT+7)
             return new Date(
                 parseInt(year),
                 parseInt(month) - 1,
@@ -216,12 +331,10 @@ function parseVietnameseDate(dateString) {
             );
         }
 
-        // Pattern 2: DD/MM/YYYY (no time)
         const pattern2 = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
         const match2 = cleanDateString.match(pattern2);
         if (match2) {
             const [, day, month, year] = match2;
-            // Create date at midnight in LOCAL timezone (GMT+7)
             return new Date(
                 parseInt(year),
                 parseInt(month) - 1,
@@ -233,12 +346,10 @@ function parseVietnameseDate(dateString) {
             );
         }
 
-        // Pattern 3: YYYY-MM-DD (ISO format from input[type="date"])
         const pattern3 = /^(\d{4})-(\d{2})-(\d{2})$/;
         const match3 = cleanDateString.match(pattern3);
         if (match3) {
             const [, year, month, day] = match3;
-            // Create date at midnight in LOCAL timezone (GMT+7)
             return new Date(
                 parseInt(year),
                 parseInt(month) - 1,
@@ -250,7 +361,6 @@ function parseVietnameseDate(dateString) {
             );
         }
 
-        // Pattern 4: YYYY-MM-DD HH:mm:ss (ISO datetime)
         const pattern4 = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/;
         const match4 = cleanDateString.match(pattern4);
         if (match4) {
@@ -266,7 +376,6 @@ function parseVietnameseDate(dateString) {
             );
         }
 
-        // Fallback: try Date constructor
         const date = new Date(dateString);
         if (!isNaN(date.getTime())) {
             return date;
@@ -280,9 +389,8 @@ function parseVietnameseDate(dateString) {
     }
 }
 
-// FIXED: Get current date/time formatted in GMT+7
 function getFormattedDateTime() {
-    const now = new Date(); // This is already in local timezone (GMT+7)
+    const now = new Date();
     const day = now.getDate().toString().padStart(2, "0");
     const month = (now.getMonth() + 1).toString().padStart(2, "0");
     const year = now.getFullYear();
@@ -291,28 +399,24 @@ function getFormattedDateTime() {
     return `${day}/${month}/${year}, ${hour}:${minute}`;
 }
 
-// FIXED: Get current date in YYYY-MM-DD format for input[type="date"]
 function getCurrentDateForInput() {
-    const now = new Date(); // Local timezone (GMT+7)
+    const now = new Date();
     const year = now.getFullYear();
     const month = (now.getMonth() + 1).toString().padStart(2, "0");
     const day = now.getDate().toString().padStart(2, "0");
     return `${year}-${month}-${day}`;
 }
 
-// Generate unique ID
 function generateUniqueID() {
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).substr(2, 9);
     return `inv_${timestamp}_${random}`;
 }
 
-// Debounce function
 function debounce(func, wait) {
     return Utils.debounce(func, wait);
 }
 
-// Log action to history
 function logAction(
     action,
     description,
@@ -321,7 +425,7 @@ function logAction(
     pageName = "Đặt Hàng",
 ) {
     const logEntry = {
-        timestamp: new Date(), // Local timezone (GMT+7)
+        timestamp: new Date(),
         user: getUserName(),
         page: pageName,
         action: action,
@@ -337,31 +441,9 @@ function logAction(
         .catch((error) => console.error("Error saving log entry: ", error));
 }
 
-// Test function for date parsing
-window.testDateParsing = function () {
-    const testCases = [
-        "28/09/2025, 15:53",
-        "28/09/2025,15:53",
-        "28/09/2025 15:53",
-        "2025-09-28",
-        "02/10/2025",
-        "2/10/2025, 10:30",
-    ];
-
-    console.log("=== DATE PARSING TEST ===");
-    testCases.forEach((dateStr) => {
-        const parsed = parseVietnameseDate(dateStr);
-        console.log(
-            `"${dateStr}" →`,
-            parsed ? parsed.toLocaleString("vi-VN") : "NULL",
-        );
-    });
-};
-
-// Export Utils globally
 window.Utils = Utils;
+window.UploadQueueManager = UploadQueueManager;
 window.getCurrentDateForInput = getCurrentDateForInput;
 window.parseVietnameseDate = parseVietnameseDate;
 
-console.log("✅ Utility functions loaded (FIXED DATE PARSING - GMT+7)");
-console.log("Run testDateParsing() to verify date parsing works");
+console.log("✅ Utility functions loaded with aggressive compression");
