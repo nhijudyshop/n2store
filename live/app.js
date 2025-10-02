@@ -459,11 +459,17 @@ class ImageUtils {
     }
 
     static createLazyImageElement(url, priority = "normal") {
+        // Tạo wrapper div để CSS aspect-ratio hoạt động
+        const wrapper = document.createElement("div");
+        wrapper.className = "image-item";
+
         const img = document.createElement("img");
         img.className = "product-image lazy-image";
         img.dataset.src = url;
         img.alt = "Đang tải...";
-        return img;
+
+        wrapper.appendChild(img);
+        return wrapper; // Trả về wrapper, không phải img
     }
 }
 
@@ -906,10 +912,18 @@ class ImageManagementApp {
                     for (const imageRef of folder.items) {
                         const url = await this.firebase.getImageUrl(imageRef);
                         if (url) {
-                            const img = ImageUtils.createLazyImageElement(url);
-                            img.dataset.category = cat;
-                            imageGrid.appendChild(img);
-                            this.lazyLoader.observe(img);
+                            const wrapper =
+                                ImageUtils.createLazyImageElement(url);
+                            wrapper.dataset.category = cat;
+                            imageGrid.appendChild(wrapper);
+
+                            // SỬA: Observe thẻ img bên trong wrapper, không phải wrapper
+                            const imgElement =
+                                wrapper.querySelector(".product-image");
+                            if (imgElement) {
+                                this.lazyLoader.observe(imgElement);
+                            }
+
                             totalImages++;
                         }
                     }
