@@ -110,13 +110,55 @@ class AuthManager {
 }
 
 // =====================================================
-// ENHANCED CACHE MANAGER
+// ENHANCED CACHE MANAGER WITH PERSISTENT STORAGE
 // =====================================================
 class CacheManager {
     constructor() {
         this.cache = new Map();
         this.maxAge = CONFIG.CACHE_EXPIRY;
         this.stats = { hits: 0, misses: 0 };
+        this.storageKey = "app_persistent_cache";
+        this.saveTimeout = null;
+        this.loadFromStorage();
+    }
+
+    saveToStorage() {
+        try {
+            const cacheData = Array.from(this.cache.entries());
+            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
+            console.log(`💾 Đã lưu ${cacheData.length} items vào localStorage`);
+        } catch (error) {
+            console.warn("Không thể lưu cache:", error);
+        }
+    }
+
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return;
+
+            const cacheData = JSON.parse(stored);
+            const now = Date.now();
+            let validCount = 0;
+
+            cacheData.forEach(([key, value]) => {
+                if (value.expires > now) {
+                    this.cache.set(key, value);
+                    validCount++;
+                }
+            });
+
+            console.log(`📦 Đã load ${validCount} items từ localStorage`);
+        } catch (error) {
+            console.warn("Không thể load cache:", error);
+        }
+    }
+
+    debouncedSave() {
+        if (this.saveTimeout) clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+            this.saveToStorage();
+        }, 2000);
     }
 
     set(key, value, type = "general") {
@@ -127,6 +169,7 @@ class CacheManager {
             expires: Date.now() + this.maxAge,
             type,
         });
+        this.debouncedSave();
     }
 
     get(key, type = "general") {
@@ -135,7 +178,7 @@ class CacheManager {
 
         if (cached && cached.expires > Date.now()) {
             this.stats.hits++;
-            console.log(`✓ Cache HIT: ${cacheKey}`);
+            console.log(`✔ Cache HIT: ${cacheKey}`);
             return cached.value;
         }
 
@@ -144,7 +187,7 @@ class CacheManager {
         }
 
         this.stats.misses++;
-        console.log(`✗ Cache MISS: ${cacheKey} - Sẽ tải từ Firebase`);
+        console.log(`✗ Cache MISS: ${cacheKey}`);
         return null;
     }
 
@@ -155,6 +198,7 @@ class CacheManager {
             }
         } else {
             this.cache.clear();
+            localStorage.removeItem(this.storageKey);
         }
         this.stats = { hits: 0, misses: 0 };
     }
@@ -168,6 +212,9 @@ class CacheManager {
                 cleaned++;
             }
         }
+        if (cleaned > 0) {
+            this.saveToStorage();
+        }
         return cleaned;
     }
 
@@ -179,6 +226,7 @@ class CacheManager {
                 invalidated++;
             }
         }
+        this.saveToStorage();
         console.log(
             `Invalidated ${invalidated} cache entries for batch: ${batchName}`,
         );
@@ -195,7 +243,19 @@ class CacheManager {
             hits: this.stats.hits,
             misses: this.stats.misses,
             hitRate: `${hitRate}%`,
+            storageSize: this.getStorageSize(),
         };
+    }
+
+    getStorageSize() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return "0 KB";
+            const sizeKB = (stored.length / 1024).toFixed(2);
+            return `${sizeKB} KB`;
+        } catch {
+            return "N/A";
+        }
     }
 
     invalidate() {
@@ -661,26 +721,14 @@ class ImageManagementApp {
             return;
         }
 
-        const initNotif = notificationManager.loading(
-            "Đang khởi tạo hệ thống...",
-        );
-
         try {
             this.firebase = new FirebaseManager();
             this.lazyLoader = new LazyLoadManager();
             this.setupEventListeners();
             await this.updateLiveBatchFilterDropdown();
             await this.loadImages();
-
-            notificationManager.remove(initNotif);
-            notificationManager.success(
-                "Hệ thống đã sẵn sàng!",
-                2000,
-                "Hoàn tất",
-            );
         } catch (error) {
             console.error("App initialization error:", error);
-            notificationManager.remove(initNotif);
             notificationManager.error("Lỗi khởi tạo hệ thống", 4000, "Lỗi");
         }
     }
@@ -950,7 +998,7 @@ class ImageManagementApp {
         imageGrid.innerHTML = "";
         this.lazyLoader.resetProgress();
 
-        let notifId = notificationManager.loadingData("Đang quét thư mục...");
+        let notifId = notificationManager.info("Đang tải...", 0, "Khởi tạo");
 
         try {
             console.log("=== BẮT ĐẦU TẢI ẢNH ===");
@@ -962,104 +1010,92 @@ class ImageManagementApp {
                     : [selectedBatch];
 
             let totalImages = 0;
-            const imageDataList = [];
 
-            // BƯỚC 1: Thu thập tất cả thông tin ảnh
+            // BƯỚC 1: Tạo placeholders ngay lập tức
             for (const batch of batches) {
                 for (const cat of this.categories) {
                     const path = `live/${batch}/${this.getCategoryPath(cat)}/`;
                     const folder = await this.firebase.listFolder(path);
 
                     for (const item of folder.items) {
-                        const imagePath = item.fullPath;
-
                         const wrapper = ImageUtils.createLazyImageElement(null);
                         wrapper.dataset.category = cat;
-                        wrapper.dataset.imagePath = imagePath;
+                        wrapper.dataset.imagePath = item.fullPath;
                         imageGrid.appendChild(wrapper);
-
-                        const imgElement =
-                            wrapper.querySelector(".product-image");
-                        if (imgElement) {
-                            imageDataList.push({
-                                element: imgElement,
-                                path: imagePath,
-                            });
-                        }
-
                         totalImages++;
                     }
                 }
             }
 
-            console.log(`📊 Tổng số ảnh: ${totalImages}`);
-
-            // BƯỚC 2: Tải URLs với tracking tiến trình
-            let loadedCount = 0;
-
-            notificationManager.remove(notifId);
-            notifId = notificationManager.loadingData(
-                `Đang tải URL: 0/${totalImages} (0%)`,
-            );
-
-            // Tải từng URL và cập nhật tiến trình
-            const urlPromises = imageDataList.map(async (imageData) => {
-                try {
-                    const url = await this.firebase.getImageUrl(imageData.path);
-                    if (url) {
-                        imageData.element.dataset.src = url;
-                    }
-
-                    loadedCount++;
-                    const percent = Math.round(
-                        (loadedCount / totalImages) * 100,
-                    );
-
-                    // Cập nhật notification mỗi 5 ảnh hoặc khi hoàn thành
-                    if (loadedCount % 5 === 0 || loadedCount === totalImages) {
-                        notificationManager.remove(notifId);
-                        notifId = notificationManager.loadingData(
-                            `Đang tải URL: ${loadedCount}/${totalImages} (${percent}%)`,
-                        );
-                    }
-                } catch (error) {
-                    console.error("Error loading URL:", error);
-                    imageData.element.classList.add("lazy-error");
-                }
-            });
-
-            await Promise.allSettled(urlPromises);
-
-            console.log("✅ Đã tải xong tất cả URLs");
-
-            // BƯỚC 3: Observe tất cả images
-            notificationManager.remove(notifId);
-            notifId = notificationManager.loadingData("Đang hiển thị ảnh...");
-
-            const allImages = imageGrid.querySelectorAll(".product-image");
-            allImages.forEach((img) => {
-                if (img.dataset.src) {
-                    this.lazyLoader.observe(img);
-                }
-            });
-
-            console.log(`👁️ Đã observe ${allImages.length} ảnh`);
-
+            // Hiển thị UI ngay
             document.getElementById("statTotalImages").textContent =
                 totalImages;
             emptyState.style.display = totalImages === 0 ? "flex" : "none";
             this.filterImagesByCategory();
 
+            console.log(`📊 Đã tạo ${totalImages} placeholders`);
+
+            // BƯỚC 2: Load URLs progressively
+            notificationManager.remove(notifId);
+            notifId = notificationManager.info(
+                `Đang tải 0/${totalImages}`,
+                0,
+                "Tải ảnh",
+            );
+
+            let loadedCount = 0;
+            const allWrappers = imageGrid.querySelectorAll(".image-item");
+
+            const loadPromises = Array.from(allWrappers).map(
+                async (wrapper) => {
+                    const imagePath = wrapper.dataset.imagePath;
+                    const imgElement = wrapper.querySelector(".product-image");
+
+                    try {
+                        const url = await this.firebase.getImageUrl(imagePath);
+
+                        if (url && imgElement) {
+                            imgElement.dataset.src = url;
+                            this.lazyLoader.observe(imgElement);
+                        }
+
+                        loadedCount++;
+
+                        if (
+                            loadedCount % 10 === 0 ||
+                            loadedCount === totalImages
+                        ) {
+                            const percent = Math.round(
+                                (loadedCount / totalImages) * 100,
+                            );
+                            notificationManager.remove(notifId);
+                            notifId = notificationManager.info(
+                                `Đã tải ${loadedCount}/${totalImages} (${percent}%)`,
+                                0,
+                                "Tải ảnh",
+                            );
+                        }
+                    } catch (error) {
+                        console.error(`Error loading ${imagePath}:`, error);
+                        if (imgElement) {
+                            imgElement.classList.add("lazy-error");
+                        }
+                    }
+                },
+            );
+
+            await Promise.allSettled(loadPromises);
+
             notificationManager.remove(notifId);
 
             const stats = cacheManager.getStats();
             notificationManager.success(
-                `Đã tải ${totalImages} ảnh (Cache: ${stats.hitRate})`,
+                `${totalImages} ảnh (Cache: ${stats.hitRate})`,
                 2000,
                 "Hoàn tất",
             );
 
-            console.log("=== KẾT THÚC TẢI ẢNH ===");
+            console.log("=== HOÀN TẤT ===");
             console.log("📈 Cache Stats:", stats);
         } catch (error) {
             console.error("Load error:", error);
@@ -1067,7 +1103,7 @@ class ImageManagementApp {
             notificationManager.error(
                 "Không thể tải ảnh. Vui lòng thử lại",
                 4000,
-                "Lỗi tải dữ liệu",
+                "Lỗi",
             );
         }
     }
