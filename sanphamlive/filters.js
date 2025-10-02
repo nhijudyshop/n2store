@@ -1,20 +1,32 @@
-// js/filters.js - Filter System with Firebase Integration
+// js/filters.js - Modern Filter System with Collapsible UI
 
 let currentFilters = {
     startDate: "",
     endDate: "",
+    quickFilter: "today",
+    searchText: "",
 };
+
+let isFilterCollapsed = true; // Mặc định ẩn
 
 function initFilters() {
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
+    const quickFilterSelect = document.getElementById("quickFilter");
+    const searchInput = document.getElementById("searchText");
     const todayBtn = document.getElementById("todayBtn");
     const allBtn = document.getElementById("allBtn");
     const clearBtn = document.getElementById("clearBtn");
     const deleteFilteredBtn = document.getElementById("deleteFilteredBtn");
+    const filterToggleBtn = document.getElementById("filterToggleBtn");
 
-    // Set today as default (Vietnam timezone GMT+7)
+    // Set today as default
     setTodayFilter();
+
+    // Toggle filter panel
+    if (filterToggleBtn) {
+        filterToggleBtn.addEventListener("click", toggleFilterPanel);
+    }
 
     // Event listeners
     if (startDateInput) {
@@ -23,6 +35,17 @@ function initFilters() {
 
     if (endDateInput) {
         endDateInput.addEventListener("change", handleDateChange);
+    }
+
+    if (quickFilterSelect) {
+        quickFilterSelect.addEventListener("change", handleQuickFilterChange);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener(
+            "input",
+            debounce(handleSearchChange, 300),
+        );
     }
 
     if (todayBtn) {
@@ -42,9 +65,149 @@ function initFilters() {
     }
 }
 
+function toggleFilterPanel() {
+    const filterBody = document.getElementById("filterBody");
+    const filterToggleBtn = document.getElementById("filterToggleBtn");
+
+    if (!filterBody || !filterToggleBtn) return;
+
+    isFilterCollapsed = !isFilterCollapsed;
+
+    // Tìm icon chevron đúng cách
+    const chevronIcon = filterToggleBtn.querySelector(".filter-toggle-icon i");
+
+    if (isFilterCollapsed) {
+        filterBody.classList.add("collapsed");
+        filterBody.style.display = "none"; // Force hide
+        if (chevronIcon) {
+            chevronIcon.setAttribute("data-lucide", "chevron-down");
+        }
+    } else {
+        filterBody.classList.remove("collapsed");
+        filterBody.style.display = "block"; // Force show
+        if (chevronIcon) {
+            chevronIcon.setAttribute("data-lucide", "chevron-up");
+        }
+    }
+
+    // Re-init icons nếu lucide tồn tại
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
+}
+
+function handleQuickFilterChange(e) {
+    const value = e.target.value;
+    currentFilters.quickFilter = value;
+
+    const startDateInput = document.getElementById("startDate");
+    const endDateInput = document.getElementById("endDate");
+
+    if (value === "custom") {
+        // User wants custom range - don't auto-set dates
+        return;
+    }
+
+    if (value === "all") {
+        // Clear date inputs
+        if (startDateInput) startDateInput.value = "";
+        if (endDateInput) endDateInput.value = "";
+        currentFilters.startDate = "";
+        currentFilters.endDate = "";
+    } else {
+        // Calculate date range based on quick filter
+        const { startDate, endDate } = getQuickFilterDates(value);
+
+        if (startDateInput)
+            startDateInput.value = formatDateForInput(startDate);
+        if (endDateInput) endDateInput.value = formatDateForInput(endDate);
+
+        currentFilters.startDate = startDate;
+        currentFilters.endDate = endDate;
+    }
+
+    applyFilters();
+}
+
+function getQuickFilterDates(filterType) {
+    const today = getTodayVN();
+    const todayDate = parseDateString(today);
+
+    let startDate = today;
+    let endDate = today;
+
+    switch (filterType) {
+        case "today":
+            startDate = endDate = today;
+            break;
+
+        case "yesterday":
+            const yesterday = new Date(
+                todayDate.getTime() - 24 * 60 * 60 * 1000,
+            );
+            startDate = endDate = formatDate(yesterday.getTime());
+            break;
+
+        case "last7days":
+            const last7 = new Date(
+                todayDate.getTime() - 6 * 24 * 60 * 60 * 1000,
+            );
+            startDate = formatDate(last7.getTime());
+            endDate = today;
+            break;
+
+        case "last30days":
+            const last30 = new Date(
+                todayDate.getTime() - 29 * 24 * 60 * 60 * 1000,
+            );
+            startDate = formatDate(last30.getTime());
+            endDate = today;
+            break;
+
+        case "thisMonth":
+            const firstDay = new Date(
+                todayDate.getFullYear(),
+                todayDate.getMonth(),
+                1,
+            );
+            const lastDay = new Date(
+                todayDate.getFullYear(),
+                todayDate.getMonth() + 1,
+                0,
+            );
+            startDate = formatDate(firstDay.getTime());
+            endDate = formatDate(lastDay.getTime());
+            break;
+
+        case "lastMonth":
+            const lastMonthFirst = new Date(
+                todayDate.getFullYear(),
+                todayDate.getMonth() - 1,
+                1,
+            );
+            const lastMonthLast = new Date(
+                todayDate.getFullYear(),
+                todayDate.getMonth(),
+                0,
+            );
+            startDate = formatDate(lastMonthFirst.getTime());
+            endDate = formatDate(lastMonthLast.getTime());
+            break;
+    }
+
+    return { startDate, endDate };
+}
+
+function parseDateString(dateStr) {
+    // Convert dd-mm-yyyy to Date object
+    const parts = dateStr.split("-");
+    return new Date(parts[2], parts[1] - 1, parts[0]);
+}
+
 function handleDateChange() {
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
+    const quickFilterSelect = document.getElementById("quickFilter");
 
     const startValue = startDateInput.value;
     const endValue = endDateInput.value;
@@ -54,6 +217,17 @@ function handleDateChange() {
         : "";
     currentFilters.endDate = endValue ? formatDateFromInput(endValue) : "";
 
+    // Switch to custom if user manually changes dates
+    if (startValue || endValue) {
+        currentFilters.quickFilter = "custom";
+        if (quickFilterSelect) quickFilterSelect.value = "custom";
+    }
+
+    applyFilters();
+}
+
+function handleSearchChange(e) {
+    currentFilters.searchText = sanitizeInput(e.target.value);
     applyFilters();
 }
 
@@ -63,30 +237,37 @@ function setTodayFilter() {
 
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
+    const quickFilterSelect = document.getElementById("quickFilter");
 
     if (startDateInput) startDateInput.value = todayInput;
     if (endDateInput) endDateInput.value = todayInput;
+    if (quickFilterSelect) quickFilterSelect.value = "today";
 
     currentFilters.startDate = today;
     currentFilters.endDate = today;
+    currentFilters.quickFilter = "today";
 
     applyFilters();
-
     notificationManager.info("Đã lọc dữ liệu hôm nay");
 }
 
 function setAllFilter() {
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
+    const quickFilterSelect = document.getElementById("quickFilter");
+    const searchInput = document.getElementById("searchText");
 
     if (startDateInput) startDateInput.value = "";
     if (endDateInput) endDateInput.value = "";
+    if (quickFilterSelect) quickFilterSelect.value = "all";
+    if (searchInput) searchInput.value = "";
 
     currentFilters.startDate = "";
     currentFilters.endDate = "";
+    currentFilters.quickFilter = "all";
+    currentFilters.searchText = "";
 
     applyFilters();
-
     notificationManager.info("Hiển thị tất cả dữ liệu");
 }
 
@@ -124,45 +305,65 @@ function applyFilters() {
 }
 
 function filterInventoryData(data) {
-    // CRITICAL FIX: If no filter is set, return ALL data
-    if (!currentFilters.startDate && !currentFilters.endDate) {
-        console.log("No filter set - returning all data");
-        return data;
+    let filtered = [...data];
+
+    // Apply date filter
+    if (currentFilters.startDate || currentFilters.endDate) {
+        filtered = filtered.filter((item) => {
+            const itemDate = formatDate(item.dateCell);
+
+            if (currentFilters.startDate && currentFilters.endDate) {
+                const isAfterStart =
+                    compareDates(itemDate, currentFilters.startDate) >= 0;
+                const isBeforeEnd =
+                    compareDates(itemDate, currentFilters.endDate) <= 0;
+                return isAfterStart && isBeforeEnd;
+            }
+
+            if (currentFilters.startDate) {
+                return compareDates(itemDate, currentFilters.startDate) >= 0;
+            }
+
+            if (currentFilters.endDate) {
+                return compareDates(itemDate, currentFilters.endDate) <= 0;
+            }
+
+            return true;
+        });
     }
 
-    console.log("Filtering with:", currentFilters);
+    // Apply text search
+    if (currentFilters.searchText) {
+        const search = currentFilters.searchText.toLowerCase();
+        filtered = filtered.filter((item) => {
+            return (
+                (item.productName &&
+                    item.productName.toLowerCase().includes(search)) ||
+                (item.productCode &&
+                    item.productCode.toLowerCase().includes(search)) ||
+                (item.supplier &&
+                    item.supplier.toLowerCase().includes(search)) ||
+                (item.orderCodes &&
+                    item.orderCodes.some((code) =>
+                        code.toLowerCase().includes(search),
+                    ))
+            );
+        });
+    }
 
-    return data.filter((item) => {
-        const itemDate = formatDate(item.dateCell);
-
-        if (currentFilters.startDate && currentFilters.endDate) {
-            const isAfterStart =
-                compareDates(itemDate, currentFilters.startDate) >= 0;
-            const isBeforeEnd =
-                compareDates(itemDate, currentFilters.endDate) <= 0;
-            return isAfterStart && isBeforeEnd;
-        }
-
-        if (currentFilters.startDate) {
-            return compareDates(itemDate, currentFilters.startDate) >= 0;
-        }
-
-        if (currentFilters.endDate) {
-            return compareDates(itemDate, currentFilters.endDate) <= 0;
-        }
-
-        return true;
-    });
+    return filtered;
 }
 
 function updateFilterInfo(filteredCount, totalCount) {
     const filterInfo = document.getElementById("filterInfo");
     if (!filterInfo) return;
 
-    if (filteredCount !== totalCount) {
+    if (filteredCount !== totalCount || currentFilters.searchText) {
         let infoText = `Hiển thị ${filteredCount} / ${totalCount} sản phẩm`;
 
-        if (currentFilters.startDate || currentFilters.endDate) {
+        if (currentFilters.searchText) {
+            infoText += ` (tìm kiếm: "${currentFilters.searchText}")`;
+        } else if (currentFilters.startDate || currentFilters.endDate) {
             if (currentFilters.startDate && currentFilters.endDate) {
                 if (currentFilters.startDate === currentFilters.endDate) {
                     infoText += ` (ngày ${currentFilters.startDate})`;
@@ -187,7 +388,12 @@ function updateDeleteFilteredButton(filteredCount) {
     const deleteBtn = document.getElementById("deleteFilteredBtn");
     if (!deleteBtn) return;
 
-    if (filteredCount > 0 && hasPermission(0)) {
+    const hasFilters =
+        currentFilters.startDate ||
+        currentFilters.endDate ||
+        currentFilters.searchText;
+
+    if (filteredCount > 0 && hasFilters && hasPermission(0)) {
         deleteBtn.textContent = `Xóa đã lọc (${filteredCount})`;
         deleteBtn.classList.remove("hidden");
     } else {
@@ -218,14 +424,11 @@ async function handleDeleteFiltered() {
     );
 
     try {
-        // Get IDs of filtered items
         const filteredIds = filtered.map((item) => item.id);
 
-        // Delete from Firebase
         if (window.isFirebaseInitialized()) {
             await window.firebaseService.deleteMultipleItems(filteredIds);
         } else {
-            // Fallback to local delete
             const filteredIdSet = new Set(filteredIds);
             const updatedInventory = inventory.filter(
                 (item) => !filteredIdSet.has(item.id),
@@ -234,16 +437,13 @@ async function handleDeleteFiltered() {
             setCachedData(updatedInventory);
         }
 
-        // Log action
         logAction("delete_batch", `Xóa ${filtered.length} sản phẩm đã lọc`);
 
-        // Re-render table and statistics
         if (!window.isFirebaseInitialized()) {
             renderTable(window.inventoryData);
             renderOrderStatistics();
         }
 
-        // Reset filters
         setAllFilter();
 
         notificationManager.remove(deletingId);
@@ -270,4 +470,4 @@ window.filterInventoryData = filterInventoryData;
 window.getFilteredData = getFilteredData;
 window.currentFilters = currentFilters;
 
-console.log("✓ Filters module loaded");
+console.log("✓ Modern Filters module loaded");

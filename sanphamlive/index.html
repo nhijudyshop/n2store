@@ -140,18 +140,73 @@
                 </div>
             </div>
 
-            <!-- Filter Section -->
-            <div class="filter-section">
-                <div class="filter-grid">
-                    <div class="form-group">
-                        <label>Từ ngày</label>
-                        <input type="date" id="startDate" />
+            <div class="modern-filter-card">
+                <!-- Filter Header - Clickable to toggle -->
+                <div class="filter-header" id="filterToggleBtn">
+                    <div class="filter-header-left">
+                        <i data-lucide="filter"></i>
+                        <h2>Bộ lọc dữ liệu</h2>
                     </div>
-                    <div class="form-group">
-                        <label>Đến ngày</label>
-                        <input type="date" id="endDate" />
+                    <button class="filter-toggle-icon">
+                        <i data-lucide="chevron-up"></i>
+                    </button>
+                </div>
+
+                <!-- Filter Body - Collapsible -->
+                <div class="filter-body" id="filterBody">
+                    <div class="filter-grid">
+                        <!-- Quick Filter -->
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="zap"></i>
+                                Lọc nhanh
+                            </label>
+                            <select id="quickFilter">
+                                <option value="all">Tất cả</option>
+                                <option value="today" selected>Hôm nay</option>
+                                <option value="yesterday">Hôm qua</option>
+                                <option value="last7days">7 ngày qua</option>
+                                <option value="last30days">30 ngày qua</option>
+                                <option value="thisMonth">Tháng này</option>
+                                <option value="lastMonth">Tháng trước</option>
+                                <option value="custom">Tùy chỉnh</option>
+                            </select>
+                        </div>
+
+                        <!-- Date From -->
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="calendar"></i>
+                                Từ ngày
+                            </label>
+                            <input type="date" id="startDate" />
+                        </div>
+
+                        <!-- Date To -->
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="calendar"></i>
+                                Đến ngày
+                            </label>
+                            <input type="date" id="endDate" />
+                        </div>
+
+                        <!-- Search -->
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="search"></i>
+                                Tìm kiếm toàn bộ
+                            </label>
+                            <input
+                                type="text"
+                                id="searchText"
+                                placeholder="Tìm trong toàn bộ dữ liệu..."
+                            />
+                        </div>
                     </div>
-                    <div class="filter-buttons">
+
+                    <!-- Filter Actions -->
+                    <div class="filter-actions">
                         <button id="todayBtn" class="btn-success-sm">
                             <i data-lucide="calendar-days"></i>
                             Hôm nay
@@ -164,8 +219,6 @@
                             <i data-lucide="x"></i>
                             Xóa lọc
                         </button>
-                    </div>
-                    <div>
                         <button
                             id="deleteFilteredBtn"
                             class="btn-danger-sm hidden"
@@ -175,6 +228,8 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Filter Info -->
                 <div id="filterInfo" class="filter-info hidden"></div>
             </div>
 
