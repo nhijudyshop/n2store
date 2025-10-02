@@ -178,7 +178,7 @@ class ImageHandler {
         const imagesRef = storageRef.child("ib/sp");
         this.imageUrlFile = [];
 
-        uiManager.showLoading("Đang tải ảnh sản phẩm...");
+        uiManager.showSuccess("Đang tải ảnh sản phẩm...");
 
         try {
             const uploadPromises = Array.from(files).map(async (file) => {

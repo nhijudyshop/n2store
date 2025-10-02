@@ -100,86 +100,75 @@ function preloadImagesAndCache(dataArray) {
 // =====================================================
 
 async function migrateDataWithIDs() {
-    const config = window.HangRotXaConfig;
-    const utils = window.HangRotXaUtils;
-
-    try {
-        utils.showLoading("Đang kiểm tra và migration dữ liệu...");
-
-        const doc = await config.collectionRef.doc("hangrotxa").get();
-
-        if (!doc.exists) {
-            console.log("Không có dữ liệu để migrate");
-            utils.hideLoading();
-            return;
-        }
-
-        const data = doc.data();
-        if (!Array.isArray(data.data)) {
-            console.log("Dữ liệu không hợp lệ");
-            utils.hideLoading();
-            return;
-        }
-
-        let hasChanges = false;
-        const migratedData = data.data.map((item) => {
-            if (!item.id) {
-                hasChanges = true;
-                return {
-                    ...item,
-                    id: utils.generateUniqueID(),
-                };
-            }
-            return item;
-        });
-
-        if (hasChanges) {
-            const sortedMigratedData = utils.sortDataByNewest(migratedData);
-
-            await config.collectionRef.doc("hangrotxa").update({
-                data: sortedMigratedData,
-            });
-
-            utils.logAction(
-                "migration",
-                `Migration hoàn tất: Thêm ID cho ${migratedData.filter((item) => item.id).length} sản phẩm và sắp xếp theo thời gian`,
-                null,
-                null,
-            );
-
-            console.log(
-                `Migration hoàn tất: Đã thêm ID cho ${migratedData.length} sản phẩm`,
-            );
-            utils.showSuccess("Migration hoàn tất!");
-        } else {
-            const sortedData = utils.sortDataByNewest(data.data);
-            const orderChanged =
-                JSON.stringify(data.data) !== JSON.stringify(sortedData);
-
-            if (orderChanged) {
-                await config.collectionRef.doc("hangrotxa").update({
-                    data: sortedData,
-                });
-
-                utils.logAction(
-                    "sort",
-                    "Sắp xếp lại dữ liệu theo thời gian mới nhất",
-                    null,
-                    null,
-                );
-                console.log("Đã sắp xếp lại dữ liệu theo thời gian");
-                utils.showSuccess(
-                    "Đã sắp xếp dữ liệu theo thời gian mới nhất!",
-                );
-            } else {
-                console.log("Tất cả dữ liệu đã có ID và đã được sắp xếp đúng");
-                utils.hideLoading();
-            }
-        }
-    } catch (error) {
-        console.error("Lỗi trong quá trình migration:", error);
-        utils.showError("Lỗi migration: " + error.message);
-    }
+    // const config = window.HangRotXaConfig;
+    // const utils = window.HangRotXaUtils;
+    // try {
+    //     utils.showLoading("Đang kiểm tra và migration dữ liệu...");
+    //     const doc = await config.collectionRef.doc("hangrotxa").get();
+    //     if (!doc.exists) {
+    //         console.log("Không có dữ liệu để migrate");
+    //         utils.hideLoading();
+    //         return;
+    //     }
+    //     const data = doc.data();
+    //     if (!Array.isArray(data.data)) {
+    //         console.log("Dữ liệu không hợp lệ");
+    //         utils.hideLoading();
+    //         return;
+    //     }
+    //     let hasChanges = false;
+    //     const migratedData = data.data.map((item) => {
+    //         if (!item.id) {
+    //             hasChanges = true;
+    //             return {
+    //                 ...item,
+    //                 id: utils.generateUniqueID(),
+    //             };
+    //         }
+    //         return item;
+    //     });
+    //     if (hasChanges) {
+    //         const sortedMigratedData = utils.sortDataByNewest(migratedData);
+    //         await config.collectionRef.doc("hangrotxa").update({
+    //             data: sortedMigratedData,
+    //         });
+    //         utils.logAction(
+    //             "migration",
+    //             `Migration hoàn tất: Thêm ID cho ${migratedData.filter((item) => item.id).length} sản phẩm và sắp xếp theo thời gian`,
+    //             null,
+    //             null,
+    //         );
+    //         console.log(
+    //             `Migration hoàn tất: Đã thêm ID cho ${migratedData.length} sản phẩm`,
+    //         );
+    //         utils.showSuccess("Migration hoàn tất!");
+    //     } else {
+    //         const sortedData = utils.sortDataByNewest(data.data);
+    //         const orderChanged =
+    //             JSON.stringify(data.data) !== JSON.stringify(sortedData);
+    //         if (orderChanged) {
+    //             await config.collectionRef.doc("hangrotxa").update({
+    //                 data: sortedData,
+    //             });
+    //             utils.logAction(
+    //                 "sort",
+    //                 "Sắp xếp lại dữ liệu theo thời gian mới nhất",
+    //                 null,
+    //                 null,
+    //             );
+    //             console.log("Đã sắp xếp lại dữ liệu theo thời gian");
+    //             utils.showSuccess(
+    //                 "Đã sắp xếp dữ liệu theo thời gian mới nhất!",
+    //             );
+    //         } else {
+    //             console.log("Tất cả dữ liệu đã có ID và đã được sắp xếp đúng");
+    //             utils.hideLoading();
+    //         }
+    //     }
+    // } catch (error) {
+    //     console.error("Lỗi trong quá trình migration:", error);
+    //     utils.showError("Lỗi migration: " + error.message);
+    // }
 }
 
 // =====================================================
@@ -194,16 +183,18 @@ async function displayInventoryData() {
     // Check cache first
     const cachedData = getCachedData();
     if (cachedData) {
-        const loadingId = utils.showLoading("Sử dụng dữ liệu cache...");
+        utils.showInfo("Sử dụng dữ liệu cache...");
+        // const loadingId = utils.showLoading("Sử dụng dữ liệu cache...");
         const sortedCacheData = utils.sortDataByNewest(cachedData);
         ui.renderDataToTable(sortedCacheData);
         ui.updateSuggestions(sortedCacheData);
-        utils.hideLoading(loadingId);
+        // utils.hideLoading(loadingId);
         utils.showInfo("Tải dữ liệu từ cache hoàn tất!");
         return;
     }
 
-    const loadingId = utils.showLoading("Đang tải dữ liệu từ server...");
+    utils.showInfo("Đang tải dữ liệu từ server...");
+    // const loadingId = utils.showLoading("Đang tải dữ liệu từ server...");
 
     try {
         const doc = await config.collectionRef.doc("hangrotxa").get();
@@ -220,11 +211,11 @@ async function displayInventoryData() {
             }
         }
 
-        utils.hideLoading(loadingId);
+        // utils.hideLoading(loadingId);
         utils.showSuccess("Tải dữ liệu hoàn tất!");
     } catch (error) {
         console.error(error);
-        utils.hideLoading(loadingId);
+        // utils.hideLoading(loadingId);
         utils.showError("Lỗi khi tải dữ liệu!");
     }
 }

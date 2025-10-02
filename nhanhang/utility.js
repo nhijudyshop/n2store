@@ -83,9 +83,10 @@ async function displayReceiptData() {
     let notifId = null;
 
     try {
-        notifId = notificationManager.loadingData(
-            "Đang tải dữ liệu từ server...",
-        );
+        // notifId = notificationManager.loadingData(
+        //     "Đang tải dữ liệu từ server...",
+        // );
+        showSuccess("Đang tải dữ liệu từ server...");
 
         const doc = await collectionRef.doc("nhanhang").get();
         if (doc.exists) {
@@ -97,11 +98,11 @@ async function displayReceiptData() {
             }
         }
 
-        notificationManager.remove(notifId);
+        // notificationManager.remove(notifId);
         notificationManager.success("Tải dữ liệu hoàn tất!", 2000);
     } catch (error) {
         console.error(error);
-        if (notifId) notificationManager.remove(notifId);
+        // if (notifId) notificationManager.remove(notifId);
         notificationManager.error("Lỗi khi tải dữ liệu!", 3000);
     }
 }

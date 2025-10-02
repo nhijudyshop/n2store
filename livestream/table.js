@@ -342,9 +342,10 @@ function updateTable(preserveCurrentFilter = false) {
     if (cachedData) {
         console.log("[TABLE] Loading from cache...");
         if (globalNotificationManager) {
-            globalNotificationManager.loadingData(
-                "Đang tải dữ liệu từ cache...",
-            );
+            showLoading("Đang tải dữ liệu từ cache...");
+            // globalNotificationManager.loadingData(
+            //     "Đang tải dữ liệu từ cache...",
+            // );
         } else {
             showLoading("Đang tải dữ liệu từ cache...");
         }
@@ -384,9 +385,10 @@ function updateTable(preserveCurrentFilter = false) {
 
     console.log("[TABLE] Loading from Firebase...");
     if (globalNotificationManager) {
-        globalNotificationManager.loadingData(
-            "Đang tải dữ liệu từ Firebase...",
-        );
+        showLoading("Đang tải dữ liệu từ Firebase...");
+        // globalNotificationManager.loadingData(
+        //     "Đang tải dữ liệu từ Firebase...",
+        // );
     } else {
         showLoading("Đang tải dữ liệu từ Firebase...");
     }

@@ -56,9 +56,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 // Load inventory data from Firebase or cache
 async function loadInventoryData() {
-    const loadingId = notificationManager.loadingData(
-        "Đang tải dữ liệu từ Firebase...",
-    );
+    // const loadingId = notificationManager.loadingData(
+    //     "Đang tải dữ liệu từ Firebase...",
+    // );
+    showLoading("Đang tải dữ liệu từ Firebase...");
 
     try {
         if (window.isFirebaseInitialized()) {
@@ -98,7 +99,7 @@ async function loadInventoryData() {
         renderStatistics();
 
         // Remove loading and show success
-        notificationManager.remove(loadingId);
+        //notificationManager.remove(loadingId);
         notificationManager.success(
             `Đã tải ${window.inventoryData.length} sản phẩm`,
         );

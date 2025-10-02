@@ -436,7 +436,7 @@ class TableManager {
     async loadData() {
         const cachedData = cacheManager.getCachedData();
         if (cachedData) {
-            uiManager.showLoading("Sử dụng dữ liệu cache...");
+            uiManager.showSuccess("Sử dụng dữ liệu cache...");
             setTimeout(() => {
                 this.renderDataToTable(cachedData);
                 uiManager.hideAlert();
@@ -445,7 +445,7 @@ class TableManager {
             return;
         }
 
-        uiManager.showLoading("Đang tải dữ liệu từ server...");
+        uiManager.showSuccess("Đang tải dữ liệu từ server...");
         this.isLoading = true;
 
         try {

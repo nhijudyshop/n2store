@@ -31,15 +31,16 @@ async function initializeInventorySystem() {
     initializeFilterEvents();
 
     // Load initial data with notification
-    const loadingId = notificationManager.loadingData(
-        "Đang khởi tạo hệ thống...",
-    );
+    // const loadingId = notificationManager.loadingData(
+    //     "Đang khởi tạo hệ thống...",
+    // );
+    // showSuccess("Đang khởi tạo hệ thống...");
     try {
         await loadInventoryData();
-        notificationManager.remove(loadingId);
+        // notificationManager.remove(loadingId);
         notificationManager.success("Hệ thống đã sẵn sàng!", 2000);
     } catch (error) {
-        notificationManager.remove(loadingId);
+        // notificationManager.remove(loadingId);
         notificationManager.error(
             "Lỗi khởi tạo hệ thống: " + error.message,
             4000,
