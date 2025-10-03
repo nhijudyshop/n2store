@@ -269,7 +269,7 @@ function initializeFilterEvents() {
     const filterToggle = document.getElementById("filterToggle");
     const filterHeader = document.getElementById("filterHeader");
 
-    quickFilterSelect.value = "today";
+    quickFilterSelect.value = "all";
 
     // Filter collapse toggle
     if (filterToggle) {

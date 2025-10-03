@@ -260,7 +260,7 @@ function initializeFilterEvents() {
 
     // SET DEFAULT TO "TODAY"
     if (quickDateFilter) {
-        quickDateFilter.value = "today";
+        quickDateFilter.value = "all";
         console.log("Filter initialized with default: TODAY");
     }
 

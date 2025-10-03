@@ -3,7 +3,7 @@
 let currentFilters = {
     startDate: "",
     endDate: "",
-    quickFilter: "today",
+    quickFilter: "",
     searchText: "",
 };
 
@@ -21,7 +21,7 @@ function initFilters() {
     const filterToggleBtn = document.getElementById("filterToggleBtn");
 
     // Set today as default
-    setTodayFilter();
+    // setTodayFilter();
 
     // Toggle filter panel
     if (filterToggleBtn) {
@@ -241,11 +241,11 @@ function setTodayFilter() {
 
     if (startDateInput) startDateInput.value = todayInput;
     if (endDateInput) endDateInput.value = todayInput;
-    if (quickFilterSelect) quickFilterSelect.value = "today";
+    if (quickFilterSelect) quickFilterSelect.value = "all";
 
     currentFilters.startDate = today;
     currentFilters.endDate = today;
-    currentFilters.quickFilter = "today";
+    currentFilters.quickFilter = "all";
 
     applyFilters();
     notificationManager.info("Đã lọc dữ liệu hôm nay");
