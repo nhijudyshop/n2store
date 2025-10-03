@@ -249,6 +249,14 @@ const editKeepCurrentImageButton = document.getElementById(
 const editImageDisplayArea = document.getElementById("editImageDisplayArea");
 const currentImageContainer = document.getElementById("currentImageContainer");
 
+// Edit file upload elements
+const editUploadFileButton = document.getElementById("editUploadFileButton");
+const editFileInput = document.getElementById("editFileInput");
+
+// Main form file upload elements
+const uploadFileButton = document.getElementById("uploadFileButton");
+const fileInput = document.getElementById("fileInput");
+
 // Filter elements
 const filterUserSelect = document.getElementById("filterUser");
 const dateFilterSelect = document.getElementById("dateFilter");

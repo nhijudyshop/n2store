@@ -1,5 +1,5 @@
 // Enhanced Goods Receipt Management System - CRUD Operations
-// Create, Read, Update, Delete operations for receipt management
+// Create, Read, Update, Delete operations with cache invalidation
 
 // =====================================================
 // CREATE OPERATIONS
@@ -111,7 +111,8 @@ async function uploadToFirestore(receiptData) {
             receiptData,
         );
 
-        // Invalidate cache
+        // CRITICAL: Invalidate cache immediately after data change
+        console.log("Invalidating cache after ADD operation");
         invalidateCache();
 
         console.log("Document với ID tải lên thành công:", receiptData.id);
@@ -143,7 +144,7 @@ function clearReceiptForm() {
     // Clear image display
     if (imageDisplayArea) {
         imageDisplayArea.innerHTML =
-            "<p>📷 Ảnh sẽ hiển thị ở đây sau khi chụp</p>";
+            "<p>Ảnh sẽ hiển thị ở đây sau khi chụp</p>";
         imageDisplayArea.classList.remove("has-content");
     }
 
@@ -261,7 +262,8 @@ async function updateReceipt(event) {
             data.data[index],
         );
 
-        // Invalidate cache
+        // CRITICAL: Invalidate cache immediately after data change
+        console.log("Invalidating cache after UPDATE operation");
         invalidateCache();
 
         if (notifId) notificationManager.remove(notifId);
@@ -353,7 +355,8 @@ async function deleteReceiptByID(event) {
             null,
         );
 
-        // Invalidate cache
+        // CRITICAL: Invalidate cache immediately after data change
+        console.log("Invalidating cache after DELETE operation");
         invalidateCache();
 
         notificationManager.remove(notifId);
@@ -374,85 +377,8 @@ async function deleteReceiptByID(event) {
 
 // Migration function (Run once only)
 async function migrateDataWithIDs() {
-    // try {
-    //     const notifId = notificationManager.loadingData(
-    //         "Đang kiểm tra và migration dữ liệu...",
-    //     );
-    //     const doc = await collectionRef.doc("nhanhang").get();
-    //     if (!doc.exists) {
-    //         console.log("Không có dữ liệu để migrate");
-    //         notificationManager.remove(notifId);
-    //         return;
-    //     }
-    //     const data = doc.data();
-    //     if (!Array.isArray(data.data)) {
-    //         console.log("Dữ liệu không hợp lệ");
-    //         notificationManager.remove(notifId);
-    //         return;
-    //     }
-    //     let hasChanges = false;
-    //     const migratedData = data.data.map((item) => {
-    //         // Only add ID if not present
-    //         if (!item.id) {
-    //             hasChanges = true;
-    //             return {
-    //                 ...item,
-    //                 id: generateUniqueID(),
-    //             };
-    //         }
-    //         return item;
-    //     });
-    //     if (hasChanges) {
-    //         // Sort data after migration (newest first)
-    //         const sortedMigratedData = sortDataByNewest(migratedData);
-    //         // Update data with new IDs and sorted
-    //         await collectionRef.doc("nhanhang").update({
-    //             data: sortedMigratedData,
-    //         });
-    //         // Log migration
-    //         logAction(
-    //             "migration",
-    //             `Migration hoàn tất: Thêm ID cho ${migratedData.filter((item) => item.id).length} phiếu nhận và sắp xếp theo thời gian`,
-    //             null,
-    //             null,
-    //         );
-    //         console.log(
-    //             `Migration hoàn tất: Đã thêm ID cho ${migratedData.length} phiếu nhận và sắp xếp theo thời gian`,
-    //         );
-    //         notificationManager.remove(notifId);
-    //         notificationManager.success("Migration hoàn tất!", 2500);
-    //     } else {
-    //         // If no ID changes, just sort again
-    //         const sortedData = sortDataByNewest(data.data);
-    //         // Check if order changed
-    //         const orderChanged =
-    //             JSON.stringify(data.data) !== JSON.stringify(sortedData);
-    //         if (orderChanged) {
-    //             await collectionRef.doc("nhanhang").update({
-    //                 data: sortedData,
-    //             });
-    //             logAction(
-    //                 "sort",
-    //                 "Sắp xếp lại dữ liệu theo thời gian mới nhất",
-    //                 null,
-    //                 null,
-    //             );
-    //             console.log("Đã sắp xếp lại dữ liệu theo thời gian");
-    //             notificationManager.remove(notifId);
-    //             notificationManager.success(
-    //                 "Đã sắp xếp dữ liệu theo thời gian mới nhất!",
-    //                 2000,
-    //             );
-    //         } else {
-    //             console.log("Tất cả dữ liệu đã có ID và đã được sắp xếp đúng");
-    //             notificationManager.remove(notifId);
-    //             notificationManager.info("Dữ liệu đã có ID đầy đủ", 2000);
-    //         }
-    //     }
-    // } catch (error) {
-    //     console.error("Lỗi trong quá trình migration:", error);
-    //     notificationManager.error("Lỗi migration: " + error.message, 5000);
-    // }
+    // Commented out - migration already completed
+    // Uncomment if needed
 }
 
 // =====================================================

@@ -1,5 +1,5 @@
 // Enhanced Goods Receipt Management System - Camera Functions
-// Camera handling for main form and edit modal
+// Camera handling and file upload for main form and edit modal
 
 // =====================================================
 // CAMERA INITIALIZATION
@@ -34,6 +34,168 @@ function initializeCameraSystem() {
     if (editKeepCurrentImageButton) {
         editKeepCurrentImageButton.addEventListener("click", keepCurrentImage);
     }
+
+    // Initialize file uploads
+    initializeMainFileUpload();
+    initializeEditFileUpload();
+}
+
+// =====================================================
+// MAIN FORM FILE UPLOAD
+// =====================================================
+
+function initializeMainFileUpload() {
+    if (uploadFileButton && fileInput) {
+        uploadFileButton.addEventListener("click", () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener("change", handleMainFileSelect);
+    }
+}
+
+function handleMainFileSelect(event) {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+        notificationManager.error(
+            "Vui lòng chọn file ảnh hợp lệ (JPG, PNG, ...)",
+            3000,
+        );
+        event.target.value = "";
+        return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+        notificationManager.error(
+            "Kích thước file không được vượt quá 5MB",
+            3000,
+        );
+        event.target.value = "";
+        return;
+    }
+
+    const notifId = notificationManager.loading("Đang xử lý ảnh...");
+
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+        try {
+            // Store as blob for upload
+            capturedImageBlob = file;
+            capturedImageUrl = e.target.result;
+
+            // Display the uploaded image
+            displayCapturedImage();
+
+            // Reset file input
+            event.target.value = "";
+
+            notificationManager.remove(notifId);
+            notificationManager.success("Đã tải ảnh từ file thành công!", 2000);
+        } catch (error) {
+            console.error("Error processing file:", error);
+            notificationManager.remove(notifId);
+            notificationManager.error(
+                "Lỗi khi xử lý file: " + error.message,
+                3000,
+            );
+        }
+    };
+
+    reader.onerror = function () {
+        notificationManager.remove(notifId);
+        notificationManager.error("Lỗi khi đọc file", 3000);
+        event.target.value = "";
+    };
+
+    reader.readAsDataURL(file);
+}
+
+// =====================================================
+// EDIT FORM FILE UPLOAD
+// =====================================================
+
+function initializeEditFileUpload() {
+    if (editUploadFileButton && editFileInput) {
+        editUploadFileButton.addEventListener("click", () => {
+            editFileInput.click();
+        });
+
+        editFileInput.addEventListener("change", handleEditFileSelect);
+    }
+}
+
+function handleEditFileSelect(event) {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+        notificationManager.error(
+            "Vui lòng chọn file ảnh hợp lệ (JPG, PNG, ...)",
+            3000,
+        );
+        event.target.value = "";
+        return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+        notificationManager.error(
+            "Kích thước file không được vượt quá 5MB",
+            3000,
+        );
+        event.target.value = "";
+        return;
+    }
+
+    const notifId = notificationManager.loading("Đang xử lý ảnh...");
+
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+        try {
+            // Store as blob for upload
+            editCapturedImageBlob = file;
+            editCapturedImageUrl = e.target.result;
+            editKeepCurrentImage = false;
+
+            // Display the uploaded image
+            displayEditCapturedImage();
+
+            // Stop camera if running
+            stopEditCamera();
+
+            // Reset file input
+            event.target.value = "";
+
+            notificationManager.remove(notifId);
+            notificationManager.success("Đã tải ảnh từ file thành công!", 2000);
+        } catch (error) {
+            console.error("Error processing file:", error);
+            notificationManager.remove(notifId);
+            notificationManager.error(
+                "Lỗi khi xử lý file: " + error.message,
+                3000,
+            );
+        }
+    };
+
+    reader.onerror = function () {
+        notificationManager.remove(notifId);
+        notificationManager.error("Lỗi khi đọc file", 3000);
+        event.target.value = "";
+    };
+
+    reader.readAsDataURL(file);
 }
 
 // =====================================================

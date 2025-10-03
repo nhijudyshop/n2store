@@ -1,5 +1,5 @@
 // Enhanced Goods Receipt Management System - Utility Functions
-// Helper functions with NEW CACHE SYSTEM integration
+// Helper functions with CACHE VALIDATION SYSTEM
 
 // =====================================================
 // TIMEZONE HELPER - GMT+7 Vietnam
@@ -25,20 +25,21 @@ function getVietnamDateAtMidnight(date = new Date()) {
 }
 
 // =====================================================
-// NEW CACHE FUNCTIONS - Using CacheManager
+// CACHE FUNCTIONS WITH VALIDATION
 // =====================================================
 
 function getCachedData() {
     try {
         const cached = dataCache.get("receipts", "data");
         if (cached) {
-            console.log("✅ Using cached data - will sort before rendering");
+            console.log(`Cache hit: ${cached.length} items`);
             return sortDataByNewest([...cached]);
         }
     } catch (e) {
         console.warn("Error accessing cache:", e);
         dataCache.clear("data");
     }
+    console.log("Cache miss");
     return null;
 }
 
@@ -46,7 +47,7 @@ function setCachedData(data) {
     try {
         const sortedData = sortDataByNewest([...data]);
         dataCache.set("receipts", sortedData, "data");
-        console.log("✅ Data sorted and cached successfully");
+        console.log(`Cached ${sortedData.length} items successfully`);
     } catch (e) {
         console.warn("Cannot cache data:", e);
     }
@@ -54,56 +55,146 @@ function setCachedData(data) {
 
 function invalidateCache() {
     dataCache.clear("data");
-    console.log("🗑️ Cache invalidated");
+    console.log("Cache invalidated");
 }
 
 // Get cache statistics
 function getCacheStats() {
-    return dataCache.getStats();
+    const stats = dataCache.getStats();
+    console.table(stats);
+    return stats;
 }
 
-// Invalidate specific patterns (useful for targeted updates)
+// Invalidate specific patterns
 function invalidateCachePattern(pattern) {
     return dataCache.invalidatePattern(pattern);
 }
 
+// Validate cache against server
+async function validateCacheWithServer() {
+    try {
+        const doc = await collectionRef.doc("nhanhang").get();
+
+        if (!doc.exists) return false;
+
+        const serverData = doc.data();
+        if (!serverData || !Array.isArray(serverData.data)) return false;
+
+        const cachedData = getCachedData();
+
+        if (!cachedData) return false;
+
+        const isValid = serverData.data.length === cachedData.length;
+
+        console.log(`Cache validation: ${isValid ? "VALID" : "INVALID"}`);
+        console.log(`   Server: ${serverData.data.length} items`);
+        console.log(`   Cache: ${cachedData.length} items`);
+
+        return isValid;
+    } catch (error) {
+        console.error("Error validating cache:", error);
+        return false;
+    }
+}
+
+// Force refresh data from server
+async function forceRefreshData() {
+    const notifId = notificationManager.loadingData("Đang làm mới dữ liệu...");
+
+    try {
+        invalidateCache();
+        await displayReceiptData();
+
+        notificationManager.remove(notifId);
+        notificationManager.success("Đã làm mới dữ liệu!", 2000);
+    } catch (error) {
+        notificationManager.remove(notifId);
+        notificationManager.error("Lỗi khi làm mới: " + error.message, 3000);
+    }
+}
+
 // =====================================================
-// DISPLAY RECEIPT DATA FUNCTION
+// DISPLAY RECEIPT DATA WITH CACHE VALIDATION
 // =====================================================
 
 async function displayReceiptData() {
-    // Try cache first
-    const cachedData = getCachedData();
-    if (cachedData) {
-        const sortedCacheData = sortDataByNewest(cachedData);
-        renderDataToTable(sortedCacheData);
-        return;
-    }
-
     let notifId = null;
 
     try {
-        // notifId = notificationManager.loadingData(
-        //     "Đang tải dữ liệu từ server...",
-        // );
-        showSuccess("Đang tải dữ liệu từ server...");
-
+        // Always fetch from server to check data length
         const doc = await collectionRef.doc("nhanhang").get();
-        if (doc.exists) {
-            const data = doc.data();
-            if (data && Array.isArray(data.data)) {
+
+        if (!doc.exists) {
+            notificationManager.error("Không tìm thấy dữ liệu!", 3000);
+            return;
+        }
+
+        const data = doc.data();
+        if (!data || !Array.isArray(data.data)) {
+            notificationManager.error("Dữ liệu không hợp lệ!", 3000);
+            return;
+        }
+
+        const serverDataLength = data.data.length;
+
+        // Try cache first
+        const cachedData = getCachedData();
+
+        if (cachedData) {
+            const cacheDataLength = cachedData.length;
+
+            // Compare lengths
+            if (serverDataLength !== cacheDataLength) {
+                console.log(
+                    `Data mismatch detected: Server=${serverDataLength}, Cache=${cacheDataLength}`,
+                );
+                console.log("Clearing old cache and using fresh data...");
+
+                // Clear cache
+                invalidateCache();
+
+                // Show notification
+                notificationManager.info(
+                    `Phát hiện thay đổi dữ liệu (${cacheDataLength} -> ${serverDataLength}). Đã làm mới!`,
+                    2500,
+                );
+
+                // Use server data
                 const sortedData = sortDataByNewest(data.data);
                 renderDataToTable(sortedData);
                 setCachedData(sortedData);
+
+                return;
             }
+
+            // Length matches, use cache
+            console.log(`Cache valid: ${cacheDataLength} items`);
+            const sortedCacheData = sortDataByNewest(cachedData);
+            renderDataToTable(sortedCacheData);
+            return;
         }
 
-        // notificationManager.remove(notifId);
+        // No cache, load from server
+        notifId = notificationManager.loadingData(
+            "Đang tải dữ liệu từ server...",
+        );
+
+        const sortedData = sortDataByNewest(data.data);
+        renderDataToTable(sortedData);
+        setCachedData(sortedData);
+
+        if (notifId) notificationManager.remove(notifId);
         notificationManager.success("Tải dữ liệu hoàn tất!", 2000);
     } catch (error) {
         console.error(error);
-        // if (notifId) notificationManager.remove(notifId);
-        notificationManager.error("Lỗi khi tải dữ liệu!", 3000);
+        if (notifId) notificationManager.remove(notifId);
+        notificationManager.error(
+            "Lỗi khi tải dữ liệu: " + error.message,
+            3000,
+        );
+
+        // Clear cache on error
+        invalidateCache();
     }
 }
 
@@ -466,7 +557,18 @@ window.cacheDebug = {
         console.log(`Invalidated ${invalidated} entries matching: ${pattern}`);
         return invalidated;
     },
+    validate: async () => {
+        const isValid = await validateCacheWithServer();
+        console.log(`Cache is ${isValid ? "VALID" : "INVALID"}`);
+        if (!isValid) {
+            console.log("Run window.cacheDebug.forceRefresh() to fix");
+        }
+        return isValid;
+    },
+    forceRefresh: async () => {
+        await forceRefreshData();
+    },
 };
 
-console.log("✅ Utility functions loaded with NEW CACHE SYSTEM");
-console.log("💡 Use window.cacheDebug for cache management");
+console.log("Utility functions loaded with CACHE VALIDATION");
+console.log("Use window.cacheDebug for cache management");
