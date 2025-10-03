@@ -128,8 +128,18 @@ async function uploadExcelToTPOS(excelBase64) {
 async function getLatestProducts(count) {
     await randomDelay();
 
+    // ✅ THÊM QUERY PARAMETERS
+    const queryParams = new URLSearchParams({
+        Active: "true",
+        priceId: "0",
+        $top: "1000",
+        $orderby: "DateCreated desc",
+        $filter: "Active eq true",
+        $count: "true",
+    });
+
     const response = await fetch(
-        `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2`,
+        `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2?${queryParams.toString()}`,
         {
             headers: {
                 ...TPOS_CONFIG.getHeaders(),
@@ -238,30 +248,49 @@ function createExcelBase64(products) {
 
 app.get("/products", async (req, res) => {
     try {
-        const { limit, createdBy, search } = req.query;
+        const { limit, createdBy, search, top, active } = req.query;
 
         console.log("Fetching products from TPOS...");
 
-        const response = await fetch(
-            `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2`,
-            {
-                headers: {
-                    ...TPOS_CONFIG.getHeaders(),
-                    authorization: TPOS_CONFIG.AUTH_TOKEN,
-                },
+        // ✅ THÊM QUERY PARAMETERS VỚI KHẢ NĂNG CUSTOMIZE
+        const queryParams = new URLSearchParams({
+            Active: active || "true",
+            priceId: "0",
+            $top: top || "1000",
+            $orderby: "DateCreated desc",
+            $filter: "Active eq true",
+            $count: "true",
+        });
+
+        const url = `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2?${queryParams.toString()}`;
+        console.log("Request URL:", url);
+
+        const response = await fetch(url, {
+            headers: {
+                ...TPOS_CONFIG.getHeaders(),
+                authorization: TPOS_CONFIG.AUTH_TOKEN,
             },
-        );
+        });
 
         if (!response.ok) {
-            throw new Error(`Get products failed: ${response.status}`);
+            const errorText = await response.text();
+            console.error("Error response:", errorText);
+            throw new Error(
+                `Get products failed: ${response.status} - ${errorText}`,
+            );
         }
 
         const data = await response.json();
         let items = data.value || data;
 
+        console.log(`Fetched ${items.length} products from TPOS`);
+
         // Filter by creator name if provided
         if (createdBy) {
             items = items.filter((item) => item.CreatedByName === createdBy);
+            console.log(
+                `Filtered to ${items.length} products by creator: ${createdBy}`,
+            );
         }
 
         // Search by product name or code if provided
@@ -274,21 +303,26 @@ app.get("/products", async (req, res) => {
                     (item.Code &&
                         item.Code.toLowerCase().includes(searchLower)),
             );
+            console.log(
+                `Filtered to ${items.length} products by search: ${search}`,
+            );
         }
 
-        // Sort by ID descending (newest first)
+        // Sort by ID descending (newest first) - API đã sort rồi nhưng giữ lại để chắc chắn
         items = items.sort((a, b) => b.Id - a.Id);
 
         // Limit results if specified
         if (limit) {
             items = items.slice(0, parseInt(limit));
+            console.log(`Limited to ${items.length} products`);
         }
 
-        console.log(`Found ${items.length} products`);
+        console.log(`Returning ${items.length} products`);
 
         res.json({
             success: true,
             count: items.length,
+            total: data["@odata.count"] || items.length,
             data: items,
         });
     } catch (error) {
@@ -296,6 +330,10 @@ app.get("/products", async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message,
+            stack:
+                process.env.NODE_ENV === "development"
+                    ? error.stack
+                    : undefined,
         });
     }
 });
@@ -490,16 +528,30 @@ app.get("/health", (req, res) => {
     });
 });
 
+// Root endpoint
+app.get("/", (req, res) => {
+    res.json({
+        name: "TPOS Upload API",
+        version: "1.0.0",
+        endpoints: {
+            health: "GET /health",
+            products: "GET /products?limit=10&createdBy=Tú&search=áo&top=2000",
+            productDetail: "GET /products/:id",
+            upload: "GET /upload?tenSanPham=ABC&giaBan=100&giaMua=50&anhSanPham=https://...",
+            uploadBatch: "POST /upload-batch",
+        },
+    });
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(
-        `TPOS Upload API running on port ${PORT} (STEALTH MODE + CORS)`,
-    );
-    console.log(
-        `Upload URL: http://localhost:${PORT}/upload?tenSanPham=ABC&giaBan=100`,
-    );
-    console.log(`Batch URL: POST http://localhost:${PORT}/upload-batch`);
-    console.log(`Products URL: http://localhost:${PORT}/products`);
-    console.log(`Product Detail: http://localhost:${PORT}/products/:id`);
+    console.log("\n" + "=".repeat(60));
+    console.log("🚀 TPOS Upload API is running!");
+    console.log("=".repeat(60));
+    console.log(`📍 Server: http://localhost:${PORT}`);
+    console.log(`🏥 Health: http://localhost:${PORT}/health`);
+    console.log(`📦 Products: http://localhost:${PORT}/products`);
+    console.log(`📤 Upload: http://localhost:${PORT}/upload?tenSanPham=Test`);
+    console.log("=".repeat(60) + "\n");
 });
