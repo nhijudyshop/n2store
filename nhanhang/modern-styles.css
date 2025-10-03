@@ -825,6 +825,283 @@ button {
 }
 
 /* =====================================================
+   CAMERA PREVIEW - ENHANCED LARGE VERSION
+   ===================================================== */
+
+.camera-preview {
+    width: 100%;
+    max-width: 800px;
+    height: 600px;
+    border: none;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #000;
+    margin: 0 auto var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: var(--shadow-xl);
+}
+
+.camera-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Camera overlay controls */
+.camera-overlay-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--spacing-xl);
+    background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.8),
+        rgba(0, 0, 0, 0.4),
+        transparent
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xl);
+    z-index: 10;
+    animation: slideUpFade 0.4s ease-out;
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Main capture button */
+.camera-capture-button {
+    width: 72px;
+    height: 72px;
+    border: 4px solid white;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: pulseGlow 2s infinite;
+}
+
+@keyframes pulseGlow {
+    0%,
+    100% {
+        box-shadow:
+            0 4px 12px rgba(0, 0, 0, 0.3),
+            0 0 0 0 rgba(255, 255, 255, 0.4);
+    }
+    50% {
+        box-shadow:
+            0 4px 12px rgba(0, 0, 0, 0.3),
+            0 0 0 8px rgba(255, 255, 255, 0);
+    }
+}
+
+.camera-capture-button::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 56px;
+    height: 56px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.camera-capture-button:hover {
+    transform: scale(1.05);
+    border-color: var(--primary);
+    animation: none;
+}
+
+.camera-capture-button:hover::before {
+    background: var(--primary);
+}
+
+.camera-capture-button:active {
+    transform: scale(0.95);
+    animation: captureFlash 0.3s ease-out;
+}
+
+@keyframes captureFlash {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.8);
+    }
+    50% {
+        box-shadow: 0 0 0 30px rgba(255, 255, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+}
+
+/* Side controls in overlay */
+.camera-side-control {
+    width: 48px;
+    height: 48px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.camera-side-control i {
+    width: 24px;
+    height: 24px;
+    color: white;
+}
+
+.camera-side-control:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: white;
+    transform: scale(1.05);
+}
+
+.camera-side-control:active {
+    transform: scale(0.95);
+}
+
+/* Top controls bar */
+.camera-top-controls {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: var(--spacing-lg);
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+    animation: slideDownFade 0.4s ease-out;
+}
+
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.camera-mode-indicator {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.camera-mode-indicator i {
+    width: 16px;
+    height: 16px;
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* =====================================================
+   RESPONSIVE CAMERA STYLES
+   ===================================================== */
+
+@media (max-width: 768px) {
+    .camera-preview {
+        height: 500px;
+        max-width: 100%;
+    }
+
+    .camera-capture-button {
+        width: 64px;
+        height: 64px;
+    }
+
+    .camera-capture-button::before {
+        width: 48px;
+        height: 48px;
+    }
+
+    .camera-side-control {
+        width: 42px;
+        height: 42px;
+    }
+
+    .camera-side-control i {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .camera-preview {
+        height: 450px;
+        border-radius: var(--radius);
+    }
+
+    .camera-capture-button {
+        width: 60px;
+        height: 60px;
+    }
+
+    .camera-capture-button::before {
+        width: 44px;
+        height: 44px;
+    }
+
+    .camera-overlay-controls {
+        padding: var(--spacing-lg);
+        gap: var(--spacing-lg);
+    }
+
+    .camera-side-control {
+        width: 40px;
+        height: 40px;
+    }
+
+    .camera-side-control i {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* =====================================================
    FILTERS
    ===================================================== */
 

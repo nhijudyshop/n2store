@@ -27,7 +27,7 @@ class NotificationManager {
         style.textContent = `
 .toast-container {
     position: fixed;
-    top: 24px;
+    top: 80px;
     right: 24px;
     z-index: 3000;
     display: flex;

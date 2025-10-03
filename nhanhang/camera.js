@@ -210,8 +210,8 @@ async function startCamera() {
 
         const constraints = {
             video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
                 facingMode: "environment", // Use back camera if available
             },
         };
@@ -231,9 +231,11 @@ async function startCamera() {
             });
         }
 
+        // Create overlay controls if they don't exist
+        createCameraOverlay();
+
         // Update UI
         if (startCameraButton) startCameraButton.style.display = "none";
-        if (takePictureButton) takePictureButton.style.display = "inline-flex";
         if (cameraPreview) cameraPreview.style.display = "block";
 
         if (notifId) notificationManager.remove(notifId);
@@ -252,6 +254,47 @@ async function startCamera() {
         }
 
         notificationManager.error(errorMessage, 4000);
+    }
+}
+
+// Create camera overlay controls
+function createCameraOverlay() {
+    if (!cameraPreview) return;
+
+    // Check if overlay already exists
+    let overlay = cameraPreview.querySelector(".camera-overlay-controls");
+    if (overlay) return;
+
+    // Create top controls
+    let topControls = document.createElement("div");
+    topControls.className = "camera-top-controls";
+    topControls.innerHTML = `
+        <div class="camera-mode-indicator">
+            <i data-lucide="camera"></i>
+            <span>Chụp ảnh</span>
+        </div>
+    `;
+
+    // Create bottom overlay controls
+    overlay = document.createElement("div");
+    overlay.className = "camera-overlay-controls";
+
+    // Create capture button
+    const captureBtn = document.createElement("button");
+    captureBtn.type = "button";
+    captureBtn.className = "camera-capture-button";
+    captureBtn.id = "takePictureOverlay";
+    captureBtn.setAttribute("aria-label", "Chụp ảnh");
+    captureBtn.addEventListener("click", takePicture);
+
+    overlay.appendChild(captureBtn);
+
+    cameraPreview.appendChild(topControls);
+    cameraPreview.appendChild(overlay);
+
+    // Initialize Lucide icons
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
     }
 }
 
@@ -365,6 +408,12 @@ function stopCamera() {
 
     if (cameraPreview) {
         cameraPreview.style.display = "none";
+
+        // Remove overlay controls
+        const overlay = cameraPreview.querySelector(".camera-overlay-controls");
+        const topControls = cameraPreview.querySelector(".camera-top-controls");
+        if (overlay) overlay.remove();
+        if (topControls) topControls.remove();
     }
 }
 
@@ -380,8 +429,8 @@ async function startEditCamera() {
 
         const constraints = {
             video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
                 facingMode: "environment",
             },
         };
@@ -401,14 +450,11 @@ async function startEditCamera() {
             });
         }
 
+        // Create overlay controls for edit camera
+        createEditCameraOverlay();
+
         // Update UI
         if (editStartCameraButton) editStartCameraButton.style.display = "none";
-        if (editTakePictureButton)
-            editTakePictureButton.style.display = "inline-flex";
-        if (editRetakePictureButton)
-            editRetakePictureButton.style.display = "inline-flex";
-        if (editKeepCurrentImageButton)
-            editKeepCurrentImageButton.style.display = "inline-flex";
         if (editCameraPreview) editCameraPreview.style.display = "block";
         if (editImageDisplayArea) editImageDisplayArea.style.display = "flex";
 
@@ -423,6 +469,67 @@ async function startEditCamera() {
             "Không thể truy cập camera: " + error.message,
             4000,
         );
+    }
+}
+
+// Create edit camera overlay controls
+function createEditCameraOverlay() {
+    if (!editCameraPreview) return;
+
+    // Check if overlay already exists
+    let overlay = editCameraPreview.querySelector(".camera-overlay-controls");
+    if (overlay) return;
+
+    // Create top controls
+    let topControls = document.createElement("div");
+    topControls.className = "camera-top-controls";
+    topControls.innerHTML = `
+        <div class="camera-mode-indicator">
+            <i data-lucide="camera"></i>
+            <span>Chụp ảnh mới</span>
+        </div>
+    `;
+
+    // Create bottom overlay controls
+    overlay = document.createElement("div");
+    overlay.className = "camera-overlay-controls";
+
+    // Keep current image button (left side)
+    const keepBtn = document.createElement("button");
+    keepBtn.type = "button";
+    keepBtn.className = "camera-side-control";
+    keepBtn.id = "editKeepCurrentImageOverlay";
+    keepBtn.setAttribute("aria-label", "Giữ ảnh cũ");
+    keepBtn.innerHTML = '<i data-lucide="check"></i>';
+    keepBtn.addEventListener("click", keepCurrentImage);
+
+    // Create capture button (center)
+    const captureBtn = document.createElement("button");
+    captureBtn.type = "button";
+    captureBtn.className = "camera-capture-button";
+    captureBtn.id = "editTakePictureOverlay";
+    captureBtn.setAttribute("aria-label", "Chụp ảnh");
+    captureBtn.addEventListener("click", takeEditPicture);
+
+    // Retake button (right side)
+    const retakeBtn = document.createElement("button");
+    retakeBtn.type = "button";
+    retakeBtn.className = "camera-side-control";
+    retakeBtn.id = "editRetakePictureOverlay";
+    retakeBtn.setAttribute("aria-label", "Chụp lại");
+    retakeBtn.innerHTML = '<i data-lucide="rotate-ccw"></i>';
+    retakeBtn.addEventListener("click", retakeEditPicture);
+
+    overlay.appendChild(keepBtn);
+    overlay.appendChild(captureBtn);
+    overlay.appendChild(retakeBtn);
+
+    editCameraPreview.appendChild(topControls);
+    editCameraPreview.appendChild(overlay);
+
+    // Initialize Lucide icons
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
     }
 }
 
@@ -548,6 +655,16 @@ function stopEditCamera() {
 
     if (editCameraPreview) {
         editCameraPreview.style.display = "none";
+
+        // Remove overlay controls
+        const overlay = editCameraPreview.querySelector(
+            ".camera-overlay-controls",
+        );
+        const topControls = editCameraPreview.querySelector(
+            ".camera-top-controls",
+        );
+        if (overlay) overlay.remove();
+        if (topControls) topControls.remove();
     }
 }
 
@@ -559,7 +676,19 @@ function resetEditCameraUI() {
     if (editRetakePictureButton) editRetakePictureButton.style.display = "none";
     if (editKeepCurrentImageButton)
         editKeepCurrentImageButton.style.display = "none";
-    if (editCameraPreview) editCameraPreview.style.display = "none";
+    if (editCameraPreview) {
+        editCameraPreview.style.display = "none";
+
+        // Remove overlay controls
+        const overlay = editCameraPreview.querySelector(
+            ".camera-overlay-controls",
+        );
+        const topControls = editCameraPreview.querySelector(
+            ".camera-top-controls",
+        );
+        if (overlay) overlay.remove();
+        if (topControls) topControls.remove();
+    }
     if (editImageDisplayArea) {
         editImageDisplayArea.style.display = "none";
         editImageDisplayArea.innerHTML =

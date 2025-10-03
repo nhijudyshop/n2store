@@ -237,7 +237,7 @@ const notificationStyles = `
 <style>
 .toast-container {
     position: fixed;
-    top: var(--spacing-xl, 24px);
+    top: 80px;
     right: var(--spacing-xl, 24px);
     z-index: 3000;
     display: flex;

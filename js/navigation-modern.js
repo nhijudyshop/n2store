@@ -107,13 +107,13 @@ const MENU_CONFIG = [
         permissionRequired: "user-management",
     },
     {
-        href: "../history/index.html",
+        href: "../lichsuchinhsua/index.html",
         icon: "bar-chart-2",
         text: "Lịch Sử Chỉnh Sửa",
         shortText: "Lịch Sử",
-        pageIdentifier: "history",
+        pageIdentifier: "lichsuchinhsua",
         adminOnly: true,
-        permissionRequired: "history",
+        permissionRequired: "lichsuchinhsua",
     },
 ];
 
