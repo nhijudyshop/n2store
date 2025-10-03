@@ -15,10 +15,7 @@
                 font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
+                padding: 40px 20px;
             }
 
             .container {
@@ -26,8 +23,9 @@
                 border-radius: 20px;
                 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
                 padding: 40px;
-                max-width: 600px;
+                max-width: 900px;
                 width: 100%;
+                margin: 0 auto;
             }
 
             h1 {
@@ -40,6 +38,50 @@
                 color: #666;
                 margin-bottom: 30px;
                 font-size: 14px;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #e5e7eb;
+            }
+
+            .tab {
+                padding: 12px 24px;
+                background: none;
+                border: none;
+                color: #6b7280;
+                font-weight: 600;
+                cursor: pointer;
+                position: relative;
+                transition: all 0.3s;
+            }
+
+            .tab:hover {
+                color: #667eea;
+            }
+
+            .tab.active {
+                color: #667eea;
+            }
+
+            .tab.active::after {
+                content: "";
+                position: absolute;
+                bottom: -2px;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: #667eea;
+            }
+
+            .tab-content {
+                display: none;
+            }
+
+            .tab-content.active {
+                display: block;
             }
 
             .form-group {
@@ -60,7 +102,8 @@
 
             input[type="text"],
             input[type="number"],
-            textarea {
+            textarea,
+            select {
                 width: 100%;
                 padding: 12px 16px;
                 border: 2px solid #e5e7eb;
@@ -72,7 +115,8 @@
 
             input[type="text"]:focus,
             input[type="number"]:focus,
-            textarea:focus {
+            textarea:focus,
+            select:focus {
                 outline: none;
                 border-color: #667eea;
                 box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -163,6 +207,16 @@
                 box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
             }
 
+            .btn-secondary {
+                background: #10b981;
+                color: white;
+            }
+
+            .btn-secondary:hover:not(:disabled) {
+                background: #059669;
+                transform: translateY(-2px);
+            }
+
             .btn:disabled {
                 opacity: 0.6;
                 cursor: not-allowed;
@@ -242,6 +296,93 @@
                 color: #1f2937;
             }
 
+            .product-list {
+                margin-top: 20px;
+            }
+
+            .product-card {
+                background: #f9fafb;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 10px;
+                display: flex;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .product-image {
+                width: 80px;
+                height: 80px;
+                object-fit: cover;
+                border-radius: 6px;
+                background: #e5e7eb;
+            }
+
+            .product-info {
+                flex: 1;
+            }
+
+            .product-name {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 5px;
+            }
+
+            .product-details {
+                font-size: 13px;
+                color: #6b7280;
+            }
+
+            .product-actions {
+                display: flex;
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .btn-small {
+                padding: 6px 12px;
+                font-size: 12px;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.2s;
+            }
+
+            .btn-view {
+                background: #667eea;
+                color: white;
+            }
+
+            .btn-view:hover {
+                background: #5568d3;
+            }
+
+            .filter-bar {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+
+            .filter-bar input,
+            .filter-bar select {
+                flex: 1;
+                min-width: 150px;
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 40px;
+                color: #6b7280;
+            }
+
+            .empty-state-icon {
+                font-size: 64px;
+                margin-bottom: 15px;
+            }
+
             @media (max-width: 640px) {
                 .container {
                     padding: 30px 20px;
@@ -250,120 +391,245 @@
                 h1 {
                     font-size: 24px;
                 }
+
+                .tabs {
+                    overflow-x: auto;
+                }
+
+                .tab {
+                    white-space: nowrap;
+                }
+
+                .filter-bar {
+                    flex-direction: column;
+                }
+
+                .product-card {
+                    flex-direction: column;
+                }
+
+                .product-image {
+                    width: 100%;
+                    height: 150px;
+                }
             }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>🚀 Test TPOS Upload API</h1>
-            <p class="subtitle">Upload sản phẩm lên TPOS với hình ảnh</p>
+            <p class="subtitle">Upload và quản lý sản phẩm trên TPOS</p>
 
             <div class="api-url">
                 <strong>API URL:</strong>
-                <span id="apiUrl">http://localhost:3000</span>
+                <span id="apiUrl">https://n2store.onrender.com</span>
             </div>
 
-            <form id="uploadForm">
-                <div class="form-group">
-                    <label>Tên sản phẩm <span class="required">*</span></label>
-                    <input
-                        type="text"
-                        id="tenSanPham"
-                        placeholder="Áo Thun Trắng"
-                        required
-                    />
-                </div>
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('upload')">
+                    📤 Upload Sản Phẩm
+                </button>
+                <button class="tab" onclick="switchTab('list')">
+                    📋 Danh Sách
+                </button>
+                <button class="tab" onclick="switchTab('detail')">
+                    🔍 Chi Tiết
+                </button>
+            </div>
 
-                <div class="form-group">
-                    <label>Mã sản phẩm</label>
-                    <input
-                        type="text"
-                        id="maSanPham"
-                        placeholder="AT001 (tự động tạo nếu để trống)"
-                    />
-                </div>
+            <!-- Tab 1: Upload -->
+            <div id="uploadTab" class="tab-content active">
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label
+                            >Tên sản phẩm <span class="required">*</span></label
+                        >
+                        <input
+                            type="text"
+                            id="tenSanPham"
+                            placeholder="Áo Thun Trắng"
+                            required
+                        />
+                    </div>
 
-                <div class="form-group">
-                    <label>Giá bán (nghìn đồng)</label>
-                    <input
-                        type="number"
-                        id="giaBan"
-                        placeholder="150"
-                        step="0.01"
-                    />
-                </div>
+                    <div class="form-group">
+                        <label
+                            >Mã sản phẩm <span class="required">*</span></label
+                        >
+                        <input
+                            type="text"
+                            id="maSanPham"
+                            placeholder="AT001"
+                            required
+                        />
+                    </div>
 
-                <div class="form-group">
-                    <label>Giá mua (nghìn đồng)</label>
-                    <input
-                        type="number"
-                        id="giaMua"
-                        placeholder="100"
-                        step="0.01"
-                    />
-                </div>
+                    <div class="form-group">
+                        <label
+                            >Giá bán (nghìn đồng)
+                            <span class="required">*</span></label
+                        >
+                        <input
+                            type="number"
+                            id="giaBan"
+                            placeholder="150"
+                            step="0.01"
+                            required
+                        />
+                    </div>
 
-                <div class="form-group">
-                    <label>Ghi chú</label>
-                    <textarea
-                        id="ghiChu"
-                        placeholder="Hàng mới về, chất lượng cao..."
-                    ></textarea>
-                </div>
+                    <div class="form-group">
+                        <label
+                            >Giá mua (nghìn đồng)
+                            <span class="required">*</span></label
+                        >
+                        <input
+                            type="number"
+                            id="giaMua"
+                            placeholder="100"
+                            step="0.01"
+                            required
+                        />
+                    </div>
 
-                <div class="form-group">
-                    <label>Hình ảnh sản phẩm</label>
-                    <div class="file-upload" id="fileUpload">
-                        <input type="file" id="fileInput" accept="image/*" />
-                        <div class="upload-icon">📷</div>
-                        <div class="upload-text">
-                            <strong>Click để chọn ảnh</strong> hoặc kéo thả vào
-                            đây<br />
-                            <small>Hỗ trợ: JPG, PNG, GIF (Max 5MB)</small>
+                    <div class="form-group">
+                        <label>Ghi chú</label>
+                        <textarea
+                            id="ghiChu"
+                            placeholder="Hàng mới về, chất lượng cao..."
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hình ảnh sản phẩm</label>
+                        <div class="file-upload" id="fileUpload">
+                            <input
+                                type="file"
+                                id="fileInput"
+                                accept="image/*"
+                            />
+                            <div class="upload-icon">📷</div>
+                            <div class="upload-text">
+                                <strong>Click để chọn ảnh</strong> hoặc kéo thả
+                                vào đây<br />
+                                <small>Hỗ trợ: JPG, PNG, GIF (Max 5MB)</small>
+                            </div>
+                        </div>
+                        <div class="image-preview" id="imagePreview">
+                            <img id="previewImg" src="" alt="Preview" />
+                            <div class="image-info" id="imageInfo"></div>
                         </div>
                     </div>
-                    <div class="image-preview" id="imagePreview">
-                        <img id="previewImg" src="" alt="Preview" />
-                        <div class="image-info" id="imageInfo"></div>
-                    </div>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        id="submitBtn"
+                    >
+                        <span id="btnText">Upload lên TPOS</span>
+                        <div
+                            class="spinner"
+                            id="spinner"
+                            style="display: none"
+                        ></div>
+                    </button>
+                </form>
+
+                <div class="result" id="uploadResult"></div>
+            </div>
+
+            <!-- Tab 2: List Products -->
+            <div id="listTab" class="tab-content">
+                <div class="filter-bar">
+                    <input
+                        type="number"
+                        id="filterLimit"
+                        placeholder="Số lượng (10)"
+                        min="1"
+                        max="100"
+                    />
+                    <input
+                        type="text"
+                        id="filterCreatedBy"
+                        placeholder="Người tạo (Tú)"
+                    />
+                    <input
+                        type="text"
+                        id="filterSearch"
+                        placeholder="Tìm kiếm..."
+                    />
+                    <button
+                        class="btn btn-secondary"
+                        onclick="loadProducts()"
+                        style="width: auto; min-width: 150px"
+                    >
+                        <span id="loadBtnText">Tải danh sách</span>
+                        <div
+                            class="spinner"
+                            id="loadSpinner"
+                            style="display: none"
+                        ></div>
+                    </button>
                 </div>
 
-                <button type="submit" class="btn btn-primary" id="submitBtn">
-                    <span id="btnText">Upload lên TPOS</span>
+                <div id="productList" class="product-list"></div>
+            </div>
+
+            <!-- Tab 3: Product Detail -->
+            <div id="detailTab" class="tab-content">
+                <div class="form-group">
+                    <label>Product ID <span class="required">*</span></label>
+                    <input type="number" id="productId" placeholder="12345" />
+                </div>
+
+                <button class="btn btn-secondary" onclick="loadProductDetail()">
+                    <span id="detailBtnText">Xem chi tiết</span>
                     <div
                         class="spinner"
-                        id="spinner"
+                        id="detailSpinner"
                         style="display: none"
                     ></div>
                 </button>
-            </form>
 
-            <div class="result" id="result"></div>
+                <div class="result" id="detailResult"></div>
+            </div>
         </div>
 
         <script>
-            const API_URL = "http://localhost:3000";
+            const API_URL = "https://n2store.onrender.com";
             document.getElementById("apiUrl").textContent = API_URL;
 
+            let imageBase64 = null;
+
+            // Tab switching
+            function switchTab(tabName) {
+                // Update tab buttons
+                document.querySelectorAll(".tab").forEach((tab) => {
+                    tab.classList.remove("active");
+                });
+                event.target.classList.add("active");
+
+                // Update tab content
+                document.querySelectorAll(".tab-content").forEach((content) => {
+                    content.classList.remove("active");
+                });
+                document
+                    .getElementById(tabName + "Tab")
+                    .classList.add("active");
+            }
+
+            // File upload handling
             const fileUpload = document.getElementById("fileUpload");
             const fileInput = document.getElementById("fileInput");
             const imagePreview = document.getElementById("imagePreview");
             const previewImg = document.getElementById("previewImg");
             const imageInfo = document.getElementById("imageInfo");
-            const uploadForm = document.getElementById("uploadForm");
-            const submitBtn = document.getElementById("submitBtn");
-            const btnText = document.getElementById("btnText");
-            const spinner = document.getElementById("spinner");
-            const result = document.getElementById("result");
 
-            let imageBase64 = null;
-
-            // Click to select file
             fileUpload.addEventListener("click", () => {
                 fileInput.click();
             });
 
-            // Drag and drop
             fileUpload.addEventListener("dragover", (e) => {
                 e.preventDefault();
                 fileUpload.classList.add("dragover");
@@ -382,7 +648,6 @@
                 }
             });
 
-            // File input change
             fileInput.addEventListener("change", (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -390,7 +655,6 @@
                 }
             });
 
-            // Handle file upload
             function handleFile(file) {
                 if (file.size > 5 * 1024 * 1024) {
                     alert("File quá lớn! Vui lòng chọn ảnh nhỏ hơn 5MB");
@@ -405,95 +669,285 @@
 
                     const sizeKB = (file.size / 1024).toFixed(2);
                     imageInfo.innerHTML = `
-                    <strong>File:</strong> ${file.name}<br>
-                    <strong>Kích thước:</strong> ${sizeKB} KB<br>
-                    <strong>Định dạng:</strong> ${file.type}
-                `;
+                        <strong>File:</strong> ${file.name}<br>
+                        <strong>Kích thước:</strong> ${sizeKB} KB<br>
+                        <strong>Định dạng:</strong> ${file.type}
+                    `;
                 };
                 reader.readAsDataURL(file);
             }
 
-            // Form submit
-            uploadForm.addEventListener("submit", async (e) => {
-                e.preventDefault();
+            // Upload form submit
+            document
+                .getElementById("uploadForm")
+                .addEventListener("submit", async (e) => {
+                    e.preventDefault();
 
-                const tenSanPham = document
-                    .getElementById("tenSanPham")
-                    .value.trim();
-                if (!tenSanPham) {
-                    alert("Vui lòng nhập tên sản phẩm!");
+                    const tenSanPham = document
+                        .getElementById("tenSanPham")
+                        .value.trim();
+                    const maSanPham = document
+                        .getElementById("maSanPham")
+                        .value.trim();
+                    const giaBan = document.getElementById("giaBan").value;
+                    const giaMua = document.getElementById("giaMua").value;
+
+                    if (!tenSanPham || !maSanPham || !giaBan || !giaMua) {
+                        alert("Vui lòng điền đầy đủ các trường bắt buộc!");
+                        return;
+                    }
+
+                    const submitBtn = document.getElementById("submitBtn");
+                    const btnText = document.getElementById("btnText");
+                    const spinner = document.getElementById("spinner");
+                    const result = document.getElementById("uploadResult");
+
+                    submitBtn.disabled = true;
+                    btnText.textContent = "Đang upload...";
+                    spinner.style.display = "block";
+                    result.style.display = "none";
+
+                    try {
+                        const params = new URLSearchParams({
+                            tenSanPham: tenSanPham,
+                            maSanPham: maSanPham,
+                            giaBan: giaBan,
+                            giaMua: giaMua,
+                            ghiChu:
+                                document
+                                    .getElementById("ghiChu")
+                                    .value.trim() || "",
+                        });
+
+                        if (imageBase64) {
+                            params.append("anhSanPham", imageBase64);
+                        }
+
+                        const response = await fetch(
+                            `${API_URL}/upload?${params}`,
+                        );
+                        const data = await response.json();
+
+                        if (data.success) {
+                            showResult(
+                                "uploadResult",
+                                "success",
+                                "✅ Upload thành công!",
+                                `
+                            <strong>Sản phẩm:</strong> ${data.data.productName}<br>
+                            <strong>ID:</strong> ${data.data.productId}<br>
+                            <strong>Ảnh:</strong> ${data.data.imageUploaded ? "Đã upload" : "Không có"}<br>
+                            <div class="result-link">
+                                <a href="${data.data.tposUrl}" target="_blank">Xem trên TPOS →</a>
+                            </div>
+                        `,
+                            );
+                            document.getElementById("uploadForm").reset();
+                            imagePreview.style.display = "none";
+                            imageBase64 = null;
+                        } else {
+                            showResult(
+                                "uploadResult",
+                                "error",
+                                "❌ Upload thất bại",
+                                data.error,
+                            );
+                        }
+                    } catch (error) {
+                        showResult(
+                            "uploadResult",
+                            "error",
+                            "❌ Lỗi kết nối",
+                            error.message,
+                        );
+                    } finally {
+                        submitBtn.disabled = false;
+                        btnText.textContent = "Upload lên TPOS";
+                        spinner.style.display = "none";
+                    }
+                });
+
+            // Load products list
+            async function loadProducts() {
+                const loadBtn = document.querySelector(
+                    "#listTab .btn-secondary",
+                );
+                const loadBtnText = document.getElementById("loadBtnText");
+                const loadSpinner = document.getElementById("loadSpinner");
+                const productList = document.getElementById("productList");
+
+                loadBtn.disabled = true;
+                loadBtnText.textContent = "Đang tải...";
+                loadSpinner.style.display = "block";
+
+                try {
+                    const params = new URLSearchParams();
+                    const limit = document.getElementById("filterLimit").value;
+                    const createdBy = document
+                        .getElementById("filterCreatedBy")
+                        .value.trim();
+                    const search = document
+                        .getElementById("filterSearch")
+                        .value.trim();
+
+                    if (limit) params.append("limit", limit);
+                    if (createdBy) params.append("createdBy", createdBy);
+                    if (search) params.append("search", search);
+
+                    const response = await fetch(
+                        `${API_URL}/products?${params}`,
+                    );
+                    const data = await response.json();
+
+                    if (data.success && data.data.length > 0) {
+                        productList.innerHTML = data.data
+                            .map(
+                                (product) => `
+                            <div class="product-card">
+                                <img class="product-image" 
+                                     src="${product.Image ? "data:image/jpeg;base64," + product.Image : "https://via.placeholder.com/80"}" 
+                                     alt="${product.Name}">
+                                <div class="product-info">
+                                    <div class="product-name">${product.Name || "N/A"}</div>
+                                    <div class="product-details">
+                                        <strong>Mã:</strong> ${product.Code || "N/A"} | 
+                                        <strong>ID:</strong> ${product.Id}<br>
+                                        <strong>Giá bán:</strong> ${formatPrice(product.SalePrice)} | 
+                                        <strong>Giá mua:</strong> ${formatPrice(product.PurchasePrice)}<br>
+                                        <strong>Người tạo:</strong> ${product.CreatedByName || "N/A"}
+                                    </div>
+                                    <div class="product-actions">
+                                        <button class="btn-small btn-view" onclick="viewProduct(${product.Id})">
+                                            Xem chi tiết
+                                        </button>
+                                        <a href="https://tomato.tpos.vn/product/${product.Id}" target="_blank" class="btn-small btn-view" style="text-decoration: none;">
+                                            Mở TPOS
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `,
+                            )
+                            .join("");
+                    } else {
+                        productList.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📦</div>
+                                <p>Không tìm thấy sản phẩm nào</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    productList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">❌</div>
+                            <p>Lỗi: ${error.message}</p>
+                        </div>
+                    `;
+                } finally {
+                    loadBtn.disabled = false;
+                    loadBtnText.textContent = "Tải danh sách";
+                    loadSpinner.style.display = "none";
+                }
+            }
+
+            // View product detail
+            function viewProduct(id) {
+                document.getElementById("productId").value = id;
+                switchTab("detail");
+                document
+                    .querySelector("[onclick=\"switchTab('detail')\"]")
+                    .click();
+                loadProductDetail();
+            }
+
+            // Load product detail
+            async function loadProductDetail() {
+                const productId = document.getElementById("productId").value;
+                if (!productId) {
+                    alert("Vui lòng nhập Product ID!");
                     return;
                 }
 
-                // Disable button
-                submitBtn.disabled = true;
-                btnText.textContent = "Đang upload...";
-                spinner.style.display = "block";
-                result.style.display = "none";
+                const detailBtn = document.querySelector(
+                    "#detailTab .btn-secondary",
+                );
+                const detailBtnText = document.getElementById("detailBtnText");
+                const detailSpinner = document.getElementById("detailSpinner");
+                const detailResult = document.getElementById("detailResult");
+
+                detailBtn.disabled = true;
+                detailBtnText.textContent = "Đang tải...";
+                detailSpinner.style.display = "block";
+                detailResult.style.display = "none";
 
                 try {
-                    const params = new URLSearchParams({
-                        tenSanPham: tenSanPham,
-                        maSanPham:
-                            document.getElementById("maSanPham").value.trim() ||
-                            "",
-                        giaBan: document.getElementById("giaBan").value || "0",
-                        giaMua: document.getElementById("giaMua").value || "0",
-                        ghiChu:
-                            document.getElementById("ghiChu").value.trim() ||
-                            "",
-                    });
-
-                    // Add base64 image if exists
-                    if (imageBase64) {
-                        params.append("anhSanPham", imageBase64);
-                    }
-
                     const response = await fetch(
-                        `${API_URL}/upload?${params}`,
-                        {
-                            method: "GET",
-                        },
+                        `${API_URL}/products/${productId}`,
                     );
-
                     const data = await response.json();
 
                     if (data.success) {
+                        const product = data.data;
                         showResult(
+                            "detailResult",
                             "success",
-                            "✅ Upload thành công!",
+                            `📦 ${product.Name}`,
                             `
-                        <strong>Sản phẩm:</strong> ${data.data.productName}<br>
-                        <strong>ID:</strong> ${data.data.productId}<br>
-                        <strong>Ảnh:</strong> ${data.data.imageUploaded ? "Đã upload" : "Không có"}<br>
-                        <div class="result-link">
-                            <a href="${data.data.tposUrl}" target="_blank">Xem trên TPOS →</a>
-                        </div>
-                    `,
+                            ${product.Image ? `<img src="data:image/jpeg;base64,${product.Image}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 15px;">` : ""}
+                            <strong>Mã sản phẩm:</strong> ${product.Code || "N/A"}<br>
+                            <strong>ID:</strong> ${product.Id}<br>
+                            <strong>Giá bán:</strong> ${formatPrice(product.SalePrice)}<br>
+                            <strong>Giá mua:</strong> ${formatPrice(product.PurchasePrice)}<br>
+                            <strong>Đơn vị:</strong> ${product.UOM?.Name || "N/A"}<br>
+                            <strong>Nhóm:</strong> ${product.Categ?.Name || "N/A"}<br>
+                            <strong>Người tạo:</strong> ${product.CreatedByName || "N/A"}<br>
+                            <strong>Ngày tạo:</strong> ${product.CreatedDate ? new Date(product.CreatedDate).toLocaleString("vi-VN") : "N/A"}<br>
+                            <div class="result-link">
+                                <a href="https://tomato.tpos.vn/product/${product.Id}" target="_blank">Xem trên TPOS →</a>
+                            </div>
+                        `,
                         );
-                        uploadForm.reset();
-                        imagePreview.style.display = "none";
-                        imageBase64 = null;
                     } else {
-                        showResult("error", "❌ Upload thất bại", data.error);
+                        showResult(
+                            "detailResult",
+                            "error",
+                            "❌ Không tìm thấy",
+                            data.error,
+                        );
                     }
                 } catch (error) {
-                    showResult("error", "❌ Lỗi kết nối", error.message);
+                    showResult(
+                        "detailResult",
+                        "error",
+                        "❌ Lỗi kết nối",
+                        error.message,
+                    );
                 } finally {
-                    submitBtn.disabled = false;
-                    btnText.textContent = "Upload lên TPOS";
-                    spinner.style.display = "none";
+                    detailBtn.disabled = false;
+                    detailBtnText.textContent = "Xem chi tiết";
+                    detailSpinner.style.display = "none";
                 }
-            });
+            }
 
-            function showResult(type, title, content) {
+            // Helper functions
+            function showResult(elementId, type, title, content) {
+                const result = document.getElementById(elementId);
                 result.className = `result ${type}`;
                 result.innerHTML = `
-                <div class="result-title">${title}</div>
-                <div class="result-content">${content}</div>
-            `;
+                    <div class="result-title">${title}</div>
+                    <div class="result-content">${content}</div>
+                `;
                 result.style.display = "block";
                 result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+
+            function formatPrice(price) {
+                if (!price) return "0đ";
+                return new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                }).format(price);
             }
         </script>
     </body>
