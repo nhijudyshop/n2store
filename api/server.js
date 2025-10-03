@@ -1,16 +1,26 @@
 // =====================================================
-// TPOS UPLOAD API - Express.js Complete Server (STEALTH MODE)
+// TPOS UPLOAD API - Express.js Complete Server (WITH CORS)
 // =====================================================
 
 const express = require("express");
 const fetch = require("node-fetch");
 const XLSX = require("xlsx");
+const cors = require("cors");
 const app = express();
+
+// ============ CORS MIDDLEWARE (ĐẶT TRƯỚC CÁC MIDDLEWARE KHÁC) ============
+app.use(
+    cors({
+        origin: "*", // Cho phép tất cả domain
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    }),
+);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// TPOS Configuration với headers giả lập browser thật
+// TPOS Configuration
 const TPOS_CONFIG = {
     API_BASE: "https://tomato.tpos.vn/odata/ProductTemplate",
     AUTH_TOKEN:
@@ -34,34 +44,31 @@ const TPOS_CONFIG = {
         "sec-fetch-site": "same-origin",
         "user-agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        // Thêm random delay giữa các request để tránh rate limiting
         "x-request-id": generateRandomId(),
     }),
 };
 
-// Helper: Generate random ID để mỗi request khác nhau
+// Helper: Generate random ID
 function generateRandomId() {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// Helper: Random delay giữa các request (giả lập hành vi người dùng)
+// Helper: Random delay
 function randomDelay(min = 500, max = 2000) {
     const delay = Math.floor(Math.random() * (max - min + 1) + min);
     return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
-// Helper: Convert image URL to base64 hoặc sử dụng base64 trực tiếp
+// Helper: Convert image URL to base64
 async function processImage(imageInput) {
     if (!imageInput) return null;
 
-    // Nếu là base64 string (bắt đầu với data: hoặc không có http)
     if (!imageInput.startsWith("http")) {
         return cleanBase64(imageInput);
     }
 
-    // Nếu là URL, convert sang base64
     try {
-        await randomDelay(300, 800); // Delay trước khi fetch ảnh
+        await randomDelay(300, 800);
         const response = await fetch(imageInput, {
             headers: {
                 "user-agent":
@@ -80,20 +87,18 @@ async function processImage(imageInput) {
 function cleanBase64(base64String) {
     if (!base64String) return null;
 
-    // Remove data URI prefix if exists (data:image/jpeg;base64,...)
     if (base64String.includes(",")) {
         base64String = base64String.split(",")[1];
     }
 
-    // Remove whitespace
     base64String = base64String.replace(/\s/g, "");
 
     return base64String;
 }
 
-// Helper: Upload Excel to TPOS với stealth mode
+// Helper: Upload Excel to TPOS
 async function uploadExcelToTPOS(excelBase64) {
-    await randomDelay(); // Random delay trước khi upload
+    await randomDelay();
 
     const response = await fetch(
         `${TPOS_CONFIG.API_BASE}/ODataService.ActionImportSimple`,
@@ -119,9 +124,9 @@ async function uploadExcelToTPOS(excelBase64) {
     return await response.json();
 }
 
-// Helper: Get latest products với stealth mode
+// Helper: Get latest products
 async function getLatestProducts(count) {
-    await randomDelay(); // Random delay
+    await randomDelay();
 
     const response = await fetch(
         `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2`,
@@ -145,9 +150,9 @@ async function getLatestProducts(count) {
     return items.sort((a, b) => b.Id - a.Id).slice(0, count);
 }
 
-// Helper: Get product detail với stealth mode
+// Helper: Get product detail
 async function getProductDetail(productId) {
-    await randomDelay(); // Random delay
+    await randomDelay();
 
     const expand =
         "UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues),AttributeLines,UOMLines($expand=UOM),ComboProducts,ProductSupplierInfos";
@@ -169,9 +174,9 @@ async function getProductDetail(productId) {
     return await response.json();
 }
 
-// Helper: Update product with image với stealth mode
+// Helper: Update product with image
 async function updateProductWithImage(productDetail, imageBase64) {
-    await randomDelay(); // Random delay
+    await randomDelay();
 
     const payload = { ...productDetail };
     delete payload["@odata.context"];
@@ -235,7 +240,7 @@ app.get("/products", async (req, res) => {
     try {
         const { limit, createdBy, search } = req.query;
 
-        console.log("📋 Fetching products from TPOS...");
+        console.log("Fetching products from TPOS...");
 
         const response = await fetch(
             `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2`,
@@ -279,7 +284,7 @@ app.get("/products", async (req, res) => {
             items = items.slice(0, parseInt(limit));
         }
 
-        console.log(`✅ Found ${items.length} products`);
+        console.log(`Found ${items.length} products`);
 
         res.json({
             success: true,
@@ -287,7 +292,7 @@ app.get("/products", async (req, res) => {
             data: items,
         });
     } catch (error) {
-        console.error("❌ Get products error:", error);
+        console.error("Get products error:", error);
         res.status(500).json({
             success: false,
             error: error.message,
@@ -303,18 +308,18 @@ app.get("/products/:id", async (req, res) => {
     try {
         const { id } = req.params;
 
-        console.log(`📋 Fetching product detail for ID: ${id}`);
+        console.log(`Fetching product detail for ID: ${id}`);
 
         const productDetail = await getProductDetail(id);
 
-        console.log(`✅ Product found: ${productDetail.Name}`);
+        console.log(`Product found: ${productDetail.Name}`);
 
         res.json({
             success: true,
             data: productDetail,
         });
     } catch (error) {
-        console.error("❌ Get product detail error:", error);
+        console.error("Get product detail error:", error);
         res.status(500).json({
             success: false,
             error: error.message,
@@ -347,14 +352,14 @@ app.get("/upload", async (req, res) => {
             anhSanPham: anhSanPham || null,
         };
 
-        console.log("📦 Uploading product:", product.tenSanPham);
+        console.log("Uploading product:", product.tenSanPham);
 
-        // Bước 1: Tạo Excel và upload với random delay
+        // Bước 1: Tạo Excel và upload
         const excelBase64 = createExcelBase64([product]);
         await uploadExcelToTPOS(excelBase64);
-        console.log("✅ Excel uploaded");
+        console.log("Excel uploaded");
 
-        // Bước 2: Đợi lâu hơn và random để giả lập hành vi người dùng
+        // Bước 2: Lấy sản phẩm vừa tạo
         await randomDelay(2000, 3500);
         const latestProducts = await getLatestProducts(1);
 
@@ -363,13 +368,13 @@ app.get("/upload", async (req, res) => {
         }
 
         const createdProduct = latestProducts[0];
-        console.log("✅ Product created, ID:", createdProduct.Id);
+        console.log("Product created, ID:", createdProduct.Id);
 
         // Bước 3: Upload ảnh nếu có
         let imageUploaded = false;
         if (product.anhSanPham) {
             try {
-                await randomDelay(1000, 2000); // Delay trước khi upload ảnh
+                await randomDelay(1000, 2000);
                 const imageBase64 = await processImage(product.anhSanPham);
                 if (imageBase64) {
                     const productDetail = await getProductDetail(
@@ -377,10 +382,10 @@ app.get("/upload", async (req, res) => {
                     );
                     await updateProductWithImage(productDetail, imageBase64);
                     imageUploaded = true;
-                    console.log("✅ Image uploaded");
+                    console.log("Image uploaded");
                 }
             } catch (imgError) {
-                console.error("❌ Image upload error:", imgError);
+                console.error("Image upload error:", imgError);
             }
         }
 
@@ -395,7 +400,7 @@ app.get("/upload", async (req, res) => {
             },
         });
     } catch (error) {
-        console.error("❌ Upload error:", error);
+        console.error("Upload error:", error);
         res.status(500).json({
             success: false,
             error: error.message,
@@ -418,18 +423,18 @@ app.post("/upload-batch", async (req, res) => {
             });
         }
 
-        console.log(`📦 Uploading ${products.length} products`);
+        console.log(`Uploading ${products.length} products`);
 
         // Bước 1: Upload Excel
         const excelBase64 = createExcelBase64(products);
         await uploadExcelToTPOS(excelBase64);
-        console.log("✅ Excel uploaded");
+        console.log("Excel uploaded");
 
-        // Bước 2: Lấy các sản phẩm vừa tạo với random delay
+        // Bước 2: Lấy các sản phẩm vừa tạo
         await randomDelay(2000, 3500);
         const latestProducts = await getLatestProducts(products.length);
 
-        // Bước 3: Upload ảnh cho từng sản phẩm với delay giữa mỗi lần
+        // Bước 3: Upload ảnh cho từng sản phẩm
         const results = [];
         for (let i = 0; i < latestProducts.length && i < products.length; i++) {
             const product = products[i];
@@ -438,7 +443,7 @@ app.post("/upload-batch", async (req, res) => {
             let imageUploaded = false;
             if (product.anhSanPham) {
                 try {
-                    await randomDelay(1000, 2500); // Delay giữa mỗi ảnh
+                    await randomDelay(1000, 2500);
                     const imageBase64 = await processImage(product.anhSanPham);
                     if (imageBase64) {
                         const productDetail = await getProductDetail(
@@ -449,15 +454,10 @@ app.post("/upload-batch", async (req, res) => {
                             imageBase64,
                         );
                         imageUploaded = true;
-                        console.log(
-                            `✅ Image uploaded for ${product.tenSanPham}`,
-                        );
+                        console.log(`Image uploaded for ${product.tenSanPham}`);
                     }
                 } catch (error) {
-                    console.error(
-                        `❌ Image failed for ${tposProduct.Id}:`,
-                        error,
-                    );
+                    console.error(`Image failed for ${tposProduct.Id}:`, error);
                 }
             }
 
@@ -474,7 +474,7 @@ app.post("/upload-batch", async (req, res) => {
             data: results,
         });
     } catch (error) {
-        console.error("❌ Batch upload error:", error);
+        console.error("Batch upload error:", error);
         res.status(500).json({
             success: false,
             error: error.message,
@@ -493,11 +493,13 @@ app.get("/health", (req, res) => {
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 TPOS Upload API running on port ${PORT} (STEALTH MODE)`);
     console.log(
-        `📝 Upload URL: http://localhost:${PORT}/upload?tenSanPham=ABC&giaBan=100`,
+        `TPOS Upload API running on port ${PORT} (STEALTH MODE + CORS)`,
     );
-    console.log(`📦 Batch URL: POST http://localhost:${PORT}/upload-batch`);
-    console.log(`📋 Products URL: http://localhost:${PORT}/products`);
-    console.log(`📋 Product Detail: http://localhost:${PORT}/products/:id`);
+    console.log(
+        `Upload URL: http://localhost:${PORT}/upload?tenSanPham=ABC&giaBan=100`,
+    );
+    console.log(`Batch URL: POST http://localhost:${PORT}/upload-batch`);
+    console.log(`Products URL: http://localhost:${PORT}/products`);
+    console.log(`Product Detail: http://localhost:${PORT}/products/:id`);
 });
