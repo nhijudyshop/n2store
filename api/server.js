@@ -246,124 +246,124 @@ function createExcelBase64(products) {
 // API ENDPOINT: Lấy danh sách sản phẩm từ TPOS
 // =====================================================
 
-app.get("/products", async (req, res) => {
-    try {
-        const { limit, createdBy, search, top, active } = req.query;
+// app.get("/products", async (req, res) => {
+//     try {
+//         const { limit, createdBy, search, top, active } = req.query;
 
-        console.log("Fetching products from TPOS...");
+//         console.log("Fetching products from TPOS...");
 
-        // ✅ THÊM QUERY PARAMETERS VỚI KHẢ NĂNG CUSTOMIZE
-        const queryParams = new URLSearchParams({
-            Active: active || "true",
-            priceId: "0",
-            $top: top || "1000",
-            $orderby: "DateCreated desc",
-            $filter: "Active eq true",
-            $count: "true",
-        });
+//         // ✅ THÊM QUERY PARAMETERS VỚI KHẢ NĂNG CUSTOMIZE
+//         const queryParams = new URLSearchParams({
+//             Active: active || "true",
+//             priceId: "0",
+//             $top: top || "1000",
+//             $orderby: "DateCreated desc",
+//             $filter: "Active eq true",
+//             $count: "true",
+//         });
 
-        const url = `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2?${queryParams.toString()}`;
-        console.log("Request URL:", url);
+//         const url = `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2?${queryParams.toString()}`;
+//         console.log("Request URL:", url);
 
-        const response = await fetch(url, {
-            headers: {
-                ...TPOS_CONFIG.getHeaders(),
-                authorization: TPOS_CONFIG.AUTH_TOKEN,
-            },
-        });
+//         const response = await fetch(url, {
+//             headers: {
+//                 ...TPOS_CONFIG.getHeaders(),
+//                 authorization: TPOS_CONFIG.AUTH_TOKEN,
+//             },
+//         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Error response:", errorText);
-            throw new Error(
-                `Get products failed: ${response.status} - ${errorText}`,
-            );
-        }
+//         if (!response.ok) {
+//             const errorText = await response.text();
+//             console.error("Error response:", errorText);
+//             throw new Error(
+//                 `Get products failed: ${response.status} - ${errorText}`,
+//             );
+//         }
 
-        const data = await response.json();
-        let items = data.value || data;
+//         const data = await response.json();
+//         let items = data.value || data;
 
-        console.log(`Fetched ${items.length} products from TPOS`);
+//         console.log(`Fetched ${items.length} products from TPOS`);
 
-        // Filter by creator name if provided
-        if (createdBy) {
-            items = items.filter((item) => item.CreatedByName === createdBy);
-            console.log(
-                `Filtered to ${items.length} products by creator: ${createdBy}`,
-            );
-        }
+//         // Filter by creator name if provided
+//         if (createdBy) {
+//             items = items.filter((item) => item.CreatedByName === createdBy);
+//             console.log(
+//                 `Filtered to ${items.length} products by creator: ${createdBy}`,
+//             );
+//         }
 
-        // Search by product name or code if provided
-        if (search) {
-            const searchLower = search.toLowerCase();
-            items = items.filter(
-                (item) =>
-                    (item.Name &&
-                        item.Name.toLowerCase().includes(searchLower)) ||
-                    (item.Code &&
-                        item.Code.toLowerCase().includes(searchLower)),
-            );
-            console.log(
-                `Filtered to ${items.length} products by search: ${search}`,
-            );
-        }
+//         // Search by product name or code if provided
+//         if (search) {
+//             const searchLower = search.toLowerCase();
+//             items = items.filter(
+//                 (item) =>
+//                     (item.Name &&
+//                         item.Name.toLowerCase().includes(searchLower)) ||
+//                     (item.Code &&
+//                         item.Code.toLowerCase().includes(searchLower)),
+//             );
+//             console.log(
+//                 `Filtered to ${items.length} products by search: ${search}`,
+//             );
+//         }
 
-        // Sort by ID descending (newest first) - API đã sort rồi nhưng giữ lại để chắc chắn
-        items = items.sort((a, b) => b.Id - a.Id);
+//         // Sort by ID descending (newest first) - API đã sort rồi nhưng giữ lại để chắc chắn
+//         items = items.sort((a, b) => b.Id - a.Id);
 
-        // Limit results if specified
-        if (limit) {
-            items = items.slice(0, parseInt(limit));
-            console.log(`Limited to ${items.length} products`);
-        }
+//         // Limit results if specified
+//         if (limit) {
+//             items = items.slice(0, parseInt(limit));
+//             console.log(`Limited to ${items.length} products`);
+//         }
 
-        console.log(`Returning ${items.length} products`);
+//         console.log(`Returning ${items.length} products`);
 
-        res.json({
-            success: true,
-            count: items.length,
-            total: data["@odata.count"] || items.length,
-            data: items,
-        });
-    } catch (error) {
-        console.error("Get products error:", error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            stack:
-                process.env.NODE_ENV === "development"
-                    ? error.stack
-                    : undefined,
-        });
-    }
-});
+//         res.json({
+//             success: true,
+//             count: items.length,
+//             total: data["@odata.count"] || items.length,
+//             data: items,
+//         });
+//     } catch (error) {
+//         console.error("Get products error:", error);
+//         res.status(500).json({
+//             success: false,
+//             error: error.message,
+//             stack:
+//                 process.env.NODE_ENV === "development"
+//                     ? error.stack
+//                     : undefined,
+//         });
+//     }
+// });
 
 // =====================================================
 // API ENDPOINT: Lấy chi tiết 1 sản phẩm
 // =====================================================
 
-app.get("/products/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
+// app.get("/products/:id", async (req, res) => {
+//     try {
+//         const { id } = req.params;
 
-        console.log(`Fetching product detail for ID: ${id}`);
+//         console.log(`Fetching product detail for ID: ${id}`);
 
-        const productDetail = await getProductDetail(id);
+//         const productDetail = await getProductDetail(id);
 
-        console.log(`Product found: ${productDetail.Name}`);
+//         console.log(`Product found: ${productDetail.Name}`);
 
-        res.json({
-            success: true,
-            data: productDetail,
-        });
-    } catch (error) {
-        console.error("Get product detail error:", error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-        });
-    }
-});
+//         res.json({
+//             success: true,
+//             data: productDetail,
+//         });
+//     } catch (error) {
+//         console.error("Get product detail error:", error);
+//         res.status(500).json({
+//             success: false,
+//             error: error.message,
+//         });
+//     }
+// });
 
 // =====================================================
 // API ENDPOINT: Upload sản phẩm qua URL (GET)
@@ -535,8 +535,8 @@ app.get("/", (req, res) => {
         version: "1.0.0",
         endpoints: {
             health: "GET /health",
-            products: "GET /products?limit=10&createdBy=Tú&search=áo&top=2000",
-            productDetail: "GET /products/:id",
+            // products: "GET /products?limit=10&createdBy=Tú&search=áo&top=2000",
+            // productDetail: "GET /products/:id",
             upload: "GET /upload?tenSanPham=ABC&giaBan=100&giaMua=50&anhSanPham=https://...",
             uploadBatch: "POST /upload-batch",
         },
