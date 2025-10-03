@@ -27,6 +27,7 @@ const MENU_CONFIG = [
         text: "Sản Phẩm Livestream",
         shortText: "Sản Phẩm",
         pageIdentifier: "sanphamlive",
+        adminOnly: true,
         permissionRequired: "sanphamlive",
     },
     {
@@ -75,6 +76,7 @@ const MENU_CONFIG = [
         text: "Hàng Đặt",
         shortText: "Đặt",
         pageIdentifier: "hangdat",
+        adminOnly: true,
         permissionRequired: "hangdat",
     },
     {
@@ -83,6 +85,7 @@ const MENU_CONFIG = [
         text: "Bảng Kiểm Hàng",
         shortText: "Kiểm",
         pageIdentifier: "bangkiemhang",
+        adminOnly: true,
         permissionRequired: "bangkiemhang",
     },
     {

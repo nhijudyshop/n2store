@@ -337,146 +337,157 @@ function applyButtonPermissions(editBtn, deleteBtn, userRole) {
     }
 }
 
+// MODIFIED: updateTable with cache validation
 function updateTable(preserveCurrentFilter = false) {
     const cachedData = getCachedData();
-    if (cachedData) {
-        console.log("[TABLE] Loading from cache...");
-        if (globalNotificationManager) {
-            showSuccess("Đang tải dữ liệu từ cache...");
-            // globalNotificationManager.loadingData(
-            //     "Đang tải dữ liệu từ cache...",
-            // );
-        } else {
-            showSuccess("Đang tải dữ liệu từ cache...");
-        }
 
-        setTimeout(() => {
-            const shouldApplyInitialFilter =
-                !isFilterInitialized && !preserveCurrentFilter;
-            renderTableFromData(cachedData, shouldApplyInitialFilter);
+    // Always fetch from Firebase to validate cache
+    console.log("[TABLE] Fetching from Firebase to validate cache...");
 
-            if (shouldApplyInitialFilter) {
-                isFilterInitialized = true;
-            }
-
-            if (
-                preserveCurrentFilter &&
-                (currentFilters.startDate || currentFilters.endDate)
-            ) {
-                console.log("[TABLE] Re-applying current filter after reload");
-                setTimeout(() => {
-                    if (typeof applyFilters === "function") {
-                        const tempFlag = isFilteringInProgress;
-                        isFilteringInProgress = false;
-                        applyFilters();
-                        isFilteringInProgress = tempFlag;
-                    }
-                }, 200);
-            }
-
-            if (globalNotificationManager) {
-                globalNotificationManager.clearAll();
-            } else {
-                hideFloatingAlert();
-            }
-        }, 100);
-        return;
-    }
-
-    console.log("[TABLE] Loading from Firebase...");
     if (globalNotificationManager) {
-        showSuccess("Đang tải dữ liệu từ Firebase...");
-        // globalNotificationManager.loadingData(
-        //     "Đang tải dữ liệu từ Firebase...",
-        // );
+        globalNotificationManager.loadingData("Đang tải dữ liệu...");
     } else {
-        showSuccess("Đang tải dữ liệu từ Firebase...");
+        showLoading("Đang tải dữ liệu...");
     }
 
     collectionRef
         .doc("reports")
         .get()
         .then((doc) => {
-            if (doc.exists) {
-                const data = doc.data();
-                if (Array.isArray(data["data"]) && data["data"].length > 0) {
-                    const shouldApplyInitialFilter =
-                        !isFilterInitialized && !preserveCurrentFilter;
-                    renderTableFromData(data["data"], shouldApplyInitialFilter);
+            if (!doc.exists) {
+                throw new Error("Document does not exist");
+            }
 
-                    if (shouldApplyInitialFilter) {
-                        isFilterInitialized = true;
-                    }
+            const firebaseData = doc.data();
+            const firebaseArray = firebaseData["data"] || [];
 
-                    setCachedData(data["data"]);
+            // Compare data lengths between cache and Firebase
+            if (cachedData) {
+                const cachedLength = cachedData.length;
+                const firebaseLength = firebaseArray.length;
 
-                    if (
-                        preserveCurrentFilter &&
-                        (currentFilters.startDate || currentFilters.endDate)
-                    ) {
-                        console.log(
-                            "[TABLE] Re-applying current filter after reload",
-                        );
-                        setTimeout(() => {
-                            if (typeof applyFilters === "function") {
-                                const tempFlag = isFilteringInProgress;
-                                isFilteringInProgress = false;
-                                applyFilters();
-                                isFilteringInProgress = tempFlag;
-                            }
-                        }, 200);
-                    }
+                console.log(
+                    `[CACHE VALIDATION] Cache length: ${cachedLength}, Firebase length: ${firebaseLength}`,
+                );
+
+                if (cachedLength !== firebaseLength) {
+                    console.warn(
+                        "[CACHE VALIDATION] Data length mismatch! Clearing cache...",
+                    );
+                    invalidateCache();
 
                     if (globalNotificationManager) {
-                        globalNotificationManager.clearAll();
-                        globalNotificationManager.success(
-                            "Đã tải xong dữ liệu!",
-                            1500,
-                        );
-                    } else {
-                        showSuccess("Đã tải xong dữ liệu!");
-                    }
-                } else {
-                    console.log("[TABLE] No data found or data array is empty");
-                    createFilterSystem();
-
-                    if (globalNotificationManager) {
-                        globalNotificationManager.clearAll();
                         globalNotificationManager.warning(
-                            "Không có dữ liệu",
+                            "Phát hiện thay đổi dữ liệu, đang đồng bộ...",
                             2000,
                         );
-                    } else {
-                        showError("Không có dữ liệu");
                     }
                 }
+            }
+
+            // Proceed with rendering
+            if (Array.isArray(firebaseArray) && firebaseArray.length > 0) {
+                const shouldApplyInitialFilter =
+                    !isFilterInitialized && !preserveCurrentFilter;
+                renderTableFromData(firebaseArray, shouldApplyInitialFilter);
+
+                if (shouldApplyInitialFilter) {
+                    isFilterInitialized = true;
+                }
+
+                // Update cache with fresh data
+                setCachedData(firebaseArray);
+
+                if (
+                    preserveCurrentFilter &&
+                    (currentFilters.startDate || currentFilters.endDate)
+                ) {
+                    console.log(
+                        "[TABLE] Re-applying current filter after reload",
+                    );
+                    setTimeout(() => {
+                        if (typeof applyFilters === "function") {
+                            const tempFlag = isFilteringInProgress;
+                            isFilteringInProgress = false;
+                            applyFilters();
+                            isFilteringInProgress = tempFlag;
+                        }
+                    }, 200);
+                }
+
+                if (globalNotificationManager) {
+                    globalNotificationManager.clearAll();
+                    globalNotificationManager.success(
+                        "Đã tải xong dữ liệu!",
+                        1500,
+                    );
+                } else {
+                    showSuccess("Đã tải xong dữ liệu!");
+                }
             } else {
-                console.log("[TABLE] Document does not exist");
+                console.log("[TABLE] No data found or data array is empty");
                 createFilterSystem();
 
                 if (globalNotificationManager) {
                     globalNotificationManager.clearAll();
-                    globalNotificationManager.error(
-                        "Tài liệu không tồn tại",
-                        2000,
-                    );
+                    globalNotificationManager.warning("Không có dữ liệu", 2000);
                 } else {
-                    showError("Tài liệu không tồn tại");
+                    showError("Không có dữ liệu");
                 }
             }
         })
         .catch((error) => {
             console.error("[TABLE] Error getting document:", error);
-            createFilterSystem();
 
-            if (globalNotificationManager) {
-                globalNotificationManager.clearAll();
-                globalNotificationManager.error(
-                    "Lỗi khi tải dữ liệu từ Firebase",
-                    3000,
-                );
+            // If Firebase fails but cache exists, use cache as fallback
+            if (cachedData && cachedData.length > 0) {
+                console.log("[TABLE] Firebase error, falling back to cache");
+                const shouldApplyInitialFilter =
+                    !isFilterInitialized && !preserveCurrentFilter;
+                renderTableFromData(cachedData, shouldApplyInitialFilter);
+
+                if (shouldApplyInitialFilter) {
+                    isFilterInitialized = true;
+                }
+
+                if (
+                    preserveCurrentFilter &&
+                    (currentFilters.startDate || currentFilters.endDate)
+                ) {
+                    console.log(
+                        "[TABLE] Re-applying current filter after reload",
+                    );
+                    setTimeout(() => {
+                        if (typeof applyFilters === "function") {
+                            const tempFlag = isFilteringInProgress;
+                            isFilteringInProgress = false;
+                            applyFilters();
+                            isFilteringInProgress = tempFlag;
+                        }
+                    }, 200);
+                }
+
+                if (globalNotificationManager) {
+                    globalNotificationManager.clearAll();
+                    globalNotificationManager.warning(
+                        "Sử dụng dữ liệu cache do lỗi kết nối",
+                        3000,
+                    );
+                } else {
+                    showError("Lỗi kết nối, sử dụng dữ liệu cache");
+                }
             } else {
-                showError("Lỗi khi tải dữ liệu từ Firebase");
+                createFilterSystem();
+
+                if (globalNotificationManager) {
+                    globalNotificationManager.clearAll();
+                    globalNotificationManager.error(
+                        "Lỗi khi tải dữ liệu từ Firebase",
+                        3000,
+                    );
+                } else {
+                    showError("Lỗi khi tải dữ liệu từ Firebase");
+                }
             }
         });
 }
