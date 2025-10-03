@@ -396,7 +396,7 @@
                                 Copy
                             </button>
                             <code
-                                >https://n2store.onrender.com/upload?tenSanPham=TÊN&giaBan=GIÁ</code
+                                >https://n2store.onrender.com/upload?tenSanPham=TÊN&maSanPham=MÃ&giaBan=GIÁ&giaMua=GIÁ_MUA</code
                             >
                         </div>
                     </div>
@@ -423,15 +423,15 @@
                             <tr>
                                 <td><code>maSanPham</code></td>
                                 <td>
-                                    <span class="badge optional">Tùy chọn</span>
+                                    <span class="badge required">Bắt buộc</span>
                                 </td>
-                                <td>Mã sản phẩm (tự tạo nếu trống)</td>
+                                <td>Mã sản phẩm</td>
                                 <td>AT001</td>
                             </tr>
                             <tr>
                                 <td><code>giaBan</code></td>
                                 <td>
-                                    <span class="badge optional">Tùy chọn</span>
+                                    <span class="badge required">Bắt buộc</span>
                                 </td>
                                 <td>Giá bán (nghìn đồng)</td>
                                 <td>150</td>
@@ -439,7 +439,7 @@
                             <tr>
                                 <td><code>giaMua</code></td>
                                 <td>
-                                    <span class="badge optional">Tùy chọn</span>
+                                    <span class="badge required">Bắt buộc</span>
                                 </td>
                                 <td>Giá mua (nghìn đồng)</td>
                                 <td>100</td>
@@ -479,7 +479,7 @@
                             Copy
                         </button>
                         <code
-                            >https://n2store.onrender.com/upload?tenSanPham=Áo%20Thun&giaBan=150&anhSanPham=https://i.imgur.com/example.jpg</code
+                            >https://n2store.onrender.com/upload?tenSanPham=Áo%20Thun&maSanPham=AT001&giaBan=150&giaMua=100&anhSanPham=https://i.imgur.com/example.jpg</code
                         >
                     </div>
 
@@ -509,8 +509,8 @@
                             Copy
                         </button>
                         <code
-                            >{ "success": false, "error": "Thiếu tham số:
-                            tenSanPham là bắt buộc" }</code
+                            >{ "success": false, "error": "Thiếu tham số bắt
+                            buộc: tenSanPham, maSanPham, giaBan, giaMua" }</code
                         >
                     </div>
                 </div>
@@ -559,8 +559,8 @@
                             >curl -X POST
                             https://n2store.onrender.com/upload-batch \ -H
                             "Content-Type: application/json" \ -d '{ "products":
-                            [ { "tenSanPham": "Áo Thun", "giaBan": 150,
-                            "giaMua": 100 } ] }'</code
+                            [ { "tenSanPham": "Áo Thun", "maSanPham": "AT001",
+                            "giaBan": 150, "giaMua": 100 } ] }'</code
                         >
                     </div>
 
@@ -603,7 +603,7 @@
                     <p>Copy URL vào trình duyệt:</p>
                     <div class="code-box">
                         <code
-                            >https://n2store.onrender.com/upload?tenSanPham=Test&giaBan=100</code
+                            >https://n2store.onrender.com/upload?tenSanPham=Test&maSanPham=TEST001&giaBan=100&giaMua=80</code
                         >
                     </div>
 
@@ -614,7 +614,8 @@
                         </button>
                         <code
                             >const params = new URLSearchParams({ tenSanPham:
-                            'Áo Thun Trắng', giaBan: 150, giaMua: 100 });
+                            'Áo Thun Trắng', maSanPham: 'AT001', giaBan: 150,
+                            giaMua: 100 });
                             fetch(`https://n2store.onrender.com/upload?${params}`)
                             .then(res => res.json()) .then(data =>
                             console.log(data));</code
@@ -628,10 +629,13 @@
                             Copy
                         </button>
                         <code
-                            >="https://n2store.onrender.com/upload?tenSanPham="&A2&"&giaBan="&B2&"&giaMua="&C2</code
+                            >="https://n2store.onrender.com/upload?tenSanPham="&A2&"&maSanPham="&B2&"&giaBan="&C2&"&giaMua="&D2</code
                         >
                     </div>
-                    <p>Trong đó: A2 = tên, B2 = giá bán, C2 = giá mua</p>
+                    <p>
+                        Trong đó: A2 = tên, B2 = mã sản phẩm, C2 = giá bán, D2 =
+                        giá mua
+                    </p>
                 </div>
 
                 <!-- Lưu ý -->
@@ -666,50 +670,15 @@
                         - Upload có ảnh: ~5-7 giây<br />
                         - Upload batch: ~3-5 giây/sản phẩm
                     </div>
-                </div>
 
-                <!-- Link hữu ích -->
-                <div class="section">
-                    <h2>🔗 Link Hữu Ích</h2>
-                    <ul style="line-height: 2; color: #4b5563">
-                        <li>
-                            <a
-                                href="https://n2store.onrender.com/health"
-                                target="_blank"
-                                >API Health Check</a
-                            >
-                        </li>
-                        <li>
-                            <a href="test.html" target="_blank"
-                                >HTML Test Interface</a
-                            >
-                        </li>
-                        <li>
-                            <a
-                                href="https://github.com/nhijudyshop/n2store"
-                                target="_blank"
-                                >GitHub Repository</a
-                            >
-                        </li>
-                        <li>
-                            <a href="https://tomato.tpos.vn" target="_blank"
-                                >TPOS Dashboard</a
-                            >
-                        </li>
-                    </ul>
+                    <div class="warning">
+                        <strong>5. Tham số bắt buộc:</strong><br />
+                        - <code>tenSanPham</code>: Tên sản phẩm (bắt buộc)<br />
+                        - <code>maSanPham</code>: Mã sản phẩm (bắt buộc)<br />
+                        - <code>giaBan</code>: Giá bán (bắt buộc)<br />
+                        - <code>giaMua</code>: Giá mua (bắt buộc)
+                    </div>
                 </div>
-            </div>
-
-            <div class="footer">
-                <p>
-                    📚 <strong>TPOS Upload API Documentation</strong><br />
-                    Tạo bởi
-                    <a href="https://github.com/nhijudyshop" target="_blank"
-                        >nhijudyshop</a
-                    >
-                    | Powered by
-                    <a href="https://render.com" target="_blank">Render</a>
-                </p>
             </div>
         </div>
 
