@@ -483,36 +483,39 @@ body {
 .table-container {
     overflow-x: auto;
     border-radius: var(--radius);
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    font-family: "Inter", system-ui, sans-serif;
 }
 
 .inventory-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+    color: var(--gray-900);
 }
 
 .inventory-table thead {
     background: var(--gray-50);
     position: sticky;
     top: 0;
+    z-index: 1;
 }
 
 .inventory-table th {
-    padding: 12px 8px;
+    padding: 12px 10px;
     text-align: left;
-    font-weight: 600;
-    color: var(--gray-900);
-    border-bottom: 2px solid var(--gray-200);
+    font-weight: 500;
+    color: var(--gray-500);
+    border-bottom: 1px solid var(--gray-200);
     white-space: nowrap;
+    font-size: 14px;
 }
 
 .inventory-table tbody tr {
     border-bottom: 1px solid var(--gray-200);
     transition: 0.2s;
-}
-
-.inventory-table tbody tr:hover {
-    background: var(--gray-50);
 }
 
 .inventory-table tbody tr.summary-row {
@@ -522,10 +525,14 @@ body {
 }
 
 .inventory-table td {
-    padding: 12px 8px;
-    color: var(--gray-600);
+    padding: 12px 10px;
+    font-size: 14px;
+    color: var(--gray-900);
+    vertical-align: middle;
+    border-right: 1px solid var(--gray-100);
 }
 
+/* ===== Special Cells ===== */
 .date-cell,
 .supplier-cell {
     background: var(--gray-50);
@@ -535,14 +542,21 @@ body {
     border-right: 2px solid var(--gray-200);
 }
 
+/* ===== Labels (badge style) ===== */
 .received-label,
 .total-label {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 4px 12px;
-    border-radius: 6px;
+    border-radius: 9999px;
     font-weight: 600;
-    text-align: center;
-    min-width: 60px;
+    font-size: 12px;
+    line-height: 1.4;
+    min-width: 70px;
+    border: 1px solid transparent;
+    background: var(--gray-100);
+    color: var(--gray-600);
 }
 
 .received-label.empty,
@@ -570,6 +584,7 @@ body {
     color: #991b1b;
 }
 
+/* ===== Buttons ===== */
 .button-group {
     display: flex;
     gap: 8px;
@@ -578,43 +593,34 @@ body {
 
 .edit-button,
 .delete-button {
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: 0.2s;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-}
-
-.edit-button i,
-.delete-button i {
-    width: 18px;
-    height: 18px;
+    height: 36px;
+    width: 36px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    transition: 0.2s;
 }
 
 .edit-button {
+    background: transparent;
+    color: var(--gray-700);
+}
+.edit-button:hover {
     background: var(--gray-100);
     color: var(--gray-900);
 }
 
-.edit-button:hover {
-    background: var(--primary);
-    color: white;
-    transform: translateY(-2px);
-}
-
 .delete-button {
-    background: var(--gray-100);
+    background: transparent;
     color: var(--danger);
 }
-
 .delete-button:hover {
-    background: var(--danger);
-    color: white;
-    transform: translateY(-2px);
+    background: #fee2e2;
+    color: #b91c1c;
 }
 
 /* ===== MODAL ===== */
