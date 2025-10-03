@@ -602,15 +602,12 @@
 
             let imageBase64 = null;
 
-            // Tab switching
             function switchTab(tabName) {
-                // Update tab buttons
                 document.querySelectorAll(".tab").forEach((tab) => {
                     tab.classList.remove("active");
                 });
                 event.target.classList.add("active");
 
-                // Update tab content
                 document.querySelectorAll(".tab-content").forEach((content) => {
                     content.classList.remove("active");
                 });
@@ -619,7 +616,6 @@
                     .classList.add("active");
             }
 
-            // File upload handling
             const fileUpload = document.getElementById("fileUpload");
             const fileInput = document.getElementById("fileInput");
             const imagePreview = document.getElementById("imagePreview");
@@ -677,7 +673,6 @@
                 reader.readAsDataURL(file);
             }
 
-            // Upload form submit
             document
                 .getElementById("uploadForm")
                 .addEventListener("submit", async (e) => {
@@ -767,7 +762,6 @@
                     }
                 });
 
-            // Load products list
             async function loadProducts() {
                 const loadBtn = document.querySelector(
                     "#listTab .btn-secondary",
@@ -851,7 +845,6 @@
                 }
             }
 
-            // View product detail
             function viewProduct(id) {
                 document.getElementById("productId").value = id;
                 switchTab("detail");
@@ -861,7 +854,6 @@
                 loadProductDetail();
             }
 
-            // Load product detail
             async function loadProductDetail() {
                 const productId = document.getElementById("productId").value;
                 if (!productId) {
@@ -930,7 +922,6 @@
                 }
             }
 
-            // Helper functions
             function showResult(elementId, type, title, content) {
                 const result = document.getElementById(elementId);
                 result.className = `result ${type}`;
