@@ -303,76 +303,6 @@
         gap: 10px;
       }
 
-      .toggle-fields-btn {
-        padding: 8px 16px;
-        background: #667eea;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-size: 13px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        margin-bottom: 15px;
-      }
-
-      .toggle-fields-btn:hover {
-        background: #5568d3;
-        transform: translateY(-1px);
-      }
-
-      .other-fields {
-        display: none;
-      }
-
-      .other-fields.show {
-        display: contents;
-      }
-
-      .search-box {
-        margin-bottom: 15px;
-        position: relative;
-        display: none;
-      }
-
-      .search-box.show {
-        display: block;
-      }
-
-      .search-box input {
-        width: 100%;
-        padding: 12px 45px 12px 15px;
-        border: 2px solid #ddd;
-        border-radius: 8px;
-        font-size: 14px;
-        transition: border-color 0.3s ease;
-      }
-
-      .search-box input:focus {
-        outline: none;
-        border-color: #667eea;
-      }
-
-      .search-icon {
-        position: absolute;
-        right: 15px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #999;
-        font-size: 18px;
-        pointer-events: none;
-      }
-
-      .search-stats {
-        font-size: 12px;
-        color: #666;
-        margin-top: 5px;
-      }
-
-      .highlight {
-        background: yellow;
-        font-weight: 600;
-      }
-
       .special-edit-btn {
         padding: 6px 12px;
         background: #667eea;
@@ -783,22 +713,6 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
 
       <div class="edit-section" id="editSection">
         <h2>✏️ Chỉnh Sửa Dữ Liệu Sản Phẩm</h2>
-        <!-- <button
-          class="toggle-fields-btn"
-          id="toggleFieldsBtn"
-          onclick="toggleOtherFields()"
-        >
-          👁️ Hiện Các Trường Khác
-        </button> -->
-        <div class="search-box" id="searchBox">
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="🔍 Tìm kiếm trường (ví dụ: Name, Price, AttributeLines...)"
-          />
-          <span class="search-icon">🔍</span>
-          <div class="search-stats" id="searchStats"></div>
-        </div>
         <div class="edit-table" id="editTable"></div>
         <button class="btn-continue" id="continueBtn">
           ▶️ Tiếp Tục: Xử Lý Ảnh & Upload
@@ -1101,13 +1015,12 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
         }
       };
 
+      // CHỈ HIỂN THỊ ATTRIBUTELINES TRONG BẢNG EDIT
       const renderEditTable = (data) => {
-        const excludeFields = ["@odata.context"];
-
         let html =
           '<table><thead><tr><th style="width: 30%">Trường</th><th>Giá Trị</th></tr></thead><tbody>';
 
-        // Render AttributeLines first (always visible)
+        // CHỈ RENDER ATTRIBUTELINES
         if (data.AttributeLines !== undefined) {
           const jsonStr = JSON.stringify(data.AttributeLines, null, 2);
           html += `<tr>
@@ -1117,36 +1030,6 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
               <textarea data-field="AttributeLines" data-type="json" style="min-height: 120px; display: none;">${jsonStr}</textarea>
             </td>
           </tr>`;
-        }
-
-        // Render other fields (hidden by default)
-        for (const [key, value] of Object.entries(data)) {
-          if (excludeFields.includes(key) || key === "AttributeLines") continue;
-
-          // Handle other complex objects/arrays as JSON
-          if (typeof value === "object" && value !== null) {
-            const jsonStr = JSON.stringify(value, null, 2);
-            html += `<tr class="other-fields">
-              <td class="field-key">${key} <span style="color: #999; font-size: 11px;">(JSON)</span></td>
-              <td><textarea data-field="${key}" data-type="json" style="min-height: 120px;">${jsonStr}</textarea></td>
-            </tr>`;
-          } else {
-            // Handle simple values
-            const valueStr = value === null ? "" : String(value);
-            const inputType = typeof value === "number" ? "number" : "text";
-
-            if (valueStr.length > 100) {
-              html += `<tr class="other-fields">
-                <td class="field-key">${key}</td>
-                <td><textarea data-field="${key}">${valueStr}</textarea></td>
-              </tr>`;
-            } else {
-              html += `<tr class="other-fields">
-                <td class="field-key">${key}</td>
-                <td><input type="${inputType}" data-field="${key}" value="${valueStr}"></td>
-              </tr>`;
-            }
-          }
         }
 
         html += "</tbody></table>";
@@ -1284,12 +1167,9 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
           productDetail = await detailRes.json();
           setStepStatus("step3", "success");
 
-          // Show edit table
+          // Show edit table - CHỈ ATTRIBUTELINES
           renderEditTable(productDetail);
           show($("editSection"));
-
-          // Setup search functionality
-          setupSearch();
 
           $("editSection").scrollIntoView({ behavior: "smooth" });
         } catch (err) {
@@ -1340,63 +1220,6 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
           btn.textContent = "▶️ Tiếp Tục: Xử Lý Ảnh & Upload";
         }
       });
-
-      // Setup search functionality
-      const setupSearch = () => {
-        const searchInput = $("searchInput");
-        const searchStats = $("searchStats");
-
-        searchInput.addEventListener("input", (e) => {
-          const query = e.target.value.toLowerCase().trim();
-          const rows = $("editTable").querySelectorAll("tbody tr");
-          let visibleCount = 0;
-
-          rows.forEach((row) => {
-            const fieldName = row
-              .querySelector(".field-key")
-              .textContent.toLowerCase();
-            const fieldValue = row
-              .querySelector("input, textarea")
-              .value.toLowerCase();
-
-            if (fieldName.includes(query) || fieldValue.includes(query)) {
-              row.style.display = "";
-              visibleCount++;
-
-              // Highlight matching text
-              const fieldKey = row.querySelector(".field-key");
-              let originalText = fieldKey.textContent.replace(" (JSON)", "");
-              const isJson = fieldKey.textContent.includes("(JSON)");
-
-              if (query && fieldName.includes(query)) {
-                const regex = new RegExp(`(${query})`, "gi");
-                originalText = originalText.replace(
-                  regex,
-                  '<span class="highlight">$1</span>',
-                );
-              }
-
-              fieldKey.innerHTML =
-                originalText +
-                (isJson
-                  ? ' <span style="color: #999; font-size: 11px;">(JSON)</span>'
-                  : "");
-            } else {
-              row.style.display = "none";
-            }
-          });
-
-          if (query) {
-            searchStats.textContent = `Tìm thấy ${visibleCount} trường`;
-          } else {
-            searchStats.textContent = `Tổng cộng ${rows.length} trường`;
-          }
-        });
-
-        // Show initial stats
-        const totalRows = $("editTable").querySelectorAll("tbody tr").length;
-        searchStats.textContent = `Tổng cộng ${totalRows} trường`;
-      };
 
       // AttributeLines Modal Functions
       let currentTab = "sizeText";
@@ -1532,6 +1355,11 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
               currentAttributeLines.push(attrLine);
             }
 
+            // Đảm bảo Values là mảng
+            if (!attrLine.Values || !Array.isArray(attrLine.Values)) {
+              attrLine.Values = [];
+            }
+
             // Check if value already exists
             const existingValue = attrLine.Values.find((v) => v.Id === valueId);
             if (existingValue) {
@@ -1593,30 +1421,6 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
         closeAttributeModal();
 
         alert("✅ Đã lưu thay đổi AttributeLines!");
-      };
-
-      // Toggle other fields visibility
-      let fieldsVisible = false;
-
-      window.toggleOtherFields = () => {
-        fieldsVisible = !fieldsVisible;
-        const otherFields = document.querySelectorAll(".other-fields");
-        const toggleBtn = $("toggleFieldsBtn");
-        const searchBox = $("searchBox");
-
-        if (fieldsVisible) {
-          otherFields.forEach((field) => field.classList.add("show"));
-          toggleBtn.textContent = "🙈 Ẩn Các Trường Khác";
-          searchBox.classList.add("show");
-
-          // Update search stats
-          const totalRows = $("editTable").querySelectorAll("tbody tr").length;
-          $("searchStats").textContent = `Tổng cộng ${totalRows} trường`;
-        } else {
-          otherFields.forEach((field) => field.classList.remove("show"));
-          toggleBtn.textContent = "👁️ Hiện Các Trường Khác";
-          searchBox.classList.remove("show");
-        }
       };
     </script>
   </body>
