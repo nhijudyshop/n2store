@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Test TPOS Upload API</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+
+            .container {
+                background: white;
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                padding: 40px;
+                max-width: 600px;
+                width: 100%;
+            }
+
+            h1 {
+                color: #333;
+                margin-bottom: 10px;
+                font-size: 28px;
+            }
+
+            .subtitle {
+                color: #666;
+                margin-bottom: 30px;
+                font-size: 14px;
+            }
+
+            .form-group {
+                margin-bottom: 20px;
+            }
+
+            label {
+                display: block;
+                margin-bottom: 8px;
+                color: #333;
+                font-weight: 600;
+                font-size: 14px;
+            }
+
+            .required {
+                color: #ef4444;
+            }
+
+            input[type="text"],
+            input[type="number"],
+            textarea {
+                width: 100%;
+                padding: 12px 16px;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                font-size: 15px;
+                transition: all 0.3s;
+                font-family: inherit;
+            }
+
+            input[type="text"]:focus,
+            input[type="number"]:focus,
+            textarea:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+
+            textarea {
+                resize: vertical;
+                min-height: 80px;
+            }
+
+            .file-upload {
+                border: 2px dashed #d1d5db;
+                border-radius: 8px;
+                padding: 30px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s;
+                background: #f9fafb;
+            }
+
+            .file-upload:hover {
+                border-color: #667eea;
+                background: #f3f4f6;
+            }
+
+            .file-upload.dragover {
+                border-color: #667eea;
+                background: #eef2ff;
+            }
+
+            .file-upload input[type="file"] {
+                display: none;
+            }
+
+            .upload-icon {
+                font-size: 48px;
+                margin-bottom: 10px;
+            }
+
+            .upload-text {
+                color: #6b7280;
+                font-size: 14px;
+            }
+
+            .image-preview {
+                margin-top: 15px;
+                display: none;
+            }
+
+            .image-preview img {
+                max-width: 100%;
+                max-height: 200px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+
+            .image-info {
+                margin-top: 10px;
+                padding: 10px;
+                background: #f3f4f6;
+                border-radius: 6px;
+                font-size: 13px;
+                color: #4b5563;
+            }
+
+            .btn {
+                width: 100%;
+                padding: 14px;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+            }
+
+            .btn-primary {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }
+
+            .btn-primary:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            }
+
+            .btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .result {
+                margin-top: 30px;
+                padding: 20px;
+                border-radius: 8px;
+                display: none;
+            }
+
+            .result.success {
+                background: #d1fae5;
+                border: 2px solid #10b981;
+                color: #065f46;
+            }
+
+            .result.error {
+                background: #fee2e2;
+                border: 2px solid #ef4444;
+                color: #991b1b;
+            }
+
+            .result-title {
+                font-weight: 700;
+                margin-bottom: 10px;
+                font-size: 16px;
+            }
+
+            .result-content {
+                font-size: 14px;
+                line-height: 1.6;
+            }
+
+            .result-link {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .result-link a {
+                color: #2563eb;
+                text-decoration: none;
+                font-weight: 600;
+            }
+
+            .result-link a:hover {
+                text-decoration: underline;
+            }
+
+            .spinner {
+                border: 3px solid rgba(255, 255, 255, 0.3);
+                border-radius: 50%;
+                border-top-color: white;
+                width: 20px;
+                height: 20px;
+                animation: spin 0.8s linear infinite;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .api-url {
+                margin-bottom: 30px;
+                padding: 12px 16px;
+                background: #f3f4f6;
+                border-radius: 8px;
+                font-size: 13px;
+                color: #4b5563;
+            }
+
+            .api-url strong {
+                color: #1f2937;
+            }
+
+            @media (max-width: 640px) {
+                .container {
+                    padding: 30px 20px;
+                }
+
+                h1 {
+                    font-size: 24px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🚀 Test TPOS Upload API</h1>
+            <p class="subtitle">Upload sản phẩm lên TPOS với hình ảnh</p>
+
+            <div class="api-url">
+                <strong>API URL:</strong>
+                <span id="apiUrl">http://localhost:3000</span>
+            </div>
+
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label>Tên sản phẩm <span class="required">*</span></label>
+                    <input
+                        type="text"
+                        id="tenSanPham"
+                        placeholder="Áo Thun Trắng"
+                        required
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label>Mã sản phẩm</label>
+                    <input
+                        type="text"
+                        id="maSanPham"
+                        placeholder="AT001 (tự động tạo nếu để trống)"
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label>Giá bán (nghìn đồng)</label>
+                    <input
+                        type="number"
+                        id="giaBan"
+                        placeholder="150"
+                        step="0.01"
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label>Giá mua (nghìn đồng)</label>
+                    <input
+                        type="number"
+                        id="giaMua"
+                        placeholder="100"
+                        step="0.01"
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label>Ghi chú</label>
+                    <textarea
+                        id="ghiChu"
+                        placeholder="Hàng mới về, chất lượng cao..."
+                    ></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Hình ảnh sản phẩm</label>
+                    <div class="file-upload" id="fileUpload">
+                        <input type="file" id="fileInput" accept="image/*" />
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">
+                            <strong>Click để chọn ảnh</strong> hoặc kéo thả vào
+                            đây<br />
+                            <small>Hỗ trợ: JPG, PNG, GIF (Max 5MB)</small>
+                        </div>
+                    </div>
+                    <div class="image-preview" id="imagePreview">
+                        <img id="previewImg" src="" alt="Preview" />
+                        <div class="image-info" id="imageInfo"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <span id="btnText">Upload lên TPOS</span>
+                    <div
+                        class="spinner"
+                        id="spinner"
+                        style="display: none"
+                    ></div>
+                </button>
+            </form>
+
+            <div class="result" id="result"></div>
+        </div>
+
+        <script>
+            const API_URL = "http://localhost:3000";
+            document.getElementById("apiUrl").textContent = API_URL;
+
+            const fileUpload = document.getElementById("fileUpload");
+            const fileInput = document.getElementById("fileInput");
+            const imagePreview = document.getElementById("imagePreview");
+            const previewImg = document.getElementById("previewImg");
+            const imageInfo = document.getElementById("imageInfo");
+            const uploadForm = document.getElementById("uploadForm");
+            const submitBtn = document.getElementById("submitBtn");
+            const btnText = document.getElementById("btnText");
+            const spinner = document.getElementById("spinner");
+            const result = document.getElementById("result");
+
+            let imageBase64 = null;
+
+            // Click to select file
+            fileUpload.addEventListener("click", () => {
+                fileInput.click();
+            });
+
+            // Drag and drop
+            fileUpload.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                fileUpload.classList.add("dragover");
+            });
+
+            fileUpload.addEventListener("dragleave", () => {
+                fileUpload.classList.remove("dragover");
+            });
+
+            fileUpload.addEventListener("drop", (e) => {
+                e.preventDefault();
+                fileUpload.classList.remove("dragover");
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith("image/")) {
+                    handleFile(file);
+                }
+            });
+
+            // File input change
+            fileInput.addEventListener("change", (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handleFile(file);
+                }
+            });
+
+            // Handle file upload
+            function handleFile(file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("File quá lớn! Vui lòng chọn ảnh nhỏ hơn 5MB");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imageBase64 = e.target.result;
+                    previewImg.src = imageBase64;
+                    imagePreview.style.display = "block";
+
+                    const sizeKB = (file.size / 1024).toFixed(2);
+                    imageInfo.innerHTML = `
+                    <strong>File:</strong> ${file.name}<br>
+                    <strong>Kích thước:</strong> ${sizeKB} KB<br>
+                    <strong>Định dạng:</strong> ${file.type}
+                `;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // Form submit
+            uploadForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const tenSanPham = document
+                    .getElementById("tenSanPham")
+                    .value.trim();
+                if (!tenSanPham) {
+                    alert("Vui lòng nhập tên sản phẩm!");
+                    return;
+                }
+
+                // Disable button
+                submitBtn.disabled = true;
+                btnText.textContent = "Đang upload...";
+                spinner.style.display = "block";
+                result.style.display = "none";
+
+                try {
+                    const params = new URLSearchParams({
+                        tenSanPham: tenSanPham,
+                        maSanPham:
+                            document.getElementById("maSanPham").value.trim() ||
+                            "",
+                        giaBan: document.getElementById("giaBan").value || "0",
+                        giaMua: document.getElementById("giaMua").value || "0",
+                        ghiChu:
+                            document.getElementById("ghiChu").value.trim() ||
+                            "",
+                    });
+
+                    // Add base64 image if exists
+                    if (imageBase64) {
+                        params.append("anhSanPham", imageBase64);
+                    }
+
+                    const response = await fetch(
+                        `${API_URL}/upload?${params}`,
+                        {
+                            method: "GET",
+                        },
+                    );
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        showResult(
+                            "success",
+                            "✅ Upload thành công!",
+                            `
+                        <strong>Sản phẩm:</strong> ${data.data.productName}<br>
+                        <strong>ID:</strong> ${data.data.productId}<br>
+                        <strong>Ảnh:</strong> ${data.data.imageUploaded ? "Đã upload" : "Không có"}<br>
+                        <div class="result-link">
+                            <a href="${data.data.tposUrl}" target="_blank">Xem trên TPOS →</a>
+                        </div>
+                    `,
+                        );
+                        uploadForm.reset();
+                        imagePreview.style.display = "none";
+                        imageBase64 = null;
+                    } else {
+                        showResult("error", "❌ Upload thất bại", data.error);
+                    }
+                } catch (error) {
+                    showResult("error", "❌ Lỗi kết nối", error.message);
+                } finally {
+                    submitBtn.disabled = false;
+                    btnText.textContent = "Upload lên TPOS";
+                    spinner.style.display = "none";
+                }
+            });
+
+            function showResult(type, title, content) {
+                result.className = `result ${type}`;
+                result.innerHTML = `
+                <div class="result-title">${title}</div>
+                <div class="result-content">${content}</div>
+            `;
+                result.style.display = "block";
+                result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+        </script>
+    </body>
+</html>
