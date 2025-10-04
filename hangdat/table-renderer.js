@@ -17,7 +17,7 @@ function renderInventoryTable(inventoryData) {
         const summaryRow = document.createElement("tr");
         summaryRow.className = "summary-row";
         const summaryTd = document.createElement("td");
-        summaryTd.colSpan = 12; // Updated colspan for checkbox column
+        summaryTd.colSpan = 12;
         summaryTd.innerHTML = `Hiển thị: <strong>${filteredData.length}</strong> sản phẩm`;
         summaryRow.appendChild(summaryTd);
         tbody.appendChild(summaryRow);
@@ -57,13 +57,19 @@ function renderGroupedDataWithCheckbox(groupedData, tbody) {
             tr.className = "inventory-row supplier-group";
             tr.setAttribute("data-inventory-id", item.id || "");
 
-            // Create cells array (now 12 cells including checkbox)
+            // Add TPOS Product ID if exists
+            if (item.tposProductId) {
+                tr.setAttribute("id", `tpos-${item.tposProductId}`);
+                tr.setAttribute("data-tpos-id", item.tposProductId);
+            }
+
+            // Create cells array (12 cells including checkbox)
             const cells = [];
             for (let j = 0; j < 12; j++) {
                 cells[j] = document.createElement("td");
             }
 
-            // 0. Checkbox column (NEW)
+            // 0. Checkbox column
             cells[0].className = "checkbox-cell";
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
@@ -392,4 +398,4 @@ function updateStatistics(inventoryData) {
 window.openImageModal = openImageModal;
 window.closeImageModal = closeImageModal;
 
-console.log("✅ Table renderer with bulk delete checkbox loaded");
+console.log("✅ Table renderer with TPOS Product ID support loaded");

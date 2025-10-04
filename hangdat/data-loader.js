@@ -110,6 +110,7 @@ function transformOrderDataToInventory(orderData) {
             updatedBy: order.updatedBy || order.user || getUserName(),
             originalOrderId: order.id,
             inventoryUpdated: order.inventoryUpdated || false,
+            tposProductId: order.tposProductId || null, // TPOS Product ID
         }));
 }
 
