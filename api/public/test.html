@@ -1,0 +1,1326 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Test TPOS Upload API - Auto-Detect</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 40px 20px;
+            }
+
+            .container {
+                background: white;
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                padding: 40px;
+                max-width: 1000px;
+                width: 100%;
+                margin: 0 auto;
+            }
+
+            h1 {
+                color: #333;
+                margin-bottom: 10px;
+                font-size: 28px;
+            }
+
+            .subtitle {
+                color: #666;
+                margin-bottom: 30px;
+                font-size: 14px;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #e5e7eb;
+                flex-wrap: wrap;
+            }
+
+            .tab {
+                padding: 12px 24px;
+                background: none;
+                border: none;
+                color: #6b7280;
+                font-weight: 600;
+                cursor: pointer;
+                position: relative;
+                transition: all 0.3s;
+            }
+
+            .tab:hover {
+                color: #667eea;
+            }
+
+            .tab.active {
+                color: #667eea;
+            }
+
+            .tab.active::after {
+                content: "";
+                position: absolute;
+                bottom: -2px;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: #667eea;
+            }
+
+            .tab-content {
+                display: none;
+            }
+
+            .tab-content.active {
+                display: block;
+            }
+
+            .form-group {
+                margin-bottom: 20px;
+            }
+
+            label {
+                display: block;
+                margin-bottom: 8px;
+                color: #333;
+                font-weight: 600;
+                font-size: 14px;
+            }
+
+            .required {
+                color: #ef4444;
+            }
+
+            input[type="text"],
+            input[type="number"],
+            textarea,
+            select {
+                width: 100%;
+                padding: 12px 16px;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                font-size: 15px;
+                transition: all 0.3s;
+                font-family: inherit;
+            }
+
+            input[type="text"]:focus,
+            input[type="number"]:focus,
+            textarea:focus,
+            select:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+
+            textarea {
+                resize: vertical;
+                min-height: 80px;
+            }
+
+            .file-upload {
+                border: 2px dashed #d1d5db;
+                border-radius: 8px;
+                padding: 30px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s;
+                background: #f9fafb;
+            }
+
+            .file-upload:hover {
+                border-color: #667eea;
+                background: #f3f4f6;
+            }
+
+            .file-upload.dragover {
+                border-color: #667eea;
+                background: #eef2ff;
+            }
+
+            .file-upload input[type="file"] {
+                display: none;
+            }
+
+            .upload-icon {
+                font-size: 48px;
+                margin-bottom: 10px;
+            }
+
+            .upload-text {
+                color: #6b7280;
+                font-size: 14px;
+            }
+
+            .image-preview {
+                margin-top: 15px;
+                display: none;
+            }
+
+            .image-preview img {
+                max-width: 100%;
+                max-height: 200px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+
+            .image-info {
+                margin-top: 10px;
+                padding: 10px;
+                background: #f3f4f6;
+                border-radius: 6px;
+                font-size: 13px;
+                color: #4b5563;
+            }
+
+            .btn {
+                width: 100%;
+                padding: 14px;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+            }
+
+            .btn-primary {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }
+
+            .btn-primary:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            }
+
+            .btn-secondary {
+                background: #10b981;
+                color: white;
+            }
+
+            .btn-secondary:hover:not(:disabled) {
+                background: #059669;
+                transform: translateY(-2px);
+            }
+
+            .btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .result {
+                margin-top: 30px;
+                padding: 20px;
+                border-radius: 8px;
+                display: none;
+            }
+
+            .result.success {
+                background: #d1fae5;
+                border: 2px solid #10b981;
+                color: #065f46;
+            }
+
+            .result.error {
+                background: #fee2e2;
+                border: 2px solid #ef4444;
+                color: #991b1b;
+            }
+
+            .result-title {
+                font-weight: 700;
+                margin-bottom: 10px;
+                font-size: 16px;
+            }
+
+            .result-content {
+                font-size: 14px;
+                line-height: 1.6;
+            }
+
+            .result-link {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .result-link a {
+                color: #2563eb;
+                text-decoration: none;
+                font-weight: 600;
+            }
+
+            .result-link a:hover {
+                text-decoration: underline;
+            }
+
+            .spinner {
+                border: 3px solid rgba(255, 255, 255, 0.3);
+                border-radius: 50%;
+                border-top-color: white;
+                width: 20px;
+                height: 20px;
+                animation: spin 0.8s linear infinite;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .api-url {
+                margin-bottom: 30px;
+                padding: 12px 16px;
+                background: #f3f4f6;
+                border-radius: 8px;
+                font-size: 13px;
+                color: #4b5563;
+            }
+
+            .api-url strong {
+                color: #1f2937;
+            }
+
+            .product-list {
+                margin-top: 20px;
+            }
+
+            .product-card {
+                background: #f9fafb;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 10px;
+                display: flex;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .product-image {
+                width: 80px;
+                height: 80px;
+                object-fit: cover;
+                border-radius: 6px;
+                background: #e5e7eb;
+            }
+
+            .product-info {
+                flex: 1;
+            }
+
+            .product-name {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 5px;
+            }
+
+            .product-details {
+                font-size: 13px;
+                color: #6b7280;
+            }
+
+            .product-actions {
+                display: flex;
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .btn-small {
+                padding: 6px 12px;
+                font-size: 12px;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.2s;
+            }
+
+            .btn-view {
+                background: #667eea;
+                color: white;
+            }
+
+            .btn-view:hover {
+                background: #5568d3;
+            }
+
+            .filter-bar {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+
+            .filter-bar input,
+            .filter-bar select {
+                flex: 1;
+                min-width: 150px;
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 40px;
+                color: #6b7280;
+            }
+
+            .empty-state-icon {
+                font-size: 64px;
+                margin-bottom: 15px;
+            }
+
+            .detect-preview {
+                margin-top: 20px;
+                padding: 15px;
+                background: #f0f9ff;
+                border: 2px solid #3b82f6;
+                border-radius: 8px;
+                display: none;
+            }
+
+            .detect-preview.show {
+                display: block;
+            }
+
+            .detect-title {
+                font-weight: 700;
+                color: #1e40af;
+                margin-bottom: 10px;
+                font-size: 14px;
+            }
+
+            .detect-item {
+                margin-bottom: 8px;
+                font-size: 13px;
+            }
+
+            .detect-label {
+                font-weight: 600;
+                color: #1e3a8a;
+            }
+
+            .detect-values {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+                margin-top: 4px;
+            }
+
+            .detect-tag {
+                display: inline-block;
+                padding: 4px 10px;
+                background: #dbeafe;
+                border: 1px solid #3b82f6;
+                border-radius: 6px;
+                font-size: 12px;
+                color: #1e40af;
+            }
+
+            .checkbox-group {
+                margin-top: 10px;
+            }
+
+            .checkbox-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                padding: 8px;
+                border-radius: 6px;
+                transition: all 0.2s;
+            }
+
+            .checkbox-label:hover {
+                background: #f3f4f6;
+            }
+
+            .checkbox-label input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+            }
+
+            @media (max-width: 640px) {
+                .container {
+                    padding: 30px 20px;
+                }
+
+                h1 {
+                    font-size: 24px;
+                }
+
+                .tabs {
+                    overflow-x: auto;
+                }
+
+                .tab {
+                    white-space: nowrap;
+                }
+
+                .filter-bar {
+                    flex-direction: column;
+                }
+
+                .product-card {
+                    flex-direction: column;
+                }
+
+                .product-image {
+                    width: 100%;
+                    height: 150px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🚀 Test TPOS Upload API</h1>
+            <p class="subtitle">
+                Upload và quản lý sản phẩm với Auto-Detect Attributes
+            </p>
+
+            <div class="api-url">
+                <strong>API URL:</strong>
+                <span id="apiUrl">https://n2store.onrender.com</span>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('upload')">
+                    📤 Upload Sản Phẩm
+                </button>
+                <button class="tab" onclick="switchTab('detect')">
+                    🎯 Test Auto-Detect
+                </button>
+                <button class="tab" onclick="switchTab('list')">
+                    📋 Danh Sách
+                </button>
+                <button class="tab" onclick="switchTab('detail')">
+                    🔍 Chi Tiết
+                </button>
+                <button class="tab" onclick="switchTab('attributes')">
+                    🎨 Thuộc Tính
+                </button>
+            </div>
+
+            <div id="uploadTab" class="tab-content active">
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label
+                            >Tên sản phẩm <span class="required">*</span></label
+                        >
+                        <input
+                            type="text"
+                            id="tenSanPham"
+                            placeholder="Áo Thun Đen Size M"
+                            required
+                        />
+                        <small style="color: #6b7280; font-size: 12px">
+                            💡 Nhập tên có Size/Màu để tự động nhận diện (VD: Áo
+                            Thun Đen Size M)
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mã sản phẩm</label>
+                        <input
+                            type="text"
+                            id="maSanPham"
+                            placeholder="AT001 (tự động = tên nếu để trống)"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Giá bán (nghìn đồng)</label>
+                        <input
+                            type="number"
+                            id="giaBan"
+                            placeholder="150"
+                            step="0.01"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Giá mua (nghìn đồng)</label>
+                        <input
+                            type="number"
+                            id="giaMua"
+                            placeholder="100"
+                            step="0.01"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ghi chú</label>
+                        <textarea
+                            id="ghiChu"
+                            placeholder="Hàng mới về, chất lượng cao..."
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hình ảnh sản phẩm</label>
+                        <div class="file-upload" id="fileUpload">
+                            <input
+                                type="file"
+                                id="fileInput"
+                                accept="image/*"
+                            />
+                            <div class="upload-icon">📷</div>
+                            <div class="upload-text">
+                                <strong>Click để chọn ảnh</strong> hoặc kéo thả
+                                vào đây<br />
+                                <small>Hỗ trợ: JPG, PNG, GIF (Max 5MB)</small>
+                            </div>
+                        </div>
+                        <div class="image-preview" id="imagePreview">
+                            <img id="previewImg" src="" alt="Preview" />
+                            <div class="image-info" id="imageInfo"></div>
+                        </div>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input
+                                type="checkbox"
+                                id="autoDetectCheck"
+                                checked
+                            />
+                            <span
+                                >🎯 Tự động nhận diện Size & Màu từ tên sản
+                                phẩm</span
+                            >
+                        </label>
+                    </div>
+
+                    <div class="detect-preview" id="uploadDetectPreview">
+                        <div class="detect-title">
+                            🎯 Thuộc tính đã nhận diện:
+                        </div>
+                        <div id="uploadDetectContent"></div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        id="submitBtn"
+                        style="margin-top: 20px"
+                    >
+                        <span id="btnText">Upload lên TPOS</span>
+                        <div
+                            class="spinner"
+                            id="spinner"
+                            style="display: none"
+                        ></div>
+                    </button>
+                </form>
+
+                <div class="result" id="uploadResult"></div>
+            </div>
+
+            <div id="detectTab" class="tab-content">
+                <div class="form-group">
+                    <label
+                        >Text cần phân tích
+                        <span class="required">*</span></label
+                    >
+                    <textarea
+                        id="detectText"
+                        placeholder="Nhập tên sản phẩm để test auto-detect...&#10;VD: Áo Thun Đen Size M&#10;VD: Quần Jean Xanh Size 36 37 38"
+                        style="min-height: 120px"
+                    ></textarea>
+                </div>
+
+                <button class="btn btn-secondary" onclick="testAutoDetect()">
+                    <span id="detectBtnText">🎯 Phân Tích</span>
+                    <div
+                        class="spinner"
+                        id="detectSpinner"
+                        style="display: none"
+                    ></div>
+                </button>
+
+                <div class="result" id="detectResult"></div>
+            </div>
+
+            <div id="listTab" class="tab-content">
+                <div class="filter-bar">
+                    <input
+                        type="number"
+                        id="filterLimit"
+                        placeholder="Số lượng (10)"
+                        min="1"
+                        max="100"
+                    />
+                    <input
+                        type="text"
+                        id="filterCreatedBy"
+                        placeholder="Người tạo (Tú)"
+                    />
+                    <input
+                        type="text"
+                        id="filterSearch"
+                        placeholder="Tìm kiếm..."
+                    />
+                    <button
+                        class="btn btn-secondary"
+                        onclick="loadProducts()"
+                        style="width: auto; min-width: 150px"
+                    >
+                        <span id="loadBtnText">Tải danh sách</span>
+                        <div
+                            class="spinner"
+                            id="loadSpinner"
+                            style="display: none"
+                        ></div>
+                    </button>
+                </div>
+
+                <div id="productList" class="product-list"></div>
+            </div>
+
+            <div id="detailTab" class="tab-content">
+                <div class="form-group">
+                    <label>Product ID <span class="required">*</span></label>
+                    <input type="number" id="productId" placeholder="12345" />
+                </div>
+
+                <button class="btn btn-secondary" onclick="loadProductDetail()">
+                    <span id="detailBtnText">Xem chi tiết</span>
+                    <div
+                        class="spinner"
+                        id="detailSpinner"
+                        style="display: none"
+                    ></div>
+                </button>
+
+                <div class="result" id="detailResult"></div>
+            </div>
+
+            <div id="attributesTab" class="tab-content">
+                <button class="btn btn-secondary" onclick="loadAttributes()">
+                    <span id="attrBtnText">Tải danh sách thuộc tính</span>
+                    <div
+                        class="spinner"
+                        id="attrSpinner"
+                        style="display: none"
+                    ></div>
+                </button>
+
+                <div id="attributesList" style="margin-top: 20px"></div>
+            </div>
+        </div>
+
+        <script>
+            const API_URL = "https://n2store.onrender.com";
+            document.getElementById("apiUrl").textContent = API_URL;
+
+            let imageBase64 = null;
+            let currentDetectedAttrs = {};
+
+            function switchTab(tabName) {
+                document.querySelectorAll(".tab").forEach((tab) => {
+                    tab.classList.remove("active");
+                });
+                event.target.classList.add("active");
+
+                document.querySelectorAll(".tab-content").forEach((content) => {
+                    content.classList.remove("active");
+                });
+                document
+                    .getElementById(tabName + "Tab")
+                    .classList.add("active");
+            }
+
+            const fileUpload = document.getElementById("fileUpload");
+            const fileInput = document.getElementById("fileInput");
+            const imagePreview = document.getElementById("imagePreview");
+            const previewImg = document.getElementById("previewImg");
+            const imageInfo = document.getElementById("imageInfo");
+
+            fileUpload.addEventListener("click", () => {
+                fileInput.click();
+            });
+
+            fileUpload.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                fileUpload.classList.add("dragover");
+            });
+
+            fileUpload.addEventListener("dragleave", () => {
+                fileUpload.classList.remove("dragover");
+            });
+
+            fileUpload.addEventListener("drop", (e) => {
+                e.preventDefault();
+                fileUpload.classList.remove("dragover");
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith("image/")) {
+                    handleFile(file);
+                }
+            });
+
+            fileInput.addEventListener("change", (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handleFile(file);
+                }
+            });
+
+            function handleFile(file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("File quá lớn! Vui lòng chọn ảnh nhỏ hơn 5MB");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imageBase64 = e.target.result;
+                    previewImg.src = imageBase64;
+                    imagePreview.style.display = "block";
+
+                    const sizeKB = (file.size / 1024).toFixed(2);
+                    imageInfo.innerHTML = `
+                        <strong>File:</strong> ${file.name}<br>
+                        <strong>Kích thước:</strong> ${sizeKB} KB<br>
+                        <strong>Định dạng:</strong> ${file.type}
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            document.getElementById("tenSanPham").addEventListener(
+                "input",
+                debounce(async (e) => {
+                    const autoDetect =
+                        document.getElementById("autoDetectCheck").checked;
+                    if (!autoDetect) return;
+
+                    const text = e.target.value.trim();
+                    if (!text) {
+                        document
+                            .getElementById("uploadDetectPreview")
+                            .classList.remove("show");
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(
+                            `${API_URL}/detect-attributes?text=${encodeURIComponent(text)}`,
+                        );
+                        const data = await response.json();
+
+                        if (
+                            data.success &&
+                            Object.keys(data.detected).length > 0
+                        ) {
+                            currentDetectedAttrs = data.detected;
+                            displayDetectedAttributes(
+                                "uploadDetectContent",
+                                data.detected,
+                            );
+                            document
+                                .getElementById("uploadDetectPreview")
+                                .classList.add("show");
+                        } else {
+                            document
+                                .getElementById("uploadDetectPreview")
+                                .classList.remove("show");
+                        }
+                    } catch (error) {
+                        console.error("Auto-detect error:", error);
+                    }
+                }, 500),
+            );
+
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+
+            function displayDetectedAttributes(containerId, detected) {
+                const container = document.getElementById(containerId);
+                let html = "";
+
+                if (detected.sizeText && detected.sizeText.length > 0) {
+                    html += '<div class="detect-item">';
+                    html += '<div class="detect-label">📏 Size Chữ:</div>';
+                    html += '<div class="detect-values">';
+                    detected.sizeText.forEach((size) => {
+                        html += `<span class="detect-tag">${size}</span>`;
+                    });
+                    html += "</div></div>";
+                }
+
+                if (detected.color && detected.color.length > 0) {
+                    html += '<div class="detect-item">';
+                    html += '<div class="detect-label">🎨 Màu sắc:</div>';
+                    html += '<div class="detect-values">';
+                    detected.color.forEach((color) => {
+                        html += `<span class="detect-tag">${color}</span>`;
+                    });
+                    html += "</div></div>";
+                }
+
+                if (detected.sizeNumber && detected.sizeNumber.length > 0) {
+                    html += '<div class="detect-item">';
+                    html += '<div class="detect-label">🔢 Size Số:</div>';
+                    html += '<div class="detect-values">';
+                    detected.sizeNumber.forEach((size) => {
+                        html += `<span class="detect-tag">${size}</span>`;
+                    });
+                    html += "</div></div>";
+                }
+
+                container.innerHTML = html;
+            }
+
+            document
+                .getElementById("uploadForm")
+                .addEventListener("submit", async (e) => {
+                    e.preventDefault();
+
+                    const tenSanPham = document
+                        .getElementById("tenSanPham")
+                        .value.trim();
+
+                    if (!tenSanPham) {
+                        alert("Vui lòng điền tên sản phẩm!");
+                        return;
+                    }
+
+                    const submitBtn = document.getElementById("submitBtn");
+                    const btnText = document.getElementById("btnText");
+                    const spinner = document.getElementById("spinner");
+                    const result = document.getElementById("uploadResult");
+
+                    submitBtn.disabled = true;
+                    btnText.textContent = "Đang upload...";
+                    spinner.style.display = "block";
+                    result.style.display = "none";
+
+                    try {
+                        const params = new URLSearchParams({
+                            tenSanPham: tenSanPham,
+                            maSanPham:
+                                document
+                                    .getElementById("maSanPham")
+                                    .value.trim() || "",
+                            giaBan:
+                                document.getElementById("giaBan").value || "0",
+                            giaMua:
+                                document.getElementById("giaMua").value || "0",
+                            ghiChu:
+                                document
+                                    .getElementById("ghiChu")
+                                    .value.trim() || "",
+                            autoDetect: document.getElementById(
+                                "autoDetectCheck",
+                            ).checked
+                                ? "true"
+                                : "false",
+                        });
+
+                        if (imageBase64) {
+                            params.append("anhSanPham", imageBase64);
+                        }
+
+                        const response = await fetch(
+                            `${API_URL}/upload?${params}`,
+                        );
+                        const data = await response.json();
+
+                        if (data.success) {
+                            showResult(
+                                "uploadResult",
+                                "success",
+                                "✅ Upload thành công!",
+                                `
+                            <strong>Sản phẩm:</strong> ${data.data.productName}<br>
+                            <strong>ID:</strong> ${data.data.productId}<br>
+                            <strong>Ảnh:</strong> ${data.data.imageUploaded ? "Đã upload" : "Không có"}<br>
+                            <strong>Attributes:</strong> ${data.data.attributeLinesCount} thuộc tính ${data.data.detectedAttributes ? "(tự động nhận diện)" : ""}<br>
+                            <div class="result-link">
+                                <a href="${data.data.tposUrl}" target="_blank">Xem trên TPOS →</a>
+                            </div>
+                        `,
+                            );
+                            document.getElementById("uploadForm").reset();
+                            imagePreview.style.display = "none";
+                            document
+                                .getElementById("uploadDetectPreview")
+                                .classList.remove("show");
+                            imageBase64 = null;
+                            currentDetectedAttrs = {};
+                        } else {
+                            showResult(
+                                "uploadResult",
+                                "error",
+                                "❌ Upload thất bại",
+                                data.error,
+                            );
+                        }
+                    } catch (error) {
+                        showResult(
+                            "uploadResult",
+                            "error",
+                            "❌ Lỗi kết nối",
+                            error.message,
+                        );
+                    } finally {
+                        submitBtn.disabled = false;
+                        btnText.textContent = "Upload lên TPOS";
+                        spinner.style.display = "none";
+                    }
+                });
+
+            async function testAutoDetect() {
+                const text = document.getElementById("detectText").value.trim();
+
+                if (!text) {
+                    alert("Vui lòng nhập text để phân tích!");
+                    return;
+                }
+
+                const detectBtn = document.querySelector(
+                    "#detectTab .btn-secondary",
+                );
+                const detectBtnText = document.getElementById("detectBtnText");
+                const detectSpinner = document.getElementById("detectSpinner");
+                const detectResult = document.getElementById("detectResult");
+
+                detectBtn.disabled = true;
+                detectBtnText.textContent = "Đang phân tích...";
+                detectSpinner.style.display = "block";
+                detectResult.style.display = "none";
+
+                try {
+                    const response = await fetch(
+                        `${API_URL}/detect-attributes?text=${encodeURIComponent(text)}`,
+                    );
+                    const data = await response.json();
+
+                    if (data.success) {
+                        let content = `<strong>Input:</strong> ${data.input}<br><br>`;
+
+                        if (Object.keys(data.detected).length > 0) {
+                            content +=
+                                '<div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 10px;">';
+
+                            if (data.detected.sizeText) {
+                                content += `<div style="margin-bottom: 10px;"><strong>📏 Size Chữ:</strong> ${data.detected.sizeText.join(", ")}</div>`;
+                            }
+                            if (data.detected.color) {
+                                content += `<div style="margin-bottom: 10px;"><strong>🎨 Màu sắc:</strong> ${data.detected.color.join(", ")}</div>`;
+                            }
+                            if (data.detected.sizeNumber) {
+                                content += `<div><strong>🔢 Size Số:</strong> ${data.detected.sizeNumber.join(", ")}</div>`;
+                            }
+
+                            content += "</div>";
+                            content += `<br><strong>Tổng cộng:</strong> ${data.attributeLines.length} attribute line(s)`;
+                        } else {
+                            content +=
+                                '<div style="color: #f59e0b; margin-top: 10px;">⚠️ Không phát hiện thuộc tính nào</div>';
+                        }
+
+                        showResult(
+                            "detectResult",
+                            "success",
+                            "🎯 Kết quả phân tích",
+                            content,
+                        );
+                    } else {
+                        showResult(
+                            "detectResult",
+                            "error",
+                            "❌ Lỗi",
+                            data.error,
+                        );
+                    }
+                } catch (error) {
+                    showResult(
+                        "detectResult",
+                        "error",
+                        "❌ Lỗi kết nối",
+                        error.message,
+                    );
+                } finally {
+                    detectBtn.disabled = false;
+                    detectBtnText.textContent = "🎯 Phân Tích";
+                    detectSpinner.style.display = "none";
+                }
+            }
+
+            async function loadProducts() {
+                const loadBtn = document.querySelector(
+                    "#listTab .btn-secondary",
+                );
+                const loadBtnText = document.getElementById("loadBtnText");
+                const loadSpinner = document.getElementById("loadSpinner");
+                const productList = document.getElementById("productList");
+
+                loadBtn.disabled = true;
+                loadBtnText.textContent = "Đang tải...";
+                loadSpinner.style.display = "block";
+
+                try {
+                    const params = new URLSearchParams();
+                    const limit = document.getElementById("filterLimit").value;
+                    const createdBy = document
+                        .getElementById("filterCreatedBy")
+                        .value.trim();
+                    const search = document
+                        .getElementById("filterSearch")
+                        .value.trim();
+
+                    if (limit) params.append("limit", limit);
+                    if (createdBy) params.append("createdBy", createdBy);
+                    if (search) params.append("search", search);
+
+                    const response = await fetch(
+                        `${API_URL}/products?${params}`,
+                    );
+                    const data = await response.json();
+
+                    if (data.success && data.data.length > 0) {
+                        productList.innerHTML = data.data
+                            .map(
+                                (product) => `
+                            <div class="product-card">
+                                <img class="product-image" 
+                                     src="${product.Image ? "data:image/jpeg;base64," + product.Image : "https://via.placeholder.com/80"}" 
+                                     alt="${product.Name}">
+                                <div class="product-info">
+                                    <div class="product-name">${product.Name || "N/A"}</div>
+                                    <div class="product-details">
+                                        <strong>Mã:</strong> ${product.Code || "N/A"} | 
+                                        <strong>ID:</strong> ${product.Id}<br>
+                                        <strong>Giá bán:</strong> ${formatPrice(product.SalePrice)} | 
+                                        <strong>Giá mua:</strong> ${formatPrice(product.PurchasePrice)}<br>
+                                        <strong>Người tạo:</strong> ${product.CreatedByName || "N/A"}
+                                    </div>
+                                    <div class="product-actions">
+                                        <button class="btn-small btn-view" onclick="viewProduct(${product.Id})">
+                                            Xem chi tiết
+                                        </button>
+                                        <a href="https://tomato.tpos.vn/product/${product.Id}" target="_blank" class="btn-small btn-view" style="text-decoration: none;">
+                                            Mở TPOS
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `,
+                            )
+                            .join("");
+                    } else {
+                        productList.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📦</div>
+                                <p>Không tìm thấy sản phẩm nào</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    productList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">❌</div>
+                            <p>Lỗi: ${error.message}</p>
+                        </div>
+                    `;
+                } finally {
+                    loadBtn.disabled = false;
+                    loadBtnText.textContent = "Tải danh sách";
+                    loadSpinner.style.display = "none";
+                }
+            }
+
+            function viewProduct(id) {
+                document.getElementById("productId").value = id;
+                switchTab("detail");
+                document
+                    .querySelector("[onclick=\"switchTab('detail')\"]")
+                    .click();
+                loadProductDetail();
+            }
+
+            async function loadProductDetail() {
+                const productId = document.getElementById("productId").value;
+                if (!productId) {
+                    alert("Vui lòng nhập Product ID!");
+                    return;
+                }
+
+                const detailBtn = document.querySelector(
+                    "#detailTab .btn-secondary",
+                );
+                const detailBtnText = document.getElementById("detailBtnText");
+                const detailSpinner = document.getElementById("detailSpinner");
+                const detailResult = document.getElementById("detailResult");
+
+                detailBtn.disabled = true;
+                detailBtnText.textContent = "Đang tải...";
+                detailSpinner.style.display = "block";
+                detailResult.style.display = "none";
+
+                try {
+                    const response = await fetch(
+                        `${API_URL}/products/${productId}`,
+                    );
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const product = data.data;
+                        showResult(
+                            "detailResult",
+                            "success",
+                            `📦 ${product.Name}`,
+                            `
+                            ${product.Image ? `<img src="data:image/jpeg;base64,${product.Image}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 15px;">` : ""}
+                            <strong>Mã sản phẩm:</strong> ${product.Code || "N/A"}<br>
+                            <strong>ID:</strong> ${product.Id}<br>
+                            <strong>Giá bán:</strong> ${formatPrice(product.SalePrice)}<br>
+                            <strong>Giá mua:</strong> ${formatPrice(product.PurchasePrice)}<br>
+                            <strong>Đơn vị:</strong> ${product.UOM?.Name || "N/A"}<br>
+                            <strong>Nhóm:</strong> ${product.Categ?.Name || "N/A"}<br>
+                            <strong>Người tạo:</strong> ${product.CreatedByName || "N/A"}<br>
+                            <strong>Ngày tạo:</strong> ${product.CreatedDate ? new Date(product.CreatedDate).toLocaleString("vi-VN") : "N/A"}<br>
+                            ${product.AttributeLines && product.AttributeLines.length > 0 ? `<br><strong>🎯 Attributes:</strong> ${product.AttributeLines.length} line(s)` : ""}
+                            <div class="result-link">
+                                <a href="https://tomato.tpos.vn/product/${product.Id}" target="_blank">Xem trên TPOS →</a>
+                            </div>
+                        `,
+                        );
+                    } else {
+                        showResult(
+                            "detailResult",
+                            "error",
+                            "❌ Không tìm thấy",
+                            data.error,
+                        );
+                    }
+                } catch (error) {
+                    showResult(
+                        "detailResult",
+                        "error",
+                        "❌ Lỗi kết nối",
+                        error.message,
+                    );
+                } finally {
+                    detailBtn.disabled = false;
+                    detailBtnText.textContent = "Xem chi tiết";
+                    detailSpinner.style.display = "none";
+                }
+            }
+
+            async function loadAttributes() {
+                const attrBtn = document.querySelector(
+                    "#attributesTab .btn-secondary",
+                );
+                const attrBtnText = document.getElementById("attrBtnText");
+                const attrSpinner = document.getElementById("attrSpinner");
+                const attributesList =
+                    document.getElementById("attributesList");
+
+                attrBtn.disabled = true;
+                attrBtnText.textContent = "Đang tải...";
+                attrSpinner.style.display = "block";
+
+                try {
+                    const response = await fetch(`${API_URL}/attributes`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        let html = "";
+
+                        html +=
+                            '<div style="margin-bottom: 30px; padding: 20px; background: #f9fafb; border-radius: 12px;">';
+                        html +=
+                            '<h3 style="color: #333; margin-bottom: 15px;">📏 Size Chữ</h3>';
+                        html +=
+                            '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
+                        data.data.sizeText.values.forEach((size) => {
+                            html += `<span style="padding: 8px 12px; background: #dbeafe; border: 1px solid #3b82f6; border-radius: 6px; font-size: 14px;">${size.Name}</span>`;
+                        });
+                        html += "</div></div>";
+
+                        html +=
+                            '<div style="margin-bottom: 30px; padding: 20px; background: #f9fafb; border-radius: 12px;">';
+                        html +=
+                            '<h3 style="color: #333; margin-bottom: 15px;">🎨 Màu sắc (' +
+                            data.data.color.values.length +
+                            " màu)</h3>";
+                        html +=
+                            '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
+                        data.data.color.values.forEach((color) => {
+                            html += `<span style="padding: 8px 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; font-size: 14px;">${color.Name}</span>`;
+                        });
+                        html += "</div></div>";
+
+                        html +=
+                            '<div style="padding: 20px; background: #f9fafb; border-radius: 12px;">';
+                        html +=
+                            '<h3 style="color: #333; margin-bottom: 15px;">🔢 Size Số</h3>';
+                        html +=
+                            '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
+                        data.data.sizeNumber.values.forEach((size) => {
+                            html += `<span style="padding: 8px 12px; background: #d1fae5; border: 1px solid #10b981; border-radius: 6px; font-size: 14px;">${size.Name}</span>`;
+                        });
+                        html += "</div></div>";
+
+                        attributesList.innerHTML = html;
+                    } else {
+                        attributesList.innerHTML =
+                            '<div class="empty-state"><p>Lỗi tải dữ liệu</p></div>';
+                    }
+                } catch (error) {
+                    attributesList.innerHTML = `<div class="empty-state"><p>Lỗi: ${error.message}</p></div>`;
+                } finally {
+                    attrBtn.disabled = false;
+                    attrBtnText.textContent = "Tải danh sách thuộc tính";
+                    attrSpinner.style.display = "none";
+                }
+            }
+
+            function showResult(elementId, type, title, content) {
+                const result = document.getElementById(elementId);
+                result.className = `result ${type}`;
+                result.innerHTML = `
+                    <div class="result-title">${title}</div>
+                    <div class="result-content">${content}</div>
+                `;
+                result.style.display = "block";
+                result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+
+            function formatPrice(price) {
+                if (!price) return "0đ";
+                return new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                }).format(price);
+            }
+        </script>
+    </body>
+</html>
