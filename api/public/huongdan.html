@@ -86,16 +86,6 @@
                 border-color: #667eea;
             }
 
-            .api-box.success {
-                background: #ecfdf5;
-                border-color: #10b981;
-            }
-
-            .api-box.warning {
-                background: #fef3c7;
-                border-color: #f59e0b;
-            }
-
             .api-label {
                 display: inline-block;
                 background: #667eea;
@@ -107,12 +97,12 @@
                 margin-bottom: 10px;
             }
 
-            .api-label.get {
-                background: #10b981;
-            }
-
             .api-label.post {
                 background: #f59e0b;
+            }
+
+            .api-label.get {
+                background: #10b981;
             }
 
             .code-box {
@@ -150,98 +140,6 @@
                 background: #5568d3;
             }
 
-            .copy-btn:active {
-                transform: scale(0.95);
-            }
-
-            .param-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 15px 0;
-                font-size: 14px;
-            }
-
-            .param-table th {
-                background: #f3f4f6;
-                padding: 12px;
-                text-align: left;
-                font-weight: 600;
-                border-bottom: 2px solid #e5e7eb;
-            }
-
-            .param-table td {
-                padding: 12px;
-                border-bottom: 1px solid #f3f4f6;
-            }
-
-            .param-table tr:hover {
-                background: #f9fafb;
-            }
-
-            .badge {
-                display: inline-block;
-                padding: 3px 8px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: 600;
-            }
-
-            .badge.required {
-                background: #fee2e2;
-                color: #991b1b;
-            }
-
-            .badge.optional {
-                background: #e5e7eb;
-                color: #4b5563;
-            }
-
-            .badge.new {
-                background: #dbeafe;
-                color: #1e40af;
-            }
-
-            .example {
-                background: #fffbeb;
-                border-left: 4px solid #f59e0b;
-                padding: 15px 20px;
-                margin: 15px 0;
-                border-radius: 4px;
-            }
-
-            .example strong {
-                color: #92400e;
-            }
-
-            .try-btn {
-                display: inline-block;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                text-decoration: none;
-                font-weight: 600;
-                transition: all 0.3s;
-                margin-top: 10px;
-            }
-
-            .try-btn:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-            }
-
-            .warning {
-                background: #fef3c7;
-                border: 2px solid #f59e0b;
-                padding: 15px;
-                border-radius: 8px;
-                margin: 15px 0;
-            }
-
-            .warning strong {
-                color: #92400e;
-            }
-
             .feature-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -272,6 +170,31 @@
                 font-size: 14px;
             }
 
+            .badge {
+                display: inline-block;
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .badge.new {
+                background: #dbeafe;
+                color: #1e40af;
+            }
+
+            .warning {
+                background: #fef3c7;
+                border: 2px solid #f59e0b;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 15px 0;
+            }
+
+            .warning strong {
+                color: #92400e;
+            }
+
             .highlight {
                 background: #dbeafe;
                 border-left: 4px solid #3b82f6;
@@ -282,6 +205,23 @@
 
             .highlight strong {
                 color: #1e40af;
+            }
+
+            .try-btn {
+                display: inline-block;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                text-decoration: none;
+                font-weight: 600;
+                transition: all 0.3s;
+                margin-top: 10px;
+            }
+
+            .try-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
             }
 
             @media (max-width: 768px) {
@@ -360,10 +300,71 @@
                     </div>
                 </div>
 
-                <!-- Endpoint 1: Health Check -->
+                <!-- Test Interface -->
                 <div class="section">
-                    <h2>🏥 1. Health Check</h2>
-                    <p>Kiểm tra API có hoạt động không.</p>
+                    <h2>
+                        💻 Giao Diện Test <span class="badge new">MỚI</span>
+                    </h2>
+                    <p>
+                        Sử dụng giao diện web để test các tính năng một cách
+                        trực quan:
+                    </p>
+
+                    <div class="api-box primary">
+                        <strong>🌐 Web Interface:</strong>
+                        <a
+                            href="/test.html"
+                            target="_blank"
+                            style="
+                                color: #667eea;
+                                text-decoration: none;
+                                font-weight: 600;
+                            "
+                        >
+                            /test.html
+                        </a>
+                    </div>
+
+                    <h3>Tính năng có sẵn trong giao diện:</h3>
+                    <ul style="margin-left: 30px; line-height: 2">
+                        <li>
+                            <strong>📤 Upload 1 Sản Phẩm:</strong> Form đơn giản
+                            với auto-detect
+                        </li>
+                        <li>
+                            <strong>📦 Upload Nhiều Sản Phẩm:</strong> Form động
+                            hoặc JSON editor <span class="badge new">MỚI</span>
+                        </li>
+                        <li>
+                            <strong>🎯 Test Auto-Detect:</strong> Phân tích text
+                            để nhận diện thuộc tính
+                        </li>
+                        <li>
+                            <strong>📋 Danh Sách:</strong> Xem sản phẩm đã
+                            upload
+                        </li>
+                        <li>
+                            <strong>🔍 Chi Tiết:</strong> Xem thông tin chi tiết
+                            từng sản phẩm
+                        </li>
+                        <li>
+                            <strong>🎨 Thuộc Tính:</strong> Xem danh sách size &
+                            màu hỗ trợ
+                        </li>
+                    </ul>
+
+                    <a href="/test.html" target="_blank" class="try-btn">
+                        🚀 Mở Giao Diện Test
+                    </a>
+                </div>
+
+                <!-- Upload Single -->
+                <div class="section">
+                    <h2>📤 1. Upload 1 Sản Phẩm (GET)</h2>
+                    <p>
+                        Upload 1 sản phẩm qua URL với các tham số query string.
+                        <span class="badge new">AUTO-DETECT</span>
+                    </p>
 
                     <div class="api-box">
                         <span class="api-label get">GET</span>
@@ -371,28 +372,127 @@
                             <button class="copy-btn" onclick="copyCode(this)">
                                 Copy
                             </button>
-                            <code>https://n2store.onrender.com/health</code>
+                            <code
+                                >https://n2store.onrender.com/upload?tenSanPham=TÊN&giaBan=GIÁ</code
+                            >
                         </div>
                     </div>
 
-                    <h3>Response:</h3>
+                    <h3>Ví dụ: Auto-Detect từ tên</h3>
                     <div class="code-box">
                         <button class="copy-btn" onclick="copyCode(this)">
                             Copy
                         </button>
                         <code
-                            >{ "status": "OK", "timestamp":
-                            "2025-10-03T10:30:00.000Z" }</code
+                            >https://n2store.onrender.com/upload?tenSanPham=Áo%20Thun%20Đen%20Size%20M&giaBan=150&giaMua=100</code
                         >
                     </div>
-                        href="https://n2store.onrender.com/health"
-                        target="_blank" class="try-btn" > 🔍 Test Health Check
-                    </a>
+                    <div class="highlight">
+                        <strong>Kết quả:</strong> Tự động nhận diện Màu=Đen,
+                        Size=M
+                    </div>
                 </div>
 
-                <!-- Endpoint 2: Auto-Detect Attributes -->
+                <!-- Upload Batch -->
                 <div class="section">
-                    <h2>🎯 2. Auto-Detect Thuộc Tính (MỚI)</h2>
+                    <h2>
+                        📦 2. Upload Nhiều Sản Phẩm (POST)
+                        <span class="badge new">MỚI</span>
+                    </h2>
+                    <p>
+                        Upload nhiều sản phẩm cùng lúc thông qua POST request.
+                        Hỗ trợ auto-detect cho từng sản phẩm.
+                    </p>
+
+                    <div class="api-box">
+                        <span class="api-label post">POST</span>
+                        <div class="code-box">
+                            <button class="copy-btn" onclick="copyCode(this)">
+                                Copy
+                            </button>
+                            <code
+                                >https://n2store.onrender.com/upload-batch</code
+                            >
+                        </div>
+                    </div>
+
+                    <h3>Request Body (JSON):</h3>
+                    <div class="code-box">
+                        <button class="copy-btn" onclick="copyCode(this)">
+                            Copy
+                        </button>
+                        <code
+                            >{ "autoDetect": true, "products": [ { "tenSanPham":
+                            "Áo Thun Đen Size M", "maSanPham": "AT001",
+                            "giaBan": 150, "giaMua": 100, "ghiChu": "Hàng mới"
+                            }, { "tenSanPham": "Quần Jean Xanh Size 36",
+                            "giaBan": 250, "giaMua": 180 } ] }</code
+                        >
+                    </div>
+
+                    <h3>Response Success:</h3>
+                    <div class="code-box">
+                        <button class="copy-btn" onclick="copyCode(this)">
+                            Copy
+                        </button>
+                        <code
+                            >{ "success": true, "message": "Upload 2 sản phẩm
+                            thành công!", "data": [ { "productId": 12345,
+                            "productName": "Áo Thun Đen Size M",
+                            "imageUploaded": false, "attributeLinesCount": 2 },
+                            { "productId": 12346, "productName": "Quần Jean Xanh
+                            Size 36", "imageUploaded": false,
+                            "attributeLinesCount": 2 } ] }</code
+                        >
+                    </div>
+
+                    <h3>Ví dụ với cURL:</h3>
+                    <div class="code-box">
+                        <button class="copy-btn" onclick="copyCode(this)">
+                            Copy
+                        </button>
+                        <code
+                            >curl -X POST
+                            https://n2store.onrender.com/upload-batch \ -H
+                            "Content-Type: application/json" \ -d '{
+                            "autoDetect": true, "products": [ { "tenSanPham":
+                            "Áo Thun Đen Size M", "giaBan": 150, "giaMua": 100
+                            }, { "tenSanPham": "Quần Jean Xanh Size 36",
+                            "giaBan": 250, "giaMua": 180 } ] }'</code
+                        >
+                    </div>
+
+                    <h3>Ví dụ với JavaScript:</h3>
+                    <div class="code-box">
+                        <button class="copy-btn" onclick="copyCode(this)">
+                            Copy
+                        </button>
+                        <code
+                            >const products = [ { tenSanPham: "Áo Thun Đen Size
+                            M", giaBan: 150, giaMua: 100 }, { tenSanPham: "Quần
+                            Jean Xanh Size 36", giaBan: 250, giaMua: 180 } ];
+                            fetch('https://n2store.onrender.com/upload-batch', {
+                            method: 'POST', headers: { 'Content-Type':
+                            'application/json' }, body: JSON.stringify({
+                            autoDetect: true, products: products }) }) .then(res
+                            => res.json()) .then(data =>
+                            console.log(data));</code
+                        >
+                    </div>
+
+                    <div class="highlight">
+                        <strong>💡 Mẹo:</strong><br />
+                        • Sử dụng giao diện web <code>/test.html</code> để
+                        upload batch dễ dàng hơn<br />
+                        • Hỗ trợ 2 chế độ: Form động hoặc JSON editor<br />
+                        • Auto-detect áp dụng cho tất cả sản phẩm khi bật<br />
+                        • Có thể ghi đè bằng attributeLines thủ công cho từng SP
+                    </div>
+                </div>
+
+                <!-- Auto-Detect -->
+                <div class="section">
+                    <h2>🎯 3. Auto-Detect Thuộc Tính</h2>
                     <p>
                         Tự động nhận diện Size chữ, Màu sắc, Size số từ text
                         (tên sản phẩm, mã, ghi chú).
@@ -420,7 +520,7 @@
                         35, 36, 37, 38, 39, 40, 41, 42, 43, 44
                     </div>
 
-                    <h3>Ví dụ 1: Nhận diện Size & Màu</h3>
+                    <h3>Ví dụ:</h3>
                     <div class="code-box">
                         <button class="copy-btn" onclick="copyCode(this)">
                             Copy
@@ -430,242 +530,18 @@
                         >
                     </div>
 
-                    <h3>Response:</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code
-                            >{ "success": true, "input": "Áo Thun Đen Size M",
-                            "detected": { "sizeText": ["M"], "color": ["Đen"] },
-                            "attributeLines": [ { "Attribute": { "Id": 1,
-                            "Name": "Size Chữ", "Code": "SZCh", "Sequence": 1,
-                            "CreateVariant": true }, "Values": [ { "Id": 2,
-                            "Name": "M", "Code": "M", "AttributeId": 1,
-                            "NameGet": "Size Chữ: M" } ], "AttributeId": 1 }, {
-                            "Attribute": { "Id": 3, "Name": "Màu", "Code": "Mau"
-                            }, "Values": [ { "Id": 7, "Name": "Đen", "Code":
-                            "den", "AttributeId": 3, "NameGet": "Màu: Đen" } ],
-                            "AttributeId": 3 } ] }</code
-                        >
-                    </div>
-
-                    <h3>Ví dụ 2: Nhận diện nhiều thuộc tính</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code
-                            >https://n2store.onrender.com/detect-attributes?text=Quần%20Jean%20Xanh%20Size%2036%2037%2038</code
-                        >
-                    </div>
-                        href="https://n2store.onrender.com/detect-attributes?text=Áo
-                        Thun Đen Size M" target="_blank" class="try-btn" > 🔍
-                        Test Auto-Detect
+                    <a
+                        href="https://n2store.onrender.com/detect-attributes?text=Áo Thun Đen Size M"
+                        target="_blank"
+                        class="try-btn"
+                    >
+                        🔍 Test Auto-Detect
                     </a>
                 </div>
 
-                <!-- Endpoint 3: Upload Single -->
+                <!-- Danh sách sản phẩm -->
                 <div class="section">
-                    <h2>📤 3. Upload 1 Sản Phẩm (GET)</h2>
-                    <p>
-                        Upload 1 sản phẩm qua URL với các tham số query string.
-                        <span class="badge new">AUTO-DETECT</span>
-                    </p>
-
-                    <div class="api-box">
-                        <span class="api-label get">GET</span>
-                        <div class="code-box">
-                            <button class="copy-btn" onclick="copyCode(this)">
-                                Copy
-                            </button>
-                            <code
-                                >https://n2store.onrender.com/upload?tenSanPham=TÊN&maSanPham=MÃ&giaBan=GIÁ&giaMua=GIÁ_MUA</code
-                            >
-                        </div>
-                    </div>
-
-                    <h3>Tham số (Query Parameters):</h3>
-                    <table class="param-table">
-                        <thead>
-                            <tr>
-                                <th>Tham số</th>
-                                <th>Loại</th>
-                                <th>Mô tả</th>
-                                <th>Ví dụ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>tenSanPham</code></td>
-                                <td>
-                                    <span class="badge required">Bắt buộc</span>
-                                </td>
-                                <td>
-                                    Tên sản phẩm (tự động detect attributes)
-                                </td>
-                                <td>Áo Thun Đen Size M</td>
-                            </tr>
-                            <tr>
-                                <td><code>maSanPham</code></td>
-                                <td>
-                                    <span class="badge optional">Tùy chọn</span>
-                                </td>
-                                <td>Mã sản phẩm (auto = tên)</td>
-                                <td>AT001</td>
-                            </tr>
-                            <tr>
-                                <td><code>giaBan</code></td>
-                                <td>
-                                    <span class="badge optional">Tùy chọn</span>
-                                </td>
-                                <td>Giá bán (nghìn đồng)</td>
-                                <td>150</td>
-                            </tr>
-                            <tr>
-                                <td><code>giaMua</code></td>
-                                <td>
-                                    <span class="badge optional">Tùy chọn</span>
-                                </td>
-                                <td>Giá mua (nghìn đồng)</td>
-                                <td>100</td>
-                            </tr>
-                            <tr>
-                                <td><code>ghiChu</code></td>
-                                <td>
-                                    <span class="badge optional">Tùy chọn</span>
-                                </td>
-                                <td>Ghi chú sản phẩm</td>
-                                <td>Hàng mới về</td>
-                            </tr>
-                            <tr>
-                                <td><code>anhSanPham</code></td>
-                                <td>
-                                    <span class="badge optional">Tùy chọn</span>
-                                </td>
-                                <td>URL ảnh hoặc base64</td>
-                                <td>https://i.imgur.com/abc.jpg</td>
-                            </tr>
-                            <tr>
-                                <td><code>attributeLines</code></td>
-                                <td>
-                                    <span class="badge optional">Tùy chọn</span>
-                                    <span class="badge new">MỚI</span>
-                                </td>
-                                <td>Thuộc tính thủ công (JSON)</td>
-                                <td>{"sizeText":["S","M"]}</td>
-                            </tr>
-                            <tr>
-                                <td><code>autoDetect</code></td>
-                                <td>
-                                    <span class="badge optional">Tùy chọn</span>
-                                    <span class="badge new">MỚI</span>
-                                </td>
-                                <td>Bật/tắt auto-detect (true/false)</td>
-                                <td>true</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <h3>Ví dụ 1: Auto-Detect từ tên</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code
-                            >https://n2store.onrender.com/upload?tenSanPham=Áo%20Thun%20Đen%20Size%20M&giaBan=150&giaMua=100</code
-                        >
-                    </div>
-                    <div class="example">
-                        <strong>Kết quả:</strong> Tự động nhận diện Màu=Đen,
-                        Size=M
-                    </div>
-
-                    <h3>Ví dụ 2: Ghi đè thủ công AttributeLines</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code
-                            >https://n2store.onrender.com/upload?tenSanPham=Áo%20Thun&attributeLines={"sizeText":["S","M","L"],"color":["Đen","Trắng"]}&giaBan=150&giaMua=100</code
-                        >
-                    </div>
-                    <div class="example">
-                        <strong>Lưu ý:</strong> Cần encode JSON khi dùng GET
-                    </div>
-
-                    <h3>Response Success:</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code
-                            >{ "success": true, "message": "Upload thành công!",
-                            "data": { "productId": 12345, "productName": "Áo
-                            Thun Đen Size M", "imageUploaded": false,
-                            "attributeLinesCount": 2, "detectedAttributes":
-                            true, "tposUrl":
-                            "https://tomato.tpos.vn/product/12345" } }</code
-                        >
-                    </div>
-                </div>
-
-                <!-- Endpoint 4: Upload Batch -->
-                <div class="section">
-                    <h2>📦 4. Upload Nhiều Sản Phẩm (POST)</h2>
-                    <p>
-                        Upload nhiều sản phẩm cùng lúc thông qua POST request.
-                        <span class="badge new">AUTO-DETECT</span>
-                    </p>
-
-                    <div class="api-box">
-                        <span class="api-label post">POST</span>
-                        <div class="code-box">
-                            <button class="copy-btn" onclick="copyCode(this)">
-                                Copy
-                            </button>
-                            <code
-                                >https://n2store.onrender.com/upload-batch</code
-                            >
-                        </div>
-                    </div>
-
-                    <h3>Request Body (JSON):</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code
-                            >{ "autoDetect": true, "products": [ { "maSanPham":
-                            "AT001", "tenSanPham": "Áo Thun Đen Size M",
-                            "giaBan": 150, "giaMua": 100, "ghiChu": "Hàng mới",
-                            "anhSanPham": "https://example.com/image1.jpg" }, {
-                            "maSanPham": "QJ002", "tenSanPham": "Quần Jean Xanh
-                            Size 36", "giaBan": 250, "giaMua": 180,
-                            "attributeLines": { "sizeNumber": ["36", "37",
-                            "38"], "color": ["Xanh", "Đen"] } } ] }</code
-                        >
-                    </div>
-
-                    <h3>Ví dụ với cURL:</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code
-                            >curl -X POST
-                            https://n2store.onrender.com/upload-batch \ -H
-                            "Content-Type: application/json" \ -d '{
-                            "autoDetect": true, "products": [ { "tenSanPham":
-                            "Áo Thun Đen Size M", "giaBan": 150, "giaMua": 100 }
-                            ] }'</code
-                        >
-                    </div>
-                </div>
-
-                <!-- Endpoint 5: Get Products -->
-                <div class="section">
-                    <h2>📋 5. Lấy Danh Sách Sản Phẩm (MỚI)</h2>
+                    <h2>📋 4. Lấy Danh Sách Sản Phẩm</h2>
                     <p>Lấy danh sách sản phẩm với filter và search.</p>
 
                     <div class="api-box">
@@ -675,85 +551,30 @@
                                 Copy
                             </button>
                             <code
-                                >https://n2store.onrender.com/products?limit=10&createdBy=Tú&search=</code
+                                >https://n2store.onrender.com/products?limit=10&search=</code
                             >
                         </div>
                     </div>
 
                     <h3>Tham số:</h3>
-                    <table class="param-table">
-                        <thead>
-                            <tr>
-                                <th>Tham số</th>
-                                <th>Mặc định</th>
-                                <th>Mô tả</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>limit</code></td>
-                                <td>10</td>
-                                <td>Số lượng sản phẩm (max: 100)</td>
-                            </tr>
-                            <tr>
-                                <td><code>createdBy</code></td>
-                                <td>Tú</td>
-                                <td>Lọc theo người tạo</td>
-                            </tr>
-                            <tr>
-                                <td><code>search</code></td>
-                                <td></td>
-                                <td>Tìm kiếm theo tên hoặc mã</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <ul style="margin-left: 30px; line-height: 2">
+                        <li>
+                            <code>limit</code>: Số lượng sản phẩm (mặc định: 10,
+                            max: 100)
+                        </li>
+                        <li>
+                            <code>createdBy</code>: Lọc theo người tạo (mặc
+                            định: "Tú")
+                        </li>
+                        <li><code>search</code>: Tìm kiếm theo tên hoặc mã</li>
+                    </ul>
+
+                    <a
                         href="https://n2store.onrender.com/products?limit=5"
-                        target="_blank" class="try-btn" > 🔍 Xem Danh Sách
-                    </a>
-                </div>
-
-                <!-- Endpoint 6: Get Product Detail -->
-                <div class="section">
-                    <h2>🔍 6. Xem Chi Tiết Sản Phẩm (MỚI)</h2>
-                    <p>Lấy thông tin chi tiết 1 sản phẩm theo ID.</p>
-
-                    <div class="api-box">
-                        <span class="api-label get">GET</span>
-                        <div class="code-box">
-                            <button class="copy-btn" onclick="copyCode(this)">
-                                Copy
-                            </button>
-                            <code
-                                >https://n2store.onrender.com/products/{ID}</code
-                            >
-                        </div>
-                    </div>
-
-                    <h3>Ví dụ:</h3>
-                    <div class="code-box">
-                        <button class="copy-btn" onclick="copyCode(this)">
-                            Copy
-                        </button>
-                        <code>https://n2store.onrender.com/products/12345</code>
-                    </div>
-                </div>
-
-                <!-- Endpoint 7: Get Attributes List -->
-                <div class="section">
-                    <h2>🎨 7. Danh Sách Thuộc Tính Hỗ Trợ (MỚI)</h2>
-                    <p>Xem tất cả Size & Màu sắc hỗ trợ.</p>
-
-                    <div class="api-box">
-                        <span class="api-label get">GET</span>
-                        <div class="code-box">
-                            <button class="copy-btn" onclick="copyCode(this)">
-                                Copy
-                            </button>
-                            <code>https://n2store.onrender.com/attributes</code>
-                        </div>
-                    </div>
-                        href="https://n2store.onrender.com/attributes"
-                        target="_blank" class="try-btn" > 📋 Xem Danh Sách
+                        target="_blank"
+                        class="try-btn"
+                    >
+                        📋 Xem Danh Sách
                     </a>
                 </div>
 
@@ -761,12 +582,19 @@
                 <div class="section">
                     <h2>💡 Cách Sử Dụng</h2>
 
-                    <h3>Cách 1: Dùng Web Interface (Dễ nhất)</h3>
+                    <h3>Cách 1: Dùng Web Interface (Dễ nhất) ⭐</h3>
                     <p>Truy cập trang test interface:</p>
-                    <div class="api-box success">
-                            href="/test.html" target="_blank" style=" color:
-                            #065f46; text-decoration: none; font-weight: 600; "
-                            > 🔗 /test.html
+                    <div class="api-box primary">
+                        <a
+                            href="/test.html"
+                            target="_blank"
+                            style="
+                                color: #065f46;
+                                text-decoration: none;
+                                font-weight: 600;
+                            "
+                        >
+                            🔗 /test.html
                         </a>
                     </div>
 
@@ -784,11 +612,19 @@
                             Copy
                         </button>
                         <code
-                            >const params = new URLSearchParams({ tenSanPham:
-                            'Áo Thun Đen Size M', giaBan: 150, giaMua: 100 });
+                            >// Upload 1 sản phẩm const params = new
+                            URLSearchParams({ tenSanPham: 'Áo Thun Đen Size M',
+                            giaBan: 150, giaMua: 100 });
                             fetch(`https://n2store.onrender.com/upload?${params}`)
                             .then(res => res.json()) .then(data =>
-                            console.log(data));</code
+                            console.log(data)); // Upload nhiều sản phẩm
+                            fetch('https://n2store.onrender.com/upload-batch', {
+                            method: 'POST', headers: { 'Content-Type':
+                            'application/json' }, body: JSON.stringify({
+                            autoDetect: true, products: [ { tenSanPham: 'Áo Thun
+                            Đen Size M', giaBan: 150 }, { tenSanPham: 'Quần Jean
+                            Xanh', giaBan: 250 } ] }) }) .then(res =>
+                            res.json()) .then(data => console.log(data));</code
                         >
                     </div>
 
@@ -820,29 +656,22 @@
                     </div>
 
                     <div class="warning">
-                        <strong>2. Render Free Plan:</strong><br />
+                        <strong>2. Upload Batch:</strong><br />
+                        - Khuyên dùng giao diện web /test.html để dễ dàng hơn<br />
+                        - Hỗ trợ 2 chế độ: Form động hoặc JSON editor<br />
+                        - Auto-detect áp dụng cho tất cả sản phẩm khi bật<br />
+                        - Thời gian xử lý: ~3-5 giây/sản phẩm
+                    </div>
+
+                    <div class="warning">
+                        <strong>3. Render Free Plan:</strong><br />
                         - Service ngủ sau 15 phút không hoạt động<br />
                         - Lần đầu truy cập sau khi ngủ cần ~30 giây<br />
                         - Giới hạn 750 giờ/tháng (đủ dùng)
                     </div>
 
                     <div class="warning">
-                        <strong>3. URL Encoding:</strong><br />
-                        - Khoảng trắng → <code>%20</code> hoặc <code>+</code
-                        ><br />
-                        - Tiếng Việt cần encode đúng (UTF-8)<br />
-                        - JSON phức tạp nên dùng POST thay vì GET
-                    </div>
-
-                    <div class="warning">
-                        <strong>4. Hình ảnh:</strong><br />
-                        - Hỗ trợ: URL ảnh public hoặc base64 string<br />
-                        - Định dạng: JPG, PNG, GIF<br />
-                        - Kích thước khuyên dùng: < 2MB
-                    </div>
-
-                    <div class="warning">
-                        <strong>5. Thời gian xử lý:</strong><br />
+                        <strong>4. Thời gian xử lý:</strong><br />
                         - Upload không ảnh: ~2-3 giây<br />
                         - Upload có ảnh: ~5-7 giây<br />
                         - Upload batch: ~3-5 giây/sản phẩm
