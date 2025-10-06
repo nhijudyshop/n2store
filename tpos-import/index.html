@@ -243,6 +243,49 @@
         background: #ffe5e5;
         transform: translateY(-2px);
       }
+
+      .notification {
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        display: none;
+        animation: slideIn 0.3s ease;
+      }
+
+      .notification.show {
+        display: block;
+      }
+
+      .notification.success {
+        background: #d4edda;
+        border: 2px solid #28a745;
+        color: #155724;
+      }
+
+      .notification.error {
+        background: #f8d7da;
+        border: 2px solid #dc3545;
+        color: #721c24;
+      }
+
+      .notification.warning {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        color: #856404;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     </style>
   </head>
   <body>
@@ -273,6 +316,7 @@
         <div id="orderDataDisplay" class="data-display hidden">
           <h4>📋 Dữ Liệu Đơn Hàng:</h4>
           <div class="json-container" id="orderJsonContainer"></div>
+          <div id="notification" class="notification"></div>
         </div>
 
         <div id="orderEditForm" class="edit-form hidden">
@@ -326,6 +370,16 @@
       const $ = (id) => document.getElementById(id);
       let currentOrderData = null;
 
+      const showNotification = (message, type = "success") => {
+        const notification = $("notification");
+        notification.textContent = message;
+        notification.className = `notification ${type} show`;
+
+        setTimeout(() => {
+          notification.classList.remove("show");
+        }, 5000);
+      };
+
       const generateRandomId = () => {
         return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
           /[xy]/g,
@@ -361,7 +415,7 @@
       window.getOrderData = async () => {
         const orderId = $("orderIdInput").value.trim();
         if (!orderId) {
-          alert("⚠️ Vui lòng nhập ID đơn hàng!");
+          showNotification("Vui lòng nhập ID đơn hàng!", "warning");
           return;
         }
 
@@ -401,14 +455,14 @@
             });
           }, 100);
         } catch (err) {
-          alert(`❌ Lỗi: ${err.message}`);
+          showNotification(`Lỗi: ${err.message}`, "error");
           console.error(err);
         }
       };
 
       window.updateOrder = async () => {
         if (!currentOrderData) {
-          alert("⚠️ Vui lòng lấy dữ liệu đơn hàng trước!");
+          showNotification("Vui lòng lấy dữ liệu đơn hàng trước!", "warning");
           return;
         }
 
@@ -480,11 +534,11 @@
           $("orderJsonContainer").innerHTML =
             `<pre>${JSON.stringify(result, null, 2)}</pre>`;
 
-          alert("✅ Cập nhật đơn hàng thành công!");
+          showNotification("Cập nhật đơn hàng thành công!", "success");
 
           await getOrderData();
         } catch (err) {
-          alert(`❌ Lỗi: ${err.message}`);
+          showNotification(`Lỗi: ${err.message}`, "error");
           console.error(err);
         }
       };

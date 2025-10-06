@@ -675,6 +675,49 @@
         background: #e8ebff;
         transform: translateY(-2px);
       }
+
+      .notification {
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        display: none;
+        animation: slideIn 0.3s ease;
+      }
+
+      .notification.show {
+        display: block;
+      }
+
+      .notification.success {
+        background: #d4edda;
+        border: 2px solid #28a745;
+        color: #155724;
+      }
+
+      .notification.error {
+        background: #f8d7da;
+        border: 2px solid #dc3545;
+        color: #721c24;
+      }
+
+      .notification.warning {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        color: #856404;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     </style>
   </head>
   <body>
@@ -688,7 +731,7 @@
 
       <div class="nav-bar">
         <a href="#" class="nav-btn active">📦 Product Manager</a>
-        <a href="index.html" class="nav-btn">🛒 Order Manager</a>
+        <a href="order_manager.html" class="nav-btn">🛒 Order Manager</a>
       </div>
 
       <div class="upload-section">
@@ -766,6 +809,7 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
       <div class="result" id="result">
         <h2>✅ Kết Quả Cuối Cùng</h2>
         <div class="json-container" id="resultContainer"></div>
+        <div id="notification" class="notification"></div>
       </div>
 
       <!-- AttributeLines Modal -->
@@ -862,6 +906,16 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
       let imageFile = null;
       let productDetail = null;
       let currentAttributeLines = [];
+
+      const showNotification = (message, type = "success") => {
+        const notification = $("notification");
+        notification.textContent = message;
+        notification.className = `notification ${type} show`;
+
+        setTimeout(() => {
+          notification.classList.remove("show");
+        }, 5000);
+      };
 
       const generateRandomId = () => {
         return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -1006,8 +1060,9 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
               value = JSON.parse(value);
             } catch (e) {
               console.error(`Failed to parse JSON for field ${field}:`, e);
-              alert(
-                `⚠️ Lỗi JSON ở trường "${field}". Vui lòng kiểm tra lại cú pháp JSON.`,
+              showNotification(
+                `Lỗi JSON ở trường "${field}". Vui lòng kiểm tra lại cú pháp JSON.`,
+                "error",
               );
               throw e;
             }
@@ -1050,13 +1105,16 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
 
       $("processBtn").addEventListener("click", async () => {
         if (!excelFile || !imageFile) {
-          alert("⚠️ Vui lòng chọn cả file Excel và hình ảnh!");
+          showNotification(
+            "Vui lòng chọn cả file Excel và hình ảnh!",
+            "warning",
+          );
           return;
         }
 
         const expandValue = $("expandInput").value.trim();
         if (!expandValue) {
-          alert("⚠️ Vui lòng nhập expand parameters!");
+          showNotification("Vui lòng nhập expand parameters!", "warning");
           return;
         }
 
@@ -1121,7 +1179,7 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
 
           $("editSection").scrollIntoView({ behavior: "smooth" });
         } catch (err) {
-          alert(`❌ Lỗi: ${err.message}`);
+          showNotification(`Lỗi: ${err.message}`, "error");
           console.error(err);
         } finally {
           btn.disabled = false;
@@ -1151,13 +1209,13 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
             $("resultContainer").innerHTML =
               `<pre>${JSON.stringify(result, null, 2)}</pre>`;
             show($("result"));
-            alert("✅ Cập nhật thành công!");
+            showNotification("Cập nhật thành công!", "success");
             $("result").scrollIntoView({ behavior: "smooth" });
           } else {
             throw new Error(result.error || "Cập nhật thất bại");
           }
         } catch (err) {
-          alert(`❌ Lỗi: ${err.message}`);
+          showNotification(`Lỗi: ${err.message}`, "error");
           console.error(err);
         } finally {
           btn.disabled = false;
@@ -1295,7 +1353,7 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
 
             const existingValue = attrLine.Values.find((v) => v.Id === valueId);
             if (existingValue) {
-              alert("⚠️ Giá trị này đã được thêm rồi!");
+              showNotification("Giá trị này đã được thêm rồi!", "warning");
               e.target.value = "";
               return;
             }
@@ -1342,7 +1400,7 @@ UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMVi
         }
 
         closeAttributeModal();
-        alert("✅ Đã lưu thay đổi AttributeLines!");
+        showNotification("Đã lưu thay đổi AttributeLines!", "success");
       };
     </script>
   </body>
