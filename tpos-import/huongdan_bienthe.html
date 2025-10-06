@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Tài Liệu Kỹ Thuật - Product Attribute Manager</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: #f5f5f5;
+                padding: 20px;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background: white;
+                padding: 40px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                color: #2c3e50;
+                border-bottom: 4px solid #3498db;
+                padding-bottom: 10px;
+                margin-bottom: 30px;
+            }
+            h2 {
+                color: #34495e;
+                margin-top: 40px;
+                margin-bottom: 20px;
+                padding-left: 10px;
+                border-left: 4px solid #3498db;
+            }
+            h3 {
+                color: #555;
+                margin-top: 30px;
+                margin-bottom: 15px;
+            }
+            h4 {
+                color: #666;
+                margin-top: 20px;
+                margin-bottom: 10px;
+            }
+            pre {
+                background: #1e293b;
+                color: #e2e8f0;
+                padding: 20px;
+                border-radius: 8px;
+                overflow-x: auto;
+                margin: 15px 0;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+            code {
+                font-family: "Consolas", "Monaco", "Courier New", monospace;
+            }
+            .note {
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 15px;
+                margin: 20px 0;
+            }
+            .warning {
+                background: #f8d7da;
+                border-left: 4px solid #dc3545;
+                padding: 15px;
+                margin: 20px 0;
+            }
+            .info {
+                background: #d1ecf1;
+                border-left: 4px solid #17a2b8;
+                padding: 15px;
+                margin: 20px 0;
+            }
+            .success {
+                background: #d4edda;
+                border-left: 4px solid #28a745;
+                padding: 15px;
+                margin: 20px 0;
+            }
+            ul,
+            ol {
+                margin: 15px 0 15px 30px;
+            }
+            li {
+                margin: 8px 0;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+            }
+            th,
+            td {
+                border: 1px solid #ddd;
+                padding: 12px;
+                text-align: left;
+            }
+            th {
+                background: #3498db;
+                color: white;
+            }
+            tr:nth-child(even) {
+                background: #f9f9f9;
+            }
+            .toc {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 30px;
+            }
+            .toc ul {
+                list-style: none;
+                margin-left: 0;
+            }
+            .toc li {
+                margin: 8px 0;
+            }
+            .toc a {
+                color: #3498db;
+                text-decoration: none;
+            }
+            .toc a:hover {
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Tài Liệu Kỹ Thuật: Product Attribute Manager</h1>
+
+            <div class="info">
+                <strong>Mục đích:</strong> Hệ thống quản lý và cập nhật
+                attributes cho Product Template trong TPOS
+            </div>
+
+            <div class="toc">
+                <h3>Mục lục</h3>
+                <ul>
+                    <li>
+                        <a href="#section1">1. Cấu trúc biến và Constants</a>
+                    </li>
+                    <li><a href="#section2">2. Bước 1: GET Product Data</a></li>
+                    <li><a href="#section3">3. Bước 2: Xử lý Attributes</a></li>
+                    <li>
+                        <a href="#section4">4. Bước 3: Tạo Product Variants</a>
+                    </li>
+                    <li><a href="#section5">5. Bước 4: Tạo Payload</a></li>
+                    <li><a href="#section6">6. Bước 5: POST Payload</a></li>
+                    <li><a href="#section7">7. Flow tổng thể</a></li>
+                    <li>
+                        <a href="#section8">8. Điểm quan trọng cần lưu ý</a>
+                    </li>
+                </ul>
+            </div>
+
+            <h2 id="section1">1. CẤU TRÚC BIẾN VÀ CONSTANTS</h2>
+
+            <h3>1.1 Biến đầu vào</h3>
+            <pre><code>const tpos_product_id = 107812; // ID của product template cần xử lý
+const AUTH_TOKEN = "Bearer eyJhbGci..."; // Token xác thực</code></pre>
+
+            <h3>1.2 Headers cho API Request</h3>
+            <pre><code>function generateRandomId() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+}
+
+function getHeaders() {
+    return {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br",
+        "accept-language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        "content-type": "application/json;charset=UTF-8",
+        "origin": "https://tomato.tpos.vn",
+        "referer": "https://tomato.tpos.vn/",
+        "sec-ch-ua": '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "tposappversion": "5.9.10.1",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "x-request-id": generateRandomId(),
+        "authorization": AUTH_TOKEN
+    };
+}</code></pre>
+
+            <h3>1.3 Kho Attributes</h3>
+            <pre><code>const attributeData = {
+    sizeText: [
+        {Id: 5, Name: "Free Size", Code: "FS", Sequence: 0, AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 1, Name: "S", Code: "S", Sequence: 1, AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 2, Name: "M", Code: "M", Sequence: 2, AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 3, Name: "L", Code: "L", Sequence: 3, AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 4, Name: "XL", Code: "XL", Sequence: 4, AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 31, Name: "XXL", Code: "xxl", Sequence: null, AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 32, Name: "XXXL", Code: "xxxl", Sequence: null, AttributeId: 1, AttributeName: "Size Chữ"}
+    ],
+    sizeNumber: [
+        {Id: 80, Name: "27", Code: "27", AttributeId: 4, AttributeName: "Size Số"},
+        {Id: 81, Name: "28", Code: "28", AttributeId: 4, AttributeName: "Size Số"},
+        {Id: 18, Name: "29", Code: "29", AttributeId: 4, AttributeName: "Size Số"},
+        // ... 18 items nữa (27-44, 1-4)
+    ],
+    color: [
+        {Id: 6, Name: "Trắng", Code: "trang", AttributeId: 3, AttributeName: "Màu"},
+        {Id: 7, Name: "Đen", Code: "den", AttributeId: 3, AttributeName: "Màu"},
+        {Id: 8, Name: "Đỏ", Code: "do", AttributeId: 3, AttributeName: "Màu"},
+        // ... 67 items nữa
+    ]
+};</code></pre>
+
+            <div class="note">
+                <strong>Lưu ý:</strong> Có 3 nhóm attributes chính:
+                <ul>
+                    <li>
+                        <strong>AttributeId = 1:</strong> Size Chữ (7 values)
+                    </li>
+                    <li>
+                        <strong>AttributeId = 4:</strong> Size Số (21 values)
+                    </li>
+                    <li><strong>AttributeId = 3:</strong> Màu (70 values)</li>
+                </ul>
+            </div>
+
+            <h2 id="section2">2. BƯỚC 1: GET PRODUCT DATA</h2>
+
+            <h3>2.1 URL và Parameters</h3>
+            <pre><code>const url = `https://tomato.tpos.vn/odata/ProductTemplate(${tpos_product_id})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`;</code></pre>
+
+            <h3>2.2 API Call</h3>
+            <pre><code>async function getProduct(tpos_product_id) {
+    const url = `https://tomato.tpos.vn/odata/ProductTemplate(${tpos_product_id})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`;
+    
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: getHeaders()
+    });
+    
+    const originalProduct = await response.json();
+    return originalProduct;
+}</code></pre>
+
+            <h3>2.3 Cấu trúc dữ liệu trả về</h3>
+            <pre><code>{
+    "@odata.context": "...", // ⚠️ Cần xóa khi tạo payload
+    "Id": 107812,
+    "Name": "TEST",
+    "Version": 3135, // ⚠️ Cần đổi thành 0
+    "ListPrice": 1000,
+    "ProductVariants": [
+        {
+            "Id": 128042, // ⚠️ Variant cũ, cần đánh dấu Active: false
+            "Active": true,
+            "AttributeValues": [] // Không có attributes
+        }
+    ],
+    "UOM": {...},
+    "Categ": {...}
+}</code></pre>
+
+            <h2 id="section3">3. BƯỚC 2: XỬ LÝ ATTRIBUTES</h2>
+
+            <h3>3.1 Input: Danh sách attributes được chọn</h3>
+            <pre><code>// Ví dụ: User chọn Size M, L và Màu Đen, Trắng
+const selectedAttributes = {
+    sizeText: [
+        {Id: 2, Name: "M", Code: "M", AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 3, Name: "L", Code: "L", AttributeId: 1, AttributeName: "Size Chữ"}
+    ],
+    color: [
+        {Id: 7, Name: "Đen", Code: "den", AttributeId: 3, AttributeName: "Màu"},
+        {Id: 6, Name: "Trắng", Code: "trang", AttributeId: 3, AttributeName: "Màu"}
+    ]
+};</code></pre>
+
+            <h3>3.2 Tạo AttributeLines</h3>
+            <pre><code>function createAttributeLines(selectedAttributes) {
+    const attributeLines = [];
+    
+    // Xử lý Size Chữ (AttributeId = 1)
+    if (selectedAttributes.sizeText && selectedAttributes.sizeText.length > 0) {
+        attributeLines.push({
+            Attribute: {
+                Id: 1,
+                Name: "Size Chữ",
+                Code: "SZCh",
+                Sequence: 1,
+                CreateVariant: true
+            },
+            Values: selectedAttributes.sizeText.map(attr => ({
+                Id: attr.Id,
+                Name: attr.Name,
+                Code: attr.Code,
+                Sequence: attr.Sequence,
+                AttributeId: 1,
+                AttributeName: "Size Chữ",
+                PriceExtra: null,
+                NameGet: `Size Chữ: ${attr.Name}`,
+                DateCreated: null
+            })),
+            AttributeId: 1
+        });
+    }
+    
+    // Xử lý Size Số (AttributeId = 4)
+    if (selectedAttributes.sizeNumber && selectedAttributes.sizeNumber.length > 0) {
+        attributeLines.push({
+            Attribute: {
+                Id: 4,
+                Name: "Size Số",
+                Code: "SZS",
+                Sequence: 2,
+                CreateVariant: true
+            },
+            Values: selectedAttributes.sizeNumber.map(attr => ({
+                Id: attr.Id,
+                Name: attr.Name,
+                Code: attr.Code,
+                Sequence: attr.Sequence,
+                AttributeId: 4,
+                AttributeName: "Size Số",
+                PriceExtra: null,
+                NameGet: `Size Số: ${attr.Name}`,
+                DateCreated: null
+            })),
+            AttributeId: 4
+        });
+    }
+    
+    // Xử lý Màu (AttributeId = 3)
+    if (selectedAttributes.color && selectedAttributes.color.length > 0) {
+        attributeLines.push({
+            Attribute: {
+                Id: 3,
+                Name: "Màu",
+                Code: "mau",
+                Sequence: 3,
+                CreateVariant: true
+            },
+            Values: selectedAttributes.color.map(attr => ({
+                Id: attr.Id,
+                Name: attr.Name,
+                Code: attr.Code,
+                Sequence: attr.Sequence,
+                AttributeId: 3,
+                AttributeName: "Màu",
+                PriceExtra: null,
+                NameGet: `Màu: ${attr.Name}`,
+                DateCreated: null
+            })),
+            AttributeId: 3
+        });
+    }
+    
+    return attributeLines;
+}</code></pre>
+
+            <h2 id="section4">4. BƯỚC 3: TẠO PRODUCT VARIANTS</h2>
+
+            <h3>4.1 Thuật toán Cartesian Product</h3>
+            <pre><code>// Tạo tất cả các tổ hợp từ các mảng attributes
+function cartesianProduct(...arrays) {
+    return arrays.reduce((acc, array) => {
+        return acc.flatMap(x => array.map(y => [x, y].flat()));
+    }, [[]]);
+}
+
+// Ví dụ:
+// Input: [[M, L], [Đen, Trắng]]
+// Output: [[M, Đen], [M, Trắng], [L, Đen], [L, Trắng]]</code></pre>
+
+            <div class="info">
+                <strong>Giải thích Cartesian Product:</strong>
+                <ul>
+                    <li>
+                        Nếu có 2 size (M, L) và 2 màu (Đen, Trắng) → 2 × 2 = 4
+                        variants
+                    </li>
+                    <li>
+                        Nếu có 3 size (S, M, L) và 3 màu (Đen, Trắng, Đỏ) → 3 ×
+                        3 = 9 variants
+                    </li>
+                    <li>
+                        Nếu có 2 size, 3 màu, 2 số → 2 × 3 × 2 = 12 variants
+                    </li>
+                </ul>
+            </div>
+
+            <h3>4.2 Tạo Variants từ tổ hợp</h3>
+            <pre><code>function generateVariants(originalProduct, attributeLines) {
+    // Lấy tất cả values từ attributeLines
+    const allValues = attributeLines.map(line => line.Values);
+    
+    // Tạo tất cả tổ hợp
+    const combinations = cartesianProduct(...allValues);
+    
+    // Tạo variant cho mỗi tổ hợp
+    const newVariants = combinations.map(combo => {
+        const attrArray = Array.isArray(combo) ? combo : [combo];
+        const names = attrArray.map(a => a.Name).join(', ');
+        
+        return {
+            Id: 0, // 0 = variant mới
+            EAN13: null,
+            DefaultCode: null,
+            NameTemplate: originalProduct.Name,
+            NameNoSign: null,
+            ProductTmplId: originalProduct.Id,
+            UOMId: 0,
+            UOMName: null,
+            UOMPOId: 0,
+            QtyAvailable: 0,
+            VirtualAvailable: 0,
+            OutgoingQty: null,
+            IncomingQty: null,
+            NameGet: `${originalProduct.Name} (${names})`,
+            POSCategId: null,
+            Price: null,
+            Barcode: null,
+            Image: null,
+            ImageUrl: null,
+            Thumbnails: [],
+            PriceVariant: originalProduct.ListPrice,
+            SaleOK: true,
+            PurchaseOK: true,
+            DisplayAttributeValues: null,
+            LstPrice: 0,
+            Active: true, // ✅ Variant mới luôn active
+            ListPrice: 0,
+            PurchasePrice: null,
+            DiscountSale: null,
+            DiscountPurchase: null,
+            StandardPrice: 0,
+            Weight: 0,
+            Volume: null,
+            OldPrice: null,
+            IsDiscount: false,
+            ProductTmplEnableAll: false,
+            Version: 0,
+            Description: null,
+            LastUpdated: null,
+            Type: "product",
+            CategId: 0,
+            CostMethod: null,
+            InvoicePolicy: "order",
+            Variant_TeamId: 0,
+            Name: `${originalProduct.Name} (${names})`,
+            PropertyCostMethod: null,
+            PropertyValuation: null,
+            PurchaseMethod: "receive",
+            SaleDelay: 0,
+            Tracking: null,
+            Valuation: null,
+            AvailableInPOS: true,
+            CompanyId: null,
+            IsCombo: null,
+            NameTemplateNoSign: originalProduct.NameNoSign,
+            TaxesIds: [],
+            StockValue: null,
+            SaleValue: null,
+            PosSalesCount: null,
+            Factor: null,
+            CategName: null,
+            AmountTotal: null,
+            NameCombos: [],
+            RewardName: null,
+            Product_UOMId: null,
+            Tags: null,
+            DateCreated: null,
+            InitInventory: 0,
+            OrderTag: null,
+            StringExtraProperties: null,
+            CreatedById: null,
+            Error: null,
+            AttributeValues: attrArray.map(a => ({
+                Id: a.Id,
+                Name: a.Name,
+                Code: null,
+                Sequence: null,
+                AttributeId: a.AttributeId,
+                AttributeName: a.AttributeName,
+                PriceExtra: null,
+                NameGet: `${a.AttributeName}: ${a.Name}`,
+                DateCreated: null
+            }))
+        };
+    });
+    
+    // Thêm variant cũ với Active = false
+    const oldVariants = originalProduct.ProductVariants
+        .filter(v => v.Id > 0) // Chỉ lấy variant đã tồn tại
+        .map(oldVariant => {
+            const inactiveVariant = JSON.parse(JSON.stringify(oldVariant));
+            // Xóa các object con
+            delete inactiveVariant.UOM;
+            delete inactiveVariant.Categ;
+            delete inactiveVariant.UOMPO;
+            delete inactiveVariant.POSCateg;
+            // Đánh dấu inactive
+            inactiveVariant.Active = false;
+            return inactiveVariant;
+        });
+    
+    return [...newVariants, ...oldVariants];
+}</code></pre>
+
+            <h2 id="section5">5. BƯỚC 4: TẠO PAYLOAD</h2>
+
+            <pre><code>function createPayload(originalProduct, attributeLines, variants) {
+    // Clone originalProduct
+    const payload = JSON.parse(JSON.stringify(originalProduct));
+    
+    // 1. Xóa @odata.context
+    delete payload['@odata.context'];
+    
+    // 2. Set Version = 0
+    payload.Version = 0;
+    
+    // 3. Thêm AttributeLines
+    payload.AttributeLines = attributeLines;
+    
+    // 4. Thay thế ProductVariants
+    payload.ProductVariants = variants;
+    
+    // 5. Thêm các mảng bắt buộc
+    payload.Items = [];
+    
+    payload.UOMLines = [{
+        Id: 109326,
+        ProductTmplId: payload.Id,
+        ProductTmplListPrice: null,
+        UOMId: 1,
+        TemplateUOMFactor: 0,
+        ListPrice: payload.ListPrice,
+        Barcode: "",
+        Price: null,
+        ProductId: 0,
+        UOMName: null,
+        NameGet: null,
+        Factor: 0,
+        UOM: payload.UOM
+    }];
+    
+    payload.ComboProducts = [];
+    payload.ProductSupplierInfos = [];
+    
+    return payload;
+}</code></pre>
+
+            <h2 id="section6">6. BƯỚC 5: POST PAYLOAD</h2>
+
+            <pre><code>async function postPayload(payload) {
+    const url = 'https://tomato.tpos.vn/odata/ProductTemplate/ODataService.UpdateV2';
+    
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(payload)
+    });
+    
+    const result = await response.json();
+    return result;
+}</code></pre>
+
+            <h2 id="section7">7. FLOW TỔNG THỂ</h2>
+
+            <pre><code>async function mainFlow(tpos_product_id, selectedAttributes) {
+    try {
+        // Bước 1: GET Product
+        const originalProduct = await getProduct(tpos_product_id);
+        console.log('Original Product:', originalProduct);
+        
+        // Bước 2: Tạo AttributeLines
+        const attributeLines = createAttributeLines(selectedAttributes);
+        console.log('AttributeLines:', attributeLines);
+        
+        // Bước 3: Tạo Variants
+        const variants = generateVariants(originalProduct, attributeLines);
+        console.log('Generated Variants:', variants);
+        
+        // Bước 4: Tạo Payload
+        const payload = createPayload(originalProduct, attributeLines, variants);
+        console.log('Final Payload:', payload);
+        
+        // Bước 5: POST
+        const result = await postPayload(payload);
+        console.log('POST Result:', result);
+        
+        return result;
+        
+    } catch (error) {
+        console.error('Error:', error);
+        throw error;
+    }
+}</code></pre>
+
+            <h3>Cách sử dụng</h3>
+            <pre><code>const tpos_product_id = 107812;
+const selectedAttributes = {
+    sizeText: [
+        {Id: 2, Name: "M", Code: "M", AttributeId: 1, AttributeName: "Size Chữ"},
+        {Id: 3, Name: "L", Code: "L", AttributeId: 1, AttributeName: "Size Chữ"}
+    ],
+    color: [
+        {Id: 7, Name: "Đen", Code: "den", AttributeId: 3, AttributeName: "Màu"},
+        {Id: 6, Name: "Trắng", Code: "trang", AttributeId: 3, AttributeName: "Màu"}
+    ]
+};
+
+mainFlow(tpos_product_id, selectedAttributes);</code></pre>
+
+            <h2 id="section8">8. ĐIỂM QUAN TRỌNG CẦN LƯU Ý</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Yêu cầu</th>
+                        <th>Chi tiết</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Headers đầy đủ</td>
+                        <td>
+                            Đặc biệt là <code>authorization</code>,
+                            <code>x-request-id</code>,
+                            <code>tposappversion</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Version = 0</td>
+                        <td>Luôn set Version thành 0 trong payload POST</td>
+                    </tr>
+                    <tr>
+                        <td>Xóa @odata.context</td>
+                        <td>Không được có trong payload POST</td>
+                    </tr>
+                    <tr>
+                        <td>Active = false</td>
+                        <td>
+                            Tất cả variant cũ (Id > 0) phải đánh dấu inactive
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Id = 0</td>
+                        <td>Variant mới luôn có Id = 0</td>
+                    </tr>
+                    <tr>
+                        <td>Cartesian Product</td>
+                        <td>Tạo tất cả tổ hợp attributes, không bỏ sót</td>
+                    </tr>
+                    <tr>
+                        <td>AttributeValues</td>
+                        <td>Trong variant phải khớp với attributes đã chọn</td>
+                    </tr>
+                    <tr>
+                        <td>UOMLines</td>
+                        <td>Phải có ít nhất 1 item với UOM object đầy đủ</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="warning">
+                <strong>Cảnh báo:</strong>
+                <ul>
+                    <li>
+                        Token có thời hạn (exp: 1760701849 ≈ Oct 2025). Cần cập
+                        nhật khi hết hạn
+                    </li>
+                    <li>
+                        x-request-id phải unique mỗi request (dùng
+                        generateRandomId())
+                    </li>
+                    <li>
+                        Không được thiếu bất kỳ field nào trong variant object
+                    </li>
+                    <li>
+                        Phải xóa UOM, Categ, UOMPO, POSCateg trong variant cũ
+                        trước khi đánh inactive
+                    </li>
+                </ul>
+            </div>
+
+            <h3>Ví dụ kết quả</h3>
+            <div class="success">
+                <strong>Input:</strong> Size M, L và Màu Đen, Trắng<br /><br />
+                <strong>Output:</strong> 5 variants
+                <ul>
+                    <li>✅ TEST (M, Đen) - Active: true</li>
+                    <li>✅ TEST (M, Trắng) - Active: true</li>
+                    <li>✅ TEST (L, Đen) - Active: true</li>
+                    <li>✅ TEST (L, Trắng) - Active: true</li>
+                    <li>❌ TEST (variant cũ) - Active: false</li>
+                </ul>
+            </div>
+
+            <h3>Cấu trúc thư mục đề xuất</h3>
+            <pre><code>project/
+├── index.html          # Giao diện
+├── api.js             # Các function GET/POST
+├── attributes.js      # Kho attributes data
+├── variants.js        # Logic tạo variants
+└── utils.js           # Helper functions (generateRandomId, getHeaders)</code></pre>
+
+            <div class="note">
+                <strong>Ghi chú cuối:</strong> Tài liệu này cung cấp đầy đủ
+                logic và code để implement Product Attribute Manager. Developer
+                có thể tạo giao diện tùy ý (web, mobile, desktop) dựa trên các
+                function core đã mô tả.
+            </div>
+        </div>
+    </body>
+</html>
