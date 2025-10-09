@@ -432,6 +432,17 @@
                 padding: 5px 12px;
                 border-radius: 20px;
                 font-size: 12px;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+
+            .auto-refresh-badge:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+            .auto-refresh-badge.paused .pulse-dot {
+                background: #ef4444;
+                animation: none;
             }
 
             .pulse-dot {
@@ -531,9 +542,13 @@
                 <div class="modal-header">
                     <div>
                         <h2 id="modalTitle">💬 Comments</h2>
-                        <div class="auto-refresh-badge">
+                        <div
+                            class="auto-refresh-badge"
+                            id="autoRefreshBadge"
+                            onclick="toggleAutoRefresh()"
+                        >
                             <div class="pulse-dot"></div>
-                            <span>Auto-refresh</span>
+                            <span id="refreshStatus">Auto 10s</span>
                         </div>
                     </div>
                     <button class="close-modal" onclick="closeComments()">
@@ -563,6 +578,7 @@
             let currentVideoTitle = null;
             let previousCommentIds = new Set();
             let newCommentsCount = 0;
+            let isPaused = false;
 
             async function loadVideos() {
                 const pageId =
@@ -732,9 +748,18 @@
 
                 loadComments();
 
-                // Auto-refresh every 5 seconds
+                // Auto-refresh every 10 seconds (tăng từ 5s → 10s để giảm spam)
                 if (refreshInterval) clearInterval(refreshInterval);
-                refreshInterval = setInterval(loadComments, 5000);
+                refreshInterval = setInterval(() => {
+                    // Chỉ refresh nếu: tab active + modal mở + KHÔNG bị pause
+                    if (
+                        !document.hidden &&
+                        modal.classList.contains("show") &&
+                        !isPaused
+                    ) {
+                        loadComments();
+                    }
+                }, 10000); // 10 giây thay vì 5 giây
             }
 
             // Close comments modal
@@ -751,9 +776,29 @@
                 currentVideoTitle = null;
                 previousCommentIds.clear();
                 newCommentsCount = 0;
+                isPaused = false;
 
                 const badge = document.getElementById("newCommentsBadge");
                 badge.style.display = "none";
+            }
+
+            // Toggle auto-refresh
+            function toggleAutoRefresh() {
+                isPaused = !isPaused;
+                const badge = document.getElementById("autoRefreshBadge");
+                const status = document.getElementById("refreshStatus");
+
+                if (isPaused) {
+                    badge.classList.add("paused");
+                    status.textContent = "⏸️ Paused";
+                    console.log("⏸️ Auto-refresh paused by user");
+                } else {
+                    badge.classList.remove("paused");
+                    status.textContent = "Auto 10s";
+                    console.log("▶️ Auto-refresh resumed by user");
+                    // Load ngay khi resume
+                    loadComments();
+                }
             }
 
             // Load comments
@@ -864,6 +909,24 @@
                         closeComments();
                     }
                 });
+
+            // Pause refresh when tab is hidden (giảm spam)
+            document.addEventListener("visibilitychange", function () {
+                if (document.hidden) {
+                    console.log("⏸️ Tab hidden - Paused auto-refresh");
+                } else {
+                    console.log("▶️ Tab visible - Resumed auto-refresh");
+                    // Load ngay khi tab active trở lại
+                    if (
+                        currentPostId &&
+                        document
+                            .getElementById("commentsModal")
+                            .classList.contains("show")
+                    ) {
+                        loadComments();
+                    }
+                }
+            });
         </script>
     </body>
 </html>
