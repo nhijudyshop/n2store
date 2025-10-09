@@ -162,7 +162,23 @@
                 width: 100%;
                 height: 180px;
                 object-fit: cover;
-                background: #e5e7eb;
+                background: linear-gradient(135deg, #f0f0f0 0%, #e5e7eb 100%);
+                transition: opacity 0.3s ease;
+            }
+
+            .video-thumbnail.loading {
+                opacity: 0.6;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 0.6;
+                }
+                50% {
+                    opacity: 0.8;
+                }
             }
 
             .video-info {
@@ -394,6 +410,10 @@
             function displayVideos(videos) {
                 const container = document.getElementById("videoContainer");
 
+                // SVG placeholder base64 - không cần external request
+                const placeholderSVG =
+                    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iI2U1ZTdlYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM2YjcyODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7wn5OHIEtow7RuZyBjw7MgYeG6o25oPC90ZXh0Pjwvc3ZnPg==";
+
                 const html = `
                 <div class="video-grid">
                     ${videos
@@ -401,10 +421,12 @@
                             (video) => `
                         <div class="video-card">
                             <img 
-                                src="${video.picture || "https://via.placeholder.com/300x180?text=No+Image"}" 
+                                src="${video.picture || placeholderSVG}" 
                                 alt="${video.title || "No title"}"
                                 class="video-thumbnail"
-                                onerror="this.src='https://via.placeholder.com/300x180?text=No+Image'"
+                                onerror="if(this.src!=='${placeholderSVG}')this.src='${placeholderSVG}'"
+                                onload="this.classList.remove('loading')"
+                                loading="lazy"
                             />
                             <div class="video-info">
                                 <div class="video-title">${video.title || video.description || "Không có tiêu đề"}</div>
