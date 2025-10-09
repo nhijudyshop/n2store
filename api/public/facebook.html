@@ -151,11 +151,13 @@
                 border-radius: 12px;
                 overflow: hidden;
                 transition: all 0.3s;
+                cursor: pointer;
             }
 
             .video-card:hover {
                 transform: translateY(-4px);
                 box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+                border-color: #1877f2;
             }
 
             .video-thumbnail {
@@ -268,6 +270,202 @@
                     grid-template-columns: 1fr;
                 }
             }
+
+            /* Comments Modal */
+            .modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                z-index: 1000;
+                overflow-y: auto;
+            }
+
+            .modal.show {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+
+            .modal-content {
+                background: white;
+                border-radius: 15px;
+                max-width: 800px;
+                width: 100%;
+                max-height: 90vh;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .modal-header {
+                background: linear-gradient(135deg, #1877f2 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .modal-header h2 {
+                font-size: 18px;
+                margin: 0;
+            }
+
+            .close-modal {
+                background: rgba(255, 255, 255, 0.2);
+                border: none;
+                color: white;
+                font-size: 24px;
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+
+            .close-modal:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+            .comments-container {
+                padding: 20px;
+                overflow-y: auto;
+                flex: 1;
+            }
+
+            .comment-item {
+                display: flex;
+                gap: 12px;
+                padding: 15px;
+                border-bottom: 1px solid #e5e7eb;
+                transition: all 0.3s;
+            }
+
+            .comment-item:hover {
+                background: #f9fafb;
+            }
+
+            .comment-item.new-comment {
+                background: #dbeafe;
+                border-left: 4px solid #1877f2;
+                animation: slideIn 0.5s ease-out;
+            }
+
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+
+            .comment-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #1877f2, #764ba2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: 700;
+                flex-shrink: 0;
+            }
+
+            .comment-content {
+                flex: 1;
+            }
+
+            .comment-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: start;
+                margin-bottom: 5px;
+            }
+
+            .comment-author {
+                font-weight: 600;
+                color: #333;
+                font-size: 15px;
+            }
+
+            .comment-number {
+                background: #e5e7eb;
+                color: #6b7280;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .comment-message {
+                color: #4b5563;
+                line-height: 1.5;
+                margin-bottom: 5px;
+                word-wrap: break-word;
+            }
+
+            .comment-time {
+                color: #9ca3af;
+                font-size: 12px;
+            }
+
+            .loading-comments {
+                text-align: center;
+                padding: 40px;
+                color: #6b7280;
+            }
+
+            .auto-refresh-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                background: rgba(255, 255, 255, 0.2);
+                padding: 5px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+            }
+
+            .pulse-dot {
+                width: 8px;
+                height: 8px;
+                background: #10b981;
+                border-radius: 50%;
+                animation: pulse 2s ease-in-out infinite;
+            }
+
+            .new-comments-badge {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: #10b981;
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+                animation: bounce 0.5s ease-out;
+                z-index: 10;
+            }
+
+            @keyframes bounce {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.1);
+                }
+            }
         </style>
     </head>
     <body>
@@ -327,7 +525,45 @@
             </div>
         </div>
 
+        <!-- Comments Modal -->
+        <div id="commentsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 id="modalTitle">💬 Comments</h2>
+                        <div class="auto-refresh-badge">
+                            <div class="pulse-dot"></div>
+                            <span>Auto-refresh</span>
+                        </div>
+                    </div>
+                    <button class="close-modal" onclick="closeComments()">
+                        ×
+                    </button>
+                </div>
+                <div class="comments-container" id="commentsContainer">
+                    <div class="loading-comments">
+                        <div
+                            class="spinner"
+                            style="margin: 0 auto 10px; display: inline-block"
+                        ></div>
+                        <p>Đang tải comments...</p>
+                    </div>
+                </div>
+                <div
+                    id="newCommentsBadge"
+                    class="new-comments-badge"
+                    style="display: none"
+                ></div>
+            </div>
+        </div>
+
         <script>
+            let refreshInterval = null;
+            let currentPostId = null;
+            let currentVideoTitle = null;
+            let previousCommentIds = new Set();
+            let newCommentsCount = 0;
+
             async function loadVideos() {
                 const pageId =
                     document.getElementById("pageId").value ||
@@ -435,7 +671,7 @@
                     ${videos
                         .map(
                             (video) => `
-                        <div class="video-card">
+                        <div class="video-card" onclick="showComments('${video.objectId}', '${escapeHtml(video.title)}')">
                             <img 
                                 src="${video.thumbnail?.url || placeholderSVG}" 
                                 alt="${video.title || "No title"}"
@@ -453,17 +689,6 @@
                                 <div class="video-meta">
                                     📅 ${video.channelCreatedTime ? new Date(video.channelCreatedTime).toLocaleString("vi-VN") : "N/A"}
                                 </div>
-                                ${
-                                    video.objectId
-                                        ? `
-                                    <div class="video-meta">
-                                        <a href="https://www.facebook.com/${video.objectId}" target="_blank" style="color: #1877f2; text-decoration: none; font-weight: 600;">
-                                            🎬 Xem trên Facebook
-                                        </a>
-                                    </div>
-                                `
-                                        : ""
-                                }
                                 <span class="video-status ${video.statusLive === 1 ? "status-live" : "status-ended"}">
                                     ${video.statusLive === 1 ? "🔴 ĐANG LIVE" : "⚫ Đã kết thúc"}
                                 </span>
@@ -482,6 +707,163 @@
             window.onload = () => {
                 loadVideos();
             };
+
+            // Helper function to escape HTML
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML.replace(/'/g, "&#39;");
+            }
+
+            // Show comments modal
+            function showComments(postId, title) {
+                currentPostId = postId;
+                currentVideoTitle = title;
+                previousCommentIds.clear();
+                newCommentsCount = 0;
+
+                const modal = document.getElementById("commentsModal");
+                const modalTitle = document.getElementById("modalTitle");
+                const badge = document.getElementById("newCommentsBadge");
+
+                modalTitle.textContent = `💬 ${title}`;
+                modal.classList.add("show");
+                badge.style.display = "none";
+
+                loadComments();
+
+                // Auto-refresh every 5 seconds
+                if (refreshInterval) clearInterval(refreshInterval);
+                refreshInterval = setInterval(loadComments, 5000);
+            }
+
+            // Close comments modal
+            function closeComments() {
+                const modal = document.getElementById("commentsModal");
+                modal.classList.remove("show");
+
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+
+                currentPostId = null;
+                currentVideoTitle = null;
+                previousCommentIds.clear();
+                newCommentsCount = 0;
+
+                const badge = document.getElementById("newCommentsBadge");
+                badge.style.display = "none";
+            }
+
+            // Load comments
+            async function loadComments() {
+                if (!currentPostId) return;
+
+                const container = document.getElementById("commentsContainer");
+
+                try {
+                    const pageId =
+                        document.getElementById("pageId").value ||
+                        "117267091364524";
+                    const response = await fetch(
+                        `/facebook/comments?pageid=${pageId}&postId=${currentPostId}&limit=50`,
+                    );
+                    const result = await response.json();
+
+                    if (result.success && result.data?.data) {
+                        displayComments(result.data.data);
+                    } else {
+                        container.innerHTML =
+                            '<div class="loading-comments"><p>Không có comment nào</p></div>';
+                    }
+                } catch (error) {
+                    console.error("Error loading comments:", error);
+                    container.innerHTML = `<div class="loading-comments"><p>❌ Lỗi: ${error.message}</p></div>`;
+                }
+            }
+
+            // Display comments
+            function displayComments(comments) {
+                const container = document.getElementById("commentsContainer");
+                const badge = document.getElementById("newCommentsBadge");
+
+                if (comments.length === 0) {
+                    container.innerHTML =
+                        '<div class="loading-comments"><p>Chưa có comment nào</p></div>';
+                    return;
+                }
+
+                // Detect new comments
+                const currentCommentIds = new Set(comments.map((c) => c.id));
+                const newComments = new Set();
+
+                if (previousCommentIds.size > 0) {
+                    currentCommentIds.forEach((id) => {
+                        if (!previousCommentIds.has(id)) {
+                            newComments.add(id);
+                            newCommentsCount++;
+                        }
+                    });
+
+                    // Show badge if there are new comments
+                    if (newComments.size > 0) {
+                        badge.textContent = `🔔 ${newComments.size} comment mới!`;
+                        badge.style.display = "block";
+
+                        // Hide badge after 3 seconds
+                        setTimeout(() => {
+                            badge.style.display = "none";
+                        }, 3000);
+                    }
+                }
+
+                // Update previous comment IDs
+                previousCommentIds = currentCommentIds;
+
+                const html = comments
+                    .map((comment, index) => {
+                        const initial = comment.from?.name?.charAt(0) || "?";
+                        const time = new Date(
+                            comment.created_time,
+                        ).toLocaleString("vi-VN");
+                        const isNew = newComments.has(comment.id);
+
+                        return `
+                    <div class="comment-item ${isNew ? "new-comment" : ""}">
+                        <div class="comment-avatar">${initial}</div>
+                        <div class="comment-content">
+                            <div class="comment-header">
+                                <div class="comment-author">
+                                    ${comment.from?.name || "Unknown"}
+                                    ${isNew ? '<span style="color: #10b981; font-size: 12px; margin-left: 5px;">✨ MỚI</span>' : ""}
+                                </div>
+                                <div class="comment-number">#${index + 1}</div>
+                            </div>
+                            <div class="comment-message">${comment.message || ""}</div>
+                            <div class="comment-time">📅 ${time}</div>
+                        </div>
+                    </div>
+                `;
+                    })
+                    .join("");
+
+                container.innerHTML = html;
+
+                // Scroll to top if there are new comments
+                if (newComments.size > 0) {
+                    container.scrollTop = 0;
+                }
+            }
+
+            // Close modal when clicking outside
+            document
+                .getElementById("commentsModal")
+                .addEventListener("click", function (e) {
+                    if (e.target === this) {
+                        closeComments();
+                    }
+                });
         </script>
     </body>
 </html>

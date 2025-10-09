@@ -68,4 +68,57 @@ router.get("/facebook/health", (req, res) => {
     });
 });
 
+/**
+ * GET /facebook/comments - Lấy comments của một video
+ * Query params:
+ * - pageid: Facebook Page ID
+ * - postId: Post ID (objectId từ video)
+ * - limit: Số lượng comment (default: 50)
+ */
+router.get("/facebook/comments", async (req, res) => {
+    try {
+        const { pageid = "117267091364524", postId, limit = 50 } = req.query;
+
+        if (!postId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing required parameter: postId",
+            });
+        }
+
+        console.log(`📥 Fetching comments for post ${postId}...`);
+
+        const url = `https://tomato.tpos.vn/api/facebook-graph/comment?pageid=${pageid}&facebook_type=Page&postId=${postId}&limit=${limit}&order=reverse_chronological`;
+
+        const response = await fetch(url, {
+            method: "GET",
+            headers: {
+                Authorization: FACEBOOK_TOKEN,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Facebook API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        console.log(`✅ Retrieved ${data?.data?.length || 0} comments`);
+
+        res.json({
+            success: true,
+            status: response.status,
+            data: data,
+        });
+    } catch (error) {
+        console.error("❌ Facebook Comments API error:", error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
+});
+
 module.exports = router;
