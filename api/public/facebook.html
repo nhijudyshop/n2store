@@ -361,6 +361,18 @@
                         status.textContent = `✅ Tải thành công ${videos.length} video`;
 
                         // Show stats
+                        const liveCount = videos.filter(
+                            (v) => v.statusLive === 1,
+                        ).length;
+                        const totalComments = videos.reduce(
+                            (sum, v) => sum + (v.countComment || 0),
+                            0,
+                        );
+                        const totalReactions = videos.reduce(
+                            (sum, v) => sum + (v.countReaction || 0),
+                            0,
+                        );
+
                         statsContainer.style.display = "flex";
                         statsContainer.innerHTML = `
                         <div class="stat-card">
@@ -368,12 +380,16 @@
                             <div class="stat-label">Tổng Video</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-number">${videos.filter((v) => v.status === "LIVE").length}</div>
+                            <div class="stat-number">${liveCount}</div>
                             <div class="stat-label">Đang Live</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-number">${videos.reduce((sum, v) => sum + (v.live_views || 0), 0)}</div>
-                            <div class="stat-label">Tổng Views</div>
+                            <div class="stat-number">${totalComments.toLocaleString()}</div>
+                            <div class="stat-label">Tổng Comments</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${totalReactions.toLocaleString()}</div>
+                            <div class="stat-label">Tổng Reactions</div>
                         </div>
                     `;
 
@@ -421,7 +437,7 @@
                             (video) => `
                         <div class="video-card">
                             <img 
-                                src="${video.picture || placeholderSVG}" 
+                                src="${video.thumbnail?.url || placeholderSVG}" 
                                 alt="${video.title || "No title"}"
                                 class="video-thumbnail"
                                 onerror="if(this.src!=='${placeholderSVG}')this.src='${placeholderSVG}'"
@@ -429,26 +445,27 @@
                                 loading="lazy"
                             />
                             <div class="video-info">
-                                <div class="video-title">${video.title || video.description || "Không có tiêu đề"}</div>
+                                <div class="video-title">${video.title || "Không có tiêu đề"}</div>
                                 <div class="video-meta">
-                                    👁️ ${(video.live_views || 0).toLocaleString()} views
+                                    💬 ${(video.countComment || 0).toLocaleString()} comment · 
+                                    ❤️ ${(video.countReaction || 0).toLocaleString()} reaction
                                 </div>
                                 <div class="video-meta">
-                                    📅 ${video.created_time ? new Date(video.created_time).toLocaleString("vi-VN") : "N/A"}
+                                    📅 ${video.channelCreatedTime ? new Date(video.channelCreatedTime).toLocaleString("vi-VN") : "N/A"}
                                 </div>
                                 ${
-                                    video.video
+                                    video.objectId
                                         ? `
                                     <div class="video-meta">
-                                        <a href="${video.video.source}" target="_blank" style="color: #1877f2; text-decoration: none;">
-                                            🎬 Xem video
+                                        <a href="https://www.facebook.com/${video.objectId}" target="_blank" style="color: #1877f2; text-decoration: none; font-weight: 600;">
+                                            🎬 Xem trên Facebook
                                         </a>
                                     </div>
                                 `
                                         : ""
                                 }
-                                <span class="video-status ${video.status === "LIVE" ? "status-live" : "status-ended"}">
-                                    ${video.status === "LIVE" ? "🔴 LIVE" : "⚫ Đã kết thúc"}
+                                <span class="video-status ${video.statusLive === 1 ? "status-live" : "status-ended"}">
+                                    ${video.statusLive === 1 ? "🔴 ĐANG LIVE" : "⚫ Đã kết thúc"}
                                 </span>
                             </div>
                         </div>
