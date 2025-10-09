@@ -23,12 +23,14 @@ const healthRoutes = require("./routes/health.routes");
 const uploadRoutes = require("./routes/upload.routes");
 const attributeRoutes = require("./routes/attribute.routes");
 const productsRoutes = require("./routes/products.routes");
+const facebookRoutes = require("./routes/facebook.routes");
 
 // Mount routes - QUAN TRỌNG: Phải mount tất cả
 app.use(healthRoutes);
 app.use(uploadRoutes);
 app.use(attributeRoutes);
 app.use(productsRoutes);
+app.use(facebookRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -38,6 +40,7 @@ app.get("/", (req, res) => {
         documentation: {
             guide: "/huongdan.html",
             test: "/test.html",
+            facebook: "/facebook.html",
         },
         endpoints: {
             health: "GET /health",
@@ -47,6 +50,9 @@ app.get("/", (req, res) => {
             uploadBatch: "POST /upload-batch",
             products: "GET /products?limit=10&createdBy=Tú&search=",
             productDetail: "GET /products/:id",
+            facebookLiveVideo:
+                "GET /facebook/livevideo?pageid=117267091364524&limit=10",
+            facebookHealth: "GET /facebook/health",
         },
     });
 });
