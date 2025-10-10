@@ -954,6 +954,7 @@ class MoneyTransferApp {
         });
 
         const canEditAll = this.hasPermission(1);
+        const canEditDate = this.hasPermission(3);
 
         const editFields = {
             editDate: domManager.get(SELECTORS.editDate),
@@ -989,6 +990,7 @@ class MoneyTransferApp {
 
         // Set permissions and styling
         if (canEditAll) {
+            // Full permissions - can edit everything
             editFields.editDate.disabled = false;
             editFields.editNote.disabled = false;
             editFields.editAmount.disabled = false;
@@ -1001,8 +1003,38 @@ class MoneyTransferApp {
                 field.style.color = "#495057";
                 field.style.cursor = "text";
             });
+        } else if (canEditDate) {
+            // Can edit date and customer info only
+            editFields.editDate.disabled = false;
+            editFields.editNote.disabled = true;
+            editFields.editAmount.disabled = true;
+            editFields.editBank.disabled = true;
+            editFields.editInfo.disabled = false;
+
+            // Style disabled fields
+            [
+                editFields.editNote,
+                editFields.editAmount,
+                editFields.editBank,
+            ].forEach((field) => {
+                field.style.backgroundColor = "#f8f9fa";
+                field.style.color = "#6c757d";
+                field.style.cursor = "not-allowed";
+            });
+
+            // Style enabled fields
+            [editFields.editDate, editFields.editInfo].forEach((field) => {
+                field.style.backgroundColor = "white";
+                field.style.color = "#495057";
+                field.style.cursor = "text";
+            });
+
+            this.notificationManager.info(
+                "Bạn có thể chỉnh sửa ngày và thông tin khách hàng",
+                3000,
+            );
         } else {
-            // Disable all except customer info
+            // Can only edit customer info
             editFields.editDate.disabled = true;
             editFields.editNote.disabled = true;
             editFields.editAmount.disabled = true;
@@ -1040,6 +1072,8 @@ class MoneyTransferApp {
         setTimeout(() => {
             if (canEditAll) {
                 editFields.editNote.focus();
+            } else if (canEditDate) {
+                editFields.editDate.focus();
             } else {
                 editFields.editInfo.focus();
             }
@@ -1309,6 +1343,15 @@ class MoneyTransferApp {
                 newTimestamp: newTimestamp,
             });
             editDateTimestamp = newTimestamp;
+        } else if (this.hasPermission(3) && validatedData.dateValue) {
+            // hasPermission(3) can also edit date
+            const newTimestamp = convertToTimestamp(validatedData.dateValue);
+            console.log("Date conversion (permission 3):", {
+                original: transaction.dateCell,
+                newFormatted: validatedData.dateValue,
+                newTimestamp: newTimestamp,
+            });
+            editDateTimestamp = newTimestamp;
         }
 
         // Load document from Firebase
@@ -1365,6 +1408,15 @@ class MoneyTransferApp {
                 user: userInfo,
             };
             console.log("Updated with full permissions");
+        } else if (this.hasPermission(3)) {
+            // Can edit date and customer info only
+            dataArray[itemIndex] = {
+                ...dataArray[itemIndex], // Preserve all existing fields
+                dateCell: editDateTimestamp,
+                customerInfoCell: validatedData.infoValue,
+                user: userInfo,
+            };
+            console.log("Updated with date and customer info permissions");
         } else {
             // Limited permission - only update customer info
             dataArray[itemIndex] = {
@@ -1411,7 +1463,7 @@ class MoneyTransferApp {
         console.log("Updating row display with validated data:", validatedData);
 
         if (this.hasPermission(1)) {
-            // Update all visible cells
+            // Full permissions - update all visible cells
             if (row.cells[0]) {
                 row.cells[0].textContent = validatedData.dateValue;
                 row.cells[0].id = convertToTimestamp(validatedData.dateValue);
@@ -1428,6 +1480,16 @@ class MoneyTransferApp {
                 row.cells[5].textContent = validatedData.infoValue;
 
             console.log("Updated all cells (full permission)");
+        } else if (this.hasPermission(3)) {
+            // Can edit date and customer info
+            if (row.cells[0]) {
+                row.cells[0].textContent = validatedData.dateValue;
+                row.cells[0].id = convertToTimestamp(validatedData.dateValue);
+            }
+            if (row.cells[5])
+                row.cells[5].textContent = validatedData.infoValue;
+
+            console.log("Updated date and customer info cells");
         } else {
             // Only update customer info
             if (row.cells[5])
@@ -1456,12 +1518,20 @@ class MoneyTransferApp {
         const updateItem = (item) => {
             if (item.uniqueId === uniqueId) {
                 if (this.hasPermission(1)) {
+                    // Full edit - update all fields
                     if (editDateTimestamp) item.dateCell = editDateTimestamp;
                     item.noteCell = validatedData.noteValue;
                     item.amountCell = numberWithCommas(validatedData.numAmount);
                     item.bankCell = validatedData.bankValue;
+                    item.customerInfoCell = validatedData.infoValue;
+                } else if (this.hasPermission(3)) {
+                    // Can edit date and customer info
+                    if (editDateTimestamp) item.dateCell = editDateTimestamp;
+                    item.customerInfoCell = validatedData.infoValue;
+                } else {
+                    // Only customer info
+                    item.customerInfoCell = validatedData.infoValue;
                 }
-                item.customerInfoCell = validatedData.infoValue;
 
                 console.log("Updated item in state:", {
                     uniqueId: item.uniqueId,
