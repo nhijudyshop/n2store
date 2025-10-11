@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hướng dẫn In Bill 58mm</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .method {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+
+        .method h2 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .method-number {
+            background: #667eea;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .step {
+            margin: 20px 0;
+            padding-left: 20px;
+        }
+
+        .step h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .settings-box {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .setting-item {
+            padding: 8px 0;
+            border-bottom: 1px dashed #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .setting-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .tips-section {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin-top: 30px;
+            border-radius: 8px;
+        }
+
+        .tips-section h3 {
+            color: #856404;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .tip-item {
+            padding: 8px 0;
+            color: #856404;
+        }
+
+        .tip-item::before {
+            content: "✅ ";
+            margin-right: 8px;
+        }
+
+        .warning-box {
+            background: #f8d7da;
+            border-left: 5px solid #dc3545;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            color: #721c24;
+        }
+
+        .warning-box::before {
+            content: "⚠️ ";
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        .keyboard-shortcut {
+            background: #333;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            display: inline-block;
+            margin: 0 3px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        li::before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .print-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            margin: 30px auto;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s;
+        }
+
+        .print-button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+            .print-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖨️ Hướng Dẫn In Bill 58mm</h1>
+            <p>Cài đặt máy in chi tiết từng bước</p>
+        </div>
+
+        <div class="content">
+            <!-- Phương pháp 1 -->
+            <div class="method">
+                <h2>
+                    <span class="method-number">1</span>
+                    In trực tiếp từ trình duyệt
+                </h2>
+
+                <div class="step">
+                    <h3>📌 Bước 1: Mở bill và nhấn phím tắt in</h3>
+                    <p>
+                        Windows: <span class="keyboard-shortcut">Ctrl</span> + <span class="keyboard-shortcut">P</span>
+                    </p>
+                    <p>
+                        Mac: <span class="keyboard-shortcut">Cmd</span> + <span class="keyboard-shortcut">P</span>
+                    </p>
+                </div>
+
+                <div class="step">
+                    <h3>⚙️ Bước 2: Cài đặt trong hộp thoại Print</h3>
+                    <div class="settings-box">
+                        <div class="setting-item">
+                            <span class="setting-label">📄 Khổ giấy (Paper Size)</span>
+                            <span class="setting-value">Tùy chỉnh / Custom</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">↔️ Chiều rộng (Width)</span>
+                            <span class="setting-value">58mm</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">↕️ Chiều cao (Height)</span>
+                            <span class="setting-value">Auto hoặc 297mm</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">📐 Lề trang (Margins)</span>
+                            <span class="setting-value">None / Không có</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">🔍 Tỷ lệ (Scale)</span>
+                            <span class="setting-value">100%</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">📋 Headers & Footers</span>
+                            <span class="setting-value">Tắt / OFF</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">🎨 Background Graphics</span>
+                            <span class="setting-value">Tắt / OFF</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <h3>✅ Bước 3: Nhấn Print</h3>
+                    <p>Kiểm tra preview trước khi in. Nếu OK → Nhấn nút Print!</p>
+                </div>
+            </div>
+
+            <!-- Phương pháp 2 -->
+            <div class="method">
+                <h2>
+                    <span class="method-number">2</span>
+                    Cài đặt cho máy in nhiệt POS
+                </h2>
+
+                <div class="step">
+                    <h3>🖨️ Bước 1: Vào cài đặt máy in</h3>
+                    <ul>
+                        <li>Windows: Settings → Devices → Printers & Scanners</li>
+                        <li>Mac: System Preferences → Printers & Scanners</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <h3>⚙️ Bước 2: Chọn máy in và Preferences</h3>
+                    <p>Tìm máy in nhiệt của bạn → Nhấn "Printing Preferences" hoặc "Properties"</p>
+                </div>
+
+                <div class="step">
+                    <h3>📋 Bước 3: Cấu hình chi tiết</h3>
+                    <div class="settings-box">
+                        <div class="setting-item">
+                            <span class="setting-label">📄 Paper Size</span>
+                            <span class="setting-value">58mm (hoặc 58 x 297mm)</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">📜 Paper Type</span>
+                            <span class="setting-value">Receipt Paper / Thermal Paper</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">🎨 Print Quality</span>
+                            <span class="setting-value">Normal / Standard</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">⚡ Speed</span>
+                            <span class="setting-value">Medium</span>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">🔥 Darkness/Heat</span>
+                            <span class="setting-value">Medium (điều chỉnh theo máy)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <h3>🌐 Bước 4: In từ trình duyệt</h3>
+                    <ul>
+                        <li>Mở bill → Nhấn Ctrl+P / Cmd+P</li>
+                        <li>Chọn máy in nhiệt đã cài đặt</li>
+                        <li>More settings → Paper size: 58mm</li>
+                        <li>Margins: None</li>
+                        <li>Print!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Phương pháp 3 -->
+            <div class="method">
+                <h2>
+                    <span class="method-number">3</span>
+                    In thử nghiệm (Test Print)
+                </h2>
+
+                <div class="step">
+                    <h3>📄 Phương pháp an toàn:</h3>
+                    <ul>
+                        <li>Bước 1: Mở bill → Nhấn Ctrl+P</li>
+                        <li>Bước 2: Chọn "Save as PDF" thay vì máy in</li>
+                        <li>Bước 3: Cài đặt khổ 58mm như trên</li>
+                        <li>Bước 4: Save PDF và xem trước</li>
+                        <li>Bước 5: Nếu OK → In thật từ file PDF</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <strong>Lưu ý:</strong> Luôn in thử 1 tờ trước khi in hàng loạt để tránh lãng phí giấy!
+                </div>
+            </div>
+
+            <!-- Tips Section -->
+            <div class="tips-section">
+                <h3>💡 Tips Quan Trọng</h3>
+                <div class="tip-item">Đảm bảo máy in hỗ trợ khổ giấy 58mm</div>
+                <div class="tip-item">Sử dụng đúng loại giấy nhiệt 58mm chất lượng tốt</div>
+                <div class="tip-item">Kiểm tra độ sẫm/nhạt của in - điều chỉnh heat setting nếu cần</div>
+                <div class="tip-item">Làm sạch đầu in nhiệt định kỳ để chất lượng in tốt nhất</div>
+                <div class="tip-item">In thử 1-2 tờ trước khi in hàng loạt</div>
+                <div class="tip-item">Lưu cài đặt làm mặc định để lần sau không phải cài lại</div>
+                <div class="tip-item">Nếu chữ bị cắt → Kiểm tra lại margin và paper size</div>
+                <div class="tip-item">Nếu in quá nhạt → Tăng darkness/heat setting</div>
+            </div>
+
+            <button class="print-button" onclick="window.print()">
+                🖨️ In Hướng Dẫn Này
+            </button>
+        </div>
+    </div>
+</body>
+</html>
