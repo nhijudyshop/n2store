@@ -168,6 +168,107 @@
                     </div>
                 </div>
             </div>
+
+            <!-- API Headers Configuration -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        🔧 Cấu hình Headers API
+                    </h2>
+                    <button onclick="toggleHeaders()" class="text-blue-500 hover:text-blue-600 font-medium">
+                        <span id="toggleText">Hiện</span> ▼
+                    </button>
+                </div>
+                
+                <div id="headersSection" class="hidden space-y-4">
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                        <p class="text-sm text-yellow-800">
+                            ⚠️ <strong>Quan trọng:</strong> Authorization token sẽ hết hạn sau một thời gian. Nếu gặp lỗi 401, cần lấy token mới từ hệ thống.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Authorization Token
+                            </label>
+                            <textarea id="authToken" rows="3" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-xs"
+                                      placeholder="Bearer eyJhbGci..."></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                x-request-id (GUID)
+                                <button onclick="generateNewGUID()" class="ml-2 text-blue-500 hover:text-blue-600 text-xs">
+                                    🔄 Tạo mới
+                                </button>
+                            </label>
+                            <input type="text" id="requestId" readonly
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+                                   placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Content-Type
+                            </label>
+                            <input type="text" id="contentType" 
+                                   value="application/json;charset=UTF-8"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                tposappversion
+                            </label>
+                            <input type="text" id="appVersion" 
+                                   value="5.9.10.1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Accept-Language
+                            </label>
+                            <input type="text" id="acceptLanguage" 
+                                   value="vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                User-Agent
+                            </label>
+                            <input type="text" id="userAgent" 
+                                   value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="saveHeaders()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            💾 Lưu cấu hình
+                        </button>
+                        <button onclick="loadDefaultHeaders()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            🔄 Khôi phục mặc định
+                        </button>
+                        <button onclick="copyHeaders()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            📋 Copy Headers
+                        </button>
+                    </div>
+
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <h4 class="font-semibold text-gray-700 mb-2">📝 Hướng dẫn lấy token:</h4>
+                        <ol class="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+                            <li>Đăng nhập vào <a href="https://tomato.tpos.vn" target="_blank" class="text-blue-500 hover:underline">tomato.tpos.vn</a></li>
+                            <li>Mở Developer Tools (F12) → Tab Network</li>
+                            <li>Tìm request bất kỳ → Headers → Copy giá trị "authorization"</li>
+                            <li>Paste vào ô Authorization Token ở trên</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -188,7 +289,114 @@
         document.getElementById('startDate').value = twoDaysAgo.toISOString().split('T')[0];
         document.getElementById('endDate').value = today.toISOString().split('T')[0];
 
-        // Helper functions
+        // ========== GUID GENERATION FUNCTIONS ==========
+        
+        /**
+         * Tạo GUID/UUID ngẫu nhiên giống {{$guid}} trong Postman
+         * Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+         */
+        function generateGUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0;
+                var v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        /**
+         * Tạo GUID mới và hiển thị trong input
+         */
+        function generateNewGUID() {
+            const guid = generateGUID();
+            document.getElementById('requestId').value = guid;
+            showMessage('success', 'Đã tạo GUID mới: ' + guid);
+        }
+
+        /**
+         * Lấy headers để sử dụng trong API calls
+         */
+        function getHeaders() {
+            return {
+                'accept': 'application/json, text/plain, */*',
+                'authorization': document.getElementById('authToken').value.trim() || 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1ZjY1NjQwMy01NjdmLTRmYzAtYjYxNy0yODJhYzgxZGY1ZWQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjBiZmQwYTIyLWY0NmUtNDNkZS1iMmJhLTZhZjRlMWMyY2ZjYyIsImlhdCI6IjE3NTk3MjE0NjciLCJuYmYiOjE3NTk3MjE0NjcsImV4cCI6MTc2MTAxNzQ2NywiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.618RIQqBAamtvWgPUwP6xuNjzB8nw9eI-Vh8fhrVbds',
+                'accept-language': document.getElementById('acceptLanguage').value,
+                'content-type': document.getElementById('contentType').value,
+                'origin': 'https://tomato.tpos.vn',
+                'referer': 'https://tomato.tpos.vn/',
+                'tposappversion': document.getElementById('appVersion').value,
+                'user-agent': document.getElementById('userAgent').value,
+                'x-request-id': document.getElementById('requestId').value
+            };
+        }
+
+        /**
+         * Toggle hiển thị headers section
+         */
+        function toggleHeaders() {
+            const section = document.getElementById('headersSection');
+            const toggleText = document.getElementById('toggleText');
+            if (section.classList.contains('hidden')) {
+                section.classList.remove('hidden');
+                toggleText.textContent = 'Ẩn';
+            } else {
+                section.classList.add('hidden');
+                toggleText.textContent = 'Hiện';
+            }
+        }
+
+        /**
+         * Lưu headers vào localStorage
+         */
+        function saveHeaders() {
+            const headers = {
+                authToken: document.getElementById('authToken').value,
+                requestId: document.getElementById('requestId').value,
+                contentType: document.getElementById('contentType').value,
+                appVersion: document.getElementById('appVersion').value,
+                acceptLanguage: document.getElementById('acceptLanguage').value,
+                userAgent: document.getElementById('userAgent').value
+            };
+            
+            // Note: localStorage không hoạt động trong artifacts, nhưng sẽ hoạt động khi download file
+            try {
+                localStorage.setItem('tposHeaders', JSON.stringify(headers));
+                showMessage('success', 'Đã lưu cấu hình headers');
+            } catch (e) {
+                showMessage('success', 'Đã áp dụng cấu hình headers (lưu vào localStorage không khả dụng trong môi trường này)');
+            }
+        }
+
+        /**
+         * Load headers mặc định
+         */
+        function loadDefaultHeaders() {
+            document.getElementById('authToken').value = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1ZjY1NjQwMy01NjdmLTRmYzAtYjYxNy0yODJhYzgxZGY1ZWQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjBiZmQwYTIyLWY0NmUtNDNkZS1iMmJhLTZhZjRlMWMyY2ZjYyIsImlhdCI6IjE3NTk3MjE0NjciLCJuYmYiOjE3NTk3MjE0NjcsImV4cCI6MTc2MTAxNzQ2NywiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.618RIQqBAamtvWgPUwP6xuNjzB8nw9eI-Vh8fhrVbds';
+            document.getElementById('contentType').value = 'application/json;charset=UTF-8';
+            document.getElementById('appVersion').value = '5.9.10.1';
+            document.getElementById('acceptLanguage').value = 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7';
+            document.getElementById('userAgent').value = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+            generateNewGUID();
+            showMessage('success', 'Đã khôi phục cấu hình mặc định');
+        }
+
+        /**
+         * Copy headers ra clipboard
+         */
+        function copyHeaders() {
+            const headers = getHeaders();
+            const headersText = Object.entries(headers)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join('\n');
+            
+            navigator.clipboard.writeText(headersText).then(() => {
+                showMessage('success', 'Đã copy headers vào clipboard');
+            }).catch(() => {
+                showMessage('error', 'Không thể copy. Hãy copy thủ công.');
+            });
+        }
+
+        // ========== HELPER FUNCTIONS ==========
+        
         function showMessage(type, text) {
             const alert = document.getElementById('messageAlert');
             alert.className = `mb-6 p-4 rounded-lg flex items-center gap-3 fade-in ${
@@ -256,6 +464,8 @@
             }
         }
 
+        // ========== API CALLS ==========
+
         // Step 1: Fetch Orders
         async function fetchOrders() {
             const btn = document.getElementById('btnFetchOrders');
@@ -272,7 +482,11 @@
                 
                 const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=50&$orderby=DateCreated desc&$filter=(DateCreated ge ${startDateTime} and DateCreated le ${endDateTime} and SessionIndex eq ${sessionIndex})&$count=true`;
                 
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: getHeaders()
+                });
+                
                 const data = await response.json();
                 
                 orders = data.value || [];
@@ -347,7 +561,11 @@
             try {
                 const url = `https://tomato.tpos.vn/odata/SaleOnline_Order(${selectedOrder.Id})?$expand=Details,Partner,User,CRMTeam`;
                 
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: getHeaders()
+                });
+                
                 orderDetail = await response.json();
                 
                 document.getElementById('orderCode').textContent = orderDetail.Code;
@@ -374,7 +592,11 @@
             try {
                 const url = `https://tomato.tpos.vn/odata/Product/OdataService.GetViewV2?Active=true&Name=${encodeURIComponent(searchTerm)}`;
                 
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: getHeaders()
+                });
+                
                 const data = await response.json();
                 
                 products = data.value || [];
@@ -489,6 +711,9 @@
             btn.innerHTML = '<div class="spinner mx-auto"></div>';
             
             try {
+                // Generate new GUID for this request
+                generateNewGUID();
+                
                 const updatedOrder = {
                     ...orderDetail,
                     Details: selectedProducts
@@ -498,9 +723,7 @@
                 
                 const response = await fetch(url, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: getHeaders(),
                     body: JSON.stringify(updatedOrder)
                 });
                 
@@ -517,7 +740,10 @@
             }
         }
 
-        // Initialize
+        // ========== INITIALIZE ==========
+        
+        // Initialize with default values
+        loadDefaultHeaders();
         updateStepUI();
     </script>
 </body>
