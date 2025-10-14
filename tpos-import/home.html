@@ -413,7 +413,8 @@ x-request-id: 12345678-1234-4567..."
     };
 
     let currentAttributeLines = [];
-    let imageBase64 = null;
+    let imageBase64 = null; // Raw base64 để gửi lên API
+    let imagePreviewUrl = null; // Full data URL để hiển thị preview
     let currentModule = 'product';
 
     // Order module state
@@ -577,10 +578,14 @@ x-request-id: 12345678-1234-4567..."
       
       const reader = new FileReader();
       reader.onload = (e) => {
-        imageBase64 = e.target.result; // Full data URL: data:image/jpeg;base64,/9j/4AAQ...
+        const fullDataUrl = e.target.result; // Full: data:image/jpeg;base64,/9j/4AAQ...
+        
+        // ⚠️ QUAN TRỌNG: API chỉ cần raw base64, KHÔNG cần prefix "data:image/...;base64,"
+        imageBase64 = fullDataUrl.split(',')[1]; // Raw base64 để gửi lên API
+        imagePreviewUrl = fullDataUrl; // Full URL để hiển thị preview
         
         // Show preview
-        document.getElementById('imagePreview').src = imageBase64;
+        document.getElementById('imagePreview').src = imagePreviewUrl;
         document.getElementById('imageUploadPlaceholder').classList.add('hidden');
         document.getElementById('imagePreviewContainer').classList.remove('hidden');
         document.getElementById('imageUpload').classList.add('border-green-500');
@@ -589,8 +594,8 @@ x-request-id: 12345678-1234-4567..."
         console.log('✅ Đã load ảnh:');
         console.log('- Loại file:', file.type);
         console.log('- Kích thước:', (file.size / 1024).toFixed(2), 'KB');
-        console.log('- Base64 length:', imageBase64.length);
-        console.log('- Base64 preview (100 ký tự đầu):', imageBase64.substring(0, 100));
+        console.log('- Raw Base64 length (sẽ gửi lên API):', imageBase64.length);
+        console.log('- Raw Base64 preview (100 ký tự đầu):', imageBase64.substring(0, 100));
         
         showMessage('success', `Đã tải ảnh thành công! (${(file.size / 1024).toFixed(2)} KB)`);
       };
@@ -604,6 +609,7 @@ x-request-id: 12345678-1234-4567..."
     function removeImage() {
       event.stopPropagation();
       imageBase64 = null;
+      imagePreviewUrl = null;
       document.getElementById('imagePreview').src = '';
       document.getElementById('imageUploadPlaceholder').classList.remove('hidden');
       document.getElementById('imagePreviewContainer').classList.add('hidden');
@@ -775,7 +781,7 @@ x-request-id: 12345678-1234-4567..."
       const payload = {
         Id: 0, Name: productName, Type: "product", ListPrice: listPrice, PurchasePrice: purchasePrice,
         DefaultCode: defaultCode, QtyAvailable: qtyAvailable, 
-        Image: imageBase64, // ✅ Truyền base64 vào đây (data:image/jpeg;base64,...)
+        Image: imageBase64, // ✅ Raw base64 string (không có prefix data:image/...;base64,)
         ImageUrl: null,
         Thumbnails: [],
         AttributeLines: attributeLines,
@@ -792,7 +798,7 @@ x-request-id: 12345678-1234-4567..."
       console.log('- DefaultCode:', payload.DefaultCode);
       console.log('- Name:', payload.Name);
       console.log('- ListPrice:', payload.ListPrice);
-      console.log('- Image có dữ liệu:', payload.Image ? 'Có (' + payload.Image.length + ' ký tự)' : 'Không có');
+      console.log('- Image (raw base64):', payload.Image ? 'Có (' + payload.Image.length + ' ký tự)' : 'Không có');
       console.log('- AttributeLines:', payload.AttributeLines.length, 'dòng');
 
       try {
