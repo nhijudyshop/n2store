@@ -1,0 +1,251 @@
+# 📖 HƯỚNG DẪN SỬ DỤNG CÔNG CỤ QUẢN Lý ĐƠN HÀNG TPOS
+
+## 🎯 Mục đích
+Công cụ này giúp bạn tìm kiếm đơn hàng và cập nhật sản phẩm trong đơn hàng trên hệ thống TPOS một cách dễ dàng.
+
+---
+
+## 📋 Các bước thực hiện
+
+### **BƯỚC 1: TÌM ĐƠN HÀNG**
+
+#### Mục đích
+Tìm kiếm các đơn hàng trong khoảng thời gian nhất định
+
+#### Các trường cần nhập
+1. **Ngày bắt đầu**: Mặc định là 2 ngày trước hôm nay
+2. **Ngày kết thúc**: Mặc định là hôm nay  
+3. **Session Index**: Mã phiên làm việc (mặc định: 60)
+
+#### Thao tác
+- Điều chỉnh ngày tháng nếu cần
+- Nhấn nút **"Tìm đơn hàng"**
+- Hệ thống sẽ gọi API:
+  ```
+  GET https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView
+  ```
+- Kết quả: Hiển thị danh sách các đơn hàng phù hợp
+
+---
+
+### **BƯỚC 2: CHỌN ĐƠN HÀNG CẦN SỬA**
+
+#### Mục đích
+Chọn đơn hàng mà bạn muốn cập nhật sản phẩm
+
+#### Thông tin hiển thị
+Mỗi đơn hàng sẽ hiển thị:
+- **Mã đơn hàng** (Code): VD: 251000340
+- **Tên khách hàng**: VD: Nhi Judy House
+- **Số điện thoại**: VD: 0764489844
+- **Tổng tiền**: VD: 440,000₫
+- **Số lượng**: VD: 2
+
+#### Thao tác
+- Click vào đơn hàng muốn chọn (sẽ sáng màu xanh)
+- Nhấn nút **"Tiếp tục"**
+- Hệ thống sẽ gọi API để lấy chi tiết:
+  ```
+  GET https://tomato.tpos.vn/odata/SaleOnline_Order({Id})?$expand=Details,Partner,User,CRMTeam
+  ```
+
+---
+
+### **BƯỚC 3: TÌM VÀ CHỌN SẢN PHẨM**
+
+#### Mục đích
+Tìm kiếm và thêm sản phẩm vào danh sách sản phẩm mới cho đơn hàng
+
+#### Cách tìm sản phẩm
+1. **Nhập từ khóa** vào ô tìm kiếm:
+   - Có thể nhập mã sản phẩm: `N55`, `N87`, `N152`
+   - Hoặc tên sản phẩm: `ÁO BALO`, `QUẦN SUÔNG`
+
+2. **Nhấn Enter** hoặc nút **"Tìm"**
+
+3. Hệ thống gọi API:
+   ```
+   GET https://tomato.tpos.vn/odata/Product/OdataService.GetViewV2?Active=true&Name={từ_khóa}
+   ```
+
+#### Thông tin sản phẩm hiển thị
+- Hình ảnh sản phẩm
+- Tên đầy đủ (VD: [N55] 0610 A3 ÁO BALO SỌC TAP X ĐEN)
+- Giá bán (VD: 220,000₫)
+
+#### Thêm sản phẩm
+- Nhấn nút **"Thêm"** bên cạnh sản phẩm
+- Sản phẩm sẽ xuất hiện trong phần "Sản phẩm đã chọn" bên dưới
+
+#### Điều chỉnh số lượng
+- Trong danh sách "Sản phẩm đã chọn", bạn có thể:
+  - Thay đổi số lượng bằng ô nhập số
+  - Xóa sản phẩm bằng nút **"Xóa"**
+
+#### Lưu ý
+- Mỗi sản phẩm chỉ được thêm 1 lần
+- Nếu muốn tăng số lượng, hãy điều chỉnh trong ô số lượng
+
+---
+
+### **BƯỚC 4: CẬP NHẬT ĐƠN HÀNG**
+
+#### Mục đích
+Lưu thay đổi và cập nhật đơn hàng lên hệ thống
+
+#### Thông tin xác nhận
+Trước khi cập nhật, kiểm tra:
+- **Mã đơn hàng**: Đảm bảo đúng đơn cần sửa
+- **Tên khách hàng**: Xác nhận đúng khách
+- **Số sản phẩm mới**: Số lượng sản phẩm bạn đã chọn
+
+#### Thao tác
+1. Kiểm tra kỹ danh sách sản phẩm đã chọn
+2. Nhấn nút **"Cập nhật đơn hàng"**
+3. Hệ thống sẽ gọi API:
+   ```
+   PUT https://tomato.tpos.vn/odata/SaleOnline_Order({Id})
+   ```
+4. Đợi thông báo thành công
+
+#### Kết quả
+- ✅ **Thành công**: "Cập nhật đơn hàng thành công!"
+- ❌ **Lỗi**: Hiển thị thông báo lỗi cụ thể
+
+---
+
+## 🔧 GIẢI THÍCH KỸ THUẬT
+
+### Cấu trúc dữ liệu sản phẩm
+Mỗi sản phẩm trong đơn hàng có cấu trúc:
+
+```javascript
+{
+  "ProductId": 128005,           // ID sản phẩm từ hệ thống
+  "ProductName": "...",           // Tên sản phẩm
+  "ProductNameGet": "[N55] ...",  // Tên hiển thị với mã
+  "UOMId": 1,                     // ID đơn vị tính
+  "UOMName": "Cái",               // Tên đơn vị tính
+  "Quantity": 1,                  // Số lượng
+  "Price": 220000,                // Giá bán
+  "Factor": 1,                    // Hệ số quy đổi
+  "ProductWeight": 0              // Trọng lượng
+}
+```
+
+### Flow hoạt động
+1. **Fetch Orders** → Lấy danh sách đơn hàng theo điều kiện lọc
+2. **Select Order** → Chọn đơn cần sửa
+3. **Fetch Details** → Lấy toàn bộ thông tin đơn hàng
+4. **Search Products** → Tìm sản phẩm muốn thêm
+5. **Build Product List** → Xây dựng danh sách sản phẩm mới
+6. **Update Order** → Gửi PUT request với dữ liệu mới
+
+### API Endpoints sử dụng
+
+| Bước | Method | Endpoint | Mục đích |
+|------|--------|----------|----------|
+| 1 | GET | `/odata/SaleOnline_Order/ODataService.GetView` | Lấy danh sách đơn hàng |
+| 2 | GET | `/odata/Product/OdataService.GetViewV2` | Tìm kiếm sản phẩm |
+| 3 | GET | `/odata/SaleOnline_Order({Id})` | Lấy chi tiết đơn hàng |
+| 4 | PUT | `/odata/SaleOnline_Order({Id})` | Cập nhật đơn hàng |
+
+---
+
+## ⚠️ LƯU Ý QUAN TRỌNG
+
+### CORS (Cross-Origin Resource Sharing)
+- Nếu gặp lỗi CORS khi chạy trên localhost, bạn cần:
+  - Sử dụng extension như "CORS Unblock"
+  - Hoặc chạy từ cùng domain với API
+  - Hoặc cấu hình CORS trên server
+
+### Xác thực (Authentication)
+- Công cụ này chưa xử lý authentication
+- Bạn cần đảm bảo:
+  - Đã đăng nhập vào hệ thống TPOS trên cùng trình duyệt
+  - Cookie/session còn hiệu lực
+  - Hoặc thêm token vào header nếu cần
+
+### Quyền truy cập
+- Tài khoản cần có quyền:
+  - Xem đơn hàng
+  - Sửa đơn hàng
+  - Truy cập API
+
+---
+
+## 🐛 XỬ LÝ LỖI THƯỜNG GẶP
+
+### Lỗi: "Network Error" hoặc "Failed to fetch"
+**Nguyên nhân**: 
+- Không kết nối được với API
+- Vấn đề CORS
+
+**Giải pháp**:
+- Kiểm tra kết nối internet
+- Bật CORS Unblock extension
+- Đảm bảo đã đăng nhập TPOS
+
+### Lỗi: "401 Unauthorized"
+**Nguyên nhân**: Chưa xác thực hoặc session hết hạn
+
+**Giải pháp**:
+- Đăng nhập lại vào TPOS
+- Refresh trang và thử lại
+
+### Lỗi: "Không tìm thấy đơn hàng"
+**Nguyên nhân**: 
+- Sai khoảng thời gian
+- Sai Session Index
+
+**Giải pháp**:
+- Điều chỉnh khoảng ngày
+- Kiểm tra lại Session Index
+
+### Lỗi: "Sản phẩm đã được thêm"
+**Nguyên nhân**: Sản phẩm đã có trong danh sách
+
+**Giải pháp**:
+- Nếu muốn tăng số lượng, điều chỉnh trong ô số lượng
+- Không cần thêm lại sản phẩm
+
+---
+
+## 💡 MẸO SỬ DỤNG
+
+1. **Tìm kiếm nhanh**: Nhập mã sản phẩm (VD: N55) sẽ nhanh hơn tên đầy đủ
+
+2. **Kiểm tra kỹ**: Luôn kiểm tra lại thông tin đơn hàng trước khi cập nhật
+
+3. **Backup dữ liệu**: Nên screenshot hoặc ghi chú thông tin đơn hàng cũ trước khi sửa
+
+4. **Số lượng**: Mặc định là 1, nhớ điều chỉnh nếu cần nhiều hơn
+
+5. **Session Index**: Mỗi phiên live có thể có Session Index khác nhau, hỏi admin nếu không chắc
+
+---
+
+## 📞 HỖ TRỢ
+
+Nếu gặp vấn đề kỹ thuật:
+- Kiểm tra console của trình duyệt (F12)
+- Xem chi tiết lỗi trong tab Network
+- Liên hệ team IT để được hỗ trợ
+
+---
+
+## 🚀 CẢI TIẾN TRONG TƯƠNG LAI
+
+Các tính năng có thể bổ sung:
+- [ ] Xử lý authentication tự động
+- [ ] Lưu lịch sử cập nhật
+- [ ] Export/Import danh sách sản phẩm
+- [ ] Cập nhật hàng loạt nhiều đơn
+- [ ] Tìm kiếm nâng cao với filter
+
+---
+
+**Phiên bản**: 1.0  
+**Ngày cập nhật**: 14/10/2025  
+**Tác giả**: Claude AI Assistant
