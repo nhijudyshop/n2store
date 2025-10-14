@@ -246,28 +246,94 @@
                         </div>
                     </div>
 
-                    <div class="flex gap-3 mt-4">
-                        <button onclick="saveHeaders()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition">
-                            💾 Lưu cấu hình
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+                        <button onclick="saveHeaders()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            💾 Lưu
                         </button>
-                        <button onclick="loadDefaultHeaders()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition">
-                            🔄 Khôi phục mặc định
+                        <button onclick="loadDefaultHeaders()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            🔄 Mặc định
                         </button>
-                        <button onclick="copyHeaders()" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition">
-                            📋 Copy Headers
+                        <button onclick="copyHeaders()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            📋 Copy
+                        </button>
+                        <button onclick="loadBrowserHeaders()" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            📱 Lấy từ Browser
+                        </button>
+                        <button onclick="showPasteModal()" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            📥 Paste Headers
                         </button>
                     </div>
 
                     <div class="mt-4 p-4 bg-gray-50 rounded-lg">
-                        <h4 class="font-semibold text-gray-700 mb-2">📝 Hướng dẫn lấy token:</h4>
-                        <ol class="text-sm text-gray-600 space-y-1 list-decimal list-inside">
-                            <li>Đăng nhập vào <a href="https://tomato.tpos.vn" target="_blank" class="text-blue-500 hover:underline">tomato.tpos.vn</a></li>
-                            <li>Mở Developer Tools (F12) → Tab Network</li>
-                            <li>Tìm request bất kỳ → Headers → Copy giá trị "authorization"</li>
-                            <li>Paste vào ô Authorization Token ở trên</li>
-                        </ol>
+                        <h4 class="font-semibold text-gray-700 mb-2">📝 3 Cách lấy headers:</h4>
+                        <div class="space-y-3 text-sm text-gray-600">
+                            <div class="border-l-4 border-purple-400 pl-3">
+                                <strong>Cách 1: Lấy từ Browser (Nhanh nhất) 📱</strong>
+                                <p class="mt-1">Click nút "📱 Lấy từ Browser" → Tự động detect User-Agent và Accept-Language của trình duyệt bạn</p>
+                            </div>
+                            <div class="border-l-4 border-orange-400 pl-3">
+                                <strong>Cách 2: Paste Raw Headers (Chính xác nhất) 📥</strong>
+                                <ol class="mt-1 list-decimal list-inside">
+                                    <li>Mở tomato.tpos.vn → F12 → Tab Network</li>
+                                    <li>Chọn request → Headers → Copy all as cURL</li>
+                                    <li>Click "📥 Paste Headers" → Paste → Áp dụng</li>
+                                </ol>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Paste Headers -->
+    <div id="pasteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">📥 Paste Raw Headers từ DevTools</h3>
+                <button onclick="closePasteModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+            </div>
+            
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                <p class="text-sm text-blue-800">
+                    <strong>Hướng dẫn:</strong>
+                </p>
+                <ol class="text-sm text-blue-700 mt-2 space-y-1 list-decimal list-inside">
+                    <li>Mở DevTools (F12) → Tab <strong>Network</strong></li>
+                    <li>Chọn một request bất kỳ đến <strong>tomato.tpos.vn</strong></li>
+                    <li>Tab <strong>Headers</strong> → Phần <strong>Request Headers</strong></li>
+                    <li>Click chuột phải → <strong>Copy all as cURL</strong> hoặc copy từng dòng</li>
+                    <li>Paste vào ô dưới (format: <code>header-name: value</code>)</li>
+                </ol>
+            </div>
+
+            <textarea id="rawHeadersInput" rows="15" 
+                      placeholder="accept: application/json, text/plain, */*
+authorization: Bearer eyJhbGci...
+content-type: application/json;charset=UTF-8
+x-request-id: 12345678-1234-4567-8901-123456789012
+user-agent: Mozilla/5.0..."
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"></textarea>
+            
+            <div class="flex gap-3 mt-4">
+                <button onclick="closePasteModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition">
+                    ❌ Hủy
+                </button>
+                <button onclick="parseAndApplyHeaders()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                    ✅ Áp dụng Headers
+                </button>
+            </div>
+
+            <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                <details>
+                    <summary class="cursor-pointer font-semibold text-gray-700">💡 Mẹo: Copy từ cURL command</summary>
+                    <div class="mt-2 text-sm text-gray-600">
+                        <p>Nếu bạn copy <strong>"Copy as cURL"</strong> từ DevTools, paste vào đây và tool sẽ tự động parse headers!</p>
+                        <pre class="bg-gray-100 p-2 rounded mt-2 text-xs overflow-x-auto">curl 'https://tomato.tpos.vn/...' \
+  -H 'authorization: Bearer ...' \
+  -H 'content-type: application/json'</pre>
+                    </div>
+                </details>
             </div>
         </div>
     </div>
@@ -395,6 +461,144 @@
             });
         }
 
+        /**
+         * Lấy headers từ trình duyệt hiện tại
+         */
+        function loadBrowserHeaders() {
+            // Detect browser info
+            const userAgent = navigator.userAgent;
+            const language = navigator.language || navigator.userLanguage;
+            
+            // Get browser name and version
+            let browserInfo = 'Chrome'; // default
+            if (userAgent.indexOf('Firefox') > -1) browserInfo = 'Firefox';
+            else if (userAgent.indexOf('Safari') > -1 && userAgent.indexOf('Chrome') === -1) browserInfo = 'Safari';
+            else if (userAgent.indexOf('Edge') > -1) browserInfo = 'Edge';
+            
+            // Update form fields
+            document.getElementById('userAgent').value = userAgent;
+            document.getElementById('acceptLanguage').value = language + ',en;q=0.9';
+            
+            // Generate new GUID
+            generateNewGUID();
+            
+            showMessage('success', `Đã load headers từ ${browserInfo}!`);
+        }
+
+        /**
+         * Hiển thị modal để paste raw headers
+         */
+        function showPasteModal() {
+            document.getElementById('pasteModal').classList.remove('hidden');
+            document.getElementById('rawHeadersInput').focus();
+        }
+
+        /**
+         * Đóng modal
+         */
+        function closePasteModal() {
+            document.getElementById('pasteModal').classList.add('hidden');
+            document.getElementById('rawHeadersInput').value = '';
+        }
+
+        /**
+         * Parse và áp dụng raw headers
+         */
+        function parseAndApplyHeaders() {
+            const rawInput = document.getElementById('rawHeadersInput').value.trim();
+            
+            if (!rawInput) {
+                showMessage('error', 'Vui lòng paste headers vào ô bên trên');
+                return;
+            }
+
+            try {
+                const headers = parseRawHeaders(rawInput);
+                
+                // Apply headers to form
+                if (headers.authorization) {
+                    document.getElementById('authToken').value = headers.authorization;
+                }
+                if (headers['x-request-id']) {
+                    document.getElementById('requestId').value = headers['x-request-id'];
+                } else {
+                    generateNewGUID(); // Generate if not provided
+                }
+                if (headers['content-type']) {
+                    document.getElementById('contentType').value = headers['content-type'];
+                }
+                if (headers['tposappversion']) {
+                    document.getElementById('appVersion').value = headers['tposappversion'];
+                }
+                if (headers['accept-language']) {
+                    document.getElementById('acceptLanguage').value = headers['accept-language'];
+                }
+                if (headers['user-agent']) {
+                    document.getElementById('userAgent').value = headers['user-agent'];
+                }
+                
+                closePasteModal();
+                showMessage('success', `Đã áp dụng ${Object.keys(headers).length} headers thành công!`);
+                
+            } catch (error) {
+                showMessage('error', 'Lỗi parse headers: ' + error.message);
+            }
+        }
+
+        /**
+         * Parse raw headers từ nhiều format khác nhau
+         */
+        function parseRawHeaders(rawText) {
+            const headers = {};
+            
+            // Check if it's cURL command
+            if (rawText.includes('curl ')) {
+                // Extract headers from cURL command
+                const headerMatches = rawText.matchAll(/-H\s+['"]([^:]+):\s*([^'"]+)['"]/g);
+                for (const match of headerMatches) {
+                    const key = match[1].toLowerCase().trim();
+                    const value = match[2].trim();
+                    headers[key] = value;
+                }
+            } else {
+                // Parse as plain headers (key: value format)
+                const lines = rawText.split('\n');
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+                    
+                    const colonIndex = trimmedLine.indexOf(':');
+                    if (colonIndex > 0) {
+                        const key = trimmedLine.substring(0, colonIndex).toLowerCase().trim();
+                        const value = trimmedLine.substring(colonIndex + 1).trim();
+                        if (key && value) {
+                            headers[key] = value;
+                        }
+                    }
+                }
+            }
+            
+            if (Object.keys(headers).length === 0) {
+                throw new Error('Không tìm thấy headers hợp lệ. Vui lòng kiểm tra format.');
+            }
+            
+            return headers;
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('pasteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePasteModal();
+            }
+        });
+
+        // ESC key to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePasteModal();
+            }
+        });
+
         // ========== HELPER FUNCTIONS ==========
         
         function showMessage(type, text) {
@@ -480,7 +684,7 @@
                 const startDateTime = formatDateForAPI(startDate);
                 const endDateTime = formatDateForAPI(endDate);
                 
-                const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=50&$orderby=DateCreated desc&$filter=(DateCreated ge ${startDateTime} and DateCreated le ${endDateTime} and SessionIndex eq ${sessionIndex})&$count=true`;
+                const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1&$orderby=DateCreated desc&$filter=(DateCreated ge ${startDateTime} and DateCreated le ${endDateTime} and SessionIndex eq ${sessionIndex})&$count=true`;
                 
                 const response = await fetch(url, {
                     method: 'GET',
