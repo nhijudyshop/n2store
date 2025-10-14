@@ -73,6 +73,13 @@
                     📅 Bước 1: Chọn khoảng thời gian
                 </h2>
                 
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                    <p class="text-sm text-blue-800">
+                        <strong>🕐 Timezone:</strong> Hệ thống sử dụng múi giờ Việt Nam (GMT+7). 
+                        Ngày bắt đầu sẽ tính từ 00:00:00, ngày kết thúc đến 23:59:59.
+                    </p>
+                </div>
+                
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Ngày bắt đầu</label>
@@ -268,15 +275,16 @@
                         <h4 class="font-semibold text-gray-700 mb-2">📝 3 Cách lấy headers:</h4>
                         <div class="space-y-3 text-sm text-gray-600">
                             <div class="border-l-4 border-purple-400 pl-3">
-                                <strong>Cách 1: Lấy từ Browser (Nhanh nhất) 📱</strong>
-                                <p class="mt-1">Click nút "📱 Lấy từ Browser" → Tự động detect User-Agent và Accept-Language của trình duyệt bạn</p>
+                                <strong>Cách 1: Lấy từ Browser (Nhanh - Giữ token) 📱</strong>
+                                <p class="mt-1">Click nút "📱 Lấy từ Browser" → Tự động lấy User-Agent và Accept-Language. <span class="font-semibold text-purple-700">Authorization Token giữ nguyên!</span></p>
                             </div>
                             <div class="border-l-4 border-orange-400 pl-3">
-                                <strong>Cách 2: Paste Raw Headers (Chính xác nhất) 📥</strong>
+                                <strong>Cách 2: Paste Raw Headers (Chính xác - Giữ token) 📥</strong>
                                 <ol class="mt-1 list-decimal list-inside">
                                     <li>Mở tomato.tpos.vn → F12 → Tab Network</li>
                                     <li>Chọn request → Headers → Copy all as cURL</li>
                                     <li>Click "📥 Paste Headers" → Paste → Áp dụng</li>
+                                    <li class="font-semibold text-orange-700">Token cũ vẫn giữ nguyên!</li>
                                 </ol>
                             </div>
                         </div>
@@ -305,6 +313,13 @@
                     <li>Click chuột phải → <strong>Copy all as cURL</strong> hoặc copy từng dòng</li>
                     <li>Paste vào ô dưới (format: <code>header-name: value</code>)</li>
                 </ol>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <p class="text-sm text-yellow-800">
+                    ⚠️ <strong>Lưu ý:</strong> Authorization Token sẽ <strong>KHÔNG</strong> bị đổi khi paste headers. 
+                    Nếu muốn đổi token, hãy paste thủ công vào ô "Authorization Token" ở trên.
+                </p>
             </div>
 
             <textarea id="rawHeadersInput" rows="15" 
@@ -384,7 +399,7 @@ user-agent: Mozilla/5.0..."
         function getHeaders() {
             return {
                 'accept': 'application/json, text/plain, */*',
-                'authorization': document.getElementById('authToken').value.trim() || 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1ZjY1NjQwMy01NjdmLTRmYzAtYjYxNy0yODJhYzgxZGY1ZWQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjBiZmQwYTIyLWY0NmUtNDNkZS1iMmJhLTZhZjRlMWMyY2ZjYyIsImlhdCI6IjE3NTk3MjE0NjciLCJuYmYiOjE3NTk3MjE0NjcsImV4cCI6MTc2MTAxNzQ2NywiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.618RIQqBAamtvWgPUwP6xuNjzB8nw9eI-Vh8fhrVbds',
+                'authorization': document.getElementById('authToken').value.trim() || 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1ZjY1NjQwMy01NjdmLTRmYzAtYjYxNy0yODJhYzgxZGY1ZWQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjYxMDI0MTA5LTdmOGEtNDk3Zi05NGYxLTY3YzIwMjZiZWUyNCIsImlhdCI6IjE3NTk4MTI1MzAiLCJuYmYiOjE3NTk4MTI1MzAsImV4cCI6MTc2MTEwODUzMCwiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.OVAcmG1fPovK8rJ65dkNlEADtnyWu-d6BUKP0wxZuXk',
                 'accept-language': document.getElementById('acceptLanguage').value,
                 'content-type': document.getElementById('contentType').value,
                 'origin': 'https://tomato.tpos.vn',
@@ -436,7 +451,7 @@ user-agent: Mozilla/5.0..."
          * Load headers mặc định
          */
         function loadDefaultHeaders() {
-            document.getElementById('authToken').value = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1ZjY1NjQwMy01NjdmLTRmYzAtYjYxNy0yODJhYzgxZGY1ZWQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjBiZmQwYTIyLWY0NmUtNDNkZS1iMmJhLTZhZjRlMWMyY2ZjYyIsImlhdCI6IjE3NTk3MjE0NjciLCJuYmYiOjE3NTk3MjE0NjcsImV4cCI6MTc2MTAxNzQ2NywiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.618RIQqBAamtvWgPUwP6xuNjzB8nw9eI-Vh8fhrVbds';
+            document.getElementById('authToken').value = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1ZjY1NjQwMy01NjdmLTRmYzAtYjYxNy0yODJhYzgxZGY1ZWQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjYxMDI0MTA5LTdmOGEtNDk3Zi05NGYxLTY3YzIwMjZiZWUyNCIsImlhdCI6IjE3NTk4MTI1MzAiLCJuYmYiOjE3NTk4MTI1MzAsImV4cCI6MTc2MTEwODUzMCwiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.OVAcmG1fPovK8rJ65dkNlEADtnyWu-d6BUKP0wxZuXk';
             document.getElementById('contentType').value = 'application/json;charset=UTF-8';
             document.getElementById('appVersion').value = '5.9.10.1';
             document.getElementById('acceptLanguage').value = 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7';
@@ -462,7 +477,7 @@ user-agent: Mozilla/5.0..."
         }
 
         /**
-         * Lấy headers từ trình duyệt hiện tại
+         * Lấy headers từ trình duyệt hiện tại (KHÔNG đổi token)
          */
         function loadBrowserHeaders() {
             // Detect browser info
@@ -475,14 +490,14 @@ user-agent: Mozilla/5.0..."
             else if (userAgent.indexOf('Safari') > -1 && userAgent.indexOf('Chrome') === -1) browserInfo = 'Safari';
             else if (userAgent.indexOf('Edge') > -1) browserInfo = 'Edge';
             
-            // Update form fields
+            // Update form fields (KHÔNG đổi Authorization Token!)
             document.getElementById('userAgent').value = userAgent;
             document.getElementById('acceptLanguage').value = language + ',en;q=0.9';
             
             // Generate new GUID
             generateNewGUID();
             
-            showMessage('success', `Đã load headers từ ${browserInfo}!`);
+            showMessage('success', `✅ Đã load User-Agent và Language từ ${browserInfo}! (Token giữ nguyên)`);
         }
 
         /**
@@ -515,30 +530,47 @@ user-agent: Mozilla/5.0..."
             try {
                 const headers = parseRawHeaders(rawInput);
                 
-                // Apply headers to form
-                if (headers.authorization) {
-                    document.getElementById('authToken').value = headers.authorization;
-                }
+                // Count how many headers will be applied
+                let appliedCount = 0;
+                
+                // Apply headers to form (KHÔNG bao gồm authorization để giữ token)
+                // Nếu user muốn đổi token, họ phải paste thủ công vào ô Authorization Token
+                
                 if (headers['x-request-id']) {
                     document.getElementById('requestId').value = headers['x-request-id'];
+                    appliedCount++;
                 } else {
                     generateNewGUID(); // Generate if not provided
                 }
+                
                 if (headers['content-type']) {
                     document.getElementById('contentType').value = headers['content-type'];
+                    appliedCount++;
                 }
+                
                 if (headers['tposappversion']) {
                     document.getElementById('appVersion').value = headers['tposappversion'];
+                    appliedCount++;
                 }
+                
                 if (headers['accept-language']) {
                     document.getElementById('acceptLanguage').value = headers['accept-language'];
+                    appliedCount++;
                 }
+                
                 if (headers['user-agent']) {
                     document.getElementById('userAgent').value = headers['user-agent'];
+                    appliedCount++;
+                }
+                
+                // Thông báo nếu có authorization trong paste nhưng không áp dụng
+                if (headers.authorization) {
+                    showMessage('success', `✅ Đã áp dụng ${appliedCount} headers! (Token KHÔNG đổi - muốn đổi token hãy paste thủ công vào ô Authorization Token)`);
+                } else {
+                    showMessage('success', `✅ Đã áp dụng ${appliedCount} headers thành công! (Token giữ nguyên)`);
                 }
                 
                 closePasteModal();
-                showMessage('success', `Đã áp dụng ${Object.keys(headers).length} headers thành công!`);
                 
             } catch (error) {
                 showMessage('error', 'Lỗi parse headers: ' + error.message);
@@ -614,9 +646,25 @@ user-agent: Mozilla/5.0..."
             setTimeout(() => alert.classList.add('hidden'), 5000);
         }
 
-        function formatDateForAPI(dateStr) {
+        function formatDateForAPI(dateStr, isEndDate = false) {
+            // Parse date string (YYYY-MM-DD)
             const date = new Date(dateStr);
-            date.setHours(0, 0, 0, 0);
+            
+            // Adjust for Vietnam timezone (GMT+7)
+            // Start date: 00:00:00 GMT+7 = 17:00:00 UTC previous day
+            // End date: 23:59:59 GMT+7 = 16:59:59 UTC same day
+            
+            if (isEndDate) {
+                // Set to 23:59:59 GMT+7 (16:59:59 UTC)
+                date.setHours(16, 59, 59, 0);
+            } else {
+                // Set to 00:00:00 GMT+7 (17:00:00 UTC previous day)
+                date.setHours(17, 0, 0, 0);
+                date.setDate(date.getDate() - 1); // Go back 1 day
+            }
+            
+            // Format as ISO string and replace Z with +00:00
+            // Result: 2025-10-11T17:00:00+00:00
             return date.toISOString().replace('.000Z', '+00:00');
         }
 
@@ -681,15 +729,24 @@ user-agent: Mozilla/5.0..."
                 const endDate = document.getElementById('endDate').value;
                 const sessionIndex = document.getElementById('sessionIndex').value;
                 
-                const startDateTime = formatDateForAPI(startDate);
-                const endDateTime = formatDateForAPI(endDate);
+                const startDateTime = formatDateForAPI(startDate, false); // Start of day
+                const endDateTime = formatDateForAPI(endDate, true);      // End of day
                 
-                const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1&$orderby=DateCreated desc&$filter=(DateCreated ge ${startDateTime} and DateCreated le ${endDateTime} and SessionIndex eq ${sessionIndex})&$count=true`;
+                const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=50&$orderby=DateCreated desc&$filter=(DateCreated ge ${startDateTime} and DateCreated le ${endDateTime} and SessionIndex eq ${sessionIndex})&$count=true`;
+                
+                console.log('📅 Start Date:', startDateTime);
+                console.log('📅 End Date:', endDateTime);
+                console.log('🔗 URL:', url);
                 
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: getHeaders()
                 });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || response.statusText);
+                }
                 
                 const data = await response.json();
                 
@@ -699,6 +756,7 @@ user-agent: Mozilla/5.0..."
                 goToStep(2);
             } catch (error) {
                 showMessage('error', 'Lỗi khi tải đơn hàng: ' + error.message);
+                console.error('❌ Error:', error);
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Tìm đơn hàng';
