@@ -1,0 +1,488 @@
+import React, { useState } from 'react';
+import { Calendar, Search, ShoppingCart, Save, AlertCircle, CheckCircle } from 'lucide-react';
+
+export default function OrderManagementTool() {
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // Date range
+  const today = new Date();
+  const twoDaysAgo = new Date(today);
+  twoDaysAgo.setDate(today.getDate() - 2);
+  
+  const [startDate, setStartDate] = useState(twoDaysAgo.toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
+  const [sessionIndex, setSessionIndex] = useState('60');
+  
+  // Step 1 data
+  const [orders, setOrders] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  
+  // Step 2 data
+  const [productSearch, setProductSearch] = useState('');
+  const [products, setProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  
+  // Step 3 data
+  const [orderDetail, setOrderDetail] = useState(null);
+
+  const formatDateForAPI = (dateStr) => {
+    const date = new Date(dateStr);
+    date.setHours(0, 0, 0, 0);
+    return date.toISOString().replace('.000Z', '+00:00');
+  };
+
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+  };
+
+  // Bước 1: Lấy danh sách đơn hàng
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const startDateTime = formatDateForAPI(startDate);
+      const endDateTime = formatDateForAPI(endDate);
+      
+      const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=50&$orderby=DateCreated desc&$filter=(DateCreated ge ${startDateTime} and DateCreated le ${endDateTime} and SessionIndex eq ${sessionIndex})&$count=true`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      setOrders(data.value || []);
+      showMessage('success', `Tìm thấy ${data['@odata.count']} đơn hàng`);
+      setStep(2);
+    } catch (error) {
+      showMessage('error', 'Lỗi khi tải đơn hàng: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bước 2: Tìm sản phẩm
+  const searchProducts = async () => {
+    if (!productSearch.trim()) {
+      showMessage('error', 'Vui lòng nhập tên sản phẩm');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const url = `https://tomato.tpos.vn/odata/Product/OdataService.GetViewV2?Active=true&Name=${encodeURIComponent(productSearch)}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      setProducts(data.value || []);
+      showMessage('success', `Tìm thấy ${data['@odata.count']} sản phẩm`);
+    } catch (error) {
+      showMessage('error', 'Lỗi khi tìm sản phẩm: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addProductToList = (product) => {
+    const exists = selectedProducts.find(p => p.Id === product.Id);
+    if (exists) {
+      showMessage('error', 'Sản phẩm đã được thêm');
+      return;
+    }
+    
+    const productData = {
+      ProductId: product.Id,
+      ProductName: product.Name,
+      ProductNameGet: product.NameGet,
+      UOMId: 1,
+      UOMName: product.UOMName || "Cái",
+      Quantity: 1,
+      Price: product.ListPrice || product.PriceVariant || 0,
+      Factor: 1,
+      ProductWeight: 0
+    };
+    
+    setSelectedProducts([...selectedProducts, productData]);
+    showMessage('success', 'Đã thêm sản phẩm');
+  };
+
+  const removeProduct = (index) => {
+    const newList = [...selectedProducts];
+    newList.splice(index, 1);
+    setSelectedProducts(newList);
+  };
+
+  const updateProductQuantity = (index, quantity) => {
+    const newList = [...selectedProducts];
+    newList[index].Quantity = parseInt(quantity) || 1;
+    setSelectedProducts(newList);
+  };
+
+  // Bước 3: Lấy chi tiết đơn hàng
+  const fetchOrderDetail = async () => {
+    if (!selectedOrder) {
+      showMessage('error', 'Vui lòng chọn đơn hàng');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const url = `https://tomato.tpos.vn/odata/SaleOnline_Order(${selectedOrder.Id})?$expand=Details,Partner,User,CRMTeam`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      setOrderDetail(data);
+      showMessage('success', 'Đã tải chi tiết đơn hàng');
+      setStep(4);
+    } catch (error) {
+      showMessage('error', 'Lỗi khi tải chi tiết: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bước 4: Cập nhật đơn hàng
+  const updateOrder = async () => {
+    if (!orderDetail) {
+      showMessage('error', 'Chưa có dữ liệu đơn hàng');
+      return;
+    }
+    
+    if (selectedProducts.length === 0) {
+      showMessage('error', 'Vui lòng chọn ít nhất 1 sản phẩm');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const updatedOrder = {
+        ...orderDetail,
+        Details: selectedProducts
+      };
+      
+      const url = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderDetail.Id})`;
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedOrder)
+      });
+      
+      if (response.ok) {
+        showMessage('success', 'Cập nhật đơn hàng thành công!');
+      } else {
+        showMessage('error', 'Lỗi khi cập nhật: ' + response.statusText);
+      }
+    } catch (error) {
+      showMessage('error', 'Lỗi khi cập nhật: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            🛒 Công Cụ Quản Lý Đơn Hàng TPOS
+          </h1>
+          <p className="text-gray-600">Tìm kiếm, chỉnh sửa và cập nhật đơn hàng</p>
+        </div>
+
+        {/* Message Alert */}
+        {message.text && (
+          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+            message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {message.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            <span>{message.text}</span>
+          </div>
+        )}
+
+        {/* Progress Steps */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <div className="flex items-center justify-between">
+            {[1, 2, 3, 4].map((s) => (
+              <div key={s} className="flex items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                  step >= s ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+                }`}>
+                  {s}
+                </div>
+                {s < 4 && <div className={`w-20 h-1 ${step > s ? 'bg-blue-500' : 'bg-gray-200'}`} />}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-2 text-sm text-gray-600">
+            <span>Tìm đơn</span>
+            <span>Chọn đơn</span>
+            <span>Chọn SP</span>
+            <span>Cập nhật</span>
+          </div>
+        </div>
+
+        {/* Step 1: Date Range & Fetch Orders */}
+        {step === 1 && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Calendar className="text-blue-500" />
+              Bước 1: Chọn khoảng thời gian
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ngày bắt đầu
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ngày kết thúc
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Session Index
+                </label>
+                <input
+                  type="text"
+                  value={sessionIndex}
+                  onChange={(e) => setSessionIndex(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            
+            <button
+              onClick={fetchOrders}
+              disabled={loading}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-50"
+            >
+              {loading ? 'Đang tải...' : 'Tìm đơn hàng'}
+            </button>
+          </div>
+        )}
+
+        {/* Step 2: Select Order */}
+        {step === 2 && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <ShoppingCart className="text-blue-500" />
+              Bước 2: Chọn đơn hàng ({orders.length})
+            </h2>
+            
+            <div className="max-h-96 overflow-y-auto space-y-3">
+              {orders.map((order) => (
+                <div
+                  key={order.Id}
+                  onClick={() => setSelectedOrder(order)}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition ${
+                    selectedOrder?.Id === order.Id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-gray-800">#{order.Code}</p>
+                      <p className="text-sm text-gray-600">{order.Name}</p>
+                      <p className="text-sm text-gray-500">{order.Telephone}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-blue-600">
+                        {order.TotalAmount?.toLocaleString('vi-VN')}₫
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        SL: {order.TotalQuantity}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setStep(1)}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+              >
+                Quay lại
+              </button>
+              <button
+                onClick={fetchOrderDetail}
+                disabled={!selectedOrder || loading}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-50"
+              >
+                {loading ? 'Đang tải...' : 'Tiếp tục'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 & 4: Product Selection */}
+        {(step === 3 || step === 4) && (
+          <div className="space-y-6">
+            {/* Search Products */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Search className="text-blue-500" />
+                Bước 3: Tìm và chọn sản phẩm
+              </h2>
+              
+              <div className="flex gap-3 mb-4">
+                <input
+                  type="text"
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && searchProducts()}
+                  placeholder="Nhập tên hoặc mã sản phẩm (VD: N55, N87)..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={searchProducts}
+                  disabled={loading}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition disabled:opacity-50"
+                >
+                  Tìm
+                </button>
+              </div>
+              
+              {products.length > 0 && (
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {products.map((product) => (
+                    <div
+                      key={product.Id}
+                      className="p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition flex justify-between items-center"
+                    >
+                      <div className="flex items-center gap-3">
+                        {product.ImageUrl && (
+                          <img
+                            src={product.ImageUrl}
+                            alt={product.Name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        )}
+                        <div>
+                          <p className="font-semibold text-gray-800">{product.NameGet}</p>
+                          <p className="text-sm text-gray-600">
+                            {product.ListPrice?.toLocaleString('vi-VN')}₫
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => addProductToList(product)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Selected Products */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">
+                Sản phẩm đã chọn ({selectedProducts.length})
+              </h3>
+              
+              {selectedProducts.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  Chưa có sản phẩm nào. Vui lòng tìm và thêm sản phẩm.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {selectedProducts.map((product, index) => (
+                    <div
+                      key={index}
+                      className="p-4 border border-gray-200 rounded-lg flex justify-between items-center"
+                    >
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-800">{product.ProductNameGet}</p>
+                        <p className="text-sm text-gray-600">
+                          {product.Price?.toLocaleString('vi-VN')}₫
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          min="1"
+                          value={product.Quantity}
+                          onChange={(e) => updateProductQuantity(index, e.target.value)}
+                          className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center"
+                        />
+                        <button
+                          onClick={() => removeProduct(index)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Update Order */}
+            {step === 4 && (
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Save className="text-blue-500" />
+                  Bước 4: Cập nhật đơn hàng
+                </h2>
+                
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <p className="text-sm text-gray-700">
+                    <strong>Đơn hàng:</strong> #{orderDetail?.Code}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <strong>Khách hàng:</strong> {orderDetail?.Name}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <strong>Số sản phẩm mới:</strong> {selectedProducts.length}
+                  </p>
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep(2)}
+                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+                  >
+                    Quay lại
+                  </button>
+                  <button
+                    onClick={updateOrder}
+                    disabled={loading || selectedProducts.length === 0}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-50"
+                  >
+                    {loading ? 'Đang cập nhật...' : 'Cập nhật đơn hàng'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
