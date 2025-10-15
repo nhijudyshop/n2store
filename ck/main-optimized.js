@@ -954,7 +954,7 @@ class MoneyTransferApp {
         });
 
         const canEditAll = this.hasPermission(1);
-        const canEditDate = this.hasPermission(3);
+        const canEditDateAmountInfo = this.hasPermission(3); // CẢI TIẾN: Có thể edit date, amount, info
 
         const editFields = {
             editDate: domManager.get(SELECTORS.editDate),
@@ -1003,34 +1003,34 @@ class MoneyTransferApp {
                 field.style.color = "#495057";
                 field.style.cursor = "text";
             });
-        } else if (canEditDate) {
-            // Can edit date and customer info only
+        } else if (canEditDateAmountInfo) {
+            // FIXED: Có thể edit date, amount và customer info
             editFields.editDate.disabled = false;
             editFields.editNote.disabled = true;
-            editFields.editAmount.disabled = true;
+            editFields.editAmount.disabled = false; // ✅ CHO PHÉP EDIT AMOUNT
             editFields.editBank.disabled = true;
             editFields.editInfo.disabled = false;
 
             // Style disabled fields
-            [
-                editFields.editNote,
-                editFields.editAmount,
-                editFields.editBank,
-            ].forEach((field) => {
+            [editFields.editNote, editFields.editBank].forEach((field) => {
                 field.style.backgroundColor = "#f8f9fa";
                 field.style.color = "#6c757d";
                 field.style.cursor = "not-allowed";
             });
 
             // Style enabled fields
-            [editFields.editDate, editFields.editInfo].forEach((field) => {
+            [
+                editFields.editDate,
+                editFields.editAmount,
+                editFields.editInfo,
+            ].forEach((field) => {
                 field.style.backgroundColor = "white";
                 field.style.color = "#495057";
                 field.style.cursor = "text";
             });
 
             this.notificationManager.info(
-                "Bạn có thể chỉnh sửa ngày và thông tin khách hàng",
+                "Bạn có thể chỉnh sửa ngày, số tiền và thông tin khách hàng",
                 3000,
             );
         } else {
@@ -1072,7 +1072,7 @@ class MoneyTransferApp {
         setTimeout(() => {
             if (canEditAll) {
                 editFields.editNote.focus();
-            } else if (canEditDate) {
+            } else if (canEditDateAmountInfo) {
                 editFields.editDate.focus();
             } else {
                 editFields.editInfo.focus();
@@ -1334,19 +1334,13 @@ class MoneyTransferApp {
 
         let editDateTimestamp = transaction.dateCell;
 
-        // Only update date if user has permission and date was changed
-        if (this.hasPermission(1) && validatedData.dateValue) {
+        // Update date if user has permission and date was changed
+        if (
+            (this.hasPermission(1) || this.hasPermission(3)) &&
+            validatedData.dateValue
+        ) {
             const newTimestamp = convertToTimestamp(validatedData.dateValue);
             console.log("Date conversion:", {
-                original: transaction.dateCell,
-                newFormatted: validatedData.dateValue,
-                newTimestamp: newTimestamp,
-            });
-            editDateTimestamp = newTimestamp;
-        } else if (this.hasPermission(3) && validatedData.dateValue) {
-            // hasPermission(3) can also edit date
-            const newTimestamp = convertToTimestamp(validatedData.dateValue);
-            console.log("Date conversion (permission 3):", {
                 original: transaction.dateCell,
                 newFormatted: validatedData.dateValue,
                 newTimestamp: newTimestamp,
@@ -1399,7 +1393,7 @@ class MoneyTransferApp {
         if (this.hasPermission(1)) {
             // Full edit permission - update all fields
             dataArray[itemIndex] = {
-                ...dataArray[itemIndex], // Preserve all existing fields including 'muted'
+                ...dataArray[itemIndex],
                 dateCell: editDateTimestamp,
                 noteCell: validatedData.noteValue,
                 amountCell: numberWithCommas(validatedData.numAmount),
@@ -1409,18 +1403,21 @@ class MoneyTransferApp {
             };
             console.log("Updated with full permissions");
         } else if (this.hasPermission(3)) {
-            // Can edit date and customer info only
+            // FIXED: Có thể edit date, amount và customer info
             dataArray[itemIndex] = {
-                ...dataArray[itemIndex], // Preserve all existing fields
+                ...dataArray[itemIndex],
                 dateCell: editDateTimestamp,
+                amountCell: numberWithCommas(validatedData.numAmount), // ✅ CẬP NHẬT AMOUNT
                 customerInfoCell: validatedData.infoValue,
                 user: userInfo,
             };
-            console.log("Updated with date and customer info permissions");
+            console.log(
+                "Updated with date, amount and customer info permissions",
+            );
         } else {
             // Limited permission - only update customer info
             dataArray[itemIndex] = {
-                ...dataArray[itemIndex], // Preserve all existing fields
+                ...dataArray[itemIndex],
                 customerInfoCell: validatedData.infoValue,
                 user: userInfo,
             };
@@ -1481,15 +1478,19 @@ class MoneyTransferApp {
 
             console.log("Updated all cells (full permission)");
         } else if (this.hasPermission(3)) {
-            // Can edit date and customer info
+            // FIXED: Cập nhật date, amount và customer info
             if (row.cells[0]) {
                 row.cells[0].textContent = validatedData.dateValue;
                 row.cells[0].id = convertToTimestamp(validatedData.dateValue);
             }
+            if (row.cells[2])
+                row.cells[2].textContent = numberWithCommas(
+                    validatedData.numAmount,
+                ); // ✅ CẬP NHẬT AMOUNT
             if (row.cells[5])
                 row.cells[5].textContent = validatedData.infoValue;
 
-            console.log("Updated date and customer info cells");
+            console.log("Updated date, amount and customer info cells");
         } else {
             // Only update customer info
             if (row.cells[5])
@@ -1525,8 +1526,9 @@ class MoneyTransferApp {
                     item.bankCell = validatedData.bankValue;
                     item.customerInfoCell = validatedData.infoValue;
                 } else if (this.hasPermission(3)) {
-                    // Can edit date and customer info
+                    // FIXED: Cập nhật date, amount và customer info
                     if (editDateTimestamp) item.dateCell = editDateTimestamp;
+                    item.amountCell = numberWithCommas(validatedData.numAmount); // ✅ CẬP NHẬT AMOUNT
                     item.customerInfoCell = validatedData.infoValue;
                 } else {
                     // Only customer info

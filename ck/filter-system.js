@@ -5,6 +5,7 @@ class FilterManager {
     constructor() {
         this.filters = APP_STATE.currentFilters;
         this.isProcessing = false;
+        this.dateSlider = null;
         this.filterWorker = null;
         this.indexedData = null;
         this.filterCache = new Map();
@@ -22,11 +23,25 @@ class FilterManager {
         this.createFilterUI();
         this.bindEvents();
         this.initializeWorker();
+        this.initDateSlider();
 
         console.log(
             "Filter system initialized with chunk size:",
             this.chunkSize,
         );
+    }
+
+    initDateSlider() {
+        if (typeof DateSliderManager !== "undefined") {
+            this.dateSlider = new DateSliderManager();
+            this.dateSlider.init(this);
+            window.dateSliderManager = this.dateSlider;
+            console.log("Date Slider integrated successfully");
+        } else {
+            console.warn(
+                "DateSliderManager not found. Please include date-slider.js",
+            );
+        }
     }
 
     createFilterToggleButton() {
@@ -683,23 +698,40 @@ class FilterManager {
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
 
-        // Update date inputs
-        if (startDateFilter) startDateFilter.value = dateRange.start || "";
-        if (endDateFilter) endDateFilter.value = dateRange.end || "";
+        // FIXED: Cập nhật date inputs với giá trị chính xác
+        if (startDateFilter) {
+            startDateFilter.value = dateRange.start || "";
+            console.log(`Set start date: ${startDateFilter.value}`);
+        }
+        if (endDateFilter) {
+            endDateFilter.value = dateRange.end || "";
+            console.log(`Set end date: ${endDateFilter.value}`);
+        }
 
-        // Update filters
+        // FIXED: Cập nhật filters state
         this.filters.startDate = dateRange.start;
         this.filters.endDate = dateRange.end;
 
-        // Update active button
+        // FIXED: Reset status filter to 'all' khi apply quick filter
+        const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
+        if (statusFilter) {
+            statusFilter.value = "all";
+            this.filters.status = "all";
+        }
+
+        // FIXED: Remove active class from all buttons first
         const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
         quickFilterBtns.forEach((btn) => {
-            if (btn.getAttribute("data-filter") === filterType) {
-                btn.classList.add("active");
-            } else {
-                btn.classList.remove("active");
-            }
+            btn.classList.remove("active");
         });
+
+        // FIXED: Add active class to correct button
+        const activeBtn = document.querySelector(
+            `.quick-filter-btn[data-filter="${filterType}"]`,
+        );
+        if (activeBtn) {
+            activeBtn.classList.add("active");
+        }
 
         // Update labels
         const labelMap = {
@@ -727,10 +759,24 @@ class FilterManager {
         console.log("Quick filter applied:", {
             type: filterType,
             dateRange: dateRange,
+            filters: this.filters,
         });
+
+        this.syncDateSliderWithFilters();
 
         // Apply the filter
         this.applyFilters();
+    }
+
+    syncDateSliderWithFilters() {
+        if (this.dateSlider && this.filters.startDate && this.filters.endDate) {
+            this.dateSlider.setDateRange(
+                this.filters.startDate,
+                this.filters.endDate,
+            );
+        } else if (this.dateSlider) {
+            this.dateSlider.clearSelection();
+        }
     }
 
     initializeWorker() {
@@ -1255,6 +1301,29 @@ class FilterManager {
         }
     }
 
+    findMatchingQuickFilter(startDate, endDate) {
+        if (!startDate && !endDate) return "all";
+        if (!startDate || !endDate) return null;
+
+        const quickFilters = [
+            "today",
+            "yesterday",
+            "last7days",
+            "last30days",
+            "thisMonth",
+            "lastMonth",
+        ];
+
+        for (const filterType of quickFilters) {
+            const range = this.getDateRange(filterType);
+            if (range.start === startDate && range.end === endDate) {
+                return filterType;
+            }
+        }
+
+        return null;
+    }
+
     handleDateRangeChange() {
         if (this.isProcessing || APP_STATE.isOperationInProgress) return;
 
@@ -1266,30 +1335,78 @@ class FilterManager {
         let startDate = startDateFilter.value;
         let endDate = endDateFilter.value;
 
+        // FIXED: Validate and swap dates if needed
         if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
             [startDate, endDate] = [endDate, startDate];
             startDateFilter.value = startDate;
             endDateFilter.value = endDate;
+            console.log("Dates swapped:", { startDate, endDate });
         }
 
         this.filters.startDate = startDate;
         this.filters.endDate = endDate;
 
-        // Update both labels to "Tùy Chỉnh"
+        // FIXED: Check if current filter matches any quick filter
+        const matchedQuickFilter = this.findMatchingQuickFilter(
+            startDate,
+            endDate,
+        );
+
+        // Update labels
         const currentFilterLabel =
             document.getElementById("currentFilterLabel");
         const mainFilterLabel = document.getElementById("mainFilterLabel");
 
-        if (currentFilterLabel) {
-            currentFilterLabel.textContent = "Tùy Chỉnh";
-        }
-        if (mainFilterLabel) {
-            mainFilterLabel.textContent = "Tùy Chỉnh";
+        if (matchedQuickFilter) {
+            const labelMap = {
+                all: "Tất Cả",
+                today: "Hôm Nay",
+                yesterday: "Hôm Qua",
+                last7days: "7 Ngày Qua",
+                last30days: "30 Ngày Qua",
+                thisMonth: "Tháng Này",
+                lastMonth: "Tháng Trước",
+            };
+
+            if (currentFilterLabel) {
+                currentFilterLabel.textContent =
+                    labelMap[matchedQuickFilter] || "Tùy Chỉnh";
+            }
+            if (mainFilterLabel) {
+                mainFilterLabel.textContent =
+                    labelMap[matchedQuickFilter] || "Tùy Chỉnh";
+            }
+
+            // Update active button
+            const quickFilterBtns =
+                document.querySelectorAll(".quick-filter-btn");
+            quickFilterBtns.forEach((btn) => {
+                if (btn.getAttribute("data-filter") === matchedQuickFilter) {
+                    btn.classList.add("active");
+                } else {
+                    btn.classList.remove("active");
+                }
+            });
+        } else {
+            // Custom date range
+            if (currentFilterLabel) {
+                currentFilterLabel.textContent = "Tùy Chỉnh";
+            }
+            if (mainFilterLabel) {
+                mainFilterLabel.textContent = "Tùy Chỉnh";
+            }
+
+            // Remove active from all quick filter buttons
+            const quickFilterBtns =
+                document.querySelectorAll(".quick-filter-btn");
+            quickFilterBtns.forEach((btn) => btn.classList.remove("active"));
         }
 
-        // Remove active class from all quick filter buttons
-        const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
-        quickFilterBtns.forEach((btn) => btn.classList.remove("active"));
+        console.log("Date range changed:", {
+            startDate,
+            endDate,
+            matchedFilter: matchedQuickFilter,
+        });
 
         this.applyFilters();
     }
@@ -1299,15 +1416,46 @@ class FilterManager {
 
         const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
         if (statusFilter) {
-            this.filters.status = statusFilter.value;
+            const newStatus = statusFilter.value;
+            console.log("Status filter changed to:", newStatus);
+
+            this.filters.status = newStatus;
+
+            // FIXED: Update filter info to show status change
+            this.updateFilterLabelsWithStatus();
+
             this.applyFilters();
         }
+    }
+
+    updateFilterLabelsWithStatus() {
+        const currentFilterLabel =
+            document.getElementById("currentFilterLabel");
+        const mainFilterLabel = document.getElementById("mainFilterLabel");
+
+        if (!currentFilterLabel || !mainFilterLabel) return;
+
+        let baseLabel = currentFilterLabel.textContent;
+
+        // Remove existing status suffix
+        baseLabel = baseLabel.replace(/ \(.*\)$/, "");
+
+        // Add status suffix if not "all"
+        if (this.filters.status === "active") {
+            baseLabel += " (Chưa đi đơn)";
+        } else if (this.filters.status === "completed") {
+            baseLabel += " (Đã đi đơn)";
+        }
+
+        currentFilterLabel.textContent = baseLabel;
+        mainFilterLabel.textContent = baseLabel;
     }
 
     setTodayFilter() {
         if (this.isProcessing || APP_STATE.isOperationInProgress) return;
 
         const vietnamToday = VietnamTime.getDateString();
+        console.log("Setting today filter:", vietnamToday);
 
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
@@ -1318,11 +1466,39 @@ class FilterManager {
         this.filters.startDate = vietnamToday;
         this.filters.endDate = vietnamToday;
 
+        // FIXED: Reset status
+        const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
+        if (statusFilter) {
+            statusFilter.value = "all";
+            this.filters.status = "all";
+        }
+
+        // FIXED: Update active button
+        const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
+        quickFilterBtns.forEach((btn) => {
+            if (btn.getAttribute("data-filter") === "today") {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
+        });
+
+        // Update labels
+        const currentFilterLabel =
+            document.getElementById("currentFilterLabel");
+        const mainFilterLabel = document.getElementById("mainFilterLabel");
+        if (currentFilterLabel) currentFilterLabel.textContent = "Hôm Nay";
+        if (mainFilterLabel) mainFilterLabel.textContent = "Hôm Nay";
+
+        this.syncDateSliderWithFilters();
+
         this.applyFilters();
     }
 
     setAllFilter() {
         if (this.isProcessing || APP_STATE.isOperationInProgress) return;
+
+        console.log("Setting all filter");
 
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
@@ -1333,11 +1509,41 @@ class FilterManager {
         this.filters.startDate = null;
         this.filters.endDate = null;
 
+        // FIXED: Reset status
+        const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
+        if (statusFilter) {
+            statusFilter.value = "all";
+            this.filters.status = "all";
+        }
+
+        // FIXED: Update active button
+        const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
+        quickFilterBtns.forEach((btn) => {
+            if (btn.getAttribute("data-filter") === "all") {
+                btn.classList.add("active");
+            } else {
+                btn.classList.remove("active");
+            }
+        });
+
+        // Update labels
+        const currentFilterLabel =
+            document.getElementById("currentFilterLabel");
+        const mainFilterLabel = document.getElementById("mainFilterLabel");
+        if (currentFilterLabel) currentFilterLabel.textContent = "Tất Cả";
+        if (mainFilterLabel) mainFilterLabel.textContent = "Tất Cả";
+
+        if (this.dateSlider) {
+            this.dateSlider.clearSelection();
+        }
+
         this.applyFilters();
     }
 
     clearAllFilters() {
         if (this.isProcessing || APP_STATE.isOperationInProgress) return;
+
+        console.log("Clearing all filters");
 
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
@@ -1352,6 +1558,21 @@ class FilterManager {
             endDate: null,
             status: "all",
         };
+
+        // FIXED: Remove active from all quick filter buttons
+        const quickFilterBtns = document.querySelectorAll(".quick-filter-btn");
+        quickFilterBtns.forEach((btn) => btn.classList.remove("active"));
+
+        // Update labels
+        const currentFilterLabel =
+            document.getElementById("currentFilterLabel");
+        const mainFilterLabel = document.getElementById("mainFilterLabel");
+        if (currentFilterLabel) currentFilterLabel.textContent = "Tất Cả";
+        if (mainFilterLabel) mainFilterLabel.textContent = "Tất Cả";
+
+        if (this.dateSlider) {
+            this.dateSlider.clearSelection();
+        }
 
         this.applyFilters();
     }
@@ -1391,6 +1612,7 @@ class FilterManager {
         if (visibleCount !== totalCount) {
             let filterText = `Hiển thị ${visibleCount.toLocaleString()} / ${totalCount.toLocaleString()} giao dịch`;
 
+            // Add date range info
             if (this.filters.startDate || this.filters.endDate) {
                 const startStr = this.filters.startDate
                     ? this.formatDateForDisplay(this.filters.startDate)
@@ -1412,6 +1634,7 @@ class FilterManager {
                 }
             }
 
+            // Add status info
             if (this.filters.status !== "all") {
                 const statusText =
                     this.filters.status === "active"
@@ -1504,6 +1727,16 @@ class FilterManager {
         );
         if (toggleContainer) {
             toggleContainer.remove();
+        }
+
+        if (this.dateSlider) {
+            const sliderContainer = document.querySelector(
+                ".date-slider-container",
+            );
+            if (sliderContainer) {
+                sliderContainer.remove();
+            }
+            this.dateSlider = null;
         }
 
         console.log("Filter system destroyed");
