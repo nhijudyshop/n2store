@@ -568,3 +568,12 @@
 .gap-lg {
     gap: var(--spacing-lg);
 }
+
+/* Override colors */
+.date-item.selected {
+    background: linear-gradient(135deg, #your-color-1, #your-color-2);
+}
+
+.date-item.today {
+    border-color: #your-highlight-color;
+}

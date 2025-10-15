@@ -14,9 +14,15 @@ class DateSliderManager {
         this.filterManager = null;
 
         // Settings
-        this.daysToShow = 60; // Show 60 days (2 months)
-        this.daysBefore = 30; // 30 days before today
-        this.daysAfter = 30; // 30 days after today
+        this.daysToShow = 90; // Tăng lên 3 tháng
+        this.daysBefore = 45; // 45 ngày trước
+        this.daysAfter = 45; // 45 ngày sau
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") this.navigateDay(-1);
+            if (e.key === "ArrowRight") this.navigateDay(1);
+            if (e.key === "Home") this.selectToday();
+        });
     }
 
     init(filterManager) {
