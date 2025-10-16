@@ -192,7 +192,7 @@ function updateStatisticsDisplay(dataArray) {
 }
 
 // =====================================================
-// TABLE RENDERING
+// TABLE RENDERING (WITHOUT WATERMARKS)
 // =====================================================
 
 function renderDataToTable(dataArray) {
@@ -267,12 +267,8 @@ function renderDataToTable(dataArray) {
         // Số kiện
         cells[2].textContent = parseFloat(receipt.soKien);
 
-        // Hình ảnh
+        // Hình ảnh (WITHOUT watermark)
         if (receipt.anhNhanHang) {
-            const imgContainer = document.createElement("div");
-            imgContainer.style.position = "relative";
-            imgContainer.style.display = "inline-block";
-
             const img = document.createElement("img");
             img.dataset.src = receipt.anhNhanHang;
             img.src =
@@ -283,21 +279,7 @@ function renderDataToTable(dataArray) {
             totalImages++;
             imageObserver.observe(img);
 
-            // Add packaging watermark to table image
-            if (receipt.baoBi) {
-                const watermark = document.createElement("div");
-                watermark.className = `packaging-watermark ${receipt.baoBi}`;
-                watermark.textContent = getPackagingText(receipt.baoBi);
-                watermark.style.position = "absolute";
-                watermark.style.top = "2px";
-                watermark.style.right = "2px";
-                watermark.style.fontSize = "8px";
-                watermark.style.padding = "2px 4px";
-                imgContainer.appendChild(watermark);
-            }
-
-            imgContainer.appendChild(img);
-            cells[3].appendChild(imgContainer);
+            cells[3].appendChild(img);
         } else {
             cells[3].textContent = "Không có ảnh";
         }
@@ -311,7 +293,7 @@ function renderDataToTable(dataArray) {
         deleteButton.setAttribute("data-receipt-id", receipt.id || "");
         deleteButton.setAttribute(
             "data-receipt-info",
-            `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)} - ${receipt.baoBi ? getPackagingText(receipt.baoBi) : "Chưa xác định"}`,
+            `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`,
         );
         deleteButton.innerHTML =
             '<i data-lucide="trash-2"></i><span>Xóa</span>';
@@ -322,7 +304,7 @@ function renderDataToTable(dataArray) {
         editButton.setAttribute("data-receipt-id", receipt.id || "");
         editButton.setAttribute(
             "data-receipt-info",
-            `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)} - ${receipt.baoBi ? getPackagingText(receipt.baoBi) : "Chưa xác định"}`,
+            `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`,
         );
         editButton.innerHTML = '<i data-lucide="edit"></i><span>Sửa</span>';
         editButton.addEventListener("click", openEditModal);
@@ -858,18 +840,11 @@ window.debugFunctions = {
     takeEditPicture,
     retakeEditPicture,
     keepCurrentImage,
-    getSelectedPackaging,
-    getSelectedEditPackaging,
-    setPackagingValue,
-    setEditPackagingValue,
-    getPackagingText,
     showImageZoom,
     hideImageZoom,
     calculateStatistics,
     updateStatisticsDisplay,
 };
 
-console.log(
-    "Enhanced Goods Receipt Management System with Packaging Support loaded successfully",
-);
+console.log("Enhanced Goods Receipt Management System loaded successfully");
 console.log("Debug functions available at window.debugFunctions");

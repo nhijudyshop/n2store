@@ -21,7 +21,6 @@ async function addReceipt(event) {
     const tenNguoiNhan = sanitizeInput(tenNguoiNhanInput.value.trim());
     const soKg = parseFloat(soKgInput.value);
     const soKien = parseFloat(soKienInput.value);
-    const baoBi = getSelectedPackaging();
 
     // Validation
     if (!tenNguoiNhan) {
@@ -42,12 +41,6 @@ async function addReceipt(event) {
         return;
     }
 
-    if (!baoBi) {
-        notificationManager.error("Vui lòng chọn trạng thái bao bì", 3000);
-        document.getElementById("addButton").disabled = false;
-        return;
-    }
-
     const thoiGianNhan = getFormattedDateTime();
     const receiptId = generateUniqueID();
 
@@ -57,7 +50,6 @@ async function addReceipt(event) {
         tenNguoiNhan: tenNguoiNhan,
         soKg: soKg,
         soKien: soKien,
-        baoBi: baoBi,
         thoiGianNhan: thoiGianNhan,
         user: getUserName(),
     };
@@ -106,7 +98,7 @@ async function uploadToFirestore(receiptData) {
         // Log action with ID
         logAction(
             "add",
-            `Thêm phiếu nhận mới "${receiptData.tenNguoiNhan}" - ${formatCurrency(receiptData.soKg)} - ${getPackagingText(receiptData.baoBi)} - ID: ${receiptData.id}`,
+            `Thêm phiếu nhận mới "${receiptData.tenNguoiNhan}" - ${formatCurrency(receiptData.soKg)} - ID: ${receiptData.id}`,
             null,
             receiptData,
         );
@@ -176,7 +168,6 @@ async function updateReceipt(event) {
     const tenNguoiNhan = sanitizeInput(editTenNguoiNhanInput.value.trim());
     const soKg = parseFloat(editSoKgInput.value);
     const soKien = parseFloat(editSoKienInput.value);
-    const baoBi = getSelectedEditPackaging();
 
     // Validation
     if (!tenNguoiNhan) {
@@ -193,12 +184,6 @@ async function updateReceipt(event) {
 
     if (isNaN(soKien) || soKien <= 0) {
         notificationManager.error("Số kiện phải lớn hơn 0", 3000);
-        updateButton.disabled = false;
-        return;
-    }
-
-    if (!baoBi) {
-        notificationManager.error("Vui lòng chọn trạng thái bao bì", 3000);
         updateButton.disabled = false;
         return;
     }
@@ -231,7 +216,6 @@ async function updateReceipt(event) {
         data.data[index].tenNguoiNhan = tenNguoiNhan;
         data.data[index].soKg = soKg;
         data.data[index].soKien = soKien;
-        data.data[index].baoBi = baoBi;
 
         // Handle image update
         if (editCapturedImageBlob) {
@@ -257,7 +241,7 @@ async function updateReceipt(event) {
         // Log action
         logAction(
             "update",
-            `Cập nhật phiếu nhận "${tenNguoiNhan}" - ${getPackagingText(baoBi)} - ID: ${receiptId}`,
+            `Cập nhật phiếu nhận "${tenNguoiNhan}" - ID: ${receiptId}`,
             oldData,
             data.data[index],
         );
@@ -420,21 +404,12 @@ function openEditModal(event) {
     editSoKgInput.value = receiptData.soKg || 0;
     editSoKienInput.value = receiptData.soKien || 0;
 
-    // Set packaging radio value
-    if (receiptData.baoBi) {
-        setEditPackagingValue(receiptData.baoBi);
-    }
-
     // Handle current image
     editCurrentImageUrl = receiptData.anhNhanHang || null;
     console.log("Setting current image URL:", editCurrentImageUrl);
 
     if (editCurrentImageUrl && currentImageContainer) {
         currentImageContainer.innerHTML = "";
-
-        const imgContainer = document.createElement("div");
-        imgContainer.style.position = "relative";
-        imgContainer.style.display = "inline-block";
 
         const img = document.createElement("img");
         img.src = editCurrentImageUrl;
@@ -445,16 +420,7 @@ function openEditModal(event) {
         img.style.borderRadius = "8px";
         img.style.border = "2px solid #28a745";
 
-        // Add packaging watermark to current image
-        if (receiptData.baoBi) {
-            const watermark = document.createElement("div");
-            watermark.className = `packaging-watermark ${receiptData.baoBi}`;
-            watermark.textContent = getPackagingText(receiptData.baoBi);
-            imgContainer.appendChild(watermark);
-        }
-
-        imgContainer.appendChild(img);
-        currentImageContainer.appendChild(imgContainer);
+        currentImageContainer.appendChild(img);
         currentImageContainer.classList.add("has-content");
 
         // Show current image section

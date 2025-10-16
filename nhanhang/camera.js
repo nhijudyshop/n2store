@@ -342,31 +342,17 @@ function takePicture() {
     }
 }
 
-// Display captured image with packaging watermark
+// Display captured image (WITHOUT watermark)
 function displayCapturedImage() {
     if (imageDisplayArea && capturedImageUrl) {
         imageDisplayArea.innerHTML = "";
-
-        const imgContainer = document.createElement("div");
-        imgContainer.style.position = "relative";
-        imgContainer.style.display = "inline-block";
 
         const img = document.createElement("img");
         img.src = capturedImageUrl;
         img.alt = "Ảnh đã chụp";
         img.className = "captured-image";
 
-        // Add packaging watermark
-        const packaging = getSelectedPackaging();
-        if (packaging) {
-            const watermark = document.createElement("div");
-            watermark.className = `packaging-watermark ${packaging}`;
-            watermark.textContent = getPackagingText(packaging);
-            imgContainer.appendChild(watermark);
-        }
-
-        imgContainer.appendChild(img);
-        imageDisplayArea.appendChild(imgContainer);
+        imageDisplayArea.appendChild(img);
         imageDisplayArea.classList.add("has-content");
 
         // Update UI
@@ -573,31 +559,17 @@ function takeEditPicture() {
     }
 }
 
-// Display captured image for editing with packaging watermark
+// Display captured image for editing (WITHOUT watermark)
 function displayEditCapturedImage() {
     if (editImageDisplayArea && editCapturedImageUrl) {
         editImageDisplayArea.innerHTML = "";
-
-        const imgContainer = document.createElement("div");
-        imgContainer.style.position = "relative";
-        imgContainer.style.display = "inline-block";
 
         const img = document.createElement("img");
         img.src = editCapturedImageUrl;
         img.alt = "Ảnh mới đã chụp";
         img.className = "captured-image";
 
-        // Add packaging watermark
-        const packaging = getSelectedEditPackaging();
-        if (packaging) {
-            const watermark = document.createElement("div");
-            watermark.className = `packaging-watermark ${packaging}`;
-            watermark.textContent = getPackagingText(packaging);
-            imgContainer.appendChild(watermark);
-        }
-
-        imgContainer.appendChild(img);
-        editImageDisplayArea.appendChild(imgContainer);
+        editImageDisplayArea.appendChild(img);
         editImageDisplayArea.classList.add("has-content");
         editImageDisplayArea.style.display = "flex";
     }

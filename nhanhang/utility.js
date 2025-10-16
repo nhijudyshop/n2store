@@ -284,40 +284,6 @@ function initializeInputValidation() {
     }
 }
 
-function getSelectedPackaging() {
-    const selectedRadio = document.querySelector('input[name="baoBi"]:checked');
-    return selectedRadio ? selectedRadio.value : null;
-}
-
-function getSelectedEditPackaging() {
-    const selectedRadio = document.querySelector(
-        'input[name="editBaoBi"]:checked',
-    );
-    return selectedRadio ? selectedRadio.value : null;
-}
-
-function setPackagingValue(value) {
-    const radio = document.querySelector(
-        `input[name="baoBi"][value="${value}"]`,
-    );
-    if (radio) {
-        radio.checked = true;
-    }
-}
-
-function setEditPackagingValue(value) {
-    const radio = document.querySelector(
-        `input[name="editBaoBi"][value="${value}"]`,
-    );
-    if (radio) {
-        radio.checked = true;
-    }
-}
-
-function getPackagingText(value) {
-    return value === "co" ? "Có bao bì" : "Không có bao bì";
-}
-
 // =====================================================
 // LOGGING FUNCTIONS
 // =====================================================
@@ -501,9 +467,6 @@ function exportToExcel() {
             "Tên người nhận": receipt.tenNguoiNhan || "",
             "Số kg": receipt.soKg || 0,
             "Số kiện": receipt.soKien || 0,
-            "Bao bì": receipt.baoBi
-                ? getPackagingText(receipt.baoBi)
-                : "Chưa xác định",
             "Thời gian nhận": receipt.thoiGianNhan || "",
             "Người tạo": receipt.user || "",
             ID: receipt.id || "",
@@ -570,5 +533,5 @@ window.cacheDebug = {
     },
 };
 
-console.log("Utility functions loaded with CACHE VALIDATION");
+console.log("Utility functions loaded with CACHE VALIDATION (No Packaging)");
 console.log("Use window.cacheDebug for cache management");
