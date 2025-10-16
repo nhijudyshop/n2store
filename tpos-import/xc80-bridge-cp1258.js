@@ -242,6 +242,78 @@ app.post('/print', async (req, res) => {
   }
 });
 
+// ============================================
+// 🆕 ROUTE MỚI: IN BITMAP (CHO TEXT TO IMAGE)
+// ============================================
+app.post('/print/bitmap', async (req, res) => {
+  const { ipAddress, port, bitmapBase64, feeds = 3 } = req.body;
+
+  if (!ipAddress || !port || !bitmapBase64) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Missing ipAddress, port, or bitmapBase64' 
+    });
+  }
+
+  console.log(`\n🖼️ Bitmap print request:`);
+  console.log(`   - Target: ${ipAddress}:${port}`);
+  console.log(`   - Bitmap size: ${bitmapBase64.length} bytes (base64)`);
+
+  try {
+    const client = new net.Socket();
+    client.setTimeout(5000);
+
+    await new Promise((resolve, reject) => {
+      client.connect(port, ipAddress, () => {
+        console.log(`✅ Connected to ${ipAddress}:${port}`);
+
+        const commands = [];
+        
+        // ESC @ - Initialize printer
+        commands.push(Buffer.from([0x1B, 0x40]));
+        
+        // Decode base64 → Buffer
+        const bitmapBuffer = Buffer.from(bitmapBase64, 'base64');
+        console.log(`📦 Decoded bitmap: ${bitmapBuffer.length} bytes`);
+        
+        // Add bitmap data
+        commands.push(bitmapBuffer);
+        
+        // Add line feeds
+        commands.push(Buffer.from('\n'.repeat(feeds)));
+        
+        const finalBuffer = Buffer.concat(commands);
+        console.log(`📤 Sending ${finalBuffer.length} bytes to printer`);
+        
+        client.write(finalBuffer, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      client.on('error', reject);
+      client.on('timeout', () => {
+        client.destroy();
+        reject(new Error('Connection timeout'));
+      });
+    });
+
+    client.end();
+    
+    res.json({ 
+      success: true,
+      message: 'Bitmap sent to printer successfully' 
+    });
+
+  } catch (error) {
+    console.error('❌ Bitmap print error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 /**
  * Print bill (legacy support)
  */
