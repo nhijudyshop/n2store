@@ -2,9 +2,9 @@
   "name": "xc80-print-bridge",
   "version": "7.0.0",
   "description": "XC80 Print Bridge - CP1258 Vietnamese + PDF Support",
-  "main": "xc80-bridge-pdf-support.js",
+  "main": "xc80-bridge-cp1258.js",
   "scripts": {
-    "start": "node xc80-bridge-pdf-support.js",
+    "start": "node xc80-bridge-cp1258.js",
     "config": "node config-xc80-cp1258.js",
     "test": "curl http://localhost:9100/health",
     "test-pdf": "node test-pdf-print.js"
