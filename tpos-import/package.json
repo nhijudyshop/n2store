@@ -1,12 +1,13 @@
 {
   "name": "xc80-print-bridge",
-  "version": "5.0.0",
-  "description": "XC80 Print Bridge - CP1258 Vietnamese Full Support",
-  "main": "xc80-bridge-cp1258.js",
+  "version": "7.0.0",
+  "description": "XC80 Print Bridge - CP1258 Vietnamese + PDF Support",
+  "main": "xc80-bridge-pdf-support.js",
   "scripts": {
-    "start": "node xc80-bridge-cp1258.js",
+    "start": "node xc80-bridge-pdf-support.js",
     "config": "node config-xc80-cp1258.js",
-    "test": "curl http://localhost:9100/health"
+    "test": "curl http://localhost:9100/health",
+    "test-pdf": "node test-pdf-print.js"
   },
   "keywords": [
     "xc80",
@@ -14,15 +15,17 @@
     "escpos",
     "vietnamese",
     "cp1258",
-    "print-bridge"
+    "print-bridge",
+    "pdf"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
-	"body-parser": "^1.20.2",
+    "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "iconv-lite": "^0.6.3"
+    "iconv-lite": "^0.6.3",
+    "sharp": "^0.33.0"
   },
   "engines": {
     "node": ">=14.0.0"
