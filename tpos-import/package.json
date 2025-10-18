@@ -1,13 +1,15 @@
 {
   "name": "xc80-print-bridge",
-  "version": "7.0.0",
-  "description": "XC80 Print Bridge - CP1258 Vietnamese + PDF Support",
+  "version": "7.1.0",
+  "description": "XC80 Print Bridge - CP1258 Vietnamese + PDF Support with Vietnamese fonts",
   "main": "xc80-bridge-cp1258.js",
   "scripts": {
     "start": "node xc80-bridge-cp1258.js",
     "config": "node config-xc80-cp1258.js",
     "test": "curl http://localhost:9100/health",
-    "test-pdf": "node test-pdf-print.js"
+    "test-pdf": "node test-vietnamese-pdf.js",
+    "install-fonts": "node install-vietnamese-fonts.js",
+    "setup-windows": "node setup-windows.js"
   },
   "keywords": [
     "xc80",
@@ -16,7 +18,8 @@
     "vietnamese",
     "cp1258",
     "print-bridge",
-    "pdf"
+    "pdf",
+    "poppler"
   ],
   "author": "",
   "license": "MIT",
@@ -25,7 +28,8 @@
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "iconv-lite": "^0.6.3",
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.5",
+    "pdf-parse": "^1.1.1"
   },
   "engines": {
     "node": ">=14.0.0"
