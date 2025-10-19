@@ -57,6 +57,9 @@
           <button onclick="switchModule('order')" id="btnOrder" class="tab-button px-6 py-3 rounded-lg font-semibold transition bg-gray-200 text-gray-700">
             📦 Quản Lý Đơn Hàng
           </button>
+          <button onclick="switchModule('variants')" id="btnVariants" class="tab-button px-6 py-3 rounded-lg font-semibold transition bg-gray-200 text-gray-700">
+            🔍 Xem Variants
+          </button>
         </div>
       </div>
     </div>
@@ -177,6 +180,51 @@
             <button onclick="goToStep(2)" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition">Quay lại</button>
             <button onclick="updateOrder()" id="btnUpdate" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition">Cập nhật đơn hàng</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variants Module -->
+    <div id="variantsModule" class="hidden">
+      <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">🔍 Xem Chi Tiết Sản Phẩm & Variants</h2>
+        <div class="flex gap-4 mb-4">
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Product Template ID *</label>
+            <input type="number" id="productTemplateId" value="108457" placeholder="VD: 108457"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div class="flex items-end">
+            <button onclick="fetchProductVariants()" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition">
+              📥 Tải Dữ Liệu
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="variantsResult" class="hidden bg-white rounded-lg shadow-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold text-gray-800">Thông Tin Sản Phẩm</h3>
+          <span class="text-sm text-gray-600">Tổng: <span id="variantCount" class="font-bold text-blue-600">0</span> variants</span>
+        </div>
+        
+        <div id="productInfo" class="bg-gray-50 p-4 rounded-lg mb-6"></div>
+        
+        <h3 class="text-lg font-bold text-gray-800 mb-4">Danh Sách Variants</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-3 text-left text-sm font-semibold">ID</th>
+                <th class="border p-3 text-left text-sm font-semibold">Mã SP</th>
+                <th class="border p-3 text-left text-sm font-semibold">Tên Sản Phẩm</th>
+                <th class="border p-3 text-left text-sm font-semibold">Giá Bán</th>
+                <th class="border p-3 text-left text-sm font-semibold">Giá Mua</th>
+                <th class="border p-3 text-left text-sm font-semibold">Thuộc Tính</th>
+              </tr>
+            </thead>
+            <tbody id="variantsTableBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -731,6 +779,68 @@
       }
     }
 
+    // ========== VARIANTS MODULE ==========
+    async function fetchProductVariants() {
+      const templateId = document.getElementById('productTemplateId').value.trim();
+      if (!templateId) return showMessage('error', 'Vui lòng nhập Product Template ID');
+      
+      try {
+        showMessage('info', '📥 Đang tải dữ liệu...');
+        const url = `https://tomato.tpos.vn/odata/ProductTemplate(${templateId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`;
+        
+        const response = await fetch(url, { headers: getHeaders() });
+        
+        if (!response.ok) {
+          throw new Error('Không tìm thấy sản phẩm');
+        }
+        
+        const data = await response.json();
+        displayProductVariants(data);
+        showMessage('success', `✅ Đã tải ${data.ProductVariants?.length || 0} variants`);
+      } catch (error) {
+        showMessage('error', 'Lỗi: ' + error.message);
+      }
+    }
+
+    function displayProductVariants(data) {
+      document.getElementById('variantsResult').classList.remove('hidden');
+      document.getElementById('variantCount').textContent = data.ProductVariants?.length || 0;
+      
+      // Display product info
+      const productInfo = document.getElementById('productInfo');
+      productInfo.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><span class="font-semibold">ID:</span> ${data.Id}</div>
+          <div><span class="font-semibold">Tên:</span> ${data.Name}</div>
+          <div><span class="font-semibold">Mã:</span> ${data.DefaultCode}</div>
+          <div><span class="font-semibold">Giá Bán:</span> ${data.ListPrice?.toLocaleString('vi-VN')}₫</div>
+          <div><span class="font-semibold">Giá Mua:</span> ${data.PurchasePrice?.toLocaleString('vi-VN')}₫</div>
+          <div><span class="font-semibold">Tồn Kho:</span> ${data.QtyAvailable}</div>
+        </div>
+      `;
+      
+      // Display variants table
+      const tbody = document.getElementById('variantsTableBody');
+      if (!data.ProductVariants || data.ProductVariants.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="border p-4 text-center text-gray-500">Không có variants</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = data.ProductVariants.map(variant => {
+        const attributes = variant.AttributeValues?.map(attr => attr.NameGet).join(', ') || 'N/A';
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="border p-3 text-sm">${variant.Id}</td>
+            <td class="border p-3 text-sm font-medium">${variant.DefaultCode || 'N/A'}</td>
+            <td class="border p-3 text-sm">${variant.Name}</td>
+            <td class="border p-3 text-sm font-semibold text-green-600">${variant.PriceVariant?.toLocaleString('vi-VN')}₫</td>
+            <td class="border p-3 text-sm font-semibold text-blue-600">${variant.StandardPrice?.toLocaleString('vi-VN')}₫</td>
+            <td class="border p-3 text-sm text-gray-600">${attributes}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     // ========== SHARED UTILITIES ==========
     function generateGUID() {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -792,25 +902,25 @@
     }
 
     function loadDefaultHeaders() {
-      document.getElementById('authToken').value = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZGQxMGFkZmMtZjNhYy00YjcxLWE5ZDQtM2I3MWRhMjYwYzU5IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6InNob3AxIiwiRGlzcGxheU5hbWUiOiJTaG9wIiwiQXZhdGFyVXJsIjoiIiwiU2VjdXJpdHlTdGFtcCI6ImU4Mzk3YWQ3LTI2YzYtNDU2MS05NWQ5LTgxMThlMjA4NTFkOSIsIkNvbXBhbnlJZCI6IjEiLCJUZW5hbnRJZCI6InRvbWF0by50cG9zLnZuIiwiUm9sZUlkcyI6IjczMTU0MzU4LWQ1MGItNDA5ZS05OWZkLWE5ODQwMTNiNGVhNSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkFkbWluaXN0cmF0b3JzIiwianRpIjoiZTkwMjg0NGYtNGIyNi00ZDY0LWIzZmEtMzVlODI5YWMwM2E3IiwiaWF0IjoiMTc2MDY5MjUxNiIsIm5iZiI6MTc2MDY5MjUxNiwiZXhwIjoxNzYxOTg4NTE2LCJpc3MiOiJodHRwczovL3RvbWF0by50cG9zLnZuIiwiYXVkIjoiaHR0cHM6Ly90b21hdG8udHBvcy52bixodHRwczovL3Rwb3Mudm4ifQ.7RrDsYu2eS9AFFP3fNsfNaXbEtkgpmEvLDm_zHm8jUg';
+      document.getElementById('authToken').value = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
       generateNewGUID();
       showMessage('success', 'Đã khôi phục cấu hình mặc định');
     }
 
     function switchModule(module) {
-      ['productModule', 'orderModule'].forEach(m => {
+      ['productModule', 'orderModule', 'variantsModule'].forEach(m => {
         document.getElementById(m).classList.add('hidden');
       });
       document.getElementById(`${module}Module`).classList.remove('hidden');
       
-      const buttons = ['btnProduct', 'btnOrder'];
+      const buttons = ['btnProduct', 'btnOrder', 'btnVariants'];
       buttons.forEach(btn => {
         const el = document.getElementById(btn);
         el.classList.remove('active');
         el.classList.add('bg-gray-200', 'text-gray-700');
       });
       
-      const activeBtn = module === 'product' ? 'btnProduct' : 'btnOrder';
+      const activeBtn = module === 'product' ? 'btnProduct' : module === 'order' ? 'btnOrder' : 'btnVariants';
       const activeEl = document.getElementById(activeBtn);
       activeEl.classList.add('active');
       activeEl.classList.remove('bg-gray-200', 'text-gray-700');
