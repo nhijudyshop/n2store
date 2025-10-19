@@ -124,6 +124,30 @@
         <h3 class="text-xl font-bold text-gray-800 mb-4">Kết Quả</h3>
         <pre id="productResultContent" class="bg-gray-50 p-4 rounded-lg overflow-x-auto text-xs"></pre>
       </div>
+
+      <!-- Product Variants Result -->
+      <div id="productVariantsResult" class="hidden bg-white rounded-lg shadow-lg p-6 mt-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold text-gray-800">✅ Danh Sách Variants Đã Tạo</h3>
+          <span class="text-sm text-gray-600">Tổng: <span id="createdVariantCount" class="font-bold text-blue-600">0</span> variants</span>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-gradient-to-r from-green-100 to-blue-100">
+                <th class="border p-3 text-left text-sm font-semibold">ID</th>
+                <th class="border p-3 text-left text-sm font-semibold">Mã SP</th>
+                <th class="border p-3 text-left text-sm font-semibold">Tên Sản Phẩm</th>
+                <th class="border p-3 text-left text-sm font-semibold">Giá Bán</th>
+                <th class="border p-3 text-left text-sm font-semibold">Giá Mua</th>
+                <th class="border p-3 text-left text-sm font-semibold">Thuộc Tính</th>
+              </tr>
+            </thead>
+            <tbody id="createdVariantsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- Order Module -->
@@ -577,6 +601,11 @@
       const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
       const qtyAvailable = parseFloat(document.getElementById('qtyAvailable').value);
       if (!defaultCode || !productName) return showMessage('error', '⚠️ Vui lòng nhập đầy đủ thông tin!');
+      
+      // Hide previous results
+      document.getElementById('productResult').classList.add('hidden');
+      document.getElementById('productVariantsResult').classList.add('hidden');
+      
       try {
         showMessage('info', '🔍 Đang kiểm tra...');
         const checkResponse = await fetch(`https://tomato.tpos.vn/odata/ProductTemplate/OdataService.GetViewV2?Active=true&DefaultCode=${defaultCode}`, { headers: getHeaders() });
@@ -607,6 +636,10 @@
         if (response.ok) {
           showMessage('success', '🎉 Tạo sản phẩm thành công! Mã: ' + defaultCode);
           displayProductResult('✅ Thành công', data);
+          
+          // Fetch and display variants
+          await fetchAndDisplayCreatedVariants(data.Id);
+          
           document.getElementById('productName').value = '';
           document.getElementById('defaultCode').value = 'NTEST';
           document.getElementById('attributeLinesDisplay').value = '[]';
@@ -619,6 +652,53 @@
       } catch (error) {
         showMessage('error', '❌ Lỗi: ' + error.message);
       }
+    }
+
+    async function fetchAndDisplayCreatedVariants(productTemplateId) {
+      try {
+        showMessage('info', '📥 Đang tải variants...');
+        const url = `https://tomato.tpos.vn/odata/ProductTemplate(${productTemplateId})?$expand=ProductVariants($expand=AttributeValues)`;
+        
+        const response = await fetch(url, { headers: getHeaders() });
+        
+        if (!response.ok) {
+          throw new Error('Không tải được variants');
+        }
+        
+        const data = await response.json();
+        displayCreatedVariants(data.ProductVariants || []);
+        showMessage('success', `✅ Đã tải ${data.ProductVariants?.length || 0} variants`);
+      } catch (error) {
+        console.error('Error fetching variants:', error);
+      }
+    }
+
+    function displayCreatedVariants(variants) {
+      document.getElementById('productVariantsResult').classList.remove('hidden');
+      document.getElementById('createdVariantCount').textContent = variants.length;
+      
+      const tbody = document.getElementById('createdVariantsTableBody');
+      if (variants.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="border p-4 text-center text-gray-500">Không có variants</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = variants.map(variant => {
+        const attributes = variant.AttributeValues?.map(attr => attr.NameGet).join(', ') || 'N/A';
+        return `
+          <tr class="hover:bg-green-50 transition">
+            <td class="border p-3 text-sm font-medium">${variant.Id}</td>
+            <td class="border p-3 text-sm font-bold text-purple-600">${variant.DefaultCode || 'N/A'}</td>
+            <td class="border p-3 text-sm">${variant.Name}</td>
+            <td class="border p-3 text-sm font-semibold text-green-600">${variant.PriceVariant?.toLocaleString('vi-VN')}₫</td>
+            <td class="border p-3 text-sm font-semibold text-blue-600">${variant.StandardPrice?.toLocaleString('vi-VN')}₫</td>
+            <td class="border p-3 text-sm text-gray-600">${attributes}</td>
+          </tr>
+        `;
+      }).join('');
+      
+      // Scroll to variants section
+      document.getElementById('productVariantsResult').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function displayProductResult(title, data) {
