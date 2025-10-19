@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TPOS Manager - Quản Lý Sản Phẩm & Đơn Hàng</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .fade-in {
+        animation: fadeIn 0.3s ease-in;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .tab-button.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+      .size-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .size-chip-remove {
+        background: rgba(255, 255, 255, 0.3);
+        border: none;
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
+    <div class="container mx-auto p-6 max-w-7xl">
+      <!-- Main Navigation -->
+      <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h1 class="text-3xl font-bold text-gray-800">🚀 TPOS Manager</h1>
+          <div class="flex gap-3 flex-wrap">
+            <button
+              onclick="switchModule('product')"
+              id="btnProduct"
+              class="tab-button px-6 py-3 rounded-lg font-semibold transition active"
+            >
+              🛍️ Quản Lý Sản Phẩm
+            </button>
+            <button
+              onclick="switchModule('order')"
+              id="btnOrder"
+              class="tab-button px-6 py-3 rounded-lg font-semibold transition bg-gray-200 text-gray-700"
+            >
+              📦 Quản Lý Đơn Hàng
+            </button>
+            <button
+              onclick="switchModule('variants')"
+              id="btnVariants"
+              class="tab-button px-6 py-3 rounded-lg font-semibold transition bg-gray-200 text-gray-700"
+            >
+              🔍 Xem Variants
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message Alert -->
+      <div
+        id="messageAlert"
+        class="hidden mb-6 p-4 rounded-lg flex items-center gap-3 fade-in"
+      ></div>
+
+      <!-- Product Module -->
+      <div id="productModule">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6">
+            Thêm Sản Phẩm Mới
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Mã Sản Phẩm *</label
+              >
+              <input
+                type="text"
+                id="defaultCode"
+                placeholder="VD: NTEST"
+                value="NTEST"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Tên Sản Phẩm *</label
+              >
+              <input
+                type="text"
+                id="productName"
+                placeholder="Nhập tên sản phẩm"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Giá Bán (VNĐ) *</label
+              >
+              <input
+                type="number"
+                id="listPrice"
+                value="200000"
+                min="0"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Giá Mua (VNĐ) *</label
+              >
+              <input
+                type="number"
+                id="purchasePrice"
+                value="100000"
+                min="0"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Số Lượng *</label
+              >
+              <input
+                type="number"
+                id="qtyAvailable"
+                value="1"
+                min="0"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Hình Ảnh</label
+              >
+              <div
+                class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 transition"
+                id="imageUpload"
+              >
+                <div id="imageUploadPlaceholder">
+                  <p class="text-sm text-gray-600">
+                    📷 Click để chọn ảnh hoặc Paste (Ctrl+V)
+                  </p>
+                </div>
+                <div id="imagePreviewContainer" class="hidden">
+                  <img
+                    id="imagePreview"
+                    src=""
+                    alt="Preview"
+                    class="max-h-40 mx-auto rounded-lg mb-2"
+                  />
+                  <button
+                    type="button"
+                    onclick="removeImage(event)"
+                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                  >
+                    🗑️ Xóa ảnh
+                  </button>
+                </div>
+                <input
+                  type="file"
+                  id="fileInput"
+                  accept="image/*"
+                  class="hidden"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="mt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Biến Thể (AttributeLines)</label
+            >
+            <button
+              onclick="openAttributeModal()"
+              class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition"
+            >
+              📝 Chọn Biến Thể
+            </button>
+            <textarea
+              id="attributeLinesDisplay"
+              readonly
+              class="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-xs"
+              rows="3"
+            >
+[]</textarea
+            >
+          </div>
+          <div class="flex gap-3 mt-6">
+            <button
+              onclick="createProductOneClick()"
+              class="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+            >
+              🚀 Tạo Sản Phẩm (1 Click)
+            </button>
+          </div>
+        </div>
+        <div
+          id="productResult"
+          class="hidden bg-white rounded-lg shadow-lg p-6"
+        >
+          <h3 class="text-xl font-bold text-gray-800 mb-4">Kết Quả</h3>
+          <pre
+            id="productResultContent"
+            class="bg-gray-50 p-4 rounded-lg overflow-x-auto text-xs"
+          ></pre>
+        </div>
+
+        <!-- Product Variants Result -->
+        <div
+          id="productVariantsResult"
+          class="hidden bg-white rounded-lg shadow-lg p-6 mt-6"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800">
+              ✅ Danh Sách Variants Đã Tạo
+            </h3>
+            <span class="text-sm text-gray-600"
+              >Tổng:
+              <span id="createdVariantCount" class="font-bold text-blue-600"
+                >0</span
+              >
+              variants</span
+            >
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr class="bg-gradient-to-r from-green-100 to-blue-100">
+                  <th class="border p-3 text-left text-sm font-semibold">ID</th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Mã SP
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Tên Sản Phẩm
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Giá Bán
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Giá Mua
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Thuộc Tính
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="createdVariantsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order Module -->
+      <div id="orderModule" class="hidden">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div
+                id="step1"
+                class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-blue-500 text-white"
+              >
+                1
+              </div>
+              <div id="line1" class="w-20 h-1 bg-gray-200"></div>
+            </div>
+            <div class="flex items-center">
+              <div
+                id="step2"
+                class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-gray-200 text-gray-500"
+              >
+                2
+              </div>
+              <div id="line2" class="w-20 h-1 bg-gray-200"></div>
+            </div>
+            <div class="flex items-center">
+              <div
+                id="step3"
+                class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-gray-200 text-gray-500"
+              >
+                3
+              </div>
+              <div id="line3" class="w-20 h-1 bg-gray-200"></div>
+            </div>
+            <div
+              id="step4"
+              class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-gray-200 text-gray-500"
+            >
+              4
+            </div>
+          </div>
+          <div class="flex justify-between mt-2 text-sm text-gray-600">
+            <span>Tìm đơn</span><span>Chọn đơn</span><span>Chọn SP</span
+            ><span>Cập nhật</span>
+          </div>
+        </div>
+        <div id="stepContent1" class="bg-white rounded-lg shadow-lg p-6">
+          <h2 class="text-xl font-bold text-gray-800 mb-4">
+            📅 Bước 1: Chọn khoảng thời gian
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Ngày bắt đầu</label
+              ><input
+                type="date"
+                id="startDate"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Ngày kết thúc</label
+              ><input
+                type="date"
+                id="endDate"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Session Index</label
+              ><input
+                type="text"
+                id="sessionIndex"
+                value="60"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <button
+            onclick="fetchOrders()"
+            id="btnFetchOrders"
+            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition"
+          >
+            Tìm đơn hàng
+          </button>
+        </div>
+        <div id="stepContent2" class="hidden bg-white rounded-lg shadow-lg p-6">
+          <h2 class="text-xl font-bold text-gray-800 mb-4">
+            🛍️ Bước 2: Chọn đơn hàng (<span id="orderCount">0</span>)
+          </h2>
+          <div id="ordersList" class="max-h-96 overflow-y-auto space-y-3"></div>
+          <div class="flex gap-3 mt-6">
+            <button
+              onclick="goToStep(1)"
+              class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+            >
+              Quay lại
+            </button>
+            <button
+              onclick="fetchOrderDetail()"
+              id="btnContinue"
+              class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition"
+            >
+              Tiếp tục
+            </button>
+          </div>
+        </div>
+        <div id="stepContent3" class="hidden space-y-6">
+          <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">
+              🔍 Bước 3: Tìm và chọn sản phẩm
+            </h2>
+            <div class="flex gap-3 mb-4">
+              <input
+                type="text"
+                id="productSearch"
+                placeholder="Nhập tên hoặc mã sản phẩm..."
+                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                onkeypress="if(event.key==='Enter') searchProducts()"
+              />
+              <button
+                onclick="searchProducts()"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition"
+              >
+                Tìm
+              </button>
+            </div>
+            <div
+              id="productsList"
+              class="max-h-64 overflow-y-auto space-y-2"
+            ></div>
+          </div>
+          <div class="bg-white rounded-lg shadow-lg p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+              Sản phẩm đã chọn (<span id="selectedCount">0</span>)
+            </h3>
+            <div id="selectedProductsList"></div>
+          </div>
+          <div
+            id="updateSection"
+            class="hidden bg-white rounded-lg shadow-lg p-6"
+          >
+            <h2 class="text-xl font-bold text-gray-800 mb-4">
+              💾 Bước 4: Cập nhật đơn hàng
+            </h2>
+            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+              <p class="text-sm text-gray-700">
+                <strong>Đơn hàng:</strong> #<span id="orderCode"></span>
+              </p>
+              <p class="text-sm text-gray-700">
+                <strong>Khách hàng:</strong> <span id="customerName"></span>
+              </p>
+              <p class="text-sm text-gray-700">
+                <strong>Số sản phẩm mới:</strong>
+                <span id="newProductCount"></span>
+              </p>
+            </div>
+            <div class="flex gap-3">
+              <button
+                onclick="goToStep(2)"
+                class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+              >
+                Quay lại
+              </button>
+              <button
+                onclick="updateOrder()"
+                id="btnUpdate"
+                class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition"
+              >
+                Cập nhật đơn hàng
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variants Module -->
+      <div id="variantsModule" class="hidden">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6">
+            🔍 Xem Chi Tiết Sản Phẩm & Variants
+          </h2>
+          <div class="flex gap-4 mb-4">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Product Template ID *</label
+              >
+              <input
+                type="number"
+                id="productTemplateId"
+                value="108457"
+                placeholder="VD: 108457"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div class="flex items-end">
+              <button
+                onclick="fetchProductVariants()"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition"
+              >
+                📥 Tải Dữ Liệu
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          id="variantsResult"
+          class="hidden bg-white rounded-lg shadow-lg p-6"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800">Thông Tin Sản Phẩm</h3>
+            <span class="text-sm text-gray-600"
+              >Tổng:
+              <span id="variantCount" class="font-bold text-blue-600">0</span>
+              variants</span
+            >
+          </div>
+
+          <div id="productInfo" class="bg-gray-50 p-4 rounded-lg mb-6"></div>
+
+          <h3 class="text-lg font-bold text-gray-800 mb-4">
+            Danh Sách Variants
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr class="bg-gray-100">
+                  <th class="border p-3 text-left text-sm font-semibold">ID</th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Mã SP
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Tên Sản Phẩm
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Giá Bán
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Giá Mua
+                  </th>
+                  <th class="border p-3 text-left text-sm font-semibold">
+                    Thuộc Tính
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="variantsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Headers Configuration -->
+      <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-gray-800">🔧 Cấu hình API TPOS</h2>
+          <button
+            onclick="toggleHeaders()"
+            class="text-blue-500 hover:text-blue-600 font-medium"
+          >
+            <span id="toggleText">Hiện</span> ▼
+          </button>
+        </div>
+        <div id="headersSection" class="hidden space-y-4">
+          <div class="grid grid-cols-1 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Authorization Token (TPOS) *</label
+              >
+              <textarea
+                id="authToken"
+                rows="3"
+                placeholder="Bearer eyJhbGci..."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+              ></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >x-request-id (GUID)
+                <button
+                  onclick="generateNewGUID()"
+                  class="ml-2 text-blue-500 hover:text-blue-600 text-xs"
+                >
+                  🔄 Tạo mới
+                </button></label
+              >
+              <input
+                type="text"
+                id="requestId"
+                readonly
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+              />
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3 mt-4">
+            <button
+              onclick="saveHeaders()"
+              class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition"
+            >
+              💾 Lưu
+            </button>
+            <button
+              onclick="loadDefaultHeaders()"
+              class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition"
+            >
+              🔄 Mặc định
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attribute Modal -->
+    <div
+      id="attributeModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold text-gray-800">Chọn Biến Thể</h3>
+          <button
+            onclick="closeAttributeModal()"
+            class="text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            ×
+          </button>
+        </div>
+        <div class="flex gap-2 mb-4 border-b">
+          <button
+            class="px-4 py-2 font-semibold border-b-2 border-blue-500 text-blue-500"
+            onclick="switchAttrTab('sizeText', event)"
+          >
+            Size Chữ
+          </button>
+          <button
+            class="px-4 py-2 font-semibold text-gray-500"
+            onclick="switchAttrTab('color', event)"
+          >
+            Màu
+          </button>
+          <button
+            class="px-4 py-2 font-semibold text-gray-500"
+            onclick="switchAttrTab('sizeNumber', event)"
+          >
+            Size Số
+          </button>
+        </div>
+        <div id="tab-sizeText" class="attr-tab-content">
+          <select
+            id="sizeTextSelect"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-3"
+          ></select>
+          <div
+            id="sizeTextChips"
+            class="min-h-16 p-3 bg-gray-50 rounded-lg flex flex-wrap gap-2"
+          ></div>
+        </div>
+        <div id="tab-color" class="attr-tab-content hidden">
+          <select
+            id="colorSelect"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-3"
+          ></select>
+          <div
+            id="colorChips"
+            class="min-h-16 p-3 bg-gray-50 rounded-lg flex flex-wrap gap-2"
+          ></div>
+        </div>
+        <div id="tab-sizeNumber" class="attr-tab-content hidden">
+          <select
+            id="sizeNumberSelect"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-3"
+          ></select>
+          <div
+            id="sizeNumberChips"
+            class="min-h-16 p-3 bg-gray-50 rounded-lg flex flex-wrap gap-2"
+          ></div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button
+            onclick="saveAttributeLines()"
+            class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition"
+          >
+            ✅ Lưu
+          </button>
+          <button
+            onclick="closeAttributeModal()"
+            class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition"
+          >
+            ❌ Hủy
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
