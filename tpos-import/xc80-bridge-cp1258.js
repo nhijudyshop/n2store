@@ -1,11 +1,11 @@
 /**
- * XC80 Print Bridge Server v7.1 - VIETNAMESE PDF SUPPORT
+ * XC80 Print Bridge Server v7.0 - PDF SUPPORT
  * Hỗ trợ CP1258 (Windows-1258) cho tiếng Việt có dấu
  * Hỗ trợ in BITMAP từ canvas
- * Hỗ trợ in PDF với tiếng Việt
+ * Hỗ trợ in PDF trắng đen
  *
  * Cách chạy:
- * npm install
+ * npm install express body-parser cors iconv-lite sharp
  * node xc80-bridge-cp1258.js
  */
 
@@ -21,9 +21,8 @@ const { promisify } = require("util");
 const { exec } = require("child_process");
 const execAsync = promisify(exec);
 
-// Thư viện xử lý hình ảnh và PDF
+// Thư viện xử lý hình ảnh
 const sharp = require("sharp");
-const pdfParse = require("pdf-parse");
 
 const app = express();
 const PORT = 9100;
@@ -82,62 +81,28 @@ function convertToCP1258(text) {
 }
 
 /**
- * Kiểm tra xem hệ thống có pdftoppm không
- */
-async function checkPdftoppmAvailable() {
-  try {
-    await execAsync("pdftoppm -v");
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
-
-/**
- * Extract text từ PDF
- */
-async function extractPdfText(pdfBuffer) {
-  try {
-    const data = await pdfParse(pdfBuffer);
-    return data.text;
-  } catch (error) {
-    console.warn("Cannot extract text from PDF:", error.message);
-    return null;
-  }
-}
-
-/**
  * Convert PDF to ESC/POS bitmap using pdftoppm + sharp
- * Có hỗ trợ font tiếng Việt tốt hơn
+ * @param {Buffer} pdfBuffer - PDF file buffer
+ * @param {Object} options - Conversion options
+ * @param {number} options.dpi - DPI (default: 300)
+ * @param {number} options.threshold - Threshold 0-255 (default: 115)
+ * @param {number} options.width - Width in pixels (default: 944 for 80mm @ 300 DPI)
+ * @returns {Promise<Buffer>} ESC/POS bitmap commands
  */
 async function pdfToESCPOSBitmap(pdfBuffer, options = {}) {
-  const { 
-    dpi = 300, 
-    threshold = 115, 
-    width = 944,
-    fontPath = null // Đường dẫn đến font tiếng Việt nếu cần
-  } = options;
+  const { dpi = 300, threshold = 115, width = 944 } = options;
   
   const timestamp = Date.now();
   const pdfPath = path.join(TEMP_DIR, `temp_${timestamp}.pdf`);
   const outputPrefix = path.join(TEMP_DIR, `output_${timestamp}`);
   
   try {
-    // Step 1: Save PDF buffer to file
+    // Step 1: Save PDF buffer to file (async)
     await fs.writeFile(pdfPath, pdfBuffer);
     
-    // Step 2: Convert PDF to PNG với options hỗ trợ font tốt hơn
+    // Step 2: Convert PDF to PNG using pdftoppm (better Sharp support)
     console.log(`📄 Converting PDF to PNG (DPI: ${dpi})...`);
-    
-    // Tạo command với options tốt hơn cho tiếng Việt
-    let command = `pdftoppm -r ${dpi} -png`;
-    
-    // Thêm antialiasing để text mượt hơn
-    command += ` -aa yes -aaVector yes`;
-    
-    command += ` "${pdfPath}" "${outputPrefix}"`;
-    
-    console.log(`🔧 Command: ${command}`);
+    const command = `pdftoppm -r ${dpi} -png "${pdfPath}" "${outputPrefix}"`;
     await execAsync(command);
     
     // Step 3: Find generated PNG file
@@ -146,8 +111,8 @@ async function pdfToESCPOSBitmap(pdfBuffer, options = {}) {
       throw new Error('PDF conversion failed - no output file generated');
     }
     
-    // Step 4: Process image với sharp
-    console.log(`🖼️ Processing image (width: ${width}px, threshold: ${threshold})...`);
+    // Step 4: Load and enhance image with sharp
+    console.log(`📄 Processing image (width: ${width}px, threshold: ${threshold})...`);
     let img = sharp(pngPath);
     
     // Get metadata
@@ -162,7 +127,7 @@ async function pdfToESCPOSBitmap(pdfBuffer, options = {}) {
       });
     }
     
-    // Enhance và convert to monochrome với settings tốt hơn cho text
+    // Enhance and convert to monochrome
     const processedBuffer = await img
       .greyscale()
       .sharpen({ sigma: 1.2, m1: 0.5, m2: 0.5 })
@@ -181,7 +146,7 @@ async function pdfToESCPOSBitmap(pdfBuffer, options = {}) {
     // Step 6: Convert to ESC/POS format
     const escposData = encodeImageToESCPOS(imageData, info.width, info.height);
     
-    // Cleanup temp files
+    // Cleanup temp files (async)
     try {
       await fs.unlink(pdfPath);
       await fs.unlink(pngPath);
@@ -192,7 +157,7 @@ async function pdfToESCPOSBitmap(pdfBuffer, options = {}) {
     return escposData;
     
   } catch (error) {
-    // Cleanup on error
+    // Cleanup on error (async)
     try {
       await fs.unlink(pdfPath).catch(() => {});
       const pngPath = `${outputPrefix}-1.png`;
@@ -233,6 +198,7 @@ function encodeImageToESCPOS(imageData, width, height) {
       for (let bit = 0; bit < 8; bit++) {
         const pixelX = x * 8 + bit;
         if (pixelX < width) {
+          // For grayscale/RGB, take first channel
           const pixelIndex = (y * width + pixelX) * (imageData.length / (width * height));
           const pixelValue = imageData[Math.floor(pixelIndex)];
           
@@ -301,7 +267,74 @@ async function sendToPrinter(printerIp, printerPort, data) {
 // ============================================
 
 /**
- * Bitmap printing endpoint (ESC/POS bitmap format)
+ * Health check
+ */
+app.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    version: "7.0",
+    features: ["text", "bitmap", "pdf"],
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * POST /print/pdf - In file PDF trắng đen (pdftoppm + sharp)
+ */
+app.post("/print/pdf", async (req, res) => {
+  try {
+    const { 
+      printerIp, 
+      printerPort = 9100, 
+      pdfBase64, 
+      dpi = 300, 
+      threshold = 115, 
+      width = 944 
+    } = req.body;
+
+    if (!printerIp || !pdfBase64) {
+      return res.status(400).json({
+        error: "Missing required fields: printerIp, pdfBase64",
+      });
+    }
+
+    console.log(`\n📄 [PDF Print Request]`);
+    console.log(`   Printer: ${printerIp}:${printerPort}`);
+    console.log(`   Settings: DPI=${dpi}, Threshold=${threshold}, Width=${width}px`);
+
+    // Decode base64 PDF
+    const pdfBuffer = Buffer.from(pdfBase64, "base64");
+    console.log(`   PDF size: ${(pdfBuffer.length / 1024).toFixed(2)} KB`);
+
+    // Convert PDF to ESC/POS bitmap
+    console.log(`   📄 Converting PDF to ESC/POS bitmap...`);
+    const escposData = await pdfToESCPOSBitmap(pdfBuffer, { dpi, threshold, width });
+    console.log(`   ✅ ESC/POS data: ${escposData.length} bytes`);
+
+    // Send to printer
+    console.log(`   📤 Sending to printer...`);
+    await sendToPrinter(printerIp, printerPort, escposData);
+    console.log(`   ✅ Print job sent successfully\n`);
+
+    res.json({
+      success: true,
+      message: "PDF printed successfully",
+      details: {
+        dataSize: escposData.length,
+        settings: { dpi, threshold, width }
+      },
+    });
+  } catch (error) {
+    console.error(`   ❌ Error: ${error.message}\n`);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+/**
+ * POST /print/bitmap - In bitmap từ canvas
  */
 app.post('/print/bitmap', async (req, res) => {
   try {
@@ -316,7 +349,10 @@ app.post('/print/bitmap', async (req, res) => {
     console.log(`📄 Printing ESC/POS bitmap to ${printerIp}:${printerPort}`);
     console.log(`Bitmap size: ${bitmapData.length} bytes`);
 
+    // Convert array back to Uint8Array
     const uint8Data = new Uint8Array(bitmapData);
+
+    // Send to printer
     await sendToPrinter(printerIp, printerPort, uint8Data);
 
     res.json({ 
@@ -330,125 +366,6 @@ app.post('/print/bitmap', async (req, res) => {
     res.status(500).json({ 
       error: error.message,
       details: 'Failed to print ESC/POS bitmap'
-    });
-  }
-});
-
-/**
- * Health check
- */
-app.get("/health", async (req, res) => {
-  const hasPdftoppm = await checkPdftoppmAvailable();
-  
-  res.json({
-    status: "OK",
-    version: "7.1",
-    features: ["text", "bitmap", "pdf", "vietnamese"],
-    pdftoppm: hasPdftoppm ? "available" : "not installed",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-/**
- * POST /print/pdf - In file PDF với hỗ trợ tiếng Việt
- * Body: {
- *   printerIp: "192.168.1.100",
- *   printerPort: 9100,
- *   pdfBase64: "base64_encoded_pdf_data",
- *   dpi: 300 (optional),
- *   threshold: 115 (optional, 0-255),
- *   width: 944 (optional, pixels for 80mm @ 300 DPI),
- *   mode: "bitmap" | "text" | "auto" (optional, default "auto")
- * }
- */
-app.post("/print/pdf", async (req, res) => {
-  try {
-    const { 
-      printerIp, 
-      printerPort = 9100, 
-      pdfBase64, 
-      dpi = 300, 
-      threshold = 115, 
-      width = 944,
-      mode = "auto" // "bitmap", "text", or "auto"
-    } = req.body;
-
-    if (!printerIp || !pdfBase64) {
-      return res.status(400).json({
-        error: "Missing required fields: printerIp, pdfBase64",
-      });
-    }
-
-    console.log(`\n📄 [PDF Print Request]`);
-    console.log(`   Printer: ${printerIp}:${printerPort}`);
-    console.log(`   Mode: ${mode}`);
-
-    // Decode base64 PDF
-    const pdfBuffer = Buffer.from(pdfBase64, "base64");
-    console.log(`   PDF size: ${(pdfBuffer.length / 1024).toFixed(2)} KB`);
-
-    // Check if we should try text mode
-    let useBitmap = mode === "bitmap";
-    let pdfText = null;
-    
-    if (mode === "auto" || mode === "text") {
-      console.log(`   🔍 Extracting text from PDF...`);
-      pdfText = await extractPdfText(pdfBuffer);
-      
-      if (pdfText && pdfText.trim().length > 0) {
-        console.log(`   ✅ Found ${pdfText.length} characters of text`);
-        useBitmap = mode === "bitmap"; // Only use bitmap if explicitly requested
-      } else {
-        console.log(`   ℹ️ No extractable text, using bitmap mode`);
-        useBitmap = true;
-      }
-    }
-
-    let escposData;
-    
-    if (!useBitmap && pdfText) {
-      // Text mode - in text trực tiếp với CP1258
-      console.log(`   📝 Using text mode with CP1258 encoding`);
-      
-      const commands = [];
-      commands.push(Buffer.from([0x1B, 0x40])); // Initialize
-      commands.push(Buffer.from([0x1B, 0x74, 0x1E])); // Set CP1258
-      
-      const convertedText = convertToCP1258(pdfText);
-      commands.push(Buffer.from(convertedText + "\n\n\n", "binary"));
-      commands.push(Buffer.from([0x1D, 0x56, 0x00])); // Cut
-      
-      escposData = Buffer.concat(commands);
-      console.log(`   ✅ Text converted: ${escposData.length} bytes`);
-      
-    } else {
-      // Bitmap mode - convert PDF to image
-      console.log(`   🖼️ Using bitmap mode`);
-      console.log(`   Settings: DPI=${dpi}, Threshold=${threshold}, Width=${width}px`);
-      
-      escposData = await pdfToESCPOSBitmap(pdfBuffer, { dpi, threshold, width });
-      console.log(`   ✅ Bitmap created: ${escposData.length} bytes`);
-    }
-
-    // Send to printer
-    console.log(`   📤 Sending to printer...`);
-    await sendToPrinter(printerIp, printerPort, escposData);
-    console.log(`   ✅ Print job sent successfully\n`);
-
-    res.json({
-      success: true,
-      message: "PDF printed successfully",
-      details: {
-        mode: useBitmap ? "bitmap" : "text",
-        dataSize: escposData.length,
-        settings: { dpi, threshold, width }
-      },
-    });
-  } catch (error) {
-    console.error(`   ❌ Error: ${error.message}\n`);
-    res.status(500).json({
-      error: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 });
@@ -472,9 +389,11 @@ app.post("/print/text", async (req, res) => {
 
     // Build ESC/POS commands
     const commands = [];
-    commands.push(Buffer.from([0x1B, 0x40])); // Initialize
 
-    // Set code page to CP1258
+    // Initialize
+    commands.push(Buffer.from([0x1B, 0x40]));
+
+    // Set code page to CP1258 if requested
     if (encoding === "cp1258") {
       commands.push(Buffer.from([0x1B, 0x74, 0x1E])); // ESC t 30
     }
@@ -482,11 +401,14 @@ app.post("/print/text", async (req, res) => {
     // Convert text
     const convertedText = encoding === "cp1258" ? convertToCP1258(text) : text;
     commands.push(Buffer.from(convertedText + "\n\n\n", "binary"));
-    commands.push(Buffer.from([0x1D, 0x56, 0x00])); // Cut
+
+    // Cut
+    commands.push(Buffer.from([0x1D, 0x56, 0x00]));
 
     const escposData = Buffer.concat(commands);
+
+    // Send to printer
     await sendToPrinter(printerIp, printerPort, escposData);
-    
     console.log(`   ✅ Text printed successfully\n`);
 
     res.json({
@@ -505,34 +427,21 @@ app.post("/print/text", async (req, res) => {
 // START SERVER
 // ============================================
 
-app.listen(PORT, async () => {
-  const hasPdftoppm = await checkPdftoppmAvailable();
-  
+app.listen(PORT, () => {
   console.log(`\n╔═══════════════════════════════════════════════════════════╗`);
-  console.log(`║   XC80 Print Bridge v7.1 - VIETNAMESE PDF SUPPORT        ║`);
+  console.log(`║   XC80 Print Bridge Server v7.0 - PDF SUPPORT            ║`);
   console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
-  console.log(`🌐 Server running on port ${PORT}`);
-  console.log(`📡 Endpoints:`);
+  console.log(`📡 Server running on port ${PORT}`);
+  console.log(`🌐 Endpoints:`);
   console.log(`   GET  /health           - Health check`);
-  console.log(`   POST /print/pdf        - Print PDF (Vietnamese support)`);
+  console.log(`   POST /print/pdf        - Print PDF (black & white)`);
   console.log(`   POST /print/text       - Print text (CP1258)`);
   console.log(`   POST /print/bitmap     - Print bitmap from canvas\n`);
-  console.log(`🔧 System Status:`);
-  console.log(`   pdftoppm: ${hasPdftoppm ? '✅ Available' : '❌ Not installed'}`);
-  
-  if (!hasPdftoppm) {
-    console.log(`\n⚠️  WARNING: pdftoppm not found!`);
-    console.log(`   📦 Install poppler-utils:`);
-    console.log(`   • Ubuntu/Debian: sudo apt-get install poppler-utils`);
-    console.log(`   • macOS: brew install poppler`);
-    console.log(`   • Windows: Download from https://blog.alivate.com.au/poppler-windows/\n`);
-  }
-  
-  console.log(`\n📋 Vietnamese Font Tips:`);
-  console.log(`   • Install Vietnamese fonts for better PDF rendering`);
-  console.log(`   • Recommended: DejaVu, Liberation, Noto fonts`);
-  console.log(`   • Ubuntu: sudo apt-get install fonts-dejavu fonts-liberation`);
-  console.log(`   • PDF text mode uses CP1258 for best Vietnamese support\n`);
+  console.log(`📋 Requirements:`);
+  console.log(`   • pdftoppm must be installed (poppler-utils)`);
+  console.log(`   • Ubuntu/Debian: sudo apt-get install poppler-utils`);
+  console.log(`   • macOS: brew install poppler`);
+  console.log(`   • Windows: Download poppler from https://blog.alivate.com.au/poppler-windows/\n`);
   console.log(`🚀 Ready to accept print jobs!`);
   console.log(`═══════════════════════════════════════════════════════════\n`);
 });
