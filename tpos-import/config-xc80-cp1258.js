@@ -3,7 +3,7 @@
  * Cấu hình Code Page 30 (Windows-1258) cho in tiếng Việt có dấu
  * 
  * Cách chạy:
- * node config-xpk200l-cp1258.js 192.168.1.100 9100
+ * node config-xc80-cp1258.js 192.168.1.100 9100
  */
 
 const net = require('net');
@@ -15,10 +15,6 @@ const PRINTER_PORT = parseInt(process.argv[3]) || 9100;
 console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
 console.log(`║     XP-K200L Code Page Configuration Tool v1.0            ║`);
 console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
-
-// ESC/POS Commands
-const ESC = '\x1B';
-const GS = '\x1D';
 
 /**
  * Tạo buffer ESC/POS với CP1258 encoding
@@ -40,13 +36,13 @@ function buildConfigCommands() {
     `================================\n` +
     `M\xE1y in: XP-K200L 80mm\n` +  // Máy
     `IP: ${PRINTER_IP}:${PRINTER_PORT}\n` +
-    `Th\xF4\xCDi gian: ${new Date().toLocaleString('vi-VN')}\n` + // Thời
+    `Th\xF4i gian: ${new Date().toLocaleString('vi-VN')}\n` + // Thời
     `--------------------------------\n` +
-    `In th\xED ti\xEBng Vi\xEC\xC7t (C\xCD D\xC2U):\n` + // thử tiếng Việt CÓ DẤU
-    `- Xin ch\xE0o Vi\xEC\xC7t Nam!\n` + // chào Việt
-    `- \xCDy l\xE0 b\xDDn in th\xED nghi\xC7m.\n` + // Đây là bản thử nghiệm
-    `- C\xE1c k\xFD t\xED: \xE1\xE0\xDFã\xDC \xE9\xE8\xCE\xCCẹ\n` + // Các ký tự: áàảãạ éèẻẽẹ
-    `- Gi\xE1: 150,000 VN\xCD\n` + // Giá VNĐ
+    `In th\xED ti\xEBng Vi\xECt (C\xD3 D\xC2U):\n` + // thử tiếng Việt CÓ DẤU
+    `- Xin ch\xE0o Vi\xECt Nam!\n` + // chào Việt
+    `- \xD0\xE2y l\xE0 b\xE3n in th\xED nghi\xECm.\n` + // Đây là bản thử nghiệm
+    `- C\xE1c k\xFD t\xFA: \xE1\xE0\xE3\xE3\xE1 \xE9\xE8\xEB\xEB\xE9\n` + // Các ký tự: áàảãạ éèẻẽẹ
+    `- Gi\xE1: 150,000 VN\xD0\n` + // Giá VNĐ
     `================================\n\n\n`,
     'binary'
   );
