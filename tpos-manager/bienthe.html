@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quản lý Biến thể Sản phẩm</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            .spinner {
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #3b82f6;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+    </head>
+    <body class="bg-gray-50">
+        <div class="container mx-auto p-6 max-w-7xl">
+            <!-- Header -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h1 class="text-3xl font-bold text-green-700 mb-4">
+                    Quản lý Biến thể Sản phẩm
+                </h1>
+
+                <!-- Product ID Input -->
+                <div class="flex gap-4 items-end">
+                    <div class="flex-1">
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                            Product Template ID
+                        </label>
+                        <input
+                            type="text"
+                            id="productId"
+                            value="108758"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        />
+                    </div>
+                    <button
+                        onclick="loadProduct()"
+                        id="loadBtn"
+                        class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+                    >
+                        Tải sản phẩm
+                    </button>
+                </div>
+            </div>
+
+            <!-- Product Info -->
+            <div
+                id="productInfo"
+                class="bg-white rounded-lg shadow-sm p-6 mb-6 hidden"
+            >
+                <h2 class="text-xl font-bold text-gray-900 mb-4">
+                    Thông tin sản phẩm
+                </h2>
+                <div
+                    id="productDetails"
+                    class="grid grid-cols-2 gap-4 text-sm"
+                ></div>
+            </div>
+
+            <!-- Attribute Management -->
+            <div
+                id="attributeSection"
+                class="bg-white rounded-lg shadow-sm p-6 mb-6 hidden"
+            >
+                <h2 class="text-xl font-bold text-green-700 mb-4">
+                    Dòng thuộc tính
+                </h2>
+
+                <!-- Attribute Lines List -->
+                <div id="attributeLinesList" class="space-y-3 mb-6"></div>
+
+                <!-- Clear All Button (hidden by default) -->
+                <button
+                    onclick="clearAllAttributes()"
+                    id="clearAllBtn"
+                    class="hidden w-full mb-3 py-2 border-2 border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
+                >
+                    🗑️ Xóa tất cả thuộc tính
+                </button>
+
+                <!-- Add Button -->
+                <button
+                    onclick="showAddForm()"
+                    id="addBtn"
+                    class="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 transition flex items-center justify-center gap-2"
+                >
+                    <span class="text-xl">+</span> Thêm dòng thuộc tính
+                </button>
+
+                <!-- Random Button -->
+                <button
+                    onclick="autoRandomVariants()"
+                    id="randomBtn"
+                    class="hidden w-full mt-3 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 font-medium"
+                >
+                    🎲 Tạo biến thể ngẫu nhiên
+                </button>
+
+                <!-- Add/Edit Form -->
+                <div
+                    id="addForm"
+                    class="hidden mt-6 border-2 border-green-500 rounded-lg p-6 bg-green-50"
+                >
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-lg" id="formTitle">
+                            Thêm thuộc tính mới
+                        </h3>
+                        <button
+                            onclick="hideAddForm()"
+                            class="text-gray-500 hover:text-gray-700"
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <!-- Attribute Select -->
+                    <div class="mb-4">
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                            Thuộc tính
+                        </label>
+                        <select
+                            id="attributeSelect"
+                            class="w-full p-3 border border-gray-300 rounded-lg"
+                        >
+                            <option value="">-- Chọn thuộc tính --</option>
+                        </select>
+                    </div>
+
+                    <!-- Values Select -->
+                    <div id="valuesContainer" class="mb-4 hidden">
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                            Giá trị thuộc tính (<span id="selectedCount"
+                                >0</span
+                            >
+                            đã chọn)
+                        </label>
+                        <div
+                            id="valuesList"
+                            class="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-white"
+                        >
+                            <div
+                                class="grid grid-cols-3 gap-2"
+                                id="valuesGrid"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex gap-3">
+                        <button
+                            onclick="saveAttributeLine()"
+                            class="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-medium"
+                        >
+                            Lưu
+                        </button>
+                        <button
+                            onclick="hideAddForm()"
+                            class="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                        >
+                            Hủy
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview & Comparison Section -->
+            <div
+                id="variantsPreview"
+                class="bg-white rounded-lg shadow-sm p-6 mb-6 hidden"
+            >
+                <h2 class="text-xl font-bold text-blue-600 mb-4">
+                    Biến thể & So sánh
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Left: Preview Variants -->
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-3">
+                            📋 Biến thể sẽ tạo
+                        </h3>
+                        <div class="overflow-x-auto border rounded-lg">
+                            <table class="w-full border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th
+                                            class="border border-gray-300 px-3 py-2 text-left text-sm font-semibold"
+                                        >
+                                            STT
+                                        </th>
+                                        <th
+                                            class="border border-gray-300 px-3 py-2 text-left text-sm font-semibold"
+                                        >
+                                            Mã SKU
+                                        </th>
+                                        <th
+                                            class="border border-gray-300 px-3 py-2 text-left text-sm font-semibold"
+                                        >
+                                            Tên
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="variantsList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Comparison Result -->
+                    <div id="comparisonResult" class="hidden">
+                        <h3 class="font-semibold text-gray-700 mb-3">
+                            🔍 Kết quả so sánh
+                        </h3>
+                        <div id="comparisonContent" class="space-y-4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div id="saveSection" class="hidden mb-6">
+                <button
+                    onclick="executeFullFlow()"
+                    id="saveBtn"
+                    class="w-full bg-green-600 text-white py-4 rounded-lg hover:bg-green-700 transition font-medium text-lg"
+                >
+                    Lưu Variants vào Database
+                </button>
+            </div>
+
+            <!-- Bearer Token -->
+            <div class="bg-gray-100 rounded-lg shadow-sm p-6">
+                <details>
+                    <summary
+                        class="cursor-pointer font-semibold text-gray-700 mb-2"
+                    >
+                        ⚙️ Cấu hình Bearer Token
+                    </summary>
+                    <div class="mt-4">
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                            Bearer Token
+                        </label>
+                        <textarea
+                            id="bearerToken"
+                            rows="3"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-sm"
+                            placeholder="Nhập Bearer token vào đây..."
+                        >
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1MjgxNzBjZC01YmM4LTRkZjEtYjcxMS03Nzg2MmMzOTZiYzQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjAzYmI2ZWMyLWUwYzEtNDkzYi05Y2JhLTA4Mzk2ODdhYzQzYiIsImlhdCI6IjE3NjA4ODI4MjEiLCJuYmYiOjE3NjA4ODI4MjEsImV4cCI6MTc2MjE3ODgyMSwiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.qMsUC883I5Id2NdOOd5UCuqVtGzTk8xoty5-zS6OKIg</textarea
+                        >
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <script>
+            // Global State
+            let productData = null;
+            let attributeLines = [];
+            let currentEditIndex = null;
+            let previewData = null;
+
+            // Attribute data - FULL LIST FROM API
+            const ATTRIBUTES = [
+                { Id: 1, Name: "Size Chữ", Code: "SZCh" },
+                { Id: 3, Name: "Màu", Code: "Mau" },
+                { Id: 4, Name: "Size Số", Code: "SZNu" },
+            ];
+
+            const ATTRIBUTE_VALUES = {
+                1: [
+                    { Id: 5, Name: "Free Size", Code: "FS" },
+                    { Id: 1, Name: "S", Code: "S" },
+                    { Id: 2, Name: "M", Code: "M" },
+                    { Id: 3, Name: "L", Code: "L" },
+                    { Id: 4, Name: "XL", Code: "XL" },
+                    { Id: 31, Name: "XXL", Code: "xxl" },
+                    { Id: 32, Name: "XXXL", Code: "xxxl" },
+                ],
+                3: [
+                    { Id: 6, Name: "Trắng", Code: "trang" },
+                    { Id: 7, Name: "Đen", Code: "den" },
+                    { Id: 8, Name: "Đỏ", Code: "do" },
+                    { Id: 9, Name: "Vàng", Code: "vang" },
+                    { Id: 10, Name: "Cam", Code: "cam" },
+                    { Id: 11, Name: "Xám", Code: "xam" },
+                    { Id: 12, Name: "Hồng", Code: "hong" },
+                    { Id: 14, Name: "Nude", Code: "nude" },
+                    { Id: 15, Name: "Nâu", Code: "nau" },
+                    { Id: 16, Name: "Rêu", Code: "reu" },
+                    { Id: 17, Name: "Xanh", Code: "xanh" },
+                    { Id: 25, Name: "Bạc", Code: "bac" },
+                    { Id: 26, Name: "Tím", Code: "tim" },
+                    { Id: 27, Name: "Xanh Min", Code: "xanhmin" },
+                    { Id: 28, Name: "Trắng Kem", Code: "trangkem" },
+                    { Id: 29, Name: "Xanh Lá", Code: "xanhla" },
+                    { Id: 38, Name: "Cổ Vịt", Code: "co vit" },
+                    { Id: 40, Name: "Xanh Đậu", Code: "xanh dau" },
+                    { Id: 42, Name: "Tím Môn", Code: "timmon" },
+                    { Id: 43, Name: "Muối Tiêu", Code: "muoitieu" },
+                    { Id: 45, Name: "Kem", Code: "kem" },
+                    { Id: 47, Name: "Hồng Đậm", Code: "hongdam" },
+                    { Id: 49, Name: "Ghi", Code: "ghi" },
+                    { Id: 50, Name: "Xanh Mạ", Code: "xanhma" },
+                    { Id: 51, Name: "Vàng Đồng", Code: "vangdong" },
+                    { Id: 52, Name: "Xanh Bơ", Code: "xanhbo" },
+                    { Id: 53, Name: "Xanh Đen", Code: "xanhden" },
+                    { Id: 54, Name: "Xanh CoBan", Code: "xanhcoban" },
+                    { Id: 55, Name: "Xám Đậm", Code: "xamdam" },
+                    { Id: 56, Name: "Xám Nhạt", Code: "xamnhat" },
+                    { Id: 57, Name: "Xanh Dương", Code: "xanhduong" },
+                    { Id: 58, Name: "Cam Sữa", Code: "camsua" },
+                    { Id: 59, Name: "Hồng Nhạt", Code: "hongnhat" },
+                    { Id: 60, Name: "Đậm", Code: "dam" },
+                    { Id: 61, Name: "Nhạt", Code: "nhat" },
+                    { Id: 62, Name: "Xám Khói", Code: "xamkhoi" },
+                    { Id: 63, Name: "Xám Chuột", Code: "xamchuot" },
+                    { Id: 64, Name: "Xám Đen", Code: "xamden" },
+                    { Id: 65, Name: "Xám Trắng", Code: "xamtrang" },
+                    { Id: 66, Name: "Xanh Đậm", Code: "xanhdam" },
+                    { Id: 67, Name: "Sọc Đen", Code: "socden" },
+                    { Id: 68, Name: "Sọc Trắng", Code: "soctrang" },
+                    { Id: 69, Name: "Sọc Xám", Code: "socxam" },
+                    { Id: 70, Name: "Jean Trắng", Code: "jeantrang" },
+                    { Id: 71, Name: "Jean Xanh", Code: "jeanxanh" },
+                    { Id: 72, Name: "Cam Đất", Code: "camdat" },
+                    { Id: 73, Name: "Nâu Đậm", Code: "naudam" },
+                    { Id: 74, Name: "Nâu Nhạt", Code: "naunhat" },
+                    { Id: 75, Name: "Đỏ Tươi", Code: "dotuoi" },
+                    { Id: 76, Name: "Đen Vàng", Code: "denvang" },
+                    { Id: 77, Name: "Cà Phê", Code: "caphe" },
+                    { Id: 78, Name: "Đen Bạc", Code: "denbac" },
+                    { Id: 79, Name: "Bò", Code: "bo" },
+                    { Id: 82, Name: "Sọc Xanh", Code: "socxanh" },
+                    { Id: 83, Name: "Xanh Rêu", Code: "xanhreu" },
+                    { Id: 84, Name: "Hồng Ruốc", Code: "hongruoc" },
+                    { Id: 85, Name: "Hồng Dâu", Code: "hongdau" },
+                    { Id: 86, Name: "Xanh Nhạt", Code: "xanhnhat" },
+                    { Id: 87, Name: "Xanh Ngọc", Code: "xanhngoc" },
+                    { Id: 88, Name: "Caro", Code: "caro" },
+                    { Id: 89, Name: "Sọc Hồng", Code: "sochong" },
+                    { Id: 90, Name: "Trong", Code: "trong" },
+                    { Id: 95, Name: "Trắng Hồng", Code: "tranghong" },
+                    { Id: 96, Name: "Trắng Sáng", Code: "trangsang" },
+                    { Id: 97, Name: "Đỏ Đô", Code: "dodo" },
+                    { Id: 98, Name: "Cam Đào", Code: "camdao" },
+                    { Id: 99, Name: "Cam Lạnh", Code: "camlanh" },
+                    { Id: 100, Name: "Hồng Đào", Code: "hongdao" },
+                    { Id: 101, Name: "Hồng Đất", Code: "hongdat" },
+                    { Id: 102, Name: "Tím Đậm", Code: "timdam" },
+                ],
+                4: [
+                    { Id: 22, Name: "1", Code: "1" },
+                    { Id: 23, Name: "2", Code: "2" },
+                    { Id: 24, Name: "3", Code: "3" },
+                    { Id: 48, Name: "4", Code: "4" },
+                    { Id: 80, Name: "27", Code: "27" },
+                    { Id: 81, Name: "28", Code: "28" },
+                    { Id: 18, Name: "29", Code: "29" },
+                    { Id: 19, Name: "30", Code: "30" },
+                    { Id: 20, Name: "31", Code: "31" },
+                    { Id: 21, Name: "32", Code: "32" },
+                    { Id: 46, Name: "34", Code: "34" },
+                    { Id: 33, Name: "35", Code: "35" },
+                    { Id: 34, Name: "36", Code: "36" },
+                    { Id: 35, Name: "37", Code: "37" },
+                    { Id: 36, Name: "38", Code: "38" },
+                    { Id: 37, Name: "39", Code: "39" },
+                    { Id: 44, Name: "40", Code: "40" },
+                    { Id: 91, Name: "41", Code: "41" },
+                    { Id: 92, Name: "42", Code: "42" },
+                    { Id: 93, Name: "43", Code: "43" },
+                    { Id: 94, Name: "44", Code: "44" },
+                ],
+            };
+
+            // Load product from API
+            async function loadProduct() {
+                const productId = document.getElementById("productId").value;
+                const token = document
+                    .getElementById("bearerToken")
+                    .value.trim();
+                const btn = document.getElementById("loadBtn");
+
+                if (!token) {
+                    alert("Vui lòng nhập Bearer token!");
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerHTML = '<div class="spinner mx-auto"></div>';
+
+                try {
+                    const response = await fetch(
+                        `https://tomato.tpos.vn/odata/ProductTemplate(${productId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`,
+                        {
+                            headers: {
+                                accept: "application/json, text/plain, */*",
+                                authorization: `Bearer ${token}`,
+                                "x-tpos-lang": "vi",
+                            },
+                        },
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(
+                            `HTTP error! status: ${response.status}`,
+                        );
+                    }
+
+                    productData = await response.json();
+                    displayProductInfo();
+
+                    document
+                        .getElementById("attributeSection")
+                        .classList.remove("hidden");
+                    document
+                        .getElementById("randomBtn")
+                        .classList.remove("hidden");
+                } catch (error) {
+                    alert("Lỗi khi tải sản phẩm: " + error.message);
+                    console.error(error);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "Tải sản phẩm";
+                }
+            }
+
+            // Display product info
+            function displayProductInfo() {
+                const infoDiv = document.getElementById("productInfo");
+                const detailsDiv = document.getElementById("productDetails");
+
+                detailsDiv.innerHTML = `
+                <div><strong>ID:</strong> ${productData.Id}</div>
+                <div><strong>Tên:</strong> ${productData.Name}</div>
+                <div><strong>Mã:</strong> ${productData.DefaultCode}</div>
+                <div><strong>Giá:</strong> ${productData.ListPrice}</div>
+                <div><strong>Danh mục:</strong> ${productData.Categ?.Name}</div>
+                <div><strong>Variants hiện tại:</strong> ${productData.ProductVariantCount}</div>
+            `;
+
+                infoDiv.classList.remove("hidden");
+            }
+
+            // Render attribute lines
+            function renderAttributeLines() {
+                const container = document.getElementById("attributeLinesList");
+                const clearAllBtn = document.getElementById("clearAllBtn");
+
+                if (attributeLines.length === 0) {
+                    container.innerHTML =
+                        '<p class="text-gray-500 text-center py-4">Chưa có thuộc tính nào</p>';
+                    document
+                        .getElementById("saveSection")
+                        .classList.add("hidden");
+                    document
+                        .getElementById("addBtn")
+                        .classList.remove("hidden");
+                    clearAllBtn.classList.add("hidden");
+                    if (productData) {
+                        document
+                            .getElementById("randomBtn")
+                            .classList.remove("hidden");
+                    }
+                    return;
+                }
+
+                container.innerHTML = attributeLines
+                    .map(
+                        (line, index) => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="flex-1">
+                        <div class="font-semibold text-gray-900">${line.Attribute.Name}</div>
+                        <div class="text-sm text-gray-600 mt-1">
+                            ${line.Values.map((v) => v.Name).join(", ")} (${line.Values.length} giá trị)
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editAttributeLine(${index})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                            ✏️
+                        </button>
+                        <button onclick="deleteAttributeLine(${index})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `,
+                    )
+                    .join("");
+
+                updatePreview();
+                document
+                    .getElementById("saveSection")
+                    .classList.remove("hidden");
+                document.getElementById("randomBtn").classList.add("hidden");
+                clearAllBtn.classList.remove("hidden");
+            }
+
+            // Update variants preview
+            function updatePreview() {
+                if (attributeLines.length === 0) {
+                    document
+                        .getElementById("variantsPreview")
+                        .classList.add("hidden");
+                    return;
+                }
+
+                const variants = generateVariantCombinations();
+                const previewDiv = document.getElementById("variantsPreview");
+                const listDiv = document.getElementById("variantsList");
+
+                const oldVariant = productData.ProductVariants.find(
+                    (v) => v.Id > 0,
+                );
+
+                let rows = variants
+                    .map(
+                        (variant, idx) => `
+                <tr class="${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}">
+                    <td class="border border-gray-300 px-3 py-2 text-center text-sm">${idx + 1}</td>
+                    <td class="border border-gray-300 px-3 py-2 font-mono text-xs">[${variant.DefaultCode}]</td>
+                    <td class="border border-gray-300 px-3 py-2 text-sm">${variant.Name}</td>
+                </tr>
+            `,
+                    )
+                    .join("");
+
+                if (oldVariant) {
+                    rows += `
+                    <tr class="${variants.length % 2 === 0 ? "bg-white" : "bg-gray-50"}">
+                        <td class="border border-gray-300 px-3 py-2 text-center text-sm">${variants.length + 1}</td>
+                        <td class="border border-gray-300 px-3 py-2 font-mono text-xs text-gray-500 line-through">[${oldVariant.DefaultCode}]</td>
+                        <td class="border border-gray-300 px-3 py-2 text-sm text-gray-500 line-through">${oldVariant.NameGet}</td>
+                    </tr>
+                `;
+                }
+
+                listDiv.innerHTML = rows;
+                previewDiv.classList.remove("hidden");
+
+                document
+                    .getElementById("comparisonResult")
+                    .classList.add("hidden");
+            }
+
+            // Generate unique SKU code
+            function generateSKU(baseCode, attrs, existingCodes) {
+                let code = baseCode;
+
+                // Duyệt theo thứ tự tự nhiên của attrs (theo thứ tự attribute lines)
+                for (const attr of attrs) {
+                    const attrCode = attr.Code || attr.Name;
+                    if (/^\d+$/.test(attrCode)) {
+                        code += attrCode;
+                    } else {
+                        code += attrCode.charAt(0).toUpperCase();
+                    }
+                }
+
+                let finalCode = code;
+                let suffix = "";
+                let counter = 0;
+
+                while (existingCodes.has(finalCode)) {
+                    counter++;
+                    suffix = "1".repeat(counter);
+                    finalCode = code + suffix;
+                }
+
+                existingCodes.add(finalCode);
+                return finalCode;
+            }
+
+            // Generate variant combinations
+            function generateVariantCombinations() {
+                if (attributeLines.length === 0) return [];
+
+                const combinations = [];
+
+                function generate(index, current) {
+                    if (index === attributeLines.length) {
+                        combinations.push([...current]);
+                        return;
+                    }
+
+                    const line = attributeLines[index];
+                    for (const value of line.Values) {
+                        generate(index + 1, [
+                            ...current,
+                            {
+                                AttributeId: line.Attribute.Id,
+                                AttributeName: line.Attribute.Name,
+                                ...value,
+                            },
+                        ]);
+                    }
+                }
+
+                generate(0, []);
+
+                const existingCodes = new Set();
+                const baseCode = productData?.DefaultCode || "PRODUCT";
+
+                return combinations.map((attrs) => {
+                    // KHÔNG SORT - giữ nguyên thứ tự từ attributeLines
+                    // Thứ tự trong () sẽ theo đúng thứ tự người dùng thêm attribute lines
+                    const variantName = `${productData?.Name || "Product"} (${attrs.map((a) => a.Name).join(", ")})`;
+
+                    // Tạo mã SKU cũng theo thứ tự tự nhiên
+                    const variantCode = generateSKU(
+                        baseCode,
+                        attrs,
+                        existingCodes,
+                    );
+
+                    return {
+                        Id: 0,
+                        Name: variantName,
+                        NameGet: variantName,
+                        DefaultCode: variantCode,
+                        AttributeValues: attrs,
+                        Active: true,
+                        ProductTmplId: productData?.Id || 0,
+                        PriceVariant: productData?.ListPrice || 0,
+                    };
+                });
+            }
+
+            // Clear all attributes
+            function clearAllAttributes() {
+                if (confirm("Bạn có chắc muốn xóa tất cả thuộc tính?")) {
+                    attributeLines = [];
+                    renderAttributeLines();
+                }
+            }
+
+            // Auto random variants
+            function autoRandomVariants() {
+                if (!productData) {
+                    alert("Vui lòng tải sản phẩm trước!");
+                    return;
+                }
+
+                const btn = document.getElementById("randomBtn");
+                btn.disabled = true;
+                btn.innerHTML = "🎲 Đang random...";
+
+                setTimeout(() => {
+                    // Random số lượng attributes (1-3)
+                    const numAttributes = Math.floor(Math.random() * 3) + 1;
+
+                    // Shuffle và chọn random attributes
+                    const shuffledAttrs = [...ATTRIBUTES].sort(
+                        () => Math.random() - 0.5,
+                    );
+                    const selectedAttrs = shuffledAttrs.slice(0, numAttributes);
+
+                    // Clear existing attribute lines
+                    attributeLines = [];
+
+                    // Tạo attribute lines với random values
+                    selectedAttrs.forEach((attr) => {
+                        const availableValues = ATTRIBUTE_VALUES[attr.Id];
+
+                        // Random số lượng values (2-5 hoặc tối đa available)
+                        const maxValues = Math.min(availableValues.length, 5);
+                        const minValues = Math.min(2, availableValues.length);
+                        const numValues =
+                            Math.floor(
+                                Math.random() * (maxValues - minValues + 1),
+                            ) + minValues;
+
+                        // Shuffle và chọn random values
+                        const shuffledValues = [...availableValues].sort(
+                            () => Math.random() - 0.5,
+                        );
+                        const selectedValues = shuffledValues.slice(
+                            0,
+                            numValues,
+                        );
+
+                        // Thêm vào attribute lines
+                        const line = {
+                            Attribute: { ...attr, CreateVariant: true },
+                            Values: selectedValues.map((v) => ({
+                                ...v,
+                                AttributeId: attr.Id,
+                                AttributeName: attr.Name,
+                            })),
+                            AttributeId: attr.Id,
+                        };
+
+                        attributeLines.push(line);
+                    });
+
+                    // Render kết quả
+                    renderAttributeLines();
+
+                    // Reset button
+                    btn.disabled = false;
+                    btn.innerHTML = "🎲 Tạo biến thể ngẫu nhiên";
+
+                    // Hiển thị thông báo
+                    const totalVariants = attributeLines.reduce(
+                        (acc, line) => acc * line.Values.length,
+                        1,
+                    );
+                    const attrNames = attributeLines
+                        .map((l) => l.Attribute.Name)
+                        .join(", ");
+                    alert(
+                        `🎲 Đã random!\n\n✅ ${attributeLines.length} thuộc tính: ${attrNames}\n✅ Tổng ${totalVariants} biến thể`,
+                    );
+                }, 300);
+            }
+
+            // Show add form
+            function showAddForm() {
+                document.getElementById("addForm").classList.remove("hidden");
+                document.getElementById("addBtn").classList.add("hidden");
+                populateAttributeSelect();
+            }
+
+            // Hide add form
+            function hideAddForm() {
+                document.getElementById("addForm").classList.add("hidden");
+                document.getElementById("addBtn").classList.remove("hidden");
+                document.getElementById("attributeSelect").value = "";
+                document
+                    .getElementById("valuesContainer")
+                    .classList.add("hidden");
+                currentEditIndex = null;
+            }
+
+            // Populate attribute select
+            function populateAttributeSelect() {
+                const select = document.getElementById("attributeSelect");
+                const usedIds = attributeLines.map((line) => line.Attribute.Id);
+                const available = ATTRIBUTES.filter(
+                    (attr) => !usedIds.includes(attr.Id),
+                );
+
+                select.innerHTML =
+                    '<option value="">-- Chọn thuộc tính --</option>' +
+                    available
+                        .map(
+                            (attr) =>
+                                `<option value="${attr.Id}">${attr.Name}</option>`,
+                        )
+                        .join("");
+
+                select.onchange = () => {
+                    if (select.value) {
+                        showValuesList(parseInt(select.value));
+                    } else {
+                        document
+                            .getElementById("valuesContainer")
+                            .classList.add("hidden");
+                    }
+                };
+            }
+
+            // Show values list
+            function showValuesList(attributeId) {
+                const container = document.getElementById("valuesContainer");
+                const grid = document.getElementById("valuesGrid");
+                const values = ATTRIBUTE_VALUES[attributeId];
+
+                grid.innerHTML = values
+                    .map(
+                        (value) => `
+                <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" value="${value.Id}" class="value-checkbox" data-name="${value.Name}">
+                    <span class="text-sm">${value.Name}</span>
+                </label>
+            `,
+                    )
+                    .join("");
+
+                container.classList.remove("hidden");
+                updateSelectedCount();
+
+                document.querySelectorAll(".value-checkbox").forEach((cb) => {
+                    cb.onchange = updateSelectedCount;
+                });
+            }
+
+            // Update selected count
+            function updateSelectedCount() {
+                const checked = document.querySelectorAll(
+                    ".value-checkbox:checked",
+                ).length;
+                document.getElementById("selectedCount").textContent = checked;
+            }
+
+            // Save attribute line
+            function saveAttributeLine() {
+                const attrId = parseInt(
+                    document.getElementById("attributeSelect").value,
+                );
+                if (!attrId) {
+                    alert("Vui lòng chọn thuộc tính!");
+                    return;
+                }
+
+                const checkedBoxes = document.querySelectorAll(
+                    ".value-checkbox:checked",
+                );
+                if (checkedBoxes.length === 0) {
+                    alert("Vui lòng chọn ít nhất 1 giá trị!");
+                    return;
+                }
+
+                const attribute = ATTRIBUTES.find((a) => a.Id === attrId);
+                const values = Array.from(checkedBoxes).map((cb) => {
+                    const value = ATTRIBUTE_VALUES[attrId].find(
+                        (v) => v.Id === parseInt(cb.value),
+                    );
+                    return {
+                        ...value,
+                        AttributeId: attrId,
+                        AttributeName: attribute.Name,
+                    };
+                });
+
+                const line = {
+                    Attribute: { ...attribute, CreateVariant: true },
+                    Values: values,
+                    AttributeId: attrId,
+                };
+
+                if (currentEditIndex !== null) {
+                    attributeLines[currentEditIndex] = line;
+                } else {
+                    attributeLines.push(line);
+                }
+
+                hideAddForm();
+                renderAttributeLines();
+            }
+
+            // Edit attribute line
+            function editAttributeLine(index) {
+                currentEditIndex = index;
+                showAddForm();
+
+                const line = attributeLines[index];
+                document.getElementById("attributeSelect").value =
+                    line.Attribute.Id;
+                showValuesList(line.Attribute.Id);
+
+                setTimeout(() => {
+                    line.Values.forEach((value) => {
+                        const checkbox = document.querySelector(
+                            `.value-checkbox[value="${value.Id}"]`,
+                        );
+                        if (checkbox) checkbox.checked = true;
+                    });
+                    updateSelectedCount();
+                }, 100);
+            }
+
+            // Delete attribute line
+            function deleteAttributeLine(index) {
+                if (confirm("Bạn có chắc muốn xóa thuộc tính này?")) {
+                    attributeLines.splice(index, 1);
+                    renderAttributeLines();
+                }
+            }
+
+            // Remove OData metadata from object
+            function removeODataMetadata(obj) {
+                if (Array.isArray(obj)) {
+                    return obj.map((item) => removeODataMetadata(item));
+                } else if (obj !== null && typeof obj === "object") {
+                    const cleaned = {};
+                    for (const key in obj) {
+                        if (!key.startsWith("@odata.")) {
+                            cleaned[key] = removeODataMetadata(obj[key]);
+                        }
+                    }
+                    return cleaned;
+                }
+                return obj;
+            }
+
+            // Execute full flow
+            async function executeFullFlow() {
+                if (!productData) {
+                    alert("Vui lòng tải sản phẩm trước!");
+                    return;
+                }
+
+                if (attributeLines.length === 0) {
+                    alert("Vui lòng thêm ít nhất 1 thuộc tính!");
+                    return;
+                }
+
+                const token = document
+                    .getElementById("bearerToken")
+                    .value.trim();
+                const btn = document.getElementById("saveBtn");
+
+                if (
+                    !confirm(
+                        "Bạn có chắc muốn lưu các variants này vào database?",
+                    )
+                ) {
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerHTML =
+                    '<div class="spinner mx-auto"></div> Đang xử lý...';
+
+                try {
+                    btn.innerHTML =
+                        '<div class="spinner mx-auto"></div> Bước 1/3: Đang tạo preview...';
+                    const variants = generateVariantCombinations();
+                    const originalVariant = productData.ProductVariants[0];
+                    if (originalVariant) {
+                        variants.push({ ...originalVariant, Active: false });
+                    }
+
+                    const cleanProductData = removeODataMetadata(productData);
+
+                    const previewPayload = {
+                        model: {
+                            ...cleanProductData,
+                            ProductVariants: variants,
+                            AttributeLines: attributeLines,
+                        },
+                    };
+
+                    const previewResponse = await fetch(
+                        "https://tomato.tpos.vn/odata/ProductTemplate/ODataService.SuggestionsVariant?$expand=AttributeValues",
+                        {
+                            method: "POST",
+                            headers: {
+                                accept: "application/json, text/plain, */*",
+                                authorization: `Bearer ${token}`,
+                                "content-type":
+                                    "application/json;charset=UTF-8",
+                                "x-tpos-lang": "vi",
+                            },
+                            body: JSON.stringify(previewPayload),
+                        },
+                    );
+
+                    if (!previewResponse.ok) {
+                        const errorData = await previewResponse.json();
+                        throw new Error(
+                            "Preview failed: " +
+                                (errorData.error?.message ||
+                                    previewResponse.status),
+                        );
+                    }
+
+                    previewData = await previewResponse.json();
+
+                    btn.innerHTML =
+                        '<div class="spinner mx-auto"></div> Bước 2/3: Đang lưu vào database...';
+                    const savePayload = {
+                        ...cleanProductData,
+                        ProductVariants: previewData.value,
+                        AttributeLines: attributeLines,
+                        Version: 0,
+                    };
+
+                    const saveResponse = await fetch(
+                        "https://tomato.tpos.vn/odata/ProductTemplate/ODataService.UpdateV2",
+                        {
+                            method: "POST",
+                            headers: {
+                                accept: "application/json, text/plain, */*",
+                                authorization: `Bearer ${token}`,
+                                "content-type":
+                                    "application/json;charset=UTF-8",
+                                "x-tpos-lang": "vi",
+                            },
+                            body: JSON.stringify(savePayload),
+                        },
+                    );
+
+                    if (!saveResponse.ok) {
+                        const errorData = await saveResponse.json();
+                        throw new Error(
+                            "Save failed: " +
+                                (errorData.error?.message ||
+                                    saveResponse.status),
+                        );
+                    }
+
+                    btn.innerHTML =
+                        '<div class="spinner mx-auto"></div> Bước 3/3: Đang kiểm tra dữ liệu...';
+                    const productId =
+                        document.getElementById("productId").value;
+                    const verifyResponse = await fetch(
+                        `https://tomato.tpos.vn/odata/ProductTemplate(${productId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`,
+                        {
+                            headers: {
+                                accept: "application/json, text/plain, */*",
+                                authorization: `Bearer ${token}`,
+                                "x-tpos-lang": "vi",
+                            },
+                        },
+                    );
+
+                    if (!verifyResponse.ok) {
+                        throw new Error(
+                            "Verify failed: " + verifyResponse.status,
+                        );
+                    }
+
+                    const verifiedData = await verifyResponse.json();
+
+                    const expectedVariants = previewData.value.filter(
+                        (v) => v.Active === true,
+                    );
+                    const actualVariants = verifiedData.ProductVariants.filter(
+                        (v) => v.Active === true,
+                    );
+
+                    const comparisonResult = compareVariants(
+                        expectedVariants,
+                        actualVariants,
+                    );
+
+                    showComparisonResult(
+                        comparisonResult,
+                        expectedVariants.length,
+                        actualVariants.length,
+                    );
+
+                    productData = verifiedData;
+                    displayProductInfo();
+
+                    attributeLines = [];
+                    previewData = null;
+                    renderAttributeLines();
+                } catch (error) {
+                    alert("⌛ Lỗi: " + error.message);
+                    console.error(error);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "Lưu Variants vào Database";
+                }
+            }
+
+            // Compare variants - so sánh theo AttributeValues thay vì Name
+            function compareVariants(expected, actual) {
+                const matches = [];
+                const missing = [];
+                const extra = [];
+
+                // Tạo signature dựa trên AttributeValues (set of attribute value IDs)
+                function getVariantSignature(variant) {
+                    if (
+                        !variant.AttributeValues ||
+                        variant.AttributeValues.length === 0
+                    ) {
+                        return "";
+                    }
+                    // Sort attribute value IDs để đảm bảo signature nhất quán
+                    const attrValueIds = variant.AttributeValues.map(
+                        (av) => av.Id,
+                    )
+                        .sort((a, b) => a - b)
+                        .join(",");
+                    return attrValueIds;
+                }
+
+                // Tạo map từ signature -> variant
+                const actualMap = new Map();
+                actual.forEach((v) => {
+                    const sig = getVariantSignature(v);
+                    if (sig) {
+                        actualMap.set(sig, v);
+                    }
+                });
+
+                // So sánh expected với actual
+                for (const exp of expected) {
+                    const sig = getVariantSignature(exp);
+                    const variantName = exp.Name || exp.NameGet;
+                    const variantCode = exp.DefaultCode;
+
+                    if (actualMap.has(sig)) {
+                        matches.push({ code: variantCode, name: variantName });
+                        actualMap.delete(sig);
+                    } else {
+                        missing.push({ code: variantCode, name: variantName });
+                    }
+                }
+
+                // Những variants còn lại là thừa
+                for (const [sig, v] of actualMap) {
+                    extra.push({ code: v.DefaultCode, name: v.Name });
+                }
+
+                return { matches, missing, extra };
+            }
+
+            // Show comparison result inline
+            function showComparisonResult(result, expectedCount, actualCount) {
+                const { matches, missing, extra } = result;
+                const comparisonDiv =
+                    document.getElementById("comparisonResult");
+                const contentDiv = document.getElementById("comparisonContent");
+
+                let statusIcon = "✅";
+                let statusText = "Hoàn thành";
+                let statusColor = "text-green-600";
+                let bgColor = "bg-green-50";
+
+                if (missing.length > 0 || extra.length > 0) {
+                    statusIcon = "⚠️";
+                    statusText = "Có cảnh báo";
+                    statusColor = "text-yellow-600";
+                    bgColor = "bg-yellow-50";
+                }
+
+                let content = `
+                    <div class="${bgColor} border-2 ${statusColor.replace("text-", "border-")} rounded-lg p-4 text-center">
+                        <div class="text-3xl mb-1">${statusIcon}</div>
+                        <div class="font-bold ${statusColor}">${statusText}</div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="bg-blue-50 rounded p-2 text-center">
+                            <div class="text-xl font-bold text-blue-600">${expectedCount}</div>
+                            <div class="text-xs text-gray-600">Dự kiến</div>
+                        </div>
+                        <div class="bg-green-50 rounded p-2 text-center">
+                            <div class="text-xl font-bold text-green-600">${actualCount}</div>
+                            <div class="text-xs text-gray-600">Thực tế</div>
+                        </div>
+                        <div class="bg-purple-50 rounded p-2 text-center">
+                            <div class="text-xl font-bold text-purple-600">${matches.length}</div>
+                            <div class="text-xs text-gray-600">Khớp</div>
+                        </div>
+                    </div>
+                `;
+
+                if (matches.length > 0) {
+                    content += `
+                        <div>
+                            <h4 class="font-semibold text-green-600 mb-2 text-sm">✓ Khớp (${matches.length})</h4>
+                            <div class="bg-green-50 rounded p-2 max-h-48 overflow-y-auto border border-green-200">
+                                <ul class="text-xs space-y-1">
+                                    ${matches
+                                        .map(
+                                            (v, idx) => `
+                                        <li class="text-gray-700">
+                                            ${idx + 1}. <span class="font-mono font-semibold">[${v.code}]</span>
+                                            <br><span class="text-gray-600 ml-4">${v.name}</span>
+                                        </li>
+                                    `,
+                                        )
+                                        .join("")}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (missing.length > 0) {
+                    content += `
+                        <div>
+                            <h4 class="font-semibold text-red-600 mb-2 text-sm">✗ Thiếu (${missing.length})</h4>
+                            <div class="bg-red-50 rounded p-2 max-h-48 overflow-y-auto border border-red-200">
+                                <ul class="text-xs space-y-1">
+                                    ${missing
+                                        .map(
+                                            (v, idx) => `
+                                        <li class="text-gray-700">
+                                            ${idx + 1}. <span class="font-mono font-semibold">[${v.code}]</span>
+                                            <br><span class="text-gray-600 ml-4">${v.name}</span>
+                                        </li>
+                                    `,
+                                        )
+                                        .join("")}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (extra.length > 0) {
+                    content += `
+                        <div>
+                            <h4 class="font-semibold text-orange-600 mb-2 text-sm">+ Thừa (${extra.length})</h4>
+                            <div class="bg-orange-50 rounded p-2 max-h-48 overflow-y-auto border border-orange-200">
+                                <ul class="text-xs space-y-1">
+                                    ${extra
+                                        .map(
+                                            (v, idx) => `
+                                        <li class="text-gray-700">
+                                            ${idx + 1}. <span class="font-mono font-semibold">[${v.code}]</span>
+                                            <br><span class="text-gray-600 ml-4">${v.name}</span>
+                                        </li>
+                                    `,
+                                        )
+                                        .join("")}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (missing.length === 0 && extra.length === 0) {
+                    content += `
+                        <div class="bg-green-100 border-2 border-green-500 rounded-lg p-3 text-center">
+                            <div class="text-2xl mb-1">🎉</div>
+                            <div class="font-semibold text-green-700 text-sm">Hoàn hảo! Tất cả ${matches.length} variants đã khớp!</div>
+                        </div>
+                    `;
+                }
+
+                contentDiv.innerHTML = content;
+                comparisonDiv.classList.remove("hidden");
+            }
+
+            // Initialize
+            renderAttributeLines();
+        </script>
+    </body>
+</html>
