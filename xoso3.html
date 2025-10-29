@@ -2,8 +2,11 @@
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <title>🏁 Đua Thua Online</title>
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>🏁 Đua Thú Online</title>
         <style>
             * {
                 margin: 0;
@@ -14,7 +17,12 @@
 
             body {
                 font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-                background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+                background: linear-gradient(
+                    135deg,
+                    #1e3c72 0%,
+                    #2a5298 50%,
+                    #7e22ce 100%
+                );
                 min-height: 100vh;
                 overflow-x: hidden;
             }
@@ -69,8 +77,33 @@
             .login-subtitle {
                 text-align: center;
                 color: #666;
-                margin-bottom: 30px;
+                margin-bottom: 20px;
                 font-size: 0.9rem;
+            }
+
+            .mode-selector {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                background: #f3f4f6;
+                padding: 5px;
+                border-radius: 12px;
+            }
+
+            .mode-btn {
+                flex: 1;
+                padding: 10px;
+                border: none;
+                background: transparent;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: bold;
+                transition: all 0.3s;
+            }
+
+            .mode-btn.active {
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
             }
 
             .login-input {
@@ -120,6 +153,12 @@
                 transform: scale(0.95);
             }
 
+            .info-text {
+                font-size: 0.75rem;
+                color: #999;
+                text-align: center;
+            }
+
             /* Game Screen */
             .game-screen {
                 display: none;
@@ -146,13 +185,29 @@
                 color: white;
             }
 
+            .room-info {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                align-items: flex-end;
+            }
+
             .room-code {
                 background: rgba(255, 255, 255, 0.2);
-                padding: 8px 15px;
-                border-radius: 10px;
+                padding: 5px 10px;
+                border-radius: 8px;
                 color: white;
                 font-weight: bold;
-                font-size: 0.9rem;
+                font-size: 0.8rem;
+            }
+
+            .round-display {
+                background: rgba(251, 191, 36, 0.3);
+                padding: 5px 10px;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                font-size: 0.8rem;
             }
 
             .player-info {
@@ -191,7 +246,15 @@
                 box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
             }
 
-            /* Controls */
+            .admin-badge {
+                background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%);
+                padding: 3px 8px;
+                border-radius: 6px;
+                font-size: 0.7rem;
+                font-weight: bold;
+                color: white;
+            }
+
             .controls-card {
                 background: white;
                 border-radius: 15px;
@@ -200,41 +263,46 @@
             }
 
             .speed-control {
-                padding: 15px;
+                padding: 10px 0;
             }
 
             .speed-label {
                 font-size: 0.9rem;
                 font-weight: bold;
                 color: #333;
-                margin-bottom: 8px;
+                margin-bottom: 10px;
                 display: block;
             }
 
             .speed-slider {
                 width: 100%;
-                height: 40px;
+                height: 8px;
                 -webkit-appearance: none;
-                background: transparent;
+                background: #e5e7eb;
+                border-radius: 4px;
+                outline: none;
             }
 
             .speed-slider::-webkit-slider-thumb {
                 -webkit-appearance: none;
-                width: 25px;
-                height: 25px;
+                width: 24px;
+                height: 24px;
                 border-radius: 50%;
                 background: #3b82f6;
                 cursor: pointer;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             }
 
-            .speed-slider::-webkit-slider-runnable-track {
-                width: 100%;
-                height: 6px;
-                background: #e5e7eb;
-                border-radius: 3px;
+            .speed-slider::-moz-range-thumb {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                background: #3b82f6;
+                cursor: pointer;
+                border: none;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             }
 
-            /* Admin Controls */
             .admin-controls {
                 background: rgba(251, 191, 36, 0.1);
                 border: 2px solid rgba(251, 191, 36, 0.3);
@@ -250,18 +318,23 @@
                 font-size: 0.9rem;
             }
 
+            .admin-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
             .admin-btn {
-                width: 100%;
-                padding: 12px;
+                padding: 10px;
                 background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%);
                 color: white;
                 border: none;
                 border-radius: 10px;
                 font-weight: bold;
-                margin-bottom: 8px;
+                font-size: 0.85rem;
+                cursor: pointer;
             }
 
-            /* Players List */
             .players-card {
                 background: white;
                 border-radius: 15px;
@@ -287,6 +360,7 @@
                 margin-bottom: 8px;
                 background: linear-gradient(135deg, #dbeafe 0%, #e9d5ff 100%);
                 border-radius: 12px;
+                position: relative;
             }
 
             .player-item-left {
@@ -308,6 +382,34 @@
                 font-weight: bold;
                 color: #333;
                 font-size: 0.95rem;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .rank-badge {
+                display: inline-block;
+                font-size: 0.7rem;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+
+            .rank-1 {
+                background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                color: white;
+            }
+            .rank-2 {
+                background: linear-gradient(135deg, #94a3b8, #cbd5e1);
+                color: white;
+            }
+            .rank-3 {
+                background: linear-gradient(135deg, #d97706, #f59e0b);
+                color: white;
+            }
+            .rank-other {
+                background: #e5e7eb;
+                color: #666;
             }
 
             .player-money {
@@ -317,7 +419,7 @@
             }
 
             .player-item-badge {
-                font-size: 0.7rem;
+                font-size: 0.65rem;
                 padding: 2px 6px;
                 border-radius: 4px;
                 font-weight: bold;
@@ -330,25 +432,28 @@
                 gap: 5px;
             }
 
-            .item-btn {
+            .item-btn,
+            .money-btn,
+            .inventory-btn {
                 padding: 8px 12px;
-                background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-                color: white;
-                border: none;
-                border-radius: 8px;
-                font-size: 1.2rem;
-                cursor: pointer;
-            }
-
-            .money-btn {
-                padding: 8px 12px;
-                background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
                 color: white;
                 border: none;
                 border-radius: 8px;
                 font-size: 1rem;
                 cursor: pointer;
                 font-weight: bold;
+            }
+
+            .item-btn {
+                background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            }
+
+            .money-btn {
+                background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            }
+
+            .inventory-btn {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             }
 
             .remove-btn {
@@ -358,9 +463,9 @@
                 border: none;
                 border-radius: 8px;
                 font-size: 0.9rem;
+                cursor: pointer;
             }
 
-            /* Race Button */
             .race-btn {
                 width: 100%;
                 padding: 18px;
@@ -372,19 +477,29 @@
                 border-radius: 15px;
                 margin-bottom: 15px;
                 box-shadow: 0 5px 20px rgba(16, 185, 129, 0.4);
+                cursor: pointer;
             }
 
             .race-btn:disabled {
                 background: #9ca3af;
                 box-shadow: none;
+                cursor: not-allowed;
             }
 
-            /* Race Track */
             .race-container {
                 background: white;
                 border-radius: 15px;
                 padding: 15px;
                 margin-bottom: 15px;
+            }
+
+            .race-main {
+                display: flex;
+                gap: 15px;
+            }
+
+            .race-track-container {
+                flex: 1;
             }
 
             .status-text {
@@ -399,10 +514,15 @@
                 position: relative;
                 height: 60px;
                 margin-bottom: 10px;
-                background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+                background: linear-gradient(
+                    90deg,
+                    rgba(59, 130, 246, 0.1) 0%,
+                    rgba(139, 92, 246, 0.1) 100%
+                );
                 border-radius: 10px;
                 overflow: visible;
                 border: 2px solid rgba(59, 130, 246, 0.2);
+                transition: background 0.5s ease;
             }
 
             .finish-line {
@@ -411,7 +531,13 @@
                 top: 0;
                 bottom: 0;
                 width: 30px;
-                background: repeating-linear-gradient(45deg, #000, #000 8px, #fff 8px, #fff 16px);
+                background: repeating-linear-gradient(
+                    45deg,
+                    #000,
+                    #000 8px,
+                    #fff 8px,
+                    #fff 16px
+                );
                 opacity: 0.5;
                 border-radius: 0 8px 8px 0;
             }
@@ -435,7 +561,8 @@
             }
 
             @keyframes racerBounce {
-                0%, 100% {
+                0%,
+                100% {
                     transform: translateY(0);
                 }
                 50% {
@@ -445,32 +572,17 @@
 
             .racer.boosted .racer-icon {
                 animation: superBoost 0.3s infinite;
-                filter: drop-shadow(0 0 15px #fbbf24) drop-shadow(0 0 10px #f59e0b);
+                filter: drop-shadow(0 0 15px #fbbf24)
+                    drop-shadow(0 0 10px #f59e0b);
             }
 
             @keyframes superBoost {
-                0%, 100% {
+                0%,
+                100% {
                     transform: translateY(0) scale(1);
                 }
                 50% {
                     transform: translateY(-8px) scale(1.2);
-                }
-            }
-
-            .racer.slowed .racer-icon {
-                animation: slowShake 0.6s infinite;
-                filter: drop-shadow(0 0 10px #3b82f6);
-            }
-
-            @keyframes slowShake {
-                0%, 100% {
-                    transform: translateX(0) rotate(0deg);
-                }
-                25% {
-                    transform: translateX(-4px) rotate(-5deg);
-                }
-                75% {
-                    transform: translateX(4px) rotate(5deg);
                 }
             }
 
@@ -480,28 +592,273 @@
             }
 
             @keyframes hitShake {
-                0%, 100% {
+                0%,
+                100% {
                     transform: translateX(0);
                 }
-                10%, 30%, 50%, 70%, 90% {
+                10%,
+                30%,
+                50%,
+                70%,
+                90% {
                     transform: translateX(-5px);
                 }
-                20%, 40%, 60%, 80% {
+                20%,
+                40%,
+                60%,
+                80% {
                     transform: translateX(5px);
                 }
             }
 
-            .racer-name {
-                background: rgba(0, 0, 0, 0.7);
-                color: white;
-                padding: 4px 8px;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 0.8rem;
-                white-space: nowrap;
+            .track-line.finished-1 {
+                background: linear-gradient(
+                    90deg,
+                    rgba(251, 191, 36, 0.3) 0%,
+                    rgba(245, 158, 11, 0.3) 100%
+                );
+                border-color: rgba(251, 191, 36, 0.5);
+                animation: goldShimmer 1s ease-in-out infinite;
             }
 
-            /* Modal */
+            @keyframes goldShimmer {
+                0%,
+                100% {
+                    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+                }
+                50% {
+                    box-shadow:
+                        0 0 20px rgba(251, 191, 36, 0.8),
+                        inset 0 0 20px rgba(251, 191, 36, 0.2);
+                }
+            }
+
+            .track-line.finished-2 {
+                background: linear-gradient(
+                    90deg,
+                    rgba(148, 163, 184, 0.3) 0%,
+                    rgba(203, 213, 225, 0.3) 100%
+                );
+                border-color: rgba(148, 163, 184, 0.5);
+            }
+
+            .track-line.finished-3 {
+                background: linear-gradient(
+                    90deg,
+                    rgba(217, 119, 6, 0.3) 0%,
+                    rgba(245, 158, 11, 0.3) 100%
+                );
+                border-color: rgba(217, 119, 6, 0.5);
+            }
+
+            .buff-effect {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(
+                    circle,
+                    rgba(251, 191, 36, 0.6) 0%,
+                    transparent 70%
+                );
+                border-radius: 50%;
+                animation: buffPulse 0.6s ease-out;
+                pointer-events: none;
+            }
+
+            @keyframes buffPulse {
+                0% {
+                    transform: scale(0) rotate(0deg);
+                    opacity: 1;
+                }
+                50% {
+                    transform: scale(1.5) rotate(180deg);
+                    opacity: 0.8;
+                }
+                100% {
+                    transform: scale(3) rotate(360deg);
+                    opacity: 0;
+                }
+            }
+
+            .hit-effect {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(
+                    circle,
+                    rgba(239, 68, 68, 0.6) 0%,
+                    transparent 70%
+                );
+                border-radius: 50%;
+                animation: hitPulse 0.6s ease-out;
+                pointer-events: none;
+            }
+
+            @keyframes hitPulse {
+                0% {
+                    transform: scale(0);
+                    opacity: 1;
+                }
+                50% {
+                    transform: scale(1.5);
+                    opacity: 0.8;
+                }
+                100% {
+                    transform: scale(3);
+                    opacity: 0;
+                }
+            }
+
+            .attack-effect {
+                position: absolute;
+                font-size: 2rem;
+                animation: attackMove 1s ease-out forwards;
+                pointer-events: none;
+                z-index: 100;
+                filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+            }
+
+            @keyframes attackMove {
+                0% {
+                    opacity: 1;
+                    transform: translate(0, 0) scale(1) rotate(0deg);
+                }
+                50% {
+                    transform: translate(
+                            calc(var(--tx) * 0.5),
+                            calc(var(--ty) * 0.5)
+                        )
+                        scale(1.5) rotate(180deg);
+                }
+                100% {
+                    opacity: 0;
+                    transform: translate(var(--tx), var(--ty)) scale(2)
+                        rotate(360deg);
+                }
+            }
+
+            .shockwave {
+                position: absolute;
+                width: 80px;
+                height: 80px;
+                border: 4px solid rgba(251, 191, 36, 0.8);
+                border-radius: 50%;
+                animation: shockwaveExpand 0.8s ease-out forwards;
+                pointer-events: none;
+            }
+
+            @keyframes shockwaveExpand {
+                0% {
+                    transform: scale(0);
+                    opacity: 1;
+                }
+                100% {
+                    transform: scale(3);
+                    opacity: 0;
+                }
+            }
+
+            .finish-effect {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(
+                    circle,
+                    rgba(16, 185, 129, 0.6) 0%,
+                    transparent 70%
+                );
+                border-radius: 50%;
+                animation: finishBurst 0.8s ease-out;
+                pointer-events: none;
+            }
+
+            @keyframes finishBurst {
+                0% {
+                    transform: scale(0);
+                    opacity: 1;
+                }
+                50% {
+                    transform: scale(2);
+                    opacity: 0.8;
+                }
+                100% {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+
+            .confetti {
+                position: fixed;
+                width: 10px;
+                height: 10px;
+                background: #fbbf24;
+                animation: confettiFall 3s ease-out forwards;
+                pointer-events: none;
+                z-index: 1000;
+            }
+
+            @keyframes confettiFall {
+                0% {
+                    transform: translateY(0) rotate(0deg);
+                    opacity: 1;
+                }
+                100% {
+                    transform: translateY(100vh) rotate(720deg);
+                    opacity: 0;
+                }
+            }
+
+            .battle-log {
+                width: 250px;
+                background: #f9fafb;
+                border-radius: 10px;
+                padding: 10px;
+                max-height: 400px;
+                overflow-y: auto;
+            }
+
+            .battle-log-title {
+                font-size: 0.9rem;
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+
+            .battle-entry {
+                padding: 8px;
+                margin-bottom: 6px;
+                border-radius: 6px;
+                font-size: 0.75rem;
+                animation: slideIn 0.3s ease;
+            }
+
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+
+            .battle-attack {
+                background: #fee2e2;
+                border-left: 3px solid #ef4444;
+            }
+
+            .battle-boost {
+                background: #fef3c7;
+                border-left: 3px solid #fbbf24;
+            }
+
+            .battle-buff {
+                background: #d1fae5;
+                border-left: 3px solid #10b981;
+            }
+
             .modal {
                 display: none;
                 position: fixed;
@@ -545,76 +902,285 @@
             .item-grid {
                 display: grid;
                 grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
+                gap: 12px;
                 margin-bottom: 15px;
+                max-height: 500px;
+                overflow-y: auto;
+                padding: 5px;
             }
 
             .item-card {
-                padding: 12px;
-                border-radius: 12px;
+                padding: 15px;
+                border-radius: 15px;
                 cursor: pointer;
-                transition: all 0.3s ease;
+                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 border: 3px solid transparent;
                 text-align: center;
                 position: relative;
+                overflow: hidden;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            }
+
+            .item-card::before {
+                content: "";
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: linear-gradient(
+                    45deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.3),
+                    transparent
+                );
+                transform: rotate(45deg);
+                transition: all 0.6s;
+            }
+
+            .item-card:hover::before {
+                left: 100%;
+            }
+
+            .item-card:hover {
+                transform: translateY(-5px) scale(1.05);
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
             }
 
             .item-card.selected {
                 border-color: white;
-                box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
-                transform: scale(1.05);
+                box-shadow:
+                    0 0 30px rgba(255, 255, 255, 0.9),
+                    0 0 60px rgba(255, 255, 255, 0.5);
+                transform: scale(1.08);
+                animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    transform: scale(1.08);
+                }
+                50% {
+                    transform: scale(1.12);
+                }
             }
 
             .item-card.locked {
-                opacity: 0.5;
+                opacity: 0.4;
                 cursor: not-allowed;
+                filter: grayscale(60%);
+            }
+
+            .item-card.locked:hover {
+                transform: none;
             }
 
             .item-icon {
-                font-size: 2rem;
-                margin-bottom: 5px;
+                font-size: 2.5rem;
+                margin-bottom: 8px;
+                animation: itemFloat 2s ease-in-out infinite;
+                filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
+            }
+
+            @keyframes itemFloat {
+                0%,
+                100% {
+                    transform: translateY(0px);
+                }
+                50% {
+                    transform: translateY(-8px);
+                }
+            }
+
+            .item-card:hover .item-icon {
+                animation: itemSpin 0.6s ease-in-out;
+            }
+
+            @keyframes itemSpin {
+                0% {
+                    transform: rotate(0deg) scale(1);
+                }
+                50% {
+                    transform: rotate(180deg) scale(1.2);
+                }
+                100% {
+                    transform: rotate(360deg) scale(1);
+                }
             }
 
             .item-name {
                 font-weight: bold;
-                font-size: 0.85rem;
-                margin-bottom: 3px;
+                font-size: 0.9rem;
+                margin-bottom: 5px;
+                text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
             }
 
             .item-type {
+                font-size: 0.75rem;
+                opacity: 0.95;
+                margin-bottom: 5px;
+                font-weight: 600;
+            }
+
+            .item-stats {
                 font-size: 0.7rem;
-                opacity: 0.9;
-                margin-bottom: 3px;
+                margin: 5px 0;
+                padding: 3px 8px;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 8px;
+                display: inline-block;
             }
 
             .item-price {
-                font-size: 0.8rem;
+                font-size: 0.85rem;
                 font-weight: bold;
-                background: rgba(0, 0, 0, 0.2);
-                padding: 3px 8px;
-                border-radius: 6px;
+                background: rgba(0, 0, 0, 0.3);
+                padding: 5px 12px;
+                border-radius: 8px;
                 display: inline-block;
-                margin-top: 3px;
+                margin-top: 5px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             }
 
-            .item-effect {
-                font-size: 0.65rem;
-                opacity: 0.85;
-            }
-
-            .lock-icon {
+            .lock-icon,
+            .check-icon {
                 position: absolute;
-                top: 5px;
-                right: 5px;
-                font-size: 1.2rem;
+                top: 8px;
+                right: 8px;
+                font-size: 1.3rem;
+                animation: iconBounce 0.6s ease;
+                filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
             }
 
-            .item-common { background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%); color: white; }
-            .item-magic { background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%); color: white; }
-            .item-rare { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; }
-            .item-epic { background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%); color: white; }
-            .item-legend { background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%); color: white; }
-            .item-mythic { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); color: white; }
+            @keyframes iconBounce {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.3);
+                }
+            }
+
+            .item-common {
+                background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+                color: white;
+            }
+            .item-magic {
+                background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+                color: white;
+                box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+            }
+            .item-rare {
+                background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+                color: white;
+                box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
+            }
+            .item-epic {
+                background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+                color: white;
+                box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+            }
+            .item-legend {
+                background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+                color: white;
+                box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4);
+            }
+            .item-mythic {
+                background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+                color: white;
+                box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+                animation: mythicGlow 2s ease-in-out infinite;
+            }
+
+            @keyframes mythicGlow {
+                0%,
+                100% {
+                    box-shadow:
+                        0 4px 15px rgba(236, 72, 153, 0.4),
+                        0 0 20px rgba(236, 72, 153, 0.2);
+                }
+                50% {
+                    box-shadow:
+                        0 4px 25px rgba(236, 72, 153, 0.6),
+                        0 0 40px rgba(236, 72, 153, 0.4);
+                }
+            }
+
+            .inventory-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                margin-bottom: 15px;
+                padding: 5px;
+            }
+
+            .inventory-item {
+                padding: 12px;
+                border-radius: 12px;
+                text-align: center;
+                transition: all 0.3s ease;
+                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+                position: relative;
+                overflow: hidden;
+            }
+
+            .inventory-item::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.3),
+                    transparent
+                );
+                transition: left 0.5s;
+            }
+
+            .inventory-item:hover::after {
+                left: 100%;
+            }
+
+            .inventory-item:hover {
+                transform: translateY(-3px) scale(1.05);
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            }
+
+            .inventory-icon {
+                font-size: 2rem;
+                margin-bottom: 8px;
+                animation: inventoryBob 2s ease-in-out infinite;
+            }
+
+            @keyframes inventoryBob {
+                0%,
+                100% {
+                    transform: translateY(0px) rotate(0deg);
+                }
+                25% {
+                    transform: translateY(-5px) rotate(-5deg);
+                }
+                75% {
+                    transform: translateY(-5px) rotate(5deg);
+                }
+            }
+
+            .inventory-name {
+                font-size: 0.75rem;
+                font-weight: bold;
+                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            }
+
+            .inventory-type {
+                font-size: 0.65rem;
+                margin-top: 3px;
+                opacity: 0.9;
+            }
 
             .modal-footer {
                 display: flex;
@@ -640,36 +1206,42 @@
                 color: #333;
             }
 
-            /* Money Modal */
-            .money-input {
-                width: 100%;
-                padding: 15px;
-                font-size: 1.2rem;
-                border: 2px solid #e5e7eb;
+            .notification {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                padding: 15px 20px;
                 border-radius: 12px;
-                margin-bottom: 15px;
-                text-align: center;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                z-index: 2000;
+                animation: slideInRight 0.3s ease;
+                max-width: 300px;
+                border-left: 4px solid #10b981;
+            }
+
+            @keyframes slideInRight {
+                from {
+                    opacity: 0;
+                    transform: translateX(100px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+
+            .notification-title {
                 font-weight: bold;
+                margin-bottom: 5px;
+                color: #333;
             }
 
-            .quick-amount {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 10px;
-                margin-bottom: 15px;
+            .notification-message {
+                font-size: 0.9rem;
+                color: #666;
             }
 
-            .quick-btn {
-                padding: 12px;
-                background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: bold;
-                cursor: pointer;
-            }
-
-            /* Results */
             .results-container {
                 display: none;
                 padding: 20px;
@@ -703,9 +1275,15 @@
                 flex-shrink: 0;
             }
 
-            .podium-place.first { order: 2; }
-            .podium-place.second { order: 1; }
-            .podium-place.third { order: 3; }
+            .podium-place.first {
+                order: 2;
+            }
+            .podium-place.second {
+                order: 1;
+            }
+            .podium-place.third {
+                order: 3;
+            }
 
             .podium-box {
                 width: 90px;
@@ -737,12 +1315,10 @@
             .podium-medal {
                 font-size: 2rem;
             }
-
             .podium-icon {
                 font-size: 1.5rem;
                 margin: 5px 0;
             }
-
             .podium-name {
                 font-size: 0.75rem;
                 font-weight: bold;
@@ -751,111 +1327,39 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-
-            /* Attack Effect */
-            .attack-effect {
-                position: absolute;
-                font-size: 2rem;
-                animation: attackMove 1s ease-out forwards;
-                pointer-events: none;
-                z-index: 100;
-                filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+            .podium-prize {
+                font-size: 0.7rem;
+                color: white;
+                margin-top: 3px;
             }
 
-            @keyframes attackMove {
-                0% {
-                    opacity: 1;
-                    transform: translate(0, 0) scale(1) rotate(0deg);
-                }
-                50% {
-                    transform: translate(calc(var(--tx) * 0.5), calc(var(--ty) * 0.5)) scale(1.3) rotate(180deg);
-                }
-                100% {
-                    opacity: 0;
-                    transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(360deg);
-                }
+            .summary-table {
+                background: white;
+                border-radius: 10px;
+                padding: 15px;
+                margin-top: 15px;
             }
 
-            .hit-effect {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                background: radial-gradient(circle, rgba(239, 68, 68, 0.6) 0%, transparent 70%);
-                border-radius: 50%;
-                animation: hitPulse 0.6s ease-out;
-                pointer-events: none;
+            .summary-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px solid #e5e7eb;
             }
 
-            @keyframes hitPulse {
-                0% {
-                    transform: scale(0);
-                    opacity: 1;
-                }
-                50% {
-                    transform: scale(1.5);
-                    opacity: 0.8;
-                }
-                100% {
-                    transform: scale(3);
-                    opacity: 0;
-                }
+            .summary-row:last-child {
+                border-bottom: none;
             }
 
-            .buff-effect {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                background: radial-gradient(circle, rgba(251, 191, 36, 0.6) 0%, transparent 70%);
-                border-radius: 50%;
-                animation: buffPulse 0.6s ease-out;
-                pointer-events: none;
+            .summary-label {
+                font-weight: bold;
+                color: #333;
             }
 
-            @keyframes buffPulse {
-                0% {
-                    transform: scale(0) rotate(0deg);
-                    opacity: 1;
-                }
-                50% {
-                    transform: scale(1.5) rotate(180deg);
-                    opacity: 0.8;
-                }
-                100% {
-                    transform: scale(3) rotate(360deg);
-                    opacity: 0;
-                }
+            .summary-value {
+                color: #666;
             }
 
-            .speed-particles {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-                overflow: visible;
-            }
-
-            .speed-particle {
-                position: absolute;
-                width: 8px;
-                height: 8px;
-                background: linear-gradient(135deg, #fbbf24, #f59e0b);
-                border-radius: 50%;
-                animation: particleTrail 0.8s ease-out forwards;
-                box-shadow: 0 0 10px #fbbf24;
-            }
-
-            @keyframes particleTrail {
-                0% {
-                    opacity: 1;
-                    transform: translateX(0) scale(1);
-                }
-                100% {
-                    opacity: 0;
-                    transform: translateX(-50px) scale(0);
-                }
-            }
-
-            /* Floating Text */
             .floating-text {
                 position: absolute;
                 font-weight: bold;
@@ -882,148 +1386,39 @@
 
             .floating-text.boost {
                 color: #fbbf24;
-                text-shadow: 
+                text-shadow:
                     0 0 10px #fbbf24,
                     0 0 20px #f59e0b,
                     2px 2px 4px rgba(0, 0, 0, 0.8);
             }
-
             .floating-text.attack {
                 color: #ef4444;
-                text-shadow: 
+                text-shadow:
                     0 0 10px #ef4444,
                     0 0 20px #dc2626,
                     2px 2px 4px rgba(0, 0, 0, 0.8);
             }
-
             .floating-text.buff {
                 color: #10b981;
-                text-shadow: 
+                text-shadow:
                     0 0 10px #10b981,
                     0 0 20px #059669,
                     2px 2px 4px rgba(0, 0, 0, 0.8);
             }
 
-            .floating-text.slow {
-                color: #3b82f6;
-                text-shadow: 
-                    0 0 10px #3b82f6,
-                    0 0 20px #2563eb,
-                    2px 2px 4px rgba(0, 0, 0, 0.8);
-            }
-
-            /* Lightning Effect */
-            .lightning-effect {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(90deg, 
-                    transparent 0%, 
-                    rgba(251, 191, 36, 0.8) 50%, 
-                    transparent 100%);
-                animation: lightningFlash 0.3s ease-out;
-                pointer-events: none;
-                z-index: 50;
-            }
-
-            @keyframes lightningFlash {
-                0%, 100% {
-                    opacity: 0;
+            @media (max-width: 768px) {
+                .race-main {
+                    flex-direction: column;
                 }
-                50% {
-                    opacity: 1;
+                .battle-log {
+                    width: 100%;
+                    max-height: 200px;
                 }
-            }
-
-            /* Shockwave Effect */
-            .shockwave {
-                position: absolute;
-                width: 80px;
-                height: 80px;
-                border: 4px solid rgba(251, 191, 36, 0.8);
-                border-radius: 50%;
-                animation: shockwaveExpand 0.8s ease-out forwards;
-                pointer-events: none;
-            }
-
-            @keyframes shockwaveExpand {
-                0% {
-                    transform: scale(0);
-                    opacity: 1;
-                }
-                100% {
-                    transform: scale(3);
-                    opacity: 0;
-                }
-            }
-
-            /* Trail Effect */
-            .speed-trail {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(90deg, 
-                    rgba(251, 191, 36, 0.6) 0%, 
-                    rgba(251, 191, 36, 0.3) 50%, 
-                    transparent 100%);
-                border-radius: 10px;
-                animation: trailFade 0.5s ease-out forwards;
-                pointer-events: none;
-            }
-
-            @keyframes trailFade {
-                0% {
-                    opacity: 1;
-                    transform: scaleX(1);
-                }
-                100% {
-                    opacity: 0;
-                    transform: scaleX(0.5);
-                }
-            }
-
-            .notification {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: white;
-                padding: 15px 20px;
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-                z-index: 2000;
-                animation: slideInRight 0.3s ease;
-                max-width: 300px;
-            }
-
-            @keyframes slideInRight {
-                from {
-                    opacity: 0;
-                    transform: translateX(100px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateX(0);
-                }
-            }
-
-            .notification-success {
-                border-left: 4px solid #10b981;
-            }
-
-            .notification-title {
-                font-weight: bold;
-                margin-bottom: 5px;
-                color: #333;
-            }
-
-            .notification-message {
-                font-size: 0.9rem;
-                color: #666;
             }
 
             @media (min-width: 768px) {
                 .container {
-                    max-width: 600px;
+                    max-width: 900px;
                     padding: 20px;
                 }
             }
@@ -1033,12 +1428,38 @@
         <!-- Login Screen -->
         <div id="loginScreen" class="login-screen">
             <div class="login-card">
-                <div class="login-title">🏁 ĐUA THUA ONLINE</div>
+                <div class="login-title">🏁 ĐUA THÚ ONLINE</div>
                 <div class="login-subtitle">Nhập tên để tham gia!</div>
-                <input type="text" id="playerNameInput" class="login-input" placeholder="Nhập tên của bạn..." maxlength="20" />
+
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="setMode('local')">
+                        🏠 Cá nhân
+                    </button>
+                    <button class="mode-btn" onclick="setMode('shared')">
+                        🌐 Online
+                    </button>
+                </div>
+
+                <input
+                    type="text"
+                    id="playerNameInput"
+                    class="login-input"
+                    placeholder="Nhập tên của bạn..."
+                    maxlength="20"
+                />
+
                 <div class="button-group">
-                    <button class="btn btn-primary" onclick="joinGame()">🎮 Tham Gia</button>
-                    <button class="btn btn-secondary" onclick="randomName()">🎲 Random</button>
+                    <button class="btn btn-primary" onclick="joinGame()">
+                        🎮 Tham Gia
+                    </button>
+                    <button class="btn btn-secondary" onclick="randomName()">
+                        🎲 Random
+                    </button>
+                </div>
+
+                <div class="info-text">
+                    💡 Thêm "##" sau tên để trở thành Admin<br />
+                    🌐 Chế độ Online: Chơi với người khác cùng lúc!
                 </div>
             </div>
         </div>
@@ -1048,14 +1469,36 @@
             <div class="container">
                 <div class="header">
                     <div class="header-top">
-                        <div class="game-title">🏁 Đua Thua</div>
-                        <div class="room-code" id="roomCode">ROOM-001</div>
+                        <div class="game-title">🏁 Đua Thú</div>
+                        <div class="room-info">
+                            <div class="room-code" id="roomCode">ROOM-001</div>
+                            <div class="round-display" id="roundDisplay">
+                                Round 1
+                            </div>
+                        </div>
                     </div>
                     <div class="player-info">
                         <div class="player-left">
-                            <div class="player-avatar" id="myAvatar">🐆</div>
+                            <div class="player-avatar" id="myAvatar">🦁</div>
                             <div>
-                                <div class="player-name" id="myName">Player</div>
+                                <div
+                                    style="
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 5px;
+                                    "
+                                >
+                                    <div class="player-name" id="myName">
+                                        Player
+                                    </div>
+                                    <div
+                                        class="admin-badge"
+                                        id="adminBadge"
+                                        style="display: none"
+                                    >
+                                        ADMIN
+                                    </div>
+                                </div>
                                 <div class="player-id" id="myId">ID: 12345</div>
                             </div>
                         </div>
@@ -1063,37 +1506,77 @@
                     </div>
                 </div>
 
-                <!-- Speed Control -->
                 <div class="controls-card">
                     <div class="speed-control">
-                        <div class="speed-label">⚡ Tốc độ đua: <span id="speedValue">5s</span></div>
-                        <input type="range" class="speed-slider" id="speedSlider" min="3" max="60" value="5" step="1" oninput="updateSpeed(this.value)" />
+                        <div class="speed-label">
+                            ⚡ Tốc độ đua: <span id="speedValue">5s</span>
+                        </div>
+                        <input
+                            type="range"
+                            class="speed-slider"
+                            id="speedSlider"
+                            min="3"
+                            max="60"
+                            value="5"
+                            step="1"
+                            oninput="updateSpeed(this.value)"
+                        />
                     </div>
                 </div>
 
-                <!-- Admin Controls -->
-                <div id="adminControls" class="admin-controls" style="display: none;">
+                <div
+                    id="adminControls"
+                    class="admin-controls"
+                    style="display: none"
+                >
                     <div class="admin-title">⚙️ QUẢN TRỊ VIÊN</div>
-                    <button class="admin-btn" onclick="addBot()">🤖 Thêm Bot</button>
-                    <button class="admin-btn" onclick="openShop()">🏪 Mở Shop (Tất cả)</button>
+                    <div class="admin-grid">
+                        <button class="admin-btn" onclick="addBot()">
+                            🤖 Thêm Bot
+                        </button>
+                        <button class="admin-btn" onclick="removeAllBots()">
+                            🗑️ Xóa Bot
+                        </button>
+                        <button class="admin-btn" onclick="openPrizeSettings()">
+                            🏆 Giải
+                        </button>
+                        <button class="admin-btn" onclick="resetRound()">
+                            🔄 Reset
+                        </button>
+                        <button class="admin-btn" onclick="syncPlayers()">
+                            🔄 Đồng bộ
+                        </button>
+                        <button class="admin-btn" onclick="openSummary()">
+                            📊 Tổng kết
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Players List -->
                 <div class="players-card">
                     <div class="card-title">
                         <span>👥 Người chơi</span>
-                        <span id="totalPlayers">2</span>
+                        <span id="totalPlayers">0</span>
                     </div>
                     <div id="playersList"></div>
                 </div>
 
-                <!-- Race Button -->
-                <button id="raceBtn" class="race-btn" onclick="startRace()">🏁 BẮT ĐẦU ĐUA</button>
+                <button id="raceBtn" class="race-btn" onclick="startRace()">
+                    🏁 BẮT ĐẦU ĐUA
+                </button>
 
-                <!-- Race Track -->
                 <div class="race-container">
                     <div class="status-text" id="statusText">Sẵn sàng!</div>
-                    <div id="raceTrack"></div>
+                    <div class="race-main">
+                        <div class="race-track-container">
+                            <div id="raceTrack"></div>
+                        </div>
+                        <div class="battle-log" id="battleLog">
+                            <div class="battle-log-title">
+                                ⚔️ LỊCH SỬ TRẬN ĐẤU
+                            </div>
+                            <div id="battleLogContent"></div>
+                        </div>
+                    </div>
                     <div id="resultsContainer" class="results-container"></div>
                 </div>
             </div>
@@ -1104,97 +1587,452 @@
             <div class="modal-content">
                 <div class="modal-header">🎁 Shop Item</div>
                 <div class="modal-subheader">
-                    <span id="shopPlayerName"></span> | 💰 <span id="shopPlayerMoney">0</span>
+                    <span id="shopPlayerName"></span> | 💰
+                    <span id="shopPlayerMoney">0</span>
                 </div>
                 <div class="item-grid" id="itemGrid"></div>
                 <div class="modal-footer">
-                    <button class="modal-btn modal-btn-cancel" onclick="closeModal()">✕ Đóng</button>
+                    <button
+                        class="modal-btn modal-btn-cancel"
+                        onclick="closeModal()"
+                    >
+                        ✕ Đóng
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Add Money Modal -->
-        <div id="moneyModal" class="modal">
+        <!-- Inventory Modal -->
+        <div id="inventoryModal" class="modal">
             <div class="modal-content">
-                <div class="modal-header">💰 Nạp Tiền</div>
-                <div class="modal-subheader">Cho: <span id="moneyPlayerName"></span></div>
-                <input type="number" id="moneyInput" class="money-input" placeholder="Nhập số tiền..." min="0" step="100" />
-                <div class="quick-amount">
-                    <button class="quick-btn" onclick="setAmount(1000)">+1,000</button>
-                    <button class="quick-btn" onclick="setAmount(5000)">+5,000</button>
-                    <button class="quick-btn" onclick="setAmount(10000)">+10,000</button>
-                    <button class="quick-btn" onclick="setAmount(50000)">+50,000</button>
-                    <button class="quick-btn" onclick="setAmount(100000)">+100K</button>
-                    <button class="quick-btn" onclick="setAmount(500000)">+500K</button>
+                <div class="modal-header">🎒 Kho Đồ</div>
+                <div class="modal-subheader" id="inventoryPlayerName"></div>
+                <div class="inventory-grid" id="inventoryGrid"></div>
+                <div class="modal-footer">
+                    <button
+                        class="modal-btn modal-btn-cancel"
+                        onclick="closeInventoryModal()"
+                    >
+                        ✕ Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prize Settings Modal -->
+        <div id="prizeModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">🏆 Cài đặt Giải Thưởng</div>
+                <div style="margin-bottom: 15px">
+                    <label
+                        style="
+                            display: block;
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        "
+                        >🥇 Giải Nhất:</label
+                    >
+                    <input
+                        type="number"
+                        id="prize1Input"
+                        class="login-input"
+                        value="1000"
+                    />
+                </div>
+                <div style="margin-bottom: 15px">
+                    <label
+                        style="
+                            display: block;
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        "
+                        >🥈 Giải Nhì:</label
+                    >
+                    <input
+                        type="number"
+                        id="prize2Input"
+                        class="login-input"
+                        value="500"
+                    />
+                </div>
+                <div style="margin-bottom: 15px">
+                    <label
+                        style="
+                            display: block;
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        "
+                        >🥉 Giải Ba:</label
+                    >
+                    <input
+                        type="number"
+                        id="prize3Input"
+                        class="login-input"
+                        value="300"
+                    />
                 </div>
                 <div class="modal-footer">
-                    <button class="modal-btn modal-btn-confirm" onclick="confirmAddMoney()">✓ Nạp Tiền</button>
-                    <button class="modal-btn modal-btn-cancel" onclick="closeMoneyModal()">✕ Hủy</button>
+                    <button
+                        class="modal-btn modal-btn-confirm"
+                        onclick="savePrizeSettings()"
+                    >
+                        ✓ Lưu
+                    </button>
+                    <button
+                        class="modal-btn modal-btn-cancel"
+                        onclick="closePrizeModal()"
+                    >
+                        ✕ Hủy
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Modal -->
+        <div id="summaryModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">📊 Tổng Kết Game</div>
+                <div id="summaryContent"></div>
+                <div class="modal-footer">
+                    <button
+                        class="modal-btn modal-btn-cancel"
+                        onclick="closeSummaryModal()"
+                    >
+                        ✕ Đóng
+                    </button>
                 </div>
             </div>
         </div>
 
         <script>
-            const animalIcons = ["🐆","🦁","🐎","🦅","🐕","🦘","🐅","🐃","🐂","🐄","🦌","🦒","🦏","🦛","🐘","🦙","🦬","🐪","🐫","🦓","🐖","🐗","🐏","🐑","🐐","🦦","🦨","🦡","🐻","🐼","🐨","🐯","🦊","🐺","🐶","🐱","🐭","🐹","🐰","🦝","🐿️","🦔","🦇","🦈","🐊","🦖","🦕","🐉","🐲","🦎"];
-            
-            const randomNames = ["Thỏ Nhanh","Rùa Chậm","Báo Đốm","Sư Tử","Đại Bàng","Ngựa Hoang","Cáo Sly","Sói Xám","Gấu Trúc","Hổ Vằn","Voi Khổng Lồ","Hươu Cao","Tê Giác","Hà Mã","Kangaroo","Rồng Lửa","Phượng Hoàng","Kỳ Lân","Pegasus","Minotaur"];
-
-            const items = [
-                // BUFF - Common (100-500)
-                { id: 1, name: "Giày Thể Thao", icon: "👟", rarity: "common", type: "buff", boost: 0.05, price: 100 },
-                { id: 2, name: "Nước Tăng Lực", icon: "🥤", rarity: "common", type: "buff", boost: 0.07, price: 200 },
-                { id: 3, name: "Cà Phê", icon: "☕", rarity: "common", type: "buff", boost: 0.08, price: 300 },
-                { id: 4, name: "Bánh Mì", icon: "🍞", rarity: "common", type: "buff", boost: 0.10, price: 500 },
-                
-                // ATTACK - Common (100-500)
-                { id: 5, name: "Đá Nhỏ", icon: "🪨", rarity: "common", type: "attack", debuff: 0.05, price: 150 },
-                { id: 6, name: "Quả Chuối", icon: "🍌", rarity: "common", type: "attack", debuff: 0.08, price: 400 },
-                
-                // BUFF - Magic (800-2000)
-                { id: 7, name: "Cánh Chim", icon: "🪶", rarity: "magic", type: "buff", boost: 0.12, price: 800 },
-                { id: 8, name: "Lá Bùa", icon: "🍀", rarity: "magic", type: "buff", boost: 0.15, price: 1200 },
-                { id: 9, name: "Kiếm Sắc", icon: "⚔️", rarity: "magic", type: "buff", boost: 0.18, price: 2000 },
-                
-                // ATTACK - Magic (800-2000)
-                { id: 10, name: "Bom Khói", icon: "💨", rarity: "magic", type: "attack", debuff: 0.10, price: 1000 },
-                { id: 11, name: "Lưới Bắt", icon: "🕸️", rarity: "magic", type: "attack", debuff: 0.15, price: 1800 },
-                
-                // BUFF - Rare (3000-8000)
-                { id: 12, name: "Rồng Lửa", icon: "🐲", rarity: "rare", type: "buff", boost: 0.20, price: 3000 },
-                { id: 13, name: "Tia Chớp", icon: "⚡", rarity: "rare", type: "buff", boost: 0.25, price: 5000 },
-                { id: 14, name: "Lốc Xoáy", icon: "🌪️", rarity: "rare", type: "buff", boost: 0.30, price: 8000 },
-                
-                // ATTACK - Rare (3000-8000)
-                { id: 15, name: "Băng Đá", icon: "❄️", rarity: "rare", type: "attack", debuff: 0.18, price: 4000 },
-                { id: 16, name: "Dây Leo", icon: "🌿", rarity: "rare", type: "attack", debuff: 0.25, price: 7000 },
-                
-                // BUFF - Epic (10000-25000)
-                { id: 17, name: "Phượng Hoàng", icon: "🔥", rarity: "epic", type: "buff", boost: 0.35, price: 10000 },
-                { id: 18, name: "Vương Miện", icon: "👑", rarity: "epic", type: "buff", boost: 0.42, price: 18000 },
-                { id: 19, name: "Ma Pháp", icon: "✨", rarity: "epic", type: "buff", boost: 0.50, price: 25000 },
-                
-                // ATTACK - Epic (10000-25000)
-                { id: 20, name: "Búa Sấm", icon: "🔨", rarity: "epic", type: "attack", debuff: 0.30, price: 12000 },
-                { id: 21, name: "Hố Đen", icon: "🕳️", rarity: "epic", type: "attack", debuff: 0.40, price: 22000 },
-                
-                // BUFF - Legend (30000-80000)
-                { id: 22, name: "Thần Tốc", icon: "💨", rarity: "legend", type: "buff", boost: 0.55, price: 30000 },
-                { id: 23, name: "Hỏa Tiễn", icon: "🚀", rarity: "legend", type: "buff", boost: 0.65, price: 50000 },
-                { id: 24, name: "Năng Lượng Vũ Trụ", icon: "🌌", rarity: "legend", type: "buff", boost: 0.70, price: 80000 },
-                
-                // ATTACK - Legend (30000-80000)
-                { id: 25, name: "Thiên Thạch", icon: "☄️", rarity: "legend", type: "attack", debuff: 0.45, price: 40000 },
-                { id: 26, name: "Sóng Thần", icon: "🌊", rarity: "legend", type: "attack", debuff: 0.60, price: 70000 },
-                
-                // BUFF - Mythic (100000-500000)
-                { id: 27, name: "Thần Linh", icon: "👼", rarity: "mythic", type: "buff", boost: 0.80, price: 100000 },
-                { id: 28, name: "Sức Mạnh Tối Thượng", icon: "💎", rarity: "mythic", type: "buff", boost: 1.00, price: 500000 },
-                
-                // ATTACK - Mythic (100000-500000)
-                { id: 29, name: "Lỗ Đen", icon: "🌑", rarity: "mythic", type: "attack", debuff: 0.70, price: 200000 },
-                { id: 30, name: "Tận Thế", icon: "💥", rarity: "mythic", type: "attack", debuff: 0.90, price: 400000 },
+            // Constants
+            const animalIcons = [
+                "🦁",
+                "🦊",
+                "🐎",
+                "🦅",
+                "🐕",
+                "🦘",
+                "🐅",
+                "🐃",
+                "🐂",
+                "🐄",
+                "🦌",
+                "🦒",
+                "🦏",
+                "🦛",
+                "🐘",
+                "🦙",
+                "🦬",
+                "🐪",
+                "🐫",
+                "🦓",
+                "🐖",
+                "🐗",
+                "🐏",
+                "🐑",
+                "🐐",
+                "🦦",
+                "🦨",
+                "🦡",
+                "🐻",
+                "🐼",
+                "🐨",
+                "🐯",
+                "🦊",
+                "🐺",
+                "🐶",
+                "🐱",
+                "🐭",
+                "🐹",
+                "🐰",
+                "🦝",
+                "🐿️",
+                "🦔",
+                "🦇",
+                "🦈",
+                "🐊",
             ];
 
+            const randomNames = [
+                "Thỏ Nhanh",
+                "Rùa Chậm",
+                "Báo Đốm",
+                "Sư Tử",
+                "Đại Bàng",
+                "Ngựa Hoang",
+                "Cáo Sly",
+                "Sói Xám",
+                "Gấu Trúc",
+                "Hổ Vằn",
+                "Voi Khổng Lồ",
+                "Hươu Cao",
+                "Tê Giác",
+                "Hà Mã",
+                "Kangaroo",
+                "Rồng Lửa",
+                "Phượng Hoàng",
+                "Kỳ Lân",
+                "Pegasus",
+                "Minotaur",
+            ];
+
+            const items = [
+                {
+                    id: 1,
+                    name: "Giày Thể Thao",
+                    icon: "👟",
+                    rarity: "common",
+                    type: "buff",
+                    boost: 0.05,
+                    price: 100,
+                },
+                {
+                    id: 2,
+                    name: "Nước Tăng Lực",
+                    icon: "🥤",
+                    rarity: "common",
+                    type: "buff",
+                    boost: 0.07,
+                    price: 200,
+                },
+                {
+                    id: 3,
+                    name: "Cà Phê",
+                    icon: "☕",
+                    rarity: "common",
+                    type: "buff",
+                    boost: 0.08,
+                    price: 300,
+                },
+                {
+                    id: 4,
+                    name: "Bánh Mì",
+                    icon: "🍞",
+                    rarity: "common",
+                    type: "buff",
+                    boost: 0.1,
+                    price: 500,
+                },
+                {
+                    id: 5,
+                    name: "Đá Nhỏ",
+                    icon: "🪨",
+                    rarity: "common",
+                    type: "attack",
+                    debuff: 0.05,
+                    price: 150,
+                },
+                {
+                    id: 6,
+                    name: "Quả Chuối",
+                    icon: "🍌",
+                    rarity: "common",
+                    type: "attack",
+                    debuff: 0.08,
+                    price: 400,
+                },
+                {
+                    id: 7,
+                    name: "Cánh Chim",
+                    icon: "🪶",
+                    rarity: "magic",
+                    type: "buff",
+                    boost: 0.12,
+                    price: 800,
+                },
+                {
+                    id: 8,
+                    name: "Lá Bùa",
+                    icon: "🍀",
+                    rarity: "magic",
+                    type: "buff",
+                    boost: 0.15,
+                    price: 1200,
+                },
+                {
+                    id: 9,
+                    name: "Kiếm Sắc",
+                    icon: "⚔️",
+                    rarity: "magic",
+                    type: "buff",
+                    boost: 0.18,
+                    price: 2000,
+                },
+                {
+                    id: 10,
+                    name: "Bom Khói",
+                    icon: "💨",
+                    rarity: "magic",
+                    type: "attack",
+                    debuff: 0.1,
+                    price: 1000,
+                },
+                {
+                    id: 11,
+                    name: "Lưới Bắt",
+                    icon: "🕸️",
+                    rarity: "magic",
+                    type: "attack",
+                    debuff: 0.15,
+                    price: 1800,
+                },
+                {
+                    id: 12,
+                    name: "Rồng Lửa",
+                    icon: "🐲",
+                    rarity: "rare",
+                    type: "buff",
+                    boost: 0.2,
+                    price: 3000,
+                },
+                {
+                    id: 13,
+                    name: "Tia Chớp",
+                    icon: "⚡",
+                    rarity: "rare",
+                    type: "buff",
+                    boost: 0.25,
+                    price: 5000,
+                },
+                {
+                    id: 14,
+                    name: "Lốc Xoáy",
+                    icon: "🌪️",
+                    rarity: "rare",
+                    type: "buff",
+                    boost: 0.3,
+                    price: 8000,
+                },
+                {
+                    id: 15,
+                    name: "Băng Đá",
+                    icon: "❄️",
+                    rarity: "rare",
+                    type: "attack",
+                    debuff: 0.18,
+                    price: 4000,
+                },
+                {
+                    id: 16,
+                    name: "Dây Leo",
+                    icon: "🌿",
+                    rarity: "rare",
+                    type: "attack",
+                    debuff: 0.25,
+                    price: 7000,
+                },
+                {
+                    id: 17,
+                    name: "Phượng Hoàng",
+                    icon: "🔥",
+                    rarity: "epic",
+                    type: "buff",
+                    boost: 0.35,
+                    price: 10000,
+                },
+                {
+                    id: 18,
+                    name: "Vương Miện",
+                    icon: "👑",
+                    rarity: "epic",
+                    type: "buff",
+                    boost: 0.42,
+                    price: 18000,
+                },
+                {
+                    id: 19,
+                    name: "Ma Pháp",
+                    icon: "✨",
+                    rarity: "epic",
+                    type: "buff",
+                    boost: 0.5,
+                    price: 25000,
+                },
+                {
+                    id: 20,
+                    name: "Búa Sấm",
+                    icon: "🔨",
+                    rarity: "epic",
+                    type: "attack",
+                    debuff: 0.3,
+                    price: 12000,
+                },
+                {
+                    id: 21,
+                    name: "Hố Đen",
+                    icon: "🕳️",
+                    rarity: "epic",
+                    type: "attack",
+                    debuff: 0.4,
+                    price: 22000,
+                },
+                {
+                    id: 22,
+                    name: "Thần Tốc",
+                    icon: "💨",
+                    rarity: "legend",
+                    type: "buff",
+                    boost: 0.55,
+                    price: 30000,
+                },
+                {
+                    id: 23,
+                    name: "Hỏa Tiễn",
+                    icon: "🚀",
+                    rarity: "legend",
+                    type: "buff",
+                    boost: 0.65,
+                    price: 50000,
+                },
+                {
+                    id: 24,
+                    name: "Năng Lượng Vũ Trụ",
+                    icon: "🌌",
+                    rarity: "legend",
+                    type: "buff",
+                    boost: 0.7,
+                    price: 80000,
+                },
+                {
+                    id: 25,
+                    name: "Thiên Thạch",
+                    icon: "☄️",
+                    rarity: "legend",
+                    type: "attack",
+                    debuff: 0.45,
+                    price: 40000,
+                },
+                {
+                    id: 26,
+                    name: "Sóng Thần",
+                    icon: "🌊",
+                    rarity: "legend",
+                    type: "attack",
+                    debuff: 0.6,
+                    price: 70000,
+                },
+                {
+                    id: 27,
+                    name: "Thần Linh",
+                    icon: "👼",
+                    rarity: "mythic",
+                    type: "buff",
+                    boost: 0.8,
+                    price: 100000,
+                },
+                {
+                    id: 28,
+                    name: "Sức Mạnh Tối Thượng",
+                    icon: "💎",
+                    rarity: "mythic",
+                    type: "buff",
+                    boost: 1.0,
+                    price: 500000,
+                },
+            ];
+
+            // Game State
             let gameState = {
                 players: [],
                 myPlayer: null,
@@ -1202,323 +2040,745 @@
                 raceSpeed: 5,
                 isRacing: false,
                 roomCode: "ROOM-" + Math.floor(Math.random() * 9000 + 1000),
+                currentRound: 1,
+                prizes: { 1: 1000, 2: 500, 3: 300 },
+                usedAnimals: [],
+                mode: "local",
+                raceHistory: [],
+                currentRanking: [],
             };
 
             let currentShoppingPlayer = null;
-            let currentMoneyPlayer = null;
+            let currentInventoryPlayer = null;
+            let syncInterval = null;
+            let battleLog = [];
 
-            // Simulate realtime updates
-            function syncGameState() {
-                // In real app, this would sync with backend/Firebase
-                localStorage.setItem('gameState', JSON.stringify(gameState));
-                updateGameUI();
+            // Utility Functions
+            function randomName() {
+                const name =
+                    randomNames[Math.floor(Math.random() * randomNames.length)];
+                document.getElementById("playerNameInput").value = name;
             }
 
-            function loadGameState() {
-                const saved = localStorage.getItem('gameState');
-                if (saved) {
-                    const loaded = JSON.parse(saved);
-                    // Only load other players, not overwrite current player
-                    gameState.players = loaded.players;
+            function setMode(mode) {
+                gameState.mode = mode;
+                document.querySelectorAll(".mode-btn").forEach((btn) => {
+                    btn.classList.remove("active");
+                });
+                event.target.classList.add("active");
+            }
+
+            async function syncGameState() {
+                try {
+                    const key = "game-state-" + gameState.roomCode;
+                    const data = {
+                        players: gameState.players,
+                        currentRound: gameState.currentRound,
+                        prizes: gameState.prizes,
+                        usedAnimals: gameState.usedAnimals,
+                        raceHistory: gameState.raceHistory,
+                    };
+                    await window.storage.set(
+                        key,
+                        JSON.stringify(data),
+                        gameState.mode === "shared",
+                    );
                     updateGameUI();
+                } catch (error) {
+                    console.error("Sync error:", error);
                 }
             }
 
-            // Check for updates every second
-            setInterval(() => {
-                if (document.getElementById('gameScreen').style.display !== 'none') {
-                    loadGameState();
+            async function loadGameState() {
+                try {
+                    const key = "game-state-" + gameState.roomCode;
+                    const result = await window.storage.get(
+                        key,
+                        gameState.mode === "shared",
+                    );
+                    if (result && result.value) {
+                        const loaded = JSON.parse(result.value);
+
+                        const myPlayerId = gameState.myPlayer?.id;
+                        gameState.players = loaded.players || [];
+
+                        if (myPlayerId) {
+                            const myPlayerIndex = gameState.players.findIndex(
+                                (p) => p.id === myPlayerId,
+                            );
+                            if (myPlayerIndex >= 0) {
+                                gameState.myPlayer =
+                                    gameState.players[myPlayerIndex];
+                            }
+                        }
+
+                        gameState.currentRound = loaded.currentRound || 1;
+                        gameState.prizes = loaded.prizes || {
+                            1: 1000,
+                            2: 500,
+                            3: 300,
+                        };
+                        gameState.usedAnimals = loaded.usedAnimals || [];
+                        gameState.raceHistory = loaded.raceHistory || [];
+                        updateGameUI();
+                    }
+                } catch (error) {
+                    console.log("No saved state yet");
                 }
-            }, 1000);
+            }
+
+            async function syncPlayers() {
+                await loadGameState();
+                showNotification("Đồng bộ!", "Đã tải dữ liệu mới nhất");
+            }
+
+            function startAutoSync() {
+                if (syncInterval) clearInterval(syncInterval);
+                syncInterval = setInterval(async () => {
+                    if (
+                        document.getElementById("gameScreen").style.display !==
+                        "none"
+                    ) {
+                        await loadGameState();
+                    }
+                }, 2000);
+            }
 
             function generatePlayerId() {
-                return 'P' + Math.floor(Math.random() * 90000 + 10000);
+                return "P" + Math.floor(Math.random() * 90000 + 10000);
             }
 
-            function randomName() {
-                const name = randomNames[Math.floor(Math.random() * randomNames.length)];
-                document.getElementById('playerNameInput').value = name;
+            function getUniqueAnimal() {
+                const available = animalIcons.filter(
+                    (icon) => !gameState.usedAnimals.includes(icon),
+                );
+                if (available.length === 0) {
+                    gameState.usedAnimals = [];
+                    return animalIcons[
+                        Math.floor(Math.random() * animalIcons.length)
+                    ];
+                }
+                const animal =
+                    available[Math.floor(Math.random() * available.length)];
+                gameState.usedAnimals.push(animal);
+                return animal;
             }
 
-            function joinGame() {
-                const nameInput = document.getElementById('playerNameInput').value.trim();
+            function formatMoney(amount) {
+                if (amount === Infinity) return "∞";
+                return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+
+            function showNotification(title, message) {
+                const notification = document.createElement("div");
+                notification.className = "notification";
+                notification.innerHTML = `
+                <div class="notification-title">${title}</div>
+                <div class="notification-message">${message}</div>
+            `;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.style.animation =
+                        "slideInRight 0.3s ease reverse";
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
+
+            function sleep(ms) {
+                return new Promise((resolve) => setTimeout(resolve, ms));
+            }
+
+            function calculateRanking() {
+                const sorted = [...gameState.players].sort((a, b) => {
+                    const aWins = gameState.raceHistory.filter(
+                        (r) => r.results[0]?.playerId === a.id,
+                    ).length;
+                    const bWins = gameState.raceHistory.filter(
+                        (r) => r.results[0]?.playerId === b.id,
+                    ).length;
+                    if (aWins !== bWins) return bWins - aWins;
+                    return (
+                        (b.money === Infinity ? 999999999 : b.money) -
+                        (a.money === Infinity ? 999999999 : a.money)
+                    );
+                });
+                gameState.currentRanking = sorted.map((p, i) => ({
+                    ...p,
+                    rank: i + 1,
+                }));
+            }
+
+            // Game Functions
+            async function joinGame() {
+                const nameInput = document
+                    .getElementById("playerNameInput")
+                    .value.trim();
                 if (!nameInput) {
                     alert("Vui lòng nhập tên!");
                     return;
                 }
 
-                const isAdmin = nameInput.endsWith('##');
-                const cleanName = nameInput.replace('##', '');
-                const avatar = animalIcons[Math.floor(Math.random() * animalIcons.length)];
+                const isAdmin = nameInput.endsWith("##");
+                const cleanName = nameInput.replace("##", "");
                 const playerId = generatePlayerId();
+
+                await loadGameState();
 
                 gameState.myPlayer = {
                     id: playerId,
                     name: cleanName,
-                    avatar: avatar,
-                    money: 1000,
-                    item: null,
-                    isMe: true
+                    avatar: getUniqueAnimal(),
+                    money: isAdmin ? Infinity : 1000,
+                    inventory: [],
+                    selectedItem: null,
+                    isMe: true,
+                    isAdmin: isAdmin,
                 };
                 gameState.isAdmin = isAdmin;
-                
-                // Load existing players
-                loadGameState();
-                
-                // Add current player
-                gameState.players = gameState.players.filter(p => p.id !== playerId);
+
+                gameState.players = gameState.players.filter(
+                    (p) => !p.isMe && p.id !== playerId,
+                );
                 gameState.players.push(gameState.myPlayer);
 
-                // Add a bot if first player
                 if (gameState.players.length === 1) {
                     addBot();
                 }
 
-                syncGameState();
+                await syncGameState();
 
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('gameScreen').style.display = 'block';
+                document.getElementById("loginScreen").style.display = "none";
+                document.getElementById("gameScreen").style.display = "block";
+
+                startAutoSync();
             }
 
             function addBot() {
-                const botName = randomNames[Math.floor(Math.random() * randomNames.length)] + " (Bot)";
-                const botAvatar = animalIcons[Math.floor(Math.random() * animalIcons.length)];
-                const botId = 'BOT' + Math.floor(Math.random() * 90000 + 10000);
-                
+                const botName =
+                    randomNames[
+                        Math.floor(Math.random() * randomNames.length)
+                    ] + " (Bot)";
+                const botId = "BOT" + Math.floor(Math.random() * 90000 + 10000);
+
                 gameState.players.push({
                     id: botId,
                     name: botName,
-                    avatar: botAvatar,
+                    avatar: getUniqueAnimal(),
                     money: 5000,
-                    item: items[Math.floor(Math.random() * 6)], // Random common item
-                    isBot: true
+                    inventory: [items[Math.floor(Math.random() * 6)]],
+                    selectedItem: items[Math.floor(Math.random() * 6)],
+                    isBot: true,
                 });
 
                 syncGameState();
+                showNotification("Bot đã tham gia!", botName);
+            }
+
+            function removeAllBots() {
+                const botCount = gameState.players.filter(
+                    (p) => p.isBot,
+                ).length;
+                if (botCount === 0) {
+                    alert("Không có bot nào!");
+                    return;
+                }
+
+                if (confirm(`Xóa ${botCount} bot?`)) {
+                    gameState.players.forEach((p) => {
+                        if (p.isBot && p.avatar) {
+                            gameState.usedAnimals =
+                                gameState.usedAnimals.filter(
+                                    (a) => a !== p.avatar,
+                                );
+                        }
+                    });
+                    gameState.players = gameState.players.filter(
+                        (p) => !p.isBot,
+                    );
+                    syncGameState();
+                    showNotification("Đã xóa!", `Đã xóa ${botCount} bot`);
+                }
             }
 
             function updateSpeed(value) {
                 gameState.raceSpeed = parseInt(value);
-                document.getElementById('speedValue').textContent = value + 's';
+                document.getElementById("speedValue").textContent = value + "s";
             }
 
             function updateGameUI() {
                 if (!gameState.myPlayer) return;
 
-                document.getElementById('myAvatar').textContent = gameState.myPlayer.avatar;
-                document.getElementById('myName').textContent = gameState.myPlayer.name;
-                document.getElementById('myId').textContent = 'ID: ' + gameState.myPlayer.id;
-                document.getElementById('myMoney').textContent = '💰 ' + formatMoney(gameState.myPlayer.money);
-                document.getElementById('totalPlayers').textContent = gameState.players.length;
-                document.getElementById('roomCode').textContent = gameState.roomCode;
+                calculateRanking();
+
+                document.getElementById("myAvatar").textContent =
+                    gameState.myPlayer.avatar;
+                document.getElementById("myName").textContent =
+                    gameState.myPlayer.name;
+                document.getElementById("myId").textContent =
+                    "ID: " + gameState.myPlayer.id;
+                document.getElementById("myMoney").textContent =
+                    "💰 " +
+                    (gameState.myPlayer.money === Infinity
+                        ? "∞"
+                        : formatMoney(gameState.myPlayer.money));
+                document.getElementById("totalPlayers").textContent =
+                    gameState.players.length;
+                document.getElementById("roomCode").textContent =
+                    gameState.roomCode;
+                document.getElementById("roundDisplay").textContent =
+                    "Round " + gameState.currentRound;
 
                 if (gameState.isAdmin) {
-                    document.getElementById('adminControls').style.display = 'block';
+                    document.getElementById("adminControls").style.display =
+                        "block";
+                    document.getElementById("adminBadge").style.display =
+                        "block";
                 }
 
-                const playersList = document.getElementById('playersList');
-                playersList.innerHTML = gameState.players.map(player => {
-                    const item = player.item;
-                    const itemBadge = item ? 
-                        `<div class="player-item-badge item-${item.rarity}">${item.icon} ${item.name}</div>` : 
-                        '<div style="font-size: 0.7rem; color: #999;">Chưa có item</div>';
-                    
-                    let buttons = '';
-                    if (player.isMe) {
-                        buttons = `<button class="item-btn" onclick="openItemModal('${player.id}')">🏪</button>`;
-                    } else if (gameState.isAdmin) {
-                        buttons = `
-                            <button class="money-btn" onclick="openMoneyModal('${player.id}')">💰</button>
-                            ${player.isBot ? `<button class="remove-btn" onclick="removePlayer('${player.id}')">✕</button>` : ''}
-                        `;
-                    }
+                const playersList = document.getElementById("playersList");
+                playersList.innerHTML = gameState.currentRanking
+                    .map((player) => {
+                        const item = player.selectedItem;
+                        const itemBadge = item
+                            ? `<div class="player-item-badge item-${item.rarity}">${item.icon} ${item.name}</div>`
+                            : '<div style="font-size: 0.7rem; color: #999;">Chưa chọn item</div>';
 
-                    return `
-                        <div class="player-item">
-                            <div class="player-item-left">
-                                <div class="player-icon">${player.avatar}</div>
-                                <div class="player-details">
-                                    <div class="player-name-text">${player.name}${player.isMe ? ' (Bạn)' : ''}</div>
-                                    <div class="player-money">💰 ${formatMoney(player.money)}</div>
-                                    ${itemBadge}
-                                </div>
-                            </div>
-                            <div class="player-buttons">${buttons}</div>
-                        </div>
+                        let rankBadge = "";
+                        if (player.rank === 1)
+                            rankBadge =
+                                '<span class="rank-badge rank-1">🥇 1st</span>';
+                        else if (player.rank === 2)
+                            rankBadge =
+                                '<span class="rank-badge rank-2">🥈 2nd</span>';
+                        else if (player.rank === 3)
+                            rankBadge =
+                                '<span class="rank-badge rank-3">🥉 3rd</span>';
+                        else
+                            rankBadge = `<span class="rank-badge rank-other">#${player.rank}</span>`;
+
+                        let buttons = "";
+                        if (player.isMe) {
+                            buttons = `
+                        <button class="item-btn" onclick="openItemModal('${player.id}')">🛒</button>
+                        <button class="inventory-btn" onclick="openInventory('${player.id}')">🎒</button>
                     `;
-                }).join('');
-            }
+                        } else if (gameState.isAdmin && player.isBot) {
+                            buttons = `<button class="remove-btn" onclick="removePlayer('${player.id}')">✕</button>`;
+                        }
 
-            function formatMoney(amount) {
-                return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                        return `
+                    <div class="player-item">
+                        <div class="player-item-left">
+                            <div class="player-icon">${player.avatar}</div>
+                            <div class="player-details">
+                                <div class="player-name-text">
+                                    ${player.name}${player.isMe ? " (Bạn)" : ""}
+                                    ${rankBadge}
+                                </div>
+                                <div class="player-money">💰 ${player.money === Infinity ? "∞" : formatMoney(player.money)}</div>
+                                ${itemBadge}
+                            </div>
+                        </div>
+                        <div class="player-buttons">${buttons}</div>
+                    </div>
+                `;
+                    })
+                    .join("");
             }
 
             function removePlayer(playerId) {
-                gameState.players = gameState.players.filter(p => p.id !== playerId);
+                const player = gameState.players.find((p) => p.id === playerId);
+                if (player && player.avatar) {
+                    gameState.usedAnimals = gameState.usedAnimals.filter(
+                        (a) => a !== player.avatar,
+                    );
+                }
+                gameState.players = gameState.players.filter(
+                    (p) => p.id !== playerId,
+                );
                 syncGameState();
+                showNotification("Đã xóa!", `${player.name} đã bị xóa`);
             }
 
+            // Shop Functions
             function openItemModal(playerId) {
-                currentShoppingPlayer = gameState.players.find(p => p.id === playerId);
-                document.getElementById('shopPlayerName').textContent = currentShoppingPlayer.name;
-                document.getElementById('shopPlayerMoney').textContent = formatMoney(currentShoppingPlayer.money);
-                
-                const itemGrid = document.getElementById('itemGrid');
-                itemGrid.innerHTML = items.map(item => {
-                    const canBuy = currentShoppingPlayer.money >= item.price;
-                    const isSelected = currentShoppingPlayer.item?.id === item.id;
-                    const typeIcon = item.type === 'buff' ? '🛡️' : '⚔️';
-                    const typeText = item.type === 'buff' ? 'BUFF' : 'ATTACK';
-                    const effect = item.type === 'buff' ? `+${item.boost * 100}%` : `-${item.debuff * 100}%`;
-                    
-                    return `
-                        <div class="item-card item-${item.rarity} ${isSelected ? 'selected' : ''} ${!canBuy ? 'locked' : ''}" 
-                             onclick="${canBuy ? `buyItem(${item.id})` : ''}">
-                            ${!canBuy ? '<div class="lock-icon">🔒</div>' : ''}
-                            <div class="item-icon">${item.icon}</div>
-                            <div class="item-name">${item.name}</div>
-                            <div class="item-type">${typeIcon} ${typeText}</div>
-                            <div class="item-price">💰 ${formatMoney(item.price)}</div>
-                            <div class="item-effect">${effect}</div>
-                        </div>
-                    `;
-                }).join('');
+                currentShoppingPlayer = gameState.players.find(
+                    (p) => p.id === playerId,
+                );
+                document.getElementById("shopPlayerName").textContent =
+                    currentShoppingPlayer.name;
+                document.getElementById("shopPlayerMoney").textContent =
+                    formatMoney(currentShoppingPlayer.money);
 
-                document.getElementById('itemModal').classList.add('show');
+                const itemGrid = document.getElementById("itemGrid");
+                itemGrid.innerHTML = items
+                    .map((item) => {
+                        const canBuy =
+                            currentShoppingPlayer.money === Infinity ||
+                            currentShoppingPlayer.money >= item.price;
+                        const isOwned = currentShoppingPlayer.inventory.some(
+                            (i) => i.id === item.id,
+                        );
+                        const isSelected =
+                            currentShoppingPlayer.selectedItem?.id === item.id;
+                        const typeIcon = item.type === "buff" ? "🛡️" : "⚔️";
+                        const typeText =
+                            item.type === "buff" ? "BUFF" : "ATTACK";
+                        const boost =
+                            item.type === "buff"
+                                ? `+${Math.round(item.boost * 100)}%`
+                                : `-${Math.round(item.debuff * 100)}%`;
+
+                        return `
+                    <div class="item-card item-${item.rarity} ${isSelected ? "selected" : ""} ${!canBuy && !isOwned ? "locked" : ""}" 
+                         onclick="${!isOwned && canBuy ? `buyItem(${item.id})` : isOwned ? `selectItem(${item.id})` : ""}">
+                        ${!canBuy && !isOwned ? '<div class="lock-icon">🔒</div>' : ""}
+                        ${isOwned ? '<div class="check-icon">✅</div>' : ""}
+                        <div class="item-icon">${item.icon}</div>
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-type">${typeIcon} ${typeText}</div>
+                        <div class="item-stats">${boost} Speed</div>
+                        ${!isOwned ? `<div class="item-price">💰 ${formatMoney(item.price)}</div>` : '<div class="item-price">✨ Đã sở hữu</div>'}
+                    </div>
+                `;
+                    })
+                    .join("");
+
+                document.getElementById("itemModal").classList.add("show");
             }
 
             function buyItem(itemId) {
-                const item = items.find(i => i.id === itemId);
+                const item = items.find((i) => i.id === itemId);
                 if (!item || !currentShoppingPlayer) return;
 
-                if (currentShoppingPlayer.money >= item.price) {
-                    currentShoppingPlayer.money -= item.price;
-                    currentShoppingPlayer.item = item;
-                    
-                    // Update my player reference
+                if (
+                    currentShoppingPlayer.money === Infinity ||
+                    currentShoppingPlayer.money >= item.price
+                ) {
+                    if (currentShoppingPlayer.money !== Infinity) {
+                        currentShoppingPlayer.money -= item.price;
+                    }
+
+                    if (
+                        !currentShoppingPlayer.inventory.some(
+                            (i) => i.id === item.id,
+                        )
+                    ) {
+                        currentShoppingPlayer.inventory.push(item);
+                    }
+                    currentShoppingPlayer.selectedItem = item;
+
                     if (currentShoppingPlayer.isMe) {
                         gameState.myPlayer = currentShoppingPlayer;
                     }
-                    
+
                     syncGameState();
-                    showNotification('Mua thành công!', `${item.icon} ${item.name} đã được mua!`);
-                    openItemModal(currentShoppingPlayer.id); // Refresh modal
+                    showNotification(
+                        "Mua thành công!",
+                        `${item.icon} ${item.name} đã được mua!`,
+                    );
+                    openItemModal(currentShoppingPlayer.id);
                 } else {
-                    alert('Không đủ tiền!');
+                    alert("Không đủ tiền!");
                 }
             }
 
-            function openMoneyModal(playerId) {
-                currentMoneyPlayer = gameState.players.find(p => p.id === playerId);
-                document.getElementById('moneyPlayerName').textContent = currentMoneyPlayer.name;
-                document.getElementById('moneyInput').value = '';
-                document.getElementById('moneyModal').classList.add('show');
+            function selectItem(itemId) {
+                const item = items.find((i) => i.id === itemId);
+                if (!item || !currentShoppingPlayer) return;
+
+                const isOwned = currentShoppingPlayer.inventory.some(
+                    (i) => i.id === item.id,
+                );
+                if (isOwned) {
+                    currentShoppingPlayer.selectedItem = item;
+
+                    if (currentShoppingPlayer.isMe) {
+                        gameState.myPlayer = currentShoppingPlayer;
+                    }
+
+                    syncGameState();
+                    showNotification(
+                        "Chọn item!",
+                        `${item.icon} ${item.name} đã được chọn!`,
+                    );
+                    openItemModal(currentShoppingPlayer.id);
+                }
             }
 
-            function setAmount(amount) {
-                const currentValue = parseInt(document.getElementById('moneyInput').value) || 0;
-                document.getElementById('moneyInput').value = currentValue + amount;
-            }
+            function openInventory(playerId) {
+                currentInventoryPlayer = gameState.players.find(
+                    (p) => p.id === playerId,
+                );
+                document.getElementById("inventoryPlayerName").textContent =
+                    currentInventoryPlayer.name;
 
-            function confirmAddMoney() {
-                const amount = parseInt(document.getElementById('moneyInput').value);
-                if (!amount || amount <= 0) {
-                    alert('Vui lòng nhập số tiền hợp lệ!');
-                    return;
+                const inventoryGrid = document.getElementById("inventoryGrid");
+                if (currentInventoryPlayer.inventory.length === 0) {
+                    inventoryGrid.innerHTML =
+                        '<div style="grid-column: 1/-1; text-align: center; padding: 30px; color: #999;">Chưa có item nào</div>';
+                } else {
+                    inventoryGrid.innerHTML = currentInventoryPlayer.inventory
+                        .map((item) => {
+                            const typeIcon = item.type === "buff" ? "🛡️" : "⚔️";
+                            const boost =
+                                item.type === "buff"
+                                    ? `+${Math.round(item.boost * 100)}%`
+                                    : `-${Math.round(item.debuff * 100)}%`;
+                            return `
+                        <div class="inventory-item item-${item.rarity}">
+                            <div class="inventory-icon">${item.icon}</div>
+                            <div class="inventory-name">${item.name}</div>
+                            <div class="inventory-type">${typeIcon} ${boost}</div>
+                        </div>
+                    `;
+                        })
+                        .join("");
                 }
 
-                currentMoneyPlayer.money += amount;
-                syncGameState();
-                showNotification('Nạp tiền thành công!', `+${formatMoney(amount)} cho ${currentMoneyPlayer.name}`);
-                closeMoneyModal();
+                document.getElementById("inventoryModal").classList.add("show");
             }
 
-            function openShop() {
-                // Open shop for all players
-                alert('Chức năng này sẽ mở shop cho tất cả người chơi online!');
+            function closeInventoryModal() {
+                document
+                    .getElementById("inventoryModal")
+                    .classList.remove("show");
+                currentInventoryPlayer = null;
             }
 
             function closeModal() {
-                document.getElementById('itemModal').classList.remove('show');
+                document.getElementById("itemModal").classList.remove("show");
                 currentShoppingPlayer = null;
             }
 
-            function closeMoneyModal() {
-                document.getElementById('moneyModal').classList.remove('show');
-                currentMoneyPlayer = null;
+            // Prize Settings
+            function openPrizeSettings() {
+                document.getElementById("prize1Input").value =
+                    gameState.prizes[1];
+                document.getElementById("prize2Input").value =
+                    gameState.prizes[2];
+                document.getElementById("prize3Input").value =
+                    gameState.prizes[3];
+                document.getElementById("prizeModal").classList.add("show");
             }
 
-            function showNotification(title, message) {
-                const notification = document.createElement('div');
-                notification.className = 'notification notification-success';
-                notification.innerHTML = `
-                    <div class="notification-title">${title}</div>
-                    <div class="notification-message">${message}</div>
-                `;
-                document.body.appendChild(notification);
-                
-                setTimeout(() => {
-                    notification.style.animation = 'slideInRight 0.3s ease reverse';
-                    setTimeout(() => notification.remove(), 300);
-                }, 3000);
+            function savePrizeSettings() {
+                gameState.prizes[1] =
+                    parseInt(document.getElementById("prize1Input").value) ||
+                    1000;
+                gameState.prizes[2] =
+                    parseInt(document.getElementById("prize2Input").value) ||
+                    500;
+                gameState.prizes[3] =
+                    parseInt(document.getElementById("prize3Input").value) ||
+                    300;
+                syncGameState();
+                showNotification("Đã lưu!", "Giải thưởng đã được cập nhật!");
+                closePrizeModal();
             }
 
+            function closePrizeModal() {
+                document.getElementById("prizeModal").classList.remove("show");
+            }
+
+            function resetRound() {
+                if (confirm("Reset round và xóa tất cả item đã chọn?")) {
+                    gameState.players.forEach((player) => {
+                        player.selectedItem = null;
+                    });
+                    gameState.currentRound = 1;
+                    gameState.raceHistory = [];
+                    syncGameState();
+                    showNotification("Đã reset!", "Round đã được reset về 1!");
+                }
+            }
+
+            // Summary
+            function openSummary() {
+                const content = document.getElementById("summaryContent");
+
+                let html = '<div class="summary-table">';
+                html += `<div class="summary-row"><div class="summary-label">Tổng số round:</div><div class="summary-value">${gameState.currentRound - 1}</div></div>`;
+                html += `<div class="summary-row"><div class="summary-label">Số người chơi:</div><div class="summary-value">${gameState.players.length}</div></div>`;
+
+                // Top 3 winners
+                const winCounts = {};
+                gameState.raceHistory.forEach((race) => {
+                    if (race.results[0]) {
+                        const winnerId = race.results[0].playerId;
+                        winCounts[winnerId] = (winCounts[winnerId] || 0) + 1;
+                    }
+                });
+
+                const topWinners = Object.entries(winCounts)
+                    .map(([id, wins]) => ({
+                        player: gameState.players.find((p) => p.id === id),
+                        wins,
+                    }))
+                    .filter((w) => w.player)
+                    .sort((a, b) => b.wins - a.wins)
+                    .slice(0, 3);
+
+                html +=
+                    '<div style="margin-top: 20px; font-weight: bold; color: #333; margin-bottom: 10px;">🏆 Top Chiến Thắng:</div>';
+                topWinners.forEach((winner, i) => {
+                    const medals = ["🥇", "🥈", "🥉"];
+                    html += `<div class="summary-row">
+                    <div class="summary-label">${medals[i]} ${winner.player.avatar} ${winner.player.name}</div>
+                    <div class="summary-value">${winner.wins} lần</div>
+                </div>`;
+                });
+
+                // Money ranking
+                html +=
+                    '<div style="margin-top: 20px; font-weight: bold; color: #333; margin-bottom: 10px;">💰 Bảng Xếp Hạng Tiền:</div>';
+                gameState.currentRanking.slice(0, 5).forEach((player) => {
+                    html += `<div class="summary-row">
+                    <div class="summary-label">#${player.rank} ${player.avatar} ${player.name}</div>
+                    <div class="summary-value">💰 ${player.money === Infinity ? "∞" : formatMoney(player.money)}</div>
+                </div>`;
+                });
+
+                // Race history
+                if (gameState.raceHistory.length > 0) {
+                    html +=
+                        '<div style="margin-top: 20px; font-weight: bold; color: #333; margin-bottom: 10px;">📜 Lịch Sử Đua:</div>';
+                    gameState.raceHistory
+                        .slice(-5)
+                        .reverse()
+                        .forEach((race) => {
+                            const winner = race.results[0];
+                            if (winner) {
+                                html += `<div class="summary-row">
+                            <div class="summary-label">Round ${race.round}: ${winner.avatar} ${winner.name}</div>
+                            <div class="summary-value">+${formatMoney(race.prize || 0)}</div>
+                        </div>`;
+                            }
+                        });
+                }
+
+                html += "</div>";
+                content.innerHTML = html;
+                document.getElementById("summaryModal").classList.add("show");
+            }
+
+            function closeSummaryModal() {
+                document
+                    .getElementById("summaryModal")
+                    .classList.remove("show");
+            }
+
+            // Battle Log
+            function addBattleLog(message, type) {
+                battleLog.unshift({ message, type, time: Date.now() });
+                if (battleLog.length > 20) battleLog.pop();
+
+                const content = document.getElementById("battleLogContent");
+                content.innerHTML = battleLog
+                    .map(
+                        (log) =>
+                            `<div class="battle-entry battle-${log.type}">${log.message}</div>`,
+                    )
+                    .join("");
+            }
+
+            function clearBattleLog() {
+                battleLog = [];
+                document.getElementById("battleLogContent").innerHTML = "";
+            }
+
+            // Race Functions
             async function startRace() {
                 if (gameState.isRacing) return;
-                
+
                 gameState.isRacing = true;
-                document.getElementById('raceBtn').disabled = true;
-                document.getElementById('resultsContainer').classList.remove('show');
+                document.getElementById("raceBtn").disabled = true;
+                document
+                    .getElementById("resultsContainer")
+                    .classList.remove("show");
+                clearBattleLog();
 
                 setupRaceTrack();
 
                 for (let i = 3; i > 0; i--) {
-                    document.getElementById('statusText').textContent = `Đếm ngược: ${i}...`;
+                    document.getElementById("statusText").textContent =
+                        `Đếm ngược: ${i}...`;
                     await sleep(1000);
                 }
 
-                document.getElementById('statusText').textContent = "XUẤT PHÁT! 🏁";
+                document.getElementById("statusText").textContent =
+                    "XUẤT PHÁT! 🏁";
                 const results = await runRace();
 
                 await sleep(500);
                 displayResults(results);
+                awardPrizes(results);
 
-                document.getElementById('raceBtn').disabled = false;
+                // Save race history
+                gameState.raceHistory.push({
+                    round: gameState.currentRound,
+                    results: results,
+                    prize: gameState.prizes[1],
+                });
+
+                gameState.currentRound++;
+                await syncGameState();
+
+                document.getElementById("raceBtn").disabled = false;
                 gameState.isRacing = false;
             }
 
             function setupRaceTrack() {
-                const trackDiv = document.getElementById('raceTrack');
-                trackDiv.innerHTML = gameState.players.map(player => `
-                    <div class="track-line" id="track-${player.id}">
-                        <div class="finish-line"></div>
-                        <div class="racer" id="racer-${player.id}">
-                            <span class="racer-icon">${player.avatar}</span>
-                            <span class="racer-name">${player.name}</span>
-                        </div>
+                const trackDiv = document.getElementById("raceTrack");
+                trackDiv.innerHTML = gameState.players
+                    .map(
+                        (player) => `
+                <div class="track-line" id="track-${player.id}">
+                    <div class="finish-line"></div>
+                    <div class="racer" id="racer-${player.id}">
+                        <span class="racer-icon">${player.avatar}</span>
+                        <span class="racer-name">${player.name}</span>
                     </div>
-                `).join('');
+                </div>
+            `,
+                    )
+                    .join("");
             }
 
             async function runRace() {
-                const trackWidth = document.querySelector('.track-line').offsetWidth - 100;
+                const trackWidth =
+                    document.querySelector(".track-line").offsetWidth - 100;
                 const finishLine = trackWidth;
                 const baseFrameTime = 50;
                 const totalRaceTime = gameState.raceSpeed * 1000;
                 const results = [];
 
-                const racers = gameState.players.map(player => {
-                    const baseSpeed = finishLine / (totalRaceTime / baseFrameTime);
+                const racers = gameState.players.map((player) => {
+                    const baseSpeed =
+                        finishLine / (totalRaceTime / baseFrameTime);
                     let speed = baseSpeed * (0.7 + Math.random() * 0.6);
-                    
-                    if (player.item && player.item.type === 'buff') {
-                        speed *= (1 + player.item.boost);
-                        // Show buff effect at start
+
+                    if (
+                        player.selectedItem &&
+                        player.selectedItem.type === "buff"
+                    ) {
+                        speed *= 1 + player.selectedItem.boost;
                         setTimeout(() => {
-                            const element = document.getElementById(`racer-${player.id}`);
+                            const element = document.getElementById(
+                                `racer-${player.id}`,
+                            );
                             if (element) {
+                                showFloatingText(
+                                    element,
+                                    "BUFF ACTIVE!",
+                                    "buff",
+                                );
                                 showBuffEffect(element);
-                                showFloatingText(element, 'BUFF ACTIVE!', 'buff');
+                                addBattleLog(
+                                    `${player.avatar} ${player.name} kích hoạt ${player.selectedItem.icon} ${player.selectedItem.name}!`,
+                                    "buff",
+                                );
                             }
                         }, 100);
                     }
@@ -1526,10 +2786,13 @@
                     return {
                         ...player,
                         element: document.getElementById(`racer-${player.id}`),
-                        trackLine: document.getElementById(`track-${player.id}`),
+                        trackLine: document.getElementById(
+                            `track-${player.id}`,
+                        ),
                         position: 0,
                         speed: speed,
-                        finished: false
+                        finished: false,
+                        originalSpeed: speed,
                     };
                 });
 
@@ -1540,51 +2803,79 @@
                         racers.forEach((racer, index) => {
                             if (!racer.finished) {
                                 allFinished = false;
-                                
-                                let currentSpeed = racer.speed * (0.9 + Math.random() * 0.2);
-                                let speedChanged = false;
+
+                                let currentSpeed =
+                                    racer.speed * (0.9 + Math.random() * 0.2);
 
                                 // Random speed boost (3% chance)
                                 if (Math.random() < 0.03) {
                                     const boost = 1.5 + Math.random() * 0.5;
                                     currentSpeed *= boost;
-                                    speedChanged = true;
-                                    racer.element.classList.add('boosted');
-                                    createSpeedTrail(racer.trackLine, racer.position);
-                                    createSpeedParticles(racer.element);
+                                    racer.element.classList.add("boosted");
                                     createShockwave(racer.element);
-                                    createLightning(racer.trackLine);
-                                    showFloatingText(racer.element, '⚡ TĂNG TÔC! ⚡', 'boost');
-                                    setTimeout(() => racer.element.classList.remove('boosted'), 500);
-                                }
-
-                                // Random slow down (5% chance)
-                                if (Math.random() < 0.05) {
-                                    currentSpeed *= -0.3;
-                                    speedChanged = true;
-                                    racer.element.classList.add('slowed');
-                                    showFloatingText(racer.element, '❄️ CHẬM LẠI!', 'slow');
-                                    setTimeout(() => racer.element.classList.remove('slowed'), 600);
+                                    showFloatingText(
+                                        racer.element,
+                                        "⚡ TĂNG TỐC! ⚡",
+                                        "boost",
+                                    );
+                                    addBattleLog(
+                                        `⚡ ${racer.avatar} ${racer.name} bùng nổ tăng tốc!`,
+                                        "boost",
+                                    );
+                                    setTimeout(
+                                        () =>
+                                            racer.element.classList.remove(
+                                                "boosted",
+                                            ),
+                                        500,
+                                    );
                                 }
 
                                 // Attack items
                                 racers.forEach((target, targetIndex) => {
-                                    if (targetIndex !== index && !target.finished && Math.random() < 0.02) {
+                                    if (
+                                        targetIndex !== index &&
+                                        !target.finished &&
+                                        Math.random() < 0.015
+                                    ) {
                                         const attacker = racers[index];
-                                        if (attacker.item && attacker.item.type === 'attack') {
-                                            createAttackEffect(attacker.element, target.element, attacker.item.icon);
-                                            
+                                        if (
+                                            attacker.selectedItem &&
+                                            attacker.selectedItem.type ===
+                                                "attack"
+                                        ) {
+                                            const debuff =
+                                                attacker.selectedItem.debuff;
+
+                                            createAttackEffect(
+                                                attacker.element,
+                                                target.element,
+                                                attacker.selectedItem.icon,
+                                            );
+
                                             setTimeout(() => {
-                                                target.element.classList.add('attacked');
-                                                const debuff = attacker.item.debuff;
-                                                target.speed *= (1 - debuff);
-                                                
-                                                showFloatingText(target.element, `⚔️ -${Math.round(debuff * 100)}% TỐC ĐỘ!`, 'attack');
-                                                createHitEffect(target.trackLine);
-                                                
+                                                target.element.classList.add(
+                                                    "attacked",
+                                                );
+                                                target.speed *= 1 - debuff;
+                                                createHitEffect(
+                                                    target.trackLine,
+                                                );
+                                                showFloatingText(
+                                                    target.element,
+                                                    `⚔️ -${Math.round(debuff * 100)}%!`,
+                                                    "attack",
+                                                );
+                                                addBattleLog(
+                                                    `⚔️ ${attacker.avatar} ${attacker.name} dùng ${attacker.selectedItem.icon} ${attacker.selectedItem.name} tấn công ${target.avatar} ${target.name} (-${Math.round(debuff * 100)}%)!`,
+                                                    "attack",
+                                                );
+
                                                 setTimeout(() => {
-                                                    target.element.classList.remove('attacked');
-                                                    target.speed /= (1 - debuff);
+                                                    target.element.classList.remove(
+                                                        "attacked",
+                                                    );
+                                                    target.speed /= 1 - debuff;
                                                 }, 1200);
                                             }, 1000);
                                         }
@@ -1592,21 +2883,45 @@
                                 });
 
                                 racer.position += currentSpeed;
-                                
+
                                 if (racer.position >= finishLine) {
                                     racer.position = finishLine;
                                     racer.finished = true;
+                                    const rank = results.length + 1;
                                     results.push({
                                         name: racer.name,
                                         avatar: racer.avatar,
-                                        rank: results.length + 1
+                                        rank: rank,
+                                        playerId: racer.id,
                                     });
-                                    showFloatingText(racer.element, '🏁 HOÀN THÀNH!', 'buff');
+                                    showFloatingText(
+                                        racer.element,
+                                        "🏁 HOÀN THÀNH!",
+                                        "buff",
+                                    );
                                     createFinishEffect(racer.trackLine);
+                                    racer.trackLine.classList.add(
+                                        `finished-${rank}`,
+                                    );
+
+                                    if (rank === 1) {
+                                        createConfetti();
+                                    }
+
+                                    const medals = ["🥇", "🥈", "🥉"];
+                                    const medal =
+                                        rank <= 3
+                                            ? medals[rank - 1]
+                                            : `#${rank}`;
+                                    addBattleLog(
+                                        `🏁 ${racer.avatar} ${racer.name} về đích ${medal}!`,
+                                        "buff",
+                                    );
                                 }
 
                                 if (racer.position < 0) racer.position = 0;
-                                racer.element.style.left = racer.position + 'px';
+                                racer.element.style.left =
+                                    racer.position + "px";
                             }
                         });
 
@@ -1618,71 +2933,88 @@
                 });
             }
 
+            function awardPrizes(results) {
+                results.forEach((result) => {
+                    const player = gameState.players.find(
+                        (p) => p.id === result.playerId,
+                    );
+                    if (player && result.rank <= 3) {
+                        const prize = gameState.prizes[result.rank] || 0;
+                        if (player.money !== Infinity) {
+                            player.money += prize;
+                        }
+                        result.prize = prize;
+                    }
+                });
+            }
+
+            function displayResults(results) {
+                const container = document.getElementById("resultsContainer");
+
+                let html = '<div class="results-title">🏆 KẾT QUẢ 🏆</div>';
+
+                if (results.length >= 3) {
+                    html += '<div class="podium">';
+                    [1, 0, 2].forEach((i) => {
+                        if (results[i]) {
+                            const medals = ["🥇", "🥈", "🥉"];
+                            const classes = ["first", "second", "third"];
+                            const prize =
+                                gameState.prizes[results[i].rank] || 0;
+                            html += `
+                            <div class="podium-place ${classes[results[i].rank - 1]}">
+                                <div class="podium-box ${classes[results[i].rank - 1]}">
+                                    <div class="podium-medal">${medals[results[i].rank - 1]}</div>
+                                    <div class="podium-icon">${results[i].avatar}</div>
+                                    <div class="podium-name">${results[i].name}</div>
+                                    <div class="podium-prize">+${formatMoney(prize)}</div>
+                                </div>
+                            </div>
+                        `;
+                        }
+                    });
+                    html += "</div>";
+                }
+
+                container.innerHTML = html;
+                container.classList.add("show");
+            }
+
+            // Effect Functions
             function showFloatingText(element, text, type) {
                 const rect = element.getBoundingClientRect();
-                const floatingText = document.createElement('div');
+                const floatingText = document.createElement("div");
                 floatingText.className = `floating-text ${type}`;
                 floatingText.textContent = text;
-                floatingText.style.left = rect.left + rect.width / 2 + 'px';
-                floatingText.style.top = rect.top - 10 + 'px';
-                floatingText.style.position = 'fixed';
-                floatingText.style.transform = 'translateX(-50%)';
+                floatingText.style.left = rect.left + rect.width / 2 + "px";
+                floatingText.style.top = rect.top - 10 + "px";
+                floatingText.style.position = "fixed";
+                floatingText.style.transform = "translateX(-50%)";
                 document.body.appendChild(floatingText);
                 setTimeout(() => floatingText.remove(), 1500);
             }
 
             function showBuffEffect(element) {
-                const buffEffect = document.createElement('div');
-                buffEffect.className = 'buff-effect';
+                const buffEffect = document.createElement("div");
+                buffEffect.className = "buff-effect";
                 element.parentElement.appendChild(buffEffect);
                 setTimeout(() => buffEffect.remove(), 600);
             }
 
-            function createSpeedTrail(trackLine, position) {
-                const trail = document.createElement('div');
-                trail.className = 'speed-trail';
-                trail.style.left = position + 'px';
-                trackLine.appendChild(trail);
-                setTimeout(() => trail.remove(), 500);
-            }
-
-            function createSpeedParticles(element) {
-                const container = document.createElement('div');
-                container.className = 'speed-particles';
-                element.appendChild(container);
-                
-                for (let i = 0; i < 8; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'speed-particle';
-                    particle.style.top = (Math.random() * 40 - 20) + 'px';
-                    particle.style.animationDelay = (i * 0.1) + 's';
-                    container.appendChild(particle);
-                }
-                
-                setTimeout(() => container.remove(), 800);
-            }
-
             function createShockwave(element) {
                 const rect = element.getBoundingClientRect();
-                const shockwave = document.createElement('div');
-                shockwave.className = 'shockwave';
-                shockwave.style.left = rect.left + rect.width / 2 - 40 + 'px';
-                shockwave.style.top = rect.top + rect.height / 2 - 40 + 'px';
-                shockwave.style.position = 'fixed';
+                const shockwave = document.createElement("div");
+                shockwave.className = "shockwave";
+                shockwave.style.left = rect.left + rect.width / 2 - 40 + "px";
+                shockwave.style.top = rect.top + rect.height / 2 - 40 + "px";
+                shockwave.style.position = "fixed";
                 document.body.appendChild(shockwave);
                 setTimeout(() => shockwave.remove(), 800);
             }
 
-            function createLightning(trackLine) {
-                const lightning = document.createElement('div');
-                lightning.className = 'lightning-effect';
-                trackLine.appendChild(lightning);
-                setTimeout(() => lightning.remove(), 300);
-            }
-
             function createHitEffect(trackLine) {
-                const hitEffect = document.createElement('div');
-                hitEffect.className = 'hit-effect';
+                const hitEffect = document.createElement("div");
+                hitEffect.className = "hit-effect";
                 trackLine.appendChild(hitEffect);
                 setTimeout(() => hitEffect.remove(), 600);
             }
@@ -1690,10 +3022,10 @@
             function createFinishEffect(trackLine) {
                 for (let i = 0; i < 3; i++) {
                     setTimeout(() => {
-                        const effect = document.createElement('div');
-                        effect.className = 'buff-effect';
+                        const effect = document.createElement("div");
+                        effect.className = "finish-effect";
                         trackLine.appendChild(effect);
-                        setTimeout(() => effect.remove(), 600);
+                        setTimeout(() => effect.remove(), 800);
                     }, i * 200);
                 }
             }
@@ -1701,71 +3033,74 @@
             function createAttackEffect(fromElement, toElement, icon) {
                 const fromRect = fromElement.getBoundingClientRect();
                 const toRect = toElement.getBoundingClientRect();
-                
-                const effect = document.createElement('div');
-                effect.className = 'attack-effect';
+
+                const effect = document.createElement("div");
+                effect.className = "attack-effect";
                 effect.textContent = icon;
-                effect.style.left = fromRect.left + fromRect.width / 2 + 'px';
-                effect.style.top = fromRect.top + fromRect.height / 2 + 'px';
-                effect.style.position = 'fixed';
-                
+                effect.style.left = fromRect.left + fromRect.width / 2 + "px";
+                effect.style.top = fromRect.top + fromRect.height / 2 + "px";
+                effect.style.position = "fixed";
+
                 const dx = toRect.left - fromRect.left;
                 const dy = toRect.top - fromRect.top;
-                effect.style.setProperty('--tx', dx + 'px');
-                effect.style.setProperty('--ty', dy + 'px');
-                
+                effect.style.setProperty("--tx", dx + "px");
+                effect.style.setProperty("--ty", dy + "px");
+
                 document.body.appendChild(effect);
-                
-                // Create trail particles during flight
+
+                // Create particle trail
                 for (let i = 0; i < 5; i++) {
                     setTimeout(() => {
-                        const particle = document.createElement('div');
-                        particle.className = 'attack-effect';
-                        particle.textContent = '💥';
-                        particle.style.left = fromRect.left + fromRect.width / 2 + (dx * i / 5) + 'px';
-                        particle.style.top = fromRect.top + fromRect.height / 2 + (dy * i / 5) + 'px';
-                        particle.style.position = 'fixed';
-                        particle.style.fontSize = '1rem';
-                        particle.style.animation = 'floatUp 0.5s ease-out forwards';
+                        const particle = document.createElement("div");
+                        particle.className = "attack-effect";
+                        particle.textContent = "💥";
+                        particle.style.left =
+                            fromRect.left +
+                            fromRect.width / 2 +
+                            (dx * i) / 5 +
+                            "px";
+                        particle.style.top =
+                            fromRect.top +
+                            fromRect.height / 2 +
+                            (dy * i) / 5 +
+                            "px";
+                        particle.style.position = "fixed";
+                        particle.style.fontSize = "1rem";
+                        particle.style.animation =
+                            "floatUp 0.5s ease-out forwards";
                         document.body.appendChild(particle);
                         setTimeout(() => particle.remove(), 500);
                     }, i * 150);
                 }
-                
+
                 setTimeout(() => effect.remove(), 1000);
             }
 
-            function displayResults(results) {
-                const container = document.getElementById('resultsContainer');
-                
-                let html = '<div class="results-title">🏆 KẾT QUẢ 🏆</div>';
-                
-                if (results.length >= 3) {
-                    html += '<div class="podium">';
-                    [1, 0, 2].forEach(i => {
-                        if (results[i]) {
-                            const medals = ['🥇', '🥈', '🥉'];
-                            const classes = ['first', 'second', 'third'];
-                            html += `
-                                <div class="podium-place ${classes[results[i].rank - 1]}">
-                                    <div class="podium-box ${classes[results[i].rank - 1]}">
-                                        <div class="podium-medal">${medals[results[i].rank - 1]}</div>
-                                        <div class="podium-icon">${results[i].avatar}</div>
-                                        <div class="podium-name">${results[i].name}</div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    });
-                    html += '</div>';
+            function createConfetti() {
+                const colors = [
+                    "#fbbf24",
+                    "#f59e0b",
+                    "#ef4444",
+                    "#ec4899",
+                    "#a78bfa",
+                    "#60a5fa",
+                ];
+                for (let i = 0; i < 50; i++) {
+                    setTimeout(() => {
+                        const confetti = document.createElement("div");
+                        confetti.className = "confetti";
+                        confetti.style.left = Math.random() * 100 + "vw";
+                        confetti.style.top = "-10px";
+                        confetti.style.background =
+                            colors[Math.floor(Math.random() * colors.length)];
+                        confetti.style.animationDelay =
+                            Math.random() * 0.5 + "s";
+                        confetti.style.animationDuration =
+                            Math.random() * 2 + 2 + "s";
+                        document.body.appendChild(confetti);
+                        setTimeout(() => confetti.remove(), 4000);
+                    }, i * 50);
                 }
-
-                container.innerHTML = html;
-                container.classList.add('show');
-            }
-
-            function sleep(ms) {
-                return new Promise(resolve => setTimeout(resolve, ms));
             }
         </script>
     </body>
