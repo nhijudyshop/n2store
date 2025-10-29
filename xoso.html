@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎉 Quay Số May Mắn</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #ffd876 100%);
+            min-height: 100vh;
+            padding: 20px;
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-top: 30px;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            color: white;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+            margin: 20px 0;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .header p {
+            font-size: 1.3rem;
+            color: white;
+            opacity: 0.95;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .prize-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2rem;
+            border: 3px solid #9f7aea;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .prize-input:focus {
+            outline: none;
+            border-color: #6b46c1;
+            box-shadow: 0 0 0 4px rgba(159, 122, 234, 0.2);
+        }
+
+        .draw-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 50px 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .draw-display.spinning {
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .draw-text {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .draw-btn {
+            width: 100%;
+            padding: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .draw-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+        }
+
+        .draw-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .draw-btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .winner-announcement {
+            margin-top: 20px;
+            padding: 30px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            border-radius: 15px;
+            text-align: center;
+            animation: bounceIn 0.5s ease;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .winner-announcement h3 {
+            font-size: 1.8rem;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .winner-announcement .winner-name {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: white;
+            margin: 10px 0;
+        }
+
+        .add-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .name-input {
+            flex: 1;
+            padding: 12px;
+            font-size: 1rem;
+            border: 2px solid #60a5fa;
+            border-radius: 10px;
+            transition: border-color 0.3s ease;
+        }
+
+        .name-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .add-btn {
+            padding: 12px 25px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .participant-count {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .participant-count strong {
+            color: #3b82f6;
+            font-size: 1.1rem;
+        }
+
+        .participants-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .participant-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #dbeafe 0%, #e9d5ff 100%);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .participant-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .participant-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .participant-number {
+            color: #8b5cf6;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .remove-btn {
+            padding: 8px 12px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .remove-btn:hover {
+            background: #dc2626;
+            transform: scale(1.05);
+        }
+
+        .winners-history {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .winners-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .winner-card {
+            padding: 20px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 3px solid #fbbf24;
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .winner-card-name {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .winner-card-prize {
+            font-size: 1.1rem;
+            color: #8b5cf6;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .winner-card-time {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .winner-card-emoji {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 2rem;
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #f0f;
+            position: absolute;
+            animation: confetti-fall 3s linear;
+        }
+
+        @keyframes confetti-fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        /* Scrollbar styling */
+        .participants-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .participants-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .participants-list::-webkit-scrollbar-thumb {
+            background: #8b5cf6;
+            border-radius: 10px;
+        }
+
+        .participants-list::-webkit-scrollbar-thumb:hover {
+            background: #7c3aed;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎉 QUAY SỐ MAY MẮN 🏆</h1>
+            <p>Chọn người chiến thắng một cách công bằng và minh bạch!</p>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left Panel -->
+            <div>
+                <!-- Prize Name -->
+                <div class="card">
+                    <div class="card-title">
+                        🎁 Tên Giải Thưởng
+                    </div>
+                    <input type="text" id="prizeName" class="prize-input" value="Giải Đặc Biệt" placeholder="Nhập tên giải thưởng...">
+                </div>
+
+                <!-- Draw Display -->
+                <div class="card" style="margin-top: 30px;">
+                    <div id="drawDisplay" class="draw-display">
+                        <div id="drawText" class="draw-text">Sẵn sàng quay? 🎲</div>
+                    </div>
+                    <button id="drawBtn" class="draw-btn" onclick="startDraw()">
+                        ✨ BẮT ĐẦU QUAY SỐ ✨
+                    </button>
+                    <div id="winnerAnnouncement"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div>
+                <!-- Add Participant -->
+                <div class="card">
+                    <div class="card-title">
+                        👥 Thêm Người Tham Gia
+                    </div>
+                    <form class="add-form" onsubmit="addParticipant(event)">
+                        <input type="text" id="nameInput" class="name-input" placeholder="Nhập tên người tham gia...">
+                        <button type="submit" class="add-btn">➕ Thêm</button>
+                    </form>
+                    <div class="participant-count">
+                        Tổng số người: <strong id="participantCount">5</strong>
+                    </div>
+                </div>
+
+                <!-- Participants List -->
+                <div class="card" style="margin-top: 30px;">
+                    <div class="card-title">
+                        📋 Danh Sách Tham Gia
+                    </div>
+                    <div id="participantsList" class="participants-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Winners History -->
+        <div id="winnersHistory" style="display: none;">
+            <div class="winners-history">
+                <div class="card-title">
+                    🏆 Lịch Sử Trúng Thưởng
+                </div>
+                <div id="winnersGrid" class="winners-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let participants = [
+            'Nguyễn Văn A',
+            'Trần Thị B',
+            'Lê Văn C',
+            'Phạm Thị D',
+            'Hoàng Văn E'
+        ];
+        let winners = [];
+        let isSpinning = false;
+
+        // Initialize
+        updateParticipantsList();
+
+        // Add participant
+        function addParticipant(event) {
+            event.preventDefault();
+            const nameInput = document.getElementById('nameInput');
+            const name = nameInput.value.trim();
+            
+            if (name && !participants.includes(name)) {
+                participants.push(name);
+                nameInput.value = '';
+                updateParticipantsList();
+            } else if (participants.includes(name)) {
+                alert('Người này đã có trong danh sách!');
+            }
+        }
+
+        // Remove participant
+        function removeParticipant(name) {
+            participants = participants.filter(p => p !== name);
+            updateParticipantsList();
+        }
+
+        // Update participants list display
+        function updateParticipantsList() {
+            const listDiv = document.getElementById('participantsList');
+            const countSpan = document.getElementById('participantCount');
+            
+            countSpan.textContent = participants.length;
+            
+            if (participants.length === 0) {
+                listDiv.innerHTML = '<div class="empty-state">Chưa có người tham gia<br>👆 Hãy thêm người vào danh sách</div>';
+            } else {
+                listDiv.innerHTML = participants.map((name, index) => `
+                    <div class="participant-item">
+                        <span>
+                            <span class="participant-number">${index + 1}.</span>
+                            <span class="participant-name">${name}</span>
+                        </span>
+                        <button class="remove-btn" onclick="removeParticipant('${name}')">✕ Xóa</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Start draw
+        function startDraw() {
+            if (participants.length === 0) {
+                alert('Vui lòng thêm người tham gia trước khi quay!');
+                return;
+            }
+
+            if (isSpinning) return;
+
+            isSpinning = true;
+            const drawBtn = document.getElementById('drawBtn');
+            const drawDisplay = document.getElementById('drawDisplay');
+            const drawText = document.getElementById('drawText');
+            const announcement = document.getElementById('winnerAnnouncement');
+            
+            drawBtn.disabled = true;
+            drawBtn.innerHTML = '<span class="spinner"></span> Đang quay...';
+            drawDisplay.classList.add('spinning');
+            announcement.innerHTML = '';
+
+            // Spinning animation
+            let spinCount = 0;
+            const spinInterval = setInterval(() => {
+                const randomIndex = Math.floor(Math.random() * participants.length);
+                drawText.textContent = participants[randomIndex];
+                spinCount++;
+            }, 50);
+
+            // Stop after 3 seconds
+            setTimeout(() => {
+                clearInterval(spinInterval);
+                
+                // Select winner
+                const winnerIndex = Math.floor(Math.random() * participants.length);
+                const winner = participants[winnerIndex];
+                const prizeName = document.getElementById('prizeName').value || 'Giải Đặc Biệt';
+                
+                drawText.textContent = winner;
+                drawDisplay.classList.remove('spinning');
+                
+                // Show winner announcement
+                announcement.innerHTML = `
+                    <div class="winner-announcement">
+                        <h3>🎉 CHÚC MỪNG! 🎉</h3>
+                        <div class="winner-name">${winner}</div>
+                        <p style="font-size: 1.3rem; color: white; margin-top: 10px;">đã trúng ${prizeName}!</p>
+                    </div>
+                `;
+
+                // Add to winners list
+                winners.push({
+                    name: winner,
+                    prize: prizeName,
+                    time: new Date().toLocaleTimeString('vi-VN')
+                });
+                updateWinnersHistory();
+
+                // Remove winner from participants
+                participants = participants.filter(p => p !== winner);
+                updateParticipantsList();
+
+                // Create confetti
+                createConfetti();
+
+                // Reset button
+                drawBtn.disabled = false;
+                drawBtn.innerHTML = '✨ BẮT ĐẦU QUAY SỐ ✨';
+                isSpinning = false;
+            }, 3000);
+        }
+
+        // Create confetti effect
+        function createConfetti() {
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f7dc6f', '#bb8fce', '#ff6b9d', '#c44569'];
+            const confettiCount = 100;
+
+            for (let i = 0; i < confettiCount; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.style.position = 'fixed';
+                    confetti.style.left = Math.random() * window.innerWidth + 'px';
+                    confetti.style.top = '-10px';
+                    confetti.style.width = Math.random() * 10 + 5 + 'px';
+                    confetti.style.height = Math.random() * 10 + 5 + 'px';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    confetti.style.zIndex = '9999';
+                    confetti.style.pointerEvents = 'none';
+                    confetti.style.animation = `confetti-fall ${2 + Math.random() * 2}s linear`;
+                    
+                    document.body.appendChild(confetti);
+                    
+                    setTimeout(() => {
+                        confetti.remove();
+                    }, 4000);
+                }, i * 30);
+            }
+        }
+
+        // Update winners history
+        function updateWinnersHistory() {
+            const historyDiv = document.getElementById('winnersHistory');
+            const gridDiv = document.getElementById('winnersGrid');
+            
+            if (winners.length > 0) {
+                historyDiv.style.display = 'block';
+                gridDiv.innerHTML = winners.map(w => `
+                    <div class="winner-card">
+                        <div class="winner-card-emoji">🏆</div>
+                        <div class="winner-card-name">${w.name}</div>
+                        <div class="winner-card-prize">${w.prize}</div>
+                        <div class="winner-card-time">⏰ ${w.time}</div>
+                    </div>
+                `).join('');
+            }
+        }
+    </script>
+</body>
+</html>
