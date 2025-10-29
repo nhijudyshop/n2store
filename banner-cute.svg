@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 500" width="1600" height="500">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE5EC;stop-opacity:1" />
+      <stop offset="25%" style="stop-color:#FFF0F5;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#E0F4FF;stop-opacity:1" />
+      <stop offset="75%" style="stop-color:#FFF4E0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F4E0FF;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Shadow filter -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="3" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge> 
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/> 
+      </feMerge>
+    </filter>
+    
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1600" height="500" fill="url(#bgGradient)"/>
+  
+  <!-- Decorative circles -->
+  <circle cx="100" cy="100" r="60" fill="#FFB6C1" opacity="0.3"/>
+  <circle cx="1500" cy="100" r="80" fill="#87CEEB" opacity="0.3"/>
+  <circle cx="200" cy="400" r="50" fill="#FFE4B5" opacity="0.3"/>
+  <circle cx="1400" cy="400" r="70" fill="#DDA0DD" opacity="0.3"/>
+  
+  <!-- Stars decoration -->
+  <text x="150" y="80" font-size="40" fill="#FFD700" opacity="0.8">⭐</text>
+  <text x="1450" y="80" font-size="40" fill="#FFD700" opacity="0.8">⭐</text>
+  <text x="250" y="450" font-size="30" fill="#FFD700" opacity="0.8">✨</text>
+  <text x="1350" y="450" font-size="30" fill="#FFD700" opacity="0.8">✨</text>
+  <text x="100" y="250" font-size="35" fill="#FFD700" opacity="0.7">🌟</text>
+  <text x="1500" y="250" font-size="35" fill="#FFD700" opacity="0.7">🌟</text>
+  
+  <!-- Cute animals decorations -->
+  <text x="50" y="200" font-size="60">🐰</text>
+  <text x="1520" y="200" font-size="60">🦊</text>
+  <text x="120" y="380" font-size="55">🐨</text>
+  <text x="1450" y="380" font-size="55">🐼</text>
+  
+  <!-- White rounded rectangle background for text -->
+  <rect x="150" y="60" width="1300" height="160" rx="30" fill="white" opacity="0.85" filter="url(#shadow)"/>
+  
+  <!-- Main title with colorful letters -->
+  <text x="800" y="140" font-family="Arial, sans-serif" font-size="70" font-weight="bold" text-anchor="middle" filter="url(#glow)">
+    <tspan fill="#FF1493">🏁</tspan>
+    <tspan fill="#FF6B9D" dx="10">ĐUA</tspan>
+    <tspan fill="#FF69B4" dx="10">THUA</tspan>
+    <tspan fill="#C71585" dx="20">-</tspan>
+    <tspan fill="#9370DB" dx="20">XẾP</tspan>
+    <tspan fill="#8A2BE2" dx="10">HẠNG</tspan>
+  </text>
+  
+  <text x="800" y="200" font-family="Arial, sans-serif" font-size="65" font-weight="bold" text-anchor="middle" filter="url(#glow)">
+    <tspan fill="#FF8C00">NGẪU</tspan>
+    <tspan fill="#FFA500" dx="10">NHIÊN</tspan>
+    <tspan fill="#FFD700" dx="20">🏆</tspan>
+  </text>
+  
+  <!-- White rounded rectangle for subtitle -->
+  <rect x="320" y="270" width="960" height="85" rx="25" fill="white" opacity="0.85" filter="url(#shadow)"/>
+  
+  <!-- Subtitle with hearts and stars -->
+  <text x="800" y="330" font-family="Arial, sans-serif" font-size="45" font-weight="600" text-anchor="middle" fill="#FF69B4">
+    <tspan>💫</tspan>
+    <tspan dx="10">Ai sẽ là người về đích đầu tiên?</tspan>
+    <tspan dx="10">💫</tspan>
+  </text>
+  
+  <!-- Bottom decorations -->
+  <text x="300" y="450" font-size="45">🎈</text>
+  <text x="400" y="450" font-size="45">🎉</text>
+  <text x="500" y="450" font-size="45">🎊</text>
+  <text x="1100" y="450" font-size="45">🎊</text>
+  <text x="1200" y="450" font-size="45">🎉</text>
+  <text x="1300" y="450" font-size="45">🎈</text>
+  
+  <!-- Floating hearts -->
+  <text x="600" y="100" font-size="30" fill="#FF69B4" opacity="0.6">💕</text>
+  <text x="1000" y="100" font-size="30" fill="#FF69B4" opacity="0.6">💕</text>
+  <text x="700" y="420" font-size="25" fill="#FF69B4" opacity="0.6">💖</text>
+  <text x="900" y="420" font-size="25" fill="#FF69B4" opacity="0.6">💖</text>
+</svg>
