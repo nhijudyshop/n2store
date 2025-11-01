@@ -27,7 +27,7 @@ const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("livestream_reports");
 const historyCollectionRef = db.collection("edit_history");
 
-// DOM Elements
+// DOM Elements - Safely get elements if they exist
 const livestreamForm = document.getElementById("livestreamForm");
 const tableBody = document.getElementById("tableBody");
 const toggleFormButton = document.getElementById("toggleFormButton");
