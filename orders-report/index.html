@@ -2,12 +2,11 @@
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <title>Báo Cáo Sale-Online - N2Shop</title>
+        <title>Thống Kê Đơn Hàng - N2Shop</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <!-- External CSS -->
         <link rel="stylesheet" href="modern.css" />
-        <link rel="stylesheet" href="facebook-page-selector.css" />
 
         <!-- Lucide Icons -->
         <script src="https://unpkg.com/lucide@latest"></script>
@@ -16,17 +15,9 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
         <!-- Firebase -->
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-
-        <!-- Core Scripts -->
-        <script src="config.js"></script>
-        <script src="notification-system.js"></script>
-        <script src="cache.js"></script>
-        <script src="auth.js"></script>
-        <script src="token-manager.js"></script>
-        <script src="facebook-page-selector.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
 
         <style>
             :root {
@@ -181,9 +172,6 @@
                 color: var(--gray-600);
                 background: var(--gray-50);
                 border-bottom: 2px solid var(--gray-200);
-                position: sticky;
-                top: 0;
-                z-index: 10;
             }
 
             .data-table tbody td {
@@ -196,53 +184,12 @@
                 background: var(--gray-50);
             }
 
-            .table-wrapper {
-                max-height: 600px;
-                overflow-y: auto;
-                position: relative;
-            }
-
-            /* Scrollbar styling */
-            .table-wrapper::-webkit-scrollbar {
-                width: 8px;
-            }
-
-            .table-wrapper::-webkit-scrollbar-track {
-                background: var(--gray-100);
-                border-radius: 4px;
-            }
-
-            .table-wrapper::-webkit-scrollbar-thumb {
-                background: var(--gray-400);
-                border-radius: 4px;
-            }
-
-            .table-wrapper::-webkit-scrollbar-thumb:hover {
-                background: var(--gray-500);
-            }
-
             .status-badge {
                 display: inline-block;
                 padding: 4px 12px;
                 border-radius: 20px;
                 font-size: 12px;
                 font-weight: 500;
-                cursor: pointer;
-                transition: all 0.2s;
-            }
-
-            .status-badge:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            }
-
-            .status-badge.editable {
-                cursor: pointer;
-                border: 1px solid transparent;
-            }
-
-            .status-badge.editable:hover {
-                border-color: var(--primary);
             }
 
             .status-thanh-cong {
@@ -263,25 +210,6 @@
             .status-default {
                 background: var(--gray-100);
                 color: var(--gray-700);
-            }
-
-            .status-row {
-                cursor: pointer;
-                transition: all 0.2s;
-            }
-
-            .status-row:hover {
-                background: var(--gray-50) !important;
-                transform: translateX(4px);
-            }
-
-            .status-row.active {
-                background: #e0e7ff !important;
-                border-left: 3px solid var(--primary);
-            }
-
-            .status-row.active .count-badge {
-                background: var(--primary-light);
             }
 
             .count-badge {
@@ -305,555 +233,234 @@
             }
 
             .empty-state i {
-                width: 48px;
-                height: 48px;
+                width: 64px;
+                height: 64px;
                 color: var(--gray-400);
                 margin-bottom: 16px;
             }
 
-            .loading-state {
-                text-align: center;
-                padding: 48px 24px;
-                color: var(--gray-600);
+            .empty-state-title {
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 8px;
             }
 
-            .loading-spinner {
-                width: 48px;
-                height: 48px;
-                margin: 0 auto 16px;
-                border: 4px solid var(--gray-200);
-                border-top-color: var(--primary);
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
+            .empty-state-description {
+                font-size: 14px;
+                color: var(--gray-500);
             }
 
-            @keyframes spin {
-                to {
-                    transform: rotate(360deg);
-                }
-            }
-
-            @media (max-width: 1024px) {
+            @media (max-width: 1200px) {
                 .tables-container {
                     grid-template-columns: 1fr;
                 }
+            }
 
+            @media (max-width: 768px) {
                 .filter-row {
                     grid-template-columns: 1fr;
                 }
             }
 
-            /* Modal for editing tags */
-            .modal-overlay {
+            /* Token Info Badge */
+            .token-info {
                 position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                display: none;
-                align-items: center;
-                justify-content: center;
-                z-index: 4000;
-                backdrop-filter: blur(4px);
-            }
-
-            .modal-overlay.show {
-                display: flex;
-            }
-
-            .modal-content {
+                bottom: 20px;
+                right: 20px;
                 background: white;
-                border-radius: 16px;
-                padding: 24px;
-                max-width: 500px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-                box-shadow:
-                    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-                    0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            }
-
-            .modal-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 20px;
-                padding-bottom: 16px;
-                border-bottom: 2px solid var(--gray-100);
-            }
-
-            .modal-title {
-                font-size: 18px;
-                font-weight: 600;
-                color: var(--gray-800);
-            }
-
-            .modal-close {
-                width: 32px;
-                height: 32px;
-                border: none;
-                background: var(--gray-100);
-                border-radius: 8px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: all 0.2s;
-            }
-
-            .modal-close:hover {
-                background: var(--gray-200);
-            }
-
-            .tag-list {
-                display: flex;
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .tag-option {
                 padding: 12px 16px;
-                border: 2px solid var(--gray-200);
                 border-radius: 8px;
-                cursor: pointer;
-                transition: all 0.2s;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                font-size: 12px;
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
+                gap: 8px;
+                z-index: 1000;
             }
 
-            .tag-option:hover {
-                border-color: var(--primary);
-                background: var(--gray-50);
+            .token-info.valid {
+                border-left: 4px solid var(--success);
             }
 
-            .tag-option.selected {
-                border-color: var(--primary);
-                background: #e0e7ff;
+            .token-info.invalid {
+                border-left: 4px solid var(--danger);
             }
 
-            .tag-option-name {
-                font-weight: 500;
-                color: var(--gray-700);
+            .token-info i {
+                width: 16px;
+                height: 16px;
             }
 
-            .tag-option-check {
-                width: 20px;
-                height: 20px;
+            .token-refresh-btn {
+                padding: 4px 8px;
+                border: 1px solid var(--gray-300);
                 border-radius: 4px;
-                border: 2px solid var(--gray-300);
+                background: white;
+                cursor: pointer;
+                font-size: 11px;
                 display: flex;
                 align-items: center;
-                justify-content: center;
+                gap: 4px;
                 transition: all 0.2s;
             }
 
-            .tag-option.selected .tag-option-check {
-                background: var(--primary);
+            .token-refresh-btn:hover {
+                background: var(--gray-50);
                 border-color: var(--primary);
             }
 
-            .modal-footer {
-                margin-top: 20px;
-                padding-top: 16px;
-                border-top: 2px solid var(--gray-100);
-                display: flex;
-                gap: 12px;
-                justify-content: flex-end;
-            }
-
-            .btn-secondary {
-                background: var(--gray-200);
-                color: var(--gray-700);
-            }
-
-            .btn-secondary:hover {
-                background: var(--gray-300);
-            }
-
-            .huyen-header {
-                background: var(--primary);
-                color: white;
-                font-weight: 600;
-                text-align: center;
-                padding: 16px !important;
-            }
-
-            .total-row {
-                font-weight: 600;
-                background: var(--gray-50);
-            }
-
-            .total-row td {
-                border-top: 2px solid var(--gray-300) !important;
+            .token-refresh-btn i {
+                width: 12px;
+                height: 12px;
             }
         </style>
     </head>
+    <body>
+        <div class="content-wrapper">
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <h2 style="margin: 0 0 20px 0; color: var(--gray-800)">
+                    <i data-lucide="filter" style="width: 24px; height: 24px"></i>
+                    Bộ lọc tìm kiếm
+                </h2>
 
-    <body data-page="orders-report">
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i data-lucide="zap"></i>
-                    <span>N2Shop</span>
-                </div>
-                <button class="sidebar-toggle" id="sidebarToggle">
-                    <i data-lucide="panel-left-close"></i>
-                </button>
-            </div>
-
-            <nav class="sidebar-nav" id="sidebarNav">
-                <!-- Menu items auto-generated by navigation-modern.js -->
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar">
-                        <i data-lucide="user-circle"></i>
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="postId">Facebook Post ID</label>
+                        <input
+                            type="text"
+                            id="postId"
+                            class="form-control"
+                            placeholder="Nhập Post ID"
+                        />
                     </div>
-                    <div class="user-details">
-                        <div class="user-name" id="userName">Admin</div>
-                        <div class="user-role">Quản trị viên</div>
-                    </div>
-                </div>
-                <button class="btn-permissions" id="btnPermissions">
-                    <i data-lucide="shield-check"></i>
-                    <span>Xem Quyền Của Tôi</span>
-                </button>
-                <button class="btn-logout" id="btnLogout">
-                    <i data-lucide="log-out"></i>
-                    <span>Đăng xuất</span>
-                </button>
-            </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Top Bar -->
-            <header class="top-bar">
-                <div class="top-bar-left">
-                    <button class="btn-icon" id="sidebarToggle">
-                        <i data-lucide="menu"></i>
-                    </button>
-                    <button class="btn-icon mobile-only" id="menuToggle">
-                        <i data-lucide="menu"></i>
-                    </button>
-                    <div class="breadcrumb">
-                        <i data-lucide="home"></i>
-                        <span>Báo Cáo Sale-Online</span>
+                    <div class="form-group">
+                        <label for="userFilter">Lọc theo User</label>
+                        <select id="userFilter" class="form-control">
+                            <option value="all">Tất cả User</option>
+                        </select>
                     </div>
-                </div>
-                <div class="top-bar-right">
-                    <button class="btn btn-primary" id="exportExcelBtn">
-                        <i data-lucide="download"></i>
-                        <span>Xuất Excel</span>
-                    </button>
-                </div>
-            </header>
 
-            <div class="content-wrapper">
-                <!-- Filter Section -->
-                <div class="filter-section">
-                    <!-- Bearer Token Section - HIDDEN (Auto-managed by token-manager.js) -->
-                    <div class="form-group" style="margin-bottom: 16px; display: none;">
-                        <label for="bearerToken">
-                            Bearer Token
-                            <span
-                                style="
-                                    color: var(--danger);
-                                    font-size: 12px;
-                                    margin-left: 4px;
-                                "
-                                >*</span
-                            >
-                        </label>
-                        <div style="position: relative">
-                            <input
-                                type="password"
-                                id="bearerToken"
-                                class="form-control"
-                                placeholder="Nhập Bearer token..."
-                                style="
-                                    font-family: monospace;
-                                    padding-right: 45px;
-                                "
-                            />
-                            <button
-                                type="button"
-                                id="toggleTokenBtn"
-                                class="btn-icon"
-                                style="
-                                    position: absolute;
-                                    right: 8px;
-                                    top: 50%;
-                                    transform: translateY(-50%);
-                                    border: none;
-                                    background: transparent;
-                                    cursor: pointer;
-                                    padding: 4px;
-                                "
-                                title="Hiển thị/Ẩn token"
-                            >
-                                <i
-                                    data-lucide="eye"
-                                    style="width: 18px; height: 18px"
-                                ></i>
-                            </button>
-                        </div>
-                        <small
-                            style="
-                                color: var(--gray-600);
-                                font-size: 12px;
-                                margin-top: 4px;
-                                display: block;
-                            "
-                        >
-                            Token sẽ được lưu tự động vào bộ nhớ máy
-                        </small>
-                        <small
-                            style="
-                                color: var(--warning);
-                                font-size: 12px;
-                                margin-top: 4px;
-                                display: block;
-                            "
-                        >
-                            ⚠️ Lưu ý: Nếu gặp lỗi CORS, vui lòng mở trang từ
-                            https://tomato.tpos.vn hoặc cài đặt extension CORS
-                            Unblock
-                        </small>
+                    <div class="form-group">
+                        <label for="startDate">Từ ngày</label>
+                        <input
+                            type="date"
+                            id="startDate"
+                            class="form-control"
+                        />
                     </div>
-                    <div class="filter-row">
-                        <div class="form-group">
-                            <label for="userFilter">Lọc theo User</label>
-                            <select id="userFilter" class="form-control">
-                                <option value="all">Tất cả</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="facebookPostId">Facebook Post ID</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input
-                                    type="text"
-                                    id="facebookPostId"
-                                    class="form-control"
-                                    value="270136663390370_1363806618461599"
-                                    placeholder="Nhập Facebook Post ID"
-                                    style="flex: 1;"
-                                />
-                                <button
-                                    type="button"
-                                    id="openPageSelectorBtn"
-                                    class="btn btn-primary"
-                                    style="white-space: nowrap; padding: 10px 16px;"
-                                    title="Chọn từ Livestream Facebook"
-                                >
-                                    <i data-lucide="video" style="width: 18px; height: 18px;"></i>
-                                    <span style="display: none;">Chọn</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="startDate">Từ ngày</label>
-                            <input
-                                type="date"
-                                id="startDate"
-                                class="form-control"
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label for="endDate">Đến ngày</label>
-                            <input
-                                type="date"
-                                id="endDate"
-                                class="form-control"
-                            />
-                        </div>
-                        <button class="btn btn-primary" id="fetchDataBtn">
+
+                    <div class="form-group">
+                        <label for="endDate">Đến ngày</label>
+                        <input type="date" id="endDate" class="form-control" />
+                    </div>
+
+                    <div class="form-group">
+                        <button id="fetchDataBtn" class="btn btn-primary">
                             <i data-lucide="search"></i>
-                            <span>Tìm kiếm</span>
+                            Tìm kiếm
                         </button>
                     </div>
                 </div>
 
-                <!-- Tables Container -->
-                <div class="tables-container">
-                    <!-- Left Table: Status Statistics -->
-                    <div class="table-card">
-                        <div class="table-header">
-                            <h3 class="table-title">
-                                <i data-lucide="bar-chart-3"></i>
-                                <span id="statsTableTitle"
-                                    >Thống Kê Theo Trạng Thái</span
-                                >
-                            </h3>
-                            <span class="table-count" id="totalOrders"
-                                >0 đơn</span
-                            >
-                        </div>
-                        <div class="table-wrapper" id="statusTableWrapper">
-                            <div class="loading-state">
-                                <div class="loading-spinner"></div>
-                                <p>Đang tải dữ liệu...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Table: Customer Details -->
-                    <div class="table-card">
-                        <div class="table-header">
-                            <div
-                                style="
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 12px;
-                                "
-                            >
-                                <h3 class="table-title">
-                                    <i data-lucide="users"></i>
-                                    Chi Tiết Đơn Hàng
-                                </h3>
-                                <div id="filterBadge" style="display: none">
-                                    <span
-                                        class="status-badge"
-                                        style="
-                                            background: var(--primary);
-                                            color: white;
-                                            display: flex;
-                                            align-items: center;
-                                            gap: 6px;
-                                        "
-                                    >
-                                        <span id="filterBadgeText"></span>
-                                        <button
-                                            id="clearFilterBtn"
-                                            style="
-                                                background: none;
-                                                border: none;
-                                                cursor: pointer;
-                                                padding: 0;
-                                                display: flex;
-                                                align-items: center;
-                                            "
-                                        >
-                                            <i
-                                                data-lucide="x"
-                                                style="
-                                                    width: 14px;
-                                                    height: 14px;
-                                                    color: white;
-                                                "
-                                            ></i>
-                                        </button>
-                                    </span>
-                                </div>
-                            </div>
-                            <span class="table-count" id="totalCustomers"
-                                >0 đơn</span
-                            >
-                        </div>
-                        <div class="table-wrapper" id="customerTableWrapper">
-                            <div class="loading-state">
-                                <div class="loading-spinner"></div>
-                                <p>Đang tải dữ liệu...</p>
-                            </div>
-                        </div>
-                    </div>
+                <div style="margin-top: 16px">
+                    <button id="exportExcelBtn" class="btn btn-primary">
+                        <i data-lucide="download"></i>
+                        Xuất Excel
+                    </button>
                 </div>
             </div>
-        </main>
 
-        <!-- Modal Edit Tags -->
-        <div class="modal-overlay" id="editTagModal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title">Chỉnh Sửa Trạng Thái</h3>
-                    <button class="modal-close" id="closeModalBtn">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group" style="margin-bottom: 16px">
-                        <label
-                            style="
-                                display: block;
-                                margin-bottom: 8px;
-                                font-weight: 500;
-                            "
+            <!-- Tables Container -->
+            <div class="tables-container">
+                <!-- Status Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <div class="table-title">
+                            <i
+                                data-lucide="bar-chart-3"
+                                style="width: 20px; height: 20px"
+                            ></i>
+                            Thống kê theo trạng thái
+                        </div>
+                        <span class="table-count" id="statusTableCount"
+                            >0 đơn hàng</span
                         >
-                            Khách hàng:
-                            <span
-                                id="modalCustomerName"
-                                style="color: var(--primary)"
-                            ></span>
-                        </label>
                     </div>
-                    <div class="tag-list" id="tagList">
-                        <!-- Tags will be populated here -->
-                    </div>
+                    <div id="statusTableWrapper"></div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" id="cancelModalBtn">
-                        Hủy
-                    </button>
-                    <button class="btn btn-primary" id="saveTagBtn">
-                        <i data-lucide="save"></i>
-                        <span>Lưu</span>
-                    </button>
+
+                <!-- Customer Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <div class="table-title">
+                            <i
+                                data-lucide="users"
+                                style="width: 20px; height: 20px"
+                            ></i>
+                            Top khách hàng
+                        </div>
+                        <span class="table-count" id="customerTableCount"
+                            >0 khách hàng</span
+                        >
+                    </div>
+                    <div id="customerTableWrapper"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Scripts -->
+        <!-- Token Info Badge (Optional Display) -->
+        <div id="tokenInfoBadge" class="token-info" style="display: none;">
+            <i data-lucide="key"></i>
+            <span id="tokenInfoText">Checking token...</span>
+            <button class="token-refresh-btn" onclick="refreshToken()">
+                <i data-lucide="refresh-cw"></i>
+                Refresh
+            </button>
+        </div>
+
+        <!-- JavaScript Files - IMPORTANT: Load in correct order -->
         <script src="config.js"></script>
-        <script src="auth.js"></script>
-        <script src="cache.js"></script>
         <script src="notification-system.js"></script>
+        <script src="token-manager.js"></script>
+        <script src="cache.js"></script>
+        <script src="auth.js"></script>
 
         <script>
-            // Initialize notification manager
-            const notificationManager = new NotificationManager();
-
             // Initialize Lucide icons
             lucide.createIcons();
 
-            // Global data storage
+            // Initialize notification manager
+            const notificationManager = new NotificationManager();
+            window.notificationManager = notificationManager;
+
+            // Global variables
             let allOrdersData = [];
-            let selectedStatusFilter = null; // null = show all
-            let availableTags = []; // All unique tags from data
-            let editingOrderId = null; // Order being edited
 
-            // ===== OLD BEARER TOKEN FUNCTIONS (No longer needed - handled by token-manager.js) =====
-            // Bearer Token Management
-            // const BEARER_TOKEN_KEY = "tpos_bearer_token";
-            //
-            // function saveBearerToken(token) {
-            //     try {
-            //         localStorage.setItem(BEARER_TOKEN_KEY, token);
-            //         console.log("Bearer token saved to localStorage");
-            //     } catch (error) {
-            //         console.error("Error saving bearer token:", error);
-            //     }
-            // }
-            //
-            // function loadBearerToken() {
-            //     try {
-            //         const token = localStorage.getItem(BEARER_TOKEN_KEY);
-            //         if (token) {
-            //             document.getElementById("bearerToken").value = token;
-            //             console.log("Bearer token loaded from localStorage");
-            //             return token;
-            //         }
-            //     } catch (error) {
-            //         console.error("Error loading bearer token:", error);
-            //     }
-            //     return null;
-            // }
+            // Helper Functions
+            function setDefaultDates() {
+                const today = new Date();
+                const startDate = new Date(
+                    today.getFullYear(),
+                    today.getMonth(),
+                    1,
+                );
 
-            // Generate GUID for x-request-id
+                document.getElementById("startDate").valueAsDate = startDate;
+                document.getElementById("endDate").valueAsDate = today;
+            }
+
+            function dateToAPIFormat(dateString, isEndOfDay = false) {
+                const date = new Date(dateString);
+                if (isEndOfDay) {
+                    date.setHours(23, 59, 59, 999);
+                } else {
+                    date.setHours(0, 0, 0, 0);
+                }
+                return `datetime'${date.toISOString()}'`;
+            }
+
             function generateGUID() {
                 return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
                     /[xy]/g,
@@ -865,493 +472,193 @@
                 );
             }
 
-            // ===== OLD TOKEN INPUT LISTENERS (No longer needed) =====
-            // Save token when input changes
-            // document
-            //     .getElementById("bearerToken")
-            //     .addEventListener("input", (e) => {
-            //         const token = e.target.value.trim();
-            //         if (token) {
-            //             saveBearerToken(token);
-            //         }
-            //     });
-            //
-            // // Toggle Bearer token visibility
-            // const toggleTokenBtn = document.getElementById("toggleTokenBtn");
-            // const bearerTokenInput = document.getElementById("bearerToken");
-            // let tokenVisible = false;
-            //
-            // toggleTokenBtn.addEventListener("click", () => {
-            //     tokenVisible = !tokenVisible;
-            //     bearerTokenInput.type = tokenVisible ? "text" : "password";
-            //
-            //     // Update icon
-            //     const icon = toggleTokenBtn.querySelector("i");
-            //     icon.setAttribute(
-            //         "data-lucide",
-            //         tokenVisible ? "eye-off" : "eye",
-            //     );
-            //     lucide.createIcons();
-            // });
-
-            // Set default dates (7 days ago to today, GMT+7)
-            function setDefaultDates() {
-                const today = new Date();
-                const sevenDaysAgo = new Date(today);
-                sevenDaysAgo.setDate(today.getDate() - 7);
-
-                // Format dates for input fields (YYYY-MM-DD)
-                const formatDate = (date) => {
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, "0");
-                    const day = String(date.getDate()).padStart(2, "0");
-                    return `${year}-${month}-${day}`;
-                };
-
-                document.getElementById("startDate").value =
-                    formatDate(sevenDaysAgo);
-                document.getElementById("endDate").value = formatDate(today);
-            }
-
-            // Convert local date to API format (GMT+7 to GMT+0)
-            function dateToAPIFormat(dateString, isEndDate = false) {
-                const date = new Date(dateString);
-
-                if (isEndDate) {
-                    // Set to end of day (23:59:59)
-                    date.setHours(23, 59, 59, 999);
-                } else {
-                    // Set to start of day (00:00:00)
-                    date.setHours(0, 0, 0, 0);
-                }
-
-                // Subtract 7 hours to convert GMT+7 to GMT+0
-                date.setHours(date.getHours() - 7);
-
-                // Format to ISO string and encode for URL
-                const isoString = date.toISOString().split(".")[0] + "+00:00";
-                return encodeURIComponent(isoString);
-            }
-
-            // Parse tags from JSON string
-            function parseTags(tagsString) {
-                if (!tagsString || tagsString === "null") return [];
-
-                try {
-                    const tags = JSON.parse(tagsString);
-                    return tags.map((tag) => tag.Name);
-                } catch (error) {
-                    console.error("Error parsing tags:", error);
-                    return [];
-                }
-            }
-
-            // Populate user filter dropdown
-            function populateUserFilter(data) {
-                const users = new Set();
-                data.forEach((order) => {
-                    if (order.UserName) {
-                        users.add(order.UserName);
+            function parseTags(tags) {
+                if (!tags) return {};
+                const pairs = tags.split(";").filter(Boolean);
+                const result = {};
+                pairs.forEach((pair) => {
+                    const [key, value] = pair.split("=");
+                    if (key && value !== undefined) {
+                        result[key.trim()] = value.trim();
                     }
                 });
-
-                const userFilter = document.getElementById("userFilter");
-                userFilter.innerHTML = '<option value="all">Tất cả</option>';
-
-                Array.from(users)
-                    .sort()
-                    .forEach((user) => {
-                        const option = document.createElement("option");
-                        option.value = user;
-                        option.textContent = user;
-                        userFilter.appendChild(option);
-                    });
+                return result;
             }
 
-            // Update table title based on selected user
-            function updateTableTitle() {
-                const userFilter = document.getElementById("userFilter").value;
-                const title = document.getElementById("statsTableTitle");
-
-                if (userFilter === "all") {
-                    title.textContent = "Thống Kê Theo Trạng Thái";
-                } else {
-                    title.textContent = `Thống Kê Theo ${userFilter}`;
-                }
+            function getStatus(tags) {
+                if (tags["Giỏ Trống"]) return "Giỏ Trống";
+                if (tags["Xử Lý"]) return "Xử Lý";
+                if (tags["Thành Công"]) return "Thành Công";
+                return "Khác";
             }
 
-            // Filter data by selected user
+            function getStatusClass(status) {
+                const statusMap = {
+                    "Thành Công": "status-thanh-cong",
+                    "Giỏ Trống": "status-gio-trong",
+                    "Xử Lý": "status-xu-ly",
+                };
+                return statusMap[status] || "status-default";
+            }
+
+            function showEmptyState(containerId, message) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i data-lucide="inbox"></i>
+                        <div class="empty-state-title">${message}</div>
+                        <div class="empty-state-description">Không có dữ liệu để hiển thị</div>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+
             function getFilteredData() {
                 const userFilter = document.getElementById("userFilter").value;
-
                 if (userFilter === "all") {
                     return allOrdersData;
                 }
-
                 return allOrdersData.filter(
                     (order) => order.UserName === userFilter,
                 );
             }
 
-            // Handle status filter (when clicking on status in left table)
-            function handleStatusFilter(status) {
-                // Toggle filter: if same status clicked, remove filter
-                if (selectedStatusFilter === status) {
-                    selectedStatusFilter = null;
-                } else {
-                    selectedStatusFilter = status;
-                }
+            function populateUserFilter(data) {
+                const userSelect = document.getElementById("userFilter");
+                const users = [...new Set(data.map((order) => order.UserName))];
 
-                // Re-render both tables
-                const filteredData = getFilteredData();
-                renderStatusTable(filteredData);
-                renderCustomerTable(filteredData);
-            }
-
-            // Extract all available tags from data
-            function extractAvailableTags(data) {
-                const tagsSet = new Set();
-
-                data.forEach((order) => {
-                    const tags = parseTags(order.Tags);
-                    tags.forEach((tag) => tagsSet.add(tag));
-                });
-
-                // Add default tag
-                tagsSet.add("Bình thường");
-
-                return Array.from(tagsSet).sort();
-            }
-
-            // Open edit tag modal
-            function openEditTagModal(orderId) {
-                editingOrderId = orderId;
-                const order = allOrdersData.find((o) => o.Id === orderId);
-
-                if (!order) return;
-
-                // Set customer name in modal
-                document.getElementById("modalCustomerName").textContent =
-                    order.Name || "N/A";
-
-                // Get current tags
-                const currentTags = parseTags(order.Tags);
-                const currentStatus = getStatus(currentTags);
-
-                // Populate tag list
-                const tagListHtml = availableTags
-                    .map((tag) => {
-                        const isSelected = currentStatus === tag;
-                        const selectedClass = isSelected ? "selected" : "";
-                        const checkIcon = isSelected
-                            ? '<i data-lucide="check" style="width: 14px; height: 14px; color: white;"></i>'
-                            : "";
-
-                        return `
-                    <div class="tag-option ${selectedClass}" data-tag="${tag}">
-                        <span class="tag-option-name">${tag}</span>
-                        <div class="tag-option-check">${checkIcon}</div>
-                    </div>
-                `;
-                    })
-                    .join("");
-
-                document.getElementById("tagList").innerHTML = tagListHtml;
-
-                // Show modal
-                document.getElementById("editTagModal").classList.add("show");
-
-                // Re-init lucide icons
-                lucide.createIcons();
-
-                // Add click handlers to tag options
-                document.querySelectorAll(".tag-option").forEach((option) => {
-                    option.addEventListener("click", function () {
-                        // Remove selected from all
-                        document
-                            .querySelectorAll(".tag-option")
-                            .forEach((opt) => {
-                                opt.classList.remove("selected");
-                                opt.querySelector(
-                                    ".tag-option-check",
-                                ).innerHTML = "";
-                            });
-
-                        // Add selected to clicked one
-                        this.classList.add("selected");
-                        this.querySelector(".tag-option-check").innerHTML =
-                            '<i data-lucide="check" style="width: 14px; height: 14px; color: white;"></i>';
-
-                        lucide.createIcons();
+                userSelect.innerHTML = '<option value="all">Tất cả User</option>';
+                users
+                    .sort()
+                    .forEach((user) => {
+                        const option = document.createElement("option");
+                        option.value = user;
+                        option.textContent = user;
+                        userSelect.appendChild(option);
                     });
-                });
             }
 
-            // Close modal
-            function closeEditTagModal() {
-                document
-                    .getElementById("editTagModal")
-                    .classList.remove("show");
-                editingOrderId = null;
-            }
-
-            // Save tag changes
-            function saveTagChanges() {
-                const selectedOption = document.querySelector(
-                    ".tag-option.selected",
-                );
-                if (!selectedOption || !editingOrderId) return;
-
-                const newStatus = selectedOption.getAttribute("data-tag");
-
-                // Find order in data
-                const order = allOrdersData.find(
-                    (o) => o.Id === editingOrderId,
-                );
-                if (!order) return;
-
-                // Update tags in local data
-                if (newStatus === "Bình thường") {
-                    order.Tags = null;
-                } else {
-                    // Create a simple tag structure
-                    order.Tags = JSON.stringify([
-                        {
-                            Id: Date.now(),
-                            Name: newStatus,
-                            Type: "default",
-                            Color: "#6366f1",
-                        },
-                    ]);
-                }
-
-                // Close modal
-                closeEditTagModal();
-
-                // Re-render tables
+            function updateTableTitle() {
+                const userFilter = document.getElementById("userFilter").value;
                 const filteredData = getFilteredData();
-                renderStatusTable(filteredData);
-                renderCustomerTable(filteredData);
 
-                // Show success notification
-                notificationManager.success(
-                    `Đã cập nhật trạng thái thành "${newStatus}"`,
-                );
-
-                // Note: In production, you would also send an API request here to update the backend
-                console.log(
-                    "Order updated:",
-                    order.Id,
-                    "New status:",
-                    newStatus,
-                );
+                document.getElementById(
+                    "statusTableCount",
+                ).textContent = `${filteredData.length} đơn hàng`;
             }
 
-            // Get status from tags
-            function getStatus(tags) {
-                if (!tags || tags.length === 0) return "Bình thường";
-                return tags.join(", ");
-            }
-
-            // Get status badge class
-            function getStatusBadgeClass(status) {
-                const statusLower = status.toLowerCase();
-                if (
-                    statusLower.includes("thành công") ||
-                    statusLower.includes("ok")
-                ) {
-                    return "status-thanh-cong";
-                } else if (
-                    statusLower.includes("giỏ trống") ||
-                    statusLower.includes("chờ")
-                ) {
-                    return "status-gio-trong";
-                } else if (
-                    statusLower.includes("xử lý") ||
-                    statusLower.includes("live")
-                ) {
-                    return "status-xu-ly";
-                }
-                return "status-default";
-            }
-
-            // Render status table (left table)
             function renderStatusTable(data) {
-                const statusData = {};
+                const statusCount = {};
 
-                // Count orders by status
                 data.forEach((order) => {
                     const tags = parseTags(order.Tags);
                     const status = getStatus(tags);
-
-                    if (!statusData[status]) {
-                        statusData[status] = 0;
-                    }
-
-                    statusData[status]++;
+                    statusCount[status] = (statusCount[status] || 0) + 1;
                 });
 
-                // Sort statuses
-                const sortedStatuses = Object.keys(statusData).sort((a, b) => {
-                    // "Bình thường" goes last
-                    if (a === "Bình thường") return 1;
-                    if (b === "Bình thường") return -1;
-                    return statusData[b] - statusData[a]; // Sort by count descending
+                const statusOrder = [
+                    "Thành Công",
+                    "Giỏ Trống",
+                    "Xử Lý",
+                    "Khác",
+                ];
+                const sortedStatuses = Object.keys(statusCount).sort((a, b) => {
+                    return statusOrder.indexOf(a) - statusOrder.indexOf(b);
                 });
 
-                // Build table HTML
                 let html = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Trạng thái</th>
-                            <th style="text-align: center;">Số lượng đơn</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-                // Add status rows with click handler
-                sortedStatuses.forEach((status) => {
-                    const badgeClass = getStatusBadgeClass(status);
-                    const isActive = selectedStatusFilter === status;
-                    const activeClass = isActive ? "active" : "";
-
-                    html += `
-                    <tr class="status-row ${activeClass}" data-status="${status}">
-                        <td>
-                            <span class="status-badge ${badgeClass}">${status}</span>
-                        </td>
-                        <td style="text-align: center;">
-                            <span class="count-badge">${statusData[status]}</span>
-                        </td>
-                    </tr>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Trạng thái</th>
+                                <th style="text-align: center">Số lượng</th>
+                                <th style="text-align: right">Tỷ lệ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                 `;
+
+                const total = data.length;
+                sortedStatuses.forEach((status) => {
+                    const count = statusCount[status];
+                    const percentage = ((count / total) * 100).toFixed(1);
+                    html += `
+                        <tr>
+                            <td><span class="status-badge ${getStatusClass(status)}">${status}</span></td>
+                            <td style="text-align: center"><span class="count-badge">${count}</span></td>
+                            <td style="text-align: right; font-weight: 600; color: var(--gray-700)">${percentage}%</td>
+                        </tr>
+                    `;
                 });
 
-                // Add total row
-                const total = Object.values(statusData).reduce(
-                    (sum, count) => sum + count,
-                    0,
-                );
                 html += `
-                <tr class="total-row">
-                    <td><strong>TỔNG CỘNG</strong></td>
-                    <td style="text-align: center;">
-                        <span class="count-badge">${total}</span>
-                    </td>
-                </tr>
-            `;
-
-                html += "</tbody></table>";
+                        </tbody>
+                    </table>
+                `;
 
                 document.getElementById("statusTableWrapper").innerHTML = html;
-                document.getElementById("totalOrders").textContent =
-                    `${total} đơn`;
-
-                // Add click event listeners to status rows
-                document.querySelectorAll(".status-row").forEach((row) => {
-                    row.addEventListener("click", function () {
-                        const status = this.getAttribute("data-status");
-                        handleStatusFilter(status);
-                    });
-                });
             }
 
-            // Render customer table (right table)
             function renderCustomerTable(data) {
-                // Filter by selected status if any
-                let displayData = data;
-                if (selectedStatusFilter) {
-                    displayData = data.filter((order) => {
-                        const tags = parseTags(order.Tags);
-                        const status = getStatus(tags);
-                        return status === selectedStatusFilter;
-                    });
+                const customerMap = {};
 
-                    // Show filter badge
-                    document.getElementById("filterBadge").style.display =
-                        "block";
-                    document.getElementById("filterBadgeText").textContent =
-                        `Lọc: ${selectedStatusFilter}`;
-                    lucide.createIcons();
-                } else {
-                    // Hide filter badge
-                    document.getElementById("filterBadge").style.display =
-                        "none";
-                }
+                data.forEach((order) => {
+                    const key = `${order.Name}_${order.Telephone}`;
+                    if (!customerMap[key]) {
+                        customerMap[key] = {
+                            name: order.Name,
+                            telephone: order.Telephone,
+                            count: 0,
+                            totalAmount: 0,
+                        };
+                    }
+                    customerMap[key].count++;
+                    customerMap[key].totalAmount += order.TotalAmount || 0;
+                });
+
+                const customers = Object.values(customerMap)
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+
+                document.getElementById(
+                    "customerTableCount",
+                ).textContent = `${customers.length} khách hàng`;
 
                 let html = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Tên KH</th>
-                            <th>SĐT</th>
-                            <th>Trạng thái</th>
-                            <th>Lý do</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-                displayData.forEach((order) => {
-                    const tags = parseTags(order.Tags);
-                    const status = getStatus(tags);
-                    const badgeClass = getStatusBadgeClass(status);
-                    const note = order.Note
-                        ? order.Note.replace(/\r\n/g, ", ").replace(/\n/g, ", ")
-                        : "-";
-
-                    html += `
-                    <tr>
-                        <td>${order.Name || "N/A"}</td>
-                        <td>${order.Telephone || "N/A"}</td>
-                        <td>
-                            <span class="status-badge ${badgeClass} editable" 
-                                  data-order-id="${order.Id}"
-                                  title="Click để chỉnh sửa">
-                                ${status}
-                            </span>
-                        </td>
-                        <td style="max-width: 250px; word-wrap: break-word;">${note}</td>
-                    </tr>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tên khách hàng</th>
+                                <th>Số điện thoại</th>
+                                <th style="text-align: center">Số đơn</th>
+                                <th style="text-align: right">Tổng tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                 `;
+
+                customers.forEach((customer) => {
+                    html += `
+                        <tr>
+                            <td style="font-weight: 500">${customer.name}</td>
+                            <td>${customer.telephone}</td>
+                            <td style="text-align: center"><span class="count-badge">${customer.count}</span></td>
+                            <td style="text-align: right; font-weight: 600; color: var(--primary)">${customer.totalAmount.toLocaleString("vi-VN")}đ</td>
+                        </tr>
+                    `;
                 });
 
-                html += "</tbody></table>";
+                html += `
+                        </tbody>
+                    </table>
+                `;
 
-                document.getElementById("customerTableWrapper").innerHTML =
-                    html;
-                document.getElementById("totalCustomers").textContent =
-                    `${displayData.length} đơn`;
-
-                // Add click event listeners to editable status badges
-                document
-                    .querySelectorAll(".status-badge.editable")
-                    .forEach((badge) => {
-                        badge.addEventListener("click", function () {
-                            const orderId = this.getAttribute("data-order-id");
-                            openEditTagModal(orderId);
-                        });
-                    });
+                document.getElementById("customerTableWrapper").innerHTML = html;
             }
 
-            // Show empty state
-            function showEmptyState(containerId, message = "Không có dữ liệu") {
-                document.getElementById(containerId).innerHTML = `
-                <div class="empty-state">
-                    <i data-lucide="inbox"></i>
-                    <p>${message}</p>
-                </div>
-            `;
-                lucide.createIcons();
-            }
-
-            // Fetch data from API
+            // Main fetch function using TokenManager
             async function fetchData() {
-                const postId = document
-                    .getElementById("facebookPostId")
-                    .value.trim();
+                const postId = document.getElementById("postId").value.trim();
                 const startDate = document.getElementById("startDate").value;
                 const endDate = document.getElementById("endDate").value;
 
@@ -1370,9 +677,6 @@
                 );
 
                 try {
-                    // Get bearer token automatically from tokenManager
-                    const authHeaders = await window.tokenManager.getAuthHeader();
-                    
                     // Build API URL
                     const startDateAPI = dateToAPIFormat(startDate, false);
                     const endDateAPI = dateToAPIFormat(endDate, true);
@@ -1381,55 +685,39 @@
 
                     console.log("Fetching from:", apiUrl);
 
-                    // Prepare headers
-                    const headers = {
-                        ...authHeaders,
-                        Accept: "application/json, text/plain, */*",
-                        "x-request-id": generateGUID(),
-                    };
-
-                    const response = await fetch(apiUrl, {
-                        method: "GET",
-                        headers: headers,
-                    });
+                    // Use TokenManager's authenticatedFetch method
+                    const response = await window.tokenManager.authenticatedFetch(
+                        apiUrl,
+                        {
+                            method: "GET",
+                            headers: {
+                                Accept: "application/json, text/plain, */*",
+                                "Accept-Encoding": "gzip, deflate, br",
+                                "Accept-Language":
+                                    "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+                                Origin: "https://tomato.tpos.vn",
+                                Referer: "https://tomato.tpos.vn/",
+                                "sec-ch-ua":
+                                    '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+                                "sec-ch-ua-mobile": "?0",
+                                "sec-ch-ua-platform": '"Windows"',
+                                "sec-fetch-dest": "empty",
+                                "sec-fetch-mode": "cors",
+                                "sec-fetch-site": "same-origin",
+                                tposappversion: "5.9.10.1",
+                                "User-Agent":
+                                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                                "x-request-id": generateGUID(),
+                            },
+                            credentials: "include",
+                        },
+                    );
 
                     if (!response.ok) {
                         if (response.status === 401) {
-                            // Token invalid, try to refresh
-                            console.log("[API] 401 error, attempting token refresh...");
-                            await window.tokenManager.refresh();
-                            
-                            // Retry with new token
-                            const newAuthHeaders = await window.tokenManager.getAuthHeader();
-                            const retryHeaders = {
-                                ...newAuthHeaders,
-                                Accept: "application/json, text/plain, */*",
-                                "x-request-id": generateGUID(),
-                            };
-                            
-                            const retryResponse = await fetch(apiUrl, {
-                                method: "GET",
-                                headers: retryHeaders,
-                            });
-                            
-                            if (!retryResponse.ok) {
-                                throw new Error(
-                                    "Token không hợp lệ sau khi refresh. Vui lòng kiểm tra lại.",
-                                );
-                            }
-                            
-                            // Use the retry response
-                            const retryResult = await retryResponse.json();
-                            const filteredData = retryResult.value.filter(
-                                (order) => order.Facebook_PostId === postId,
+                            throw new Error(
+                                "Token không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại.",
                             );
-                            
-                            console.log(
-                                `Found ${filteredData.length} orders matching Post ID (after retry)`,
-                            );
-                            
-                            processSuccessfulResponse(filteredData, loadingId);
-                            return;
                         }
                         throw new Error(
                             `HTTP error! status: ${response.status}`,
@@ -1447,75 +735,52 @@
                         `Found ${filteredData.length} orders matching Post ID`,
                     );
 
-                    // Process successful response
-                    processSuccessfulResponse(filteredData, loadingId);
+                    notificationManager.remove(loadingId);
+
+                    if (filteredData.length === 0) {
+                        notificationManager.warning(
+                            "Không tìm thấy đơn hàng nào",
+                        );
+                        showEmptyState(
+                            "statusTableWrapper",
+                            "Không tìm thấy đơn hàng nào",
+                        );
+                        showEmptyState(
+                            "customerTableWrapper",
+                            "Không tìm thấy đơn hàng nào",
+                        );
+                        return;
+                    }
+
+                    // Store data globally
+                    allOrdersData = filteredData;
+
+                    // Populate user filter
+                    populateUserFilter(filteredData);
+
+                    // Render tables
+                    updateTableTitle();
+                    renderStatusTable(getFilteredData());
+                    renderCustomerTable(getFilteredData());
+
+                    notificationManager.success(
+                        `Đã tải ${filteredData.length} đơn hàng`,
+                    );
+
+                    // Update token info display
+                    updateTokenInfoDisplay();
                 } catch (error) {
                     console.error("Error fetching data:", error);
                     notificationManager.remove(loadingId);
-
-                    // Check if it's a CORS error
-                    if (
-                        error.message.includes("fetch") ||
-                        error.message.includes("CORS") ||
-                        error.message.includes("NetworkError")
-                    ) {
-                        notificationManager.error(
-                            "Không thể kết nối đến API. Lỗi CORS - Vui lòng mở trang từ domain https://tomato.tpos.vn hoặc sử dụng extension CORS Unblock.",
-                            6000,
-                        );
-                    } else {
-                        notificationManager.error(
-                            "Lỗi khi tải dữ liệu: " + error.message,
-                        );
-                    }
-
+                    notificationManager.error(
+                        "Lỗi khi tải dữ liệu: " + error.message,
+                    );
                     showEmptyState("statusTableWrapper", "Lỗi khi tải dữ liệu");
                     showEmptyState(
                         "customerTableWrapper",
                         "Lỗi khi tải dữ liệu",
                     );
                 }
-            }
-
-            // Helper function to process successful API response
-            function processSuccessfulResponse(filteredData, loadingId) {
-                notificationManager.remove(loadingId);
-
-                if (filteredData.length === 0) {
-                    notificationManager.warning(
-                        "Không tìm thấy đơn hàng nào",
-                    );
-                    showEmptyState(
-                        "statusTableWrapper",
-                        "Không tìm thấy đơn hàng nào",
-                    );
-                    showEmptyState(
-                        "customerTableWrapper",
-                        "Không tìm thấy đơn hàng nào",
-                    );
-                    return;
-                }
-
-                // Store data globally
-                allOrdersData = filteredData;
-
-                // Extract available tags
-                availableTags = extractAvailableTags(filteredData);
-
-                // Reset filter
-                selectedStatusFilter = null;
-
-                // Populate user filter
-                populateUserFilter(filteredData);
-
-                // Render tables
-                updateTableTitle();
-                renderStatusTable(getFilteredData());
-                renderCustomerTable(getFilteredData());
-
-                notificationManager.success(
-                    `Đã tải ${filteredData.length} đơn hàng`,
-                );
             }
 
             // Export to Excel
@@ -1528,18 +793,8 @@
                 try {
                     const filteredData = getFilteredData();
 
-                    // Further filter by selected status if any
-                    let exportData = filteredData;
-                    if (selectedStatusFilter) {
-                        exportData = filteredData.filter((order) => {
-                            const tags = parseTags(order.Tags);
-                            const status = getStatus(tags);
-                            return status === selectedStatusFilter;
-                        });
-                    }
-
                     // Prepare data for export
-                    const excelData = exportData.map((order) => {
+                    const exportData = filteredData.map((order) => {
                         const tags = parseTags(order.Tags);
                         const status = getStatus(tags);
                         const note = order.Note
@@ -1564,20 +819,17 @@
                     });
 
                     // Create workbook
-                    const ws = XLSX.utils.json_to_sheet(excelData);
+                    const ws = XLSX.utils.json_to_sheet(exportData);
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, "Đơn hàng");
 
                     // Generate filename
                     const userFilter =
                         document.getElementById("userFilter").value;
-                    const statusSuffix = selectedStatusFilter
-                        ? `_${selectedStatusFilter}`
-                        : "";
                     const filename =
                         userFilter === "all"
-                            ? `Don_hang${statusSuffix}_${new Date().getTime()}.xlsx`
-                            : `Don_hang_${userFilter}${statusSuffix}_${new Date().getTime()}.xlsx`;
+                            ? `Don_hang_${new Date().getTime()}.xlsx`
+                            : `Don_hang_${userFilter}_${new Date().getTime()}.xlsx`;
 
                     // Save file
                     XLSX.writeFile(wb, filename);
@@ -1588,6 +840,37 @@
                     notificationManager.error(
                         "Lỗi khi xuất Excel: " + error.message,
                     );
+                }
+            }
+
+            // Token info display (optional)
+            function updateTokenInfoDisplay() {
+                const tokenInfo = window.tokenManager.getTokenInfo();
+                const badge = document.getElementById("tokenInfoBadge");
+                const text = document.getElementById("tokenInfoText");
+
+                if (tokenInfo.hasToken) {
+                    badge.className = tokenInfo.isValid
+                        ? "token-info valid"
+                        : "token-info invalid";
+                    text.textContent = tokenInfo.isValid
+                        ? `Token hợp lệ - ${tokenInfo.timeRemaining}`
+                        : "Token hết hạn";
+                    badge.style.display = "flex";
+                } else {
+                    badge.style.display = "none";
+                }
+
+                lucide.createIcons();
+            }
+
+            // Manual token refresh
+            async function refreshToken() {
+                try {
+                    await window.tokenManager.refresh();
+                    updateTokenInfoDisplay();
+                } catch (error) {
+                    console.error("Error refreshing token:", error);
                 }
             }
 
@@ -1605,107 +888,29 @@
                 .addEventListener("change", () => {
                     if (allOrdersData.length > 0) {
                         updateTableTitle();
-                        selectedStatusFilter = null; // Reset status filter when changing user
                         const filteredData = getFilteredData();
                         renderStatusTable(filteredData);
                         renderCustomerTable(filteredData);
                     }
                 });
 
-            // Modal event listeners
-            document
-                .getElementById("closeModalBtn")
-                .addEventListener("click", closeEditTagModal);
-            document
-                .getElementById("cancelModalBtn")
-                .addEventListener("click", closeEditTagModal);
-            document
-                .getElementById("saveTagBtn")
-                .addEventListener("click", saveTagChanges);
-
-            // Close modal when clicking outside
-            document
-                .getElementById("editTagModal")
-                .addEventListener("click", function (e) {
-                    if (e.target === this) {
-                        closeEditTagModal();
-                    }
-                });
-
-            // Clear filter button
-            document.addEventListener("click", function (e) {
-                if (e.target.closest("#clearFilterBtn")) {
-                    selectedStatusFilter = null;
-                    const filteredData = getFilteredData();
-                    renderStatusTable(filteredData);
-                    renderCustomerTable(filteredData);
-                }
-            });
-
             // Initialize
             setDefaultDates();
 
-            // Token is now managed automatically by token-manager.js
             // Show initial empty state
             showEmptyState(
                 "statusTableWrapper",
-                "Nhấn Tìm kiếm để tải dữ liệu",
+                "Nhập thông tin và nhấn Tìm kiếm",
             );
             showEmptyState(
                 "customerTableWrapper",
-                "Nhấn Tìm kiếm để tải dữ liệu",
+                "Nhập thông tin và nhấn Tìm kiếm",
             );
+
+            // Initialize token info display
+            updateTokenInfoDisplay();
+
+            console.log("✅ Application initialized with Token Manager");
         </script>
-
-        <!-- Facebook Page Selection Modal -->
-        <div class="page-selector-modal" id="pageSelectionModal">
-            <div class="page-selector-content">
-                <div class="page-selector-header">
-                    <h2 class="page-selector-title">
-                        <i data-lucide="facebook"></i>
-                        Chọn Facebook Livestream
-                    </h2>
-                    <button class="close-modal-btn" id="closePageSelectorModal">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-                <div class="page-selector-body">
-                    <div class="page-filter-section">
-                        <div class="form-group">
-                            <label for="fbAccountSelect">Chọn tài khoản Facebook</label>
-                            <select id="fbAccountSelect" class="form-control">
-                                <option value="">-- Đang tải... --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="fbPageSelect">Chọn Page</label>
-                            <select id="fbPageSelect" class="form-control" disabled>
-                                <option value="">-- Chọn tài khoản trước --</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="display: flex; align-items: end;">
-                            <button class="refresh-btn" id="refreshAccountsBtn">
-                                <i data-lucide="refresh-cw"></i>
-                                Làm mới
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="livestream-section-header">
-                        <h3 class="livestream-section-title">
-                            <i data-lucide="video"></i>
-                            Danh sách Livestream
-                        </h3>
-                    </div>
-
-                    <div id="livestreamListContainer">
-                        <div class="empty-state">
-                            <i data-lucide="video-off" class="empty-icon"></i>
-                            <p>Chọn page để xem livestream</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </body>
 </html>
