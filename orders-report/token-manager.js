@@ -206,8 +206,7 @@ class TokenManager {
     async getAuthHeader() {
         const token = await this.getToken();
         return {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Authorization': `Bearer ${token}`
         };
     }
 

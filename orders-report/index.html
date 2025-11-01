@@ -638,14 +638,25 @@
                 document.getElementById("endDate").valueAsDate = today;
             }
 
+            // OData DateTime Format Function
+            // IMPORTANT: Handles timezone correctly for Vietnam (UTC+7)
             function dateToAPIFormat(dateString, isEndOfDay = false) {
-                const date = new Date(dateString);
+                // Parse date as UTC to avoid timezone offset issues
+                const [year, month, day] = dateString.split('-');
+                const date = new Date(Date.UTC(year, month - 1, day));
+                
                 if (isEndOfDay) {
-                    date.setHours(23, 59, 59, 999);
+                    date.setUTCHours(23, 59, 59, 999);
                 } else {
-                    date.setHours(0, 0, 0, 0);
+                    date.setUTCHours(0, 0, 0, 0);
                 }
-                return `datetime'${date.toISOString()}'`;
+                
+                // OData v4 format: 2025-10-30T00:00:00.000Z
+                return date.toISOString();
+                
+                // If above doesn't work, try OData v3 format (uncomment below, comment above):
+                // const iso = date.toISOString().replace('.000Z', '');
+                // return `datetime'${iso}'`;
             }
 
             function generateGUID() {
@@ -871,30 +882,9 @@
                     console.log("Fetching from:", apiUrl);
 
                     // Use TokenManager's authenticatedFetch method
+                    // Let browser handle headers automatically (better for CORS)
                     const response =
-                        await window.tokenManager.authenticatedFetch(apiUrl, {
-                            method: "GET",
-                            headers: {
-                                Accept: "application/json, text/plain, */*",
-                                "Accept-Encoding": "gzip, deflate, br",
-                                "Accept-Language":
-                                    "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
-                                Origin: "https://tomato.tpos.vn",
-                                Referer: "https://tomato.tpos.vn/",
-                                "sec-ch-ua":
-                                    '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-                                "sec-ch-ua-mobile": "?0",
-                                "sec-ch-ua-platform": '"Windows"',
-                                "sec-fetch-dest": "empty",
-                                "sec-fetch-mode": "cors",
-                                "sec-fetch-site": "same-origin",
-                                tposappversion: "5.9.10.1",
-                                "User-Agent":
-                                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-                                "x-request-id": generateGUID(),
-                            },
-                            credentials: "include",
-                        });
+                        await window.tokenManager.authenticatedFetch(apiUrl);
 
                     if (!response.ok) {
                         if (response.status === 401) {
