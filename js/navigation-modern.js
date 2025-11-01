@@ -71,6 +71,14 @@ const MENU_CONFIG = [
         permissionRequired: "hanghoan",
     },
     {
+        href: "../orders-report/index.html",
+        icon: "shopping-cart",
+        text: "Báo Cáo Sale-Online",
+        shortText: "SaleOnline",
+        pageIdentifier: "baocaosaleonline",
+        permissionRequired: "baocaosaleonline",
+    },
+    {
         href: "../hangdat/index.html",
         icon: "bookmark",
         text: "Hàng Đặt",
