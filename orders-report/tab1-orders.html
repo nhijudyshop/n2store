@@ -725,9 +725,6 @@
                                 </th>
                                 <th>STT</th>
                                 <th>Mã ĐH</th>
-                                <th style="width: 60px; text-align: center">
-                                    <i class="fas fa-tags"></i> Tag
-                                </th>
                                 <th>Khách hàng</th>
                                 <th>SĐT</th>
                                 <th>Địa chỉ</th>
@@ -741,7 +738,7 @@
                         <tbody id="tableBody">
                             <tr>
                                 <td
-                                    colspan="12"
+                                    colspan="11"
                                     style="text-align: center; padding: 40px"
                                 >
                                     Vui lòng chọn chiến dịch và bấm Tìm kiếm
@@ -898,10 +895,37 @@
             // =====================================================
             async function loadAvailableTags() {
                 try {
-                    const response = await fetch('tags.json');
+                    // Check cache first
+                    const cached = window.cacheManager.get('tags', 'tags');
+                    if (cached) {
+                        console.log('[TAG] Using cached tags');
+                        availableTags = cached;
+                        return;
+                    }
+
+                    console.log('[TAG] Loading tags from API...');
+                    const headers = await window.tokenManager.getAuthHeader();
+                    
+                    const response = await fetch('https://tomato.tpos.vn/odata/Tag?$top=320&$count=true', {
+                        method: 'GET',
+                        headers: {
+                            ...headers,
+                            'accept': 'application/json',
+                            'content-type': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
                     const data = await response.json();
                     availableTags = data.value || [];
-                    console.log(`[TAG] Loaded ${availableTags.length} tags`);
+                    
+                    // Cache tags for 24 hours
+                    window.cacheManager.set('tags', availableTags, 'tags');
+                    
+                    console.log(`[TAG] Loaded ${availableTags.length} tags from API`);
                 } catch (error) {
                     console.error('[TAG] Error loading tags:', error);
                     availableTags = [];
@@ -909,6 +933,7 @@
             }
 
             function openTagModal(orderId, orderCode) {
+                // orderId is now a string (GUID)
                 currentEditingOrderId = orderId;
                 
                 // Find order and get its current tags
@@ -1052,12 +1077,12 @@
                 try {
                     showLoading(true);
 
-                    // Get Firebase reference (assuming using Firebase from config.js)
+                    // Convert tags to JSON string
                     const tagsJson = JSON.stringify(currentOrderTags);
 
-                    // Update via API
+                    // Update via API - wrap GUID in single quotes for OData
                     const headers = await window.tokenManager.getAuthHeader();
-                    const response = await fetch(`https://tomato.tpos.vn/odata/SaleOnline_Order(${currentEditingOrderId})`, {
+                    const response = await fetch(`https://tomato.tpos.vn/odata/SaleOnline_Order('${currentEditingOrderId}')`, {
                         method: 'PATCH',
                         headers: {
                             ...headers,
@@ -1397,7 +1422,7 @@
 
                 if (displayedData.length === 0) {
                     tbody.innerHTML =
-                        '<tr><td colspan="12" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+                        '<tr><td colspan="11" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
                     return;
                 }
 
@@ -1434,14 +1459,14 @@
                         <td><input type="checkbox" value="${order.Id}" /></td>
                         <td>${order.SessionIndex || ""}</td>
                         <td style="max-width: 120px; white-space: normal;">
-                            <div>${order.Code || ""}</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <span>${order.Code || ""}</span>
+                                <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
+                                    <i class="fas fa-tags"></i>
+                                    ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ''}
+                                </button>
+                            </div>
                             ${tagsHTML}
-                        </td>
-                        <td style="text-align: center;">
-                            <button class="tag-icon-btn" onclick="openTagModal(${order.Id}, '${order.Code}')" title="Quản lý tag">
-                                <i class="fas fa-tags"></i>
-                                ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ''}
-                            </button>
                         </td>
                         <td>
                             <div>${order.Name || ""}</div>
