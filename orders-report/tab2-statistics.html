@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Thống Kê Đơn Hàng - N2Shop</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <!-- Lucide Icons -->
+        <script src="https://unpkg.com/lucide@latest"></script>
+
+        <!-- XLSX Library -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+        <style>
+            :root {
+                --primary: #6366f1;
+                --primary-light: #818cf8;
+                --success: #10b981;
+                --danger: #ef4444;
+                --warning: #f59e0b;
+                --info: #3b82f6;
+                --gray-50: #f9fafb;
+                --gray-100: #f3f4f6;
+                --gray-200: #e5e7eb;
+                --gray-300: #d1d5db;
+                --gray-600: #4b5563;
+                --gray-700: #374151;
+                --gray-800: #1f2937;
+                --gray-900: #111827;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                background: #f5f5f5;
+                font-size: 14px;
+                color: #333;
+            }
+
+            .content-wrapper {
+                padding: 24px;
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            .filter-section {
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                margin-bottom: 24px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .btn {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .btn-primary {
+                background: var(--primary);
+                color: white;
+            }
+
+            .btn-primary:hover {
+                background: var(--primary-light);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            }
+
+            .tables-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 24px;
+                margin-top: 24px;
+            }
+
+            .table-card {
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .table-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+                padding-bottom: 16px;
+                border-bottom: 2px solid var(--gray-100);
+            }
+
+            .table-title {
+                font-size: 18px;
+                font-weight: 600;
+                color: var(--gray-800);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .table-count {
+                font-size: 14px;
+                color: var(--gray-600);
+                background: var(--gray-100);
+                padding: 4px 12px;
+                border-radius: 20px;
+            }
+
+            .data-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .data-table thead th {
+                text-align: left;
+                padding: 12px;
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--gray-600);
+                background: var(--gray-50);
+                border-bottom: 2px solid var(--gray-200);
+            }
+
+            .data-table tbody td {
+                padding: 12px;
+                font-size: 14px;
+                border-bottom: 1px solid var(--gray-100);
+            }
+
+            .data-table tbody tr:hover {
+                background: var(--gray-50);
+            }
+
+            .status-badge {
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+            .loading-state {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 48px 24px;
+                color: var(--gray-600);
+            }
+
+            .loading-spinner {
+                width: 40px;
+                height: 40px;
+                border: 3px solid var(--gray-200);
+                border-top-color: var(--primary);
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+                margin-bottom: 16px;
+            }
+
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+
+            .loading-text {
+                font-size: 14px;
+                color: var(--gray-600);
+            }
+
+            .empty-state {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 48px 24px;
+                color: var(--gray-600);
+                text-align: center;
+            }
+
+            @media (max-width: 1200px) {
+                .tables-container {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="content-wrapper">
+            <!-- Filter Info Banner -->
+            <div class="filter-section" id="filterInfoBanner" style="display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="info" style="width: 20px; height: 20px; color: var(--info);"></i>
+                            <span style="font-weight: 600; color: var(--gray-800);">Dữ liệu tự động đồng bộ từ Tab Quản lý đơn hàng</span>
+                        </div>
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <div style="padding: 6px 12px; background: var(--gray-100); border-radius: 6px; font-size: 13px;">
+                                <strong>Chiến dịch:</strong> <span id="infoCampaignName">-</span>
+                            </div>
+                            <div style="padding: 6px 12px; background: var(--info); color: white; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                                <span id="infoTotalRecords">0</span> đơn hàng
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">NV:</label>
+                                <select id="userFilter" style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
+                                    <option value="all">Tất cả</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; color: var(--gray-600);" id="lastSyncTime">Chưa đồng bộ</span>
+                        <button class="btn btn-primary" id="exportExcelBtn" style="padding: 8px 16px;">
+                            <i data-lucide="download"></i>
+                            <span>Xuất Excel</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No Data Message -->
+            <div class="filter-section" id="noFilterMessage">
+                <div style="text-align: center; padding: 20px;">
+                    <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--warning); margin-bottom: 12px;"></i>
+                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--gray-800);">Chưa có dữ liệu</h3>
+                    <p style="font-size: 14px; color: var(--gray-600); margin-bottom: 16px;">
+                        Vui lòng chuyển sang Tab "Quản lý đơn hàng" và chọn chiến dịch, sau đó bấm Tìm kiếm
+                    </p>
+                    <button class="btn btn-primary" onclick="window.parent.postMessage({type: 'SWITCH_TO_TAB1'}, '*')">
+                        <i data-lucide="arrow-left"></i>
+                        <span>Đến Tab Quản lý đơn hàng</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tables Container -->
+            <div class="tables-container">
+                <!-- Status Statistics -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3 class="table-title">
+                            <i data-lucide="bar-chart-3"></i>
+                            <span id="statsTableTitle">Thống Kê Theo Trạng Thái</span>
+                        </h3>
+                        <span class="table-count" id="totalOrders">0 đơn</span>
+                    </div>
+                    <div class="table-wrapper" id="statusTableWrapper">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Đang chờ dữ liệu từ Tab 1...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Statistics -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3 class="table-title">
+                            <i data-lucide="users"></i>
+                            <span>Thống Kê Theo Khách Hàng</span>
+                        </h3>
+                    </div>
+                    <div class="table-wrapper" id="customerTableWrapper">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Đang chờ dữ liệu từ Tab 1...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script src="auth.js"></script>
+
+        <script>
+            // Initialize Lucide icons
+            lucide.createIcons();
+
+            let allOrdersData = [];
+
+            // Listen for messages from parent (Tab 1)
+            window.addEventListener('message', function(e) {
+                if (e.data.type === 'FILTER_CHANGED' || e.data.type === 'FILTER_UPDATE' || e.data.type === 'FILTER_DATA') {
+                    handleDataFromTab1(e.data.filter);
+                }
+            });
+
+            // Request data on load
+            window.addEventListener('DOMContentLoaded', function() {
+                // Request from parent
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: 'REQUEST_FILTER_DATA' }, '*');
+                }
+                
+                // Also check localStorage
+                const storedFilter = localStorage.getItem('tab1_filter_data');
+                if (storedFilter) {
+                    try {
+                        const filterData = JSON.parse(storedFilter);
+                        if (filterData.data && filterData.data.length > 0) {
+                            handleDataFromTab1(filterData);
+                        }
+                    } catch (error) {
+                        console.error('Error parsing stored filter:', error);
+                    }
+                }
+
+                // Event listeners
+                document.getElementById('exportExcelBtn')?.addEventListener('click', exportToExcel);
+                document.getElementById('userFilter')?.addEventListener('change', () => {
+                    if (allOrdersData.length > 0) {
+                        updateDisplay();
+                    }
+                });
+
+                lucide.createIcons();
+            });
+
+            function handleDataFromTab1(filterData) {
+                try {
+                    console.log('Received data from Tab 1:', filterData);
+                    
+                    if (!filterData || !filterData.data || filterData.data.length === 0) {
+                        console.warn('No data received');
+                        return;
+                    }
+
+                    allOrdersData = filterData.data;
+
+                    // Update UI
+                    document.getElementById('filterInfoBanner').style.display = 'block';
+                    document.getElementById('noFilterMessage').style.display = 'none';
+
+                    document.getElementById('infoCampaignName').textContent = filterData.campaignName || '-';
+                    document.getElementById('infoTotalRecords').textContent = filterData.totalRecords || 0;
+
+                    const now = new Date();
+                    document.getElementById('lastSyncTime').textContent = 
+                        `Đồng bộ lúc ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+                    // Populate user filter
+                    populateUserFilter(allOrdersData);
+
+                    // Render tables
+                    updateDisplay();
+
+                    // Reinitialize icons
+                    lucide.createIcons();
+                } catch (error) {
+                    console.error('Error handling data:', error);
+                }
+            }
+
+            function populateUserFilter(data) {
+                const userSelect = document.getElementById('userFilter');
+                const users = [...new Set(data.map(order => order.UserName))].filter(Boolean);
+
+                // Keep "Tất cả" and add users
+                const currentValue = userSelect.value;
+                userSelect.innerHTML = '<option value="all">Tất cả</option>';
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user;
+                    option.textContent = user;
+                    userSelect.appendChild(option);
+                });
+                
+                // Restore selection if possible
+                if (users.includes(currentValue)) {
+                    userSelect.value = currentValue;
+                }
+            }
+
+            function getFilteredData() {
+                const userFilter = document.getElementById('userFilter').value;
+                if (userFilter === 'all') {
+                    return allOrdersData;
+                }
+                return allOrdersData.filter(order => order.UserName === userFilter);
+            }
+
+            function updateDisplay() {
+                const filteredData = getFilteredData();
+                
+                document.getElementById('totalOrders').textContent = `${filteredData.length} đơn`;
+                
+                renderStatusTable(filteredData);
+                renderCustomerTable(filteredData);
+            }
+
+            function renderStatusTable(data) {
+                const wrapper = document.getElementById('statusTableWrapper');
+                
+                if (data.length === 0) {
+                    wrapper.innerHTML = '<div class="empty-state"><p>Không có dữ liệu</p></div>';
+                    return;
+                }
+
+                // Count by status
+                const statusCount = {};
+                let totalAmount = 0;
+
+                data.forEach(order => {
+                    const status = order.StatusText || order.Status || 'Khác';
+                    if (!statusCount[status]) {
+                        statusCount[status] = { count: 0, amount: 0 };
+                    }
+                    statusCount[status].count++;
+                    statusCount[status].amount += order.TotalAmount || 0;
+                    totalAmount += order.TotalAmount || 0;
+                });
+
+                // Sort by count
+                const sorted = Object.entries(statusCount).sort((a, b) => b[1].count - a[1].count);
+
+                wrapper.innerHTML = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Trạng thái</th>
+                                <th>Số đơn</th>
+                                <th>Tổng tiền</th>
+                                <th>Tỷ lệ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sorted.map(([status, stats]) => `
+                                <tr>
+                                    <td><strong>${status}</strong></td>
+                                    <td>${stats.count}</td>
+                                    <td>${stats.amount.toLocaleString('vi-VN')}đ</td>
+                                    <td>${((stats.count / data.length) * 100).toFixed(1)}%</td>
+                                </tr>
+                            `).join('')}
+                            <tr style="background: var(--gray-50); font-weight: 600;">
+                                <td>Tổng</td>
+                                <td>${data.length}</td>
+                                <td>${totalAmount.toLocaleString('vi-VN')}đ</td>
+                                <td>100%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            function renderCustomerTable(data) {
+                const wrapper = document.getElementById('customerTableWrapper');
+                
+                if (data.length === 0) {
+                    wrapper.innerHTML = '<div class="empty-state"><p>Không có dữ liệu</p></div>';
+                    return;
+                }
+
+                // Count by customer
+                const customerCount = {};
+
+                data.forEach(order => {
+                    const phone = order.Telephone || 'Không có SĐT';
+                    if (!customerCount[phone]) {
+                        customerCount[phone] = {
+                            name: order.Name || 'Không có tên',
+                            count: 0,
+                            amount: 0
+                        };
+                    }
+                    customerCount[phone].count++;
+                    customerCount[phone].amount += order.TotalAmount || 0;
+                });
+
+                // Sort by count, take top 20
+                const sorted = Object.entries(customerCount)
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .slice(0, 20);
+
+                wrapper.innerHTML = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Khách hàng</th>
+                                <th>SĐT</th>
+                                <th>Số đơn</th>
+                                <th>Tổng tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sorted.map(([phone, stats]) => `
+                                <tr>
+                                    <td>${stats.name}</td>
+                                    <td>${phone}</td>
+                                    <td>${stats.count}</td>
+                                    <td>${stats.amount.toLocaleString('vi-VN')}đ</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            function exportToExcel() {
+                if (allOrdersData.length === 0) {
+                    alert('Không có dữ liệu để xuất');
+                    return;
+                }
+
+                try {
+                    const filteredData = getFilteredData();
+                    
+                    // Prepare data for export
+                    const exportData = filteredData.map(order => ({
+                        'Mã ĐH': order.Code || '',
+                        'Khách hàng': order.Name || '',
+                        'SĐT': order.Telephone || '',
+                        'Địa chỉ': order.Address || '',
+                        'Ghi chú': order.Note || '',
+                        'Chiến dịch': order.LiveCampaignName || '',
+                        'Tổng tiền': order.TotalAmount || 0,
+                        'Số lượng': order.TotalQuantity || 0,
+                        'Ngày tạo': order.DateCreated || '',
+                        'Trạng thái': order.StatusText || order.Status || '',
+                        'Nhân viên': order.UserName || ''
+                    }));
+
+                    // Create workbook
+                    const ws = XLSX.utils.json_to_sheet(exportData);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng');
+
+                    // Save file
+                    const fileName = `don-hang-${new Date().getTime()}.xlsx`;
+                    XLSX.writeFile(wb, fileName);
+                } catch (error) {
+                    console.error('Export error:', error);
+                    alert('Lỗi khi xuất Excel: ' + error.message);
+                }
+            }
+        </script>
+    </body>
+</html>

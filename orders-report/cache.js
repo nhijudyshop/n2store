@@ -3,7 +3,7 @@
 class CacheManager {
     constructor(config = {}) {
         this.cache = new Map();
-        this.maxAge = config.CACHE_EXPIRY || APP_CONFIG.CACHE_EXPIRY;
+        this.maxAge = config.CACHE_EXPIRY || 24 * 60 * 60 * 1000; // Default 24 hours
         this.stats = { hits: 0, misses: 0 };
         this.storageKey = config.storageKey || "livestream_persistent_cache";
         this.saveTimeout = null;

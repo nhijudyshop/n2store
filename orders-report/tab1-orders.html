@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quản lý đơn hàng</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+                font-size: 13px;
+                color: #333;
+                background-color: #f5f5f5;
+            }
+
+            .main-content {
+                padding: 16px 24px;
+            }
+
+            .content-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+                background: white;
+                padding: 16px;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .content-actions {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .filter-section {
+                background: white;
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 16px;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .filter-section label {
+                font-size: 13px;
+                font-weight: 500;
+                color: #6b7280;
+                margin: 0;
+            }
+
+            .filter-section input,
+            .filter-section select {
+                padding: 6px 10px;
+                border: 1px solid #e5e7eb;
+                border-radius: 6px;
+                font-size: 13px;
+            }
+
+            .btn-primary {
+                padding: 6px 16px;
+                background: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .btn-primary:hover {
+                background: #2563eb;
+            }
+
+            .table-container {
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                overflow-x: auto;
+            }
+
+            .table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+
+            .table th {
+                background: #f9fafb;
+                padding: 12px 8px;
+                text-align: left;
+                font-weight: 600;
+                color: #374151;
+                border-bottom: 2px solid #e5e7eb;
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            }
+
+            .table td {
+                padding: 10px 8px;
+                border-bottom: 1px solid #f3f4f6;
+            }
+
+            .table tbody tr:hover {
+                background: #f9fafb;
+            }
+
+            .status-badge {
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+
+            .status-draft {
+                background: #dbeafe;
+                color: #1e40af;
+            }
+
+            .status-order {
+                background: #d1fae5;
+                color: #065f46;
+            }
+
+            .pagination-wrapper {
+                padding: 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+            }
+
+            .pagination {
+                display: flex;
+                gap: 4px;
+                margin: 0;
+            }
+
+            .page-item {
+                list-style: none;
+            }
+
+            .page-link {
+                padding: 6px 12px;
+                border: 1px solid #e5e7eb;
+                border-radius: 4px;
+                color: #374151;
+                text-decoration: none;
+                font-size: 13px;
+            }
+
+            .page-link:hover {
+                background: #f3f4f6;
+            }
+
+            .page-item.active .page-link {
+                background: #3b82f6;
+                color: white;
+                border-color: #3b82f6;
+            }
+
+            .page-item.disabled .page-link {
+                color: #9ca3af;
+                cursor: not-allowed;
+            }
+
+            .loading-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            }
+
+            .loading-overlay.show {
+                display: flex;
+            }
+
+            .loading-spinner {
+                width: 48px;
+                height: 48px;
+                border: 4px solid #f3f4f6;
+                border-top-color: #3b82f6;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .info-banner {
+                background: #eff6ff;
+                border: 1px solid #bfdbfe;
+                border-radius: 8px;
+                padding: 12px 16px;
+                margin-bottom: 16px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                font-size: 13px;
+            }
+
+            .info-banner i {
+                color: #3b82f6;
+            }
+
+            .background-loading {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                display: none;
+                align-items: center;
+                gap: 8px;
+                font-size: 13px;
+                z-index: 1000;
+            }
+
+            .background-loading.show {
+                display: flex;
+            }
+
+            .background-loading .spinner {
+                width: 16px;
+                height: 16px;
+                border: 2px solid #e5e7eb;
+                border-top-color: #3b82f6;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+            }
+        </style>
+    </head>
+
+    <body>
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div
+                style="
+                    background: white;
+                    padding: 32px;
+                    border-radius: 12px;
+                    text-align: center;
+                "
+            >
+                <div class="loading-spinner" style="margin: 0 auto 16px"></div>
+                <div style="font-size: 14px; color: #6b7280">
+                    Đang tải dữ liệu...
+                </div>
+            </div>
+        </div>
+
+        <!-- Background Loading Indicator -->
+        <div class="background-loading" id="backgroundLoading">
+            <div class="spinner"></div>
+            <span
+                >Đang tải thêm dữ liệu... (<span id="bgLoadingProgress">0</span
+                >)</span
+            >
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <label>Chiến dịch Live:</label>
+                <select id="campaignFilter" style="min-width: 300px">
+                    <option value="">Đang tải...</option>
+                </select>
+
+                <label>Từ ngày:</label>
+                <input type="datetime-local" id="startDate" />
+
+                <label>Đến ngày:</label>
+                <input type="datetime-local" id="endDate" />
+
+                <button class="btn-primary" id="searchBtn">
+                    <i class="fas fa-search"></i>
+                    Tìm kiếm
+                </button>
+
+                <button
+                    class="btn-primary"
+                    id="clearCacheBtn"
+                    style="background: #ef4444"
+                >
+                    <i class="fas fa-trash"></i>
+                    Xóa Cache
+                </button>
+            </div>
+
+            <!-- Info Banner -->
+            <div class="info-banner" id="infoBanner" style="display: none">
+                <i class="fas fa-info-circle"></i>
+                <span id="infoText"></span>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll" /></th>
+                            <th>Mã ĐH</th>
+                            <th>Khách hàng</th>
+                            <th>SĐT</th>
+                            <th>Địa chỉ</th>
+                            <th>Ghi chú</th>
+                            <th>Chiến dịch</th>
+                            <th>Tổng tiền</th>
+                            <th>SL</th>
+                            <th>Ngày tạo</th>
+                            <th>Trạng thái</th>
+                            <th>NV</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td
+                                colspan="12"
+                                style="text-align: center; padding: 40px"
+                            >
+                                Vui lòng chọn chiến dịch và bấm Tìm kiếm
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <div class="pagination-wrapper">
+                    <div id="pageInfo">Hiển thị 0 - 0 của 0</div>
+                    <ul class="pagination" id="pagination"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script src="token-manager.js"></script>
+        <script src="cache.js"></script>
+        <script src="auth.js"></script>
+
+        <script>
+            // Global variables
+            let allData = [];
+            let filteredData = [];
+            let currentPage = 1;
+            const pageSize = 200;
+            let totalCount = 0;
+            let selectedCampaign = null;
+            let isBackgroundLoading = false;
+            let backgroundLoadAbort = false;
+
+            // Cache key
+            const CACHE_KEY_PREFIX = "tab1_orders_";
+            const CAMPAIGN_LIST_CACHE_KEY = "tab1_campaigns_list";
+
+            // Initialize
+            window.addEventListener("DOMContentLoaded", async function () {
+                // Clear all cache on page load
+                console.log("[CACHE] Clearing all cache on page load...");
+                if (window.cacheManager) {
+                    window.cacheManager.clear("orders");
+                    window.cacheManager.clear("campaigns");
+                }
+
+                await loadCampaignList();
+
+                // Set default dates (last 30 days)
+                const now = new Date();
+                const thirtyDaysAgo = new Date(
+                    now.getTime() - 30 * 24 * 60 * 60 * 1000,
+                );
+                document.getElementById("endDate").value =
+                    formatDateTimeLocal(now);
+                document.getElementById("startDate").value =
+                    formatDateTimeLocal(thirtyDaysAgo);
+
+                // Event listeners
+                document
+                    .getElementById("searchBtn")
+                    .addEventListener("click", handleSearch);
+                document
+                    .getElementById("clearCacheBtn")
+                    .addEventListener("click", handleClearCache);
+                document
+                    .getElementById("selectAll")
+                    .addEventListener("change", handleSelectAll);
+                document
+                    .getElementById("campaignFilter")
+                    .addEventListener("change", handleCampaignChange);
+            });
+
+            function formatDateTimeLocal(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, "0");
+                const day = String(date.getDate()).padStart(2, "0");
+                const hours = String(date.getHours()).padStart(2, "0");
+                const minutes = String(date.getMinutes()).padStart(2, "0");
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+
+            function convertToUTC(dateTimeLocal) {
+                const date = new Date(dateTimeLocal);
+                return date.toISOString();
+            }
+
+            function getCacheKey() {
+                if (!selectedCampaign) return null;
+                const startDate = document.getElementById("startDate").value;
+                const endDate = document.getElementById("endDate").value;
+                return `${CACHE_KEY_PREFIX}${selectedCampaign.campaignId}_${startDate}_${endDate}`;
+            }
+
+            function clearCurrentCache() {
+                const cacheKey = getCacheKey();
+                if (cacheKey && window.cacheManager) {
+                    window.cacheManager.invalidatePattern(cacheKey);
+                }
+            }
+
+            async function loadCampaignList() {
+                try {
+                    showLoading(true);
+
+                    // DON'T check cache - always fetch fresh campaigns
+                    // Fetch last 30 days to get recent campaigns (paging 200)
+                    const now = new Date();
+                    const thirtyDaysAgo = new Date(
+                        now.getTime() - 30 * 24 * 60 * 60 * 1000,
+                    );
+                    const startDate = thirtyDaysAgo.toISOString();
+                    const endDate = now.toISOString();
+
+                    const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
+                    const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=2000&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: {
+                            ...headers,
+                            accept: "application/json",
+                            "content-type": "application/json",
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const orders = data.value || [];
+
+                    // Group by LiveCampaignId and display LiveCampaignName
+                    const campaignMap = new Map();
+                    orders.forEach((order) => {
+                        if (order.LiveCampaignId) {
+                            if (!campaignMap.has(order.LiveCampaignId)) {
+                                campaignMap.set(order.LiveCampaignId, {
+                                    campaignId: order.LiveCampaignId,
+                                    campaignName:
+                                        order.LiveCampaignName ||
+                                        "Không có tên",
+                                    latestDate: order.DateCreated,
+                                });
+                            }
+                            const campaign = campaignMap.get(
+                                order.LiveCampaignId,
+                            );
+                            // Update latest date
+                            if (
+                                new Date(order.DateCreated) >
+                                new Date(campaign.latestDate)
+                            ) {
+                                campaign.latestDate = order.DateCreated;
+                            }
+                        }
+                    });
+
+                    // Convert to array and sort by latest date
+                    const campaigns = Array.from(campaignMap.values())
+                        .map((c) => ({
+                            campaignId: c.campaignId,
+                            displayName: c.campaignName,
+                            latestDate: c.latestDate,
+                        }))
+                        .sort(
+                            (a, b) =>
+                                new Date(b.latestDate) - new Date(a.latestDate),
+                        );
+
+                    populateCampaignFilter(campaigns);
+                } catch (error) {
+                    console.error("Error loading campaigns:", error);
+                    alert("Lỗi khi tải danh sách chiến dịch: " + error.message);
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            function populateCampaignFilter(campaigns) {
+                const select = document.getElementById("campaignFilter");
+                select.innerHTML =
+                    '<option value="">-- Chọn chiến dịch --</option>';
+
+                campaigns.forEach((campaign) => {
+                    const option = document.createElement("option");
+                    option.value = campaign.campaignId;
+                    option.textContent = campaign.displayName; // Display LiveCampaignName
+                    option.dataset.campaign = JSON.stringify(campaign);
+                    select.appendChild(option);
+                });
+
+                // Auto select first (latest) campaign
+                if (campaigns.length > 0) {
+                    select.value = campaigns[0].campaignId;
+                    handleCampaignChange();
+                }
+            }
+
+            function handleCampaignChange() {
+                const select = document.getElementById("campaignFilter");
+                const selectedOption = select.options[select.selectedIndex];
+
+                if (selectedOption && selectedOption.dataset.campaign) {
+                    selectedCampaign = JSON.parse(
+                        selectedOption.dataset.campaign,
+                    );
+                } else {
+                    selectedCampaign = null;
+                }
+            }
+
+            async function handleSearch() {
+                if (!selectedCampaign || !selectedCampaign.campaignId) {
+                    alert("Vui lòng chọn chiến dịch");
+                    return;
+                }
+
+                // IMPORTANT: Clear ALL cache when searching
+                console.log("[CACHE] Clearing all cache before search...");
+                if (window.cacheManager) {
+                    window.cacheManager.clear("orders");
+                    window.cacheManager.clear("campaigns");
+                }
+
+                currentPage = 1;
+                allData = [];
+                filteredData = [];
+                backgroundLoadAbort = false;
+
+                await fetchOrders();
+            }
+
+            async function fetchOrders() {
+                try {
+                    showLoading(true);
+
+                    const startDate = convertToUTC(
+                        document.getElementById("startDate").value,
+                    );
+                    const endDate = convertToUTC(
+                        document.getElementById("endDate").value,
+                    );
+                    const campaignId = selectedCampaign.campaignId;
+
+                    console.log("Fetching orders for campaign:", campaignId);
+
+                    // DON'T check cache - always fetch fresh data
+                    // const cacheKey = getCacheKey();
+                    // const cached = window.cacheManager.get(cacheKey, 'orders');
+
+                    // Fetch first page - Filter by LiveCampaignId (Guid type - no quotes)
+                    const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and LiveCampaignId eq ${campaignId}`;
+                    const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${pageSize}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+
+                    console.log("Filter:", filter);
+
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: {
+                            ...headers,
+                            accept: "application/json",
+                            "content-type": "application/json",
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    totalCount = data["@odata.count"] || 0;
+                    allData = data.value || [];
+                    filteredData = allData;
+
+                    renderTable();
+                    renderPagination();
+                    updatePageInfo();
+
+                    showInfoBanner(
+                        `Đã tải trang 1: ${allData.length} đơn hàng. Tổng: ${totalCount}`,
+                    );
+
+                    // Send initial data to Tab 2
+                    sendDataToTab2();
+
+                    // Start background loading if more pages
+                    if (totalCount > pageSize) {
+                        startBackgroundLoading(startDate, endDate, campaignId);
+                    }
+                } catch (error) {
+                    console.error("Error fetching data:", error);
+                    alert("Lỗi khi tải dữ liệu: " + error.message);
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            async function startBackgroundLoading(
+                startDate,
+                endDate,
+                campaignId,
+            ) {
+                isBackgroundLoading = true;
+                showBackgroundLoading(true);
+
+                try {
+                    let skip = pageSize;
+                    const headers = await window.tokenManager.getAuthHeader();
+
+                    while (skip < totalCount && !backgroundLoadAbort) {
+                        // Filter by LiveCampaignId (Guid type)
+                        const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and LiveCampaignId eq ${campaignId}`;
+                        const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${pageSize}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+
+                        const response = await fetch(url, {
+                            method: "GET",
+                            headers: {
+                                ...headers,
+                                accept: "application/json",
+                                "content-type": "application/json",
+                            },
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+
+                        const data = await response.json();
+                        const newOrders = data.value || [];
+
+                        // Check if we got different CampaignId (stop loading)
+                        const hasDifferentCampaignId = newOrders.some(
+                            (order) => order.LiveCampaignId !== campaignId,
+                        );
+                        if (hasDifferentCampaignId) {
+                            console.log(
+                                "Different CampaignId detected, stopping background load",
+                            );
+                            break;
+                        }
+
+                        allData = allData.concat(newOrders);
+                        filteredData = allData;
+
+                        // Update progress
+                        document.getElementById(
+                            "bgLoadingProgress",
+                        ).textContent = allData.length;
+
+                        skip += pageSize;
+
+                        // Small delay between requests
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, 500),
+                        );
+                    }
+
+                    showInfoBanner(
+                        `Hoàn tất: Đã tải ${allData.length} đơn hàng`,
+                    );
+
+                    // Send complete data to Tab 2
+                    sendDataToTab2();
+                } catch (error) {
+                    console.error("Background loading error:", error);
+                } finally {
+                    isBackgroundLoading = false;
+                    showBackgroundLoading(false);
+                }
+            }
+
+            function sendDataToTab2() {
+                const startDate = convertToUTC(
+                    document.getElementById("startDate").value,
+                );
+                const endDate = convertToUTC(
+                    document.getElementById("endDate").value,
+                );
+
+                const filterData = {
+                    startDate: startDate,
+                    endDate: endDate,
+                    campaignId: selectedCampaign?.campaignId || null,
+                    campaignName: selectedCampaign?.displayName || "",
+                    data: allData,
+                    totalRecords: allData.length,
+                    timestamp: new Date().toISOString(),
+                };
+
+                // Send to parent window
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage(
+                        {
+                            type: "FILTER_CHANGED",
+                            filter: filterData,
+                        },
+                        "*",
+                    );
+                }
+
+                // Also save to localStorage
+                localStorage.setItem(
+                    "tab1_filter_data",
+                    JSON.stringify(filterData),
+                );
+
+                console.log(
+                    "Data sent to Tab 2:",
+                    filterData.totalRecords,
+                    "orders",
+                );
+            }
+
+            function renderTable() {
+                const tbody = document.getElementById("tableBody");
+                const start = (currentPage - 1) * pageSize;
+                const end = start + pageSize;
+                const pageData = filteredData.slice(start, end);
+
+                if (pageData.length === 0) {
+                    tbody.innerHTML =
+                        '<tr><td colspan="12" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = pageData
+                    .map(
+                        (order) => `
+                    <tr>
+                        <td><input type="checkbox" value="${order.Id}" /></td>
+                        <td>${order.Code || ""}</td>
+                        <td>${order.Name || ""}</td>
+                        <td>${order.Telephone || ""}</td>
+                        <td style="max-width: 200px; white-space: normal;">${order.Address || ""}</td>
+                        <td style="max-width: 200px; white-space: normal;">${order.Note || ""}</td>
+                        <td>${order.LiveCampaignName || ""}</td>
+                        <td>${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
+                        <td>${order.TotalQuantity || 0}</td>
+                        <td>${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
+                        <td>
+                            <span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">
+                                ${order.StatusText || order.Status || ""}
+                            </span>
+                        </td>
+                        <td>${order.UserName || ""}</td>
+                    </tr>
+                `,
+                    )
+                    .join("");
+            }
+
+            function renderPagination() {
+                const pagination = document.getElementById("pagination");
+                const totalPages = Math.ceil(filteredData.length / pageSize);
+
+                if (totalPages <= 1) {
+                    pagination.innerHTML = "";
+                    return;
+                }
+
+                let html = "";
+
+                // Previous button
+                html += `<li class="page-item ${currentPage === 1 ? "disabled" : ""}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">‹</a>
+                </li>`;
+
+                // Page numbers
+                for (let i = 1; i <= totalPages; i++) {
+                    if (
+                        i === 1 ||
+                        i === totalPages ||
+                        (i >= currentPage - 2 && i <= currentPage + 2)
+                    ) {
+                        html += `<li class="page-item ${i === currentPage ? "active" : ""}">
+                            <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                        </li>`;
+                    } else if (i === currentPage - 3 || i === currentPage + 3) {
+                        html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                    }
+                }
+
+                // Next button
+                html += `<li class="page-item ${currentPage === totalPages ? "disabled" : ""}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">›</a>
+                </li>`;
+
+                pagination.innerHTML = html;
+            }
+
+            function changePage(page) {
+                const totalPages = Math.ceil(filteredData.length / pageSize);
+                if (page < 1 || page > totalPages) return;
+
+                currentPage = page;
+                renderTable();
+                renderPagination();
+                updatePageInfo();
+
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+
+            function updatePageInfo() {
+                const start = (currentPage - 1) * pageSize + 1;
+                const end = Math.min(
+                    currentPage * pageSize,
+                    filteredData.length,
+                );
+                document.getElementById("pageInfo").textContent =
+                    `Hiển thị ${start} - ${end} của ${filteredData.length.toLocaleString("vi-VN")}`;
+            }
+
+            function handleSelectAll() {
+                const checkboxes = document.querySelectorAll(
+                    '#tableBody input[type="checkbox"]',
+                );
+                const selectAll = document.getElementById("selectAll");
+                checkboxes.forEach((cb) => (cb.checked = selectAll.checked));
+            }
+
+            function handleClearCache() {
+                if (confirm("Bạn có chắc muốn xóa toàn bộ cache?")) {
+                    console.log("[CACHE] Manual cache clear triggered");
+                    window.cacheManager.clear("orders");
+                    window.cacheManager.clear("campaigns");
+                    alert("Đã xóa cache");
+                    location.reload();
+                }
+            }
+
+            // Helper function for future data editing
+            function clearCacheAfterEdit() {
+                console.log("[CACHE] Clearing cache after data edit...");
+                if (window.cacheManager) {
+                    window.cacheManager.clear("orders");
+                    window.cacheManager.clear("campaigns");
+                }
+                // Refresh data
+                if (selectedCampaign && selectedCampaign.campaignId) {
+                    handleSearch();
+                }
+            }
+
+            // Export for use in future edit functions
+            window.clearCacheAfterEdit = clearCacheAfterEdit;
+
+            function showLoading(show) {
+                document
+                    .getElementById("loadingOverlay")
+                    .classList.toggle("show", show);
+            }
+
+            function showBackgroundLoading(show) {
+                document
+                    .getElementById("backgroundLoading")
+                    .classList.toggle("show", show);
+            }
+
+            function showInfoBanner(text) {
+                const banner = document.getElementById("infoBanner");
+                document.getElementById("infoText").textContent = text;
+                banner.style.display = "flex";
+                setTimeout(() => {
+                    banner.style.display = "none";
+                }, 5000);
+            }
+
+            // Stop background loading on page unload & clear cache
+            window.addEventListener("beforeunload", function () {
+                backgroundLoadAbort = true;
+
+                // Clear cache on page unload (F5, close tab, navigate away)
+                console.log("[CACHE] Clearing cache on page unload...");
+                if (window.cacheManager) {
+                    window.cacheManager.clear("orders");
+                    window.cacheManager.clear("campaigns");
+                }
+            });
+        </script>
+    </body>
+</html>
