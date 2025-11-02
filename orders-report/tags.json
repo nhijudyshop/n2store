@@ -1,0 +1,2211 @@
+{
+  "@odata.context": "http://tomato.tpos.vn/odata/$metadata#Tag",
+  "@odata.count": 315,
+  "value": [
+    {
+      "Id": 59112,
+      "Name": "MY THÊM CHỜ VỀ",
+      "NameNosign": "MY THEM CHO VE",
+      "Type": "default",
+      "Color": "#FFC300"
+    },
+    {
+      "Id": 59116,
+      "Name": "TRỪ CÔNG NỢ",
+      "NameNosign": "TRU CONG NO",
+      "Type": "default",
+      "Color": "#28A745"
+    },
+    {
+      "Id": 59117,
+      "Name": "TRỪ THU VỀ",
+      "NameNosign": "TRU THU VE",
+      "Type": "default",
+      "Color": "#28A745"
+    },
+    {
+      "Id": 59118,
+      "Name": "BÁN HÀNG NHA",
+      "NameNosign": "BAN HANG NHA",
+      "Type": "default",
+      "Color": "#FFC300"
+    },
+    {
+      "Id": 59119,
+      "Name": "THẺ KHÁCH LẠ",
+      "NameNosign": "THE KHACH LA",
+      "Type": "saleonline",
+      "Color": "#e8330c"
+    },
+    {
+      "Id": 59120,
+      "Name": "XÃ KHÁCH LẠ",
+      "NameNosign": "XA KHACH LA",
+      "Type": "saleonline",
+      "Color": "#C70039"
+    },
+    {
+      "Id": 59123,
+      "Name": "ĐÃ ĐI ĐƠN GẤP",
+      "NameNosign": "DA DI DON GAP",
+      "Type": "saleonline",
+      "Color": "#1E7145"
+    },
+    {
+      "Id": 59124,
+      "Name": "KHÁCH XÃ TRÊN LIVE",
+      "NameNosign": "KHACH XA TREN LIVE",
+      "Type": "saleonline",
+      "Color": "#FFDAB9"
+    },
+    {
+      "Id": 59133,
+      "Name": "GỌI CHỐT",
+      "NameNosign": "GOI CHOT",
+      "Type": "saleonline",
+      "Color": "#836666"
+    },
+    {
+      "Id": 59134,
+      "Name": "GIẢM GIÁ",
+      "NameNosign": "GIAM GIA",
+      "Type": "saleonline",
+      "Color": "#ff1100"
+    },
+    {
+      "Id": 59147,
+      "Name": "GIỎ TRỐNG",
+      "NameNosign": "GIO TRONG",
+      "Type": "saleonline",
+      "Color": "#6F42C1"
+    },
+    {
+      "Id": 59175,
+      "Name": "CHUYỂN KHOẢN",
+      "NameNosign": "CHUYEN KHOAN",
+      "Type": "saleonline",
+      "Color": "#00FF00"
+    },
+    {
+      "Id": 59176,
+      "Name": "ĐỔI Đ/C",
+      "NameNosign": "DOI D/C",
+      "Type": "saleonline",
+      "Color": "#DAA520"
+    },
+    {
+      "Id": 59178,
+      "Name": "CẮT BILL",
+      "NameNosign": "CAT BILL",
+      "Type": "saleonline",
+      "Color": "#4B0082"
+    },
+    {
+      "Id": 59183,
+      "Name": "GIỮ ĐƠN",
+      "NameNosign": "GIU DON",
+      "Type": "saleonline",
+      "Color": "#00FF7F"
+    },
+    {
+      "Id": 59192,
+      "Name": "CK 200K",
+      "NameNosign": "CK 200K",
+      "Type": "saleonline",
+      "Color": "#00FA9A"
+    },
+    {
+      "Id": 59215,
+      "Name": "KHÁCH BÁO HỦY IB",
+      "NameNosign": "KHACH BAO HUY IB",
+      "Type": "saleonline",
+      "Color": "#87CEFA"
+    },
+    {
+      "Id": 59239,
+      "Name": "CHẶN TN +GỌI KO NGHE MÁY",
+      "NameNosign": "CHAN TN +GOI KO NGHE MAY",
+      "Type": "saleonline",
+      "Color": "#9F00A7"
+    },
+    {
+      "Id": 59251,
+      "Name": "NCC HẾT HÀNG",
+      "NameNosign": "NCC HET HANG",
+      "Type": "saleonline",
+      "Color": "#FF6F61"
+    },
+    {
+      "Id": 59259,
+      "Name": "ĐI ĐƠN LUÔN",
+      "NameNosign": "DI DON LUON",
+      "Type": "saleonline",
+      "Color": "#ADD8E6"
+    },
+    {
+      "Id": 59269,
+      "Name": "FREESHIP",
+      "NameNosign": "FREESHIP",
+      "Type": "saleonline",
+      "Color": "#BD3D3A"
+    },
+    {
+      "Id": 59278,
+      "Name": "XỬ LÝ DUYÊN",
+      "NameNosign": "XU LY DUYEN",
+      "Type": "saleonline",
+      "Color": "#35e7f7"
+    },
+    {
+      "Id": 59281,
+      "Name": "OK DUYÊN",
+      "NameNosign": "OK DUYEN",
+      "Type": "saleonline",
+      "Color": "#3fdaf2"
+    },
+    {
+      "Id": 59286,
+      "Name": "XÃ ĐƠN DUYÊN",
+      "NameNosign": "XA DON DUYEN",
+      "Type": "saleonline",
+      "Color": "#14eaf2"
+    },
+    {
+      "Id": 59290,
+      "Name": "OK HẠNH",
+      "NameNosign": "OK HANH",
+      "Type": "saleonline",
+      "Color": "#4b4d4d"
+    },
+    {
+      "Id": 59291,
+      "Name": "XỬ LÝ HẠNH",
+      "NameNosign": "XU LY HANH",
+      "Type": "saleonline",
+      "Color": "#5e6367"
+    },
+    {
+      "Id": 59292,
+      "Name": "XÃ ĐƠN HẠNH",
+      "NameNosign": "XA DON HANH",
+      "Type": "saleonline",
+      "Color": "#64626d"
+    },
+    {
+      "Id": 59297,
+      "Name": "OK HUYỀN",
+      "NameNosign": "OK HUYEN",
+      "Type": "saleonline",
+      "Color": "#ee29c6"
+    },
+    {
+      "Id": 59298,
+      "Name": "XỬ LÝ HUYỀN",
+      "NameNosign": "XU LY HUYEN",
+      "Type": "saleonline",
+      "Color": "#eb22d7"
+    },
+    {
+      "Id": 59299,
+      "Name": "XÃ ĐƠN HUYỀN",
+      "NameNosign": "XA DON HUYEN",
+      "Type": "saleonline",
+      "Color": "#e93aec"
+    },
+    {
+      "Id": 59355,
+      "Name": "CHỜ HÀNG VỀ",
+      "NameNosign": "CHO HANG VE",
+      "Type": "saleonline",
+      "Color": "#DAA520"
+    },
+    {
+      "Id": 59390,
+      "Name": "XÓA ĐƠN CHƯA LÀM LẠI",
+      "NameNosign": "XOA DON CHUA LAM LAI",
+      "Type": "saleonline",
+      "Color": "#00CED1"
+    },
+    {
+      "Id": 59402,
+      "Name": "CỌC 200K",
+      "NameNosign": "COC 200K",
+      "Type": "saleonline",
+      "Color": "#DA532C"
+    },
+    {
+      "Id": 59403,
+      "Name": "GỘP LIVE MỚI",
+      "NameNosign": "GOP LIVE MOI",
+      "Type": "saleonline",
+      "Color": "#603CBA"
+    },
+    {
+      "Id": 59417,
+      "Name": "KHÁCH XÃ",
+      "NameNosign": "KHACH XA",
+      "Type": "saleonline",
+      "Color": "#4169E1"
+    },
+    {
+      "Id": 59418,
+      "Name": "OKE ĐI ĐƠN",
+      "NameNosign": "OKE DI DON",
+      "Type": "saleonline",
+      "Color": "#FA8072"
+    },
+    {
+      "Id": 59421,
+      "Name": "CẦN ĐI GẤP",
+      "NameNosign": "CAN DI GAP",
+      "Type": "saleonline",
+      "Color": "#A9A9A9"
+    },
+    {
+      "Id": 59458,
+      "Name": "TRỪ THU VỀ",
+      "NameNosign": "TRU THU VE",
+      "Type": "saleonline",
+      "Color": "#808080"
+    },
+    {
+      "Id": 59666,
+      "Name": "CỌC 100K",
+      "NameNosign": "COC 100K",
+      "Type": "saleonline",
+      "Color": "#5A3E36"
+    },
+    {
+      "Id": 59667,
+      "Name": "CỌC MỚI BẤM HÀNG",
+      "NameNosign": "COC MOI BAM HANG",
+      "Type": "saleonline",
+      "Color": "#343148"
+    },
+    {
+      "Id": 59672,
+      "Name": "CHỜ KHÁCH GỬI HÀNG LÊN TRỪ TIỀN",
+      "NameNosign": "CHO KHACH GUI HANG LEN TRU TIEN",
+      "Type": "saleonline",
+      "Color": "#D2691E"
+    },
+    {
+      "Id": 59805,
+      "Name": "FREESHIP BÙ",
+      "NameNosign": "FREESHIP BU",
+      "Type": "saleonline",
+      "Color": "#9F9C99"
+    },
+    {
+      "Id": 59807,
+      "Name": "CỘNG 192",
+      "NameNosign": "CONG 192",
+      "Type": "saleonline",
+      "Color": "#778899"
+    },
+    {
+      "Id": 60798,
+      "Name": "KHÁCH CK",
+      "NameNosign": "KHACH CK",
+      "Type": "saleonline",
+      "Color": "#556B2F"
+    },
+    {
+      "Id": 60897,
+      "Name": "BOOKGRAP",
+      "NameNosign": "BOOKGRAP",
+      "Type": "saleonline",
+      "Color": "#808080"
+    },
+    {
+      "Id": 60988,
+      "Name": "QUA LẤY",
+      "NameNosign": "QUA LAY",
+      "Type": "saleonline",
+      "Color": "#0e0e0c"
+    },
+    {
+      "Id": 72141,
+      "Name": "K5 CỘNG 245",
+      "NameNosign": "K5 CONG 245",
+      "Type": "saleonline",
+      "Color": "#F08080"
+    },
+    {
+      "Id": 93792,
+      "Name": "BO THÊM CHỜ VỀ",
+      "NameNosign": "BO THEM CHO VE",
+      "Type": "saleonline",
+      "Color": "#7F4145"
+    },
+    {
+      "Id": 93794,
+      "Name": "CHỜ LIVE",
+      "NameNosign": "CHO LIVE",
+      "Type": "saleonline",
+      "Color": "#ef091c"
+    },
+    {
+      "Id": 93801,
+      "Name": "GỘP ĐƠN BO",
+      "NameNosign": "GOP DON BO",
+      "Type": "saleonline",
+      "Color": "#C71585"
+    },
+    {
+      "Id": 93843,
+      "Name": "ĐÃ GỘP KO CHỐT",
+      "NameNosign": "DA GOP KO CHOT",
+      "Type": "saleonline",
+      "Color": "#E3A21A"
+    },
+    {
+      "Id": 93882,
+      "Name": "CHƯA CÓ MÃ",
+      "NameNosign": "CHUA CO MA",
+      "Type": "saleonline",
+      "Color": "#9E1030"
+    },
+    {
+      "Id": 93885,
+      "Name": "BÁN HÀNG ƠI",
+      "NameNosign": "BAN HANG OI",
+      "Type": "saleonline",
+      "Color": "#FF0000"
+    },
+    {
+      "Id": 93913,
+      "Name": "HỦY ĐƠN",
+      "NameNosign": "HUY DON",
+      "Type": "saleonline",
+      "Color": "#9E1030"
+    },
+    {
+      "Id": 93949,
+      "Name": "CỌC 500K",
+      "NameNosign": "COC 500K",
+      "Type": "saleonline",
+      "Color": "#00ABA9"
+    },
+    {
+      "Id": 93966,
+      "Name": "KHÁCH BOOM CŨ",
+      "NameNosign": "KHACH BOOM CU",
+      "Type": "saleonline",
+      "Color": "#FF6F61"
+    },
+    {
+      "Id": 93983,
+      "Name": "K13 + 47",
+      "NameNosign": "K13 + 47",
+      "Type": "saleonline",
+      "Color": "#7FFFD4"
+    },
+    {
+      "Id": 94006,
+      "Name": "K14 KO CÓ SET CARO ĐỎ",
+      "NameNosign": "K14 KO CO SET CARO DO",
+      "Type": "saleonline",
+      "Color": "#755139"
+    },
+    {
+      "Id": 94008,
+      "Name": "K15 KHÁCH BOOM KO CỌC",
+      "NameNosign": "K15 KHACH BOOM KO COC",
+      "Type": "saleonline",
+      "Color": "#00ABA9"
+    },
+    {
+      "Id": 94009,
+      "Name": "K15 TEST HT",
+      "NameNosign": "K15 TEST HT",
+      "Type": "saleonline",
+      "Color": "#797B3A"
+    },
+    {
+      "Id": 94010,
+      "Name": "CỌC 1 TRIỆU",
+      "NameNosign": "COC 1 TRIEU",
+      "Type": "saleonline",
+      "Color": "#708090"
+    },
+    {
+      "Id": 94011,
+      "Name": "K15 QUẦN VỀ ĐI SAU",
+      "NameNosign": "K15 QUAN VE DI SAU",
+      "Type": "saleonline",
+      "Color": "#1D1D1D"
+    },
+    {
+      "Id": 94012,
+      "Name": "K15 KHÁCH KO CMT RÕ",
+      "NameNosign": "K15 KHACH KO CMT RO",
+      "Type": "saleonline",
+      "Color": "#F08080"
+    },
+    {
+      "Id": 94013,
+      "Name": "K15 KO CÓ HÀNG",
+      "NameNosign": "K15 KO CO HANG",
+      "Type": "saleonline",
+      "Color": "#228B22"
+    },
+    {
+      "Id": 94014,
+      "Name": "CỘNG 123",
+      "NameNosign": "CONG 123",
+      "Type": "saleonline",
+      "Color": "#808080"
+    },
+    {
+      "Id": 94017,
+      "Name": "K15 HUYỀN ĐẶT DÉP RỒI NHA",
+      "NameNosign": "K15 HUYEN DAT DEP ROI NHA",
+      "Type": "saleonline",
+      "Color": "#264E36"
+    },
+    {
+      "Id": 94020,
+      "Name": "K15 KHOAN CHỤP TOA",
+      "NameNosign": "K15 KHOAN CHUP TOA",
+      "Type": "saleonline",
+      "Color": "#708090"
+    },
+    {
+      "Id": 94029,
+      "Name": "K15 CỌC 200K",
+      "NameNosign": "K15 COC 200K",
+      "Type": "saleonline",
+      "Color": "#ADD8E6"
+    },
+    {
+      "Id": 94042,
+      "Name": "ÂM MÃ",
+      "NameNosign": "AM MA",
+      "Type": "saleonline",
+      "Color": "#FFB6C1"
+    },
+    {
+      "Id": 94043,
+      "Name": "K15 HUYỀN ĐẶT ÁO RỒI NHA",
+      "NameNosign": "K15 HUYEN DAT AO ROI NHA",
+      "Type": "saleonline",
+      "Color": "#2B5797"
+    },
+    {
+      "Id": 94045,
+      "Name": "K15 HÀNG IB CHƯA MÃ",
+      "NameNosign": "K15 HANG IB CHUA MA",
+      "Type": "saleonline",
+      "Color": "#2A293E"
+    },
+    {
+      "Id": 94046,
+      "Name": "K15 ĐỢI XÓA LÀM LẠI",
+      "NameNosign": "K15 DOI XOA LAM LAI",
+      "Type": "saleonline",
+      "Color": "#5A3E36"
+    },
+    {
+      "Id": 94049,
+      "Name": "K15 CHƯA CÓ MÃ",
+      "NameNosign": "K15 CHUA CO MA",
+      "Type": "saleonline",
+      "Color": "#E3A21A"
+    },
+    {
+      "Id": 94053,
+      "Name": "K15 KO CÓ SĐT",
+      "NameNosign": "K15 KO CO SDT",
+      "Type": "saleonline",
+      "Color": "#00539C"
+    },
+    {
+      "Id": 94054,
+      "Name": "K16 TEST HT",
+      "NameNosign": "K16 TEST HT",
+      "Type": "saleonline",
+      "Color": "#DD4132"
+    },
+    {
+      "Id": 94055,
+      "Name": "K16 KHÁCH KO CỌC",
+      "NameNosign": "K16 KHACH KO COC",
+      "Type": "saleonline",
+      "Color": "#A0522D"
+    },
+    {
+      "Id": 94056,
+      "Name": "K16 KO CHO SỐ",
+      "NameNosign": "K16 KO CHO SO",
+      "Type": "saleonline",
+      "Color": "#BDB76B"
+    },
+    {
+      "Id": 94057,
+      "Name": "K16 KO CÓ SĐT",
+      "NameNosign": "K16 KO CO SDT",
+      "Type": "saleonline",
+      "Color": "#DD4132"
+    },
+    {
+      "Id": 94058,
+      "Name": "K15 KHÁCH BOOM CŨ KO CỌC",
+      "NameNosign": "K15 KHACH BOOM CU KO COC",
+      "Type": "saleonline",
+      "Color": "#2B5797"
+    },
+    {
+      "Id": 94059,
+      "Name": "K16 XÃ IB",
+      "NameNosign": "K16 XA IB",
+      "Type": "saleonline",
+      "Color": "#DB7093"
+    },
+    {
+      "Id": 94060,
+      "Name": "K16 CÓ SET DIOR ĐEN DƯỚI BÀN CHỜ LÀM MÃ",
+      "NameNosign": "K16 CO SET DIOR DEN DUOI BAN CHO LAM MA",
+      "Type": "saleonline",
+      "Color": "#FF4500"
+    },
+    {
+      "Id": 94061,
+      "Name": "K16 KHÁCH KO LẤY",
+      "NameNosign": "K16 KHACH KO LAY",
+      "Type": "saleonline",
+      "Color": "#FF69B4"
+    },
+    {
+      "Id": 94062,
+      "Name": "K16 CHƯA CHO ĐỊA CHỈ",
+      "NameNosign": "K16 CHUA CHO DIA CHI",
+      "Type": "saleonline",
+      "Color": "#000080"
+    },
+    {
+      "Id": 94063,
+      "Name": "lý huyền",
+      "NameNosign": "ly huyen",
+      "Type": "saleonline",
+      "Color": "#006400"
+    },
+    {
+      "Id": 94064,
+      "Name": "K16 ĐỊA CHỈ MỚI",
+      "NameNosign": "K16 DIA CHI MOI",
+      "Type": "saleonline",
+      "Color": "#B22222"
+    },
+    {
+      "Id": 94067,
+      "Name": "T16 LOE LV ĐEN",
+      "NameNosign": "T16 LOE LV DEN",
+      "Type": "saleonline",
+      "Color": "#ADFF2F"
+    },
+    {
+      "Id": 94085,
+      "Name": "K16 NGÀY 24 KHÁCH MỚI VỀ",
+      "NameNosign": "K16 NGAY 24 KHACH MOI VE",
+      "Type": "saleonline",
+      "Color": "#1E90FF"
+    },
+    {
+      "Id": 94086,
+      "Name": "K16 ĐỢI XÓA LÀM LẠI",
+      "NameNosign": "K16 DOI XOA LAM LAI",
+      "Type": "saleonline",
+      "Color": "#483D8B"
+    },
+    {
+      "Id": 94089,
+      "Name": "K16 HÀNG BÊN BO",
+      "NameNosign": "K16 HANG BEN BO",
+      "Type": "saleonline",
+      "Color": "#A52A2A"
+    },
+    {
+      "Id": 94092,
+      "Name": "K17 TEST HT LIVE CŨ",
+      "NameNosign": "K17 TEST HT LIVE CU",
+      "Type": "saleonline",
+      "Color": "#797B3A"
+    },
+    {
+      "Id": 94093,
+      "Name": "K17 ĐƠN TEST ẢO",
+      "NameNosign": "K17 DON TEST AO",
+      "Type": "saleonline",
+      "Color": "#77212E"
+    },
+    {
+      "Id": 94094,
+      "Name": "K17 KHÁCH HẾT HÀNG",
+      "NameNosign": "K17 KHACH HET HANG",
+      "Type": "saleonline",
+      "Color": "#48D1CC"
+    },
+    {
+      "Id": 94095,
+      "Name": "K17 KO CHO KIỂM HÀNG KO NHẬN",
+      "NameNosign": "K17 KO CHO KIEM HANG KO NHAN",
+      "Type": "saleonline",
+      "Color": "#9E1030"
+    },
+    {
+      "Id": 94096,
+      "Name": "K17 KO CHO THÔNG TIN",
+      "NameNosign": "K17 KO CHO THONG TIN",
+      "Type": "saleonline",
+      "Color": "#DDA0DD"
+    },
+    {
+      "Id": 94097,
+      "Name": "K17 KO LIÊN LẠC ĐƯỢC",
+      "NameNosign": "K17 KO LIEN LAC DUOC",
+      "Type": "saleonline",
+      "Color": "#00FF7F"
+    },
+    {
+      "Id": 94098,
+      "Name": "K17 KHÁCH BOOM",
+      "NameNosign": "K17 KHACH BOOM",
+      "Type": "saleonline",
+      "Color": "#AFEEEE"
+    },
+    {
+      "Id": 94099,
+      "Name": "K17 HẾT HÀNG",
+      "NameNosign": "K17 HET HANG",
+      "Type": "saleonline",
+      "Color": "#00539C"
+    },
+    {
+      "Id": 94100,
+      "Name": "K17 BẤM NHẦM",
+      "NameNosign": "K17 BAM NHAM",
+      "Type": "saleonline",
+      "Color": "#000000"
+    },
+    {
+      "Id": 94101,
+      "Name": "K17 ĐÃ BẤM VÔ ĐƠN ANHH MAI",
+      "NameNosign": "K17 DA BAM VO DON ANHH MAI",
+      "Type": "saleonline",
+      "Color": "#264E36"
+    },
+    {
+      "Id": 94102,
+      "Name": "CỌC 210K",
+      "NameNosign": "COC 210K",
+      "Type": "saleonline",
+      "Color": "#2A293E"
+    },
+    {
+      "Id": 94103,
+      "Name": "CỌC 170K",
+      "NameNosign": "COC 170K",
+      "Type": "saleonline",
+      "Color": "#FF00FF"
+    },
+    {
+      "Id": 94104,
+      "Name": "K17 KO CHO SĐT TRÊN LIVE",
+      "NameNosign": "K17 KO CHO SDT TREN LIVE",
+      "Type": "saleonline",
+      "Color": "#708090"
+    },
+    {
+      "Id": 94105,
+      "Name": "K17 NICK ẢO TEST",
+      "NameNosign": "K17 NICK AO TEST",
+      "Type": "saleonline",
+      "Color": "#008B8B"
+    },
+    {
+      "Id": 94106,
+      "Name": "K17 GIỎ TRỐNG",
+      "NameNosign": "K17 GIO TRONG",
+      "Type": "saleonline",
+      "Color": "#7E3878"
+    },
+    {
+      "Id": 94107,
+      "Name": "gio",
+      "NameNosign": "gio",
+      "Type": "saleonline",
+      "Color": "#FA8072"
+    },
+    {
+      "Id": 94108,
+      "Name": "K17 NCC HẾT HÀNG",
+      "NameNosign": "K17 NCC HET HANG",
+      "Type": "saleonline",
+      "Color": "#B0C4DE"
+    },
+    {
+      "Id": 94109,
+      "Name": "K17 CẮT BILL",
+      "NameNosign": "K17 CAT BILL",
+      "Type": "saleonline",
+      "Color": "#9F9C99"
+    },
+    {
+      "Id": 94110,
+      "Name": "K17 ĐỔI ÁO ĐEN CỜ MỸ",
+      "NameNosign": "K17 DOI AO DEN CO MY",
+      "Type": "saleonline",
+      "Color": "#FF7F50"
+    },
+    {
+      "Id": 94111,
+      "Name": "K17 THÊM MÃ N545A2",
+      "NameNosign": "K17 THEM MA N545A2",
+      "Type": "saleonline",
+      "Color": "#9F9C99"
+    },
+    {
+      "Id": 94112,
+      "Name": "K17 QUẦN CÂY KÉO Ở SỐ 130",
+      "NameNosign": "K17 QUAN CAY KEO O SO 130",
+      "Type": "saleonline",
+      "Color": "#66CDAA"
+    },
+    {
+      "Id": 94113,
+      "Name": "K17 ĐỔI ĐỊA CHỈ",
+      "NameNosign": "K17 DOI DIA CHI",
+      "Type": "saleonline",
+      "Color": "#A9A9A9"
+    },
+    {
+      "Id": 94136,
+      "Name": "T17 SNQD CARO HỒNG",
+      "NameNosign": "T17 SNQD CARO HONG",
+      "Type": "saleonline",
+      "Color": "#98FB98"
+    },
+    {
+      "Id": 94138,
+      "Name": "T17 ÁO CỔ BẺ NHÚN EO NUDE",
+      "NameNosign": "T17 AO CO BE NHUN EO NUDE",
+      "Type": "saleonline",
+      "Color": "#90EE90"
+    },
+    {
+      "Id": 94140,
+      "Name": "K17 ĐỢI XÓA LÀM LẠI",
+      "NameNosign": "K17 DOI XOA LAM LAI",
+      "Type": "saleonline",
+      "Color": "#8B0000"
+    },
+    {
+      "Id": 94141,
+      "Name": "K17 CHECK LẠI ĐƠN",
+      "NameNosign": "K17 CHECK LAI DON",
+      "Type": "saleonline",
+      "Color": "#343148"
+    },
+    {
+      "Id": 94145,
+      "Name": "K17 QUẦN SZIE 1 KIM OANH",
+      "NameNosign": "K17 QUAN SZIE 1 KIM OANH",
+      "Type": "saleonline",
+      "Color": "#6B5B95"
+    },
+    {
+      "Id": 94146,
+      "Name": "T17 NẠ NHAU THAI",
+      "NameNosign": "T17 NA NHAU THAI",
+      "Type": "saleonline",
+      "Color": "#B0C4DE"
+    },
+    {
+      "Id": 94147,
+      "Name": "T17 2DCT TIM MẶT CƯỜI",
+      "NameNosign": "T17 2DCT TIM MAT CUOI",
+      "Type": "saleonline",
+      "Color": "#755139"
+    },
+    {
+      "Id": 94148,
+      "Name": "K17 KO CÓ HÀNG",
+      "NameNosign": "K17 KO CO HANG",
+      "Type": "saleonline",
+      "Color": "#C71585"
+    },
+    {
+      "Id": 94149,
+      "Name": "K17 ĐỢI KHÁCH TL LẠI",
+      "NameNosign": "K17 DOI KHACH TL LAI",
+      "Type": "saleonline",
+      "Color": "#4682B4"
+    },
+    {
+      "Id": 94150,
+      "Name": "K18 KHÁCH THÍCH LẮM CÓ HÀNG BÁO LẠI",
+      "NameNosign": "K18 KHACH THICH LAM CO HANG BAO LAI",
+      "Type": "saleonline",
+      "Color": "#40E0D0"
+    },
+    {
+      "Id": 94151,
+      "Name": "K18 KHÁCH XÃ TRÊN LIVE",
+      "NameNosign": "K18 KHACH XA TREN LIVE",
+      "Type": "saleonline",
+      "Color": "#00FF00"
+    },
+    {
+      "Id": 94152,
+      "Name": "CỌC 290K",
+      "NameNosign": "COC 290K",
+      "Type": "saleonline",
+      "Color": "#FF4500"
+    },
+    {
+      "Id": 94153,
+      "Name": "CỌC 300K",
+      "NameNosign": "COC 300K",
+      "Type": "saleonline",
+      "Color": "#F4A460"
+    },
+    {
+      "Id": 94154,
+      "Name": "ĐÃ CỌC",
+      "NameNosign": "DA COC",
+      "Type": "saleonline",
+      "Color": "#FF00FF"
+    },
+    {
+      "Id": 94155,
+      "Name": "HUỲNH NHƯ THÙY",
+      "NameNosign": "HUYNH NHU THUY",
+      "Type": "saleonline",
+      "Color": "#556B2F"
+    },
+    {
+      "Id": 94156,
+      "Name": "K18 30/10 ĐI ĐƠN",
+      "NameNosign": "K18 30/10 DI DON",
+      "Type": "saleonline",
+      "Color": "#00FF00"
+    },
+    {
+      "Id": 94157,
+      "Name": "K1 HẾT BÁO KHÁCH ĐỔI MÀU",
+      "NameNosign": "K1 HET BAO KHACH DOI MAU",
+      "Type": "saleonline",
+      "Color": "#00008B"
+    },
+    {
+      "Id": 94158,
+      "Name": "K18 CHECK LẠI ĐƠN",
+      "NameNosign": "K18 CHECK LAI DON",
+      "Type": "saleonline",
+      "Color": "#E9967A"
+    },
+    {
+      "Id": 94159,
+      "Name": "CỘNG 652",
+      "NameNosign": "CONG 652",
+      "Type": "saleonline",
+      "Color": "#343148"
+    },
+    {
+      "Id": 94160,
+      "Name": "K1 CẮT BILL",
+      "NameNosign": "K1 CAT BILL",
+      "Type": "saleonline",
+      "Color": "#B8860B"
+    },
+    {
+      "Id": 94161,
+      "Name": "K1 CHECK LẠI ĐƠN",
+      "NameNosign": "K1 CHECK LAI DON",
+      "Type": "saleonline",
+      "Color": "#663399"
+    },
+    {
+      "Id": 94162,
+      "Name": "K1 KHÁCH XÃ TRÊN LIVE",
+      "NameNosign": "K1 KHACH XA TREN LIVE",
+      "Type": "saleonline",
+      "Color": "#FF4500"
+    },
+    {
+      "Id": 94164,
+      "Name": "THIẾU HÀNG",
+      "NameNosign": "THIEU HANG",
+      "Type": "saleonline",
+      "Color": "#FF1493"
+    },
+    {
+      "Id": 94165,
+      "Name": "K1 T4 GIAO",
+      "NameNosign": "K1 T4 GIAO",
+      "Type": "saleonline",
+      "Color": "#800080"
+    },
+    {
+      "Id": 94166,
+      "Name": "K1 THÊM HÀNG BÊN HOUSE NHA",
+      "NameNosign": "K1 THEM HANG BEN HOUSE NHA",
+      "Type": "saleonline",
+      "Color": "#E9967A"
+    },
+    {
+      "Id": 94167,
+      "Name": "K1 CHECK IB",
+      "NameNosign": "K1 CHECK IB",
+      "Type": "saleonline",
+      "Color": "#FFB6C1"
+    },
+    {
+      "Id": 94168,
+      "Name": "K1 NOTE 29 GIAO NHÓ",
+      "NameNosign": "K1 NOTE 29 GIAO NHO",
+      "Type": "saleonline",
+      "Color": "#00FF7F"
+    },
+    {
+      "Id": 94169,
+      "Name": "K1 NOTE KIỂM TRA HÀNG",
+      "NameNosign": "K1 NOTE KIEM TRA HANG",
+      "Type": "saleonline",
+      "Color": "#00008B"
+    },
+    {
+      "Id": 94173,
+      "Name": "SHIP CK",
+      "NameNosign": "SHIP CK",
+      "Type": "saleonline",
+      "Color": "#20B2AA"
+    },
+    {
+      "Id": 94174,
+      "Name": "K1 LÀM LẠI ĐƠN",
+      "NameNosign": "K1 LAM LAI DON",
+      "Type": "saleonline",
+      "Color": "#CE5B78"
+    },
+    {
+      "Id": 94177,
+      "Name": "K1 ĐỔI MÀU",
+      "NameNosign": "K1 DOI MAU",
+      "Type": "saleonline",
+      "Color": "#32CD32"
+    },
+    {
+      "Id": 94180,
+      "Name": "TR1 ĐẦM DÀI CHANEL NU",
+      "NameNosign": "TR1 DAM DAI CHANEL NU",
+      "Type": "saleonline",
+      "Color": "#4682B4"
+    },
+    {
+      "Id": 94187,
+      "Name": "K1 QUẦN M",
+      "NameNosign": "K1 QUAN M",
+      "Type": "saleonline",
+      "Color": "#9400D3"
+    },
+    {
+      "Id": 94191,
+      "Name": "K1 ĐẦM DIOR ĐEN",
+      "NameNosign": "K1 DAM DIOR DEN",
+      "Type": "saleonline",
+      "Color": "#FFC40D"
+    },
+    {
+      "Id": 94206,
+      "Name": "K1 T6 GIAO",
+      "NameNosign": "K1 T6 GIAO",
+      "Type": "saleonline",
+      "Color": "#DAA520"
+    },
+    {
+      "Id": 94209,
+      "Name": "T1 QUẦN LOE LV M",
+      "NameNosign": "T1 QUAN LOE LV M",
+      "Type": "saleonline",
+      "Color": "#00FA9A"
+    },
+    {
+      "Id": 94227,
+      "Name": "K1 ĐỢI XÓA LÀM LẠI",
+      "NameNosign": "K1 DOI XOA LAM LAI",
+      "Type": "saleonline",
+      "Color": "#2D89EF"
+    },
+    {
+      "Id": 94229,
+      "Name": "SAI SP",
+      "NameNosign": "SAI SP",
+      "Type": "saleonline",
+      "Color": "#48D1CC"
+    },
+    {
+      "Id": 94239,
+      "Name": "K2 KHÁCH BOOM CŨ",
+      "NameNosign": "K2 KHACH BOOM CU",
+      "Type": "saleonline",
+      "Color": "#2A293E"
+    },
+    {
+      "Id": 94240,
+      "Name": "K2 ĐÃ THẾ KHÁCH",
+      "NameNosign": "K2 DA THE KHACH",
+      "Type": "saleonline",
+      "Color": "#2F4F4F"
+    },
+    {
+      "Id": 94242,
+      "Name": "K1 MAI ĐI ĐƠN",
+      "NameNosign": "K1 MAI DI DON",
+      "Type": "saleonline",
+      "Color": "#BDB76B"
+    },
+    {
+      "Id": 94243,
+      "Name": "T1 DÉP MIU NU 36",
+      "NameNosign": "T1 DEP MIU NU 36",
+      "Type": "saleonline",
+      "Color": "#BDB76B"
+    },
+    {
+      "Id": 94245,
+      "Name": "K2 KHÁCH XÃ IB",
+      "NameNosign": "K2 KHACH XA IB",
+      "Type": "saleonline",
+      "Color": "#9F00A7"
+    },
+    {
+      "Id": 94246,
+      "Name": "CỌC 1TR",
+      "NameNosign": "COC 1TR",
+      "Type": "saleonline",
+      "Color": "#32CD32"
+    },
+    {
+      "Id": 94247,
+      "Name": "K2 CHẶN IB",
+      "NameNosign": "K2 CHAN IB",
+      "Type": "saleonline",
+      "Color": "#BA55D3"
+    },
+    {
+      "Id": 94248,
+      "Name": "K2 KHÁCH XÓA CMT",
+      "NameNosign": "K2 KHACH XOA CMT",
+      "Type": "saleonline",
+      "Color": "#7F4145"
+    },
+    {
+      "Id": 94252,
+      "Name": "K2 HH ÁO CD KÈM NỊT",
+      "NameNosign": "K2 HH AO CD KEM NIT",
+      "Type": "saleonline",
+      "Color": "#755139"
+    },
+    {
+      "Id": 94253,
+      "Name": "HẾT ÁO LƯỚI NÂU",
+      "NameNosign": "HET AO LUOI NAU",
+      "Type": "saleonline",
+      "Color": "#483D8B"
+    },
+    {
+      "Id": 94254,
+      "Name": "K1 CỘNG 614",
+      "NameNosign": "K1 CONG 614",
+      "Type": "saleonline",
+      "Color": "#6B5B95"
+    },
+    {
+      "Id": 94255,
+      "Name": "K2 KHÁCH CHƯA TL LẤY MẪU NÀO",
+      "NameNosign": "K2 KHACH CHUA TL LAY MAU NAO",
+      "Type": "saleonline",
+      "Color": "#2F4F4F"
+    },
+    {
+      "Id": 94256,
+      "Name": "K2 ĐANG HỎI KHÁCH",
+      "NameNosign": "K2 DANG HOI KHACH",
+      "Type": "saleonline",
+      "Color": "#DA532C"
+    },
+    {
+      "Id": 94257,
+      "Name": "K2 KHÁCH XÃ TRÊN LIVE",
+      "NameNosign": "K2 KHACH XA TREN LIVE",
+      "Type": "saleonline",
+      "Color": "#C0C0C0"
+    },
+    {
+      "Id": 94258,
+      "Name": "khách oke rui nha",
+      "NameNosign": "khach oke rui nha",
+      "Type": "saleonline",
+      "Color": "#FF69B4"
+    },
+    {
+      "Id": 94259,
+      "Name": "K2 KHÁCH HỎI CHƯA MUA",
+      "NameNosign": "K2 KHACH HOI CHUA MUA",
+      "Type": "saleonline",
+      "Color": "#6C4F3D"
+    },
+    {
+      "Id": 94260,
+      "Name": "K2 ĐÃ OK",
+      "NameNosign": "K2 DA OK",
+      "Type": "saleonline",
+      "Color": "#DA532C"
+    },
+    {
+      "Id": 94261,
+      "Name": "OK BO",
+      "NameNosign": "OK BO",
+      "Type": "saleonline",
+      "Color": "#20b1d9"
+    },
+    {
+      "Id": 94262,
+      "Name": "XỬ LÝ BO",
+      "NameNosign": "XU LY BO",
+      "Type": "default",
+      "Color": "#0091ff"
+    },
+    {
+      "Id": 94263,
+      "Name": "T2 SET ALO",
+      "NameNosign": "T2 SET ALO",
+      "Type": "saleonline",
+      "Color": "#CD853F"
+    },
+    {
+      "Id": 94264,
+      "Name": "K2 VƯỚN ĐƠN BC",
+      "NameNosign": "K2 VUON DON BC",
+      "Type": "saleonline",
+      "Color": "#191970"
+    },
+    {
+      "Id": 94265,
+      "Name": "T2 SET BI",
+      "NameNosign": "T2 SET BI",
+      "Type": "saleonline",
+      "Color": "#1E90FF"
+    },
+    {
+      "Id": 94266,
+      "Name": "MY THÊM HÀNG",
+      "NameNosign": "MY THEM HANG",
+      "Type": "saleonline",
+      "Color": "#FF6F61"
+    },
+    {
+      "Id": 94267,
+      "Name": "K2 GÓI GỌN ĐƠN",
+      "NameNosign": "K2 GOI GON DON",
+      "Type": "saleonline",
+      "Color": "#ADD8E6"
+    },
+    {
+      "Id": 94268,
+      "Name": "+485",
+      "NameNosign": "+485",
+      "Type": "saleonline",
+      "Color": "#FFA07A"
+    },
+    {
+      "Id": 94269,
+      "Name": "XEM IB",
+      "NameNosign": "XEM IB",
+      "Type": "saleonline",
+      "Color": "#BC70A4"
+    },
+    {
+      "Id": 94270,
+      "Name": "T2 SET H SUÔNG",
+      "NameNosign": "T2 SET H SUONG",
+      "Type": "saleonline",
+      "Color": "#808080"
+    },
+    {
+      "Id": 94271,
+      "Name": "K2 DƯ HÀNG",
+      "NameNosign": "K2 DU HANG",
+      "Type": "saleonline",
+      "Color": "#2F4F4F"
+    },
+    {
+      "Id": 94272,
+      "Name": "T2 SET DIOR NÂU",
+      "NameNosign": "T2 SET DIOR NAU",
+      "Type": "saleonline",
+      "Color": "#00CED1"
+    },
+    {
+      "Id": 94273,
+      "Name": "K2 CHECK LẠI ĐƠN",
+      "NameNosign": "K2 CHECK LAI DON",
+      "Type": "saleonline",
+      "Color": "#FF69B4"
+    },
+    {
+      "Id": 94274,
+      "Name": "T2 DÉP HM CÀI TRẮNG 37",
+      "NameNosign": "T2 DEP HM CAI TRANG 37",
+      "Type": "saleonline",
+      "Color": "#8B4513"
+    },
+    {
+      "Id": 94275,
+      "Name": "NOTE THỨ 2 GIAO",
+      "NameNosign": "NOTE THU 2 GIAO",
+      "Type": "saleonline",
+      "Color": "#87CEEB"
+    },
+    {
+      "Id": 94276,
+      "Name": "T2 QUẦN MIU VÀNG + CHANEL",
+      "NameNosign": "T2 QUAN MIU VANG + CHANEL",
+      "Type": "saleonline",
+      "Color": "#AFEEEE"
+    },
+    {
+      "Id": 94277,
+      "Name": "T2 ÁO SỌC TD TOMMY",
+      "NameNosign": "T2 AO SOC TD TOMMY",
+      "Type": "saleonline",
+      "Color": "#E3A21A"
+    },
+    {
+      "Id": 94278,
+      "Name": "BOOK GARB",
+      "NameNosign": "BOOK GARB",
+      "Type": "saleonline",
+      "Color": "#FFA07A"
+    },
+    {
+      "Id": 94279,
+      "Name": "TÁCH ĐƠN",
+      "NameNosign": "TACH DON",
+      "Type": "saleonline",
+      "Color": "#40E0D0"
+    },
+    {
+      "Id": 94280,
+      "Name": "K2 HOUSE",
+      "NameNosign": "K2 HOUSE",
+      "Type": "saleonline",
+      "Color": "#1D1D1D"
+    },
+    {
+      "Id": 94281,
+      "Name": "K2 CHỜ NHẬN HÀNG GỬI LÊN",
+      "NameNosign": "K2 CHO NHAN HANG GUI LEN",
+      "Type": "saleonline",
+      "Color": "#FF0000"
+    },
+    {
+      "Id": 94282,
+      "Name": "+537",
+      "NameNosign": "+537",
+      "Type": "saleonline",
+      "Color": "#006400"
+    },
+    {
+      "Id": 94283,
+      "Name": "K2 KTRA KỸ CÓ LỖI KO",
+      "NameNosign": "K2 KTRA KY CO LOI KO",
+      "Type": "saleonline",
+      "Color": "#00539C"
+    },
+    {
+      "Id": 94284,
+      "Name": "K2 T2 GỬI ĐƠN",
+      "NameNosign": "K2 T2 GUI DON",
+      "Type": "saleonline",
+      "Color": "#E3A21A"
+    },
+    {
+      "Id": 94285,
+      "Name": "K2 ĐỔI SIZE",
+      "NameNosign": "K2 DOI SIZE",
+      "Type": "saleonline",
+      "Color": "#DA70D6"
+    },
+    {
+      "Id": 94286,
+      "Name": "K2 CHECK KỸ ĐƠN",
+      "NameNosign": "K2 CHECK KY DON",
+      "Type": "saleonline",
+      "Color": "#2A4B7C"
+    },
+    {
+      "Id": 94287,
+      "Name": "T2 ÁO LƯỚI",
+      "NameNosign": "T2 AO LUOI",
+      "Type": "saleonline",
+      "Color": "#4B0082"
+    },
+    {
+      "Id": 94288,
+      "Name": "T2 ÁO TOMMY CỜ XANH",
+      "NameNosign": "T2 AO TOMMY CO XANH",
+      "Type": "saleonline",
+      "Color": "#F08080"
+    },
+    {
+      "Id": 94289,
+      "Name": "T2 ĐẦM VS",
+      "NameNosign": "T2 DAM VS",
+      "Type": "saleonline",
+      "Color": "#B0E0E6"
+    },
+    {
+      "Id": 94291,
+      "Name": "K2 BÁO SHIP T2 TUẦN SAU GIAO",
+      "NameNosign": "K2 BAO SHIP T2 TUAN SAU GIAO",
+      "Type": "saleonline",
+      "Color": "#A9A9A9"
+    },
+    {
+      "Id": 94293,
+      "Name": "T2 ÁO THOME TAY SỌC",
+      "NameNosign": "T2 AO THOME TAY SOC",
+      "Type": "saleonline",
+      "Color": "#708090"
+    },
+    {
+      "Id": 94294,
+      "Name": "K2 MẪU TRÊN LẦU",
+      "NameNosign": "K2 MAU TREN LAU",
+      "Type": "saleonline",
+      "Color": "#2B5797"
+    },
+    {
+      "Id": 94296,
+      "Name": "T2 ÁO ĐẦU NGỰA",
+      "NameNosign": "T2 AO DAU NGUA",
+      "Type": "saleonline",
+      "Color": "#FF4500"
+    },
+    {
+      "Id": 94298,
+      "Name": "T2 ÁO GC NGỰA HOA",
+      "NameNosign": "T2 AO GC NGUA HOA",
+      "Type": "saleonline",
+      "Color": "#9ACD32"
+    },
+    {
+      "Id": 94299,
+      "Name": "K2 CHƯA ĐẶT QUẦN",
+      "NameNosign": "K2 CHUA DAT QUAN",
+      "Type": "saleonline",
+      "Color": "#D2691E"
+    },
+    {
+      "Id": 94300,
+      "Name": "K2 CHƯA ĐẶT ÁO G",
+      "NameNosign": "K2 CHUA DAT AO G",
+      "Type": "saleonline",
+      "Color": "#1D1D1D"
+    },
+    {
+      "Id": 94302,
+      "Name": "XÃ ĐƠN BO",
+      "NameNosign": "XA DON BO",
+      "Type": "saleonline",
+      "Color": "#00FFFF"
+    },
+    {
+      "Id": 94303,
+      "Name": "K2 KHÁCH ĐI VẮNG KH NHẬN ĐC",
+      "NameNosign": "K2 KHACH DI VANG KH NHAN DC",
+      "Type": "saleonline",
+      "Color": "#48D1CC"
+    },
+    {
+      "Id": 94305,
+      "Name": "T2 SET DK CHỮ XÁM",
+      "NameNosign": "T2 SET DK CHU XAM",
+      "Type": "saleonline",
+      "Color": "#DDA0DD"
+    },
+    {
+      "Id": 94307,
+      "Name": "T2 GEN 2",
+      "NameNosign": "T2 GEN 2",
+      "Type": "saleonline",
+      "Color": "#00A300"
+    },
+    {
+      "Id": 94309,
+      "Name": "GEN 1",
+      "NameNosign": "GEN 1",
+      "Type": "saleonline",
+      "Color": "#2F4F4F"
+    },
+    {
+      "Id": 94310,
+      "Name": "K2 CHECK ĐƠN LẠI",
+      "NameNosign": "K2 CHECK DON LAI",
+      "Type": "saleonline",
+      "Color": "#E3A21A"
+    },
+    {
+      "Id": 94311,
+      "Name": "K2 MUA DÙM GIỜ KH LẤY NỮA",
+      "NameNosign": "K2 MUA DUM GIO KH LAY NUA",
+      "Type": "saleonline",
+      "Color": "#8B0000"
+    },
+    {
+      "Id": 94312,
+      "Name": "T2 SET ÁO HOA CHANEL ĐEN",
+      "NameNosign": "T2 SET AO HOA CHANEL DEN",
+      "Type": "saleonline",
+      "Color": "#FA8072"
+    },
+    {
+      "Id": 94317,
+      "Name": "K2 T2 ĐI ĐƠN",
+      "NameNosign": "K2 T2 DI DON",
+      "Type": "saleonline",
+      "Color": "#DA532C"
+    },
+    {
+      "Id": 94318,
+      "Name": "K2 ĐỔI ÁO IB",
+      "NameNosign": "K2 DOI AO IB",
+      "Type": "saleonline",
+      "Color": "#CE5B78"
+    },
+    {
+      "Id": 94319,
+      "Name": "K2 NOTE KIỂM TRA HÀNG KĨ",
+      "NameNosign": "K2 NOTE KIEM TRA HANG KI",
+      "Type": "saleonline",
+      "Color": "#2E8B57"
+    },
+    {
+      "Id": 94320,
+      "Name": "K2 KHÁCH KH LẤY NỮA",
+      "NameNosign": "K2 KHACH KH LAY NUA",
+      "Type": "saleonline",
+      "Color": "#708090"
+    },
+    {
+      "Id": 94321,
+      "Name": "T2 ÁO PB TIM ĐEN",
+      "NameNosign": "T2 AO PB TIM DEN",
+      "Type": "saleonline",
+      "Color": "#FF1493"
+    },
+    {
+      "Id": 94323,
+      "Name": "T2 QUẦN GEN SZ3",
+      "NameNosign": "T2 QUAN GEN SZ3",
+      "Type": "saleonline",
+      "Color": "#C0C0C0"
+    },
+    {
+      "Id": 94324,
+      "Name": "T2 ÁO GUESS BEO",
+      "NameNosign": "T2 AO GUESS BEO",
+      "Type": "saleonline",
+      "Color": "#EE82EE"
+    },
+    {
+      "Id": 94325,
+      "Name": "T2 SET TD CỔ BẺ SỌC",
+      "NameNosign": "T2 SET TD CO BE SOC",
+      "Type": "saleonline",
+      "Color": "#5F9EA0"
+    },
+    {
+      "Id": 94326,
+      "Name": "T2SET DIOR",
+      "NameNosign": "T2SET DIOR",
+      "Type": "saleonline",
+      "Color": "#BC70A4"
+    },
+    {
+      "Id": 94327,
+      "Name": "K2 KHÁCH TƯỞNG 2C 150",
+      "NameNosign": "K2 KHACH TUONG 2C 150",
+      "Type": "saleonline",
+      "Color": "#000000"
+    },
+    {
+      "Id": 94328,
+      "Name": "T2 SET THOME",
+      "NameNosign": "T2 SET THOME",
+      "Type": "saleonline",
+      "Color": "#4169E1"
+    },
+    {
+      "Id": 94329,
+      "Name": "T2 SET HM SUÔNG",
+      "NameNosign": "T2 SET HM SUONG",
+      "Type": "saleonline",
+      "Color": "#696969"
+    },
+    {
+      "Id": 94330,
+      "Name": "T2 SET DK CHỮ",
+      "NameNosign": "T2 SET DK CHU",
+      "Type": "saleonline",
+      "Color": "#DDA0DD"
+    },
+    {
+      "Id": 94331,
+      "Name": "T2 SET H ÔM",
+      "NameNosign": "T2 SET H OM",
+      "Type": "saleonline",
+      "Color": "#2A293E"
+    },
+    {
+      "Id": 94332,
+      "Name": "T2 DÉP HM TRẮNG 39",
+      "NameNosign": "T2 DEP HM TRANG 39",
+      "Type": "saleonline",
+      "Color": "#696969"
+    },
+    {
+      "Id": 94334,
+      "Name": "T2 SET THOME XÁM",
+      "NameNosign": "T2 SET THOME XAM",
+      "Type": "saleonline",
+      "Color": "#ADD8E6"
+    },
+    {
+      "Id": 94335,
+      "Name": "K2 KHÁCH GỬI HÀNG LÊN",
+      "NameNosign": "K2 KHACH GUI HANG LEN",
+      "Type": "saleonline",
+      "Color": "#FF69B4"
+    },
+    {
+      "Id": 94336,
+      "Name": "T2 ÁO ALO SỌC",
+      "NameNosign": "T2 AO ALO SOC",
+      "Type": "saleonline",
+      "Color": "#A52A2A"
+    },
+    {
+      "Id": 94337,
+      "Name": "T2 SET SỌC SUÔNG",
+      "NameNosign": "T2 SET SOC SUONG",
+      "Type": "saleonline",
+      "Color": "#696969"
+    },
+    {
+      "Id": 94338,
+      "Name": "T2 ÁO VIP ĐEN",
+      "NameNosign": "T2 AO VIP DEN",
+      "Type": "saleonline",
+      "Color": "#797B3A"
+    },
+    {
+      "Id": 94339,
+      "Name": "T2 DÂY CHUYỀN 4 LÁ ĐEN",
+      "NameNosign": "T2 DAY CHUYEN 4 LA DEN",
+      "Type": "saleonline",
+      "Color": "#FFDAB9"
+    },
+    {
+      "Id": 94340,
+      "Name": "K2 ĐỔI ÁO",
+      "NameNosign": "K2 DOI AO",
+      "Type": "saleonline",
+      "Color": "#556B2F"
+    },
+    {
+      "Id": 94341,
+      "Name": "T2 ÁO NGỰC SEXY TRẮNG",
+      "NameNosign": "T2 AO NGUC SEXY TRANG",
+      "Type": "saleonline",
+      "Color": "#FF8C00"
+    },
+    {
+      "Id": 94342,
+      "Name": "T2 ÁO HM 310K ĐEN",
+      "NameNosign": "T2 AO HM 310K DEN",
+      "Type": "saleonline",
+      "Color": "#577284"
+    },
+    {
+      "Id": 94343,
+      "Name": "T2 SET ÁO SỌC Q.SUÔNG",
+      "NameNosign": "T2 SET AO SOC Q.SUONG",
+      "Type": "saleonline",
+      "Color": "#7F4145"
+    },
+    {
+      "Id": 94344,
+      "Name": "K2 ÂM MÃ",
+      "NameNosign": "K2 AM MA",
+      "Type": "saleonline",
+      "Color": "#A9A9A9"
+    },
+    {
+      "Id": 94345,
+      "Name": "K2 CHIẾT KHẤU 3TR570K",
+      "NameNosign": "K2 CHIET KHAU 3TR570K",
+      "Type": "saleonline",
+      "Color": "#8B008B"
+    },
+    {
+      "Id": 94346,
+      "Name": "T2 ÁO TOMMY TD SỌC",
+      "NameNosign": "T2 AO TOMMY TD SOC",
+      "Type": "saleonline",
+      "Color": "#2F4F4F"
+    },
+    {
+      "Id": 94347,
+      "Name": "T2 DÉP XUỒNG",
+      "NameNosign": "T2 DEP XUONG",
+      "Type": "saleonline",
+      "Color": "#DB7093"
+    },
+    {
+      "Id": 94349,
+      "Name": "T2 ÁO HM THÊU TO TRẮNG",
+      "NameNosign": "T2 AO HM THEU TO TRANG",
+      "Type": "saleonline",
+      "Color": "#4682B4"
+    },
+    {
+      "Id": 94350,
+      "Name": "KNM L1",
+      "NameNosign": "KNM L1",
+      "Type": "saleonline",
+      "Color": "#9E1030"
+    },
+    {
+      "Id": 94351,
+      "Name": "T2 ĐỒNG HỒ MẶT HOA",
+      "NameNosign": "T2 DONG HO MAT HOA",
+      "Type": "saleonline",
+      "Color": "#6495ED"
+    },
+    {
+      "Id": 94352,
+      "Name": "T2 ÁO CÁ SẤU ĐỎ",
+      "NameNosign": "T2 AO CA SAU DO",
+      "Type": "saleonline",
+      "Color": "#FA8072"
+    },
+    {
+      "Id": 94353,
+      "Name": "T1 MÁY QUẤN",
+      "NameNosign": "T1 MAY QUAN",
+      "Type": "saleonline",
+      "Color": "#EE82EE"
+    },
+    {
+      "Id": 94354,
+      "Name": "T2 SET ALO TRẮNG",
+      "NameNosign": "T2 SET ALO TRANG",
+      "Type": "saleonline",
+      "Color": "#FF0000"
+    },
+    {
+      "Id": 94355,
+      "Name": "T2 ÁO HIỆU SỌC VÀNG",
+      "NameNosign": "T2 AO HIEU SOC VANG",
+      "Type": "saleonline",
+      "Color": "#00FFFF"
+    },
+    {
+      "Id": 94356,
+      "Name": "T2 ÁO HIỆU SỌC XANH",
+      "NameNosign": "T2 AO HIEU SOC XANH",
+      "Type": "saleonline",
+      "Color": "#8D9440"
+    },
+    {
+      "Id": 94357,
+      "Name": "NT XEM + TẮT MÁY NGANG",
+      "NameNosign": "NT XEM + TAT MAY NGANG",
+      "Type": "saleonline",
+      "Color": "#FE840E"
+    },
+    {
+      "Id": 94358,
+      "Name": "THUÊ BAO",
+      "NameNosign": "THUE BAO",
+      "Type": "saleonline",
+      "Color": "#EE1111"
+    },
+    {
+      "Id": 94359,
+      "Name": "NT XEM + CHỐT BÁO HỦY",
+      "NameNosign": "NT XEM + CHOT BAO HUY",
+      "Type": "saleonline",
+      "Color": "#7F4145"
+    },
+    {
+      "Id": 94360,
+      "Name": "T2 QUẦN NHUNG",
+      "NameNosign": "T2 QUAN NHUNG",
+      "Type": "saleonline",
+      "Color": "#F5DEB3"
+    },
+    {
+      "Id": 94361,
+      "Name": "MÁY BẬN",
+      "NameNosign": "MAY BAN",
+      "Type": "saleonline",
+      "Color": "#BD3D3A"
+    },
+    {
+      "Id": 94362,
+      "Name": "T2 MIẾNG TAN MỠ",
+      "NameNosign": "T2 MIENG TAN MO",
+      "Type": "saleonline",
+      "Color": "#800000"
+    },
+    {
+      "Id": 94363,
+      "Name": "T2 ĐẦM 650K ĐỎ",
+      "NameNosign": "T2 DAM 650K DO",
+      "Type": "saleonline",
+      "Color": "#000000"
+    },
+    {
+      "Id": 94364,
+      "Name": "T2 KHĂN CHOÀNG NUDE",
+      "NameNosign": "T2 KHAN CHOANG NUDE",
+      "Type": "saleonline",
+      "Color": "#00FF7F"
+    },
+    {
+      "Id": 94365,
+      "Name": "T2 ÁO PULL&BEAR",
+      "NameNosign": "T2 AO PULL&BEAR",
+      "Type": "saleonline",
+      "Color": "#32CD32"
+    },
+    {
+      "Id": 94366,
+      "Name": "T2 ÁO TD CK VÀNG",
+      "NameNosign": "T2 AO TD CK VANG",
+      "Type": "saleonline",
+      "Color": "#5A3E36"
+    },
+    {
+      "Id": 94367,
+      "Name": "T2 ÁO LUM ĐEN",
+      "NameNosign": "T2 AO LUM DEN",
+      "Type": "saleonline",
+      "Color": "#1E7145"
+    },
+    {
+      "Id": 94368,
+      "Name": "T2 QUẦN MM BƯỚM SIZE 1",
+      "NameNosign": "T2 QUAN MM BUOM SIZE 1",
+      "Type": "saleonline",
+      "Color": "#98FB98"
+    },
+    {
+      "Id": 94369,
+      "Name": "K2 KHÁCH BOOM",
+      "NameNosign": "K2 KHACH BOOM",
+      "Type": "saleonline",
+      "Color": "#CE5B78"
+    },
+    {
+      "Id": 94370,
+      "Name": "K2 XIN TT KH CHO",
+      "NameNosign": "K2 XIN TT KH CHO",
+      "Type": "saleonline",
+      "Color": "#FFDAB9"
+    },
+    {
+      "Id": 94371,
+      "Name": "KHÁCH BOOM",
+      "NameNosign": "KHACH BOOM",
+      "Type": "saleonline",
+      "Color": "#9E1030"
+    },
+    {
+      "Id": 94372,
+      "Name": "K2 CN TUẦN SAU ĐI ĐƠN",
+      "NameNosign": "K2 CN TUAN SAU DI DON",
+      "Type": "saleonline",
+      "Color": "#A9A9A9"
+    },
+    {
+      "Id": 94374,
+      "Name": "T2 ÁO G ĐEN",
+      "NameNosign": "T2 AO G DEN",
+      "Type": "saleonline",
+      "Color": "#708090"
+    },
+    {
+      "Id": 94375,
+      "Name": "K2 CHẶN TN + GỌI KNM NHIỀU LẦN",
+      "NameNosign": "K2 CHAN TN + GOI KNM NHIEU LAN",
+      "Type": "saleonline",
+      "Color": "#DD4132"
+    },
+    {
+      "Id": 94376,
+      "Name": "T2 ÁO LASCOTE XANH",
+      "NameNosign": "T2 AO LASCOTE XANH",
+      "Type": "saleonline",
+      "Color": "#2F4F4F"
+    },
+    {
+      "Id": 94377,
+      "Name": "K2 TÌM KHOÁC TRÊN LẦU",
+      "NameNosign": "K2 TIM KHOAC TREN LAU",
+      "Type": "saleonline",
+      "Color": "#00ABA9"
+    },
+    {
+      "Id": 94378,
+      "Name": "K2 KO CÓ HÀNG THỰC TẾ",
+      "NameNosign": "K2 KO CO HANG THUC TE",
+      "Type": "saleonline",
+      "Color": "#808080"
+    },
+    {
+      "Id": 94379,
+      "Name": "T2 QUẦN LOE ĐEN",
+      "NameNosign": "T2 QUAN LOE DEN",
+      "Type": "saleonline",
+      "Color": "#B0C4DE"
+    },
+    {
+      "Id": 94380,
+      "Name": "K2 GỌI HỎI MẪU NHƯNG KHÁCH KH PHẢN HỒI",
+      "NameNosign": "K2 GOI HOI MAU NHUNG KHACH KH PHAN HOI",
+      "Type": "saleonline",
+      "Color": "#FFC40D"
+    },
+    {
+      "Id": 94381,
+      "Name": "K2 NT XEM + GỌI ĐIỆN TẮT MÁY NGANG",
+      "NameNosign": "K2 NT XEM + GOI DIEN TAT MAY NGANG",
+      "Type": "saleonline",
+      "Color": "#6495ED"
+    },
+    {
+      "Id": 94382,
+      "Name": "K2 CHỜ HỎI XEM BÔNG TAI CÓ HÀNG KO",
+      "NameNosign": "K2 CHO HOI XEM BONG TAI CO HANG KO",
+      "Type": "saleonline",
+      "Color": "#696969"
+    },
+    {
+      "Id": 94383,
+      "Name": "T2 DIOR TRẮNG",
+      "NameNosign": "T2 DIOR TRANG",
+      "Type": "saleonline",
+      "Color": "#663399"
+    },
+    {
+      "Id": 94384,
+      "Name": "K2 NT XEM + GỌI KNM",
+      "NameNosign": "K2 NT XEM + GOI KNM",
+      "Type": "saleonline",
+      "Color": "#2B5797"
+    },
+    {
+      "Id": 94385,
+      "Name": "T2 QUẦN CL ĐEN 0828",
+      "NameNosign": "T2 QUAN CL DEN 0828",
+      "Type": "saleonline",
+      "Color": "#2B5797"
+    },
+    {
+      "Id": 94386,
+      "Name": "K2 KỆ KO CÓ HÀNG",
+      "NameNosign": "K2 KE KO CO HANG",
+      "Type": "saleonline",
+      "Color": "#4682B4"
+    },
+    {
+      "Id": 94387,
+      "Name": "T2 SET ALO SỌC ĐEN",
+      "NameNosign": "T2 SET ALO SOC DEN",
+      "Type": "saleonline",
+      "Color": "#8B4513"
+    },
+    {
+      "Id": 94389,
+      "Name": "K3 KHÁCH BOOM HOUSE",
+      "NameNosign": "K3 KHACH BOOM HOUSE",
+      "Type": "saleonline",
+      "Color": "#6B5B95"
+    },
+    {
+      "Id": 94390,
+      "Name": "K3 DB ÁO SMI X",
+      "NameNosign": "K3 DB AO SMI X",
+      "Type": "saleonline",
+      "Color": "#00FFFF"
+    },
+    {
+      "Id": 94391,
+      "Name": "K3 DB ÁO VL TRẮNG",
+      "NameNosign": "K3 DB AO VL TRANG",
+      "Type": "saleonline",
+      "Color": "#1D1D1D"
+    },
+    {
+      "Id": 94392,
+      "Name": "K3 KHÁCH XÃ IB",
+      "NameNosign": "K3 KHACH XA IB",
+      "Type": "saleonline",
+      "Color": "#00CED1"
+    },
+    {
+      "Id": 94393,
+      "Name": "K3 THÊM N1443",
+      "NameNosign": "K3 THEM N1443",
+      "Type": "saleonline",
+      "Color": "#FF69B4"
+    },
+    {
+      "Id": 94394,
+      "Name": "K3 HH ÁO CỔ V NÂU",
+      "NameNosign": "K3 HH AO CO V NAU",
+      "Type": "saleonline",
+      "Color": "#D3D3D3"
+    },
+    {
+      "Id": 94395,
+      "Name": "cọc",
+      "NameNosign": "coc",
+      "Type": "saleonline",
+      "Color": "#DA70D6"
+    },
+    {
+      "Id": 94396,
+      "Name": "K2 ĐỦ HÀNG ĐI ĐƠN",
+      "NameNosign": "K2 DU HANG DI DON",
+      "Type": "saleonline",
+      "Color": "#FA8072"
+    },
+    {
+      "Id": 94397,
+      "Name": "K3 KHÁCH OKE 2M",
+      "NameNosign": "K3 KHACH OKE 2M",
+      "Type": "saleonline",
+      "Color": "#B22222"
+    },
+    {
+      "Id": 94398,
+      "Name": "K3 N1465 ÁO SMI X",
+      "NameNosign": "K3 N1465 AO SMI X",
+      "Type": "saleonline",
+      "Color": "#3CB371"
+    },
+    {
+      "Id": 94399,
+      "Name": "K3 CÓ KHÁCH HỦY THÌ THẾ QUA",
+      "NameNosign": "K3 CO KHACH HUY THI THE QUA",
+      "Type": "saleonline",
+      "Color": "#264E36"
+    },
+    {
+      "Id": 94400,
+      "Name": "T2 SET DẠ HỒNG",
+      "NameNosign": "T2 SET DA HONG",
+      "Type": "saleonline",
+      "Color": "#FFC40D"
+    },
+    {
+      "Id": 94401,
+      "Name": "K3 XIN Đ/C KH CHO XEM KH PHẢN HỒI",
+      "NameNosign": "K3 XIN D/C KH CHO XEM KH PHAN HOI",
+      "Type": "saleonline",
+      "Color": "#00FF7F"
+    },
+    {
+      "Id": 94402,
+      "Name": "K3 DB QUẦN FULL LV ĐEN",
+      "NameNosign": "K3 DB QUAN FULL LV DEN",
+      "Type": "saleonline",
+      "Color": "#696969"
+    },
+    {
+      "Id": 94403,
+      "Name": "K2 KHOAN ĐI ĐƠN",
+      "NameNosign": "K2 KHOAN DI DON",
+      "Type": "saleonline",
+      "Color": "#935529"
+    },
+    {
+      "Id": 94404,
+      "Name": "K2 GEN VỀ ĐI SAU NHÁ",
+      "NameNosign": "K2 GEN VE DI SAU NHA",
+      "Type": "saleonline",
+      "Color": "#40E0D0"
+    },
+    {
+      "Id": 94405,
+      "Name": "K3 XÓA CMT",
+      "NameNosign": "K3 XOA CMT",
+      "Type": "saleonline",
+      "Color": "#FF8C00"
+    },
+    {
+      "Id": 94406,
+      "Name": "HẾT HÀNG",
+      "NameNosign": "HET HANG",
+      "Type": "saleonline",
+      "Color": "#7FFF00"
+    },
+    {
+      "Id": 94407,
+      "Name": "T3 CHỜ DÂY CHUYỀN 170K ĐEN",
+      "NameNosign": "T3 CHO DAY CHUYEN 170K DEN",
+      "Type": "saleonline",
+      "Color": "#87CEEB"
+    },
+    {
+      "Id": 94408,
+      "Name": "K3 KHÁCH XÃ TRÊN LIVE",
+      "NameNosign": "K3 KHACH XA TREN LIVE",
+      "Type": "saleonline",
+      "Color": "#BDB76B"
+    },
+    {
+      "Id": 94409,
+      "Name": "K3 THÊM BÔNG TAI NGÔI SAO TRẮNG",
+      "NameNosign": "K3 THEM BONG TAI NGOI SAO TRANG",
+      "Type": "saleonline",
+      "Color": "#8FBC8F"
+    },
+    {
+      "Id": 94410,
+      "Name": "K3 THÊM RỒI ĐI ĐƠN NHA",
+      "NameNosign": "K3 THEM ROI DI DON NHA",
+      "Type": "saleonline",
+      "Color": "#FA8072"
+    },
+    {
+      "Id": 94411,
+      "Name": "K3 HOUSE",
+      "NameNosign": "K3 HOUSE",
+      "Type": "saleonline",
+      "Color": "#32CD32"
+    },
+    {
+      "Id": 94412,
+      "Name": "T3 ÁO CỔ V ĐEN",
+      "NameNosign": "T3 AO CO V DEN",
+      "Type": "saleonline",
+      "Color": "#CD5C5C"
+    },
+    {
+      "Id": 94413,
+      "Name": "K3 CHECK IB",
+      "NameNosign": "K3 CHECK IB",
+      "Type": "saleonline",
+      "Color": "#6B5B95"
+    },
+    {
+      "Id": 94414,
+      "Name": "K3 TRÙNG ĐƠN IB",
+      "NameNosign": "K3 TRUNG DON IB",
+      "Type": "saleonline",
+      "Color": "#9400D3"
+    },
+    {
+      "Id": 94415,
+      "Name": "T3 SET THOME TN",
+      "NameNosign": "T3 SET THOME TN",
+      "Type": "saleonline",
+      "Color": "#9E1030"
+    },
+    {
+      "Id": 94416,
+      "Name": "T3 SET ALO",
+      "NameNosign": "T3 SET ALO",
+      "Type": "saleonline",
+      "Color": "#9ACD32"
+    },
+    {
+      "Id": 94417,
+      "Name": "T3 SET TD THOME",
+      "NameNosign": "T3 SET TD THOME",
+      "Type": "saleonline",
+      "Color": "#006400"
+    },
+    {
+      "Id": 94418,
+      "Name": "K3 SAI SDT",
+      "NameNosign": "K3 SAI SDT",
+      "Type": "saleonline",
+      "Color": "#EE82EE"
+    },
+    {
+      "Id": 94419,
+      "Name": "K2 THIẾU XANH",
+      "NameNosign": "K2 THIEU XANH",
+      "Type": "saleonline",
+      "Color": "#DA532C"
+    },
+    {
+      "Id": 94420,
+      "Name": "K3 T4 GỬI ĐƠN",
+      "NameNosign": "K3 T4 GUI DON",
+      "Type": "saleonline",
+      "Color": "#663399"
+    },
+    {
+      "Id": 94421,
+      "Name": "K3 GỘP LIVE CŨ",
+      "NameNosign": "K3 GOP LIVE CU",
+      "Type": "saleonline",
+      "Color": "#00ABA9"
+    },
+    {
+      "Id": 94422,
+      "Name": "K3 BOOKGRAB",
+      "NameNosign": "K3 BOOKGRAB",
+      "Type": "saleonline",
+      "Color": "#98FB98"
+    },
+    {
+      "Id": 94423,
+      "Name": "T3 ÁO KHOÁC THOME",
+      "NameNosign": "T3 AO KHOAC THOME",
+      "Type": "saleonline",
+      "Color": "#6A5ACD"
+    },
+    {
+      "Id": 94424,
+      "Name": "T3 SET GUCCI",
+      "NameNosign": "T3 SET GUCCI",
+      "Type": "saleonline",
+      "Color": "#B22222"
+    },
+    {
+      "Id": 94425,
+      "Name": "T3 SET DIOR RỪNG",
+      "NameNosign": "T3 SET DIOR RUNG",
+      "Type": "saleonline",
+      "Color": "#755139"
+    },
+    {
+      "Id": 94426,
+      "Name": "K3 DỒN ĐƠN CŨ",
+      "NameNosign": "K3 DON DON CU",
+      "Type": "saleonline",
+      "Color": "#40E0D0"
+    }
+  ]
+}

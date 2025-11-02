@@ -71,7 +71,7 @@ const MENU_CONFIG = [
         permissionRequired: "hanghoan",
     },
     {
-        href: "../orders-report/index.html",
+        href: "../orders-report/main.html",
         icon: "shopping-cart",
         text: "Báo Cáo Sale-Online",
         shortText: "SaleOnline",

@@ -222,6 +222,16 @@
                                     <option value="all">Tất cả</option>
                                 </select>
                             </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Tag:</label>
+                                <select id="tagFilter" style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
+                                    <option value="all">Tất cả</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Tên KH:</label>
+                                <input type="text" id="nameFilter" placeholder="Tìm theo tên..." style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px; min-width: 200px;">
+                            </div>
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -230,6 +240,24 @@
                             <i data-lucide="download"></i>
                             <span>Xuất Excel</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Session Index Range Input -->
+                <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                        <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Khoảng STT:</label>
+                        <input type="text" id="sessionRangeInput" placeholder="Ví dụ: 1-300 Huyền, 301-500 Hạnh" style="flex: 1; padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
+                        <button class="btn btn-primary" onclick="applySessionRanges()" style="padding: 6px 16px;">
+                            <i data-lucide="check"></i>
+                            <span>Áp dụng</span>
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Lọc theo tên:</label>
+                        <select id="sessionNameFilter" style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
+                            <option value="all">Tất cả</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -246,6 +274,43 @@
                         <i data-lucide="arrow-left"></i>
                         <span>Đến Tab Quản lý đơn hàng</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- Tag Filter Results -->
+            <div class="table-card" id="tagFilterSection" style="display: none; margin-bottom: 24px;">
+                <div class="table-header">
+                    <h3 class="table-title">
+                        <i data-lucide="tag"></i>
+                        <span>Đơn hàng theo Tag: <span id="selectedTagName">-</span></span>
+                    </h3>
+                    <span class="table-count" id="tagOrdersCount">0 đơn</span>
+                </div>
+
+                <!-- Summary Stats -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; background: var(--gray-50); border-radius: 8px; margin: 0 16px 16px 16px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--primary);" id="tagTotalOrders">0</div>
+                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Tổng đơn</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--success);" id="tagTotalAmount">0đ</div>
+                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Tổng tiền</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--warning);" id="tagTotalQuantity">0</div>
+                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Tổng số lượng</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: var(--info);" id="tagAvgAmount">0đ</div>
+                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Trung bình/đơn</div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper" id="tagTableWrapper">
+                    <div class="empty-state">
+                        <p>Chọn tag để xem danh sách đơn hàng</p>
+                    </div>
                 </div>
             </div>
 
@@ -294,6 +359,7 @@
             lucide.createIcons();
 
             let allOrdersData = [];
+            let sessionRanges = []; // Array of {start, end, name}
 
             // Listen for messages from parent (Tab 1)
             window.addEventListener('message', function(e) {
@@ -329,6 +395,21 @@
                         updateDisplay();
                     }
                 });
+                document.getElementById('tagFilter')?.addEventListener('change', () => {
+                    if (allOrdersData.length > 0) {
+                        renderTagFilteredTable();
+                    }
+                });
+                document.getElementById('nameFilter')?.addEventListener('input', () => {
+                    if (allOrdersData.length > 0) {
+                        renderTagFilteredTable();
+                    }
+                });
+                document.getElementById('sessionNameFilter')?.addEventListener('change', () => {
+                    if (allOrdersData.length > 0) {
+                        renderTagFilteredTable();
+                    }
+                });
 
                 lucide.createIcons();
             });
@@ -358,6 +439,9 @@
                     // Populate user filter
                     populateUserFilter(allOrdersData);
 
+                    // Populate tag filter
+                    populateTagFilter(allOrdersData);
+
                     // Render tables
                     updateDisplay();
 
@@ -385,6 +469,74 @@
                 // Restore selection if possible
                 if (users.includes(currentValue)) {
                     userSelect.value = currentValue;
+                }
+            }
+
+            function populateTagFilter(data) {
+                const tagSelect = document.getElementById('tagFilter');
+                const tagsSet = new Set();
+                
+                // Extract all unique tags from orders
+                data.forEach(order => {
+                    if (order.Tags) {
+                        try {
+                            const tags = JSON.parse(order.Tags);
+                            if (Array.isArray(tags)) {
+                                tags.forEach(tag => {
+                                    if (tag.Name) {
+                                        tagsSet.add(JSON.stringify({
+                                            name: tag.Name,
+                                            color: tag.Color || '#6b7280'
+                                        }));
+                                    }
+                                });
+                            }
+                        } catch (error) {
+                            console.error('Error parsing tags:', error);
+                        }
+                    }
+                });
+
+                // Convert to array and sort with priority
+                const tags = Array.from(tagsSet).map(t => JSON.parse(t));
+                
+                // Sort: "OK" first, then "XỬ LÝ", then alphabetically
+                tags.sort((a, b) => {
+                    const aName = a.name.toUpperCase();
+                    const bName = b.name.toUpperCase();
+                    
+                    const aIsOK = aName.startsWith('OK ');
+                    const bIsOK = bName.startsWith('OK ');
+                    const aIsXuLy = aName.startsWith('XỬ LÝ ') || aName.startsWith('XU LY ');
+                    const bIsXuLy = bName.startsWith('XỬ LÝ ') || bName.startsWith('XU LY ');
+                    
+                    // OK tags first
+                    if (aIsOK && !bIsOK) return -1;
+                    if (!aIsOK && bIsOK) return 1;
+                    
+                    // Then XỬ LÝ tags
+                    if (aIsXuLy && !bIsXuLy) return -1;
+                    if (!aIsXuLy && bIsXuLy) return 1;
+                    
+                    // Otherwise alphabetically
+                    return a.name.localeCompare(b.name, 'vi');
+                });
+
+                // Keep "Tất cả" and add tags
+                const currentValue = tagSelect.value;
+                tagSelect.innerHTML = '<option value="all">Tất cả</option>';
+                tags.forEach(tag => {
+                    const option = document.createElement('option');
+                    option.value = tag.name;
+                    option.textContent = tag.name;
+                    option.dataset.color = tag.color;
+                    tagSelect.appendChild(option);
+                });
+                
+                // Restore selection if possible
+                const tagNames = tags.map(t => t.name);
+                if (tagNames.includes(currentValue)) {
+                    tagSelect.value = currentValue;
                 }
             }
 
@@ -508,6 +660,248 @@
                                     <td>${stats.amount.toLocaleString('vi-VN')}đ</td>
                                 </tr>
                             `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // =====================================================
+            // SESSION RANGE FUNCTIONS
+            // =====================================================
+            function parseSessionRanges(input) {
+                if (!input || !input.trim()) return [];
+                
+                const ranges = [];
+                const parts = input.split(',');
+                
+                parts.forEach(part => {
+                    part = part.trim();
+                    // Format: "1-300 Huyền" or "301-500 Hạnh"
+                    const match = part.match(/(\d+)\s*-\s*(\d+)\s+(.+)/);
+                    if (match) {
+                        ranges.push({
+                            start: parseInt(match[1]),
+                            end: parseInt(match[2]),
+                            name: match[3].trim()
+                        });
+                    }
+                });
+                
+                return ranges;
+            }
+
+            function applySessionRanges() {
+                const input = document.getElementById('sessionRangeInput').value;
+                sessionRanges = parseSessionRanges(input);
+                
+                if (sessionRanges.length > 0) {
+                    console.log('Applied session ranges:', sessionRanges);
+                    
+                    // Populate session name filter
+                    populateSessionNameFilter();
+                    
+                    // Re-render if data exists
+                    if (allOrdersData.length > 0) {
+                        renderTagFilteredTable();
+                    }
+                    
+                    // Show success message
+                    const names = sessionRanges.map(r => r.name).join(', ');
+                    alert(`Đã áp dụng: ${names}`);
+                    
+                    // Reinitialize icons
+                    lucide.createIcons();
+                } else {
+                    alert('Vui lòng nhập đúng định dạng: 1-300 Huyền, 301-500 Hạnh');
+                }
+            }
+
+            // Expose to window for button onclick
+            window.applySessionRanges = applySessionRanges;
+
+            function populateSessionNameFilter() {
+                const select = document.getElementById('sessionNameFilter');
+                const currentValue = select.value;
+                
+                select.innerHTML = '<option value="all">Tất cả</option>';
+                
+                sessionRanges.forEach(range => {
+                    const option = document.createElement('option');
+                    option.value = range.name;
+                    option.textContent = range.name;
+                    select.appendChild(option);
+                });
+                
+                // Restore selection if possible
+                const names = sessionRanges.map(r => r.name);
+                if (names.includes(currentValue)) {
+                    select.value = currentValue;
+                }
+            }
+
+            function getSessionName(sessionIndex) {
+                if (!sessionIndex || sessionRanges.length === 0) return null;
+                
+                for (const range of sessionRanges) {
+                    if (sessionIndex >= range.start && sessionIndex <= range.end) {
+                        return range.name;
+                    }
+                }
+                
+                return null;
+            }
+
+            function renderTagFilteredTable() {
+                const tagFilter = document.getElementById('tagFilter').value;
+                const nameFilter = document.getElementById('nameFilter').value.trim().toLowerCase();
+                const sessionNameFilter = document.getElementById('sessionNameFilter').value;
+                const tagSection = document.getElementById('tagFilterSection');
+                const wrapper = document.getElementById('tagTableWrapper');
+                
+                // If no filter applied, hide section
+                if (tagFilter === 'all' && !nameFilter && sessionNameFilter === 'all') {
+                    tagSection.style.display = 'none';
+                    return;
+                }
+
+                // Show section
+                tagSection.style.display = 'block';
+                
+                // Update title based on filters
+                let titleText = '';
+                const filters = [];
+                if (tagFilter !== 'all') filters.push(tagFilter);
+                if (nameFilter) filters.push(`Tên: "${nameFilter}"`);
+                if (sessionNameFilter !== 'all') filters.push(`NV: ${sessionNameFilter}`);
+                titleText = filters.join(' - ');
+                
+                document.getElementById('selectedTagName').textContent = titleText || 'Tất cả';
+
+                // Filter orders
+                let filteredOrders = allOrdersData;
+
+                // Filter by tag
+                if (tagFilter !== 'all') {
+                    filteredOrders = filteredOrders.filter(order => {
+                        if (!order.Tags) return false;
+                        try {
+                            const tags = JSON.parse(order.Tags);
+                            if (Array.isArray(tags)) {
+                                return tags.some(tag => tag.Name === tagFilter);
+                            }
+                        } catch (error) {
+                            console.error('Error parsing tags:', error);
+                        }
+                        return false;
+                    });
+                }
+
+                // Filter by name
+                if (nameFilter) {
+                    filteredOrders = filteredOrders.filter(order => {
+                        const name = (order.Name || '').toLowerCase();
+                        return name.includes(nameFilter);
+                    });
+                }
+
+                // Filter by session name
+                if (sessionNameFilter !== 'all') {
+                    filteredOrders = filteredOrders.filter(order => {
+                        const sessionName = getSessionName(order.SessionIndex);
+                        return sessionName === sessionNameFilter;
+                    });
+                }
+
+                // Calculate statistics
+                const totalOrders = filteredOrders.length;
+                const totalAmount = filteredOrders.reduce((sum, order) => sum + (order.TotalAmount || 0), 0);
+                const totalQuantity = filteredOrders.reduce((sum, order) => sum + (order.TotalQuantity || 0), 0);
+                const avgAmount = totalOrders > 0 ? totalAmount / totalOrders : 0;
+
+                // Update stats
+                document.getElementById('tagTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
+                document.getElementById('tagTotalAmount').textContent = totalAmount.toLocaleString('vi-VN') + 'đ';
+                document.getElementById('tagTotalQuantity').textContent = totalQuantity.toLocaleString('vi-VN');
+                document.getElementById('tagAvgAmount').textContent = Math.round(avgAmount).toLocaleString('vi-VN') + 'đ';
+
+                // Update count
+                document.getElementById('tagOrdersCount').textContent = `${totalOrders} đơn`;
+
+                if (filteredOrders.length === 0) {
+                    wrapper.innerHTML = '<div class="empty-state"><p>Không có đơn hàng nào</p></div>';
+                    return;
+                }
+
+                // Render table
+                wrapper.innerHTML = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>TAG</th>
+                                <th>Khách hàng</th>
+                                <th>SĐT</th>
+                                <th>Địa chỉ</th>
+                                <th>Ghi chú</th>
+                                <th>Tổng tiền</th>
+                                <th>SL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredOrders.map(order => {
+                                // Parse tags
+                                let tagsHTML = '';
+                                if (order.Tags) {
+                                    try {
+                                        const tags = JSON.parse(order.Tags);
+                                        if (Array.isArray(tags)) {
+                                            tagsHTML = tags.map(tag => {
+                                                const color = tag.Color || '#6b7280';
+                                                return `<span style="display: inline-block; background: ${color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin: 2px;">${tag.Name}</span>`;
+                                            }).join('');
+                                        }
+                                    } catch (e) {}
+                                }
+
+                                // Add session name if exists (bigger and at the end)
+                                const sessionName = getSessionName(order.SessionIndex);
+                                if (sessionName) {
+                                    tagsHTML += `<span style="display: inline-block; background: #2563eb; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; margin: 2px 2px 2px 8px;">${sessionName}</span>`;
+                                }
+
+                                // Format partner status
+                                let partnerStatusHTML = '';
+                                if (order.PartnerStatusText) {
+                                    const statusColors = {
+                                        "Bình thường": "#5cb85c",
+                                        "Bom hàng": "#d1332e",
+                                        "Cảnh báo": "#f0ad4e",
+                                        "Khách sỉ": "#5cb85c",
+                                        "Nguy hiểm": "#d9534f",
+                                        "Thân thiết": "#5bc0de",
+                                        "Vip": "#337ab7",
+                                        "VIP": "#5bc0deff"
+                                    };
+                                    const color = statusColors[order.PartnerStatusText] || '#6b7280';
+                                    partnerStatusHTML = `<span style="display: inline-block; background: ${color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin: 2px;">${order.PartnerStatusText}</span>`;
+                                }
+
+                                return `
+                                <tr>
+                                    <td>${order.SessionIndex || ''}</td>
+                                    <td>${tagsHTML || '-'}</td>
+                                    <td>
+                                        <div>${order.Name || ''}</div>
+                                        ${partnerStatusHTML}
+                                    </td>
+                                    <td>${order.Telephone || ''}</td>
+                                    <td style="max-width: 300px;">${order.Address || ''}</td>
+                                    <td style="max-width: 200px;">${order.Note || ''}</td>
+                                    <td style="font-weight: 600;">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
+                                    <td>${order.TotalQuantity || 0}</td>
+                                </tr>
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 `;
