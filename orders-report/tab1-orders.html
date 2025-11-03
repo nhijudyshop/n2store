@@ -629,6 +629,104 @@
                 margin-bottom: 12px;
                 display: block;
             }
+
+            /* ===== SEARCH BOX STYLES ===== */
+            .search-section {
+                background: white;
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 16px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                display: none;
+            }
+
+            .search-section.active {
+                display: block;
+            }
+
+            .search-wrapper {
+                position: relative;
+                max-width: 600px;
+            }
+
+            .search-input {
+                width: 100%;
+                padding: 12px 48px 12px 42px;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+
+            .search-input:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            }
+
+            .search-input::placeholder {
+                color: #9ca3af;
+            }
+
+            .search-icon {
+                position: absolute;
+                left: 14px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #6b7280;
+                font-size: 16px;
+            }
+
+            .search-clear {
+                position: absolute;
+                right: 12px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: none;
+                border: none;
+                color: #9ca3af;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 4px;
+                transition: all 0.2s;
+                display: none;
+            }
+
+            .search-clear.active {
+                display: block;
+            }
+
+            .search-clear:hover {
+                background: #f3f4f6;
+                color: #374151;
+            }
+
+            .search-info {
+                margin-top: 8px;
+                font-size: 13px;
+                color: #6b7280;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .search-result-count {
+                font-weight: 600;
+                color: #3b82f6;
+            }
+
+            .search-tips {
+                font-size: 12px;
+                color: #9ca3af;
+            }
+
+            /* Highlight search results */
+            .highlight {
+                background-color: #fef3c7;
+                padding: 2px 4px;
+                border-radius: 2px;
+                font-weight: 500;
+            }
         </style>
     </head>
 
@@ -712,6 +810,32 @@
             <div class="info-banner" id="infoBanner" style="display: none">
                 <i class="fas fa-info-circle"></i>
                 <span id="infoText"></span>
+            </div>
+
+            <!-- Search Section -->
+            <div class="search-section" id="searchSection">
+                <div class="search-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="tableSearchInput"
+                        placeholder="Tìm kiếm theo mã ĐH, tên khách hàng, SĐT, địa chỉ, ghi chú, trạng thái..."
+                        autocomplete="off"
+                    />
+                    <button class="search-clear" id="searchClearBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="search-info">
+                    <div>
+                        <span class="search-result-count" id="searchResultCount">0</span>
+                        <span> kết quả</span>
+                    </div>
+                    <div class="search-tips">
+                        💡 Gõ để tìm kiếm nhanh
+                    </div>
+                </div>
             </div>
 
             <!-- Table Container -->
@@ -829,6 +953,10 @@
             let totalCount = 0;
             let selectedCampaign = null;
 
+            // Search State
+            let searchQuery = '';
+            let searchTimeout = null;
+
             // Tag Management State
             let availableTags = [];
             let currentEditingOrderId = null;
@@ -888,6 +1016,28 @@
 
                 // Load tags
                 await loadAvailableTags();
+
+                // Search functionality
+                const searchInput = document.getElementById("tableSearchInput");
+                const searchClearBtn = document.getElementById("searchClearBtn");
+
+                searchInput.addEventListener("input", function (e) {
+                    handleTableSearch(e.target.value);
+                });
+
+                searchClearBtn.addEventListener("click", function () {
+                    searchInput.value = "";
+                    handleTableSearch("");
+                    searchInput.focus();
+                });
+
+                // Clear search on Escape
+                searchInput.addEventListener("keydown", function (e) {
+                    if (e.key === "Escape") {
+                        searchInput.value = "";
+                        handleTableSearch("");
+                    }
+                });
             });
 
             // =====================================================
@@ -1072,55 +1222,216 @@
             }
 
             async function saveOrderTags() {
-                if (!currentEditingOrderId) return;
+                if (!currentEditingOrderId) {
+                    console.error('[TAG] No order selected');
+                    return;
+                }
 
                 try {
                     showLoading(true);
 
-                    // Convert tags to JSON string
-                    const tagsJson = JSON.stringify(currentOrderTags);
+                    // Prepare payload for AssignTag endpoint
+                    const payload = {
+                        Tags: currentOrderTags.map(tag => ({
+                            Id: tag.Id,
+                            Color: tag.Color,
+                            Name: tag.Name
+                        })),
+                        OrderId: currentEditingOrderId
+                    };
 
-                    // Update via API - wrap GUID in single quotes for OData
+                    console.log('[TAG] Saving tags to order:', payload);
+
+                    // Get authentication headers
                     const headers = await window.tokenManager.getAuthHeader();
-                    const response = await fetch(`https://tomato.tpos.vn/odata/SaleOnline_Order('${currentEditingOrderId}')`, {
-                        method: 'PATCH',
+
+                    // POST to AssignTag endpoint
+                    const response = await fetch('https://tomato.tpos.vn/odata/TagSaleOnlineOrder/ODataService.AssignTag', {
+                        method: 'POST',
                         headers: {
                             ...headers,
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         },
-                        body: JSON.stringify({
-                            Tags: tagsJson
-                        })
+                        body: JSON.stringify(payload)
                     });
 
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                        const errorText = await response.text();
+                        console.error('[TAG] API Error:', response.status, errorText);
+                        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
                     }
 
-                    // Update local data
+                    // Parse response (if any)
+                    let responseData = null;
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        responseData = await response.json();
+                        console.log('[TAG] API Response:', responseData);
+                    }
+
+                    // Update local data with JSON stringified tags (for display)
+                    const tagsJson = JSON.stringify(currentOrderTags);
                     const order = allData.find(o => o.Id === currentEditingOrderId);
                     if (order) {
                         order.Tags = tagsJson;
                     }
 
-                    // Refresh display
+                    // Refresh table display
                     renderTable();
                     
-                    // Clear cache
+                    // Clear orders cache to force refresh on next load
                     if (window.cacheManager) {
                         window.cacheManager.clear('orders');
+                        console.log('[TAG] Orders cache cleared');
                     }
 
                     showLoading(false);
                     closeTagModal();
                     
-                    showInfoBanner(`✅ Đã cập nhật tag cho đơn hàng thành công!`);
+                    // Success notification
+                    showInfoBanner(`✅ Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`);
+                    
+                    console.log('[TAG] Tags saved successfully');
 
                 } catch (error) {
                     console.error('[TAG] Error saving tags:', error);
                     showLoading(false);
-                    alert('Lỗi khi lưu tag: ' + error.message);
+                    
+                    // Show error alert
+                    alert(`Lỗi khi lưu tag:\n${error.message}\n\nVui lòng thử lại hoặc kiểm tra console để biết chi tiết.`);
                 }
+            }
+
+            // =====================================================
+            // TABLE SEARCH FUNCTIONS
+            // =====================================================
+            function handleTableSearch(query) {
+                // Clear previous timeout
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+
+                // Debounce search (300ms)
+                searchTimeout = setTimeout(() => {
+                    searchQuery = query.trim().toLowerCase();
+                    
+                    // Update UI
+                    const searchClearBtn = document.getElementById('searchClearBtn');
+                    if (searchQuery) {
+                        searchClearBtn.classList.add('active');
+                    } else {
+                        searchClearBtn.classList.remove('active');
+                    }
+
+                    // Perform search
+                    performTableSearch();
+                }, 300);
+            }
+
+            function performTableSearch() {
+                if (!searchQuery) {
+                    // No search query - show all data
+                    filteredData = [...allData];
+                } else {
+                    // Filter data based on search query
+                    filteredData = allData.filter(order => {
+                        return matchesSearchQuery(order, searchQuery);
+                    });
+                    
+                    // Debug: Log first match for verification
+                    if (filteredData.length > 0 && window.DEBUG_SEARCH) {
+                        console.log('[SEARCH DEBUG] First match:', {
+                            Code: filteredData[0].Code,
+                            Name: filteredData[0].Name,
+                            Telephone: filteredData[0].Telephone,
+                            Address: filteredData[0].Address,
+                            Note: filteredData[0].Note,
+                            StatusText: filteredData[0].StatusText
+                        });
+                    }
+                }
+
+                // Update display
+                displayedData = filteredData;
+                renderTable();
+                updateStats();
+                updatePageInfo();
+                updateSearchResultCount();
+
+                console.log(`[SEARCH] Query: "${searchQuery}" - Found ${filteredData.length} results`);
+            }
+
+            function matchesSearchQuery(order, query) {
+                // Search in multiple fields (trim whitespace)
+                const searchableText = [
+                    (order.Code || '').trim(),
+                    (order.Name || '').trim(),
+                    (order.Telephone || '').trim(),
+                    (order.Address || '').trim(),
+                    (order.Note || '').trim(),
+                    (order.StatusText || '').trim()
+                ].join(' ').toLowerCase();
+
+                // Normalize both search text and query (remove Vietnamese tones)
+                const normalizedText = removeVietnameseTones(searchableText);
+                const normalizedQuery = removeVietnameseTones(query);
+
+                // Search in both original and normalized text
+                return searchableText.includes(query) || normalizedText.includes(normalizedQuery);
+            }
+
+            function removeVietnameseTones(str) {
+                if (!str) return '';
+                
+                str = str.toLowerCase();
+                
+                // Remove Vietnamese tones
+                str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+                str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+                str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+                str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+                str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+                str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+                str = str.replace(/đ/g, 'd');
+                
+                return str;
+            }
+
+            function updateSearchResultCount() {
+                const count = filteredData.length;
+                const countElement = document.getElementById('searchResultCount');
+                if (countElement) {
+                    countElement.textContent = count.toLocaleString('vi-VN');
+                }
+            }
+
+            function highlightSearchText(text, query) {
+                if (!query || !text) return text;
+
+                // First try exact match (case insensitive)
+                const exactRegex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+                if (exactRegex.test(text)) {
+                    return text.replace(exactRegex, '<span class="highlight">$1</span>');
+                }
+
+                // If no exact match, try Vietnamese tone-normalized match
+                const normalizedQuery = removeVietnameseTones(query);
+                const words = text.split(/\s+/);
+                
+                const highlightedWords = words.map(word => {
+                    const normalizedWord = removeVietnameseTones(word.toLowerCase());
+                    if (normalizedWord.includes(normalizedQuery)) {
+                        return `<span class="highlight">${word}</span>`;
+                    }
+                    return word;
+                });
+
+                return highlightedWords.join(' ');
+            }
+
+            function escapeRegex(string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             }
 
             // =====================================================
@@ -1265,6 +1576,17 @@
                     window.cacheManager.clear("campaigns");
                 }
 
+                // Reset search
+                searchQuery = '';
+                const searchInput = document.getElementById('tableSearchInput');
+                if (searchInput) {
+                    searchInput.value = '';
+                }
+                const searchClearBtn = document.getElementById('searchClearBtn');
+                if (searchClearBtn) {
+                    searchClearBtn.classList.remove('active');
+                }
+
                 // Reset state
                 allData = [];
                 filteredData = [];
@@ -1390,6 +1712,12 @@
                     // Show stats bar and table
                     document.getElementById("statsBar").style.display = "flex";
                     document.getElementById("tableContainer").style.display = "block";
+                    
+                    // Show search section
+                    const searchSection = document.getElementById("searchSection");
+                    if (searchSection) {
+                        searchSection.classList.add("active");
+                    }
 
                     // RENDER ALL DATA AT ONCE (no more lazy loading)
                     displayedData = filteredData;
@@ -1397,6 +1725,7 @@
                     renderTable();
                     updatePageInfo();
                     updateStats();
+                    updateSearchResultCount();
 
                     showInfoBanner(
                         `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
@@ -1454,13 +1783,19 @@
                 // Format partner status
                 const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
 
+                // Highlight search text if query exists
+                const highlightText = (text) => {
+                    if (!searchQuery || !text) return text || '';
+                    return highlightSearchText(text, searchQuery);
+                };
+
                 return `
                     <tr>
                         <td><input type="checkbox" value="${order.Id}" /></td>
                         <td>${order.SessionIndex || ""}</td>
                         <td style="max-width: 120px; white-space: normal;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                <span>${order.Code || ""}</span>
+                                <span>${highlightText(order.Code)}</span>
                                 <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
                                     <i class="fas fa-tags"></i>
                                     ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ''}
@@ -1469,18 +1804,18 @@
                             ${tagsHTML}
                         </td>
                         <td>
-                            <div>${order.Name || ""}</div>
+                            <div>${highlightText(order.Name)}</div>
                             ${partnerStatusHTML}
                         </td>
-                        <td style="max-width: 100px; white-space: normal;">${order.Telephone || ""}</td>
-                        <td style="max-width: 500px; white-space: normal;">${order.Address || ""}</td>
-                        <td style="max-width: 200px; white-space: normal;">${order.Note || ""}</td>
+                        <td style="max-width: 100px; white-space: normal;">${highlightText(order.Telephone)}</td>
+                        <td style="max-width: 500px; white-space: normal;">${highlightText(order.Address)}</td>
+                        <td style="max-width: 200px; white-space: normal;">${highlightText(order.Note)}</td>
                         <td>${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
                         <td>${order.TotalQuantity || 0}</td>
                         <td>${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
                         <td>
                             <span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">
-                                ${order.StatusText || order.Status || ""}
+                                ${highlightText(order.StatusText || order.Status || "")}
                             </span>
                         </td>
                     </tr>
