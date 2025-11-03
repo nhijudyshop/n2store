@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<!-- 
+=============================================================================
+CODE SNIPPET: THÊM NÚT CHỈNH SỬA VÀO BẢNG ĐƠN HÀNG
+File này chứa các đoạn code cần thêm vào tab1-orders.html
+=============================================================================
+-->
+
+<!-- ========================================
+     PHẦN 1: CSS - Thêm vào <style>
+     ======================================== -->
+<style>
+/* Edit button - icon style matching the tag button */
+.btn-edit-icon {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.btn-edit-icon:hover {
+    background: #eff6ff;
+    color: #2563eb;
+    transform: translateY(-1px);
+}
+
+.btn-edit-icon i {
+    font-size: 14px;
+}
+
+/* Action buttons container */
+.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.action-buttons button {
+    flex-shrink: 0;
+}
+</style>
+
+<!-- ========================================
+     PHẦN 2: CẬP NHẬT createRowHTML()
+     Tìm và THAY THẾ cột "Mã ĐH" (td thứ 3)
+     ======================================== -->
+<script>
+// BEFORE (Code cũ - chỉ có nút tag):
+/*
+<td style="max-width: 120px; white-space: normal;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <span>${highlightText(order.Code)}</span>
+        <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
+            <i class="fas fa-tags"></i>
+            ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ''}
+        </button>
+    </div>
+    ${tagsHTML}
+</td>
+*/
+
+// AFTER (Code mới - có cả nút tag và edit):
+`
+<td style="max-width: 120px; white-space: normal;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <span>${highlightText(order.Code)}</span>
+        <div class="action-buttons">
+            <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
+                <i class="fas fa-tags"></i>
+                ${tagsCount > 0 ? \`<span class="tag-count">\${tagsCount}</span>\` : ''}
+            </button>
+            <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng">
+                <i class="fas fa-edit"></i>
+            </button>
+        </div>
+    </div>
+    ${tagsHTML}
+</td>
+`
+</script>
+
+<!-- ========================================
+     PHẦN 3: TOÀN BỘ FUNCTION createRowHTML() MỚI
+     Copy và paste TOÀN BỘ function này
+     ======================================== -->
+<script>
+function createRowHTML(order) {
+    // Skip if order is invalid
+    if (!order || !order.Id) return "";
+
+    // Parse tags and count
+    let tagsCount = 0;
+    let tagsHTML = '';
+    if (order.Tags) {
+        try {
+            const tags = JSON.parse(order.Tags);
+            if (Array.isArray(tags)) {
+                tagsCount = tags.length;
+                tagsHTML = parseOrderTags(order.Tags);
+            }
+        } catch (error) {
+            // Ignore parse errors
+        }
+    }
+    
+    // Format partner status
+    const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
+
+    // Highlight search text if query exists
+    const highlightText = (text) => {
+        if (!searchQuery || !text) return text || '';
+        return highlightSearchText(text, searchQuery);
+    };
+
+    return `
+        <tr>
+            <td><input type="checkbox" value="${order.Id}" /></td>
+            <td>${order.SessionIndex || ""}</td>
+            <td style="max-width: 120px; white-space: normal;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span>${highlightText(order.Code)}</span>
+                    <div class="action-buttons">
+                        <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
+                            <i class="fas fa-tags"></i>
+                            ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ''}
+                        </button>
+                        <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+                ${tagsHTML}
+            </td>
+            <td>
+                <div>${highlightText(order.Name)}</div>
+                ${partnerStatusHTML}
+            </td>
+            <td style="max-width: 100px; white-space: normal;">${highlightText(order.Telephone)}</td>
+            <td style="max-width: 500px; white-space: normal;">${highlightText(order.Address)}</td>
+            <td style="max-width: 200px; white-space: normal;">${highlightText(order.Note)}</td>
+            <td>${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
+            <td>${order.TotalQuantity || 0}</td>
+            <td>${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
+            <td>
+                <span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">
+                    ${highlightText(order.StatusText || order.Status || "")}
+                </span>
+            </td>
+        </tr>
+    `;
+}
+</script>
+
+<!-- ========================================
+     HƯỚNG DẪN TÍCH HỢP CHI TIẾT
+     ======================================== -->
+<!--
+
+BƯỚC 1: Thêm CSS
+─────────────────
+1. Mở file tab1-orders.html
+2. Tìm thẻ <style> (đầu file)
+3. Scroll xuống cuối phần <style>
+4. Copy CSS từ PHẦN 1 ở trên
+5. Paste vào trước thẻ đóng </style>
+
+
+BƯỚC 2: Cập nhật createRowHTML()
+──────────────────────────────────
+1. Trong tab1-orders.html, tìm function createRowHTML(order)
+2. CÁCH 1 (Nhanh): Thay thế toàn bộ function bằng PHẦN 3
+3. CÁCH 2 (Từng phần): Chỉ thay cột "Mã ĐH" theo PHẦN 2
+
+
+BƯỚC 3: Thêm Modal System
+──────────────────────────
+1. Mở file order-edit-modal.html (đã tạo trước đó)
+2. Copy toàn bộ phần modal HTML (từ <div id="editOrderModal"> đến </div>)
+3. Copy toàn bộ JavaScript functions
+4. Trong tab1-orders.html, tìm thẻ đóng </body>
+5. Paste modal HTML và JavaScript TRƯỚC thẻ </body>
+
+
+BƯỚC 4: Kiểm tra Dependencies
+──────────────────────────────
+Đảm bảo các file sau đã được load trong tab1-orders.html:
+✓ auth.js
+✓ token-manager.js
+✓ notification-system.js (optional)
+✓ Font Awesome icons
+
+
+BƯỚC 5: Test
+─────────────
+1. Mở tab1-orders.html trong browser
+2. Xem cột "Mã ĐH" - phải có 2 icon: Tags và Edit
+3. Click vào icon Edit (bút chì)
+4. Modal phải mở và hiển thị thông tin đơn hàng
+
+
+KẾT QUẢ MONG ĐỢI:
+──────────────────
+- Icon edit màu xanh (#3b82f6) xuất hiện bên cạnh icon tags
+- Hover vào icon edit → background xanh nhạt
+- Click icon edit → Modal mở với 6 tabs thông tin đơn hàng
+- Modal load data từ API tự động
+
+
+NẾU GẶP LỖI:
+─────────────
+1. Icon không hiển thị → Check Font Awesome đã load chưa
+2. Click không hoạt động → Check console log, verify openEditModal() function exists
+3. Modal không mở → Check modal HTML đã được thêm chưa
+4. Data không load → Check tokenManager và API endpoint
+
+
+CHÚ Ý:
+──────
+- Nút edit sẽ xuất hiện ở TẤT CẢ các dòng trong bảng
+- Mỗi dòng có orderId riêng
+- Click vào nút edit của dòng nào → modal sẽ load data của đơn hàng đó
+- UI/UX matching với nút tag hiện có
+
+-->

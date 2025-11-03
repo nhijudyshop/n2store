@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa Đơn Hàng với Modal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* ====================================== */
+        /* EDIT BUTTON STYLES */
+        /* ====================================== */
+        .btn-edit-order {
+            padding: 4px 10px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn-edit-order:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-edit-order i {
+            font-size: 11px;
+        }
+
+        /* ====================================== */
+        /* MODAL STYLES */
+        /* ====================================== */
+        .edit-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(3px);
+        }
+
+        .edit-modal.show {
+            display: flex;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .edit-modal-content {
+            background: white;
+            width: 95%;
+            max-width: 1200px;
+            height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Modal Header */
+        .edit-modal-header {
+            padding: 20px 24px;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .edit-modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .edit-modal-header .order-code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .edit-modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .edit-modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        /* Tab Navigation */
+        .edit-tabs {
+            display: flex;
+            gap: 0;
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+            overflow-x: auto;
+        }
+
+        .edit-tab-btn {
+            padding: 14px 20px;
+            background: none;
+            border: none;
+            color: #6b7280;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .edit-tab-btn:hover {
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .edit-tab-btn.active {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .edit-tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px 3px 0 0;
+        }
+
+        .edit-tab-btn i {
+            font-size: 14px;
+        }
+
+        /* Tab Content */
+        .edit-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #fafbfc;
+        }
+
+        .edit-tab-content {
+            display: none;
+        }
+
+        .edit-tab-content.active {
+            display: block;
+            animation: fadeInContent 0.3s ease-out;
+        }
+
+        @keyframes fadeInContent {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Info Section Styles */
+        .info-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-card h4 i {
+            color: #3b82f6;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .info-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            color: #111827;
+            padding: 8px 12px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .info-value.highlight {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1e40af;
+            font-weight: 500;
+        }
+
+        /* Products Table */
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .products-table thead {
+            background: #f9fafb;
+        }
+
+        .products-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .products-table td {
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #111827;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .products-table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .product-image {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        /* History Timeline */
+        .history-timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .history-timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, #3b82f6, #e5e7eb);
+        }
+
+        .history-item {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .history-item::before {
+            content: '';
+            position: absolute;
+            left: -22px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            background: #3b82f6;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .history-user {
+            font-weight: 600;
+            color: #3b82f6;
+            font-size: 14px;
+        }
+
+        .history-date {
+            font-size: 12px;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .history-content {
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+
+        .history-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .history-type.update {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .history-type.create {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            color: #d1d5db;
+            margin-bottom: 16px;
+        }
+
+        .empty-state p {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* Loading State */
+        .loading-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #f3f4f6;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* Modal Footer */
+        .edit-modal-footer {
+            padding: 16px 24px;
+            border-top: 2px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9fafb;
+        }
+
+        .modal-footer-left {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .modal-footer-right {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-modal {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-modal-cancel {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-modal-cancel:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+
+        .btn-modal-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-modal-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-modal-print {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-modal-print:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        /* Status Badge */
+        .status-badge-large {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-badge-draft {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-badge-order {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .edit-modal-content {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .edit-tabs {
+                overflow-x: scroll;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Edit Order Modal -->
+    <div id="editOrderModal" class="edit-modal">
+        <div class="edit-modal-content">
+            <!-- Header -->
+            <div class="edit-modal-header">
+                <h3>
+                    <i class="fas fa-edit"></i>
+                    Sửa đơn hàng
+                    <span class="order-code" id="modalOrderCode">...</span>
+                </h3>
+                <button class="edit-modal-close" onclick="closeEditModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="edit-tabs">
+                <button class="edit-tab-btn active" onclick="switchEditTab('info')">
+                    <i class="fas fa-user"></i>
+                    Thông tin liên hệ
+                </button>
+                <button class="edit-tab-btn" onclick="switchEditTab('products')">
+                    <i class="fas fa-box"></i>
+                    Sản phẩm (<span id="productCount">0</span>)
+                </button>
+                <button class="edit-tab-btn" onclick="switchEditTab('delivery')">
+                    <i class="fas fa-shipping-fast"></i>
+                    Thông tin giao hàng
+                </button>
+                <button class="edit-tab-btn" onclick="switchEditTab('live')">
+                    <i class="fas fa-video"></i>
+                    Lịch sử đơn live
+                </button>
+                <button class="edit-tab-btn" onclick="switchEditTab('invoices')">
+                    <i class="fas fa-file-invoice"></i>
+                    Lịch sử hóa đơn
+                </button>
+                <button class="edit-tab-btn" onclick="switchEditTab('history')">
+                    <i class="fas fa-history"></i>
+                    Lịch sử chỉnh sửa
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="edit-modal-body" id="editModalBody">
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Đang tải dữ liệu...</div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="edit-modal-footer">
+                <div class="modal-footer-left">
+                    <i class="fas fa-info-circle"></i>
+                    Cập nhật lần cuối: <span id="lastUpdated">...</span>
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn-modal btn-modal-print" onclick="printOrder()">
+                        <i class="fas fa-print"></i>
+                        In đơn
+                    </button>
+                    <button class="btn-modal btn-modal-cancel" onclick="closeEditModal()">
+                        <i class="fas fa-times"></i>
+                        Đóng
+                    </button>
+                    <button class="btn-modal btn-modal-save" onclick="saveOrderChanges()">
+                        <i class="fas fa-save"></i>
+                        Lưu thay đổi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase & Dependencies -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="auth.js"></script>
+    <script src="token-manager.js"></script>
+    <script src="notification-system.js"></script>
+
+    <script>
+        // =====================================================
+        // GLOBAL VARIABLES
+        // =====================================================
+        let currentOrderData = null;
+        let currentEditingOrderId = null;
+
+        // =====================================================
+        // OPEN EDIT MODAL
+        // =====================================================
+        async function openEditModal(orderId) {
+            currentEditingOrderId = orderId;
+            
+            // Show modal
+            const modal = document.getElementById('editOrderModal');
+            modal.classList.add('show');
+            
+            // Reset to first tab
+            switchEditTab('info');
+            
+            // Show loading
+            document.getElementById('editModalBody').innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Đang tải dữ liệu đơn hàng...</div>
+                </div>
+            `;
+
+            try {
+                // Fetch order data from API
+                await fetchOrderData(orderId);
+            } catch (error) {
+                console.error('[EDIT] Error loading order:', error);
+                showErrorState(error.message);
+            }
+        }
+
+        // =====================================================
+        // FETCH ORDER DATA
+        // =====================================================
+        async function fetchOrderData(orderId) {
+            try {
+                console.log('[EDIT] Fetching order data for:', orderId);
+                
+                // Get authentication headers
+                const headers = await window.tokenManager.getAuthHeader();
+                
+                // Construct API URL with $expand
+                const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+                
+                console.log('[EDIT] API URL:', apiUrl);
+                
+                // Fetch data
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('[EDIT] Order data fetched:', data);
+
+                // Store data globally
+                currentOrderData = data;
+
+                // Update modal with data
+                updateModalWithData(data);
+                
+            } catch (error) {
+                console.error('[EDIT] Fetch error:', error);
+                throw error;
+            }
+        }
+
+        // =====================================================
+        // UPDATE MODAL WITH DATA
+        // =====================================================
+        function updateModalWithData(data) {
+            // Update header
+            document.getElementById('modalOrderCode').textContent = data.Code || '';
+            document.getElementById('lastUpdated').textContent = 
+                new Date(data.LastUpdated).toLocaleString('vi-VN');
+            document.getElementById('productCount').textContent = 
+                data.Details ? data.Details.length : 0;
+
+            // Switch to info tab and render it
+            switchEditTab('info');
+        }
+
+        // =====================================================
+        // SWITCH TABS
+        // =====================================================
+        function switchEditTab(tabName) {
+            // Update active tab button
+            document.querySelectorAll('.edit-tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event?.target?.classList.add('active') || 
+                document.querySelector(`[onclick*="${tabName}"]`)?.classList.add('active');
+
+            // Render tab content
+            renderTabContent(tabName);
+        }
+
+        // =====================================================
+        // RENDER TAB CONTENT
+        // =====================================================
+        function renderTabContent(tabName) {
+            const body = document.getElementById('editModalBody');
+
+            if (!currentOrderData) {
+                body.innerHTML = `
+                    <div class="loading-state">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">Đang tải dữ liệu...</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let content = '';
+
+            switch(tabName) {
+                case 'info':
+                    content = renderInfoTab(currentOrderData);
+                    break;
+                case 'products':
+                    content = renderProductsTab(currentOrderData);
+                    break;
+                case 'delivery':
+                    content = renderDeliveryTab(currentOrderData);
+                    break;
+                case 'live':
+                    content = renderLiveTab(currentOrderData);
+                    break;
+                case 'invoices':
+                    content = renderInvoicesTab(currentOrderData);
+                    break;
+                case 'history':
+                    content = renderHistoryTab(currentOrderData);
+                    break;
+                default:
+                    content = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>Tab không tồn tại</p></div>';
+            }
+
+            body.innerHTML = content;
+        }
+
+        // =====================================================
+        // RENDER INFO TAB
+        // =====================================================
+        function renderInfoTab(data) {
+            const partner = data.Partner || {};
+            
+            return `
+                <!-- Customer Information -->
+                <div class="info-card">
+                    <h4><i class="fas fa-user"></i> Thông tin khách hàng</h4>
+                    <div class="info-grid">
+                        <div class="info-field">
+                            <div class="info-label">Tên khách hàng</div>
+                            <div class="info-value highlight">${data.Name || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">ID Khách hàng</div>
+                            <div class="info-value">${data.PartnerId || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Điện thoại</div>
+                            <div class="info-value highlight">
+                                <i class="fas fa-phone"></i> ${data.Telephone || ''}
+                            </div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Email</div>
+                            <div class="info-value">${data.Email || 'Chưa có'}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Trạng thái khách</div>
+                            <div class="info-value">
+                                <span class="partner-status" style="background-color: ${getPartnerStatusColor(data.PartnerStatusText)}; color: white; padding: 4px 8px; border-radius: 4px;">
+                                    ${data.PartnerStatusText || 'Bình thường'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Mạng điện thoại</div>
+                            <div class="info-value">${data.NameNetwork || 'Không xác định'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Address Information -->
+                <div class="info-card">
+                    <h4><i class="fas fa-map-marker-alt"></i> Địa chỉ giao hàng</h4>
+                    <div class="info-grid">
+                        <div class="info-field" style="grid-column: 1 / -1;">
+                            <div class="info-label">Địa chỉ đầy đủ</div>
+                            <div class="info-value">${data.Address || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Thành phố</div>
+                            <div class="info-value">${data.CityName || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Quận/Huyện</div>
+                            <div class="info-value">${data.DistrictName || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Phường/Xã</div>
+                            <div class="info-value">${data.WardName || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Ghi chú</div>
+                            <div class="info-value">${data.Note || 'Không có ghi chú'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Information -->
+                <div class="info-card">
+                    <h4><i class="fas fa-shopping-cart"></i> Thông tin đơn hàng</h4>
+                    <div class="info-grid">
+                        <div class="info-field">
+                            <div class="info-label">Mã đơn</div>
+                            <div class="info-value highlight">${data.Code || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Trạng thái</div>
+                            <div class="info-value">
+                                <span class="status-badge-large ${data.Status === 'Draft' ? 'status-badge-draft' : 'status-badge-order'}">
+                                    ${data.StatusText || data.Status || ''}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Tổng tiền</div>
+                            <div class="info-value highlight">
+                                ${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ
+                            </div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Tổng số lượng</div>
+                            <div class="info-value">${data.TotalQuantity || 0}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Ngày tạo</div>
+                            <div class="info-value">${new Date(data.DateCreated).toLocaleString('vi-VN')}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Cập nhật lần cuối</div>
+                            <div class="info-value">${new Date(data.LastUpdated).toLocaleString('vi-VN')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campaign Information -->
+                <div class="info-card">
+                    <h4><i class="fas fa-video"></i> Thông tin chiến dịch</h4>
+                    <div class="info-grid">
+                        <div class="info-field">
+                            <div class="info-label">Tên chiến dịch</div>
+                            <div class="info-value">${data.LiveCampaignName || 'Không có'}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Người xử lý</div>
+                            <div class="info-value">${data.UserName || 'Chưa gán'}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Nhóm CRM</div>
+                            <div class="info-value">${data.CRMTeamName || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Kho hàng</div>
+                            <div class="info-value">${data.WarehouseName || ''}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // RENDER PRODUCTS TAB
+        // =====================================================
+        function renderProductsTab(data) {
+            if (!data.Details || data.Details.length === 0) {
+                return `
+                    <div class="empty-state">
+                        <i class="fas fa-box-open"></i>
+                        <p>Không có sản phẩm trong đơn hàng</p>
+                    </div>
+                `;
+            }
+
+            const productsHTML = data.Details.map((product, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>
+                        ${product.ImageUrl ? `<img src="${product.ImageUrl}" class="product-image" alt="${product.ProductName}">` : '<i class="fas fa-image" style="font-size: 40px; color: #d1d5db;"></i>'}
+                    </td>
+                    <td>
+                        <div style="font-weight: 500;">${product.ProductNameGet || product.ProductName}</div>
+                        <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
+                            Mã: ${product.ProductCode || 'N/A'}
+                        </div>
+                    </td>
+                    <td style="text-align: center;">${product.Quantity || 0}</td>
+                    <td style="text-align: right;">${(product.Price || 0).toLocaleString('vi-VN')}đ</td>
+                    <td style="text-align: right; font-weight: 600;">
+                        ${((product.Price || 0) * (product.Quantity || 0)).toLocaleString('vi-VN')}đ
+                    </td>
+                    <td>${product.Note || ''}</td>
+                </tr>
+            `).join('');
+
+            return `
+                <div class="info-card">
+                    <h4><i class="fas fa-box"></i> Danh sách sản phẩm (${data.Details.length})</h4>
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">#</th>
+                                <th style="width: 60px;">Ảnh</th>
+                                <th>Sản phẩm</th>
+                                <th style="width: 80px; text-align: center;">Số lượng</th>
+                                <th style="width: 120px; text-align: right;">Đơn giá</th>
+                                <th style="width: 120px; text-align: right;">Thành tiền</th>
+                                <th style="width: 150px;">Ghi chú</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${productsHTML}
+                        </tbody>
+                        <tfoot style="background: #f9fafb; font-weight: 600;">
+                            <tr>
+                                <td colspan="3" style="text-align: right; padding: 16px;">Tổng cộng:</td>
+                                <td style="text-align: center;">${data.TotalQuantity || 0}</td>
+                                <td></td>
+                                <td style="text-align: right; color: #3b82f6; font-size: 16px;">
+                                    ${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // RENDER DELIVERY TAB
+        // =====================================================
+        function renderDeliveryTab(data) {
+            return `
+                <div class="info-card">
+                    <h4><i class="fas fa-shipping-fast"></i> Thông tin giao hàng</h4>
+                    <div class="info-grid">
+                        <div class="info-field">
+                            <div class="info-label">Người nhận</div>
+                            <div class="info-value highlight">${data.Name || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Số điện thoại</div>
+                            <div class="info-value highlight">${data.Telephone || ''}</div>
+                        </div>
+                        <div class="info-field" style="grid-column: 1 / -1;">
+                            <div class="info-label">Địa chỉ giao hàng</div>
+                            <div class="info-value">${data.Address || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Phương thức thanh toán</div>
+                            <div class="info-value">COD (Thanh toán khi nhận hàng)</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Phí vận chuyển</div>
+                            <div class="info-value">Miễn phí</div>
+                        </div>
+                        <div class="info-field" style="grid-column: 1 / -1;">
+                            <div class="info-label">Ghi chú giao hàng</div>
+                            <div class="info-value">${data.Note || 'Không có ghi chú đặc biệt'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h4><i class="fas fa-info-circle"></i> Thông tin đặt hàng</h4>
+                    <div class="info-grid">
+                        <div class="info-field">
+                            <div class="info-label">Nguồn đơn hàng</div>
+                            <div class="info-value">${data.Source || 'FacebookComment'}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Chiến dịch live</div>
+                            <div class="info-value">${data.LiveCampaignName || 'Không có'}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Số lần in</div>
+                            <div class="info-value">${data.PrintCount || 0} lần</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Trạng thái ưu tiên</div>
+                            <div class="info-value">${data.PriorityStatus || 'Bình thường'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // RENDER LIVE TAB
+        // =====================================================
+        function renderLiveTab(data) {
+            // Check if there's a live campaign
+            if (!data.LiveCampaignId || !data.LiveCampaignName) {
+                return `
+                    <div class="empty-state">
+                        <i class="fas fa-video-slash"></i>
+                        <p>Đơn hàng này không thuộc chiến dịch live nào</p>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="info-card">
+                    <h4><i class="fas fa-video"></i> Thông tin chiến dịch live</h4>
+                    <div class="info-grid">
+                        <div class="info-field">
+                            <div class="info-label">Tên chiến dịch</div>
+                            <div class="info-value highlight">${data.LiveCampaignName}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">ID Chiến dịch</div>
+                            <div class="info-value">${data.LiveCampaignId}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Nguồn</div>
+                            <div class="info-value">${data.Source}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Session</div>
+                            <div class="info-value">${data.SessionIndex} / ${data.Session}</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${data.Facebook_PostId ? `
+                <div class="info-card">
+                    <h4><i class="fab fa-facebook"></i> Thông tin Facebook</h4>
+                    <div class="info-grid">
+                        <div class="info-field">
+                            <div class="info-label">Tên người dùng</div>
+                            <div class="info-value">${data.Facebook_UserName || ''}</div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Post ID</div>
+                            <div class="info-value" style="font-size: 11px; word-break: break-all;">
+                                ${data.Facebook_PostId}
+                            </div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Comment ID</div>
+                            <div class="info-value" style="font-size: 11px; word-break: break-all;">
+                                ${data.Facebook_CommentId || 'N/A'}
+                            </div>
+                        </div>
+                        <div class="info-field">
+                            <div class="info-label">Facebook User ID</div>
+                            <div class="info-value">${data.Facebook_ASUserId || ''}</div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        // =====================================================
+        // RENDER INVOICES TAB
+        // =====================================================
+        function renderInvoicesTab(data) {
+            // In real implementation, you would fetch invoices from another API
+            // For now, show empty state
+            return `
+                <div class="empty-state">
+                    <i class="fas fa-file-invoice"></i>
+                    <p>Chưa có hóa đơn bán hàng!</p>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // RENDER HISTORY TAB
+        // =====================================================
+        function renderHistoryTab(data) {
+            // In real implementation, you would fetch edit history
+            // For now, create mock history based on available data
+            const historyItems = [];
+
+            // Add creation event
+            if (data.DateCreated) {
+                historyItems.push({
+                    type: 'create',
+                    user: data.User?.Name || 'Hệ thống',
+                    date: data.DateCreated,
+                    content: `Tạo đơn hàng mới\n- Tổng tiền: ${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ\n- Tổng số lượng: ${data.TotalQuantity || 0}`
+                });
+            }
+
+            // Add update event if LastUpdated is different from DateCreated
+            if (data.LastUpdated && data.LastUpdated !== data.DateCreated) {
+                historyItems.push({
+                    type: 'update',
+                    user: data.User?.Name || 'Hệ thống',
+                    date: data.LastUpdated,
+                    content: `Thay đổi thông tin chung đơn hàng:\n- Nhãn: ${data.StatusText || data.Status || 'N/A'}`
+                });
+            }
+
+            if (historyItems.length === 0) {
+                return `
+                    <div class="empty-state">
+                        <i class="fas fa-history"></i>
+                        <p>Chưa có lịch sử chỉnh sửa</p>
+                    </div>
+                `;
+            }
+
+            // Sort by date descending
+            historyItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const historyHTML = historyItems.map(item => `
+                <div class="history-item">
+                    <span class="history-type ${item.type}">${item.type === 'create' ? 'Tạo mới' : 'Cập nhật'}</span>
+                    <div class="history-header">
+                        <div class="history-user">${item.user}</div>
+                        <div class="history-date">
+                            <i class="far fa-clock"></i>
+                            ${new Date(item.date).toLocaleString('vi-VN')}
+                        </div>
+                    </div>
+                    <div class="history-content">${item.content}</div>
+                </div>
+            `).join('');
+
+            return `
+                <div class="info-card">
+                    <h4><i class="fas fa-history"></i> Lịch sử thay đổi</h4>
+                    <div class="history-timeline">
+                        ${historyHTML}
+                    </div>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // HELPER FUNCTIONS
+        // =====================================================
+        function getPartnerStatusColor(status) {
+            const colors = {
+                'Bình thường': '#5cb85c',
+                'Bom hàng': '#d1332e',
+                'Cảnh báo': '#f0ad4e',
+                'Khách sỉ': '#5cb85c',
+                'Nguy hiểm': '#d9534f',
+                'Thân thiết': '#5bc0de',
+                'Vip': '#337ab7',
+                'VIP': '#5bc0de'
+            };
+            return colors[status] || '#6b7280';
+        }
+
+        function showErrorState(message) {
+            document.getElementById('editModalBody').innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                    <p style="color: #ef4444;">Lỗi: ${message}</p>
+                    <button class="btn-primary" onclick="fetchOrderData('${currentEditingOrderId}')" style="margin-top: 16px;">
+                        <i class="fas fa-redo"></i>
+                        Thử lại
+                    </button>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // CLOSE MODAL
+        // =====================================================
+        function closeEditModal() {
+            const modal = document.getElementById('editOrderModal');
+            modal.classList.remove('show');
+            currentOrderData = null;
+            currentEditingOrderId = null;
+        }
+
+        // =====================================================
+        // ACTION FUNCTIONS
+        // =====================================================
+        function saveOrderChanges() {
+            alert('Chức năng lưu thay đổi đang được phát triển');
+        }
+
+        function printOrder() {
+            if (!currentOrderData) return;
+            window.print();
+        }
+
+        // Close modal on ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeEditModal();
+            }
+        });
+
+        // Close modal on background click
+        document.getElementById('editOrderModal').addEventListener('click', (e) => {
+            if (e.target.id === 'editOrderModal') {
+                closeEditModal();
+            }
+        });
+
+        // =====================================================
+        // DEMO: ADD EDIT BUTTON TO TABLE ROWS
+        // =====================================================
+        // This function should be integrated into your existing table rendering
+        function addEditButtonToRow(orderId) {
+            return `
+                <button class="btn-edit-order" onclick="openEditModal('${orderId}')">
+                    <i class="fas fa-edit"></i>
+                    Sửa
+                </button>
+            `;
+        }
+
+        console.log('[EDIT MODAL] System initialized successfully');
+    </script>
+</body>
+</html>
