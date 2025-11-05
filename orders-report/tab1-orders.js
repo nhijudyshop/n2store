@@ -746,6 +746,12 @@ function updateModalWithData(data) {
     document.getElementById("productCount").textContent =
         data.Details?.length || 0;
     switchEditTab("info");
+    
+    // 🔄 Refresh inline search UI after data is loaded
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+        refreshInlineSearchUI();
+    }, 100);
 }
 
 function switchEditTab(tabName) {
@@ -887,6 +893,9 @@ function updateProductQuantity(index, change, value = null) {
     }
     recalculateTotals();
     showSaveIndicator("success", "Số lượng đã cập nhật");
+    
+    // 🔄 Refresh inline search UI to reflect quantity change
+    refreshInlineSearchUI();
 }
 
 function updateProductNote(index, note) {
@@ -906,6 +915,9 @@ function removeProduct(index) {
     renderTabContent("products");
     recalculateTotals();
     showSaveIndicator("success", "Đã xóa sản phẩm");
+    
+    // 🔄 Refresh inline search UI to remove green highlight and badge
+    refreshInlineSearchUI();
 }
 
 function editProductDetail(index) {
@@ -929,6 +941,9 @@ function saveProductDetail(index) {
     renderTabContent("products");
     recalculateTotals();
     showSaveIndicator("success", "Giá đã cập nhật");
+    
+    // 🔄 Refresh inline search UI (in case price affects display)
+    refreshInlineSearchUI();
 }
 
 function cancelProductDetail() {
@@ -1012,6 +1027,9 @@ async function saveAllOrderChanges() {
         // Clear cache và reload data
         window.cacheManager.clear("orders");
         await fetchOrderData(currentEditOrderId);
+        
+        // 🔄 Refresh inline search UI after save and reload
+        refreshInlineSearchUI();
 
         console.log("[SAVE] Order saved successfully ✓");
     } catch (error) {
@@ -1135,6 +1153,9 @@ function initInlineSearchAfterRender() {
         if (searchInput && typeof initInlineProductSearch === "function") {
             initInlineProductSearch();
         }
+        
+        // 🔄 Refresh inline search UI when switching to products tab
+        refreshInlineSearchUI();
     }, 100);
 }
 
@@ -1179,16 +1200,37 @@ function displayInlineResults(results) {
         return;
     }
     resultsDiv.className = "inline-search-results show";
+    
+    // Check which products are already in the order
+    const productsInOrder = new Map();
+    if (currentEditOrderData && currentEditOrderData.Details) {
+        currentEditOrderData.Details.forEach(detail => {
+            productsInOrder.set(detail.ProductId, detail.Quantity || 0);
+        });
+    }
+    
     resultsDiv.innerHTML = results
-        .map(
-            (p) => `
-        <div class="inline-result-item" onclick="addProductToOrderFromInline(${p.Id})">
+        .map((p) => {
+            const isInOrder = productsInOrder.has(p.Id);
+            const currentQty = productsInOrder.get(p.Id) || 0;
+            const itemClass = isInOrder ? 'inline-result-item in-order' : 'inline-result-item';
+            const buttonIcon = isInOrder ? 'fa-check' : 'fa-plus';
+            const buttonText = isInOrder ? 'Thêm nữa' : 'Thêm';
+            
+            return `
+        <div class="${itemClass}" onclick="addProductToOrderFromInline(${p.Id})" data-product-id="${p.Id}">
+            ${isInOrder ? `<div class="inline-result-quantity-badge"><i class="fas fa-shopping-cart"></i> SL: ${currentQty}</div>` : ''}
             ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="inline-result-image">` : `<div class="inline-result-image placeholder"><i class="fas fa-image"></i></div>`}
-            <div class="inline-result-info"><div class="inline-result-name">${p.Name}</div><div class="inline-result-code">Mã: ${p.Code}</div></div>
+            <div class="inline-result-info">
+                <div class="inline-result-name">${p.Name}</div>
+                <div class="inline-result-code">Mã: ${p.Code}</div>
+            </div>
             <div class="inline-result-price">${(p.Price || 0).toLocaleString("vi-VN")}đ</div>
-            <button class="inline-result-add"><i class="fas fa-plus"></i> Thêm</button>
-        </div>`,
-        )
+            <button class="inline-result-add" onclick="event.stopPropagation(); addProductToOrderFromInline(${p.Id})">
+                <i class="fas ${buttonIcon}"></i> ${buttonText}
+            </button>
+        </div>`;
+        })
         .join("");
 }
 
@@ -1219,6 +1261,144 @@ function highlightProductRow(index) {
             row.classList.remove("product-row-highlight");
         }, 2000);
     }, 100);
+}
+
+// =====================================================
+// UPDATE PRODUCT ITEM UI AFTER ADDING TO ORDER
+// =====================================================
+function updateProductItemUI(productId) {
+    // Find the product item in search results
+    const productItem = document.querySelector(
+        `.inline-result-item[data-product-id="${productId}"]`
+    );
+    
+    if (!productItem) return;
+    
+    // Add animation
+    productItem.classList.add("just-added");
+    
+    // Remove animation class after it completes
+    setTimeout(() => {
+        productItem.classList.remove("just-added");
+    }, 500);
+    
+    // Get updated quantity from order
+    let updatedQty = 0;
+    if (currentEditOrderData && currentEditOrderData.Details) {
+        const product = currentEditOrderData.Details.find(
+            p => p.ProductId == productId
+        );
+        updatedQty = product ? (product.Quantity || 0) : 0;
+    }
+    
+    // Update the item to show it's in order
+    if (!productItem.classList.contains("in-order")) {
+        productItem.classList.add("in-order");
+    }
+    
+    // Update or add quantity badge
+    let badge = productItem.querySelector(".inline-result-quantity-badge");
+    if (!badge) {
+        badge = document.createElement("div");
+        badge.className = "inline-result-quantity-badge";
+        productItem.insertBefore(badge, productItem.firstChild);
+    }
+    
+    badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${updatedQty}`;
+    
+    // Update button
+    const button = productItem.querySelector(".inline-result-add");
+    if (button) {
+        const icon = button.querySelector("i");
+        if (icon) {
+            icon.className = "fas fa-check";
+        }
+        // Update button text
+        const textNode = Array.from(button.childNodes).find(
+            node => node.nodeType === Node.TEXT_NODE
+        );
+        if (textNode) {
+            textNode.textContent = " Thêm nữa";
+        }
+    }
+    
+    console.log(`[UI UPDATE] Product ${productId} UI updated with quantity: ${updatedQty}`);
+}
+
+// =====================================================
+// REFRESH INLINE SEARCH UI AFTER ANY DATA CHANGE
+// =====================================================
+function refreshInlineSearchUI() {
+    // Get all product items currently displayed in search results
+    const productItems = document.querySelectorAll('.inline-result-item');
+    
+    if (productItems.length === 0) {
+        console.log('[REFRESH UI] No search results to refresh');
+        return;
+    }
+    
+    console.log(`[REFRESH UI] Refreshing ${productItems.length} items in search results`);
+    
+    // Create a map of current quantities
+    const productsInOrder = new Map();
+    if (currentEditOrderData && currentEditOrderData.Details) {
+        currentEditOrderData.Details.forEach(detail => {
+            productsInOrder.set(detail.ProductId, detail.Quantity || 0);
+        });
+    }
+    
+    // Update each product item
+    productItems.forEach(item => {
+        const productId = parseInt(item.getAttribute('data-product-id'));
+        if (!productId) return;
+        
+        const isInOrder = productsInOrder.has(productId);
+        const currentQty = productsInOrder.get(productId) || 0;
+        
+        // Update classes
+        if (isInOrder) {
+            if (!item.classList.contains('in-order')) {
+                item.classList.add('in-order');
+            }
+        } else {
+            item.classList.remove('in-order');
+        }
+        
+        // Update or remove badge
+        let badge = item.querySelector('.inline-result-quantity-badge');
+        
+        if (isInOrder && currentQty > 0) {
+            // Product is in order - show/update badge
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'inline-result-quantity-badge';
+                item.insertBefore(badge, item.firstChild);
+            }
+            badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${currentQty}`;
+        } else if (badge) {
+            // Product removed from order - remove badge
+            badge.remove();
+        }
+        
+        // Update button
+        const button = item.querySelector('.inline-result-add');
+        if (button) {
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.className = isInOrder ? 'fas fa-check' : 'fas fa-plus';
+            }
+            
+            // Update button text
+            const textNode = Array.from(button.childNodes).find(
+                node => node.nodeType === Node.TEXT_NODE
+            );
+            if (textNode) {
+                textNode.textContent = isInOrder ? ' Thêm nữa' : ' Thêm';
+            }
+        }
+    });
+    
+    console.log('[REFRESH UI] UI refresh completed');
 }
 
 async function addProductToOrderFromInline(productId) {
@@ -1339,8 +1519,22 @@ async function addProductToOrderFromInline(productId) {
             );
         }
 
-        document.getElementById("inlineProductSearch").value = "";
-        hideInlineResults();
+        // ⚠️ QUAN TRỌNG: KHÔNG xóa input và KHÔNG ẩn results 
+        // Điều này cho phép user tiếp tục thêm sản phẩm khác từ cùng danh sách gợi ý
+        // document.getElementById("inlineProductSearch").value = "";
+        // hideInlineResults();
+        
+        // Update UI to show product was added
+        updateProductItemUI(productId);
+        
+        // Chỉ focus lại vào input để tiện thao tác
+        const searchInput = document.getElementById("inlineProductSearch");
+        if (searchInput) {
+            searchInput.focus();
+            // Select text để user có thể tiếp tục search hoặc giữ nguyên
+            searchInput.select();
+        }
+        
         renderTabContent("products");
         recalculateTotals();
     } catch (error) {

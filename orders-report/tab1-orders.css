@@ -1559,6 +1559,76 @@ body {
     border-left: 4px solid #6366f1;
 }
 
+/* Product already in order - visual feedback */
+.inline-result-item.in-order {
+    background: #f0fdf4;
+    border-left: 3px solid #10b981;
+    position: relative;
+}
+
+.inline-result-item.in-order:hover {
+    background: #dcfce7;
+}
+
+.inline-result-item.in-order .inline-result-add {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.inline-result-item.in-order .inline-result-add i {
+    animation: checkPulse 0.5s ease-in-out;
+}
+
+/* Quantity badge for products already in order */
+.inline-result-quantity-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #10b981;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+    z-index: 10;
+}
+
+.inline-result-quantity-badge i {
+    font-size: 10px;
+}
+
+/* Animation for adding product */
+@keyframes productAdded {
+    0% {
+        transform: scale(1);
+        background: #f9fafb;
+    }
+    50% {
+        transform: scale(0.98);
+        background: #dcfce7;
+    }
+    100% {
+        transform: scale(1);
+        background: #f0fdf4;
+    }
+}
+
+.inline-result-item.just-added {
+    animation: productAdded 0.5s ease-out;
+}
+
+@keyframes checkPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
 .inline-result-image {
     width: 50px;
     height: 50px;
