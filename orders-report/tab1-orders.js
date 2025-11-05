@@ -953,45 +953,175 @@ function recalculateTotals() {
 
 async function saveAllOrderChanges() {
     if (!confirm("Lưu tất cả thay đổi cho đơn hàng này?")) return;
+
+    let notifId = null;
+
     try {
+        // Show loading notification
         if (window.notificationManager) {
-            const notifId = window.notificationManager.saving(
-                "Đang lưu đơn hàng...",
-            );
-            const headers = await window.tokenManager.getAuthHeader();
-            const payload = {
-                Details: currentEditOrderData.Details.map((p) => ({
-                    Id: p.Id || null,
-                    ProductId: p.ProductId,
-                    Quantity: p.Quantity,
-                    Price: p.Price,
-                    Note: p.Note || "",
-                })),
-                TotalQuantity: currentEditOrderData.TotalQuantity,
-                TotalAmount: currentEditOrderData.TotalAmount,
-            };
-            const response = await fetch(
-                `https://tomato.tpos.vn/odata/SaleOnline_Order(${currentEditOrderId})`,
-                {
-                    method: "PATCH",
-                    headers: { ...headers, "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                },
-            );
-            if (!response.ok)
-                throw new Error(
-                    `HTTP ${response.status}: ${await response.text()}`,
-                );
-            window.notificationManager.remove(notifId);
-            window.notificationManager.success("Đã lưu thành công!");
-            window.cacheManager.clear("orders");
-            await fetchOrderData(currentEditOrderId);
+            notifId = window.notificationManager.saving("Đang lưu đơn hàng...");
         }
+
+        // Prepare payload
+        const payload = prepareOrderPayload(currentEditOrderData);
+
+        // Validate payload (optional but recommended)
+        const validation = validatePayloadBeforePUT(payload);
+        if (!validation.valid) {
+            throw new Error(
+                `Payload validation failed: ${validation.errors.join(", ")}`,
+            );
+        }
+
+        console.log("[SAVE] Payload to send:", payload);
+        console.log(
+            "[SAVE] Payload size:",
+            JSON.stringify(payload).length,
+            "bytes",
+        );
+
+        // Get auth headers
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // PUT request
+        const response = await fetch(
+            `https://tomato.tpos.vn/odata/SaleOnline_Order(${currentEditOrderId})`,
+            {
+                method: "PUT",
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                body: JSON.stringify(payload),
+            },
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("[SAVE] Error response:", errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        // Success
+        if (window.notificationManager && notifId) {
+            window.notificationManager.remove(notifId);
+            window.notificationManager.success("Đã lưu thành công!", 2000);
+        }
+
+        // Clear cache và reload data
+        window.cacheManager.clear("orders");
+        await fetchOrderData(currentEditOrderId);
+
+        console.log("[SAVE] Order saved successfully ✓");
     } catch (error) {
         console.error("[SAVE] Error:", error);
-        if (window.notificationManager)
-            window.notificationManager.error(`Lỗi khi lưu: ${error.message}`);
+
+        if (window.notificationManager) {
+            if (notifId) {
+                window.notificationManager.remove(notifId);
+            }
+            window.notificationManager.error(
+                `Lỗi khi lưu: ${error.message}`,
+                5000,
+            );
+        }
     }
+}
+
+// =====================================================
+// PREPARE PAYLOAD FOR PUT REQUEST
+// =====================================================
+function prepareOrderPayload(orderData) {
+    console.log("[PAYLOAD] Preparing payload for PUT request...");
+
+    // Clone dữ liệu để không ảnh hưởng original
+    const payload = JSON.parse(JSON.stringify(orderData));
+
+    // THÊM @odata.context
+    if (!payload["@odata.context"]) {
+        payload["@odata.context"] =
+            "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
+        console.log("[PAYLOAD] ✓ Added @odata.context");
+    }
+
+    // ✅ CRITICAL FIX: XỬ LÝ DETAILS ARRAY
+    if (payload.Details && Array.isArray(payload.Details)) {
+        payload.Details = payload.Details.map((detail, index) => {
+            const cleaned = { ...detail };
+
+            // ✅ XÓA Id nếu null/undefined
+            if (
+                !cleaned.Id ||
+                cleaned.Id === null ||
+                cleaned.Id === undefined
+            ) {
+                delete cleaned.Id;
+                console.log(
+                    `[PAYLOAD FIX] Detail[${index}]: Removed Id:null for ProductId:`,
+                    cleaned.ProductId,
+                );
+            } else {
+                console.log(
+                    `[PAYLOAD] Detail[${index}]: Keeping existing Id:`,
+                    cleaned.Id,
+                );
+            }
+
+            // Đảm bảo OrderId match
+            cleaned.OrderId = payload.Id;
+
+            return cleaned;
+        });
+    }
+
+    // Statistics
+    const newDetailsCount = payload.Details?.filter((d) => !d.Id).length || 0;
+    const existingDetailsCount =
+        payload.Details?.filter((d) => d.Id).length || 0;
+
+    const summary = {
+        orderId: payload.Id,
+        orderCode: payload.Code,
+        topLevelFields: Object.keys(payload).length,
+        detailsCount: payload.Details?.length || 0,
+        newDetails: newDetailsCount,
+        existingDetails: existingDetailsCount,
+        hasContext: !!payload["@odata.context"],
+        hasPartner: !!payload.Partner,
+        hasUser: !!payload.User,
+        hasCRMTeam: !!payload.CRMTeam,
+        hasRowVersion: !!payload.RowVersion,
+    };
+
+    console.log("[PAYLOAD] ✓ Payload prepared successfully:", summary);
+
+    // Validate critical fields
+    if (!payload.RowVersion) {
+        console.warn("[PAYLOAD] ⚠️ WARNING: Missing RowVersion!");
+    }
+    if (!payload["@odata.context"]) {
+        console.error("[PAYLOAD] ❌ ERROR: Missing @odata.context!");
+    }
+
+    // ✅ VALIDATION: Check for Id: null
+    const detailsWithNullId =
+        payload.Details?.filter(
+            (d) =>
+                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
+        ) || [];
+
+    if (detailsWithNullId.length > 0) {
+        console.error(
+            "[PAYLOAD] ❌ ERROR: Found details with null Id:",
+            detailsWithNullId,
+        );
+        throw new Error(
+            "Payload contains details with null Id - this will cause API error",
+        );
+    }
+
+    return payload;
 }
 
 // =====================================================
@@ -1067,6 +1197,30 @@ function hideInlineResults() {
     if (resultsDiv) resultsDiv.classList.remove("show");
 }
 
+// =====================================================
+// HIGHLIGHT PRODUCT ROW AFTER UPDATE
+// =====================================================
+function highlightProductRow(index) {
+    // Wait for DOM to update
+    setTimeout(() => {
+        const row = document.querySelector(
+            `#productsTableBody tr[data-index="${index}"]`,
+        );
+        if (!row) return;
+
+        // Add highlight class
+        row.classList.add("product-row-highlight");
+
+        // Scroll to the row
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Remove highlight after animation
+        setTimeout(() => {
+            row.classList.remove("product-row-highlight");
+        }, 2000);
+    }, 100);
+}
+
 async function addProductToOrderFromInline(productId) {
     let notificationId = null;
 
@@ -1109,41 +1263,80 @@ async function addProductToOrderFromInline(productId) {
             currentEditOrderData.Details = [];
         }
 
-        // Use == for type-agnostic comparison
+        // Check if product already exists in order
         const existingProductIndex = currentEditOrderData.Details.findIndex(
             (p) => p.ProductId == productId,
         );
 
         if (existingProductIndex > -1) {
-            // Product exists, just increase quantity
+            // Product exists - increase quantity
+            const existingProduct =
+                currentEditOrderData.Details[existingProductIndex];
+            const oldQty = existingProduct.Quantity || 0;
+            const newQty = oldQty + 1;
+
             updateProductQuantity(existingProductIndex, 1);
-            showSaveIndicator("success", "Đã tăng số lượng sản phẩm");
+
+            console.log(
+                `[INLINE ADD] Product already exists, increased quantity: ${oldQty} → ${newQty}`,
+            );
+
+            showSaveIndicator(
+                "success",
+                `${existingProduct.ProductNameGet || existingProduct.ProductName} (SL: ${oldQty} → ${newQty})`,
+            );
+
+            highlightProductRow(existingProductIndex);
         } else {
-            // Product does not exist, add it with full info
+            // ============================================
+            // QUAN TRỌNG: Product mới - THÊM ĐẦY ĐỦ COMPUTED FIELDS
+            // ============================================
             const newProduct = {
+                // ============================================
+                // REQUIRED FIELDS
+                // ============================================
+                // ✅ KHÔNG có Id: null cho sản phẩm mới
                 ProductId: fullProduct.Id,
-                ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
-                ProductName: fullProduct.Name || fullProduct.NameTemplate,
-                ProductNameGet: fullProduct.NameGet,
                 Quantity: 1,
                 Price:
                     fullProduct.PriceVariant ||
                     fullProduct.ListPrice ||
                     fullProduct.StandardPrice ||
                     0,
-                Note: "",
-                // Additional info from full response
-                UOM: fullProduct.UOM ? fullProduct.UOM.Name : "Cái",
-                Categ: fullProduct.Categ ? fullProduct.Categ.Name : "",
+                Note: null,
+                UOMId: fullProduct.UOM?.Id || 1,
+                Factor: 1,
+                Priority: 0,
+                OrderId: currentEditOrderData.Id,
+                LiveCampaign_DetailId: null,
+                ProductWeight: 0,
+
+                // ============================================
+                // COMPUTED FIELDS - PHẢI CÓ!
+                // ============================================
+                ProductName: fullProduct.Name || fullProduct.NameTemplate,
+                ProductNameGet:
+                    fullProduct.NameGet ||
+                    `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
+                UOMName: fullProduct.UOM?.Name || "Cái",
                 ImageUrl: fullProduct.ImageUrl,
-                Thumbnails: fullProduct.Thumbnails,
-                QtyAvailable: fullProduct.QtyAvailable || 0,
-                AttributeValues: fullProduct.AttributeValues || [],
+                IsOrderPriority: null,
+                QuantityRegex: null,
+                IsDisabledLiveCampaignDetail: false,
+
+                // Creator ID
+                CreatedById:
+                    currentEditOrderData.UserId ||
+                    currentEditOrderData.CreatedById,
             };
 
             currentEditOrderData.Details.push(newProduct);
             showSaveIndicator("success", "Đã thêm sản phẩm");
-            console.log("[INLINE ADD] Product added:", newProduct);
+            console.log(
+                "[INLINE ADD] Product added with computed fields:",
+                newProduct,
+            );
         }
 
         document.getElementById("inlineProductSearch").value = "";
@@ -1166,4 +1359,114 @@ async function addProductToOrderFromInline(productId) {
             alert("Lỗi: " + error.message);
         }
     }
+}
+
+// ============================================
+// 3. VALIDATION HELPER (Optional)
+// ============================================
+function validatePayloadBeforePUT(payload) {
+    const errors = [];
+
+    // Check @odata.context
+    if (!payload["@odata.context"]) {
+        errors.push("Missing @odata.context");
+    }
+
+    // Check required fields
+    if (!payload.Id) errors.push("Missing Id");
+    if (!payload.Code) errors.push("Missing Code");
+    if (!payload.RowVersion) errors.push("Missing RowVersion");
+
+    // Check Details
+    if (payload.Details && Array.isArray(payload.Details)) {
+        payload.Details.forEach((detail, index) => {
+            if (!detail.ProductId) {
+                errors.push(`Detail[${index}]: Missing ProductId`);
+            }
+
+            // Check computed fields (should exist for all products)
+            const requiredComputedFields = [
+                "ProductName",
+                "ProductCode",
+                "UOMName",
+            ];
+            requiredComputedFields.forEach((field) => {
+                if (!detail[field]) {
+                    errors.push(
+                        `Detail[${index}]: Missing computed field ${field}`,
+                    );
+                }
+            });
+        });
+    }
+
+    if (errors.length > 0) {
+        console.error("[VALIDATE] Payload validation errors:", errors);
+        return { valid: false, errors };
+    }
+
+    console.log("[VALIDATE] Payload is valid ✓");
+    return { valid: true, errors: [] };
+}
+
+// Debug payload trước khi gửi API
+function debugPayloadBeforeSend(payload) {
+    console.group("🔍 PAYLOAD DEBUG");
+
+    console.log("Order Info:", {
+        id: payload.Id,
+        code: payload.Code,
+        detailsCount: payload.Details?.length || 0,
+    });
+
+    if (payload.Details) {
+        console.log("\n📦 Details Analysis:");
+
+        const detailsWithId = payload.Details.filter((d) => d.Id);
+        const detailsWithoutId = payload.Details.filter((d) => !d.Id);
+        const detailsWithNullId = payload.Details.filter(
+            (d) =>
+                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
+        );
+
+        console.log(`  ✅ Details with valid Id: ${detailsWithId.length}`);
+        console.log(
+            `  ✅ Details without Id (new): ${detailsWithoutId.length}`,
+        );
+        console.log(
+            `  ${detailsWithNullId.length > 0 ? "❌" : "✅"} Details with null Id: ${detailsWithNullId.length}`,
+        );
+
+        if (detailsWithNullId.length > 0) {
+            console.error("\n❌ FOUND DETAILS WITH NULL ID:");
+            detailsWithNullId.forEach((d, i) => {
+                console.error(
+                    `  Detail[${i}]: ProductId=${d.ProductId}, Id=${d.Id}`,
+                );
+            });
+        }
+
+        console.log("\n📋 Details List:");
+        payload.Details.forEach((d, i) => {
+            console.log(
+                `  [${i}] ${d.Id ? "✅" : "🆕"} ProductId=${d.ProductId}, Id=${d.Id || "N/A"}`,
+            );
+        });
+    }
+
+    console.groupEnd();
+
+    // Return validation result
+    const hasNullIds =
+        payload.Details?.some(
+            (d) =>
+                d.hasOwnProperty("Id") && (d.Id === null || d.Id === undefined),
+        ) || false;
+
+    return {
+        valid: !hasNullIds,
+        message: hasNullIds
+            ? "Payload has details with null Id"
+            : "Payload is valid",
+    };
 }
