@@ -1,0 +1,40 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module"
+  },
+  "globals": {
+    "firebase": "readonly",
+    "FIREBASE_CONFIG": "writable",
+    "logger": "writable",
+    "eventManager": "writable",
+    "DOMUtils": "writable",
+    "OptimizationHelper": "writable",
+    "PersistentCacheManager": "writable",
+    "AuthManager": "writable",
+    "showFloatingAlert": "writable",
+    "showError": "writable",
+    "showSuccess": "writable",
+    "showLoading": "writable",
+    "hideFloatingAlert": "writable"
+  },
+  "rules": {
+    "no-console": "off",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-undef": "error",
+    "semi": ["error", "always"],
+    "quotes": ["warn", "single", { "avoidEscape": true }],
+    "indent": ["warn", 4],
+    "no-var": "warn",
+    "prefer-const": "warn",
+    "no-trailing-spaces": "warn",
+    "eqeqeq": ["warn", "always"],
+    "curly": ["warn", "all"],
+    "brace-style": ["warn", "1tbs"]
+  }
+}
