@@ -361,32 +361,124 @@
             let allOrdersData = [];
             let sessionRanges = []; // Array of {start, end, name}
 
+            // =====================================================
+            // DEBUG & IMPROVED DATA LOADING
+            // =====================================================
+            
+            console.log('[TAB2] Initializing Tab 2 Statistics...');
+
             // Listen for messages from parent (Tab 1)
             window.addEventListener('message', function(e) {
+                console.log('[TAB2] Received message:', e.data.type);
+                
                 if (e.data.type === 'FILTER_CHANGED' || e.data.type === 'FILTER_UPDATE' || e.data.type === 'FILTER_DATA') {
-                    handleDataFromTab1(e.data.filter);
+                    const filterData = e.data.filter || e.data.data;
+                    
+                    if (filterData) {
+                        console.log('[TAB2] Processing filter data:', {
+                            campaignName: filterData.campaignName,
+                            totalRecords: filterData.totalRecords,
+                            dataLength: filterData.data?.length
+                        });
+                        handleDataFromTab1(filterData);
+                    } else {
+                        console.warn('[TAB2] Message received but no filter data found');
+                    }
                 }
             });
 
+            // Monitor localStorage changes
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'tab1_filter_data' && e.newValue) {
+                    console.log('[TAB2] localStorage updated, refreshing data...');
+                    try {
+                        const data = JSON.parse(e.newValue);
+                        if (data.data && data.data.length > 0) {
+                            handleDataFromTab1(data);
+                        }
+                    } catch (error) {
+                        console.error('[TAB2] Error parsing storage event:', error);
+                    }
+                }
+            });
+
+            // Add manual refresh function
+            function addManualRefreshButton() {
+                const banner = document.getElementById('noFilterMessage');
+                if (!banner) return;
+                
+                // Check if button already exists
+                if (document.getElementById('manualRefreshBtn')) return;
+                
+                const refreshBtn = document.createElement('button');
+                refreshBtn.id = 'manualRefreshBtn';
+                refreshBtn.className = 'btn btn-primary';
+                refreshBtn.style.marginTop = '12px';
+                refreshBtn.innerHTML = '<i data-lucide="refresh-cw"></i><span>Tải lại dữ liệu</span>';
+                refreshBtn.onclick = () => {
+                    console.log('[TAB2] Manual refresh clicked');
+                    const storedFilter = localStorage.getItem('tab1_filter_data');
+                    if (storedFilter) {
+                        try {
+                            const data = JSON.parse(storedFilter);
+                            if (data.data && data.data.length > 0) {
+                                handleDataFromTab1(data);
+                                lucide.createIcons();
+                            } else {
+                                alert('Dữ liệu trong bộ nhớ trống. Vui lòng quay lại Tab 1 và bấm Tìm kiếm.');
+                            }
+                        } catch (error) {
+                            alert('Lỗi khi tải dữ liệu: ' + error.message);
+                        }
+                    } else {
+                        alert('Không tìm thấy dữ liệu trong bộ nhớ. Vui lòng quay lại Tab 1 và bấm Tìm kiếm.');
+                    }
+                };
+                
+                const content = banner.querySelector('div[style*="text-align: center"]');
+                if (content) {
+                    content.appendChild(refreshBtn);
+                }
+            }
+
             // Request data on load
             window.addEventListener('DOMContentLoaded', function() {
+                console.log('[TAB2] DOM Content Loaded');
+                
                 // Request from parent
                 if (window.parent && window.parent !== window) {
+                    console.log('[TAB2] Requesting data from parent window...');
                     window.parent.postMessage({ type: 'REQUEST_FILTER_DATA' }, '*');
                 }
                 
-                // Also check localStorage
-                const storedFilter = localStorage.getItem('tab1_filter_data');
-                if (storedFilter) {
-                    try {
-                        const filterData = JSON.parse(storedFilter);
-                        if (filterData.data && filterData.data.length > 0) {
-                            handleDataFromTab1(filterData);
+                // Also check localStorage after a short delay
+                setTimeout(() => {
+                    console.log('[TAB2] Checking localStorage for data...');
+                    const storedFilter = localStorage.getItem('tab1_filter_data');
+                    
+                    if (storedFilter) {
+                        try {
+                            const filterData = JSON.parse(storedFilter);
+                            console.log('[TAB2] Found data in localStorage:', {
+                                campaignName: filterData.campaignName,
+                                totalRecords: filterData.totalRecords,
+                                dataLength: filterData.data?.length
+                            });
+                            
+                            if (filterData.data && filterData.data.length > 0) {
+                                console.log('[TAB2] Loading data from localStorage...');
+                                handleDataFromTab1(filterData);
+                            } else {
+                                console.warn('[TAB2] Data in localStorage is empty');
+                            }
+                        } catch (error) {
+                            console.error('[TAB2] Error parsing stored filter:', error);
                         }
-                    } catch (error) {
-                        console.error('Error parsing stored filter:', error);
+                    } else {
+                        console.warn('[TAB2] No data found in localStorage');
+                        console.log('[TAB2] Please go to Tab 1 and click Search button');
                     }
-                }
+                }, 1000);
 
                 // Event listeners
                 document.getElementById('exportExcelBtn')?.addEventListener('click', exportToExcel);
@@ -411,17 +503,46 @@
                     }
                 });
 
+                // Add manual refresh button
+                addManualRefreshButton();
+
                 lucide.createIcons();
             });
 
             function handleDataFromTab1(filterData) {
+                console.log('[TAB2] handleDataFromTab1 called');
+                
                 try {
-                    console.log('Received data from Tab 1:', filterData);
-                    
-                    if (!filterData || !filterData.data || filterData.data.length === 0) {
-                        console.warn('No data received');
+                    // Validate input
+                    if (!filterData) {
+                        console.error('[TAB2] filterData is null or undefined');
+                        showErrorMessage('Không nhận được dữ liệu từ Tab 1');
                         return;
                     }
+                    
+                    if (!filterData.data) {
+                        console.error('[TAB2] filterData.data is missing');
+                        showErrorMessage('Dữ liệu không hợp lệ');
+                        return;
+                    }
+                    
+                    if (!Array.isArray(filterData.data)) {
+                        console.error('[TAB2] filterData.data is not an array:', typeof filterData.data);
+                        showErrorMessage('Định dạng dữ liệu không đúng');
+                        return;
+                    }
+                    
+                    if (filterData.data.length === 0) {
+                        console.warn('[TAB2] filterData.data is empty array');
+                        showEmptyDataMessage('Không có dữ liệu để hiển thị');
+                        return;
+                    }
+                    
+                    console.log('[TAB2] Processing data:', {
+                        campaignName: filterData.campaignName,
+                        totalRecords: filterData.totalRecords,
+                        dataLength: filterData.data.length
+                    });
 
                     allOrdersData = filterData.data;
 
@@ -430,11 +551,11 @@
                     document.getElementById('noFilterMessage').style.display = 'none';
 
                     document.getElementById('infoCampaignName').textContent = filterData.campaignName || '-';
-                    document.getElementById('infoTotalRecords').textContent = filterData.totalRecords || 0;
+                    document.getElementById('infoTotalRecords').textContent = (filterData.totalRecords || allOrdersData.length).toLocaleString('vi-VN');
 
                     const now = new Date();
                     document.getElementById('lastSyncTime').textContent = 
-                        `Đồng bộ lúc ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                        `Đồng bộ lúc ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
                     // Populate user filter
                     populateUserFilter(allOrdersData);
@@ -447,8 +568,39 @@
 
                     // Reinitialize icons
                     lucide.createIcons();
+                    
+                    console.log('[TAB2] Data processed successfully, tables rendered');
                 } catch (error) {
-                    console.error('Error handling data:', error);
+                    console.error('[TAB2] Error handling data:', error);
+                    showErrorMessage('Lỗi khi xử lý dữ liệu: ' + error.message);
+                }
+            }
+            
+            function showErrorMessage(message) {
+                const banner = document.getElementById('filterInfoBanner');
+                const noDataMsg = document.getElementById('noFilterMessage');
+                
+                banner.style.display = 'none';
+                noDataMsg.style.display = 'block';
+                
+                const msgContent = noDataMsg.querySelector('p');
+                if (msgContent) {
+                    msgContent.textContent = message;
+                    msgContent.style.color = '#ef4444';
+                }
+            }
+            
+            function showEmptyDataMessage(message) {
+                const banner = document.getElementById('filterInfoBanner');
+                const noDataMsg = document.getElementById('noFilterMessage');
+                
+                banner.style.display = 'none';
+                noDataMsg.style.display = 'block';
+                
+                const msgContent = noDataMsg.querySelector('p');
+                if (msgContent) {
+                    msgContent.textContent = message;
+                    msgContent.style.color = '#f59e0b';
                 }
             }
 

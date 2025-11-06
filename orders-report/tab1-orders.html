@@ -13,6 +13,7 @@
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
         <link rel="stylesheet" href="tab1-orders.css" />
+        <link rel="stylesheet" href="message-template-modal.css" />
 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     </head>
@@ -66,6 +67,63 @@
                     Xóa Cache
                 </button>
             </div>
+
+            <!-- Action Buttons Section (New) -->
+            <div class="action-buttons-section" style="padding: 16px 24px; display: none; gap: 12px; flex-wrap: wrap;" id="actionButtonsSection">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span style="color: #6b7280; font-size: 13px; font-weight: 500;">
+                        <span id="selectedOrdersCount">0</span> đơn được chọn
+                    </span>
+                </div>
+                <button 
+                    class="btn-message-action" 
+                    id="sendMessageBtn"
+                    onclick="openMessageTemplateModal()"
+                    style="
+                        padding: 10px 20px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s;
+                    "
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.3)';"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+                >
+                    <i class="fab fa-facebook-messenger"></i>
+                    Gửi tin nhắn
+                </button>
+                <button 
+                    class="btn-message-action" 
+                    id="sendOrderConfirmBtn"
+                    style="
+                        padding: 10px 20px;
+                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s;
+                    "
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.3)';"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+                >
+                    <i class="fas fa-paper-plane"></i>
+                    Gửi lại tin chốt đơn
+                </button>
+            </div>
+
             <!-- Stats Bar -->
             <div class="stats-bar" id="statsBar" style="display: none">
                 <div class="stats-item">
@@ -138,12 +196,13 @@
                                 <th>SL</th>
                                 <th>Ngày tạo</th>
                                 <th>Trạng thái</th>
+                                <th>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="tableBody">
                             <tr>
                                 <td
-                                    colspan="11"
+                                    colspan="12"
                                     style="text-align: center; padding: 40px"
                                 >
                                     Vui lòng chọn chiến dịch và bấm Tìm kiếm
@@ -216,9 +275,61 @@
         <script src="cache.js"></script>
         <script src="auth.js"></script>
         <script src="notification-system.js"></script>
+        <script src="message-template-manager.js"></script>
         <script src="product-search-manager.js"></script>
         <script src="search-functions.js"></script>
         <script src="tab1-orders.js"></script>
+        
+        <!-- Additional Script for Checkbox Handling -->
+        <script>
+            // Handle checkbox selection
+            document.addEventListener('DOMContentLoaded', function() {
+                const selectAllCheckbox = document.getElementById('selectAll');
+                const actionButtonsSection = document.getElementById('actionButtonsSection');
+                const selectedCountSpan = document.getElementById('selectedOrdersCount');
+
+                function updateActionButtons() {
+                    const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+                    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+                    
+                    if (checkedCount > 0) {
+                        actionButtonsSection.style.display = 'flex';
+                        selectedCountSpan.textContent = checkedCount;
+                    } else {
+                        actionButtonsSection.style.display = 'none';
+                    }
+                }
+
+                // Select All
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.addEventListener('change', function() {
+                        const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+                        checkboxes.forEach(cb => {
+                            cb.checked = this.checked;
+                        });
+                        updateActionButtons();
+                    });
+                }
+
+                // Individual checkbox change
+                document.addEventListener('change', function(e) {
+                    if (e.target.matches('tbody input[type="checkbox"]')) {
+                        updateActionButtons();
+                        
+                        // Update select all checkbox state
+                        const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+                        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                        const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+                        
+                        if (selectAllCheckbox) {
+                            selectAllCheckbox.checked = allChecked;
+                            selectAllCheckbox.indeterminate = someChecked && !allChecked;
+                        }
+                    }
+                });
+            });
+        </script>
+
         <!-- Save Indicator -->
         <div class="save-indicator" id="saveIndicator">
             <i class="fas fa-check-circle"></i>
