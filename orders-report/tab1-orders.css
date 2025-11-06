@@ -2017,3 +2017,375 @@ button[onclick*="showAddProductForm"] {
 #searchResults::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
 }
+
+/* =====================================================
+   TIMELINE STYLES FOR HISTORY TAB
+   ===================================================== */
+
+.history-timeline {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f3f4f6;
+}
+
+.timeline-header h4 {
+    margin: 0;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timeline-count {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.timeline-content {
+    position: relative;
+    padding-left: 40px;
+}
+
+.timeline-content::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #e5e7eb 0%, #f3f4f6 100%);
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+    animation: fadeInUp 0.4s ease-out;
+}
+
+.timeline-item:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-item-latest .timeline-card {
+    border-left: 3px solid #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -28px;
+    top: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 2;
+}
+
+.timeline-marker i {
+    font-size: 16px;
+}
+
+.timeline-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-left: 20px;
+    transition: all 0.2s ease;
+}
+
+.timeline-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateX(4px);
+}
+
+.timeline-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.timeline-action {
+    font-weight: 600;
+    color: #111827;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.timeline-user {
+    color: #6b7280;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.timeline-user i {
+    font-size: 11px;
+}
+
+.timeline-date {
+    color: #9ca3af;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.timeline-date i {
+    font-size: 11px;
+}
+
+.timeline-details {
+    margin-top: 8px;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #374151;
+    border-left: 3px solid #e5e7eb;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =====================================================
+   PAYMENT STATUS BADGES
+   ===================================================== */
+
+.status-badge-paid {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white !important;
+}
+
+.status-badge-partial {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white !important;
+}
+
+.status-badge-unpaid {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white !important;
+}
+
+.status-badge-large {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* =====================================================
+   RESPONSIVE TIMELINE
+   ===================================================== */
+
+@media (max-width: 768px) {
+    .timeline-content {
+        padding-left: 32px;
+    }
+    
+    .timeline-marker {
+        left: -24px;
+        width: 32px;
+        height: 32px;
+    }
+    
+    .timeline-marker i {
+        font-size: 14px;
+    }
+    
+    .timeline-card {
+        margin-left: 12px;
+    }
+    
+    .timeline-card-header {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .timeline-date {
+        align-self: flex-start;
+    }
+}
+
+
+/* =====================================================
+   AUDIT LOG ENHANCEMENTS
+   ===================================================== */
+
+.action-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.action-code {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: monospace;
+    color: #6b7280;
+}
+
+.timeline-meta {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.timeline-meta i {
+    font-size: 10px;
+}
+
+/* Change highlighting in audit descriptions */
+.change-from {
+    color: #ef4444;
+    font-weight: 600;
+    background: #fef2f2;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.change-to {
+    color: #10b981;
+    font-weight: 600;
+    background: #f0fdf4;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* Audit summary section */
+.audit-summary {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 20px;
+    border: 1px solid #e5e7eb;
+}
+
+.audit-summary h4 {
+    margin: 0 0 16px 0;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.audit-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+}
+
+.audit-stat-item {
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    padding: 16px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid #e5e7eb;
+}
+
+.audit-stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+}
+
+.audit-stat-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* Loading state enhancement */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 12px;
+}
+
+.loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #f3f4f6;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+.loading-text {
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive audit log */
+@media (max-width: 768px) {
+    .audit-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .audit-stat-value {
+        font-size: 24px;
+    }
+}
+

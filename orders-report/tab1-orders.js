@@ -29,14 +29,16 @@ window.addEventListener("DOMContentLoaded", async function () {
         window.cacheManager.clear("campaigns");
     }
 
-    await loadCampaignList();
-
-    // Set default dates (last 30 days)
+    // ⚠️ QUAN TRỌNG: Set default dates TRƯỚC KHI load campaigns
+    // Vì auto-load cần dates để fetch orders
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     document.getElementById("endDate").value = formatDateTimeLocal(now);
     document.getElementById("startDate").value =
         formatDateTimeLocal(thirtyDaysAgo);
+
+    // Bây giờ mới load campaigns (sẽ trigger auto-load với dates đã có sẵn)
+    await loadCampaignList();
 
     // Event listeners
     document
@@ -263,20 +265,33 @@ async function saveOrderTags() {
                 `HTTP ${response.status}: ${await response.text()}`,
             );
 
-        const order = allData.find((o) => o.Id === currentEditingOrderId);
-        if (order) order.Tags = JSON.stringify(currentOrderTags);
-
-        renderTable();
+        // 🔄 Cập nhật tags trong data
+        const updatedData = { Tags: JSON.stringify(currentOrderTags) };
+        updateOrderInTable(currentEditingOrderId, updatedData);
+        
         window.cacheManager.clear("orders");
         showLoading(false);
         closeTagModal();
-        showInfoBanner(
-            `✅ Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`,
-        );
+        
+        if (window.notificationManager) {
+            window.notificationManager.success(
+                `Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`,
+                2000
+            );
+        } else {
+            showInfoBanner(
+                `✅ Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`,
+            );
+        }
     } catch (error) {
         console.error("[TAG] Error saving tags:", error);
         showLoading(false);
-        alert(`Lỗi khi lưu tag:\n${error.message}`);
+        
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi khi lưu tag: ${error.message}`, 4000);
+        } else {
+            alert(`Lỗi khi lưu tag:\n${error.message}`);
+        }
     }
 }
 
@@ -361,7 +376,19 @@ function formatDateTimeLocal(date) {
 }
 
 function convertToUTC(dateTimeLocal) {
-    return new Date(dateTimeLocal).toISOString();
+    if (!dateTimeLocal) {
+        console.error("[DATE] Empty date value provided to convertToUTC");
+        throw new Error("Date value is required");
+    }
+    
+    const date = new Date(dateTimeLocal);
+    
+    if (isNaN(date.getTime())) {
+        console.error("[DATE] Invalid date value:", dateTimeLocal);
+        throw new Error(`Invalid date value: ${dateTimeLocal}`);
+    }
+    
+    return date.toISOString();
 }
 
 async function loadCampaignList() {
@@ -394,16 +421,20 @@ async function loadCampaignList() {
         const campaigns = Array.from(campaignMap.values()).sort(
             (a, b) => new Date(b.latestDate) - new Date(a.latestDate),
         );
-        populateCampaignFilter(campaigns);
+        
+        showLoading(false);
+        
+        // 🎯 TỰ ĐỘNG populate và load data
+        await populateCampaignFilter(campaigns);
+        
     } catch (error) {
         console.error("Error loading campaigns:", error);
-        alert("Lỗi khi tải danh sách chiến dịch: " + error.message);
-    } finally {
         showLoading(false);
+        alert("Lỗi khi tải danh sách chiến dịch: " + error.message);
     }
 }
 
-function populateCampaignFilter(campaigns) {
+async function populateCampaignFilter(campaigns) {
     const select = document.getElementById("campaignFilter");
     select.innerHTML = '<option value="">-- Chọn chiến dịch --</option>';
     campaigns.forEach((campaign) => {
@@ -413,9 +444,26 @@ function populateCampaignFilter(campaigns) {
         option.dataset.campaign = JSON.stringify(campaign);
         select.appendChild(option);
     });
+    
     if (campaigns.length > 0) {
+        // Tự động chọn chiến dịch đầu tiên
         select.value = campaigns[0].campaignId;
         handleCampaignChange();
+        
+        // 🎯 TỰ ĐỘNG TẢI DỮ LIỆU NGAY LẬP TỨC
+        console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
+        
+        // Hiển thị thông báo đang tải
+        if (window.notificationManager) {
+            window.notificationManager.info(
+                `Đang tải dữ liệu chiến dịch: ${campaigns[0].displayName}`,
+                2000,
+                'Tự động tải'
+            );
+        }
+        
+        // Tự động gọi handleSearch để load dữ liệu
+        await handleSearch();
     }
 }
 
@@ -432,6 +480,16 @@ async function handleSearch() {
         alert("Vui lòng chọn chiến dịch");
         return;
     }
+    
+    // Validate dates
+    const startDateValue = document.getElementById("startDate").value;
+    const endDateValue = document.getElementById("endDate").value;
+    
+    if (!startDateValue || !endDateValue) {
+        alert("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
+        return;
+    }
+    
     window.cacheManager.clear("orders");
     searchQuery = "";
     document.getElementById("tableSearchInput").value = "";
@@ -491,7 +549,22 @@ async function fetchOrders() {
         sendDataToTab2();
     } catch (error) {
         console.error("Error fetching data:", error);
-        alert("Lỗi khi tải dữ liệu: " + error.message);
+        
+        // Better error messages
+        let errorMessage = "Lỗi khi tải dữ liệu: ";
+        if (error.message.includes("Invalid date")) {
+            errorMessage += "Ngày tháng không hợp lệ. Vui lòng kiểm tra lại khoảng thời gian.";
+        } else if (error.message.includes("Date value is required")) {
+            errorMessage += "Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày).";
+        } else {
+            errorMessage += error.message;
+        }
+        
+        if (window.notificationManager) {
+            window.notificationManager.error(errorMessage, 4000);
+        } else {
+            alert(errorMessage);
+        }
     } finally {
         showLoading(false);
     }
@@ -500,6 +573,67 @@ async function fetchOrders() {
 // =====================================================
 // RENDERING & UI UPDATES
 // =====================================================
+
+// 🔄 CẬP NHẬT ORDER TRONG BẢNG SAU KHI SAVE
+function updateOrderInTable(orderId, updatedOrderData) {
+    console.log('[UPDATE] Updating order in table:', orderId);
+    
+    // 1. Tìm và cập nhật trong allData
+    const indexInAll = allData.findIndex(order => order.Id === orderId);
+    if (indexInAll !== -1) {
+        allData[indexInAll] = { ...allData[indexInAll], ...updatedOrderData };
+        console.log('[UPDATE] Updated in allData at index:', indexInAll);
+    }
+    
+    // 2. Tìm và cập nhật trong filteredData
+    const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
+    if (indexInFiltered !== -1) {
+        filteredData[indexInFiltered] = { ...filteredData[indexInFiltered], ...updatedOrderData };
+        console.log('[UPDATE] Updated in filteredData at index:', indexInFiltered);
+    }
+    
+    // 3. Tìm và cập nhật trong displayedData
+    const indexInDisplayed = displayedData.findIndex(order => order.Id === orderId);
+    if (indexInDisplayed !== -1) {
+        displayedData[indexInDisplayed] = { ...displayedData[indexInDisplayed], ...updatedOrderData };
+        console.log('[UPDATE] Updated in displayedData at index:', indexInDisplayed);
+    }
+    
+    // 4. Re-render bảng để hiển thị thay đổi
+    renderTable();
+    
+    // 5. Cập nhật stats (nếu tổng tiền thay đổi)
+    updateStats();
+    
+    // 6. Highlight row vừa được cập nhật
+    highlightUpdatedRow(orderId);
+    
+    console.log('[UPDATE] ✓ Table updated successfully');
+}
+
+// 🌟 HIGHLIGHT ROW VỪA CẬP NHẬT
+function highlightUpdatedRow(orderId) {
+    setTimeout(() => {
+        // Tìm row trong bảng
+        const rows = document.querySelectorAll('#tableBody tr');
+        rows.forEach(row => {
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.value === orderId) {
+                // Thêm class highlight
+                row.classList.add('product-row-highlight');
+                
+                // Scroll vào view (nếu cần)
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Remove highlight sau 2 giây
+                setTimeout(() => {
+                    row.classList.remove('product-row-highlight');
+                }, 2000);
+            }
+        });
+    }, 100);
+}
+
 function renderTable() {
     const tbody = document.getElementById("tableBody");
     if (displayedData.length === 0) {
@@ -849,13 +983,314 @@ function renderDeliveryTab(data) {
     return `<div class="empty-state"><p>Thông tin giao hàng</p></div>`;
 }
 function renderLiveTab(data) {
-    return `<div class="empty-state"><p>Lịch sử đơn live</p></div>`;
+    // Display live stream information if available
+    const liveInfo = data.CRMTeam || {};
+    const hasLiveInfo = liveInfo && liveInfo.Name;
+    
+    if (!hasLiveInfo) {
+        return `
+            <div class="empty-state">
+                <i class="fas fa-video" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+                <p style="color: #6b7280; margin-bottom: 8px;">Không có thông tin chiến dịch live</p>
+                <p style="color: #9ca3af; font-size: 13px;">Đơn hàng này chưa được liên kết với chiến dịch live nào</p>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="info-card">
+            <h4><i class="fas fa-video"></i> Thông tin Livestream</h4>
+            <div class="info-grid">
+                <div class="info-field">
+                    <div class="info-label">Tên chiến dịch</div>
+                    <div class="info-value highlight">${liveInfo.Name || 'N/A'}</div>
+                </div>
+                <div class="info-field">
+                    <div class="info-label">Mã chiến dịch</div>
+                    <div class="info-value">${liveInfo.Code || 'N/A'}</div>
+                </div>
+                ${liveInfo.Description ? `
+                <div class="info-field" style="grid-column: 1 / -1;">
+                    <div class="info-label">Mô tả</div>
+                    <div class="info-value">${liveInfo.Description}</div>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+        <div class="info-card">
+            <h4><i class="fas fa-info-circle"></i> Thông tin bổ sung</h4>
+            <div class="info-grid">
+                <div class="info-field">
+                    <div class="info-label">Người phụ trách</div>
+                    <div class="info-value">${data.User?.Name || 'N/A'}</div>
+                </div>
+                <div class="info-field">
+                    <div class="info-label">Thời gian tạo đơn</div>
+                    <div class="info-value">${data.CreatedDate ? new Date(data.CreatedDate).toLocaleString('vi-VN') : 'N/A'}</div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 function renderInvoicesTab(data) {
-    return `<div class="empty-state"><p>Lịch sử hóa đơn</p></div>`;
+    // Display invoice/payment information
+    const hasInvoice = data.InvoiceNumber || data.InvoiceDate;
+    
+    return `
+        <div class="info-card">
+            <h4><i class="fas fa-file-invoice-dollar"></i> Thông tin hóa đơn & thanh toán</h4>
+            <div class="info-grid">
+                <div class="info-field">
+                    <div class="info-label">Số hóa đơn</div>
+                    <div class="info-value highlight">${data.InvoiceNumber || 'Chưa xuất hóa đơn'}</div>
+                </div>
+                <div class="info-field">
+                    <div class="info-label">Ngày xuất hóa đơn</div>
+                    <div class="info-value">${data.InvoiceDate ? new Date(data.InvoiceDate).toLocaleString('vi-VN') : 'N/A'}</div>
+                </div>
+                <div class="info-field">
+                    <div class="info-label">Tổng tiền</div>
+                    <div class="info-value highlight" style="color: #059669; font-weight: 700;">
+                        ${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ
+                    </div>
+                </div>
+                <div class="info-field">
+                    <div class="info-label">Đã thanh toán</div>
+                    <div class="info-value" style="color: ${data.PaidAmount > 0 ? '#059669' : '#6b7280'};">
+                        ${(data.PaidAmount || 0).toLocaleString('vi-VN')}đ
+                    </div>
+                </div>
+                <div class="info-field">
+                    <div class="info-label">Còn lại</div>
+                    <div class="info-value" style="color: ${(data.TotalAmount - (data.PaidAmount || 0)) > 0 ? '#ef4444' : '#059669'};">
+                        ${((data.TotalAmount || 0) - (data.PaidAmount || 0)).toLocaleString('vi-VN')}đ
+                    </div>
+                </div>
+                <div class="info-field">
+                    <div class="info-label">Trạng thái thanh toán</div>
+                    <div class="info-value">
+                        <span class="status-badge-large ${
+                            data.PaidAmount >= data.TotalAmount ? 'status-badge-paid' : 
+                            data.PaidAmount > 0 ? 'status-badge-partial' : 'status-badge-unpaid'
+                        }">
+                            ${
+                                data.PaidAmount >= data.TotalAmount ? 'Đã thanh toán' : 
+                                data.PaidAmount > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán'
+                            }
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        ${data.PaymentMethod ? `
+        <div class="info-card">
+            <h4><i class="fas fa-credit-card"></i> Phương thức thanh toán</h4>
+            <div class="info-grid">
+                <div class="info-field">
+                    <div class="info-label">Phương thức</div>
+                    <div class="info-value">${data.PaymentMethod}</div>
+                </div>
+                ${data.PaymentNote ? `
+                <div class="info-field" style="grid-column: 1 / -1;">
+                    <div class="info-label">Ghi chú thanh toán</div>
+                    <div class="info-value">${data.PaymentNote}</div>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${!hasInvoice ? `
+        <div class="empty-state">
+            <i class="fas fa-file-invoice" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+            <p style="color: #9ca3af; font-size: 13px;">Đơn hàng chưa có hóa đơn chi tiết</p>
+        </div>
+        ` : ''}
+    `;
 }
-function renderHistoryTab(data) {
-    return `<div class="empty-state"><p>Lịch sử chỉnh sửa</p></div>`;
+async function renderHistoryTab(data) {
+    // Show loading state initially
+    const loadingHTML = `
+        <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Đang tải lịch sử chỉnh sửa...</div>
+        </div>
+    `;
+    
+    // Return loading first, then fetch data
+    setTimeout(async () => {
+        try {
+            await fetchAndDisplayAuditLog(data.Id);
+        } catch (error) {
+            console.error('[AUDIT LOG] Error fetching audit log:', error);
+            document.getElementById('editModalBody').innerHTML = `
+                <div class="empty-state" style="color: #ef4444;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <p>Không thể tải lịch sử chỉnh sửa</p>
+                    <p style="font-size: 13px; color: #6b7280;">${error.message}</p>
+                    <button class="btn-primary" style="margin-top: 16px;" onclick="switchEditTab('history')">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                </div>
+            `;
+        }
+    }, 100);
+    
+    return loadingHTML;
+}
+
+async function fetchAndDisplayAuditLog(orderId) {
+    const headers = await window.tokenManager.getAuthHeader();
+    const apiUrl = `https://tomato.tpos.vn/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
+    
+    console.log('[AUDIT LOG] Fetching audit log for order:', orderId);
+    
+    const response = await fetch(apiUrl, {
+        headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const auditData = await response.json();
+    console.log('[AUDIT LOG] Received audit log:', auditData);
+    
+    // Display the audit log
+    document.getElementById('editModalBody').innerHTML = renderAuditLogTimeline(auditData.value || []);
+}
+
+function renderAuditLogTimeline(auditLogs) {
+    if (auditLogs.length === 0) {
+        return `
+            <div class="empty-state">
+                <i class="fas fa-history" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+                <p style="color: #6b7280; margin-bottom: 8px;">Chưa có lịch sử chỉnh sửa</p>
+                <p style="color: #9ca3af; font-size: 13px;">Các thay đổi trên đơn hàng sẽ được ghi lại tại đây</p>
+            </div>
+        `;
+    }
+    
+    // Map action to icon and color
+    const actionConfig = {
+        'CREATE': { icon: 'plus-circle', color: '#3b82f6', label: 'Tạo mới' },
+        'UPDATE': { icon: 'edit', color: '#8b5cf6', label: 'Cập nhật' },
+        'DELETE': { icon: 'trash', color: '#ef4444', label: 'Xóa' },
+        'APPROVE': { icon: 'check-circle', color: '#10b981', label: 'Phê duyệt' },
+        'REJECT': { icon: 'x-circle', color: '#ef4444', label: 'Từ chối' }
+    };
+    
+    return `
+        <div class="history-timeline">
+            <div class="timeline-header">
+                <h4><i class="fas fa-history"></i> Lịch sử thay đổi</h4>
+                <span class="timeline-count">${auditLogs.length} thay đổi</span>
+            </div>
+            <div class="timeline-content">
+                ${auditLogs.map((log, index) => {
+                    const config = actionConfig[log.Action] || { icon: 'circle', color: '#6b7280', label: log.Action };
+                    const date = new Date(log.DateCreated);
+                    const description = formatAuditDescription(log.Description);
+                    
+                    return `
+                        <div class="timeline-item ${index === 0 ? 'timeline-item-latest' : ''}">
+                            <div class="timeline-marker" style="background: ${config.color};">
+                                <i class="fas fa-${config.icon}"></i>
+                            </div>
+                            <div class="timeline-card">
+                                <div class="timeline-card-header">
+                                    <div>
+                                        <div class="timeline-action">
+                                            <span class="action-badge" style="background: ${config.color};">${config.label}</span>
+                                            ${log.Code ? `<span class="action-code">${log.Code}</span>` : ''}
+                                        </div>
+                                        <div class="timeline-user">
+                                            <i class="fas fa-user"></i> ${log.UserName || 'Hệ thống'}
+                                        </div>
+                                    </div>
+                                    <div class="timeline-date">
+                                        <i class="fas fa-clock"></i>
+                                        ${date.toLocaleString('vi-VN', { 
+                                            day: '2-digit', 
+                                            month: '2-digit', 
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </div>
+                                </div>
+                                ${description ? `
+                                <div class="timeline-details">
+                                    ${description}
+                                </div>
+                                ` : ''}
+                                ${log.TransactionId ? `
+                                <div class="timeline-meta">
+                                    <i class="fas fa-fingerprint"></i>
+                                    <span style="font-family: monospace; font-size: 11px; color: #9ca3af;">
+                                        ${log.TransactionId.substring(0, 8)}...
+                                    </span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+        
+        <div class="audit-summary">
+            <h4><i class="fas fa-chart-bar"></i> Thống kê</h4>
+            <div class="audit-stats">
+                <div class="audit-stat-item">
+                    <div class="audit-stat-value">${auditLogs.length}</div>
+                    <div class="audit-stat-label">Tổng thay đổi</div>
+                </div>
+                <div class="audit-stat-item">
+                    <div class="audit-stat-value">${[...new Set(auditLogs.map(l => l.UserName))].length}</div>
+                    <div class="audit-stat-label">Người chỉnh sửa</div>
+                </div>
+                <div class="audit-stat-item">
+                    <div class="audit-stat-value">
+                        ${auditLogs.length > 0 ? new Date(auditLogs[0].DateCreated).toLocaleDateString('vi-VN') : 'N/A'}
+                    </div>
+                    <div class="audit-stat-label">Cập nhật cuối</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function formatAuditDescription(description) {
+    if (!description) return '';
+    
+    // Replace \r\n with <br> and format the text
+    let formatted = description
+        .replace(/\r\n/g, '<br>')
+        .replace(/\n/g, '<br>');
+    
+    // Highlight changes with arrows (=>)
+    formatted = formatted.replace(/(\d+(?:,\d+)*(?:\.\d+)?)\s*=>\s*(\d+(?:,\d+)*(?:\.\d+)?)/g, 
+        '<span class="change-from">$1</span> <i class="fas fa-arrow-right" style="color: #6b7280; font-size: 10px;"></i> <span class="change-to">$2</span>');
+    
+    // Highlight product codes and names (e.g., "0610 A3 ÁO TN HT")
+    formatted = formatted.replace(/(\d{4}\s+[A-Z0-9]+\s+[^:]+):/g, 
+        '<strong style="color: #3b82f6;">$1</strong>:');
+    
+    // Highlight "Thêm chi tiết"
+    formatted = formatted.replace(/Thêm chi tiết/g, 
+        '<span style="color: #10b981; font-weight: 600;"><i class="fas fa-plus-circle"></i> Thêm chi tiết</span>');
+    
+    // Highlight "Xóa chi tiết"  
+    formatted = formatted.replace(/Xóa chi tiết/g, 
+        '<span style="color: #ef4444; font-weight: 600;"><i class="fas fa-minus-circle"></i> Xóa chi tiết</span>');
+    
+    return formatted;
 }
 
 function showErrorState(message) {
@@ -1024,9 +1459,12 @@ async function saveAllOrderChanges() {
             window.notificationManager.success("Đã lưu thành công!", 2000);
         }
 
-        // Clear cache và reload data
+        // Clear cache và reload data từ API
         window.cacheManager.clear("orders");
         await fetchOrderData(currentEditOrderId);
+        
+        // 🔄 CẬP NHẬT BẢNG CHÍNH VỚI DỮ LIỆU MỚI
+        updateOrderInTable(currentEditOrderId, currentEditOrderData);
         
         // 🔄 Refresh inline search UI after save and reload
         refreshInlineSearchUI();
