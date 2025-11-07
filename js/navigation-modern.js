@@ -445,7 +445,7 @@ class UnifiedNavigationManager {
         const topBar = document.createElement("div");
         topBar.className = "mobile-top-bar";
 
-        const userInfo = authManager.getAuthState();
+        const userInfo = authManager.getUserInfo();
         const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
         const checkLogin = localStorage.getItem("checkLogin");
         const roleName = roleMap[checkLogin] || "User";
@@ -864,7 +864,7 @@ class UnifiedNavigationManager {
     // =====================================================
 
     updateUserInfo() {
-        const userInfo = authManager.getAuthState();
+        const userInfo = authManager.getUserInfo();
         if (!userInfo) return;
 
         const userName = document.getElementById("userName");
@@ -1969,7 +1969,7 @@ class UnifiedNavigationManager {
 
     showPermissionsSummary() {
         const accessiblePages = this.getAccessiblePages();
-        const userInfo = authManager.getAuthState();
+        const userInfo = authManager.getUserInfo();
 
         const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
         const checkLogin = localStorage.getItem("checkLogin");
