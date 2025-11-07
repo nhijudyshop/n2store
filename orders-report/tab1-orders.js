@@ -1347,10 +1347,10 @@ function removeProduct(index) {
     )
         return;
     currentEditOrderData.Details.splice(index, 1);
-    renderTabContent("products");
+    switchEditTab("products");
     recalculateTotals();
     showSaveIndicator("success", "Đã xóa sản phẩm");
-    
+
     // 🔄 Refresh inline search UI to remove green highlight and badge
     refreshInlineSearchUI();
 }
@@ -1373,16 +1373,16 @@ function saveProductDetail(index) {
     const product = currentEditOrderData.Details[index];
     product.Price =
         parseInt(document.getElementById(`price-edit-${index}`).value, 10) || 0;
-    renderTabContent("products");
+    switchEditTab("products");
     recalculateTotals();
     showSaveIndicator("success", "Giá đã cập nhật");
-    
+
     // 🔄 Refresh inline search UI (in case price affects display)
     refreshInlineSearchUI();
 }
 
 function cancelProductDetail() {
-    renderTabContent("products");
+    switchEditTab("products");
 }
 
 function recalculateTotals() {
@@ -1972,8 +1972,9 @@ async function addProductToOrderFromInline(productId) {
             // Select text để user có thể tiếp tục search hoặc giữ nguyên
             searchInput.select();
         }
-        
-        renderTabContent("products");
+
+        // ✅ FIX: Use switchEditTab instead of renderTabContent to re-init event listeners
+        switchEditTab("products");
         recalculateTotals();
     } catch (error) {
         console.error("[INLINE ADD] Error:", error);
