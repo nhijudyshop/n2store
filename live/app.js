@@ -30,84 +30,10 @@ const firebaseConfig = {
 };
 
 // =====================================================
-// AUTH MANAGER
+// AUTH MANAGER - Using Shared AuthManager from core-loader.js
 // =====================================================
-class AuthManager {
-    constructor() {
-        this.currentUser = null;
-        this.init();
-    }
-
-    init() {
-        try {
-            const authData = localStorage.getItem(AUTH_STORAGE_KEY);
-            if (authData) {
-                const auth = JSON.parse(authData);
-                if (this.isValidSession(auth)) {
-                    this.currentUser = auth;
-                    return true;
-                }
-            }
-        } catch (error) {
-            console.error("Error reading auth:", error);
-            this.clearAuth();
-        }
-        return false;
-    }
-
-    isValidSession(auth) {
-        if (!auth.isLoggedIn || !auth.userType || auth.checkLogin === undefined)
-            return false;
-        if (
-            auth.timestamp &&
-            Date.now() - auth.timestamp > CONFIG.SESSION_TIMEOUT
-        ) {
-            console.log("Session expired");
-            return false;
-        }
-        return true;
-    }
-
-    isAuthenticated() {
-        const auth = this.getAuthState();
-        return auth && auth.isLoggedIn === "true";
-    }
-
-    hasPermission(requiredLevel) {
-        const auth = this.getAuthState();
-        if (!auth) return false;
-        return parseInt(auth.checkLogin) <= requiredLevel;
-    }
-
-    getAuthState() {
-        try {
-            const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-            if (stored) {
-                this.currentUser = JSON.parse(stored);
-                return this.currentUser;
-            }
-        } catch (error) {
-            console.error("Error reading auth:", error);
-        }
-        return null;
-    }
-
-    getUserInfo() {
-        return this.getAuthState();
-    }
-
-    clearAuth() {
-        this.currentUser = null;
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-
-    logout() {
-        if (confirm("Bạn có chắc muốn đăng xuất?")) {
-            this.clearAuth();
-            window.location.href = "../index.html";
-        }
-    }
-}
+// AuthManager is now loaded from /js/shared-auth-manager.js via core-loader.js
+// No need to redeclare it here
 
 // =====================================================
 // ENHANCED CACHE MANAGER WITH PERSISTENT STORAGE
@@ -843,7 +769,7 @@ class ImageManagementApp {
     async handleFormSubmit(e) {
         e.preventDefault();
 
-        if (!authManager.hasPermission(3)) {
+        if (!authManager.hasPermissionLevel(3)) {
             notificationManager.error(
                 "Không có quyền upload",
                 3000,
@@ -905,7 +831,7 @@ class ImageManagementApp {
     }
 
     async handleDelete() {
-        if (!authManager.hasPermission(0)) {
+        if (!authManager.hasPermissionLevel(0)) {
             notificationManager.error(
                 "Bạn không có quyền xóa dữ liệu",
                 3000,
@@ -1144,7 +1070,12 @@ let app;
 
 document.addEventListener("DOMContentLoaded", function () {
     notificationManager = new NotificationManager();
-    authManager = new AuthManager();
+    // Initialize shared AuthManager with configuration
+    authManager = new AuthManager({
+        storageKey: AUTH_STORAGE_KEY,
+        redirectUrl: "../index.html",
+        sessionDuration: CONFIG.SESSION_TIMEOUT
+    });
     cacheManager = new CacheManager();
     uiManager = new UIManager();
     app = new ImageManagementApp();
