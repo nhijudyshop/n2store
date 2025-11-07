@@ -4,7 +4,11 @@
  * Purpose: Centralized auth logic để tránh duplication
  */
 
-class AuthManager {
+// Prevent redeclaration if already loaded
+if (typeof window !== 'undefined' && window.AuthManager) {
+    console.log('⚠️ AuthManager already loaded, skipping redeclaration');
+} else {
+    class AuthManager {
     constructor(options = {}) {
         this.storageKey = options.storageKey || 'loginindex_auth';
         this.redirectUrl = options.redirectUrl || '/index.html';
@@ -261,14 +265,15 @@ class AuthManager {
             user: this.getUserInfo()
         };
     }
-}
+    }
 
-// Export to window
-if (typeof window !== 'undefined') {
-    window.AuthManager = AuthManager;
-}
+    // Export to window
+    if (typeof window !== 'undefined') {
+        window.AuthManager = AuthManager;
+    }
 
-// Module export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { AuthManager };
+    // Module export
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { AuthManager };
+    }
 }
