@@ -1068,7 +1068,8 @@ let cacheManager;
 let uiManager;
 let app;
 
-document.addEventListener("DOMContentLoaded", function () {
+// Wait for both DOM and core utilities to be ready
+function initializeApp() {
     notificationManager = new NotificationManager();
     // Initialize shared AuthManager with configuration
     authManager = new AuthManager({
@@ -1083,4 +1084,31 @@ document.addEventListener("DOMContentLoaded", function () {
     if (typeof lucide !== "undefined") {
         lucide.createIcons();
     }
+}
+
+// Track readiness states
+let domReady = false;
+let coreReady = false;
+
+function checkAndInitialize() {
+    if (domReady && coreReady) {
+        initializeApp();
+    }
+}
+
+// Listen for DOM ready
+document.addEventListener("DOMContentLoaded", function () {
+    domReady = true;
+    checkAndInitialize();
 });
+
+// Listen for core utilities loaded
+document.addEventListener("coreUtilitiesLoaded", function () {
+    coreReady = true;
+    checkAndInitialize();
+});
+
+// In case core utilities are already loaded
+if (window.CORE_UTILITIES_LOADED) {
+    coreReady = true;
+}
