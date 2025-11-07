@@ -577,37 +577,45 @@ async function fetchOrders() {
 // 🔄 CẬP NHẬT ORDER TRONG BẢNG SAU KHI SAVE
 function updateOrderInTable(orderId, updatedOrderData) {
     console.log('[UPDATE] Updating order in table:', orderId);
-    
+
+    // Lọc bỏ các trường undefined để tránh ghi đè dữ liệu có sẵn (như Tags)
+    const cleanedData = Object.keys(updatedOrderData).reduce((acc, key) => {
+        if (updatedOrderData[key] !== undefined) {
+            acc[key] = updatedOrderData[key];
+        }
+        return acc;
+    }, {});
+
     // 1. Tìm và cập nhật trong allData
     const indexInAll = allData.findIndex(order => order.Id === orderId);
     if (indexInAll !== -1) {
-        allData[indexInAll] = { ...allData[indexInAll], ...updatedOrderData };
+        allData[indexInAll] = { ...allData[indexInAll], ...cleanedData };
         console.log('[UPDATE] Updated in allData at index:', indexInAll);
     }
-    
+
     // 2. Tìm và cập nhật trong filteredData
     const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
     if (indexInFiltered !== -1) {
-        filteredData[indexInFiltered] = { ...filteredData[indexInFiltered], ...updatedOrderData };
+        filteredData[indexInFiltered] = { ...filteredData[indexInFiltered], ...cleanedData };
         console.log('[UPDATE] Updated in filteredData at index:', indexInFiltered);
     }
-    
+
     // 3. Tìm và cập nhật trong displayedData
     const indexInDisplayed = displayedData.findIndex(order => order.Id === orderId);
     if (indexInDisplayed !== -1) {
-        displayedData[indexInDisplayed] = { ...displayedData[indexInDisplayed], ...updatedOrderData };
+        displayedData[indexInDisplayed] = { ...displayedData[indexInDisplayed], ...cleanedData };
         console.log('[UPDATE] Updated in displayedData at index:', indexInDisplayed);
     }
-    
+
     // 4. Re-render bảng để hiển thị thay đổi
     renderTable();
-    
+
     // 5. Cập nhật stats (nếu tổng tiền thay đổi)
     updateStats();
-    
+
     // 6. Highlight row vừa được cập nhật
     highlightUpdatedRow(orderId);
-    
+
     console.log('[UPDATE] ✓ Table updated successfully');
 }
 
