@@ -234,8 +234,29 @@ function checkAdminAccess() {
         return false;
     }
 
-    if (!checkLogin || (checkLogin !== "0" && checkLogin !== 0)) {
-        showAccessDenied("Bạn không có quyền Admin.");
+    // Check if user is admin OR has user-management permission
+    const isAdmin = checkLogin === "0" || checkLogin === 0;
+    let hasPermission = false;
+
+    if (!isAdmin) {
+        // Check for specific user-management permission
+        try {
+            const auth = JSON.parse(authData);
+            const pagePermissions = auth.pagePermissions || [];
+            hasPermission = pagePermissions.includes("user-management");
+
+            console.log("Permission check:", {
+                isAdmin: false,
+                pagePermissions,
+                hasUserManagementPermission: hasPermission
+            });
+        } catch (e) {
+            console.error("Error checking permissions:", e);
+        }
+    }
+
+    if (!isAdmin && !hasPermission) {
+        showAccessDenied("Bạn không có quyền truy cập trang này. Cần quyền Admin hoặc quyền 'user-management'.");
         return false;
     }
 
@@ -264,8 +285,7 @@ function showAccessDenied(reason = "") {
 
     if (reason) {
         const msg = document.querySelector("#accessDenied p");
-        msg.innerHTML =
-            reason + "<br>Chỉ có Admin mới có thể quản lý tài khoản.";
+        msg.innerHTML = reason;
     }
 }
 
