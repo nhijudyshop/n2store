@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "savedProducts": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["Id"]
+    },
+    "displaySettings": {
+      ".read": true,
+      ".write": true
+    },
+    "syncCurrentPage": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
