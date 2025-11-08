@@ -79,6 +79,14 @@ const MENU_CONFIG = [
         permissionRequired: "baocaosaleonline",
     },
     {
+        href: "../product-search/index.html",
+        icon: "search",
+        text: "Tìm Kiếm Sản Phẩm",
+        shortText: "Tìm SP",
+        pageIdentifier: "product-search",
+        permissionRequired: "product-search",
+    },
+    {
         href: "../hangdat/index.html",
         icon: "bookmark",
         text: "Hàng Đặt",
