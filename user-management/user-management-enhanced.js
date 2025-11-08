@@ -173,6 +173,9 @@ function renderUserList(users) {
         const roleClass = getRoleClass(user.checkLogin);
         const roleIcon = getRoleIcon(user.checkLogin);
 
+        // Count page permissions
+        const pagePermCount = user.pagePermissions ? user.pagePermissions.length : 0;
+
         // Count detailed permissions
         let permissionCount = 0;
         if (user.detailedPermissions) {
@@ -214,6 +217,7 @@ function renderUserList(users) {
                                 <i data-lucide="${roleIcon}"></i>
                                 ${getRoleName(user.checkLogin)}
                             </span>
+                            <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${pagePermCount} trang</span>
                             <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPerms} quyền</span>
                             <span><i data-lucide="calendar" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${createdDate}${updatedDate}</span>
                         </div>
@@ -290,6 +294,11 @@ function editUser(username) {
     document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
+    // Load page permissions
+    if (window.editPagePermUI) {
+        window.editPagePermUI.setPermissions(user.pagePermissions || []);
+    }
+
     // Load detailed permissions
     if (editPermissionsUI) {
         editPermissionsUI.setPermissions(user.detailedPermissions || {});
@@ -359,6 +368,11 @@ async function updateUser() {
         return;
     }
 
+    // Get page permissions from UI
+    const pagePermissions = window.editPagePermUI
+        ? window.editPagePermUI.getPermissions()
+        : [];
+
     // Get detailed permissions from UI
     const detailedPermissions = editPermissionsUI
         ? editPermissionsUI.getPermissions()
@@ -373,6 +387,7 @@ async function updateUser() {
         let updateData = {
             displayName: displayName,
             checkLogin: checkLogin,
+            pagePermissions: pagePermissions,
             detailedPermissions: detailedPermissions,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
@@ -405,7 +420,7 @@ async function updateUser() {
         });
 
         showSuccess(
-            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
+            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${pagePermissions.length} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
         );
 
         setTimeout(loadUsers, 1000);
@@ -454,6 +469,11 @@ async function createUser() {
         return;
     }
 
+    // Get page permissions from UI
+    const pagePermissions = window.newPagePermUI
+        ? window.newPagePermUI.getPermissions()
+        : [];
+
     // Get detailed permissions from UI
     const detailedPermissions = newPermissionsUI
         ? newPermissionsUI.getPermissions()
@@ -483,6 +503,7 @@ async function createUser() {
             .set({
                 displayName: displayName,
                 checkLogin: checkLogin,
+                pagePermissions: pagePermissions,
                 detailedPermissions: detailedPermissions,
                 passwordHash: hash,
                 salt: salt,
@@ -504,7 +525,7 @@ async function createUser() {
         });
 
         showSuccess(
-            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
+            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nQuyền hạn: ${getRoleText(checkLogin)}\nTruy cập trang: ${pagePermissions.length} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
         );
 
         clearCreateForm();
@@ -846,6 +867,10 @@ function clearEditForm() {
     document.getElementById("editCheckLogin").value = "1";
     document.getElementById("editNewPassword").value = "";
 
+    if (window.editPagePermUI) {
+        window.editPagePermUI.setPermissions([]);
+    }
+
     if (editPermissionsUI) {
         editPermissionsUI.setPermissions({});
     }
@@ -861,6 +886,10 @@ function clearCreateForm() {
     document.getElementById("newPassword").value = "";
     document.getElementById("newDisplayName").value = "";
     document.getElementById("newCheckLogin").value = "1";
+
+    if (window.newPagePermUI) {
+        window.newPagePermUI.setPermissions([]);
+    }
 
     if (newPermissionsUI) {
         newPermissionsUI.setPermissions({});
@@ -922,6 +951,23 @@ document.addEventListener("DOMContentLoaded", function () {
             console.warn("⚠️ Some crypto libraries failed to load");
         }
     }, 1000);
+
+    // Initialize Page Permissions UI
+    setTimeout(() => {
+        if (typeof PagePermissionsUI !== "undefined") {
+            window.editPagePermUI = new PagePermissionsUI(
+                "editPagePermissions",
+                "edit"
+            );
+            window.newPagePermUI = new PagePermissionsUI(
+                "newPagePermissions",
+                "new"
+            );
+            console.log("✅ Page Permissions UI initialized");
+        } else {
+            console.error("❌ PagePermissionsUI not loaded!");
+        }
+    }, 500);
 });
 
 console.log(
