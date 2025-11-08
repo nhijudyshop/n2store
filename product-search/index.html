@@ -1578,8 +1578,10 @@
                 const saved = localStorage.getItem('savedProducts');
                 if (saved) {
                     savedProducts = cleanProductsArray(JSON.parse(saved));
-                    updateProductListPreview();
                 }
+
+                // Always update preview to ensure correct visibility
+                updateProductListPreview();
 
                 loadSettings();
             } catch (error) {
