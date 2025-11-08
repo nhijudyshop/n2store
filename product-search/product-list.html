@@ -791,6 +791,9 @@
     <div class="sync-hover-area"></div>
     <button class="btn-sync-toggle" id="btnToggleSync" onclick="toggleSyncMode()">⏸️ Đồng bộ</button>
 
+    <div class="sync-hover-area" style="left: calc(50% + 120px); transform: translateX(0);"></div>
+    <button class="btn-sync-toggle" id="btnClearAll" onclick="clearAllProducts()" style="left: calc(50% + 120px); transform: translateX(0); background: rgba(220, 53, 69, 0.9); border-color: #dc3545;">🗑️ Xóa tất cả</button>
+
     <span class="page-info" id="pageInfo">Trang 1/1</span>
 
     <script src="../js/auth-manager.js"></script>
@@ -1102,6 +1105,59 @@
             updateProductGrid();
         }
 
+        function cleanupOldProducts() {
+            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+            const now = Date.now();
+
+            const initialCount = savedProducts.length;
+            savedProducts = savedProducts.filter(product => {
+                const addedAt = product.addedAt || 0;
+                const age = now - addedAt;
+                return age < SEVEN_DAYS;
+            });
+
+            const removedCount = initialCount - savedProducts.length;
+
+            if (removedCount > 0) {
+                console.log(`🗑️ Đã xóa ${removedCount} sản phẩm cũ hơn 7 ngày`);
+
+                localStorage.setItem('savedProducts', JSON.stringify(savedProducts));
+
+                if (!isSyncingFromFirebase) {
+                    database.ref('savedProducts').set(savedProducts).catch(error => {
+                        console.error('❌ Lỗi sync sau khi cleanup:', error);
+                    });
+                }
+
+                if (savedProducts.length === 0) {
+                    showEmptyState();
+                } else {
+                    updateProductGrid();
+                }
+            }
+        }
+
+        function clearAllProducts() {
+            if (savedProducts.length === 0) {
+                alert('⚠️ Danh sách đã trống');
+                return;
+            }
+
+            if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
+                savedProducts = [];
+
+                localStorage.setItem('savedProducts', JSON.stringify(savedProducts));
+
+                if (!isSyncingFromFirebase) {
+                    database.ref('savedProducts').set(savedProducts).catch(error => {
+                        console.error('❌ Lỗi sync sau khi xóa tất cả:', error);
+                    });
+                }
+
+                showEmptyState();
+            }
+        }
+
         async function refreshProduct(productId) {
             const btnRefresh = event.target;
             const statTotal = btnRefresh.closest('.grid-stat-total');
@@ -1361,6 +1417,9 @@
             setupFirebaseListeners();
             loadSettings();
             loadProducts();
+
+            // Cleanup products older than 7 days
+            cleanupOldProducts();
 
             const params = parseHashParams();
 
