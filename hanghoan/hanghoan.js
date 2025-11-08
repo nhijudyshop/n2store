@@ -37,8 +37,8 @@ const historyCollectionRef = db.collection("edit_history");
 // Note: PersistentCacheManager class is loaded from shared-cache-manager.js
 // via core-loader.js. No need to redefine it here.
 
-// Initialize cache manager
-const cacheManager = new PersistentCacheManager(CACHE_CONFIG);
+// Initialize cache manager (will be set after core utilities load)
+let cacheManager = null;
 
 // Notification Manager
 let notificationManager;
@@ -1079,57 +1079,98 @@ function initializeFilters() {
 }
 
 // =====================================================
+// CORE UTILITIES INITIALIZATION
+// =====================================================
+
+/**
+ * Initialize cache manager after core utilities are loaded
+ */
+function initializeCoreUtilities() {
+    if (typeof PersistentCacheManager === 'undefined') {
+        console.error('❌ PersistentCacheManager is not available!');
+        return false;
+    }
+
+    // Initialize cache manager
+    cacheManager = new PersistentCacheManager(CACHE_CONFIG);
+    console.log('✅ Cache manager initialized');
+    return true;
+}
+
+/**
+ * Wait for core utilities to load, then initialize
+ */
+function ensureCoreUtilitiesLoaded(callback) {
+    if (window.CORE_UTILITIES_LOADED && typeof PersistentCacheManager !== 'undefined') {
+        // Already loaded
+        if (initializeCoreUtilities()) {
+            callback();
+        }
+    } else {
+        // Wait for the event
+        document.addEventListener('coreUtilitiesLoaded', function() {
+            if (initializeCoreUtilities()) {
+                callback();
+            }
+        }, { once: true });
+    }
+}
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 
 document.addEventListener("DOMContentLoaded", function () {
-    try {
-        if (!authManager || !authManager.isAuthenticated()) {
-            showError("Phiên đăng nhập hết hạn, đang chuyển hướng...");
+    // Wait for core utilities to load before initializing the system
+    ensureCoreUtilitiesLoaded(function() {
+        try {
+            if (!authManager || !authManager.isAuthenticated()) {
+                showError("Phiên đăng nhập hết hạn, đang chuyển hướng...");
+                setTimeout(() => {
+                    window.location.href = "../index.html";
+                }, 1500);
+                return;
+            }
+
+            notificationManager = new NotificationManager();
+            showInfo("Đang khởi tạo hệ thống...", 1500);
+
+            initializeForm();
+            initializeTableEvents();
+            initializeFilters();
+
+            // Chỉ show loading nếu không có cache
+            const cachedData = getCachedData();
+            if (!cachedData) {
+                showLoading("Đang tải dữ liệu ban đầu...");
+            }
+
             setTimeout(() => {
-                window.location.href = "../index.html";
-            }, 1500);
-            return;
+                updateTable();
+            }, 300);
+
+            const saveButton = document.getElementById("saveButton");
+            if (saveButton) {
+                saveButton.addEventListener("click", saveChanges);
+            }
+
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+
+            console.log("Hang Hoan Management System initialized successfully");
+            console.log("Cache stats:", cacheManager.getStats());
+        } catch (error) {
+            console.error("Critical initialization error:", error);
+            if (notificationManager) {
+                showError(
+                    "Lỗi khởi tạo hệ thống: " + (error.message || "Unknown error"),
+                );
+            } else {
+                alert("Lỗi nghiêm trọng khi khởi tạo hệ thống!");
+            }
         }
-
-        notificationManager = new NotificationManager();
-        showInfo("Đang khởi tạo hệ thống...", 1500);
-
-        initializeForm();
-        initializeTableEvents();
-        initializeFilters();
-
-        // Chỉ show loading nếu không có cache
-        const cachedData = getCachedData();
-        if (!cachedData) {
-            showLoading("Đang tải dữ liệu ban đầu...");
-        }
-
-        setTimeout(() => {
-            updateTable();
-        }, 300);
-
-        const saveButton = document.getElementById("saveButton");
-        if (saveButton) {
-            saveButton.addEventListener("click", saveChanges);
-        }
-
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
-        }
-
-        console.log("Hang Hoan Management System initialized successfully");
-        console.log("Cache stats:", cacheManager.getStats());
-    } catch (error) {
-        console.error("Critical initialization error:", error);
-        if (notificationManager) {
-            showError(
-                "Lỗi khởi tạo hệ thống: " + (error.message || "Unknown error"),
-            );
-        } else {
-            alert("Lỗi nghiêm trọng khi khởi tạo hệ thống!");
-        }
-    }
+    });
 });
 
 window.closeModal = closeModal;
