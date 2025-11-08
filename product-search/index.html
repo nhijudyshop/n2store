@@ -1353,7 +1353,7 @@
             productListSection.style.display = 'block';
             productCount.textContent = savedProducts.length;
 
-            const recentProducts = savedProducts.slice(-5).reverse();
+            const recentProducts = [...savedProducts].reverse();
 
             productListPreview.innerHTML = recentProducts.map(product => {
                 const imageHtml = product.imageUrl
