@@ -66,6 +66,17 @@ Dữ liệu sản phẩm, cài đặt hiển thị và trang hiện tại đều
 - ✓ Bật chế độ đồng bộ trên product-list.html
 - ✓ Khi chuyển trang → Tất cả màn hình đồng bộ theo
 
+### 4. Tự động Dọn dẹp (Auto-cleanup)
+- ✓ **Sản phẩm tự động xóa sau 7 ngày** kể từ khi thêm
+- ✓ Chạy tự động mỗi khi load trang
+- ✓ Giúp giữ danh sách luôn gọn gàng
+- ✓ Đồng bộ cleanup trên tất cả thiết bị
+
+### 5. Xóa tất cả sản phẩm
+- ✓ Nút **"🗑️ Xóa tất cả"** trên cả 2 trang
+- ✓ Có xác nhận trước khi xóa
+- ✓ Xóa toàn bộ danh sách trên tất cả thiết bị
+
 ## 🔍 Cách kiểm tra đồng bộ hoạt động:
 
 1. **Mở 2 tab trình duyệt:**
