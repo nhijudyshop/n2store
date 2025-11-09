@@ -1017,11 +1017,16 @@
             }
         }
 
-        function loadSettings() {
-            const saved = localStorage.getItem('displaySettings');
-            if (saved) {
-                displaySettings = JSON.parse(saved);
-                itemsPerPage = displaySettings.itemsPerPage || (displaySettings.columns * displaySettings.rows);
+        async function loadSettings() {
+            try {
+                const snapshot = await database.ref('displaySettings').once('value');
+                const settings = snapshot.val();
+                if (settings) {
+                    displaySettings = settings;
+                    itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                }
+            } catch (error) {
+                console.error('❌ Error loading settings from Firebase:', error);
             }
             applySettings();
         }
@@ -1035,28 +1040,22 @@
         }
 
         async function loadProducts() {
-            // Load from localStorage first
-            const saved = localStorage.getItem('savedProducts');
-            if (saved) {
-                savedProducts = JSON.parse(saved);
-                console.log('📦 Loaded from localStorage:', savedProducts.length, 'products');
-            } else {
-                // If localStorage is empty, try to load from Firebase
-                try {
-                    const snapshot = await database.ref('savedProducts').once('value');
-                    const products = snapshot.val();
+            // Load from Firebase only (removed localStorage)
+            try {
+                const snapshot = await database.ref('savedProducts').once('value');
+                const products = snapshot.val();
 
-                    if (products && Array.isArray(products)) {
-                        savedProducts = products;
-                        localStorage.setItem('savedProducts', JSON.stringify(savedProducts));
-                        console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products');
-                    } else {
-                        console.log('📭 No products found in Firebase or localStorage');
-                    }
-                } catch (error) {
-                    console.error('❌ Error loading from Firebase:', error);
-                    console.log('⚠️ Using empty product list');
+                if (products && Array.isArray(products)) {
+                    savedProducts = products;
+                    console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products');
+                } else {
+                    savedProducts = [];
+                    console.log('📭 No products found in Firebase');
                 }
+            } catch (error) {
+                console.error('❌ Error loading from Firebase:', error);
+                savedProducts = [];
+                console.log('⚠️ Using empty product list');
             }
 
             if (savedProducts.length === 0) {
@@ -1167,8 +1166,6 @@
             product.soldQty = newSoldQty;
             product.remainingQty = product.QtyAvailable - newSoldQty;
 
-            localStorage.setItem('savedProducts', JSON.stringify(savedProducts));
-
             if (!isSyncingFromFirebase) {
                 database.ref('savedProducts').set(savedProducts).catch(error => {
                     console.error('❌ Lỗi sync products lên Firebase:', error);
@@ -1194,8 +1191,6 @@
             if (removedCount > 0) {
                 console.log(`🗑️ Đã xóa ${removedCount} sản phẩm cũ hơn 7 ngày`);
 
-                localStorage.setItem('savedProducts', JSON.stringify(savedProducts));
-
                 if (!isSyncingFromFirebase) {
                     database.ref('savedProducts').set(savedProducts).catch(error => {
                         console.error('❌ Lỗi sync sau khi cleanup:', error);
@@ -1218,8 +1213,6 @@
 
             if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
                 savedProducts = [];
-
-                localStorage.setItem('savedProducts', JSON.stringify(savedProducts));
 
                 if (!isSyncingFromFirebase) {
                     database.ref('savedProducts').set(savedProducts).catch(error => {
@@ -1256,8 +1249,6 @@
                 const oldQtyAvailable = product.QtyAvailable;
                 product.QtyAvailable = productData.QtyAvailable || 0;
                 product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
-
-                localStorage.setItem('savedProducts', JSON.stringify(savedProducts));
 
                 if (!isSyncingFromFirebase) {
                     database.ref('savedProducts').set(savedProducts).catch(error => {
@@ -1376,7 +1367,6 @@
                     isSyncingFromFirebase = true;
                     displaySettings = settings;
                     itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
-                    localStorage.setItem('displaySettings', JSON.stringify(settings));
                     applySettings();
                     updateProductGrid();
                     console.log('🔥 Settings synced from Firebase');
@@ -1391,7 +1381,6 @@
 
                     if (products && Array.isArray(products)) {
                         savedProducts = products;
-                        localStorage.setItem('savedProducts', JSON.stringify(products));
 
                         if (savedProducts.length === 0) {
                             showEmptyState();
@@ -1401,7 +1390,8 @@
 
                         console.log('🔥 Products synced from Firebase:', products.length, 'items');
                     } else if (products === null || products === undefined) {
-                        // Firebase has no data - this is expected for new users
+                        savedProducts = [];
+                        showEmptyState();
                         console.log('🔥 No products in Firebase yet');
                     }
 
