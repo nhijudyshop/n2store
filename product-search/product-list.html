@@ -11,6 +11,10 @@
 
     <style>
         :root {
+            /* Frame Layout CSS Variables */
+            --image-height-percent: 50;
+            --name-line-clamp: 2;
+
             /* Image CSS Variables */
             --image-border-radius: 8px;
             --image-border-width: 2px;
@@ -147,13 +151,13 @@
 
         .grid-item-image {
             width: 100%;
-            height: auto;
             object-fit: cover;
             background: white;
             border-radius: var(--image-border-radius, 8px);
             margin-bottom: var(--image-margin-bottom, 4px);
             border: var(--image-border-width, 2px) solid #667eea;
-            flex: 1 1 auto;
+            flex: calc(var(--image-height-percent, 50)) 1 0%;
+            aspect-ratio: 1/1;
             min-height: 0;
         }
 
@@ -173,7 +177,7 @@
             font-size: var(--name-font-size, 13px);
             line-height: var(--name-line-height, 1.2);
             display: -webkit-box;
-            -webkit-line-clamp: 2;
+            -webkit-line-clamp: var(--name-line-clamp, 2);
             -webkit-box-orient: vertical;
             overflow: hidden;
             flex-shrink: 0;
@@ -187,7 +191,8 @@
             gap: var(--stats-gap, 4px);
             margin-top: var(--stats-margin-top, 4px);
             margin-bottom: 0;
-            flex-shrink: 0;
+            flex: 1 1 auto;
+            min-height: 0;
         }
 
         .grid-stat {
@@ -1231,6 +1236,10 @@
             productGrid.style.gridTemplateColumns = `repeat(${displaySettings.columns}, 1fr)`;
             productGrid.style.gridTemplateRows = `repeat(${displaySettings.rows}, 1fr)`;
             productGrid.style.gap = `${displaySettings.gap}px`;
+
+            // Apply Frame Layout CSS Variables
+            document.documentElement.style.setProperty('--image-height-percent', displaySettings.imageHeightPercent || 50);
+            document.documentElement.style.setProperty('--name-line-clamp', displaySettings.nameLineClamp || 2);
 
             // Apply Image CSS Variables
             document.documentElement.style.setProperty('--image-border-radius', `${displaySettings.imageBorderRadius || 8}px`);
