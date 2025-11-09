@@ -868,6 +868,72 @@
             .grid-item-image.no-image {
                 font-size: 48px;
             }
+
+            .qty-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 18px;
+            }
+        }
+
+        /* TV and very large screens (1920px+) */
+        @media (min-width: 1920px) {
+            .grid-item-name {
+                font-size: 16px;
+                max-height: 42px;
+            }
+
+            .grid-stat-value {
+                font-size: 22px;
+            }
+
+            .qty-controls .grid-stat-value {
+                min-width: 60px;
+            }
+
+            .grid-stat-label {
+                font-size: 13px;
+            }
+
+            .grid-item-image.no-image {
+                font-size: 52px;
+            }
+
+            .qty-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 20px;
+            }
+        }
+
+        /* 4K and ultra-wide screens (2560px+) */
+        @media (min-width: 2560px) {
+            .grid-item-name {
+                font-size: 18px;
+                max-height: 48px;
+            }
+
+            .grid-stat-value {
+                font-size: 26px;
+            }
+
+            .qty-controls .grid-stat-value {
+                min-width: 70px;
+            }
+
+            .grid-stat-label {
+                font-size: 15px;
+            }
+
+            .grid-item-image.no-image {
+                font-size: 60px;
+            }
+
+            .qty-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 24px;
+            }
         }
     </style>
 </head>
@@ -1187,7 +1253,11 @@
                             <div class="grid-stat grid-stat-total">
                                 <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS">🔄</button>
                                 <div class="grid-stat-label"><span class="icon-emoji">📦</span> Tổng</div>
-                                <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
+                                <div class="qty-controls">
+                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, -1)" ${product.QtyAvailable <= 0 ? 'disabled' : ''}>−</button>
+                                    <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
+                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, 1)">+</button>
+                                </div>
                             </div>
                             <div class="grid-stat grid-stat-sold">
                                 <div class="grid-stat-label"><span class="icon-emoji">🛒</span> Bán</div>
@@ -1242,6 +1312,32 @@
 
             product.soldQty = newSoldQty;
             product.remainingQty = product.QtyAvailable - newSoldQty;
+
+            if (!isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
+            }
+
+            updateProductGrid();
+        }
+
+        function updateProductTotal(productId, change) {
+            const product = savedProducts.find(p => p.Id === productId);
+            if (!product) return;
+
+            const newQtyAvailable = Math.max(0, product.QtyAvailable + change);
+
+            if (newQtyAvailable === product.QtyAvailable) return;
+
+            product.QtyAvailable = newQtyAvailable;
+
+            // Ensure soldQty doesn't exceed new total
+            if (product.soldQty > product.QtyAvailable) {
+                product.soldQty = product.QtyAvailable;
+            }
+
+            product.remainingQty = product.QtyAvailable - product.soldQty;
 
             if (!isSyncingFromFirebase) {
                 database.ref('savedProducts').set(savedProducts).catch(error => {
