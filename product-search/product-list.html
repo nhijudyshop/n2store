@@ -449,6 +449,16 @@
             box-shadow: 0 5px 15px rgba(255,255,255,0.3);
         }
 
+        /* Hide icons on all touch devices and screens smaller than PC */
+        @media (max-width: 1024px), (pointer: coarse) {
+            .icon-emoji {
+                display: none !important;
+            }
+            .btn-refresh {
+                display: none !important;
+            }
+        }
+
         @media (max-width: 479px) {
             .product-grid {
                 grid-template-columns: repeat(2, 1fr);
