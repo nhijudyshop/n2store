@@ -402,6 +402,23 @@
             opacity: 1;
         }
 
+        /* Edit mode - when disabled, hide qty controls and adjust grid */
+        body.edit-mode-disabled .qty-controls {
+            display: none !important;
+        }
+
+        body.edit-mode-disabled .grid-stat-sold {
+            grid-column: auto;
+        }
+
+        body.edit-mode-disabled .grid-stat-remaining {
+            grid-column: auto;
+        }
+
+        body.edit-mode-disabled .grid-item-stats {
+            grid-template-columns: 1fr 1fr 2fr;
+        }
+
         @media (max-width: 768px) {
             .page-info::before {
                 content: '← Vuốt để chuyển trang →';
@@ -852,6 +869,9 @@
     <div class="nav-hover-area right"></div>
     <button class="btn-nav" id="btnNext">Sau ▶</button>
 
+    <div class="sync-hover-area" style="left: calc(50% - 120px); transform: translateX(0);"></div>
+    <button class="btn-sync-toggle" id="btnToggleEdit" onclick="toggleEditMode()" style="left: calc(50% - 120px); transform: translateX(0); background: rgba(255, 193, 7, 0.9); border-color: #ffc107;">✏️ Chỉnh sửa</button>
+
     <div class="sync-hover-area"></div>
     <button class="btn-sync-toggle" id="btnToggleSync" onclick="toggleSyncMode()">⏸️ Đồng bộ</button>
 
@@ -874,6 +894,7 @@
             nameMargin: 3
         };
         let isSyncMode = false;
+        let isEditMode = true; // Edit mode enabled by default
 
         const firebaseConfig = {
             apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
@@ -989,6 +1010,40 @@
                     btnToggle.textContent = '⏸️ Đồng bộ';
                 }
             }
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            // Save to localStorage only (not Firebase)
+            localStorage.setItem('isEditMode', JSON.stringify(isEditMode));
+            updateEditModeUI();
+            console.log(isEditMode ? '✏️ Đã bật chế độ chỉnh sửa' : '🔒 Đã khóa chỉnh sửa');
+        }
+
+        function updateEditModeUI() {
+            const btnToggle = document.getElementById('btnToggleEdit');
+
+            if (isEditMode) {
+                document.body.classList.remove('edit-mode-disabled');
+                if (btnToggle) {
+                    btnToggle.classList.add('active');
+                    btnToggle.textContent = '✏️ Đang sửa';
+                }
+            } else {
+                document.body.classList.add('edit-mode-disabled');
+                if (btnToggle) {
+                    btnToggle.classList.remove('active');
+                    btnToggle.textContent = '🔒 Khóa';
+                }
+            }
+        }
+
+        function loadEditMode() {
+            const saved = localStorage.getItem('isEditMode');
+            if (saved !== null) {
+                isEditMode = JSON.parse(saved);
+            }
+            updateEditModeUI();
         }
 
         function parseHashParams() {
@@ -1496,6 +1551,7 @@
         window.addEventListener('load', async () => {
             setupFirebaseListeners();
             loadSettings();
+            loadEditMode(); // Load edit mode from localStorage
 
             // Load products from localStorage or Firebase
             await loadProducts();
