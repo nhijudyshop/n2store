@@ -261,7 +261,7 @@
 
         .remaining-qty-item {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             padding: 6px 8px;
             background: rgba(255, 255, 255, 0.6);
@@ -271,16 +271,44 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
-        .remaining-qty-item-name {
-            flex: 1;
-            font-size: 11px;
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            color: #555;
+        /* For TỔNG column - simple value only */
+        .grid-stat-total .remaining-qty-item {
+            justify-content: center;
         }
 
+        .grid-stat-total .remaining-qty-item-value {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+
+        /* For CÒN column - name on top, value below */
+        .grid-stat-remaining .remaining-qty-item {
+            flex-direction: column;
+            justify-content: center;
+            padding: 8px 4px;
+            gap: 4px;
+        }
+
+        .grid-stat-remaining .remaining-qty-item-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: #2e7d32;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+
+        .grid-stat-remaining .remaining-qty-item-value {
+            font-weight: 900;
+            font-size: 24px;
+            color: #1b5e20;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* For BÁN column items */
         .remaining-qty-item-value {
             font-weight: bold;
             font-size: 14px;
@@ -643,6 +671,14 @@
                 font-size: 13px;
             }
 
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 18px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 9px;
+            }
+
             .qty-controls {
                 gap: 4px;
                 margin-top: 1px;
@@ -708,6 +744,14 @@
                 font-size: 15px;
             }
 
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 20px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 10px;
+            }
+
             .qty-controls {
                 gap: 5px;
             }
@@ -741,6 +785,14 @@
 
             .grid-stat-value {
                 font-size: 13px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 18px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 9px;
             }
 
             .qty-btn {
@@ -791,6 +843,14 @@
                 font-size: 16px;
             }
 
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 22px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 10px;
+            }
+
             .qty-controls {
                 gap: 6px;
             }
@@ -836,6 +896,14 @@
                 font-size: 14px;
             }
 
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 20px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 9px;
+            }
+
             .qty-btn {
                 width: 24px;
                 height: 24px;
@@ -854,6 +922,14 @@
 
             .grid-stat-value {
                 font-size: 17px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 26px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 10px;
             }
 
             .qty-controls .grid-stat-value {
@@ -885,6 +961,14 @@
                 font-size: 18px;
             }
 
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 28px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 11px;
+            }
+
             .qty-controls .grid-stat-value {
                 min-width: 45px;
                 font-size: 34px;
@@ -902,6 +986,14 @@
 
             .grid-stat-value {
                 font-size: 20px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 30px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 12px;
             }
 
             .qty-controls .grid-stat-value {
@@ -934,6 +1026,14 @@
                 font-size: 22px;
             }
 
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 34px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 13px;
+            }
+
             .qty-controls .grid-stat-value {
                 min-width: 60px;
                 font-size: 42px;
@@ -962,6 +1062,14 @@
 
             .grid-stat-value {
                 font-size: 26px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-size: 38px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 15px;
             }
 
             .qty-controls .grid-stat-value {
@@ -1452,13 +1560,9 @@
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.remainingQtyList.map(item => {
-                                            // Extract only the part in parentheses () at the end
-                                            const lastParenMatch = item.name.match(/\(([^)]+)\)[^(]*$/);
-                                            const variantName = lastParenMatch ? '(' + lastParenMatch[1] + ')' : item.name;
                                             const totalQty = (product.soldQtyList.find(s => s.id === item.id)?.maxQty) || 0;
                                             return `
                                                 <div class="remaining-qty-item">
-                                                    <div class="remaining-qty-item-name">${variantName}</div>
                                                     <div class="remaining-qty-item-value">${totalQty}</div>
                                                 </div>
                                             `;
@@ -1497,8 +1601,12 @@
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.remainingQtyList.map(item => {
+                                            // Extract only the part in parentheses () at the end
+                                            const lastParenMatch = item.name.match(/\(([^)]+)\)[^(]*$/);
+                                            const variantName = lastParenMatch ? '(' + lastParenMatch[1] + ')' : item.name;
                                             return `
-                                                <div class="remaining-qty-item" style="justify-content: center;">
+                                                <div class="remaining-qty-item">
+                                                    <div class="remaining-qty-item-name">${variantName}</div>
                                                     <div class="remaining-qty-item-value">${item.qty}</div>
                                                 </div>
                                             `;
