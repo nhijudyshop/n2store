@@ -754,6 +754,81 @@
             box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
         }
 
+        /* Toggle Switch Styles */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+
+        .toggle-label {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+        }
+
+        .toggle-label-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .toggle-description {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 30px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
         .product-list-section {
             padding: 30px;
             background: #f8f9fa;
@@ -961,6 +1036,7 @@
         let tokenExpiry = null;
         let savedProducts = [];
         let isSyncMode = false;
+        let autoAddVariants = true; // Mặc định BẬT chế độ tự động thêm variants
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -1245,36 +1321,69 @@
 
                 const productData = await response.json();
                 let imageUrl = productData.ImageUrl;
+                let templateData = null;
 
-                if (!imageUrl && productData.ProductTmplId) {
+                // Load template to get image and variants
+                if (productData.ProductTmplId) {
                     try {
                         const templateResponse = await authenticatedFetch(
                             `https://tomato.tpos.vn/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
                         );
 
                         if (templateResponse.ok) {
-                            const templateData = await templateResponse.json();
-                            imageUrl = templateData.ImageUrl;
+                            templateData = await templateResponse.json();
+                            if (!imageUrl) {
+                                imageUrl = templateData.ImageUrl;
+                            }
                         }
                     } catch (fallbackError) {
-                        console.error('Error loading template image:', fallbackError);
+                        console.error('Error loading template:', fallbackError);
                     }
                 }
 
-                // Only add to list, don't display detail card
-                const qtyAvailable = productData.QtyAvailable || 0;
-                const addSuccess = addProductToList({
-                    Id: productData.Id,
-                    NameGet: productData.NameGet,
-                    QtyAvailable: qtyAvailable,
-                    ProductTmplId: productData.ProductTmplId,
-                    imageUrl: imageUrl,
-                    soldQty: 0,
-                    remainingQty: qtyAvailable
-                }, true);
+                // Check if auto-add variants is enabled and variants exist
+                if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+                    // Add all variants
+                    let addedCount = 0;
+                    for (const variant of templateData.ProductVariants) {
+                        const qtyAvailable = variant.QtyAvailable || 0;
+                        const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
+                        
+                        const addSuccess = addProductToList({
+                            Id: variant.Id,
+                            NameGet: variant.NameGet,
+                            QtyAvailable: qtyAvailable,
+                            ProductTmplId: productData.ProductTmplId,
+                            imageUrl: variantImageUrl,
+                            soldQty: 0,
+                            remainingQty: qtyAvailable
+                        }, false); // Don't show notification for each variant
+                        
+                        if (addSuccess) {
+                            addedCount++;
+                        }
+                    }
+                    
+                    if (addedCount > 0) {
+                        showNotificationMessage(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
+                        document.getElementById('productSearch').value = '';
+                    }
+                } else {
+                    // Add single product (original behavior)
+                    const qtyAvailable = productData.QtyAvailable || 0;
+                    const addSuccess = addProductToList({
+                        Id: productData.Id,
+                        NameGet: productData.NameGet,
+                        QtyAvailable: qtyAvailable,
+                        ProductTmplId: productData.ProductTmplId,
+                        imageUrl: imageUrl,
+                        soldQty: 0,
+                        remainingQty: qtyAvailable
+                    }, true);
 
-                if (addSuccess) {
-                    document.getElementById('productSearch').value = '';
+                    if (addSuccess) {
+                        document.getElementById('productSearch').value = '';
+                    }
                 }
             } catch (error) {
                 console.error('Error loading product:', error);
@@ -1556,6 +1665,10 @@
                     document.getElementById('settingGap').value = settings.gap || 15;
                     document.getElementById('settingItemHeight').value = settings.itemHeight || 500;
                     document.getElementById('settingNameMargin').value = settings.nameMargin || 3;
+                    
+                    // Load autoAddVariants setting
+                    autoAddVariants = settings.autoAddVariants !== undefined ? settings.autoAddVariants : true;
+                    document.getElementById('toggleAutoVariants').checked = autoAddVariants;
                 }
             } catch (error) {
                 console.error('❌ Error loading settings from Firebase:', error);
@@ -1575,7 +1688,8 @@
                 gap: gap,
                 itemHeight: itemHeight,
                 nameMargin: nameMargin,
-                itemsPerPage: columns * rows
+                itemsPerPage: columns * rows,
+                autoAddVariants: autoAddVariants
             };
 
             if (!isSyncingFromFirebase) {
@@ -1591,6 +1705,30 @@
             showNotificationMessage('💾 Đã lưu cài đặt thành công!');
         }
 
+        function toggleAutoVariants() {
+            autoAddVariants = document.getElementById('toggleAutoVariants').checked;
+            
+            // Auto save when toggle changes
+            const settings = {
+                columns: parseInt(document.getElementById('settingColumns').value) || 4,
+                rows: parseInt(document.getElementById('settingRows').value) || 2,
+                gap: parseInt(document.getElementById('settingGap').value) || 15,
+                itemHeight: parseInt(document.getElementById('settingItemHeight').value) || 500,
+                nameMargin: parseInt(document.getElementById('settingNameMargin').value) || 3,
+                itemsPerPage: (parseInt(document.getElementById('settingColumns').value) || 4) * (parseInt(document.getElementById('settingRows').value) || 2),
+                autoAddVariants: autoAddVariants
+            };
+
+            if (!isSyncingFromFirebase) {
+                database.ref('displaySettings').set(settings).catch(error => {
+                    console.error('❌ Lỗi sync settings lên Firebase:', error);
+                });
+            }
+
+            const status = autoAddVariants ? 'BẬT' : 'TẮT';
+            showNotificationMessage(`🔄 Đã ${status} chế độ tự động thêm tất cả biến thể`);
+        }
+
         window.settingsChannel = new BroadcastChannel('product-settings');
 
         function setupFirebaseListeners() {
@@ -1599,6 +1737,12 @@
                 if (settings && !isSyncingFromFirebase) {
                     isSyncingFromFirebase = true;
                     console.log('🔥 Settings synced from Firebase');
+
+                    // Update autoAddVariants from Firebase
+                    if (settings.autoAddVariants !== undefined) {
+                        autoAddVariants = settings.autoAddVariants;
+                        document.getElementById('toggleAutoVariants').checked = autoAddVariants;
+                    }
 
                     if (window.settingsChannel) {
                         window.settingsChannel.postMessage({ type: 'settingsChanged', settings: settings });
@@ -1736,6 +1880,18 @@
             <button class="btn-close-sidebar" onclick="toggleSettingsSidebar()">×</button>
         </div>
         <div class="settings-sidebar-content">
+            <!-- Toggle Auto Add Variants -->
+            <div class="toggle-container">
+                <div class="toggle-label">
+                    <span class="toggle-label-text">🔄 Tự động thêm tất cả biến thể</span>
+                    <span class="toggle-description">Khi bật, sẽ tự động thêm tất cả màu/size của sản phẩm</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggleAutoVariants" checked onchange="toggleAutoVariants()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
             <div class="settings-grid">
                 <div class="setting-item">
                     <label class="setting-label">📊 Số Cột</label>
