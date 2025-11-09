@@ -471,6 +471,14 @@
                 display: none !important;
             }
 
+            .btn-refresh {
+                display: none !important;
+            }
+
+            .icon-emoji {
+                display: none !important;
+            }
+
             .grid-item-name {
                 font-size: 10px;
                 max-height: 26px;
@@ -553,6 +561,14 @@
                 display: none !important;
             }
 
+            .btn-refresh {
+                display: none !important;
+            }
+
+            .icon-emoji {
+                display: none !important;
+            }
+
             .grid-item-name {
                 font-size: 11px;
                 max-height: 28px;
@@ -604,6 +620,14 @@
                 gap: 8px;
             }
 
+            .btn-refresh {
+                display: none !important;
+            }
+
+            .icon-emoji {
+                display: none !important;
+            }
+
             .grid-item-image {
                 max-height: 48%;
             }
@@ -642,6 +666,14 @@
 
             .grid-item {
                 padding: 8px;
+            }
+
+            .btn-refresh {
+                display: none !important;
+            }
+
+            .icon-emoji {
+                display: none !important;
             }
 
             .grid-item-name {
@@ -702,6 +734,14 @@
                 grid-template-columns: repeat(4, 1fr);
                 grid-template-rows: repeat(2, 1fr);
                 gap: 10px;
+            }
+
+            .btn-refresh {
+                display: none !important;
+            }
+
+            .icon-emoji {
+                display: none !important;
             }
 
             .grid-item-image {
@@ -1061,7 +1101,7 @@
             productGrid.innerHTML = currentProducts.map(product => {
                 const imageHtml = product.imageUrl
                     ? `<img src="${product.imageUrl}" class="grid-item-image" alt="${product.NameGet}">`
-                    : `<div class="grid-item-image no-image">📦</div>`;
+                    : `<div class="grid-item-image no-image"><span class="icon-emoji">📦</span></div>`;
 
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
@@ -1070,11 +1110,11 @@
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
                                 <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS">🔄</button>
-                                <div class="grid-stat-label">📦 Tổng</div>
+                                <div class="grid-stat-label"><span class="icon-emoji">📦</span> Tổng</div>
                                 <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
                             </div>
                             <div class="grid-stat grid-stat-sold">
-                                <div class="grid-stat-label">🛒 Bán</div>
+                                <div class="grid-stat-label"><span class="icon-emoji">🛒</span> Bán</div>
                                 <div class="qty-controls">
                                     <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 ? 'disabled' : ''}>−</button>
                                     <div class="grid-stat-value">${product.soldQty || 0}</div>
@@ -1082,7 +1122,7 @@
                                 </div>
                             </div>
                             <div class="grid-stat grid-stat-remaining">
-                                <div class="grid-stat-label">✅ Còn</div>
+                                <div class="grid-stat-label"><span class="icon-emoji">✅</span> Còn</div>
                                 <div class="grid-stat-value">${product.remainingQty || 0}</div>
                             </div>
                         </div>
