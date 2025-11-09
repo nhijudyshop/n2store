@@ -1189,8 +1189,13 @@
                 const products = snapshot.val();
 
                 if (products && Array.isArray(products)) {
-                    savedProducts = products;
-                    console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products');
+                    // Sort products by addedAt timestamp (newest first)
+                    savedProducts = products.sort((a, b) => {
+                        const timeA = a.addedAt || 0;
+                        const timeB = b.addedAt || 0;
+                        return timeB - timeA; // Descending order (newest first)
+                    });
+                    console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (sorted by newest first)');
                 } else {
                     savedProducts = [];
                     console.log('📭 No products found in Firebase');
@@ -1553,7 +1558,12 @@
                     isSyncingFromFirebase = true;
 
                     if (products && Array.isArray(products)) {
-                        savedProducts = products;
+                        // Sort products by addedAt timestamp (newest first)
+                        savedProducts = products.sort((a, b) => {
+                            const timeA = a.addedAt || 0;
+                            const timeB = b.addedAt || 0;
+                            return timeB - timeA; // Descending order (newest first)
+                        });
 
                         if (savedProducts.length === 0) {
                             showEmptyState();
@@ -1561,7 +1571,7 @@
                             updateProductGrid();
                         }
 
-                        console.log('🔥 Products synced from Firebase:', products.length, 'items');
+                        console.log('🔥 Products synced from Firebase:', products.length, 'items (sorted by newest first)');
                     } else if (products === null || products === undefined) {
                         savedProducts = [];
                         showEmptyState();
