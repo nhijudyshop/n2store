@@ -544,13 +544,9 @@
             opacity: 1;
         }
 
-        /* Edit mode - when disabled, hide qty controls and adjust layout */
-        body.edit-mode-disabled .qty-controls {
+        /* Edit mode - when disabled, hide qty control buttons but keep the value visible */
+        body.edit-mode-disabled .qty-controls-buttons {
             display: none !important;
-        }
-
-        body.edit-mode-disabled .grid-stat-sold .grid-stat-value {
-            display: flex !important;
         }
 
         .empty-state {
