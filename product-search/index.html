@@ -1234,10 +1234,6 @@
         }
 
         async function loadProductDetails(productId) {
-            const productDisplay = document.getElementById('productDisplay');
-            productDisplay.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top: 10px;">Đang tải thông tin sản phẩm...</p></div>';
-            productDisplay.classList.add('show');
-
             try {
                 const response = await authenticatedFetch(
                     `https://tomato.tpos.vn/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
@@ -1265,91 +1261,24 @@
                     }
                 }
 
-                displayProduct(productData, imageUrl);
+                // Only add to list, don't display detail card
+                const qtyAvailable = productData.QtyAvailable || 0;
+                const addSuccess = addProductToList({
+                    Id: productData.Id,
+                    NameGet: productData.NameGet,
+                    QtyAvailable: qtyAvailable,
+                    ProductTmplId: productData.ProductTmplId,
+                    imageUrl: imageUrl,
+                    soldQty: 0,
+                    remainingQty: qtyAvailable
+                }, true);
+
+                if (addSuccess) {
+                    document.getElementById('productSearch').value = '';
+                }
             } catch (error) {
                 console.error('Error loading product:', error);
-                productDisplay.innerHTML = `
-                    <div class="error">
-                        ❌ Lỗi: ${error.message}
-                    </div>
-                `;
-            }
-        }
-
-        function displayProduct(product, imageUrl) {
-            const productDisplay = document.getElementById('productDisplay');
-
-            const imageHtml = imageUrl
-                ? `<img src="${imageUrl}" alt="${product.NameGet}">`
-                : `<div class="no-image">📦<br>Không có hình ảnh</div>`;
-
-            const qtyAvailable = product.QtyAvailable || 0;
-
-            productDisplay.innerHTML = `
-                <div class="product-card">
-                    <div class="product-image">
-                        ${imageHtml}
-                    </div>
-                    <div class="product-info">
-                        <div class="product-name">${product.NameGet}</div>
-                        <div class="product-stats">
-                            <div class="stat-box">
-                                <div class="stat-label">📦 Tổng</div>
-                                <div class="stat-value">${qtyAvailable}</div>
-                            </div>
-                            <div class="stat-box editable">
-                                <div class="stat-label">🛒 Bán</div>
-                                <input
-                                    type="number"
-                                    class="stat-input"
-                                    id="soldQty"
-                                    value="0"
-                                    min="0"
-                                    max="${qtyAvailable}"
-                                >
-                            </div>
-                            <div class="stat-box remaining">
-                                <div class="stat-label">✅ Còn</div>
-                                <div class="stat-value" id="remainingQty">${qtyAvailable}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            productDisplay.classList.add('show');
-
-            const soldInput = document.getElementById('soldQty');
-            const remainingDisplay = document.getElementById('remainingQty');
-
-            soldInput.addEventListener('input', () => {
-                const sold = parseInt(soldInput.value) || 0;
-                const remaining = Math.max(0, qtyAvailable - sold);
-                remainingDisplay.textContent = remaining;
-
-                addProductToList({
-                    Id: product.Id,
-                    NameGet: product.NameGet,
-                    QtyAvailable: product.QtyAvailable,
-                    ProductTmplId: product.ProductTmplId,
-                    imageUrl: imageUrl,
-                    soldQty: sold,
-                    remainingQty: remaining
-                }, false);
-            });
-
-            const addSuccess = addProductToList({
-                Id: product.Id,
-                NameGet: product.NameGet,
-                QtyAvailable: product.QtyAvailable,
-                ProductTmplId: product.ProductTmplId,
-                imageUrl: imageUrl,
-                soldQty: 0,
-                remainingQty: qtyAvailable
-            }, true);
-
-            if (addSuccess) {
-                document.getElementById('productSearch').value = '';
+                showNotificationMessage('❌ Lỗi: ' + error.message);
             }
         }
 
