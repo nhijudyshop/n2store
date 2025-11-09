@@ -1537,6 +1537,29 @@
             }
         });
 
+        // Auto-focus search input for barcode scanner
+        document.addEventListener('keydown', (e) => {
+            const productSearch = document.getElementById('productSearch');
+            const activeElement = document.activeElement;
+
+            // Ignore if already focused on an input/textarea or if modifier keys are pressed
+            if (activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                e.ctrlKey ||
+                e.altKey ||
+                e.metaKey) {
+                return;
+            }
+
+            // Ignore special keys (arrows, function keys, etc.)
+            if (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace') {
+                return;
+            }
+
+            // Auto-focus the search input
+            productSearch.focus();
+        });
+
         async function loadSettings() {
             try {
                 const snapshot = await database.ref('displaySettings').once('value');
