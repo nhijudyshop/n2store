@@ -159,6 +159,7 @@
             overflow: hidden;
             flex-shrink: 0;
             text-overflow: ellipsis;
+            text-align: center;
         }
 
         .grid-item-stats {
@@ -166,6 +167,7 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 4px;
             margin-top: 4px;
+            margin-bottom: 4px;
             flex-shrink: 0;
         }
 
@@ -222,9 +224,11 @@
         .remaining-qty-item {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             padding: 2px 4px;
             background: rgba(255, 255, 255, 0.5);
             border-radius: 3px;
+            gap: 4px;
         }
 
         .remaining-qty-item-name {
@@ -239,6 +243,40 @@
         .remaining-qty-item-value {
             font-weight: bold;
             font-size: 11px;
+        }
+
+        .variant-qty-btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .variant-qty-btn:hover {
+            background: #f57c00;
+            transform: scale(1.1);
+        }
+
+        .variant-qty-btn:active {
+            transform: scale(0.95);
+        }
+
+        .variant-qty-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.5;
         }
 
         .qty-controls {
@@ -1343,12 +1381,15 @@
 
                     // Create list of sold quantities for each variant
                     const soldQtyList = variants.map(v => ({
+                        id: v.Id,
                         name: v.NameGet,
-                        qty: v.soldQty || 0
+                        qty: v.soldQty || 0,
+                        maxQty: v.QtyAvailable || 0
                     }));
 
                     // Create list of remaining quantities for each variant
                     const remainingQtyList = variants.map(v => ({
+                        id: v.Id,
                         name: v.NameGet,
                         qty: v.remainingQty || 0
                     }));
@@ -1409,11 +1450,7 @@
                             <div class="grid-stat grid-stat-total">
                                 <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS" ${isMerged ? 'disabled' : ''}>🔄</button>
                                 <div class="grid-stat-label"><span class="icon-emoji">📦</span> Tổng</div>
-                                <div class="qty-controls">
-                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, -1)" ${product.QtyAvailable <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
-                                    <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
-                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, 1)" ${isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
-                                </div>
+                                <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
                             </div>
                             <div class="grid-stat grid-stat-sold">
                                 <div class="grid-stat-label"><span class="icon-emoji">🛒</span> Bán</div>
@@ -1425,8 +1462,10 @@
                                             const variantName = nameParts.length > 1 ? nameParts.slice(1).join(' - ') : item.name;
                                             return `
                                                 <div class="remaining-qty-item">
+                                                    <button class="variant-qty-btn" onclick="updateVariantQty(${item.id}, -1)" ${item.qty <= 0 ? 'disabled' : ''}>−</button>
                                                     <div class="remaining-qty-item-name">${variantName}</div>
                                                     <div class="remaining-qty-item-value">${item.qty}</div>
+                                                    <button class="variant-qty-btn" onclick="updateVariantQty(${item.id}, 1)" ${item.qty >= item.maxQty ? 'disabled' : ''}>+</button>
                                                 </div>
                                             `;
                                         }).join('')}
@@ -1502,6 +1541,26 @@
 
             product.soldQty = newSoldQty;
             product.remainingQty = product.QtyAvailable - newSoldQty;
+
+            if (!isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
+            }
+
+            updateProductGrid();
+        }
+
+        function updateVariantQty(variantId, change) {
+            const variant = savedProducts.find(p => p.Id === variantId);
+            if (!variant) return;
+
+            const newSoldQty = Math.max(0, Math.min(variant.QtyAvailable, variant.soldQty + change));
+
+            if (newSoldQty === variant.soldQty) return;
+
+            variant.soldQty = newSoldQty;
+            variant.remainingQty = variant.QtyAvailable - newSoldQty;
 
             if (!isSyncingFromFirebase) {
                 database.ref('savedProducts').set(savedProducts).catch(error => {
