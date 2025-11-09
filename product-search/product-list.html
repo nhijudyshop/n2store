@@ -1253,7 +1253,11 @@
                             <div class="grid-stat grid-stat-total">
                                 <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS">🔄</button>
                                 <div class="grid-stat-label"><span class="icon-emoji">📦</span> Tổng</div>
-                                <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
+                                <div class="qty-controls">
+                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, -1)" ${product.QtyAvailable <= 0 ? 'disabled' : ''}>−</button>
+                                    <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
+                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, 1)">+</button>
+                                </div>
                             </div>
                             <div class="grid-stat grid-stat-sold">
                                 <div class="grid-stat-label"><span class="icon-emoji">🛒</span> Bán</div>
@@ -1308,6 +1312,32 @@
 
             product.soldQty = newSoldQty;
             product.remainingQty = product.QtyAvailable - newSoldQty;
+
+            if (!isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
+            }
+
+            updateProductGrid();
+        }
+
+        function updateProductTotal(productId, change) {
+            const product = savedProducts.find(p => p.Id === productId);
+            if (!product) return;
+
+            const newQtyAvailable = Math.max(0, product.QtyAvailable + change);
+
+            if (newQtyAvailable === product.QtyAvailable) return;
+
+            product.QtyAvailable = newQtyAvailable;
+
+            // Ensure soldQty doesn't exceed new total
+            if (product.soldQty > product.QtyAvailable) {
+                product.soldQty = product.QtyAvailable;
+            }
+
+            product.remainingQty = product.QtyAvailable - product.soldQty;
 
             if (!isSyncingFromFirebase) {
                 database.ref('savedProducts').set(savedProducts).catch(error => {
