@@ -1343,13 +1343,16 @@
 
                 // Check if auto-add variants is enabled and variants exist
                 if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+                    // CRITICAL: Set flag to prevent Firebase listener from overwriting during bulk add
+                    isSyncingFromFirebase = true;
+
                     // Add all variants
                     let addedCount = 0;
                     for (const variant of templateData.ProductVariants) {
                         const qtyAvailable = variant.QtyAvailable || 0;
                         const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
-                        
-                        const addSuccess = addProductToList({
+
+                        const cleanProduct = cleanProductForFirebase({
                             Id: variant.Id,
                             NameGet: variant.NameGet,
                             QtyAvailable: qtyAvailable,
@@ -1357,13 +1360,30 @@
                             imageUrl: variantImageUrl,
                             soldQty: 0,
                             remainingQty: qtyAvailable
-                        }, false); // Don't show notification for each variant
-                        
-                        if (addSuccess) {
-                            addedCount++;
+                        });
+
+                        const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
+                        if (existingIndex !== -1) {
+                            savedProducts[existingIndex] = cleanProduct;
+                        } else {
+                            savedProducts.push(cleanProduct);
                         }
+                        addedCount++;
                     }
-                    
+
+                    // Save all variants to Firebase in one operation
+                    database.ref('savedProducts').set(savedProducts).then(() => {
+                        console.log(`✅ Saved ${addedCount} variants to Firebase`);
+                        // Re-enable Firebase sync after a short delay
+                        setTimeout(() => { isSyncingFromFirebase = false; }, 200);
+                    }).catch(error => {
+                        console.error('❌ Error saving variants to Firebase:', error);
+                        showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
+                        isSyncingFromFirebase = false;
+                    });
+
+                    updateProductListPreview();
+
                     if (addedCount > 0) {
                         showNotificationMessage(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
                         document.getElementById('productSearch').value = '';
