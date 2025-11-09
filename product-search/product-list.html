@@ -165,7 +165,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 4px;
-            margin-top: auto;
+            margin-top: 4px;
             flex-shrink: 0;
         }
 
@@ -1337,9 +1337,15 @@
                         commonName = nameParts[0];
                     }
 
-                    // Sum up quantities - only sum soldQty for merged display
+                    // Sum up quantities
                     const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
                     const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
+
+                    // Create list of sold quantities for each variant
+                    const soldQtyList = variants.map(v => ({
+                        name: v.NameGet,
+                        qty: v.soldQty || 0
+                    }));
 
                     // Create list of remaining quantities for each variant
                     const remainingQtyList = variants.map(v => ({
@@ -1354,6 +1360,7 @@
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
                         remainingQty: 0, // Not used for merged products
+                        soldQtyList: soldQtyList, // List of sold qty for each variant
                         remainingQtyList: remainingQtyList, // List of remaining qty for each variant
                         isMerged: true,
                         variantCount: variants.length,
@@ -1410,11 +1417,27 @@
                             </div>
                             <div class="grid-stat grid-stat-sold">
                                 <div class="grid-stat-label"><span class="icon-emoji">🛒</span> Bán</div>
-                                <div class="qty-controls">
-                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
-                                    <div class="grid-stat-value">${product.soldQty || 0}</div>
-                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
-                                </div>
+                                ${isMerged && product.soldQtyList ? `
+                                    <div class="remaining-qty-list">
+                                        ${product.soldQtyList.map(item => {
+                                            // Extract variant name (part after " - ")
+                                            const nameParts = item.name.split(' - ');
+                                            const variantName = nameParts.length > 1 ? nameParts.slice(1).join(' - ') : item.name;
+                                            return `
+                                                <div class="remaining-qty-item">
+                                                    <div class="remaining-qty-item-name">${variantName}</div>
+                                                    <div class="remaining-qty-item-value">${item.qty}</div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                ` : `
+                                    <div class="qty-controls">
+                                        <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
+                                        <div class="grid-stat-value">${product.soldQty || 0}</div>
+                                        <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
+                                    </div>
+                                `}
                             </div>
                             <div class="grid-stat grid-stat-remaining">
                                 <div class="grid-stat-label"><span class="icon-emoji">✅</span> Còn</div>
