@@ -1680,12 +1680,31 @@
                 const snapshot = await database.ref('displaySettings').once('value');
                 const settings = snapshot.val();
                 if (settings) {
+                    // Layout settings
                     document.getElementById('settingColumns').value = settings.columns || 4;
                     document.getElementById('settingRows').value = settings.rows || 2;
                     document.getElementById('settingGap').value = settings.gap || 15;
                     document.getElementById('settingItemHeight').value = settings.itemHeight || 500;
+
+                    // Image settings
+                    document.getElementById('settingImageBorderRadius').value = settings.imageBorderRadius || 8;
+                    document.getElementById('settingImageBorderWidth').value = settings.imageBorderWidth || 2;
+                    document.getElementById('settingImageMarginBottom').value = settings.imageMarginBottom || 4;
+
+                    // Name settings
+                    document.getElementById('settingNameFontSize').value = settings.nameFontSize || 13;
+                    document.getElementById('settingNameFontWeight').value = settings.nameFontWeight || 700;
                     document.getElementById('settingNameMargin').value = settings.nameMargin || 3;
-                    
+                    document.getElementById('settingNameLineHeight').value = settings.nameLineHeight || 1.2;
+
+                    // Stats settings
+                    document.getElementById('settingStatsValueSize').value = settings.statsValueSize || 16;
+                    document.getElementById('settingStatsLabelSize').value = settings.statsLabelSize || 9;
+                    document.getElementById('settingStatsPadding').value = settings.statsPadding || 3;
+                    document.getElementById('settingStatsGap').value = settings.statsGap || 4;
+                    document.getElementById('settingStatsBorderRadius').value = settings.statsBorderRadius || 6;
+                    document.getElementById('settingStatsMarginTop').value = settings.statsMarginTop || 4;
+
                     // Load autoAddVariants setting
                     autoAddVariants = settings.autoAddVariants !== undefined ? settings.autoAddVariants : true;
                     document.getElementById('toggleAutoVariants').checked = autoAddVariants;
@@ -1696,19 +1715,59 @@
         }
 
         function applySettings() {
+            // Layout settings
             const columns = parseInt(document.getElementById('settingColumns').value) || 4;
             const rows = parseInt(document.getElementById('settingRows').value) || 2;
             const gap = parseInt(document.getElementById('settingGap').value) || 15;
             const itemHeight = parseInt(document.getElementById('settingItemHeight').value) || 500;
+
+            // Image settings
+            const imageBorderRadius = parseInt(document.getElementById('settingImageBorderRadius').value) || 8;
+            const imageBorderWidth = parseInt(document.getElementById('settingImageBorderWidth').value) || 2;
+            const imageMarginBottom = parseInt(document.getElementById('settingImageMarginBottom').value) || 4;
+
+            // Name settings
+            const nameFontSize = parseInt(document.getElementById('settingNameFontSize').value) || 13;
+            const nameFontWeight = parseInt(document.getElementById('settingNameFontWeight').value) || 700;
             const nameMargin = parseInt(document.getElementById('settingNameMargin').value) || 3;
+            const nameLineHeight = parseFloat(document.getElementById('settingNameLineHeight').value) || 1.2;
+
+            // Stats settings
+            const statsValueSize = parseInt(document.getElementById('settingStatsValueSize').value) || 16;
+            const statsLabelSize = parseInt(document.getElementById('settingStatsLabelSize').value) || 9;
+            const statsPadding = parseInt(document.getElementById('settingStatsPadding').value) || 3;
+            const statsGap = parseInt(document.getElementById('settingStatsGap').value) || 4;
+            const statsBorderRadius = parseInt(document.getElementById('settingStatsBorderRadius').value) || 6;
+            const statsMarginTop = parseInt(document.getElementById('settingStatsMarginTop').value) || 4;
 
             const settings = {
+                // Layout
                 columns: columns,
                 rows: rows,
                 gap: gap,
                 itemHeight: itemHeight,
-                nameMargin: nameMargin,
                 itemsPerPage: columns * rows,
+
+                // Image
+                imageBorderRadius: imageBorderRadius,
+                imageBorderWidth: imageBorderWidth,
+                imageMarginBottom: imageMarginBottom,
+
+                // Name
+                nameFontSize: nameFontSize,
+                nameFontWeight: nameFontWeight,
+                nameMargin: nameMargin,
+                nameLineHeight: nameLineHeight,
+
+                // Stats
+                statsValueSize: statsValueSize,
+                statsLabelSize: statsLabelSize,
+                statsPadding: statsPadding,
+                statsGap: statsGap,
+                statsBorderRadius: statsBorderRadius,
+                statsMarginTop: statsMarginTop,
+
+                // Other
                 autoAddVariants: autoAddVariants
             };
 
@@ -1912,39 +1971,125 @@
                 </label>
             </div>
 
-            <div class="settings-grid">
-                <div class="setting-item">
-                    <label class="setting-label">📊 Số Cột</label>
-                    <input type="number" class="setting-input" id="settingColumns" value="4" min="1" max="8">
-                    <div class="setting-description">Số cột hiển thị trên mỗi trang</div>
+            <!-- Layout Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px;">📐 Cài đặt Bố cục</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">📊 Số Cột</label>
+                        <input type="number" class="setting-input" id="settingColumns" value="4" min="1" max="8">
+                        <div class="setting-description">Số cột hiển thị trên mỗi trang</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📋 Số Hàng</label>
+                        <input type="number" class="setting-input" id="settingRows" value="2" min="1" max="6">
+                        <div class="setting-description">Số hàng hiển thị trên mỗi trang</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📏 Khoảng Cách (px)</label>
+                        <input type="number" class="setting-input" id="settingGap" value="15" min="5" max="50">
+                        <div class="setting-description">Khoảng cách giữa các sản phẩm</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📐 Chiều Cao Cột (px)</label>
+                        <input type="number" class="setting-input" id="settingItemHeight" value="500" min="200" max="1000">
+                        <div class="setting-description">Chiều cao của mỗi ô sản phẩm</div>
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label class="setting-label">📋 Số Hàng</label>
-                    <input type="number" class="setting-input" id="settingRows" value="2" min="1" max="6">
-                    <div class="setting-description">Số hàng hiển thị trên mỗi trang</div>
+            </div>
+
+            <!-- Image Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px;">🖼️ Cài đặt Hình ảnh</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">🔲 Border Radius (px)</label>
+                        <input type="number" class="setting-input" id="settingImageBorderRadius" value="8" min="0" max="30">
+                        <div class="setting-description">Bo góc hình ảnh</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📦 Border Width (px)</label>
+                        <input type="number" class="setting-input" id="settingImageBorderWidth" value="2" min="0" max="10">
+                        <div class="setting-description">Độ dày viền hình ảnh</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">⬇️ Margin Bottom (px)</label>
+                        <input type="number" class="setting-input" id="settingImageMarginBottom" value="4" min="0" max="20">
+                        <div class="setting-description">Khoảng cách dưới hình ảnh</div>
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label class="setting-label">📏 Khoảng Cách (px)</label>
-                    <input type="number" class="setting-input" id="settingGap" value="15" min="5" max="50">
-                    <div class="setting-description">Khoảng cách giữa các sản phẩm</div>
+            </div>
+
+            <!-- Name Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px;">📝 Cài đặt Tên sản phẩm</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">🔤 Font Size (px)</label>
+                        <input type="number" class="setting-input" id="settingNameFontSize" value="13" min="8" max="24">
+                        <div class="setting-description">Cỡ chữ tên sản phẩm</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">💪 Font Weight</label>
+                        <input type="number" class="setting-input" id="settingNameFontWeight" value="700" min="400" max="900" step="100">
+                        <div class="setting-description">Độ đậm chữ (400-900)</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">⬇️ Margin Bottom (px)</label>
+                        <input type="number" class="setting-input" id="settingNameMargin" value="3" min="0" max="20">
+                        <div class="setting-description">Khoảng cách dưới tên</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📏 Line Height</label>
+                        <input type="number" class="setting-input" id="settingNameLineHeight" value="1.2" min="1" max="2" step="0.1">
+                        <div class="setting-description">Khoảng cách dòng (1.0-2.0)</div>
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label class="setting-label">📐 Chiều Cao Cột (px)</label>
-                    <input type="number" class="setting-input" id="settingItemHeight" value="500" min="200" max="1000">
-                    <div class="setting-description">Chiều cao của mỗi ô sản phẩm</div>
+            </div>
+
+            <!-- Stats Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px;">📊 Cài đặt Thống kê (Stats)</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">🔢 Stats Value Size (px)</label>
+                        <input type="number" class="setting-input" id="settingStatsValueSize" value="16" min="10" max="32">
+                        <div class="setting-description">Cỡ chữ số liệu</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">🏷️ Stats Label Size (px)</label>
+                        <input type="number" class="setting-input" id="settingStatsLabelSize" value="9" min="6" max="16">
+                        <div class="setting-description">Cỡ chữ nhãn (Tổng, Bán, Còn)</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📦 Stats Padding (px)</label>
+                        <input type="number" class="setting-input" id="settingStatsPadding" value="3" min="0" max="15">
+                        <div class="setting-description">Padding bên trong stats box</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📏 Stats Gap (px)</label>
+                        <input type="number" class="setting-input" id="settingStatsGap" value="4" min="0" max="15">
+                        <div class="setting-description">Khoảng cách giữa các stats</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">🔲 Stats Border Radius (px)</label>
+                        <input type="number" class="setting-input" id="settingStatsBorderRadius" value="6" min="0" max="20">
+                        <div class="setting-description">Bo góc stats box</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">⬆️ Stats Margin Top (px)</label>
+                        <input type="number" class="setting-input" id="settingStatsMarginTop" value="4" min="0" max="20">
+                        <div class="setting-description">Khoảng cách trên stats</div>
+                    </div>
                 </div>
-                <div class="setting-item">
-                    <label class="setting-label">⬇️ Khoảng Cách Tên - Stats (px)</label>
-                    <input type="number" class="setting-input" id="settingNameMargin" value="3" min="0" max="20">
-                    <div class="setting-description">Khoảng trống giữa tên và phần Tổng/Bán/Còn</div>
-                </div>
-                <div class="setting-item">
-                    <label class="setting-label">💾 Áp dụng</label>
-                    <button class="btn-apply-settings" onclick="applySettings(); toggleSettingsSidebar();">
-                        ✓ Lưu Cài Đặt
-                    </button>
-                    <div class="setting-description">Áp dụng cho trang danh sách</div>
-                </div>
+            </div>
+
+            <!-- Apply Button -->
+            <div class="setting-item" style="grid-column: 1 / -1;">
+                <button class="btn-apply-settings" onclick="applySettings(); toggleSettingsSidebar();">
+                    💾 Lưu Tất Cả Cài Đặt
+                </button>
+                <div class="setting-description" style="text-align: center; margin-top: 10px;">Áp dụng cho trang danh sách và lưu vào Firebase</div>
             </div>
         </div>
     </div>
