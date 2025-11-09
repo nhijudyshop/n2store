@@ -186,37 +186,40 @@
         }
 
         .grid-item-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: var(--stats-gap, 4px);
+            display: flex;
+            gap: 0;
             margin-top: var(--stats-margin-top, 4px);
             margin-bottom: 0;
             flex: 50 1 0%;
             min-height: 0;
+            border-radius: var(--stats-border-radius, 6px);
+            overflow: hidden;
         }
 
         .grid-stat {
-            text-align: center;
-            padding: var(--stats-padding, 3px) calc(var(--stats-padding, 3px) * 0.67);
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: var(--stats-border-radius, 6px);
-            border: 2px solid #dee2e6;
+            flex: 1;
             display: flex;
             flex-direction: column;
             min-height: 0;
+            border-right: 3px solid white;
+            padding: 8px 4px;
+        }
+
+        .grid-stat:last-child {
+            border-right: none;
         }
 
         .grid-stat-label {
             font-size: var(--stats-label-size, 9px);
-            color: #666;
+            color: #555;
             text-transform: uppercase;
             font-weight: 700;
             letter-spacing: 0.3px;
-            flex: 5 0 0%;
-            min-height: 0;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 4px;
         }
 
         .grid-stat-value {
@@ -224,7 +227,7 @@
             font-weight: 900;
             color: #333;
             line-height: 1;
-            flex: 95 1 0%;
+            flex: 1;
             min-height: 0;
             display: flex;
             align-items: center;
@@ -232,54 +235,56 @@
         }
 
         .grid-stat-total {
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            border-color: #2196f3;
+            background: linear-gradient(180deg, #e3f2fd 0%, #bbdefb 100%);
             position: relative;
         }
 
         .grid-stat-sold {
-            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-            border-color: #ff9800;
+            background: linear-gradient(180deg, #fff3e0 0%, #ffe0b2 100%);
         }
 
         .grid-stat-remaining {
-            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-            border-color: #4caf50;
+            background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
         }
 
         .remaining-qty-list {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 4px;
             font-size: 11px;
             line-height: 1.3;
             overflow-y: auto;
-            flex: 95 1 0%;
+            flex: 1;
             min-height: 0;
+            justify-content: space-between;
         }
 
         .remaining-qty-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 2px 4px;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 3px;
-            gap: 4px;
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 6px;
+            gap: 6px;
+            flex: 1;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .remaining-qty-item-name {
             flex: 1;
-            font-size: 10px;
+            font-size: 11px;
+            font-weight: 500;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            margin-right: 4px;
+            color: #555;
         }
 
         .remaining-qty-item-value {
             font-weight: bold;
-            font-size: 11px;
+            font-size: 14px;
+            color: #333;
         }
 
         .variant-qty-btn {
@@ -318,17 +323,25 @@
 
         .qty-controls {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-            flex: 95 1 0%;
+            gap: 8px;
+            flex: 1;
             min-height: 0;
         }
 
         .qty-controls .grid-stat-value {
-            flex: none;
-            min-width: 30px;
+            flex: 1;
+            min-width: 40px;
             text-align: center;
+            font-size: 36px;
+        }
+
+        .qty-controls-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
 
         .qty-btn {
@@ -511,21 +524,13 @@
             opacity: 1;
         }
 
-        /* Edit mode - when disabled, hide qty controls and adjust grid */
+        /* Edit mode - when disabled, hide qty controls and adjust layout */
         body.edit-mode-disabled .qty-controls {
             display: none !important;
         }
 
-        body.edit-mode-disabled .grid-stat-sold {
-            grid-column: auto;
-        }
-
-        body.edit-mode-disabled .grid-stat-remaining {
-            grid-column: auto;
-        }
-
-        body.edit-mode-disabled .grid-item-stats {
-            grid-template-columns: 1fr 1fr 2fr;
+        body.edit-mode-disabled .grid-stat-sold .grid-stat-value {
+            display: flex !important;
         }
 
         @media (max-width: 768px) {
@@ -853,6 +858,7 @@
 
             .qty-controls .grid-stat-value {
                 min-width: 40px;
+                font-size: 32px;
             }
 
             .grid-item-image.no-image {
@@ -881,6 +887,7 @@
 
             .qty-controls .grid-stat-value {
                 min-width: 45px;
+                font-size: 34px;
             }
 
             .grid-item-image.no-image {
@@ -899,6 +906,7 @@
 
             .qty-controls .grid-stat-value {
                 min-width: 50px;
+                font-size: 38px;
             }
 
             .grid-stat-label {
@@ -928,6 +936,7 @@
 
             .qty-controls .grid-stat-value {
                 min-width: 60px;
+                font-size: 42px;
             }
 
             .grid-stat-label {
@@ -957,6 +966,7 @@
 
             .qty-controls .grid-stat-value {
                 min-width: 70px;
+                font-size: 48px;
             }
 
             .grid-stat-label {
@@ -1438,11 +1448,28 @@
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
                                 <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS" ${isMerged ? 'disabled' : ''}>🔄</button>
-                                <div class="grid-stat-label"><span class="icon-emoji">📦</span> Tổng</div>
-                                <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
+                                <div class="grid-stat-label">📦 TỔNG</div>
+                                ${isMerged && product.remainingQtyList ? `
+                                    <div class="remaining-qty-list">
+                                        ${product.remainingQtyList.map(item => {
+                                            // Extract only the part in parentheses () at the end
+                                            const lastParenMatch = item.name.match(/\(([^)]+)\)[^(]*$/);
+                                            const variantName = lastParenMatch ? '(' + lastParenMatch[1] + ')' : item.name;
+                                            const totalQty = (product.soldQtyList.find(s => s.id === item.id)?.maxQty) || 0;
+                                            return `
+                                                <div class="remaining-qty-item">
+                                                    <div class="remaining-qty-item-name">${variantName}</div>
+                                                    <div class="remaining-qty-item-value">${totalQty}</div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                ` : `
+                                    <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
+                                `}
                             </div>
                             <div class="grid-stat grid-stat-sold">
-                                <div class="grid-stat-label"><span class="icon-emoji">🛒</span> Bán</div>
+                                <div class="grid-stat-label">🛒 BÁN</div>
                                 ${isMerged && product.soldQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.soldQtyList.map(item => {
@@ -1457,23 +1484,21 @@
                                     </div>
                                 ` : `
                                     <div class="qty-controls">
-                                        <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
                                         <div class="grid-stat-value">${product.soldQty || 0}</div>
-                                        <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
+                                        <div class="qty-controls-buttons">
+                                            <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
+                                            <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
+                                        </div>
                                     </div>
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-remaining">
-                                <div class="grid-stat-label"><span class="icon-emoji">✅</span> Còn</div>
+                                <div class="grid-stat-label">✅ CÒN</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.remainingQtyList.map(item => {
-                                            // Extract only the part in parentheses () at the end
-                                            const lastParenMatch = item.name.match(/\(([^)]+)\)[^(]*$/);
-                                            const variantName = lastParenMatch ? '(' + lastParenMatch[1] + ')' : item.name;
                                             return `
-                                                <div class="remaining-qty-item">
-                                                    <div class="remaining-qty-item-name">${variantName}</div>
+                                                <div class="remaining-qty-item" style="justify-content: center;">
                                                     <div class="remaining-qty-item-value">${item.qty}</div>
                                                 </div>
                                             `;
