@@ -799,7 +799,6 @@
             nameMargin: 3
         };
         let isSyncMode = false;
-        let isEditMode = true; // Edit mode enabled by default
         let isMergeVariants = false; // Merge variants mode disabled by default
 
         const firebaseConfig = {
@@ -916,40 +915,6 @@
                     btnToggle.textContent = '⏸️ Đồng bộ';
                 }
             }
-        }
-
-        function toggleEditMode() {
-            isEditMode = !isEditMode;
-            // Save to localStorage only (not Firebase)
-            localStorage.setItem('isEditMode', JSON.stringify(isEditMode));
-            updateEditModeUI();
-            console.log(isEditMode ? '✏️ Đã bật chế độ chỉnh sửa' : '🔒 Đã khóa chỉnh sửa');
-        }
-
-        function updateEditModeUI() {
-            const btnToggle = document.getElementById('btnToggleEdit');
-
-            if (isEditMode) {
-                document.body.classList.remove('edit-mode-disabled');
-                if (btnToggle) {
-                    btnToggle.classList.add('active');
-                    btnToggle.textContent = '✏️ Đang sửa';
-                }
-            } else {
-                document.body.classList.add('edit-mode-disabled');
-                if (btnToggle) {
-                    btnToggle.classList.remove('active');
-                    btnToggle.textContent = '🔒 Khóa';
-                }
-            }
-        }
-
-        function loadEditMode() {
-            const saved = localStorage.getItem('isEditMode');
-            if (saved !== null) {
-                isEditMode = JSON.parse(saved);
-            }
-            updateEditModeUI();
         }
 
         function toggleMergeVariants() {
@@ -1702,7 +1667,6 @@
         window.addEventListener('load', async () => {
             setupFirebaseListeners();
             loadSettings();
-            loadEditMode(); // Load edit mode from localStorage
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
 
             // Load products from localStorage or Firebase
