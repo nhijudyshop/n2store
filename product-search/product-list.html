@@ -1573,9 +1573,8 @@
 
             const params = parseHashParams();
 
-            if (params.sync) {
-                isSyncMode = true;
-            }
+            // Auto-enable sync mode by default
+            isSyncMode = true;
 
             if (params.page && params.page > 1) {
                 currentPage = params.page;
