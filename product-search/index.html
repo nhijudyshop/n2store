@@ -1681,8 +1681,7 @@
                 const settings = snapshot.val();
                 if (settings) {
                     // Frame Display settings
-                    document.getElementById('settingImageHeightPercent').value = settings.imageHeightPercent || 50;
-                    document.getElementById('settingNameLineClamp').value = settings.nameLineClamp || 2;
+                    document.getElementById('settingNameLineClamp').value = settings.nameLineClamp || 1;
 
                     // Layout settings
                     document.getElementById('settingColumns').value = settings.columns || 4;
@@ -1720,8 +1719,7 @@
 
         function applySettings() {
             // Frame Display settings
-            const imageHeightPercent = parseInt(document.getElementById('settingImageHeightPercent').value) || 50;
-            const nameLineClamp = parseInt(document.getElementById('settingNameLineClamp').value) || 2;
+            const nameLineClamp = parseInt(document.getElementById('settingNameLineClamp').value) || 1;
 
             // Layout settings
             const columns = parseInt(document.getElementById('settingColumns').value) || 4;
@@ -1750,7 +1748,6 @@
 
             const settings = {
                 // Frame Display
-                imageHeightPercent: imageHeightPercent,
                 nameLineClamp: nameLineClamp,
 
                 // Layout
@@ -1988,15 +1985,13 @@
                 <h3 style="color: #28a745; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #28a745; padding-bottom: 8px;">🖼️ Cài đặt Khung hiển thị</h3>
                 <div class="settings-grid">
                     <div class="setting-item">
-                        <label class="setting-label">📐 Chiều cao hình ảnh (%)</label>
-                        <input type="number" class="setting-input" id="settingImageHeightPercent" value="50" min="20" max="80" step="5">
-                        <div class="setting-description">Tỷ lệ % chiều cao hình ảnh so với khung (20-80%)</div>
-                    </div>
-                    <div class="setting-item">
                         <label class="setting-label">📝 Số dòng tên sản phẩm</label>
-                        <input type="number" class="setting-input" id="settingNameLineClamp" value="2" min="1" max="4">
+                        <input type="number" class="setting-input" id="settingNameLineClamp" value="1" min="1" max="4">
                         <div class="setting-description">Số dòng hiển thị tên sản phẩm (1-4 dòng)</div>
                     </div>
+                </div>
+                <div class="setting-description" style="margin-top: 10px; padding: 10px; background: rgba(40, 167, 69, 0.1); border-radius: 8px;">
+                    ℹ️ Tỷ lệ khung: Hình ảnh 40%, Tên 10%, Stats 50%
                 </div>
             </div>
 
