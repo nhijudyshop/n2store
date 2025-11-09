@@ -1346,34 +1346,63 @@
                     // CRITICAL: Set flag to prevent Firebase listener from overwriting during bulk add
                     isSyncingFromFirebase = true;
 
-                    // Add all variants
+                    // Add all variants with retry mechanism
                     let addedCount = 0;
+                    let errorCount = 0;
+                    const totalVariants = templateData.ProductVariants.length;
+
                     for (const variant of templateData.ProductVariants) {
-                        const qtyAvailable = variant.QtyAvailable || 0;
-                        const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
+                        let retryCount = 0;
+                        let success = false;
 
-                        const cleanProduct = cleanProductForFirebase({
-                            Id: variant.Id,
-                            NameGet: variant.NameGet,
-                            QtyAvailable: qtyAvailable,
-                            ProductTmplId: productData.ProductTmplId,
-                            imageUrl: variantImageUrl,
-                            soldQty: 0,
-                            remainingQty: qtyAvailable
-                        });
+                        // Try up to 2 times (1 original + 1 retry)
+                        while (retryCount < 2 && !success) {
+                            try {
+                                const qtyAvailable = variant.QtyAvailable || 0;
+                                const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
 
-                        const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
-                        if (existingIndex !== -1) {
-                            savedProducts[existingIndex] = cleanProduct;
-                        } else {
-                            savedProducts.push(cleanProduct);
+                                const cleanProduct = cleanProductForFirebase({
+                                    Id: variant.Id,
+                                    NameGet: variant.NameGet,
+                                    QtyAvailable: qtyAvailable,
+                                    ProductTmplId: productData.ProductTmplId,
+                                    imageUrl: variantImageUrl,
+                                    soldQty: 0,
+                                    remainingQty: qtyAvailable
+                                });
+
+                                const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
+                                if (existingIndex !== -1) {
+                                    savedProducts[existingIndex] = cleanProduct;
+                                } else {
+                                    savedProducts.push(cleanProduct);
+                                }
+                                addedCount++;
+                                success = true;
+
+                                if (retryCount > 0) {
+                                    console.log(`✅ Retry thành công cho biến thể: ${variant.NameGet}`);
+                                }
+                            } catch (error) {
+                                retryCount++;
+                                console.error(`❌ Lỗi thêm biến thể lần ${retryCount}: ${variant.NameGet}`, error);
+
+                                if (retryCount < 2) {
+                                    // Wait 500ms before retry
+                                    await new Promise(resolve => setTimeout(resolve, 500));
+                                    console.log(`🔄 Đang retry lần ${retryCount + 1} cho: ${variant.NameGet}`);
+                                } else {
+                                    // Failed after 2 attempts, skip this variant
+                                    console.warn(`⚠️ Bỏ qua biến thể sau 2 lần thử: ${variant.NameGet}`);
+                                    errorCount++;
+                                }
+                            }
                         }
-                        addedCount++;
                     }
 
                     // Save all variants to Firebase in one operation
                     database.ref('savedProducts').set(savedProducts).then(() => {
-                        console.log(`✅ Saved ${addedCount} variants to Firebase`);
+                        console.log(`✅ Saved ${addedCount}/${totalVariants} variants to Firebase`);
                         // Re-enable Firebase sync after a short delay
                         setTimeout(() => { isSyncingFromFirebase = false; }, 200);
                     }).catch(error => {
@@ -1385,8 +1414,14 @@
                     updateProductListPreview();
 
                     if (addedCount > 0) {
-                        showNotificationMessage(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
+                        let message = `✅ Đã thêm ${addedCount}/${totalVariants} biến thể`;
+                        if (errorCount > 0) {
+                            message += ` (⚠️ ${errorCount} lỗi đã bỏ qua)`;
+                        }
+                        showNotificationMessage(message);
                         document.getElementById('productSearch').value = '';
+                    } else if (errorCount > 0) {
+                        showNotificationMessage(`❌ Không thể thêm biến thể (${errorCount} lỗi)`);
                     }
                 } else {
                     // Add single product (original behavior)
