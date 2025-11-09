@@ -1491,23 +1491,83 @@
             }, 2000);
         }
 
+        // Barcode scanner detection
+        let lastKeyTime = Date.now();
+        let isBarcodeScan = false;
+        let inputBuffer = '';
+        let barcodeTimeout = null;
+
         document.getElementById('productSearch').addEventListener('input', (e) => {
             const searchText = e.target.value.trim();
+            const currentTime = Date.now();
+            const timeDiff = currentTime - lastKeyTime;
+            lastKeyTime = currentTime;
 
-            if (searchText.length >= 2) {
-                if (productsData.length === 0) {
-                    loadExcelData().then(() => {
+            // Detect barcode scanner (very fast typing, < 50ms between keys)
+            if (timeDiff < 50 && searchText.length > 2) {
+                isBarcodeScan = true;
+            } else if (timeDiff > 100) {
+                isBarcodeScan = false;
+            }
+
+            // Clear previous timeout
+            if (barcodeTimeout) {
+                clearTimeout(barcodeTimeout);
+            }
+
+            // If barcode scan detected, wait for completion then auto-search
+            if (isBarcodeScan) {
+                barcodeTimeout = setTimeout(() => {
+                    if (productsData.length === 0) {
+                        loadExcelData().then(() => {
+                            autoSearchExactMatch(searchText);
+                        });
+                    } else {
+                        autoSearchExactMatch(searchText);
+                    }
+                    isBarcodeScan = false;
+                }, 100);
+            } else {
+                // Manual typing - show suggestions
+                if (searchText.length >= 2) {
+                    if (productsData.length === 0) {
+                        loadExcelData().then(() => {
+                            const results = searchProducts(searchText);
+                            displaySuggestions(results);
+                        });
+                    } else {
                         const results = searchProducts(searchText);
                         displaySuggestions(results);
-                    });
+                    }
                 } else {
-                    const results = searchProducts(searchText);
-                    displaySuggestions(results);
+                    document.getElementById('suggestions').classList.remove('show');
                 }
-            } else {
-                document.getElementById('suggestions').classList.remove('show');
             }
         });
+
+        function autoSearchExactMatch(searchText) {
+            // Try exact match first
+            const exactMatch = productsData.find(p =>
+                p.code && p.code.toLowerCase() === searchText.toLowerCase()
+            );
+
+            if (exactMatch) {
+                loadProductDetails(exactMatch.id);
+                document.getElementById('suggestions').classList.remove('show');
+                document.getElementById('productSearch').value = '';
+            } else {
+                // If no exact match, try fuzzy search
+                const results = searchProducts(searchText);
+                if (results.length === 1) {
+                    loadProductDetails(results[0].id);
+                    document.getElementById('suggestions').classList.remove('show');
+                    document.getElementById('productSearch').value = '';
+                } else if (results.length > 1) {
+                    // Multiple results, show suggestions
+                    displaySuggestions(results);
+                }
+            }
+        }
 
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-wrapper')) {
