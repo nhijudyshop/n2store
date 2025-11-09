@@ -947,6 +947,9 @@
     <div class="nav-hover-area right"></div>
     <button class="btn-nav" id="btnNext">Sau ▶</button>
 
+    <div class="sync-hover-area" style="left: calc(50% - 240px); transform: translateX(0);"></div>
+    <button class="btn-sync-toggle" id="btnMergeVariants" onclick="toggleMergeVariants()" style="left: calc(50% - 240px); transform: translateX(0); background: rgba(156, 39, 176, 0.9); border-color: #9c27b0;">📦 Gộp biến thể</button>
+
     <div class="sync-hover-area" style="left: calc(50% - 120px); transform: translateX(0);"></div>
     <button class="btn-sync-toggle" id="btnToggleEdit" onclick="toggleEditMode()" style="left: calc(50% - 120px); transform: translateX(0); background: rgba(255, 193, 7, 0.9); border-color: #ffc107;">✏️ Chỉnh sửa</button>
 
@@ -973,6 +976,7 @@
         };
         let isSyncMode = false;
         let isEditMode = true; // Edit mode enabled by default
+        let isMergeVariants = false; // Merge variants mode disabled by default
 
         const firebaseConfig = {
             apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
@@ -1124,6 +1128,39 @@
             updateEditModeUI();
         }
 
+        function toggleMergeVariants() {
+            isMergeVariants = !isMergeVariants;
+            // Save to localStorage only (not Firebase)
+            localStorage.setItem('isMergeVariants', JSON.stringify(isMergeVariants));
+            updateMergeVariantsUI();
+            updateProductGrid();
+            console.log(isMergeVariants ? '📦 Đã bật chế độ gộp biến thể' : '📋 Đã tắt chế độ gộp biến thể');
+        }
+
+        function updateMergeVariantsUI() {
+            const btnToggle = document.getElementById('btnMergeVariants');
+
+            if (isMergeVariants) {
+                if (btnToggle) {
+                    btnToggle.classList.add('active');
+                    btnToggle.textContent = '📦 Đang gộp';
+                }
+            } else {
+                if (btnToggle) {
+                    btnToggle.classList.remove('active');
+                    btnToggle.textContent = '📋 Gộp biến thể';
+                }
+            }
+        }
+
+        function loadMergeVariantsMode() {
+            const saved = localStorage.getItem('isMergeVariants');
+            if (saved !== null) {
+                isMergeVariants = JSON.parse(saved);
+            }
+            updateMergeVariantsUI();
+        }
+
         function parseHashParams() {
             const hash = window.location.hash.substring(1);
             const params = {};
@@ -1230,6 +1267,71 @@
             document.getElementById('pageInfo').style.display = 'none';
         }
 
+        function mergeProductsByTemplate(products) {
+            // Group products by ProductTmplId
+            const groupedProducts = {};
+
+            products.forEach(product => {
+                const tmplId = product.ProductTmplId;
+
+                // If product doesn't have ProductTmplId, treat it as individual product
+                if (!tmplId) {
+                    // Use a unique key for products without template
+                    const uniqueKey = `no-template-${product.Id}`;
+                    groupedProducts[uniqueKey] = [product];
+                    return;
+                }
+
+                if (!groupedProducts[tmplId]) {
+                    groupedProducts[tmplId] = [];
+                }
+                groupedProducts[tmplId].push(product);
+            });
+
+            // Merge each group into a single product
+            const mergedProducts = [];
+
+            Object.entries(groupedProducts).forEach(([tmplId, variants]) => {
+                if (variants.length === 1) {
+                    // Only one variant, keep as is
+                    mergedProducts.push(variants[0]);
+                } else {
+                    // Multiple variants, merge them
+                    const firstVariant = variants[0];
+
+                    // Extract common name (remove variant-specific parts)
+                    let commonName = firstVariant.NameGet;
+                    // Try to get the base name by removing parts after " - " or similar delimiters
+                    const nameParts = commonName.split(' - ');
+                    if (nameParts.length > 1) {
+                        // Use first part as common name if it looks like a base name
+                        commonName = nameParts[0];
+                    }
+
+                    // Sum up quantities
+                    const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
+                    const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
+                    const totalRemainingQty = variants.reduce((sum, v) => sum + (v.remainingQty || 0), 0);
+
+                    // Create merged product
+                    const mergedProduct = {
+                        ...firstVariant,
+                        NameGet: commonName + ` (${variants.length} biến thể)`,
+                        QtyAvailable: totalQtyAvailable,
+                        soldQty: totalSoldQty,
+                        remainingQty: totalRemainingQty,
+                        isMerged: true,
+                        variantCount: variants.length,
+                        variants: variants // Keep reference to original variants for future use
+                    };
+
+                    mergedProducts.push(mergedProduct);
+                }
+            });
+
+            return mergedProducts;
+        }
+
         function updateProductGrid() {
             const productGrid = document.getElementById('productGrid');
             const pageInfo = document.getElementById('pageInfo');
@@ -1240,15 +1342,22 @@
             btnNext.style.display = 'block';
             pageInfo.style.display = 'block';
 
-            const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
+            // Use merged products if merge mode is enabled
+            const displayProducts = isMergeVariants ? mergeProductsByTemplate(savedProducts) : savedProducts;
+
+            const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
-            const currentProducts = savedProducts.slice(startIndex, endIndex);
+            const currentProducts = displayProducts.slice(startIndex, endIndex);
 
             productGrid.innerHTML = currentProducts.map(product => {
                 const imageHtml = product.imageUrl
                     ? `<img src="${product.imageUrl}" class="grid-item-image" alt="${product.NameGet}">`
                     : `<div class="grid-item-image no-image"><span class="icon-emoji">📦</span></div>`;
+
+                // Disable edit buttons for merged products
+                const isMerged = product.isMerged || false;
+                const disableEdit = isMerged ? 'disabled title="Tắt chế độ gộp để chỉnh sửa"' : '';
 
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
@@ -1256,20 +1365,20 @@
                         <div class="grid-item-name">${product.NameGet}</div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
-                                <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS">🔄</button>
+                                <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS" ${isMerged ? 'disabled' : ''}>🔄</button>
                                 <div class="grid-stat-label"><span class="icon-emoji">📦</span> Tổng</div>
                                 <div class="qty-controls">
-                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, -1)" ${product.QtyAvailable <= 0 ? 'disabled' : ''}>−</button>
+                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, -1)" ${product.QtyAvailable <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
                                     <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
-                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, 1)">+</button>
+                                    <button class="qty-btn" onclick="updateProductTotal(${product.Id}, 1)" ${isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
                                 </div>
                             </div>
                             <div class="grid-stat grid-stat-sold">
                                 <div class="grid-stat-label"><span class="icon-emoji">🛒</span> Bán</div>
                                 <div class="qty-controls">
-                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 ? 'disabled' : ''}>−</button>
+                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
                                     <div class="grid-stat-value">${product.soldQty || 0}</div>
-                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable ? 'disabled' : ''}>+</button>
+                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
                                 </div>
                             </div>
                             <div class="grid-stat grid-stat-remaining">
@@ -1281,13 +1390,15 @@
                 `;
             }).join('');
 
-            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${savedProducts.length} sản phẩm)`;
+            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})`;
             btnPrev.disabled = currentPage === 1;
             btnNext.disabled = currentPage >= totalPages;
         }
 
         function changePage(direction) {
-            const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
+            // Use merged products if merge mode is enabled
+            const displayProducts = isMergeVariants ? mergeProductsByTemplate(savedProducts) : savedProducts;
+            const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
 
             if (direction === 'prev' && currentPage > 1) {
                 currentPage--;
@@ -1670,6 +1781,7 @@
             setupFirebaseListeners();
             loadSettings();
             loadEditMode(); // Load edit mode from localStorage
+            loadMergeVariantsMode(); // Load merge variants mode from localStorage
 
             // Load products from localStorage or Firebase
             await loadProducts();
