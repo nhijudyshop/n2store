@@ -1680,6 +1680,10 @@
                 const snapshot = await database.ref('displaySettings').once('value');
                 const settings = snapshot.val();
                 if (settings) {
+                    // Frame Display settings
+                    document.getElementById('settingImageHeightPercent').value = settings.imageHeightPercent || 50;
+                    document.getElementById('settingNameLineClamp').value = settings.nameLineClamp || 2;
+
                     // Layout settings
                     document.getElementById('settingColumns').value = settings.columns || 4;
                     document.getElementById('settingRows').value = settings.rows || 2;
@@ -1715,6 +1719,10 @@
         }
 
         function applySettings() {
+            // Frame Display settings
+            const imageHeightPercent = parseInt(document.getElementById('settingImageHeightPercent').value) || 50;
+            const nameLineClamp = parseInt(document.getElementById('settingNameLineClamp').value) || 2;
+
             // Layout settings
             const columns = parseInt(document.getElementById('settingColumns').value) || 4;
             const rows = parseInt(document.getElementById('settingRows').value) || 2;
@@ -1741,6 +1749,10 @@
             const statsMarginTop = parseInt(document.getElementById('settingStatsMarginTop').value) || 4;
 
             const settings = {
+                // Frame Display
+                imageHeightPercent: imageHeightPercent,
+                nameLineClamp: nameLineClamp,
+
                 // Layout
                 columns: columns,
                 rows: rows,
@@ -1969,6 +1981,23 @@
                     <input type="checkbox" id="toggleAutoVariants" checked onchange="toggleAutoVariants()">
                     <span class="toggle-slider"></span>
                 </label>
+            </div>
+
+            <!-- Frame Display Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #28a745; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #28a745; padding-bottom: 8px;">🖼️ Cài đặt Khung hiển thị</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">📐 Chiều cao hình ảnh (%)</label>
+                        <input type="number" class="setting-input" id="settingImageHeightPercent" value="50" min="20" max="80" step="5">
+                        <div class="setting-description">Tỷ lệ % chiều cao hình ảnh so với khung (20-80%)</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📝 Số dòng tên sản phẩm</label>
+                        <input type="number" class="setting-input" id="settingNameLineClamp" value="2" min="1" max="4">
+                        <div class="setting-description">Số dòng hiển thị tên sản phẩm (1-4 dòng)</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Layout Settings -->
