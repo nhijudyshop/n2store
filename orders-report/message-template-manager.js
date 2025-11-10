@@ -587,10 +587,14 @@ class MessageTemplateManager {
             this.log('✅ Full order data fetched');
             this.log('  - Order Code:', data.Code);
             this.log('  - Partner Name:', data.Partner?.Name);
+            this.log('  - Partner Address (from Partner):', data.Partner?.Address);
+            this.log('  - Address (from Order):', data.Address);
+            this.log('  - Partner Phone (from Partner):', data.Partner?.Telephone);
+            this.log('  - Phone (from Order):', data.Telephone);
             this.log('  - Products count:', data.Details?.length || 0);
 
             // Convert API data to our format
-            return {
+            const orderData = {
                 Id: data.Id,
                 code: data.Code,
                 customerName: data.Partner?.Name || data.Name,
@@ -605,6 +609,14 @@ class MessageTemplateManager {
                 })) || []
             };
 
+            this.log('📦 Converted order data:');
+            this.log('  - customerName:', orderData.customerName);
+            this.log('  - phone:', orderData.phone);
+            this.log('  - address:', `"${orderData.address}"`); // Bọc trong quotes để thấy rõ empty string
+            this.log('  - products:', orderData.products.length);
+
+            return orderData;
+
         } catch (error) {
             this.log('❌ Error fetching full order data:', error);
             throw new Error(`Không thể tải thông tin đơn hàng: ${error.message}`);
@@ -614,15 +626,26 @@ class MessageTemplateManager {
     replacePlaceholders(content, orderData) {
         let result = content;
 
-        // Replace partner info
-        if (orderData.customerName) {
+        // Replace partner name
+        if (orderData.customerName && orderData.customerName.trim()) {
             result = result.replace(/{partner\.name}/g, orderData.customerName);
+        } else {
+            result = result.replace(/{partner\.name}/g, '(Khách hàng)');
         }
-        if (orderData.address) {
+
+        // Replace partner address - xử lý cả trường hợp empty string
+        if (orderData.address && orderData.address.trim()) {
             result = result.replace(/{partner\.address}/g, orderData.address);
+        } else {
+            // Thay thế bằng text mặc định thay vì để trống
+            result = result.replace(/{partner\.address}/g, '(Chưa có địa chỉ)');
         }
-        if (orderData.phone) {
+
+        // Replace partner phone
+        if (orderData.phone && orderData.phone.trim()) {
             result = result.replace(/{partner\.phone}/g, orderData.phone);
+        } else {
+            result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
         // Replace order details (products)
@@ -632,18 +655,21 @@ class MessageTemplateManager {
                 .join('\n');
             result = result.replace(/{order\.details}/g, productList);
         } else {
-            // Nếu không có products, giữ nguyên placeholder hoặc thay bằng text mặc định
             result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
         }
 
         // Replace order code
-        if (orderData.code) {
+        if (orderData.code && orderData.code.trim()) {
             result = result.replace(/{order\.code}/g, orderData.code);
+        } else {
+            result = result.replace(/{order\.code}/g, '(Không có mã)');
         }
 
         // Replace order total
         if (orderData.totalAmount) {
             result = result.replace(/{order\.total}/g, this.formatCurrency(orderData.totalAmount));
+        } else {
+            result = result.replace(/{order\.total}/g, '0đ');
         }
 
         return result;
