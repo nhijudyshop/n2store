@@ -12,6 +12,34 @@
     "syncCurrentPage": {
       ".read": true,
       ".write": true
+    },
+    "chatConversations": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["lastMessageTimestamp", "type"]
+    },
+    "chatMessages": {
+      ".read": true,
+      ".write": true,
+      "$conversationId": {
+        ".indexOn": ["timestamp", "senderId"]
+      }
+    },
+    "chatMembers": {
+      ".read": true,
+      ".write": true,
+      "$conversationId": {
+        ".indexOn": ["userId", "lastReadTimestamp"]
+      }
+    },
+    "userStatus": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["status", "lastActive"]
+    },
+    "chatTyping": {
+      ".read": true,
+      ".write": true
     }
   }
 }
