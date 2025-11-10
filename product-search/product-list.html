@@ -1296,6 +1296,9 @@
                         qty: v.remainingQty || 0
                     }));
 
+                    // Get the most recent addedAt timestamp from all variants
+                    const mostRecentAddedAt = Math.max(...variants.map(v => v.addedAt || 0));
+
                     // Create merged product
                     const mergedProduct = {
                         ...firstVariant,
@@ -1305,6 +1308,7 @@
                         remainingQty: 0, // Not used for merged products
                         soldQtyList: soldQtyList, // List of sold qty for each variant
                         remainingQtyList: remainingQtyList, // List of remaining qty for each variant
+                        addedAt: mostRecentAddedAt, // Use most recent timestamp for sorting
                         isMerged: true,
                         variantCount: variants.length,
                         variants: variants // Keep reference to original variants for future use
@@ -1312,6 +1316,13 @@
 
                     mergedProducts.push(mergedProduct);
                 }
+            });
+
+            // Sort merged products by addedAt (newest first) to maintain sort order
+            mergedProducts.sort((a, b) => {
+                const timeA = a.addedAt || 0;
+                const timeB = b.addedAt || 0;
+                return timeB - timeA; // Descending order (newest first)
             });
 
             return mergedProducts;
