@@ -102,9 +102,14 @@ class AuthManager {
 
     clearAuth() {
         this.currentUser = null;
-        // Clear ALL localStorage and sessionStorage data
-        sessionStorage.clear();
-        localStorage.clear();
+        // Clear from both storage locations
+        sessionStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("remember_login_preference");
+        // Clear legacy data
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
     }
 
     logout() {
@@ -128,9 +133,6 @@ console.log("[AUTH] AuthManager initialized:", authManager.isAuthenticated());
 // Redirect to login if not authenticated (production mode)
 if (!authManager.isAuthenticated()) {
     console.warn("[AUTH] User not authenticated, redirecting to login...");
-    // Clear ALL storage before redirecting
-    sessionStorage.clear();
-    localStorage.clear();
     // Allow a brief moment for any pending operations
     setTimeout(() => {
         if (!authManager.isAuthenticated()) {
@@ -170,9 +172,9 @@ function setAuthState(isLoggedIn, userType, checkLogin) {
 function clearAuthState() {
     authState = null;
     try {
-        // Clear ALL localStorage and sessionStorage data
-        sessionStorage.clear();
-        localStorage.clear();
+        localStorage.removeItem("loginindex_auth");
+        sessionStorage.removeItem("loginindex_auth");
+        clearLegacyAuth();
     } catch (error) {
         console.error("Error clearing auth state:", error);
     }
@@ -180,9 +182,11 @@ function clearAuthState() {
 
 function clearLegacyAuth() {
     try {
-        // Clear ALL localStorage and sessionStorage data
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
+        localStorage.removeItem("remember_login_preference");
         sessionStorage.clear();
-        localStorage.clear();
     } catch (error) {
         console.error("Error clearing legacy auth:", error);
     }

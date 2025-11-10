@@ -55,14 +55,6 @@ const MENU_CONFIG = [
         permissionRequired: "ib",
     },
     {
-        href: "../chat/index.html",
-        icon: "message-square",
-        text: "Chat Nội Bộ",
-        shortText: "Chat",
-        pageIdentifier: "chat",
-        permissionRequired: "chat",
-    },
-    {
         href: "../ck/index.html",
         icon: "credit-card",
         text: "Thông Tin Chuyển Khoản",
@@ -156,9 +148,6 @@ class UnifiedNavigationManager {
         // Check authentication
         if (!authManager || !authManager.isAuthenticated()) {
             console.log("[Unified Nav] User not authenticated, redirecting...");
-            // Clear ALL storage before redirecting
-            sessionStorage.clear();
-            localStorage.clear();
             window.location.href = "../index.html";
             return;
         }
@@ -1942,9 +1931,6 @@ class UnifiedNavigationManager {
             console.error(
                 "[Access Denied] No accessible pages found, redirecting to login",
             );
-            // Clear ALL storage before redirecting
-            sessionStorage.clear();
-            localStorage.clear();
             window.location.href = "../index.html";
             return;
         }
@@ -2031,9 +2017,6 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
             setTimeout(check, delay);
         } else {
             console.error("[Unified Nav] Dependencies failed, redirecting...");
-            // Clear ALL storage before redirecting
-            sessionStorage.clear();
-            localStorage.clear();
             window.location.href = "../index.html";
         }
     };

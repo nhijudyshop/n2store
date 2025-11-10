@@ -102,9 +102,14 @@ class AuthManager {
 
     clearAuth() {
         this.currentUser = null;
-        // Clear ALL localStorage and sessionStorage data
-        sessionStorage.clear();
-        localStorage.clear();
+        // Clear from both storage locations
+        sessionStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("loginindex_auth");
+        localStorage.removeItem("remember_login_preference");
+        // Clear legacy data
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userType");
+        localStorage.removeItem("checkLogin");
     }
 
     logout() {
