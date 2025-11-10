@@ -20,7 +20,7 @@
     // Load CSS files
     const cssBasePath = basePath.replace('/js/', '/css/');
     const cssFiles = [
-        'chat-modern.css'               // Chat system styles
+        // No CSS files to load automatically
     ];
 
     cssFiles.forEach(cssFile => {
@@ -44,10 +44,6 @@
         // Managers
         'shared-cache-manager.js',      // Cache manager
         'shared-auth-manager.js',       // Auth manager
-
-        // Chat system
-        'chat-manager.js',              // Chat manager
-        'chat-bubble.js',               // Chat UI
 
         // Navigation system (unified: auto-detects PC/Mobile)
         'navigation-modern.js'          // Main navigation (includes PC + Mobile)
