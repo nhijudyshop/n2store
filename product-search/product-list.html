@@ -859,14 +859,11 @@
     <div class="nav-hover-area right"></div>
     <button class="btn-nav" id="btnNext">Sau ▶</button>
 
-    <div class="sync-hover-area" style="left: calc(50% - 120px); transform: translateX(0);"></div>
-    <button class="btn-sync-toggle" id="btnMergeVariants" onclick="toggleMergeVariants()" style="left: calc(50% - 120px); transform: translateX(0); background: rgba(156, 39, 176, 0.9); border-color: #9c27b0;">📦 Gộp biến thể</button>
+    <div class="sync-hover-area" style="left: calc(50% - 150px); transform: translateX(0);"></div>
+    <button class="btn-sync-toggle" id="btnMergeVariants" onclick="toggleMergeVariants()" style="left: calc(50% - 150px); transform: translateX(0); background: rgba(156, 39, 176, 0.9); border-color: #9c27b0;">📦 Gộp biến thể</button>
 
-    <div class="sync-hover-area"></div>
-    <button class="btn-sync-toggle" id="btnToggleSync" onclick="toggleSyncMode()">⏸️ Đồng bộ</button>
-
-    <div class="sync-hover-area" style="left: calc(50% + 120px); transform: translateX(0);"></div>
-    <button class="btn-sync-toggle" id="btnClearAll" onclick="clearAllProducts()" style="left: calc(50% + 120px); transform: translateX(0); background: rgba(220, 53, 69, 0.9); border-color: #dc3545;">🗑️ Xóa tất cả</button>
+    <div class="sync-hover-area" style="left: calc(50% + 150px); transform: translateX(0);"></div>
+    <button class="btn-sync-toggle" id="btnToggleSync" onclick="toggleSyncMode()" style="left: calc(50% + 150px); transform: translateX(0);">⏸️ Đồng bộ</button>
 
     <span class="page-info" id="pageInfo">Trang 1/1</span>
 
@@ -1004,8 +1001,16 @@
 
         function toggleMergeVariants() {
             isMergeVariants = !isMergeVariants;
-            // Save to localStorage only (not Firebase)
+            // Save to localStorage for backward compatibility
             localStorage.setItem('isMergeVariants', JSON.stringify(isMergeVariants));
+
+            // Sync to Firebase to sync between machines
+            if (!isSyncingFromFirebase) {
+                database.ref('isMergeVariants').set(isMergeVariants).catch(error => {
+                    console.error('❌ Lỗi sync merge variants:', error);
+                });
+            }
+
             updateMergeVariantsUI();
             updateProductGrid();
             console.log(isMergeVariants ? '📦 Đã bật chế độ gộp biến thể' : '📋 Đã tắt chế độ gộp biến thể');
@@ -1027,11 +1032,32 @@
             }
         }
 
-        function loadMergeVariantsMode() {
-            const saved = localStorage.getItem('isMergeVariants');
-            if (saved !== null) {
-                isMergeVariants = JSON.parse(saved);
+        async function loadMergeVariantsMode() {
+            // Try to load from Firebase first, fallback to localStorage
+            try {
+                const snapshot = await database.ref('isMergeVariants').once('value');
+                const firebaseValue = snapshot.val();
+
+                if (firebaseValue !== null && firebaseValue !== undefined) {
+                    isMergeVariants = firebaseValue;
+                    console.log('🔥 Loaded merge variants mode from Firebase:', isMergeVariants);
+                } else {
+                    // Fallback to localStorage
+                    const saved = localStorage.getItem('isMergeVariants');
+                    if (saved !== null) {
+                        isMergeVariants = JSON.parse(saved);
+                        console.log('💾 Loaded merge variants mode from localStorage:', isMergeVariants);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error loading merge variants mode from Firebase:', error);
+                // Fallback to localStorage
+                const saved = localStorage.getItem('isMergeVariants');
+                if (saved !== null) {
+                    isMergeVariants = JSON.parse(saved);
+                }
             }
+
             updateMergeVariantsUI();
         }
 
@@ -1629,6 +1655,20 @@
                     applySettings();
                     updateProductGrid();
                     console.log('🔥 Settings synced from Firebase');
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
+            // Listen for merge variants mode changes
+            database.ref('isMergeVariants').on('value', (snapshot) => {
+                const mergeMode = snapshot.val();
+                if (mergeMode !== null && mergeMode !== undefined && !isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+                    isMergeVariants = mergeMode;
+                    localStorage.setItem('isMergeVariants', JSON.stringify(isMergeVariants));
+                    updateMergeVariantsUI();
+                    updateProductGrid();
+                    console.log('🔥 Merge variants mode synced from Firebase:', isMergeVariants);
                     setTimeout(() => { isSyncingFromFirebase = false; }, 100);
                 }
             });
