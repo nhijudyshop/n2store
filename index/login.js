@@ -599,19 +599,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Clear all authentication data including cache
     function clearAllAuthData() {
-        // Clear cache
-        authCache.clear("session");
-        authCache.clear("user");
-        authCache.clear("permissions");
-
-        // Clear storage
-        localStorage.removeItem("loginindex_auth");
-        localStorage.removeItem("remember_login_preference");
-        sessionStorage.removeItem("loginindex_auth");
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("userType");
-        localStorage.removeItem("checkLogin");
-        sessionStorage.removeItem("justLoggedIn");
+        // Clear ALL localStorage and sessionStorage data
+        sessionStorage.clear();
+        localStorage.clear();
 
         console.log("🧹 Đã xóa tất cả auth data và cache");
     }

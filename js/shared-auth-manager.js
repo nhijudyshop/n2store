@@ -170,9 +170,9 @@ if (typeof window !== 'undefined' && window.AuthManager) {
             logger.log('Logging out:', reason);
         }
 
-        // Clear both storages
-        sessionStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.storageKey);
+        // Clear ALL localStorage and sessionStorage data
+        sessionStorage.clear();
+        localStorage.clear();
 
         // Redirect to login
         if (typeof window !== 'undefined') {

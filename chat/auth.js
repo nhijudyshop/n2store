@@ -33,6 +33,9 @@ var authManager;
             // Check if user is authenticated
             if (!authManager.isAuthenticated()) {
                 console.warn('[Chat Auth] User not authenticated, redirecting to login...');
+                // Clear ALL storage before redirecting
+                sessionStorage.clear();
+                localStorage.clear();
                 setTimeout(() => {
                     if (!authManager.isAuthenticated()) {
                         window.location.href = '../index.html';
