@@ -28,6 +28,12 @@ class ChatBubbleUI {
 
       await window.ChatManager.initialize();
 
+      // Kiểm tra nếu ChatManager không khởi tạo được (user chưa đăng nhập)
+      if (!window.ChatManager.initialized) {
+        console.log('Chat bubble không khởi tạo - user chưa đăng nhập');
+        return;
+      }
+
       // Tạo HTML structure
       this.createChatBubble();
       this.createChatWindow();

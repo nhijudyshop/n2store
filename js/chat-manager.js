@@ -58,19 +58,31 @@ class ChatManager {
       this.dbServerTimestamp = dbModule.serverTimestamp;
 
       // Lấy thông tin user hiện tại
-      if (window.authManager) {
-        const authData = window.authManager.getAuthData();
-        if (authData) {
-          this.currentUser = {
-            uid: authData.uid || authData.username,
-            displayName: authData.displayName || authData.username,
-            username: authData.username
-          };
+      // Đợi authManager sẵn sàng (tối đa 5 giây)
+      let attempts = 0;
+      const maxAttempts = 50; // 50 x 100ms = 5 seconds
+
+      while (attempts < maxAttempts) {
+        if (window.authManager) {
+          const authData = window.authManager.getAuthData();
+          if (authData) {
+            this.currentUser = {
+              uid: authData.uid || authData.username,
+              displayName: authData.displayName || authData.username,
+              username: authData.username
+            };
+            break;
+          }
         }
+
+        // Đợi 100ms trước khi thử lại
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
       }
 
       if (!this.currentUser) {
-        throw new Error('Người dùng chưa đăng nhập');
+        console.warn('Người dùng chưa đăng nhập - Chat system sẽ không khởi tạo');
+        return; // Return early instead of throwing error
       }
 
       // Cập nhật trạng thái online
