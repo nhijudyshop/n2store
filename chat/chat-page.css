@@ -32,10 +32,13 @@ body {
 }
 
 /* ===== Main Container ===== */
+/* Chat container sits inside main-content (which has sidebar + topbar) */
 .chat-page-container {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - var(--topbar-height, 64px));
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 /* ===== Sidebar ===== */
