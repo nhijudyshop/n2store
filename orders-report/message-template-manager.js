@@ -522,38 +522,85 @@ class MessageTemplateManager {
         try {
             const ordersCount = this.selectedOrders.length;
             this.log('📤 Sending message to', ordersCount, 'order(s)');
+            this.log('🔄 Will fetch full data for each order...');
 
-            // CHỈ LẤY BodyPlain
-            let messageContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
+            // Get template content
+            const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
 
-            // Fetch full order data với Details nếu cần
-            if (this.currentOrder && this.currentOrder.Id) {
-                this.log('🔄 Fetching full order data with products...');
-                const fullOrderData = await this.fetchFullOrderData(this.currentOrder.Id);
-                messageContent = this.replacePlaceholders(messageContent, fullOrderData);
-                this.log('✅ Placeholders replaced with full data');
-            } else if (this.currentOrder) {
-                // Fallback: use existing data (không có products)
-                messageContent = this.replacePlaceholders(messageContent, this.currentOrder);
-                this.log('⚠️ Placeholders replaced with partial data (no products)');
+            // Array to store all generated messages
+            const allMessages = [];
+
+            // Fetch full data and generate message for EACH order
+            for (let i = 0; i < this.selectedOrders.length; i++) {
+                const order = this.selectedOrders[i];
+                this.log(`\n📦 Processing order ${i + 1}/${ordersCount}: ${order.code || order.Id}`);
+
+                try {
+                    if (order.Id) {
+                        // Fetch full order data with products
+                        const fullOrderData = await this.fetchFullOrderData(order.Id);
+                        const messageContent = this.replacePlaceholders(templateContent, fullOrderData);
+
+                        allMessages.push({
+                            orderCode: fullOrderData.code,
+                            customerName: fullOrderData.customerName,
+                            phone: fullOrderData.phone,
+                            message: messageContent
+                        });
+
+                        this.log(`✅ Generated message for order ${fullOrderData.code}`);
+                    } else {
+                        // Fallback: use existing data (without products)
+                        const messageContent = this.replacePlaceholders(templateContent, order);
+
+                        allMessages.push({
+                            orderCode: order.code,
+                            customerName: order.customerName,
+                            phone: order.phone,
+                            message: messageContent
+                        });
+
+                        this.log(`⚠️ Generated message for order ${order.code} (no full data)`);
+                    }
+                } catch (orderError) {
+                    this.log(`❌ Error processing order ${order.code}:`, orderError);
+                    // Continue with next order even if one fails
+                    allMessages.push({
+                        orderCode: order.code,
+                        customerName: order.customerName,
+                        phone: order.phone,
+                        message: `[Lỗi: Không thể tải dữ liệu đơn hàng ${order.code}]`
+                    });
+                }
             }
 
-            this.log('📋 Message content length:', messageContent.length, 'chars');
+            // Combine all messages with separator
+            const separator = '\n\n' + '='.repeat(50) + '\n\n';
+            const combinedMessage = allMessages
+                .map((msg, index) => {
+                    const header = `${index + 1}. ${msg.customerName} - ${msg.phone}\n${'-'.repeat(40)}\n`;
+                    return header + msg.message;
+                })
+                .join(separator);
 
-            await this.copyToClipboard(messageContent);
+            this.log('\n📋 Total messages generated:', allMessages.length);
+            this.log('📋 Combined message length:', combinedMessage.length, 'chars');
+
+            // Copy to clipboard
+            await this.copyToClipboard(combinedMessage);
 
             if (window.notificationManager) {
                 window.notificationManager.success(
-                    `Template "${this.selectedTemplate.Name}" đã được copy vào clipboard`,
+                    `Đã copy ${allMessages.length} tin nhắn vào clipboard!`,
                     3000,
-                    ordersCount > 1 ? `${ordersCount} đơn hàng` : 'Thành công'
+                    `Template: ${this.selectedTemplate.Name}`
                 );
             }
 
             this.closeModal();
 
         } catch (error) {
-            this.log('❌ Error sending message:', error);
+            this.log('❌ Error sending messages:', error);
             if (window.notificationManager) {
                 window.notificationManager.error(
                     `Lỗi: ${error.message}`,
