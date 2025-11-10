@@ -367,7 +367,7 @@
 
         .qty-controls {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
             justify-content: center;
             gap: 8px;
@@ -376,17 +376,10 @@
         }
 
         .qty-controls .grid-stat-value {
-            flex: 1;
+            flex: 0 0 auto;
             min-width: 40px;
             text-align: center;
             font-size: 36px;
-            margin-bottom: 4px;
-        }
-
-        .qty-controls-buttons {
-            display: flex;
-            gap: 8px;
-            align-items: center;
         }
 
         .qty-btn {
@@ -637,7 +630,6 @@
             .qty-controls .grid-stat-value {
                 min-width: 40px;
                 font-size: 32px;
-                margin-bottom: 4px;
             }
 
             .grid-item-image.no-image {
@@ -689,7 +681,6 @@
             .qty-controls .grid-stat-value {
                 min-width: 45px;
                 font-size: 34px;
-                margin-bottom: 4px;
             }
 
             .grid-item-image.no-image {
@@ -731,7 +722,6 @@
             .qty-controls .grid-stat-value {
                 min-width: 50px;
                 font-size: 38px;
-                margin-bottom: 4px;
             }
 
             .grid-stat-label {
@@ -784,7 +774,6 @@
             .qty-controls .grid-stat-value {
                 min-width: 60px;
                 font-size: 42px;
-                margin-bottom: 4px;
             }
 
             .grid-stat-label {
@@ -837,7 +826,6 @@
             .qty-controls .grid-stat-value {
                 min-width: 70px;
                 font-size: 48px;
-                margin-bottom: 4px;
             }
 
             .grid-stat-label {
@@ -1316,11 +1304,9 @@
                                     </div>
                                 ` : `
                                     <div class="qty-controls">
+                                        <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
                                         <div class="grid-stat-value">${product.soldQty || 0}</div>
-                                        <div class="qty-controls-buttons">
-                                            <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)" ${product.soldQty <= 0 || isMerged ? 'disabled' : ''} ${disableEdit}>−</button>
-                                            <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
-                                        </div>
+                                        <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
                                     </div>
                                 `}
                             </div>
