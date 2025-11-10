@@ -64,7 +64,7 @@ class ChatManager {
 
       while (attempts < maxAttempts) {
         if (window.authManager) {
-          const authData = window.authManager.getAuthData();
+          const authData = window.authManager.getAuthState();
           if (authData) {
             this.currentUser = {
               uid: authData.uid || authData.username,
