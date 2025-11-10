@@ -49,13 +49,10 @@
         'chat-manager.js',              // Chat manager
         'chat-bubble.js',               // Chat UI
 
-        // Navigation system
-        'navigation-modern.js',         // Main navigation (unified)
-        'navigation-modern-pc.js',      // PC navigation
-        'navigation-modern-mobile.js',  // Mobile navigation
+        // Navigation system (unified: auto-detects PC/Mobile)
+        'navigation-modern.js'          // Main navigation (includes PC + Mobile)
 
-        // Service worker (load last)
-        'service-worker-register.js'    // Service worker registration
+        // Note: service-worker-register.js excluded (requires service-worker.js file)
     ];
 
     // Track loaded scripts
