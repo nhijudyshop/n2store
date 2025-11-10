@@ -21,17 +21,29 @@ class ChatManager {
     if (this.initialized) return;
 
     try {
-      // Lấy Firebase database từ config
-      const { getDatabase, ref, onValue, off } = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
+      // Import Firebase v9 modules
+      const firebaseApp = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js');
+      const firebaseDatabase = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
 
-      if (!window.firebase || !window.firebase.app) {
-        throw new Error('Firebase chưa được khởi tạo');
+      // Khởi tạo Firebase app nếu chưa có
+      let app;
+      try {
+        app = firebaseApp.getApp();
+      } catch (error) {
+        // App chưa tồn tại, khởi tạo mới
+        if (window.FIREBASE_CONFIG) {
+          app = firebaseApp.initializeApp(window.FIREBASE_CONFIG);
+          console.log('✅ Firebase app đã được khởi tạo cho chat');
+        } else {
+          throw new Error('FIREBASE_CONFIG không tồn tại');
+        }
       }
 
-      this.db = getDatabase();
-      this.dbRef = ref;
-      this.dbOnValue = onValue;
-      this.dbOff = off;
+      // Lấy database instance
+      this.db = firebaseDatabase.getDatabase(app);
+      this.dbRef = firebaseDatabase.ref;
+      this.dbOnValue = firebaseDatabase.onValue;
+      this.dbOff = firebaseDatabase.off;
 
       // Import thêm các functions cần thiết
       const dbModule = await import('https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js');
