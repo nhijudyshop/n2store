@@ -578,7 +578,10 @@ class MessageTemplateManager {
             const separator = '\n\n' + '='.repeat(50) + '\n\n';
             const combinedMessage = allMessages
                 .map((msg, index) => {
-                    const header = `${index + 1}. ${msg.customerName} - ${msg.phone}\n${'-'.repeat(40)}\n`;
+                    // Format: "1. Thu Huyên\n251000775\n\n[message]"
+                    const customerName = (msg.customerName && msg.customerName.trim()) ? msg.customerName : '(Khách hàng)';
+                    const orderCode = (msg.orderCode && msg.orderCode.trim()) ? msg.orderCode : '(Không có mã)';
+                    const header = `${index + 1}. ${customerName}\n${orderCode}\n\n`;
                     return header + msg.message;
                 })
                 .join(separator);
@@ -680,12 +683,14 @@ class MessageTemplateManager {
             result = result.replace(/{partner\.name}/g, '(Khách hàng)');
         }
 
-        // Replace partner address - xử lý cả trường hợp empty string
+        // Replace partner address - xử lý đặc biệt để tránh dấu ngoặc kép kép
         if (orderData.address && orderData.address.trim()) {
             result = result.replace(/{partner\.address}/g, orderData.address);
         } else {
-            // Thay thế bằng text mặc định thay vì để trống
-            result = result.replace(/{partner\.address}/g, '(Chưa có địa chỉ)');
+            // Xử lý pattern với dấu ngoặc kép: "{partner.address}" → (Chưa có địa chỉ)
+            result = result.replace(/"\{partner\.address\}"/g, '(Chưa có địa chỉ)');
+            // Xử lý pattern không có dấu ngoặc kép: {partner.address} → (Chưa có địa chỉ)
+            result = result.replace(/\{partner\.address\}/g, '(Chưa có địa chỉ)');
         }
 
         // Replace partner phone
