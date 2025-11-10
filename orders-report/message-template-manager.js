@@ -527,8 +527,9 @@ class MessageTemplateManager {
             // Get template content
             const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
 
-            // Array to store all generated messages
+            // Array to store all generated messages and order data for POST
             const allMessages = [];
+            const orderCampaignDetails = [];
 
             // Fetch full data and generate message for EACH order
             for (let i = 0; i < this.selectedOrders.length; i++) {
@@ -539,16 +540,26 @@ class MessageTemplateManager {
                     if (order.Id) {
                         // Fetch full order data with products
                         const fullOrderData = await this.fetchFullOrderData(order.Id);
-                        const messageContent = this.replacePlaceholders(templateContent, fullOrderData);
+                        const messageContent = this.replacePlaceholders(templateContent, fullOrderData.converted);
 
                         allMessages.push({
-                            orderCode: fullOrderData.code,
-                            customerName: fullOrderData.customerName,
-                            phone: fullOrderData.phone,
+                            orderCode: fullOrderData.converted.code,
+                            customerName: fullOrderData.converted.customerName,
+                            phone: fullOrderData.converted.phone,
                             message: messageContent
                         });
 
-                        this.log(`✅ Generated message for order ${fullOrderData.code}`);
+                        // Fetch CRMTeam info for POST
+                        const crmTeam = await this.fetchCRMTeam(fullOrderData.raw.CRMTeamId);
+
+                        // Prepare detail for POST
+                        orderCampaignDetails.push({
+                            rawOrder: fullOrderData.raw,
+                            crmTeam: crmTeam,
+                            message: messageContent
+                        });
+
+                        this.log(`✅ Generated message for order ${fullOrderData.converted.code}`);
                     } else {
                         // Fallback: use existing data (without products)
                         const messageContent = this.replacePlaceholders(templateContent, order);
@@ -589,6 +600,18 @@ class MessageTemplateManager {
             this.log('\n📋 Total messages generated:', allMessages.length);
             this.log('📋 Combined message length:', combinedMessage.length, 'chars');
 
+            // POST to campaign API if we have order data
+            if (orderCampaignDetails.length > 0) {
+                this.log('🚀 Posting to order campaign API...');
+                try {
+                    await this.postOrderCampaign(orderCampaignDetails);
+                    this.log('✅ Posted to campaign API successfully');
+                } catch (postError) {
+                    this.log('❌ Failed to post to campaign API:', postError);
+                    // Don't block the flow, just log error
+                }
+            }
+
             // Copy to clipboard
             await this.copyToClipboard(combinedMessage);
 
@@ -613,12 +636,117 @@ class MessageTemplateManager {
         }
     }
 
+    async fetchCRMTeam(teamId) {
+        this.log('🌐 Fetching CRMTeam data for ID:', teamId);
+
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://tomato.tpos.vn/odata/CRMTeam(${teamId})`;
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    'accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.log('✅ CRMTeam data fetched:', data.Name);
+            return data;
+
+        } catch (error) {
+            this.log('❌ Error fetching CRMTeam data:', error);
+            return null; // Return null if failed, continue without team info
+        }
+    }
+
+    async postOrderCampaign(orderCampaignDetails) {
+        this.log('📡 Posting order campaign...');
+        this.log('  - Orders count:', orderCampaignDetails.length);
+
+        try {
+            // Get current date in DD/MM/YYYY format
+            const now = new Date();
+            const noteDate = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+
+            // Get CRMTeamId from first order (or use a default)
+            const rootCRMTeamId = orderCampaignDetails[0]?.rawOrder?.CRMTeamId || 2;
+
+            // Build Details array
+            const details = orderCampaignDetails.map(detail => {
+                const order = detail.rawOrder;
+                const crmTeam = detail.crmTeam;
+
+                return {
+                    CRMTeam: crmTeam,
+                    CRMTeamId: order.CRMTeamId,
+                    Facebook_ASId: order.Facebook_ASUserId,
+                    Facebook_CommentId: order.Facebook_CommentId,
+                    Facebook_PostId: order.Facebook_PostId,
+                    Facebook_UserId: order.Facebook_UserId,
+                    Facebook_UserName: order.Facebook_UserName,
+                    MatchingId: order.MatchingId,
+                    Message: detail.message,
+                    PartnerId: order.PartnerId,
+                    TypeId: "Message"
+                };
+            });
+
+            // Build payload
+            const payload = {
+                CRMTeamId: rootCRMTeamId,
+                Details: details,
+                Note: noteDate,
+                MailTemplateId: this.selectedTemplate.Id
+            };
+
+            this.log('📦 Payload:');
+            this.log('  - CRMTeamId:', payload.CRMTeamId);
+            this.log('  - Details count:', payload.Details.length);
+            this.log('  - Note:', payload.Note);
+            this.log('  - MailTemplateId:', payload.MailTemplateId);
+
+            // POST to API
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = 'https://tomato.tpos.vn/rest/v1.0/CRMActivityCampaign/order-campaign';
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            this.log('✅ Order campaign posted successfully');
+            this.log('  - Response:', result);
+
+            return result;
+
+        } catch (error) {
+            this.log('❌ Error posting order campaign:', error);
+            throw error;
+        }
+    }
+
     async fetchFullOrderData(orderId) {
         this.log('🌐 Fetching full order data for ID:', orderId);
 
         try {
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner`;
+            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User`;
 
             this.log('📡 API URL:', apiUrl);
 
@@ -637,35 +765,27 @@ class MessageTemplateManager {
             this.log('✅ Full order data fetched');
             this.log('  - Order Code:', data.Code);
             this.log('  - Partner Name:', data.Partner?.Name);
-            this.log('  - Partner Address (from Partner):', data.Partner?.Address);
-            this.log('  - Address (from Order):', data.Address);
-            this.log('  - Partner Phone (from Partner):', data.Partner?.Telephone);
-            this.log('  - Phone (from Order):', data.Telephone);
+            this.log('  - CRMTeamId:', data.CRMTeamId);
             this.log('  - Products count:', data.Details?.length || 0);
 
-            // Convert API data to our format
-            const orderData = {
-                Id: data.Id,
-                code: data.Code,
-                customerName: data.Partner?.Name || data.Name,
-                phone: data.Partner?.Telephone || data.Telephone,
-                address: data.Partner?.Address || data.Address,
-                totalAmount: data.TotalAmount,
-                products: data.Details?.map(detail => ({
-                    name: detail.ProductNameGet || detail.ProductName,
-                    quantity: detail.Quantity || 0,
-                    price: detail.Price || 0,
-                    total: (detail.Quantity || 0) * (detail.Price || 0)
-                })) || []
+            // Return full raw data + converted data
+            return {
+                raw: data, // Keep full API response for POST
+                converted: {
+                    Id: data.Id,
+                    code: data.Code,
+                    customerName: data.Partner?.Name || data.Name,
+                    phone: data.Partner?.Telephone || data.Telephone,
+                    address: data.Partner?.Address || data.Address,
+                    totalAmount: data.TotalAmount,
+                    products: data.Details?.map(detail => ({
+                        name: detail.ProductNameGet || detail.ProductName,
+                        quantity: detail.Quantity || 0,
+                        price: detail.Price || 0,
+                        total: (detail.Quantity || 0) * (detail.Price || 0)
+                    })) || []
+                }
             };
-
-            this.log('📦 Converted order data:');
-            this.log('  - customerName:', orderData.customerName);
-            this.log('  - phone:', orderData.phone);
-            this.log('  - address:', `"${orderData.address}"`); // Bọc trong quotes để thấy rõ empty string
-            this.log('  - products:', orderData.products.length);
-
-            return orderData;
 
         } catch (error) {
             this.log('❌ Error fetching full order data:', error);
