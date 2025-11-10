@@ -52,6 +52,7 @@ class ChatBubbleUI {
     const bubble = document.createElement('div');
     bubble.id = 'chat-bubble-btn';
     bubble.className = 'chat-bubble-btn';
+    bubble.style.display = 'none'; // Ẩn mặc định, chỉ hiện khi có tin nhắn chưa đọc
     bubble.innerHTML = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
@@ -590,11 +591,16 @@ class ChatBubbleUI {
   async updateUnreadBadge() {
     const totalUnread = this.conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
     const badge = document.querySelector('.chat-bubble-badge');
+    const bubble = document.getElementById('chat-bubble-btn');
 
     if (totalUnread > 0) {
+      // Hiển thị bubble khi có tin nhắn chưa đọc
+      if (bubble) bubble.style.display = 'flex';
       badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
       badge.style.display = 'flex';
     } else {
+      // Ẩn bubble khi không có tin nhắn chưa đọc
+      if (bubble) bubble.style.display = 'none';
       badge.style.display = 'none';
     }
   }
