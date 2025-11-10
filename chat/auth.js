@@ -3,20 +3,21 @@
  * Khởi tạo authManager instance từ shared AuthManager class
  */
 
-(function() {
-    'use strict';
+// Declare authManager as global variable (for navigation-modern.js)
+var authManager;
 
-    // Wait for AuthManager class to be loaded (from shared-auth-manager.js)
+// Wait for AuthManager class to be loaded (from shared-auth-manager.js)
+(function() {
     function initializeAuth() {
         if (typeof window.AuthManager === 'undefined') {
             console.log('[Chat Auth] Waiting for AuthManager class...');
-            setTimeout(initializeAuth, 100);
+            setTimeout(initializeAuth, 50);
             return;
         }
 
         // Initialize authManager instance if not already exists
-        if (!window.authManager) {
-            const authManager = new window.AuthManager({
+        if (!authManager) {
+            authManager = new window.AuthManager({
                 storageKey: 'loginindex_auth',
                 redirectUrl: '../index.html',
                 sessionDuration: 8 * 60 * 60 * 1000, // 8 hours
@@ -24,10 +25,10 @@
                 requiredPermissions: ['chat']
             });
 
-            // Export to window for navigation-modern.js and other scripts
+            // Also export to window for other scripts
             window.authManager = authManager;
 
-            console.log('[Chat Auth] authManager initialized');
+            console.log('[Chat Auth] authManager initialized:', authManager.isAuthenticated());
 
             // Check if user is authenticated
             if (!authManager.isAuthenticated()) {
@@ -38,11 +39,12 @@
                     }
                 }, 500);
             } else {
-                console.log('[Chat Auth] User authenticated:', authManager.getAuthData()?.username);
+                const authData = authManager.getAuthData();
+                console.log('[Chat Auth] User authenticated:', authData?.username || authData?.userType);
             }
         }
     }
 
-    // Start initialization
+    // Start initialization immediately
     initializeAuth();
 })();
