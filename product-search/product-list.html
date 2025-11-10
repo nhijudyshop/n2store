@@ -301,24 +301,26 @@
             color: #333;
         }
 
-        /* For CÒN column - name on top, value below */
+        /* For CÒN column - name and value side by side */
         .grid-stat-remaining .remaining-qty-item {
-            flex-direction: column;
+            flex-direction: row;
             justify-content: center;
+            align-items: center;
             padding: 4px 3px;
-            gap: 2px;
+            gap: 6px;
         }
 
         .grid-stat-remaining .remaining-qty-item-name {
-            font-size: 10px;
-            font-weight: 600;
+            font-size: 24px;
+            font-weight: 900;
             color: #2e7d32;
             text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            width: 100%;
-            line-height: 1.1;
+            line-height: 1;
+            flex-shrink: 1;
+            min-width: 0;
         }
 
         .grid-stat-remaining .remaining-qty-item-value {
@@ -327,6 +329,7 @@
             color: #1b5e20;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             line-height: 1;
+            flex-shrink: 0;
         }
 
         /* For BÁN column items */
@@ -629,7 +632,7 @@
             }
 
             .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 9px;
+                font-size: 26px;
             }
 
             .qty-controls .grid-stat-value {
@@ -680,7 +683,7 @@
             }
 
             .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 10px;
+                font-size: 28px;
             }
 
             .qty-controls .grid-stat-value {
@@ -721,7 +724,7 @@
             }
 
             .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 11px;
+                font-size: 30px;
             }
 
             .qty-controls .grid-stat-value {
@@ -773,7 +776,7 @@
             }
 
             .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 12px;
+                font-size: 34px;
             }
 
             .qty-controls .grid-stat-value {
@@ -825,7 +828,7 @@
             }
 
             .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 14px;
+                font-size: 38px;
             }
 
             .qty-controls .grid-stat-value {
