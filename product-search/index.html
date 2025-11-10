@@ -1213,19 +1213,13 @@
 
         function logoutUser() {
             if (confirm('Bạn có chắc muốn đăng xuất?')) {
-                // Clear TPOS API tokens
+                // Clear all auth data
                 localStorage.removeItem('bearerToken');
                 localStorage.removeItem('tokenExpiry');
-                bearerToken = null;
-                tokenExpiry = null;
-
-                // Clear user-management auth session (both storages)
                 sessionStorage.removeItem('loginindex_auth');
                 localStorage.removeItem('loginindex_auth');
 
-                console.log('🚪 Đã đăng xuất và xóa thông tin xác thực');
-
-                // Redirect to login page
+                // Redirect to home page
                 window.location.href = 'https://nhijudyshop.github.io/n2store/';
             }
         }
