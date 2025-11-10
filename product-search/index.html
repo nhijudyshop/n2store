@@ -1211,6 +1211,27 @@
             return response;
         }
 
+        function logoutUser() {
+            if (confirm('Bạn có chắc muốn đăng xuất? Thông tin đăng nhập sẽ bị xóa và trang sẽ tải lại.')) {
+                // Clear authentication tokens
+                localStorage.removeItem('bearerToken');
+                localStorage.removeItem('tokenExpiry');
+                bearerToken = null;
+                tokenExpiry = null;
+
+                console.log('🚪 Đã đăng xuất và xóa thông tin xác thực');
+                showNotificationMessage('🚪 Đã đăng xuất thành công!');
+
+                // Close settings sidebar
+                toggleSettingsSidebar();
+
+                // Reload page after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        }
+
         function removeVietnameseTones(str) {
             if (!str) return '';
             str = str.toLowerCase();
@@ -1985,6 +2006,14 @@
                     🗑️ Xóa Tất Cả Sản Phẩm
                 </button>
                 <div class="setting-description" style="text-align: center; margin-top: 10px;">Xóa toàn bộ danh sách sản phẩm đã thêm</div>
+            </div>
+
+            <!-- Logout Button -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn-apply-settings" onclick="logoutUser();" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
+                    🚪 Đăng Xuất
+                </button>
+                <div class="setting-description" style="text-align: center; margin-top: 10px;">Xóa thông tin đăng nhập và tải lại trang</div>
             </div>
 
             <!-- Frame Display Settings -->
