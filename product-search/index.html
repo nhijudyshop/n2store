@@ -1212,23 +1212,21 @@
         }
 
         function logoutUser() {
-            if (confirm('Bạn có chắc muốn đăng xuất? Thông tin đăng nhập sẽ bị xóa và trang sẽ tải lại.')) {
-                // Clear authentication tokens
+            if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                // Clear TPOS API tokens
                 localStorage.removeItem('bearerToken');
                 localStorage.removeItem('tokenExpiry');
                 bearerToken = null;
                 tokenExpiry = null;
 
+                // Clear user-management auth session (both storages)
+                sessionStorage.removeItem('loginindex_auth');
+                localStorage.removeItem('loginindex_auth');
+
                 console.log('🚪 Đã đăng xuất và xóa thông tin xác thực');
-                showNotificationMessage('🚪 Đã đăng xuất thành công!');
 
-                // Close settings sidebar
-                toggleSettingsSidebar();
-
-                // Reload page after a short delay
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
+                // Redirect to login page
+                window.location.href = '/index.html';
             }
         }
 
@@ -2013,7 +2011,7 @@
                 <button class="btn-apply-settings" onclick="logoutUser();" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
                     🚪 Đăng Xuất
                 </button>
-                <div class="setting-description" style="text-align: center; margin-top: 10px;">Xóa thông tin đăng nhập và tải lại trang</div>
+                <div class="setting-description" style="text-align: center; margin-top: 10px;">Xóa toàn bộ thông tin xác thực và quay về trang chính</div>
             </div>
 
             <!-- Frame Display Settings -->
