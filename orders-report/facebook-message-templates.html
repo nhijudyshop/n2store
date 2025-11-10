@@ -321,6 +321,10 @@
         </div>
     </div>
 
+    <!-- Include Token Manager for API authentication -->
+    <script src="token-manager.js"></script>
+    <script src="notification-system.js"></script>
+
     <script>
         let allTemplates = [];
         let selectedTemplate = null;
@@ -328,15 +332,40 @@
         // Fetch dữ liệu từ API
         async function fetchTemplates() {
             try {
-                const response = await fetch('https://tomato.tpos.vn/odata/MailTemplate?$filter=(Active+eq+true)');
+                // Sử dụng tokenManager để gọi API với Bearer token
+                let response;
+
+                if (window.tokenManager && typeof window.tokenManager.authenticatedFetch === 'function') {
+                    console.log('✅ Sử dụng TokenManager.authenticatedFetch()');
+                    response = await window.tokenManager.authenticatedFetch(
+                        'https://tomato.tpos.vn/odata/MailTemplate?$filter=(Active+eq+true)',
+                        {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        }
+                    );
+                } else {
+                    console.warn('⚠️ TokenManager không khả dụng, sử dụng fetch thông thường');
+                    response = await fetch('https://tomato.tpos.vn/odata/MailTemplate?$filter=(Active+eq+true)');
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
                 const data = await response.json();
-                allTemplates = data.value;
+                allTemplates = data.value || [];
                 displayTemplates(allTemplates);
+
+                console.log(`✅ Đã tải ${allTemplates.length} templates`);
             } catch (error) {
                 console.error('Lỗi khi tải dữ liệu:', error);
                 document.getElementById('templatesContainer').innerHTML = `
                     <div class="no-results">
-                        ❌ Không thể tải dữ liệu. Vui lòng thử lại sau.
+                        ❌ Không thể tải dữ liệu. Vui lòng thử lại sau.<br>
+                        <small style="color: #999; margin-top: 8px; display: block;">${error.message}</small>
                     </div>
                 `;
             }
