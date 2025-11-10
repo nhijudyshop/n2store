@@ -393,17 +393,10 @@ class AuthManager {
     clearAuth() {
         this.currentUser = null;
 
-        // Clear cache
-        this.cacheManager.clear("auth");
-
-        // Clear storage
+        // Clear ALL localStorage and sessionStorage data
         try {
-            sessionStorage.removeItem("loginindex_auth");
-            localStorage.removeItem("loginindex_auth");
-            localStorage.removeItem("remember_login_preference");
-
-            // Clear legacy data
-            this.clearLegacyAuth();
+            sessionStorage.clear();
+            localStorage.clear();
         } catch (error) {
             console.error("[AUTH] Error clearing auth:", error);
         }
