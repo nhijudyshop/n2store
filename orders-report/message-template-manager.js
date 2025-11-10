@@ -526,9 +526,16 @@ class MessageTemplateManager {
             // CHỈ LẤY BodyPlain
             let messageContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
 
-            if (this.currentOrder) {
+            // Fetch full order data với Details nếu cần
+            if (this.currentOrder && this.currentOrder.Id) {
+                this.log('🔄 Fetching full order data with products...');
+                const fullOrderData = await this.fetchFullOrderData(this.currentOrder.Id);
+                messageContent = this.replacePlaceholders(messageContent, fullOrderData);
+                this.log('✅ Placeholders replaced with full data');
+            } else if (this.currentOrder) {
+                // Fallback: use existing data (không có products)
                 messageContent = this.replacePlaceholders(messageContent, this.currentOrder);
-                this.log('✅ Placeholders replaced');
+                this.log('⚠️ Placeholders replaced with partial data (no products)');
             }
 
             this.log('📋 Message content length:', messageContent.length, 'chars');
@@ -556,9 +563,58 @@ class MessageTemplateManager {
         }
     }
 
+    async fetchFullOrderData(orderId) {
+        this.log('🌐 Fetching full order data for ID:', orderId);
+
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner`;
+
+            this.log('📡 API URL:', apiUrl);
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    'accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.log('✅ Full order data fetched');
+            this.log('  - Order Code:', data.Code);
+            this.log('  - Partner Name:', data.Partner?.Name);
+            this.log('  - Products count:', data.Details?.length || 0);
+
+            // Convert API data to our format
+            return {
+                Id: data.Id,
+                code: data.Code,
+                customerName: data.Partner?.Name || data.Name,
+                phone: data.Partner?.Telephone || data.Telephone,
+                address: data.Partner?.Address || data.Address,
+                totalAmount: data.TotalAmount,
+                products: data.Details?.map(detail => ({
+                    name: detail.ProductNameGet || detail.ProductName,
+                    quantity: detail.Quantity || 0,
+                    price: detail.Price || 0,
+                    total: (detail.Quantity || 0) * (detail.Price || 0)
+                })) || []
+            };
+
+        } catch (error) {
+            this.log('❌ Error fetching full order data:', error);
+            throw new Error(`Không thể tải thông tin đơn hàng: ${error.message}`);
+        }
+    }
+
     replacePlaceholders(content, orderData) {
         let result = content;
 
+        // Replace partner info
         if (orderData.customerName) {
             result = result.replace(/{partner\.name}/g, orderData.customerName);
         }
@@ -569,17 +625,23 @@ class MessageTemplateManager {
             result = result.replace(/{partner\.phone}/g, orderData.phone);
         }
 
-        if (orderData.products && Array.isArray(orderData.products)) {
+        // Replace order details (products)
+        if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
             const productList = orderData.products
                 .map(p => `- ${p.name} x${p.quantity} = ${this.formatCurrency(p.total)}`)
                 .join('\n');
             result = result.replace(/{order\.details}/g, productList);
+        } else {
+            // Nếu không có products, giữ nguyên placeholder hoặc thay bằng text mặc định
+            result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
         }
 
+        // Replace order code
         if (orderData.code) {
             result = result.replace(/{order\.code}/g, orderData.code);
         }
 
+        // Replace order total
         if (orderData.totalAmount) {
             result = result.replace(/{order\.total}/g, this.formatCurrency(orderData.totalAmount));
         }
@@ -627,21 +689,32 @@ class MessageTemplateManager {
     getSelectedOrdersFromTable() {
         const selectedOrders = [];
         const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
-        
+
+        this.log('📋 Getting selected orders from table...');
+        this.log('  - Checkboxes checked:', checkboxes.length);
+
         checkboxes.forEach(checkbox => {
             const row = checkbox.closest('tr');
             if (row) {
+                // Lấy Order ID từ checkbox value
+                const orderId = checkbox.value;
+
+                // Lấy thông tin cơ bản từ table (để hiển thị nhanh)
                 const orderData = {
-                    code: row.querySelector('td:nth-child(3)')?.textContent?.trim(),
-                    customerName: row.querySelector('td:nth-child(4)')?.textContent?.trim(),
+                    Id: orderId, // ⭐ QUAN TRỌNG: Lưu ID để fetch full data sau
+                    code: row.querySelector('td:nth-child(3)')?.textContent?.trim().split('\n')[0]?.trim(),
+                    customerName: row.querySelector('td:nth-child(4)')?.textContent?.trim().split('\n')[0]?.trim(),
                     phone: row.querySelector('td:nth-child(5)')?.textContent?.trim(),
                     address: row.querySelector('td:nth-child(6)')?.textContent?.trim(),
-                    totalAmount: row.querySelector('td:nth-child(8)')?.textContent?.trim(),
+                    totalAmount: row.querySelector('td:nth-child(8)')?.textContent?.replace(/[^\d]/g, ''),
                 };
+
+                this.log('  - Order:', orderData.code, '(ID:', orderId, ')');
                 selectedOrders.push(orderData);
             }
         });
 
+        this.log('✅ Found', selectedOrders.length, 'selected orders');
         return selectedOrders;
     }
 
