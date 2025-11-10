@@ -55,6 +55,14 @@ const MENU_CONFIG = [
         permissionRequired: "ib",
     },
     {
+        href: "../chat/index.html",
+        icon: "message-square",
+        text: "Chat Nội Bộ",
+        shortText: "Chat",
+        pageIdentifier: "chat",
+        permissionRequired: "chat",
+    },
+    {
         href: "../ck/index.html",
         icon: "credit-card",
         text: "Thông Tin Chuyển Khoản",

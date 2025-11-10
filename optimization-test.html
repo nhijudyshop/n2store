@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N2Store Optimization Test Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            color: #666;
+        }
+
+        .status-value {
+            font-weight: bold;
+        }
+
+        .status-value.success {
+            color: #10b981;
+        }
+
+        .status-value.error {
+            color: #ef4444;
+        }
+
+        .status-value.warning {
+            color: #f59e0b;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .test-area {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f3f4f6;
+            border-radius: 5px;
+        }
+
+        #testOutput {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            min-height: 100px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+
+        .icon {
+            font-size: 24px;
+            margin-right: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+    </style>
+
+    <!-- LOAD CORE UTILITIES FIRST -->
+    <script src="/js/core-loader.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 N2Store Optimization Test Page</h1>
+            <p>Trang test để verify tất cả optimizations hoạt động đúng</p>
+        </div>
+
+        <div class="grid">
+            <!-- Optimization Status -->
+            <div class="card">
+                <h2>📊 Optimization Status</h2>
+                <div id="optimizationStatus">
+                    <div class="status-item">
+                        <span class="status-label">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Manager Stats -->
+            <div class="card">
+                <h2>🎯 Event Manager</h2>
+                <div id="eventStats">
+                    <div class="status-item">
+                        <span class="status-label">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cache Stats -->
+            <div class="card">
+                <h2>💾 Cache Manager</h2>
+                <div id="cacheStats">
+                    <div class="status-item">
+                        <span class="status-label">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Actions -->
+        <div class="card">
+            <h2>🧪 Test Actions</h2>
+            <div class="test-area">
+                <button class="btn" onclick="testLogger()">Test Logger</button>
+                <button class="btn" onclick="testDOMUtils()">Test DOM Utils (XSS Protection)</button>
+                <button class="btn" onclick="testEventManager()">Test Event Manager</button>
+                <button class="btn" onclick="testCacheManager()">Test Cache Manager</button>
+                <button class="btn" onclick="testAuthManager()">Test Auth Manager</button>
+                <button class="btn" onclick="clearAllTests()">Clear Output</button>
+                <button class="btn btn-danger" onclick="stressTest()">Stress Test</button>
+
+                <div id="testOutput"></div>
+            </div>
+        </div>
+
+        <!-- Service Worker Status -->
+        <div class="card">
+            <h2>⚙️ Service Worker</h2>
+            <div id="swStatus">
+                <div class="status-item">
+                    <span class="status-label">Loading...</span>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <button class="btn" onclick="registerSW()">Register Service Worker</button>
+                <button class="btn btn-danger" onclick="clearSWCache()">Clear SW Cache</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Worker Registration (optional) -->
+    <script src="/js/service-worker-register.js"></script>
+
+    <!-- Test Scripts -->
+    <script>
+        let testCache = null;
+        let testAuth = null;
+
+        // Wait for core utilities to load
+        document.addEventListener('coreUtilitiesLoaded', () => {
+            console.log('✅ Core utilities loaded, initializing test page...');
+            initTestPage();
+        });
+
+        // Initialize test page
+        function initTestPage() {
+            updateOptimizationStatus();
+            updateEventStats();
+            updateServiceWorkerStatus();
+
+            // Create test cache instance
+            if (window.PersistentCacheManager) {
+                testCache = new PersistentCacheManager({
+                    storageKey: 'optimization_test_cache',
+                    CACHE_EXPIRY: 5 * 60 * 1000 // 5 minutes for testing
+                });
+                updateCacheStats();
+            }
+
+            // Create test auth instance
+            if (window.AuthManager) {
+                testAuth = new AuthManager({
+                    storageKey: 'loginindex_auth'
+                });
+            }
+
+            log('✅ Test page initialized successfully');
+        }
+
+        // Update optimization status
+        function updateOptimizationStatus() {
+            const status = OptimizationHelper.getOptimizationStatus();
+            const container = document.getElementById('optimizationStatus');
+
+            let html = '';
+            for (const [key, value] of Object.entries(status)) {
+                const badgeClass = value ? 'success' : 'error';
+                const icon = value ? '✅' : '❌';
+                html += `
+                    <div class="status-item">
+                        <span class="status-label">${key}</span>
+                        <span class="status-value ${badgeClass}">${icon} ${value ? 'Loaded' : 'Missing'}</span>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // Update event stats
+        function updateEventStats() {
+            if (!window.eventManager) return;
+
+            const stats = eventManager.getStats();
+            const container = document.getElementById('eventStats');
+
+            let html = `
+                <div class="status-item">
+                    <span class="status-label">Total Listeners</span>
+                    <span class="status-value">${stats.total}</span>
+                </div>
+            `;
+
+            for (const [event, count] of Object.entries(stats.byEvent)) {
+                html += `
+                    <div class="status-item">
+                        <span class="status-label">${event}</span>
+                        <span class="status-value">${count}</span>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Update cache stats
+        function updateCacheStats() {
+            if (!testCache) return;
+
+            const stats = testCache.getStats();
+            const container = document.getElementById('cacheStats');
+
+            container.innerHTML = `
+                <div class="status-item">
+                    <span class="status-label">Hit Rate</span>
+                    <span class="status-value success">${stats.hitRate}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Hits</span>
+                    <span class="status-value">${stats.hits}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Misses</span>
+                    <span class="status-value">${stats.misses}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Total Entries</span>
+                    <span class="status-value">${stats.totalEntries}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Storage Size</span>
+                    <span class="status-value">${testCache.getStorageSize()}</span>
+                </div>
+            `;
+        }
+
+        // Update service worker status
+        function updateServiceWorkerStatus() {
+            const container = document.getElementById('swStatus');
+
+            if (!('serviceWorker' in navigator)) {
+                container.innerHTML = '<div class="status-item"><span class="badge error">Not Supported</span></div>';
+                return;
+            }
+
+            navigator.serviceWorker.getRegistration().then(reg => {
+                if (reg) {
+                    container.innerHTML = `
+                        <div class="status-item">
+                            <span class="status-label">Status</span>
+                            <span class="badge success">Registered</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Scope</span>
+                            <span class="status-value">${reg.scope}</span>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<div class="status-item"><span class="badge warning">Not Registered</span></div>';
+                }
+            });
+        }
+
+        // Test functions
+        function testLogger() {
+            log('Testing Logger...');
+            logger.log('✅ This is a log message');
+            logger.warn('⚠️ This is a warning');
+            logger.error('❌ This is an error');
+            logger.info('ℹ️ This is an info message');
+            log('Logger test complete. Check browser console.');
+        }
+
+        function testDOMUtils() {
+            log('Testing DOM Utils (XSS Protection)...');
+
+            const maliciousInput = '<img src=x onerror="alert(\'XSS\')">';
+            const sanitized = DOMUtils.sanitizeHTML(maliciousInput);
+
+            log(`Original: ${maliciousInput}`);
+            log(`Sanitized: ${sanitized}`);
+            log('✅ XSS attempt blocked!');
+        }
+
+        function testEventManager() {
+            log('Testing Event Manager...');
+
+            const testBtn = document.createElement('button');
+            testBtn.textContent = 'Test Button';
+
+            const listenerId = eventManager.add(testBtn, 'click', () => {
+                log('Test button clicked!');
+            });
+
+            log(`✅ Event listener added (ID: ${listenerId})`);
+            testBtn.click();
+
+            eventManager.remove(listenerId);
+            log(`✅ Event listener removed (ID: ${listenerId})`);
+
+            updateEventStats();
+        }
+
+        function testCacheManager() {
+            if (!testCache) {
+                log('❌ Cache manager not available');
+                return;
+            }
+
+            log('Testing Cache Manager...');
+
+            // Set
+            testCache.set('test_key', { data: 'test value', timestamp: Date.now() });
+            log('✅ Data saved to cache');
+
+            // Get (should hit)
+            const cached = testCache.get('test_key');
+            log(`✅ Retrieved from cache: ${JSON.stringify(cached)}`);
+
+            // Get non-existent (should miss)
+            const notFound = testCache.get('non_existent_key');
+            log(`❌ Cache miss for non-existent key: ${notFound}`);
+
+            updateCacheStats();
+        }
+
+        function testAuthManager() {
+            if (!testAuth) {
+                log('❌ Auth manager not available');
+                return;
+            }
+
+            log('Testing Auth Manager...');
+
+            const isAuth = testAuth.isAuthenticated();
+            log(`Authentication status: ${isAuth ? '✅ Authenticated' : '❌ Not authenticated'}`);
+
+            if (isAuth) {
+                const userInfo = testAuth.getUserInfo();
+                log(`User info: ${JSON.stringify(userInfo, null, 2)}`);
+
+                const sessionInfo = testAuth.getSessionInfo();
+                log(`Session expires in: ${sessionInfo.expiresInMinutes} minutes`);
+            }
+        }
+
+        function stressTest() {
+            log('🔥 Running stress test...');
+
+            // Test 1: Create many event listeners
+            const listeners = [];
+            for (let i = 0; i < 100; i++) {
+                const btn = document.createElement('button');
+                const id = eventManager.add(btn, 'click', () => {});
+                listeners.push(id);
+            }
+            log(`✅ Created 100 event listeners`);
+
+            // Test 2: Cache operations
+            for (let i = 0; i < 100; i++) {
+                testCache.set(`stress_test_${i}`, { index: i, data: 'test' });
+            }
+            log(`✅ Cached 100 items`);
+
+            // Test 3: DOM operations
+            for (let i = 0; i < 50; i++) {
+                const malicious = `<script>alert('XSS ${i}')</script>`;
+                DOMUtils.sanitizeHTML(malicious);
+            }
+            log(`✅ Sanitized 50 XSS attempts`);
+
+            // Cleanup
+            listeners.forEach(id => eventManager.remove(id));
+            log(`✅ Cleaned up all test listeners`);
+
+            updateEventStats();
+            updateCacheStats();
+
+            log('🔥 Stress test complete!');
+        }
+
+        function clearAllTests() {
+            document.getElementById('testOutput').textContent = '';
+        }
+
+        function log(message) {
+            const output = document.getElementById('testOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function registerSW() {
+            if (!('serviceWorker' in navigator)) {
+                log('❌ Service Worker not supported');
+                return;
+            }
+
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(reg => {
+                    log('✅ Service Worker registered');
+                    updateServiceWorkerStatus();
+                })
+                .catch(err => {
+                    log(`❌ SW registration failed: ${err.message}`);
+                });
+        }
+
+        function clearSWCache() {
+            if (typeof clearServiceWorkerCache === 'function') {
+                clearServiceWorkerCache()
+                    .then(() => {
+                        log('✅ Service Worker cache cleared');
+                    })
+                    .catch(err => {
+                        log(`❌ Failed to clear cache: ${err.message}`);
+                    });
+            } else {
+                log('❌ clearServiceWorkerCache not available');
+            }
+        }
+
+        // Auto-update stats every 5 seconds
+        setInterval(() => {
+            updateEventStats();
+            if (testCache) updateCacheStats();
+        }, 5000);
+    </script>
+</body>
+</html>
