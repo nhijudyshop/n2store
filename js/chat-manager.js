@@ -58,8 +58,8 @@ class ChatManager {
       this.dbServerTimestamp = dbModule.serverTimestamp;
 
       // Lấy thông tin user hiện tại
-      if (window.AuthManager) {
-        const authData = window.AuthManager.getAuthData();
+      if (window.authManager) {
+        const authData = window.authManager.getAuthData();
         if (authData) {
           this.currentUser = {
             uid: authData.uid || authData.username,
