@@ -578,9 +578,10 @@ class MessageTemplateManager {
             const separator = '\n\n' + '='.repeat(50) + '\n\n';
             const combinedMessage = allMessages
                 .map((msg, index) => {
-                    // Chỉ hiển thị mã đơn hàng
+                    // Format: "1. Thu Huyên\n251000775\n\n[message]"
+                    const customerName = (msg.customerName && msg.customerName.trim()) ? msg.customerName : '(Khách hàng)';
                     const orderCode = (msg.orderCode && msg.orderCode.trim()) ? msg.orderCode : '(Không có mã)';
-                    const header = `${orderCode}\n${'-'.repeat(40)}\n`;
+                    const header = `${index + 1}. ${customerName}\n${orderCode}\n\n`;
                     return header + msg.message;
                 })
                 .join(separator);
