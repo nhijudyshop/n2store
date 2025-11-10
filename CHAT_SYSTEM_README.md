@@ -266,6 +266,30 @@ await window.ChatBubbleUI.openConversation(conversationId);
 await window.ChatBubbleUI.createNewConversation(userId);
 ```
 
+## Truy cập và Quyền
+
+### Navigation Menu
+
+Trang chat đã được thêm vào navigation sidebar với:
+- **Icon**: message-square (💬)
+- **Tên**: Chat Nội Bộ
+- **Vị trí**: Giữa "Check Inbox Khách" và "Thông Tin Chuyển Khoản"
+
+### Quyền truy cập (Permissions)
+
+Để truy cập trang chat, user cần có permission **"chat"**.
+
+**Cấp quyền cho users:**
+1. Vào trang **Quản Lý Tài Khoản** (`/user-management/`)
+2. Chỉnh sửa user cần cấp quyền
+3. Thêm permission **"chat"** vào danh sách permissions của user
+4. Lưu thay đổi
+
+**Lưu ý:**
+- Admin tự động có tất cả permissions (bao gồm chat)
+- User thường cần được cấp quyền "chat" để thấy menu item
+- Bong bóng chat vẫn hoạt động ngay cả khi user chưa có quyền truy cập trang chat chuyên dụng
+
 ## Cách sử dụng
 
 ### 1. Sử dụng trang chat chuyên dụng (Khuyến nghị)
