@@ -1288,8 +1288,15 @@
             const currentProducts = displayProducts.slice(startIndex, endIndex);
 
             productGrid.innerHTML = currentProducts.map(product => {
-                const imageHtml = product.imageUrl
-                    ? `<img src="${product.imageUrl}" class="grid-item-image" alt="${product.NameGet}">`
+                // Add cache-busting version to image URL
+                // Use lastRefreshed (if exists) or addedAt (fallback) or Id (final fallback)
+                const cacheVersion = product.lastRefreshed || product.addedAt || product.Id;
+                const imageUrlWithVersion = product.imageUrl
+                    ? `${product.imageUrl}${product.imageUrl.includes('?') ? '&' : '?'}v=${cacheVersion}`
+                    : null;
+
+                const imageHtml = imageUrlWithVersion
+                    ? `<img src="${imageUrlWithVersion}" class="grid-item-image" alt="${product.NameGet}">`
                     : `<div class="grid-item-image no-image"><span class="icon-emoji">📦</span></div>`;
 
                 // Disable edit buttons for merged products
@@ -1535,6 +1542,32 @@
                 product.QtyAvailable = productData.QtyAvailable || 0;
                 product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
 
+                // Update image URL from API
+                let newImageUrl = productData.ImageUrl;
+
+                // If no image, try to get from template
+                if (!newImageUrl && productData.ProductTmplId) {
+                    try {
+                        const templateResponse = await authenticatedFetch(
+                            `https://tomato.tpos.vn/odata/ProductTemplate(${productData.ProductTmplId})?$select=ImageUrl`
+                        );
+                        if (templateResponse.ok) {
+                            const templateData = await templateResponse.json();
+                            newImageUrl = templateData.ImageUrl;
+                        }
+                    } catch (err) {
+                        console.warn('Could not load template image:', err);
+                    }
+                }
+
+                // Update image if we got a new one
+                if (newImageUrl) {
+                    product.imageUrl = newImageUrl;
+                }
+
+                // Add timestamp to track last refresh (for cache-busting)
+                product.lastRefreshed = Date.now();
+
                 if (!isSyncingFromFirebase) {
                     database.ref('savedProducts').set(savedProducts).catch(error => {
                         console.error('❌ Lỗi sync products lên Firebase:', error);
@@ -1547,7 +1580,8 @@
                     oldTotal: oldQtyAvailable,
                     newTotal: product.QtyAvailable,
                     sold: product.soldQty,
-                    remaining: product.remainingQty
+                    remaining: product.remainingQty,
+                    imageUpdated: !!newImageUrl
                 });
 
                 statTotal.style.background = 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)';
