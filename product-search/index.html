@@ -1021,7 +1021,6 @@
             <div class="list-header">
                 <h2>📋 Danh sách sản phẩm đã thêm (<span id="productCount">0</span>)</h2>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn-expand" onclick="clearAllProducts()" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); cursor: pointer; border: none; color: white; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: 600; transition: all 0.3s;">🗑️ Xóa tất cả</button>
                     <a href="product-list.html#sync" class="btn-expand" id="btnExpandList" target="_blank" style="text-decoration: none; display: inline-block;">🔍 Phóng to</a>
                 </div>
             </div>
@@ -1978,6 +1977,14 @@
                     <input type="checkbox" id="toggleAutoVariants" checked onchange="toggleAutoVariants()">
                     <span class="toggle-slider"></span>
                 </label>
+            </div>
+
+            <!-- Clear All Products Button -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn-apply-settings" onclick="clearAllProducts(); toggleSettingsSidebar();" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+                    🗑️ Xóa Tất Cả Sản Phẩm
+                </button>
+                <div class="setting-description" style="text-align: center; margin-top: 10px;">Xóa toàn bộ danh sách sản phẩm đã thêm</div>
             </div>
 
             <!-- Frame Display Settings -->
