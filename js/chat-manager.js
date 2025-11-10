@@ -63,7 +63,7 @@ class ChatManager {
       const maxAttempts = 50; // 50 x 100ms = 5 seconds
 
       while (attempts < maxAttempts) {
-        if (window.authManager && typeof window.authManager.getAuthData === 'function') {
+        if (window.authManager) {
           const authData = window.authManager.getAuthData();
           if (authData) {
             this.currentUser = {
