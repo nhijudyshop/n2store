@@ -522,111 +522,31 @@ class MessageTemplateManager {
         try {
             const ordersCount = this.selectedOrders.length;
             this.log('📤 Sending message to', ordersCount, 'order(s)');
-            this.log('🔄 Will fetch full data for each order...');
 
-            // Get template content
-            const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
+            // CHỈ LẤY BodyPlain
+            let messageContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
 
-            // Array to store all generated messages and order data for POST
-            const allMessages = [];
-            const orderCampaignDetails = [];
-
-            // Fetch full data and generate message for EACH order
-            for (let i = 0; i < this.selectedOrders.length; i++) {
-                const order = this.selectedOrders[i];
-                this.log(`\n📦 Processing order ${i + 1}/${ordersCount}: ${order.code || order.Id}`);
-
-                try {
-                    if (order.Id) {
-                        // Fetch full order data with products
-                        const fullOrderData = await this.fetchFullOrderData(order.Id);
-                        const messageContent = this.replacePlaceholders(templateContent, fullOrderData.converted);
-
-                        allMessages.push({
-                            orderCode: fullOrderData.converted.code,
-                            customerName: fullOrderData.converted.customerName,
-                            phone: fullOrderData.converted.phone,
-                            message: messageContent
-                        });
-
-                        // Fetch CRMTeam info for POST
-                        const crmTeam = await this.fetchCRMTeam(fullOrderData.raw.CRMTeamId);
-
-                        // Prepare detail for POST
-                        orderCampaignDetails.push({
-                            rawOrder: fullOrderData.raw,
-                            crmTeam: crmTeam,
-                            message: messageContent
-                        });
-
-                        this.log(`✅ Generated message for order ${fullOrderData.converted.code}`);
-                    } else {
-                        // Fallback: use existing data (without products)
-                        const messageContent = this.replacePlaceholders(templateContent, order);
-
-                        allMessages.push({
-                            orderCode: order.code,
-                            customerName: order.customerName,
-                            phone: order.phone,
-                            message: messageContent
-                        });
-
-                        this.log(`⚠️ Generated message for order ${order.code} (no full data)`);
-                    }
-                } catch (orderError) {
-                    this.log(`❌ Error processing order ${order.code}:`, orderError);
-                    // Continue with next order even if one fails
-                    allMessages.push({
-                        orderCode: order.code,
-                        customerName: order.customerName,
-                        phone: order.phone,
-                        message: `[Lỗi: Không thể tải dữ liệu đơn hàng ${order.code}]`
-                    });
-                }
+            if (this.currentOrder) {
+                messageContent = this.replacePlaceholders(messageContent, this.currentOrder);
+                this.log('✅ Placeholders replaced');
             }
 
-            // Combine all messages with separator
-            const separator = '\n\n' + '='.repeat(50) + '\n\n';
-            const combinedMessage = allMessages
-                .map((msg, index) => {
-                    // Format: "1. Thu Huyên\n251000775\n\n[message]"
-                    const customerName = (msg.customerName && msg.customerName.trim()) ? msg.customerName : '(Khách hàng)';
-                    const orderCode = (msg.orderCode && msg.orderCode.trim()) ? msg.orderCode : '(Không có mã)';
-                    const header = `${index + 1}. ${customerName}\n${orderCode}\n\n`;
-                    return header + msg.message;
-                })
-                .join(separator);
+            this.log('📋 Message content length:', messageContent.length, 'chars');
 
-            this.log('\n📋 Total messages generated:', allMessages.length);
-            this.log('📋 Combined message length:', combinedMessage.length, 'chars');
-
-            // POST to campaign API if we have order data
-            if (orderCampaignDetails.length > 0) {
-                this.log('🚀 Posting to order campaign API...');
-                try {
-                    await this.postOrderCampaign(orderCampaignDetails);
-                    this.log('✅ Posted to campaign API successfully');
-                } catch (postError) {
-                    this.log('❌ Failed to post to campaign API:', postError);
-                    // Don't block the flow, just log error
-                }
-            }
-
-            // Copy to clipboard
-            await this.copyToClipboard(combinedMessage);
+            await this.copyToClipboard(messageContent);
 
             if (window.notificationManager) {
                 window.notificationManager.success(
-                    `Đã copy ${allMessages.length} tin nhắn vào clipboard!`,
+                    `Template "${this.selectedTemplate.Name}" đã được copy vào clipboard`,
                     3000,
-                    `Template: ${this.selectedTemplate.Name}`
+                    ordersCount > 1 ? `${ordersCount} đơn hàng` : 'Thành công'
                 );
             }
 
             this.closeModal();
 
         } catch (error) {
-            this.log('❌ Error sending messages:', error);
+            this.log('❌ Error sending message:', error);
             if (window.notificationManager) {
                 window.notificationManager.error(
                     `Lỗi: ${error.message}`,
@@ -636,212 +556,32 @@ class MessageTemplateManager {
         }
     }
 
-    async fetchCRMTeam(teamId) {
-        this.log('🌐 Fetching CRMTeam data for ID:', teamId);
-
-        try {
-            const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://tomato.tpos.vn/odata/CRMTeam(${teamId})`;
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    ...headers,
-                    'accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            this.log('✅ CRMTeam data fetched:', data.Name);
-            return data;
-
-        } catch (error) {
-            this.log('❌ Error fetching CRMTeam data:', error);
-            return null; // Return null if failed, continue without team info
-        }
-    }
-
-    async postOrderCampaign(orderCampaignDetails) {
-        this.log('📡 Posting order campaign...');
-        this.log('  - Orders count:', orderCampaignDetails.length);
-
-        try {
-            // Get current date in DD/MM/YYYY format
-            const now = new Date();
-            const noteDate = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
-
-            // Get CRMTeamId from first order (or use a default)
-            const rootCRMTeamId = orderCampaignDetails[0]?.rawOrder?.CRMTeamId || 2;
-
-            // Build Details array
-            const details = orderCampaignDetails.map(detail => {
-                const order = detail.rawOrder;
-                const crmTeam = detail.crmTeam;
-
-                return {
-                    CRMTeam: crmTeam,
-                    CRMTeamId: order.CRMTeamId,
-                    Facebook_ASId: order.Facebook_ASUserId,
-                    Facebook_CommentId: order.Facebook_CommentId,
-                    Facebook_PostId: order.Facebook_PostId,
-                    Facebook_UserId: order.Facebook_UserId,
-                    Facebook_UserName: order.Facebook_UserName,
-                    MatchingId: order.MatchingId,
-                    Message: detail.message,
-                    PartnerId: order.PartnerId,
-                    TypeId: "Message"
-                };
-            });
-
-            // Build payload
-            const payload = {
-                CRMTeamId: rootCRMTeamId,
-                Details: details,
-                Note: noteDate,
-                MailTemplateId: this.selectedTemplate.Id
-            };
-
-            this.log('📦 Payload:');
-            this.log('  - CRMTeamId:', payload.CRMTeamId);
-            this.log('  - Details count:', payload.Details.length);
-            this.log('  - Note:', payload.Note);
-            this.log('  - MailTemplateId:', payload.MailTemplateId);
-
-            // POST to API
-            const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = 'https://tomato.tpos.vn/rest/v1.0/CRMActivityCampaign/order-campaign';
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'accept': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            const result = await response.json();
-            this.log('✅ Order campaign posted successfully');
-            this.log('  - Response:', result);
-
-            return result;
-
-        } catch (error) {
-            this.log('❌ Error posting order campaign:', error);
-            throw error;
-        }
-    }
-
-    async fetchFullOrderData(orderId) {
-        this.log('🌐 Fetching full order data for ID:', orderId);
-
-        try {
-            const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User`;
-
-            this.log('📡 API URL:', apiUrl);
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    ...headers,
-                    'accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            this.log('✅ Full order data fetched');
-            this.log('  - Order Code:', data.Code);
-            this.log('  - Partner Name:', data.Partner?.Name);
-            this.log('  - CRMTeamId:', data.CRMTeamId);
-            this.log('  - Products count:', data.Details?.length || 0);
-
-            // Return full raw data + converted data
-            return {
-                raw: data, // Keep full API response for POST
-                converted: {
-                    Id: data.Id,
-                    code: data.Code,
-                    customerName: data.Partner?.Name || data.Name,
-                    phone: data.Partner?.Telephone || data.Telephone,
-                    address: data.Partner?.Address || data.Address,
-                    totalAmount: data.TotalAmount,
-                    products: data.Details?.map(detail => ({
-                        name: detail.ProductNameGet || detail.ProductName,
-                        quantity: detail.Quantity || 0,
-                        price: detail.Price || 0,
-                        total: (detail.Quantity || 0) * (detail.Price || 0)
-                    })) || []
-                }
-            };
-
-        } catch (error) {
-            this.log('❌ Error fetching full order data:', error);
-            throw new Error(`Không thể tải thông tin đơn hàng: ${error.message}`);
-        }
-    }
-
     replacePlaceholders(content, orderData) {
         let result = content;
 
-        // Replace partner name
-        if (orderData.customerName && orderData.customerName.trim()) {
+        if (orderData.customerName) {
             result = result.replace(/{partner\.name}/g, orderData.customerName);
-        } else {
-            result = result.replace(/{partner\.name}/g, '(Khách hàng)');
         }
-
-        // Replace partner address - xử lý đặc biệt để tránh dấu ngoặc kép kép
-        if (orderData.address && orderData.address.trim()) {
+        if (orderData.address) {
             result = result.replace(/{partner\.address}/g, orderData.address);
-        } else {
-            // Xử lý pattern với dấu ngoặc kép: "{partner.address}" → (Chưa có địa chỉ)
-            result = result.replace(/"\{partner\.address\}"/g, '(Chưa có địa chỉ)');
-            // Xử lý pattern không có dấu ngoặc kép: {partner.address} → (Chưa có địa chỉ)
-            result = result.replace(/\{partner\.address\}/g, '(Chưa có địa chỉ)');
         }
-
-        // Replace partner phone
-        if (orderData.phone && orderData.phone.trim()) {
+        if (orderData.phone) {
             result = result.replace(/{partner\.phone}/g, orderData.phone);
-        } else {
-            result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
-        // Replace order details (products)
-        if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
+        if (orderData.products && Array.isArray(orderData.products)) {
             const productList = orderData.products
                 .map(p => `- ${p.name} x${p.quantity} = ${this.formatCurrency(p.total)}`)
                 .join('\n');
             result = result.replace(/{order\.details}/g, productList);
-        } else {
-            result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
         }
 
-        // Replace order code
-        if (orderData.code && orderData.code.trim()) {
+        if (orderData.code) {
             result = result.replace(/{order\.code}/g, orderData.code);
-        } else {
-            result = result.replace(/{order\.code}/g, '(Không có mã)');
         }
 
-        // Replace order total
         if (orderData.totalAmount) {
             result = result.replace(/{order\.total}/g, this.formatCurrency(orderData.totalAmount));
-        } else {
-            result = result.replace(/{order\.total}/g, '0đ');
         }
 
         return result;
@@ -887,32 +627,21 @@ class MessageTemplateManager {
     getSelectedOrdersFromTable() {
         const selectedOrders = [];
         const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
-
-        this.log('📋 Getting selected orders from table...');
-        this.log('  - Checkboxes checked:', checkboxes.length);
-
+        
         checkboxes.forEach(checkbox => {
             const row = checkbox.closest('tr');
             if (row) {
-                // Lấy Order ID từ checkbox value
-                const orderId = checkbox.value;
-
-                // Lấy thông tin cơ bản từ table (để hiển thị nhanh)
                 const orderData = {
-                    Id: orderId, // ⭐ QUAN TRỌNG: Lưu ID để fetch full data sau
-                    code: row.querySelector('td:nth-child(3)')?.textContent?.trim().split('\n')[0]?.trim(),
-                    customerName: row.querySelector('td:nth-child(4)')?.textContent?.trim().split('\n')[0]?.trim(),
+                    code: row.querySelector('td:nth-child(3)')?.textContent?.trim(),
+                    customerName: row.querySelector('td:nth-child(4)')?.textContent?.trim(),
                     phone: row.querySelector('td:nth-child(5)')?.textContent?.trim(),
                     address: row.querySelector('td:nth-child(6)')?.textContent?.trim(),
-                    totalAmount: row.querySelector('td:nth-child(8)')?.textContent?.replace(/[^\d]/g, ''),
+                    totalAmount: row.querySelector('td:nth-child(8)')?.textContent?.trim(),
                 };
-
-                this.log('  - Order:', orderData.code, '(ID:', orderId, ')');
                 selectedOrders.push(orderData);
             }
         });
 
-        this.log('✅ Found', selectedOrders.length, 'selected orders');
         return selectedOrders;
     }
 
