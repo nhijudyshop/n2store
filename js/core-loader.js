@@ -17,6 +17,9 @@
 
     console.log('🚀 Loading N2Store Core Utilities...');
 
+    // Cache busting parameter
+    const cacheBuster = Date.now();
+
     // Load CSS files
     const cssBasePath = basePath.replace('/js/', '/css/');
     const cssFiles = [
@@ -26,7 +29,7 @@
     cssFiles.forEach(cssFile => {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = cssBasePath + cssFile;
+        link.href = cssBasePath + cssFile + '?v=' + cacheBuster;
         document.head.appendChild(link);
         console.log(`✅ Loaded CSS: ${cssFile}`);
     });
@@ -66,7 +69,7 @@
             return;
         }
 
-        const scriptUrl = basePath + coreUtilities[index];
+        const scriptUrl = basePath + coreUtilities[index] + '?v=' + cacheBuster;
         const script = document.createElement('script');
         script.src = scriptUrl;
 
