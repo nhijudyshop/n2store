@@ -23,6 +23,13 @@ class ChatPageApp {
 
       await window.ChatManager.initialize();
 
+      // Kiểm tra nếu ChatManager không khởi tạo được (user chưa đăng nhập)
+      if (!window.ChatManager.initialized) {
+        console.log('Chat page không thể khởi tạo - user chưa đăng nhập');
+        this.showLoginRequiredMessage();
+        return;
+      }
+
       // Setup event listeners
       this.setupEventListeners();
       this.setupChatManagerEvents();
@@ -444,6 +451,27 @@ class ChatPageApp {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  showLoginRequiredMessage() {
+    const mainEmpty = document.getElementById('chat-main-empty');
+    if (mainEmpty) {
+      mainEmpty.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path>
+          <path d="M12 6v6l4 2"></path>
+        </svg>
+        <h3>Vui lòng đăng nhập</h3>
+        <p>Bạn cần đăng nhập để sử dụng hệ thống chat</p>
+      `;
+      mainEmpty.style.display = 'flex';
+    }
+
+    // Hide sidebar
+    const sidebar = document.querySelector('.chat-sidebar');
+    if (sidebar) {
+      sidebar.style.display = 'none';
+    }
   }
 
   escapeHtml(text) {
