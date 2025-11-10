@@ -33,14 +33,29 @@
 
     // List of core utilities to load in order
     const coreUtilities = [
-        'logger.js',                    // Load logger first (needed by others)
+        // Core utilities (load first)
+        'logger.js',                    // Logger (needed by others)
         'firebase-config.js',           // Firebase config
         'dom-utils.js',                 // DOM utilities
         'event-manager.js',             // Event management
+        'common-utils.js',              // Common UI utilities
+        'optimization-helper.js',       // Optimization helpers
+
+        // Managers
         'shared-cache-manager.js',      // Cache manager
         'shared-auth-manager.js',       // Auth manager
+
+        // Chat system
         'chat-manager.js',              // Chat manager
-        'chat-bubble.js'                // Chat UI
+        'chat-bubble.js',               // Chat UI
+
+        // Navigation system
+        'navigation-modern.js',         // Main navigation (unified)
+        'navigation-modern-pc.js',      // PC navigation
+        'navigation-modern-mobile.js',  // Mobile navigation
+
+        // Service worker (load last)
+        'service-worker-register.js'    // Service worker registration
     ];
 
     // Track loaded scripts
