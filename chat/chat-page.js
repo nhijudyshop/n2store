@@ -30,9 +30,16 @@ class ChatPageApp {
         return;
       }
 
+      // Initialize UserService
+      if (window.UserService) {
+        await window.UserService.initialize();
+        await window.UserService.loadUsers();
+      }
+
       // Setup event listeners
       this.setupEventListeners();
       this.setupChatManagerEvents();
+      this.setupUserModalEvents();
 
       // Load conversations
       await this.loadConversations();
@@ -175,7 +182,9 @@ class ChatPageApp {
 
     listEl.innerHTML = this.conversations.map(conv => {
       const members = Object.keys(conv.members || {}).filter(uid => uid !== window.ChatManager.currentUser.uid);
-      const memberName = members.length > 0 ? members[0] : 'Unknown';
+      const memberUid = members.length > 0 ? members[0] : 'Unknown';
+      // Get display name from UserService
+      const memberName = window.UserService ? window.UserService.getDisplayName(memberUid) : memberUid;
       const unreadBadge = conv.unreadCount > 0 ? `<span class="sidebar-conversation-badge">${conv.unreadCount}</span>` : '';
       const lastMessage = conv.lastMessage || 'Chưa có tin nhắn';
       const timeStr = this.formatTime(conv.lastMessageTimestamp);
@@ -188,11 +197,11 @@ class ChatPageApp {
           </div>
           <div class="sidebar-conversation-content">
             <div class="sidebar-conversation-header">
-              <div class="sidebar-conversation-name">${memberName}</div>
+              <div class="sidebar-conversation-name">${this.escapeHtml(memberName)}</div>
               <div class="sidebar-conversation-time">${timeStr}</div>
             </div>
             <div class="sidebar-conversation-footer">
-              <div class="sidebar-conversation-message">${lastMessage}</div>
+              <div class="sidebar-conversation-message">${this.escapeHtml(lastMessage)}</div>
               ${unreadBadge}
             </div>
           </div>
@@ -220,7 +229,9 @@ class ChatPageApp {
     const conversation = this.conversations.find(c => c.id === conversationId);
     if (conversation) {
       const members = Object.keys(conversation.members || {}).filter(uid => uid !== window.ChatManager.currentUser.uid);
-      const memberName = members.length > 0 ? members[0] : 'Unknown';
+      const memberUid = members.length > 0 ? members[0] : 'Unknown';
+      // Get display name from UserService
+      const memberName = window.UserService ? window.UserService.getDisplayName(memberUid) : memberUid;
 
       document.getElementById('main-user-name').textContent = memberName;
       document.getElementById('main-user-avatar').innerHTML = `<span>${memberName.charAt(0).toUpperCase()}</span>`;
@@ -371,10 +382,131 @@ class ChatPageApp {
   }
 
   showNewChatDialog() {
-    const userId = prompt('Nhập ID người dùng để bắt đầu trò chuyện:');
-    if (userId && userId.trim()) {
-      this.createNewConversation(userId.trim());
+    // Show modal to select user
+    this.openUserSelectionModal();
+  }
+
+  setupUserModalEvents() {
+    // Close modal button
+    const closeBtn = document.getElementById('btn-close-user-modal');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.closeUserSelectionModal();
+      });
     }
+
+    // Click outside modal to close
+    const modalOverlay = document.getElementById('modal-select-user');
+    if (modalOverlay) {
+      modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) {
+          this.closeUserSelectionModal();
+        }
+      });
+    }
+
+    // User search
+    const searchInput = document.getElementById('user-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.filterUserList(e.target.value);
+      });
+    }
+  }
+
+  async openUserSelectionModal() {
+    const modal = document.getElementById('modal-select-user');
+    const userList = document.getElementById('user-list');
+
+    if (!modal || !userList) return;
+
+    // Show modal
+    modal.style.display = 'flex';
+
+    // Load users
+    if (!window.UserService) {
+      userList.innerHTML = '<div class="empty-user-list"><p>User service không khả dụng</p></div>';
+      return;
+    }
+
+    const currentUser = window.ChatManager.currentUser;
+    const users = window.UserService.getUsersExceptCurrent(currentUser?.username || currentUser?.uid);
+
+    this.renderUserList(users);
+  }
+
+  closeUserSelectionModal() {
+    const modal = document.getElementById('modal-select-user');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+
+    // Clear search
+    const searchInput = document.getElementById('user-search-input');
+    if (searchInput) {
+      searchInput.value = '';
+    }
+  }
+
+  renderUserList(users) {
+    const userList = document.getElementById('user-list');
+    if (!userList) return;
+
+    if (!users || users.length === 0) {
+      userList.innerHTML = `
+        <div class="empty-user-list">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="8.5" cy="7" r="4"></circle>
+            <line x1="20" y1="8" x2="20" y2="14"></line>
+            <line x1="23" y1="11" x2="17" y2="11"></line>
+          </svg>
+          <p>Không tìm thấy người dùng nào</p>
+        </div>
+      `;
+      return;
+    }
+
+    userList.innerHTML = users.map(user => {
+      const displayName = user.displayName || user.username || user.id;
+      const roleName = window.UserService.getRoleName(user.checkLogin);
+      const initial = displayName.charAt(0).toUpperCase();
+
+      return `
+        <div class="user-item" data-user-id="${this.escapeHtml(user.username || user.id)}">
+          <div class="user-item-avatar">${initial}</div>
+          <div class="user-item-info">
+            <div class="user-item-name">${this.escapeHtml(displayName)}</div>
+            <div class="user-item-role">${roleName}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Add click handlers
+    userList.querySelectorAll('.user-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const userId = item.getAttribute('data-user-id');
+        this.handleUserSelected(userId);
+      });
+    });
+  }
+
+  filterUserList(searchQuery) {
+    if (!window.UserService) return;
+
+    const currentUser = window.ChatManager.currentUser;
+    const users = window.UserService.searchUsers(
+      searchQuery,
+      currentUser?.username || currentUser?.uid
+    );
+
+    this.renderUserList(users);
+  }
+
+  async handleUserSelected(userId) {
+    this.closeUserSelectionModal();
+    this.createNewConversation(userId);
   }
 
   async createNewConversation(userId) {
