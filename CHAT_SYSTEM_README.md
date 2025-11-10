@@ -2,15 +2,31 @@
 
 ## Tổng quan
 
-Hệ thống chat nội bộ được tích hợp vào N2Store, cho phép nhân viên và quản lý giao tiếp nhanh chóng với nhau. Chat có thể được mở ở bất kỳ trang nào dưới dạng bong bóng chat nổi.
+Hệ thống chat nội bộ được tích hợp vào N2Store, cho phép nhân viên và quản lý giao tiếp nhanh chóng với nhau.
+
+**Có 2 cách sử dụng:**
+1. **Trang chat chuyên dụng** (`/chat/`) - Giao diện chat toàn màn hình
+2. **Bong bóng chat nổi** - Hiển thị ở các trang khác khi có tin nhắn chưa đọc
 
 ## Tính năng
 
-✅ **Bong bóng chat nổi**: Mở chat ở bất kỳ trang nào
+### Trang Chat Chuyên Dụng
+✅ **Giao diện toàn màn hình**: Sidebar conversations + main chat area
+✅ **Danh sách cuộc trò chuyện**: Hiển thị tất cả conversations với preview
+✅ **Tìm kiếm conversations**: Search bar để tìm nhanh
+✅ **Avatar và trạng thái**: Hiển thị avatar và online/offline status
+
+### Bong Bóng Chat
+✅ **Hiển thị thông minh**: Chỉ xuất hiện khi có tin nhắn chưa đọc
+✅ **Badge thông báo**: Hiển thị số tin nhắn chưa đọc
+✅ **Compact UI**: Giao diện nhỏ gọn không che khuất nội dung chính
+✅ **Tự động ẩn**: Ẩn khi đã đọc hết tin nhắn
+
+### Tính Năng Chat
 ✅ **Tin nhắn văn bản**: Gửi và nhận tin nhắn văn bản
-✅ **Hình ảnh**: Gửi và xem hình ảnh
-✅ **File đính kèm**: Gửi và nhận file
-✅ **Số điện thoại**: Chia sẻ số điện thoại
+✅ **Hình ảnh**: Gửi và xem hình ảnh với caption
+✅ **File đính kèm**: Gửi và nhận file với hiển thị tên + kích thước
+✅ **Số điện thoại**: Chia sẻ số điện thoại với tên liên hệ
 ✅ **Trạng thái online/offline**: Xem ai đang online
 ✅ **Typing indicator**: Thấy khi người khác đang nhập
 ✅ **Unread count**: Đếm tin nhắn chưa đọc
@@ -19,9 +35,14 @@ Hệ thống chat nội bộ được tích hợp vào N2Store, cho phép nhân 
 ## Cấu trúc File
 
 ```
+/chat/
+  ├── index.html            # Trang chat chuyên dụng
+  ├── chat-page.css         # Styles cho trang chat
+  └── chat-page.js          # Logic cho trang chat
+
 /js/
   ├── chat-manager.js       # Quản lý logic chat (Firebase, messages, etc.)
-  └── chat-bubble.js        # Giao diện người dùng
+  └── chat-bubble.js        # Giao diện bong bóng chat
 
 /css/
   └── chat-modern.css       # Styling cho chat system
@@ -247,7 +268,34 @@ await window.ChatBubbleUI.createNewConversation(userId);
 
 ## Cách sử dụng
 
-### 1. Tự động tích hợp
+### 1. Sử dụng trang chat chuyên dụng (Khuyến nghị)
+
+Truy cập: **`/chat/`** hoặc **`/chat/index.html`**
+
+Trang này có:
+- Giao diện toàn màn hình với sidebar và main chat area
+- Danh sách tất cả conversations
+- Tìm kiếm nhanh
+- Trải nghiệm tối ưu cho chat
+
+**Không có bong bóng chat trên trang này** - trang chat là nơi chuyên dụng để trò chuyện.
+
+### 2. Bong bóng chat trên các trang khác
+
+Bong bóng chat **tự động xuất hiện** khi:
+- Có tin nhắn chưa đọc từ người khác
+- Số lượng tin nhắn chưa đọc > 0
+
+Bong bóng chat **tự động ẩn** khi:
+- Không có tin nhắn chưa đọc
+- Đã đọc hết tất cả tin nhắn
+
+**Lợi ích:**
+- Không làm phiền người dùng khi không có tin nhắn
+- Tự động thông báo khi có tin nhắn mới
+- Có thể truy cập nhanh từ bất kỳ trang nào
+
+### 3. Tự động tích hợp
 
 Hệ thống chat tự động load trên tất cả các trang có `core-loader.js`:
 
@@ -255,7 +303,7 @@ Hệ thống chat tự động load trên tất cả các trang có `core-loader
 <script src="/js/core-loader.js"></script>
 ```
 
-### 2. Manual integration (nếu cần)
+### 4. Manual integration (nếu cần)
 
 Nếu một trang không sử dụng `core-loader.js`, bạn có thể tích hợp thủ công:
 
@@ -270,35 +318,33 @@ Nếu một trang không sử dụng `core-loader.js`, bạn có thể tích h�
 <script src="/js/chat-bubble.js"></script>
 ```
 
-### 3. Sử dụng trong code
+### 5. Sử dụng trong code (API)
 
 ```javascript
 // Đợi core utilities load xong
 document.addEventListener('coreUtilitiesLoaded', async () => {
-  // ChatManager và ChatBubbleUI đã sẵn sàng
+  // ChatManager đã sẵn sàng
   console.log('Chat system ready!');
 
-  // Tạo conversation mới (nếu cần)
+  // Tạo conversation mới
   const convId = await window.ChatManager.createOrGetConversation(['user123']);
 
   // Gửi tin nhắn
   await window.ChatManager.sendTextMessage(convId, 'Hello!');
+
+  // Gửi hình ảnh
+  await window.ChatManager.sendImageMessage(convId, imageBase64, 'Caption');
 });
 ```
 
 ## Giao diện người dùng
 
-### Bong bóng chat
+### Trang Chat Chuyên Dụng (`/chat/`)
 
-- **Vị trí**: Góc dưới bên phải màn hình
-- **Icon**: Biểu tượng tin nhắn
-- **Badge**: Hiển thị số tin nhắn chưa đọc (nếu có)
-- **Click**: Mở/đóng cửa sổ chat
-
-### Cửa sổ chat
-
-#### View 1: Danh sách conversations
-
+#### Sidebar (Trái)
+- **Header**:
+  - Tiêu đề "Tin nhắn"
+  - Nút "+" tạo cuộc trò chuyện mới
 - **Search bar**: Tìm kiếm conversations
 - **Conversation list**: Danh sách cuộc trò chuyện
   - Avatar tròn với chữ cái đầu
@@ -306,25 +352,55 @@ document.addEventListener('coreUtilitiesLoaded', async () => {
   - Tin nhắn cuối cùng
   - Thời gian
   - Badge tin nhắn chưa đọc
-- **New message button**: Tạo cuộc trò chuyện mới
+  - Highlight conversation đang active
 
-#### View 2: Chat view
+#### Main Area (Phải)
+- **Empty state** (khi chưa chọn conversation):
+  - Icon chat
+  - "Chọn một cuộc trò chuyện"
+  - Hướng dẫn sử dụng
 
-- **Header**:
-  - Back button: Quay lại danh sách
-  - User info: Tên và trạng thái (online/offline)
-  - Info button: Xem thông tin chi tiết
-- **Messages area**: Hiển thị tin nhắn
-  - Tin nhắn của bạn: Bên phải, màu xanh
-  - Tin nhắn của người khác: Bên trái, màu trắng
-  - Hỗ trợ: text, image, file, phone
-  - Hiển thị thời gian
-- **Typing indicator**: "đang nhập..." khi người khác nhập
-- **Input area**:
-  - Attach button: Đính kèm file
-  - Image button: Gửi hình ảnh
-  - Text input: Nhập tin nhắn
-  - Send button: Gửi tin nhắn
+- **Chat view** (khi đã chọn conversation):
+  - **Header**:
+    - Avatar và tên người dùng
+    - Trạng thái online/offline
+    - Nút gọi điện và thông tin
+  - **Messages area**: Hiển thị tin nhắn
+    - Tin nhắn của bạn: Bên phải, màu xanh gradient
+    - Tin nhắn của người khác: Bên trái, màu trắng
+    - Hỗ trợ: text, image, file, phone
+    - Hiển thị thời gian
+  - **Typing indicator**: "đang nhập..." khi người khác nhập
+  - **Input area**:
+    - Attach button: Đính kèm file
+    - Image button: Gửi hình ảnh
+    - Text input: Nhập tin nhắn (Enter để gửi)
+    - Send button: Gửi tin nhắn
+
+### Bong bóng chat (Các trang khác)
+
+- **Vị trí**: Góc dưới bên phải màn hình
+- **Hiển thị**: Chỉ khi có tin nhắn chưa đọc
+- **Icon**: Biểu tượng tin nhắn
+- **Badge**: Hiển thị số tin nhắn chưa đọc
+- **Click**: Mở/đóng cửa sổ chat popup (380x600px)
+- **Animation**: Smooth fade in/out
+
+#### Popup Chat Window
+
+Giống như trang chat chuyên dụng nhưng compact hơn:
+
+- **View 1**: Danh sách conversations
+  - Search bar
+  - Conversation list với unread badges
+  - New message button
+
+- **View 2**: Chat view
+  - Back button để quay lại danh sách
+  - User info và status
+  - Messages area (cuộn được)
+  - Typing indicator
+  - Input area với attach/image/send buttons
 
 ## Responsive Design
 
