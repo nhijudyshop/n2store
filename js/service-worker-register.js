@@ -19,7 +19,11 @@
     });
 
     function registerServiceWorker() {
-        navigator.serviceWorker.register('/service-worker.js')
+        // Detect the base path (handles both /n2store/ and root deployments)
+        const basePath = window.location.pathname.includes('/n2store/') ? '/n2store/' : '/';
+        const serviceWorkerPath = basePath + 'service-worker.js';
+
+        navigator.serviceWorker.register(serviceWorkerPath)
             .then((registration) => {
                 console.log('✅ ServiceWorker registered:', registration.scope);
 
