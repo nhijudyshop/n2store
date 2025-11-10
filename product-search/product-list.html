@@ -847,6 +847,12 @@
                 font-size: 24px;
             }
         }
+
+        /* Hide edit controls when toggle is active */
+        body.hide-edit-controls .qty-btn,
+        body.hide-edit-controls .variant-qty-btn {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -865,6 +871,9 @@
     <div class="sync-hover-area" style="left: calc(50% + 150px); transform: translateX(0);"></div>
     <button class="btn-sync-toggle" id="btnToggleSync" onclick="toggleSyncMode()" style="left: calc(50% + 150px); transform: translateX(0);">⏸️ Đồng bộ</button>
 
+    <div class="sync-hover-area" style="left: calc(50%); transform: translateX(0);"></div>
+    <button class="btn-sync-toggle" id="btnToggleEdit" onclick="toggleHideEditControls()" style="left: calc(50%); transform: translateX(0); background: rgba(255, 152, 0, 0.9); border-color: #ff9800;">👁️ Ẩn chỉnh sửa</button>
+
     <span class="page-info" id="pageInfo">Trang 1/1</span>
 
     <script src="../js/shared-auth-manager.js"></script>
@@ -882,6 +891,7 @@
         };
         let isSyncMode = false;
         let isMergeVariants = false; // Merge variants mode disabled by default
+        let isHideEditControls = false; // Hide edit controls mode disabled by default
 
         const firebaseConfig = {
             apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
@@ -1032,6 +1042,40 @@
             }
         }
 
+        function toggleHideEditControls() {
+            isHideEditControls = !isHideEditControls;
+            // Save to localStorage for backward compatibility
+            localStorage.setItem('isHideEditControls', JSON.stringify(isHideEditControls));
+
+            // Sync to Firebase to sync between machines
+            if (!isSyncingFromFirebase) {
+                database.ref('isHideEditControls').set(isHideEditControls).catch(error => {
+                    console.error('❌ Lỗi sync hide edit controls:', error);
+                });
+            }
+
+            updateHideEditControlsUI();
+            console.log(isHideEditControls ? '👁️ Đã ẩn các nút chỉnh sửa' : '👁️ Đã hiện các nút chỉnh sửa');
+        }
+
+        function updateHideEditControlsUI() {
+            const btnToggle = document.getElementById('btnToggleEdit');
+
+            if (isHideEditControls) {
+                document.body.classList.add('hide-edit-controls');
+                if (btnToggle) {
+                    btnToggle.classList.add('active');
+                    btnToggle.textContent = '👁️ Đang ẩn';
+                }
+            } else {
+                document.body.classList.remove('hide-edit-controls');
+                if (btnToggle) {
+                    btnToggle.classList.remove('active');
+                    btnToggle.textContent = '👁️ Ẩn chỉnh sửa';
+                }
+            }
+        }
+
         async function loadMergeVariantsMode() {
             // Try to load from Firebase first, fallback to localStorage
             try {
@@ -1059,6 +1103,35 @@
             }
 
             updateMergeVariantsUI();
+        }
+
+        async function loadHideEditControlsMode() {
+            // Try to load from Firebase first, fallback to localStorage
+            try {
+                const snapshot = await database.ref('isHideEditControls').once('value');
+                const firebaseValue = snapshot.val();
+
+                if (firebaseValue !== null && firebaseValue !== undefined) {
+                    isHideEditControls = firebaseValue;
+                    console.log('🔥 Loaded hide edit controls mode from Firebase:', isHideEditControls);
+                } else {
+                    // Fallback to localStorage
+                    const saved = localStorage.getItem('isHideEditControls');
+                    if (saved !== null) {
+                        isHideEditControls = JSON.parse(saved);
+                        console.log('💾 Loaded hide edit controls mode from localStorage:', isHideEditControls);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error loading hide edit controls mode from Firebase:', error);
+                // Fallback to localStorage
+                const saved = localStorage.getItem('isHideEditControls');
+                if (saved !== null) {
+                    isHideEditControls = JSON.parse(saved);
+                }
+            }
+
+            updateHideEditControlsUI();
         }
 
         function parseHashParams() {
@@ -1707,6 +1780,19 @@
                 }
             });
 
+            // Listen for hide edit controls mode changes
+            database.ref('isHideEditControls').on('value', (snapshot) => {
+                const hideEditMode = snapshot.val();
+                if (hideEditMode !== null && hideEditMode !== undefined && !isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+                    isHideEditControls = hideEditMode;
+                    localStorage.setItem('isHideEditControls', JSON.stringify(isHideEditControls));
+                    updateHideEditControlsUI();
+                    console.log('🔥 Hide edit controls mode synced from Firebase:', isHideEditControls);
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
             database.ref('savedProducts').on('value', (snapshot) => {
                 const products = snapshot.val();
                 if (!isSyncingFromFirebase) {
@@ -1825,6 +1911,7 @@
             setupFirebaseListeners();
             loadSettings();
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
+            loadHideEditControlsMode(); // Load hide edit controls mode from localStorage
 
             // Load products from localStorage or Firebase
             await loadProducts();
