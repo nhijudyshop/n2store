@@ -1239,17 +1239,6 @@
             document.getElementById('pageInfo').style.display = 'none';
         }
 
-        function restoreGridStructure() {
-            const mainContent = document.getElementById('mainContent');
-            // Check if we're in empty state (no product-grid element)
-            if (!document.getElementById('productGrid')) {
-                mainContent.innerHTML = '<div class="product-grid" id="productGrid"></div>';
-                // Apply settings to the newly created grid
-                applySettings();
-                console.log('✅ Restored grid structure from empty state and applied settings');
-            }
-        }
-
         function mergeProductsByTemplate(products) {
             // Group products by ProductTmplId
             const groupedProducts = {};
@@ -1343,9 +1332,6 @@
         }
 
         function updateProductGrid() {
-            // Restore grid structure if needed (e.g., after empty state)
-            restoreGridStructure();
-
             const productGrid = document.getElementById('productGrid');
             const pageInfo = document.getElementById('pageInfo');
             const btnPrev = document.getElementById('btnPrev');
