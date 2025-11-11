@@ -376,7 +376,7 @@
                             </div>
                         </div>
                     </td>
-                    <td>
+                    <td class="stt-cell">
                         <div class="stt-input-wrapper">
                             <div class="stt-chips-container ${assignment.sttList.length > 0 ? 'has-items' : ''}">
                                 ${chipsHtml}

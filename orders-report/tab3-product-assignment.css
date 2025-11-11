@@ -20,6 +20,14 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+.card-body {
+    overflow: visible !important;
+}
+
+.container {
+    overflow: visible !important;
+}
+
 .header-section h2 {
     color: var(--gray-800);
     font-weight: 700;
@@ -94,12 +102,24 @@ body {
 }
 
 /* Assignment Table */
+.assignment-table {
+    overflow: visible !important;
+}
+
+.table-responsive {
+    overflow: visible !important;
+}
+
 .assignment-row {
     transition: background 0.2s;
 }
 
 .assignment-row:hover {
     background: var(--gray-50);
+}
+
+.assignment-row td {
+    overflow: visible;
 }
 
 .product-cell {
@@ -140,6 +160,11 @@ body {
 }
 
 /* STT Input with Autocomplete */
+.stt-cell {
+    position: relative;
+    overflow: visible !important;
+}
+
 .stt-input-wrapper {
     position: relative;
 }
@@ -283,7 +308,7 @@ body {
     max-height: 200px;
     overflow-y: auto;
     display: none;
-    z-index: 100;
+    z-index: 1500;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     margin-top: 2px;
 }
