@@ -610,9 +610,13 @@ async function fetchOrders() {
             `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
         );
         sendDataToTab2();
+
+        // 🎯 TỰ ĐỘNG GÁN TAG "GIỎ TRỐNG" CHO ĐƠN HÀNG CÓ SỐ LƯỢNG = 0
+        await autoAssignEmptyCartTags();
+
     } catch (error) {
         console.error("Error fetching data:", error);
-        
+
         // Better error messages
         let errorMessage = "Lỗi khi tải dữ liệu: ";
         if (error.message.includes("Invalid date")) {
@@ -622,7 +626,7 @@ async function fetchOrders() {
         } else {
             errorMessage += error.message;
         }
-        
+
         if (window.notificationManager) {
             window.notificationManager.error(errorMessage, 4000);
         } else {
@@ -630,6 +634,162 @@ async function fetchOrders() {
         }
     } finally {
         showLoading(false);
+    }
+}
+
+// =====================================================
+// AUTO-ASSIGN "GIỎ TRỐNG" TAG
+// =====================================================
+async function autoAssignEmptyCartTags() {
+    try {
+        console.log('[AUTO-TAG] Checking for orders with TotalQuantity = 0...');
+
+        // Tìm tag "GIỎ TRỐNG" trong availableTags
+        const emptyCartTag = availableTags.find(tag =>
+            tag.Name && tag.Name.toUpperCase() === "GIỎ TRỐNG"
+        );
+
+        if (!emptyCartTag) {
+            console.warn('[AUTO-TAG] Tag "GIỎ TRỐNG" not found in available tags');
+            return;
+        }
+
+        console.log('[AUTO-TAG] Found "GIỎ TRỐNG" tag:', emptyCartTag);
+
+        // Tìm orders có TotalQuantity = 0 và chưa có tag "GIỎ TRỐNG"
+        const ordersNeedingTag = allData.filter(order => {
+            // Check TotalQuantity = 0
+            if (order.TotalQuantity !== 0) return false;
+
+            // Check xem đã có tag "GIỎ TRỐNG" chưa
+            if (order.Tags) {
+                try {
+                    const tags = JSON.parse(order.Tags);
+                    if (Array.isArray(tags)) {
+                        const hasEmptyCartTag = tags.some(tag =>
+                            tag.Name && tag.Name.toUpperCase() === "GIỎ TRỐNG"
+                        );
+                        if (hasEmptyCartTag) return false; // Đã có tag rồi
+                    }
+                } catch (e) {
+                    // Parse error, coi như chưa có tag
+                }
+            }
+
+            return true; // Cần thêm tag
+        });
+
+        if (ordersNeedingTag.length === 0) {
+            console.log('[AUTO-TAG] No orders need "GIỎ TRỐNG" tag');
+            return;
+        }
+
+        console.log(`[AUTO-TAG] Found ${ordersNeedingTag.length} orders needing "GIỎ TRỐNG" tag`);
+
+        // Thông báo cho user
+        if (window.notificationManager) {
+            window.notificationManager.info(
+                `Đang tự động gán tag "GIỎ TRỐNG" cho ${ordersNeedingTag.length} đơn hàng...`,
+                3000
+            );
+        }
+
+        // Gán tag cho từng order (với delay để tránh spam API)
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const order of ordersNeedingTag) {
+            try {
+                // Lấy tags hiện tại của order
+                let currentTags = [];
+                if (order.Tags) {
+                    try {
+                        currentTags = JSON.parse(order.Tags);
+                    } catch (e) {
+                        currentTags = [];
+                    }
+                }
+
+                // Thêm tag "GIỎ TRỐNG"
+                const newTags = [
+                    ...currentTags,
+                    {
+                        Id: emptyCartTag.Id,
+                        Name: emptyCartTag.Name,
+                        Color: emptyCartTag.Color
+                    }
+                ];
+
+                // Call API để gán tag
+                const headers = await window.tokenManager.getAuthHeader();
+                const payload = {
+                    Tags: newTags.map(tag => ({
+                        Id: tag.Id,
+                        Color: tag.Color,
+                        Name: tag.Name,
+                    })),
+                    OrderId: order.Id,
+                };
+
+                const response = await fetch(
+                    "https://tomato.tpos.vn/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                    {
+                        method: "POST",
+                        headers: {
+                            ...headers,
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                        body: JSON.stringify(payload),
+                    }
+                );
+
+                if (response.ok) {
+                    // Cập nhật tags trong allData
+                    const updatedData = { Tags: JSON.stringify(newTags) };
+                    updateOrderInTable(order.Id, updatedData);
+                    successCount++;
+                    console.log(`[AUTO-TAG] ✓ Tagged order ${order.Code}`);
+                } else {
+                    failCount++;
+                    console.error(`[AUTO-TAG] ✗ Failed to tag order ${order.Code}: HTTP ${response.status}`);
+                }
+
+                // Delay 500ms giữa các requests để tránh spam API
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+            } catch (error) {
+                failCount++;
+                console.error(`[AUTO-TAG] ✗ Error tagging order ${order.Code}:`, error);
+            }
+        }
+
+        // Thông báo kết quả
+        console.log(`[AUTO-TAG] Completed: ${successCount} success, ${failCount} failed`);
+
+        if (window.notificationManager) {
+            if (successCount > 0) {
+                window.notificationManager.success(
+                    `Đã tự động gán tag "GIỎ TRỐNG" cho ${successCount} đơn hàng${failCount > 0 ? ` (${failCount} lỗi)` : ''}`,
+                    4000
+                );
+            }
+            if (failCount > 0 && successCount === 0) {
+                window.notificationManager.error(
+                    `Không thể gán tag cho ${failCount} đơn hàng`,
+                    4000
+                );
+            }
+        }
+
+        // Clear cache và refresh UI
+        if (successCount > 0) {
+            window.cacheManager.clear("orders");
+            renderTable();
+        }
+
+    } catch (error) {
+        console.error('[AUTO-TAG] Error in autoAssignEmptyCartTags:', error);
     }
 }
 
