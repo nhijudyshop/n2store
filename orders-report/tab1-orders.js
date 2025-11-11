@@ -37,10 +37,10 @@ window.addEventListener("DOMContentLoaded", async function () {
     document.getElementById("startDate").value =
         formatDateTimeLocal(thirtyDaysAgo);
 
-    // Bây giờ mới load campaigns (sẽ trigger auto-load với dates đã có sẵn)
-    await loadCampaignList();
-
     // Event listeners
+    document
+        .getElementById("loadCampaignsBtn")
+        .addEventListener("click", handleLoadCampaigns);
     document
         .getElementById("searchBtn")
         .addEventListener("click", handleSearch);
@@ -391,12 +391,43 @@ function convertToUTC(dateTimeLocal) {
     return date.toISOString();
 }
 
-async function loadCampaignList() {
+async function handleLoadCampaigns() {
+    // Validate dates
+    const startDateValue = document.getElementById("startDate").value;
+    const endDateValue = document.getElementById("endDate").value;
+
+    if (!startDateValue || !endDateValue) {
+        if (window.notificationManager) {
+            window.notificationManager.error("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)", 3000);
+        } else {
+            alert("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
+        }
+        return;
+    }
+
+    const skip = parseInt(document.getElementById("skipRangeFilter").value) || 0;
+    await loadCampaignList(skip, startDateValue, endDateValue);
+}
+
+async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = null) {
     try {
         showLoading(true);
-        // The date filter was causing a 500 error, likely due to a system clock issue.
-        // Fetching the 2000 most recent orders is a more robust way to get recent campaigns.
-        const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=2000&$orderby=DateCreated desc&$count=true`;
+
+        let url;
+        if (startDateLocal && endDateLocal) {
+            // Sử dụng date filter với skip
+            const startDate = convertToUTC(startDateLocal);
+            const endDate = convertToUTC(endDateLocal);
+            const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
+            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+
+            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}`);
+        } else {
+            // Fallback: không có date filter
+            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
+
+            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter`);
+        }
 
         const headers = await window.tokenManager.getAuthHeader();
         const response = await fetch(url, {
@@ -405,6 +436,10 @@ async function loadCampaignList() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         const orders = data.value || [];
+        const totalCount = data["@odata.count"] || 0;
+
+        console.log(`[CAMPAIGNS] Loaded ${orders.length} orders out of ${totalCount} total`);
+
         const campaignMap = new Map();
         orders.forEach((order) => {
             if (
@@ -421,20 +456,37 @@ async function loadCampaignList() {
         const campaigns = Array.from(campaignMap.values()).sort(
             (a, b) => new Date(b.latestDate) - new Date(a.latestDate),
         );
-        
+
+        console.log(`[CAMPAIGNS] Found ${campaigns.length} unique campaigns`);
+
         showLoading(false);
-        
-        // 🎯 TỰ ĐỘNG populate và load data
-        await populateCampaignFilter(campaigns);
-        
+
+        // Populate dropdown (không auto-load data)
+        await populateCampaignFilter(campaigns, false);
+
+        // Hiển thị thông báo
+        if (window.notificationManager) {
+            window.notificationManager.success(
+                `Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng (${skip + 1}-${skip + orders.length}/${totalCount})`,
+                3000
+            );
+        } else {
+            showInfoBanner(`✅ Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng`);
+        }
+
     } catch (error) {
-        console.error("Error loading campaigns:", error);
+        console.error("[CAMPAIGNS] Error loading campaigns:", error);
         showLoading(false);
-        alert("Lỗi khi tải danh sách chiến dịch: " + error.message);
+
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi khi tải danh sách chiến dịch: ${error.message}`, 4000);
+        } else {
+            alert("Lỗi khi tải danh sách chiến dịch: " + error.message);
+        }
     }
 }
 
-async function populateCampaignFilter(campaigns) {
+async function populateCampaignFilter(campaigns, autoLoad = false) {
     const select = document.getElementById("campaignFilter");
     select.innerHTML = '<option value="">-- Chọn chiến dịch --</option>';
     campaigns.forEach((campaign) => {
@@ -444,15 +496,15 @@ async function populateCampaignFilter(campaigns) {
         option.dataset.campaign = JSON.stringify(campaign);
         select.appendChild(option);
     });
-    
-    if (campaigns.length > 0) {
+
+    if (campaigns.length > 0 && autoLoad) {
         // Tự động chọn chiến dịch đầu tiên
         select.value = campaigns[0].campaignId;
         handleCampaignChange();
-        
+
         // 🎯 TỰ ĐỘNG TẢI DỮ LIỆU NGAY LẬP TỨC
         console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
-        
+
         // Hiển thị thông báo đang tải
         if (window.notificationManager) {
             window.notificationManager.info(
@@ -461,9 +513,14 @@ async function populateCampaignFilter(campaigns) {
                 'Tự động tải'
             );
         }
-        
+
         // Tự động gọi handleSearch để load dữ liệu
         await handleSearch();
+    } else if (campaigns.length > 0) {
+        // Chỉ chọn campaign đầu tiên, không auto-load
+        select.value = campaigns[0].campaignId;
+        handleCampaignChange();
+        console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên:', campaigns[0].displayName);
     }
 }
 
