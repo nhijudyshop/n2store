@@ -842,11 +842,69 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .list-header h2 {
             color: #333;
             font-size: 1.5em;
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .list-search-box {
+            position: relative;
+            flex: 0 1 300px;
+        }
+
+        .list-search-input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            font-size: 14px;
+            border: 2px solid #667eea;
+            border-radius: 20px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .list-search-input:focus {
+            border-color: #764ba2;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .list-search-clear {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .list-search-clear:hover {
+            background: #c82333;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .list-search-clear.show {
+            display: flex;
+        }
+
+        .list-header-actions {
+            display: flex;
+            gap: 10px;
         }
 
         .btn-expand {
@@ -1022,7 +1080,11 @@
         <div class="product-list-section" id="productListSection" style="display: none;">
             <div class="list-header">
                 <h2>📋 Danh sách sản phẩm đã thêm (<span id="productCount">0</span>)</h2>
-                <div style="display: flex; gap: 10px;">
+                <div class="list-search-box">
+                    <input type="text" class="list-search-input" id="listSearchInput" placeholder="🔍 Tìm kiếm trong danh sách..." autocomplete="off">
+                    <button class="list-search-clear" id="listSearchClear" onclick="clearListSearch()">×</button>
+                </div>
+                <div class="list-header-actions">
                     <a href="product-list.html#sync" class="btn-expand" id="btnExpandList" target="_blank" style="text-decoration: none; display: inline-block;">🔍 Phóng to</a>
                 </div>
             </div>
@@ -1036,6 +1098,8 @@
         let bearerToken = null;
         let tokenExpiry = null;
         let savedProducts = [];
+        let filteredProductsInList = []; // For search in product list
+        let listSearchKeyword = ''; // Current search keyword for product list
         let isSyncMode = false;
         let autoAddVariants = true; // Mặc định BẬT chế độ tự động thêm variants
 
@@ -1510,9 +1574,15 @@
             }
 
             productListSection.style.display = 'block';
-            productCount.textContent = savedProducts.length;
 
-            const recentProducts = [...savedProducts].reverse();
+            // Use filtered products if searching, otherwise use all products
+            const productsToDisplay = listSearchKeyword ? filteredProductsInList : savedProducts;
+
+            productCount.textContent = listSearchKeyword
+                ? `${productsToDisplay.length}/${savedProducts.length}`
+                : savedProducts.length;
+
+            const recentProducts = [...productsToDisplay].reverse();
 
             productListPreview.innerHTML = recentProducts.map(product => {
                 const imageHtml = product.imageUrl
@@ -1572,9 +1642,82 @@
                     });
                 }
 
-                updateProductListPreview();
+                // Re-apply search if active
+                if (listSearchKeyword) {
+                    performListSearch(listSearchKeyword);
+                } else {
+                    updateProductListPreview();
+                }
                 showNotificationMessage('🗑️ Đã xóa sản phẩm');
             }
+        }
+
+        function performListSearch(keyword) {
+            listSearchKeyword = keyword.trim();
+
+            if (!listSearchKeyword) {
+                filteredProductsInList = [];
+                updateProductListPreview();
+                return;
+            }
+
+            const searchLower = listSearchKeyword.toLowerCase();
+            const searchNoSign = removeVietnameseTones(listSearchKeyword);
+
+            // Filter products that match
+            const matchedProducts = savedProducts.filter(product => {
+                // Match in product name (no Vietnamese tones)
+                const nameNoSign = removeVietnameseTones(product.NameGet || '');
+                const matchName = nameNoSign.includes(searchNoSign);
+
+                // Match in original name (lowercase, for special chars like [Q5X1])
+                const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+
+                return matchName || matchNameOriginal;
+            });
+
+            // Sort by priority: match in [] first
+            matchedProducts.sort((a, b) => {
+                const extractBracket = (name) => {
+                    const match = name?.match(/\[([^\]]+)\]/);
+                    return match ? match[1].toLowerCase().trim() : '';
+                };
+
+                const aBracket = extractBracket(a.NameGet);
+                const bBracket = extractBracket(b.NameGet);
+
+                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
+                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
+
+                if (aMatchInBracket && !bMatchInBracket) return -1;
+                if (!aMatchInBracket && bMatchInBracket) return 1;
+
+                if (aMatchInBracket && bMatchInBracket) {
+                    const aExactMatch = aBracket === searchLower;
+                    const bExactMatch = bBracket === searchLower;
+                    if (aExactMatch && !bExactMatch) return -1;
+                    if (!aExactMatch && bExactMatch) return 1;
+
+                    if (aBracket.length !== bBracket.length) {
+                        return aBracket.length - bBracket.length;
+                    }
+
+                    return aBracket.localeCompare(bBracket);
+                }
+
+                return a.NameGet.localeCompare(b.NameGet);
+            });
+
+            filteredProductsInList = matchedProducts;
+            updateProductListPreview();
+        }
+
+        function clearListSearch() {
+            listSearchKeyword = '';
+            filteredProductsInList = [];
+            document.getElementById('listSearchInput').value = '';
+            document.getElementById('listSearchClear').classList.remove('show');
+            updateProductListPreview();
         }
 
         function showNotificationMessage(message) {
@@ -1955,6 +2098,33 @@
                 updateProductListPreview();
 
                 loadSettings();
+
+                // Setup list search event listener
+                const listSearchInput = document.getElementById('listSearchInput');
+                const listSearchClear = document.getElementById('listSearchClear');
+
+                if (listSearchInput) {
+                    listSearchInput.addEventListener('input', (e) => {
+                        const value = e.target.value;
+
+                        // Show/hide clear button
+                        if (value) {
+                            listSearchClear.classList.add('show');
+                        } else {
+                            listSearchClear.classList.remove('show');
+                        }
+
+                        // Perform search
+                        performListSearch(value);
+                    });
+
+                    // Handle Escape key to clear search
+                    listSearchInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape') {
+                            clearListSearch();
+                        }
+                    });
+                }
             } catch (error) {
                 console.error('Lỗi khởi tạo:', error);
                 alert('Không thể kết nối đến hệ thống. Vui lòng thử lại sau.');
