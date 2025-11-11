@@ -1019,6 +1019,7 @@
         let savedProducts = [];
         let filteredProducts = []; // For search results
         let searchKeyword = ''; // Current search keyword
+        let pageBeforeSearch = 1; // Save page before searching
         let currentPage = 1;
         let itemsPerPage = 8;
         let displaySettings = {
@@ -1623,11 +1624,16 @@
             searchKeyword = keyword.trim();
 
             if (!searchKeyword) {
-                // Clear search
+                // Clear search - restore to page before search
                 filteredProducts = [];
-                currentPage = 1;
+                currentPage = pageBeforeSearch;
                 updateProductGrid();
                 return;
+            }
+
+            // Save current page before searching (only on first search)
+            if (!filteredProducts.length) {
+                pageBeforeSearch = currentPage;
             }
 
             const searchLower = searchKeyword.toLowerCase();
@@ -1669,7 +1675,13 @@
             });
 
             filteredProducts = matchedProducts;
-            currentPage = 1; // Reset to first page
+
+            // Adjust current page if it exceeds total pages of search results
+            const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+            if (currentPage > totalPages && totalPages > 0) {
+                currentPage = totalPages;
+            }
+
             updateProductGrid();
         }
 
@@ -1678,7 +1690,10 @@
             filteredProducts = [];
             document.getElementById('searchInput').value = '';
             document.getElementById('searchClear').classList.remove('show');
-            currentPage = 1;
+
+            // Restore to page before search
+            currentPage = pageBeforeSearch;
+
             updateProductGrid();
         }
 
