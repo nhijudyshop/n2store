@@ -519,6 +519,7 @@
             input.value = '';
         }
         hideSTTSuggestions(assignmentId);
+        hideOrderTooltip(); // Hide tooltip after selection
     }
 
     // Add STT to assignment (supports multiple STT)
@@ -535,6 +536,7 @@
         const existingIndex = assignment.sttList.findIndex(item => item.stt === stt);
         if (existingIndex !== -1) {
             showNotification(`⚠️ STT ${stt} đã được gán cho sản phẩm này`, 'error');
+            hideOrderTooltip(); // Hide tooltip on error too
             return;
         }
 
@@ -547,6 +549,7 @@
         saveAssignments();
         renderAssignmentTable();
         showNotification(`✅ Đã thêm STT ${stt} - ${orderData.customerName || 'N/A'}`);
+        hideOrderTooltip(); // Hide tooltip after adding
     }
 
     // Remove STT from assignment
@@ -621,7 +624,9 @@
 
     function hideOrderTooltip() {
         const tooltip = document.getElementById('orderTooltip');
-        tooltip.classList.remove('show');
+        if (tooltip) {
+            tooltip.classList.remove('show');
+        }
     }
 
     // Remove Assignment
