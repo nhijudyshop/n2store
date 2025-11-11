@@ -1288,12 +1288,20 @@
         function searchProducts(searchText) {
             if (!searchText || searchText.length < 2) return [];
 
+            const searchLower = searchText.toLowerCase();
             const searchNoSign = removeVietnameseTones(searchText);
 
             return productsData.filter(product => {
+                // Match in product name (no Vietnamese tones)
                 const matchName = product.nameNoSign.includes(searchNoSign);
-                const matchCode = product.code && product.code.toLowerCase().includes(searchText.toLowerCase());
-                return matchName || matchCode;
+
+                // Match in original name (lowercase, for special chars like [Q5X1])
+                const matchNameOriginal = product.name && product.name.toLowerCase().includes(searchLower);
+
+                // Match in product code
+                const matchCode = product.code && product.code.toLowerCase().includes(searchLower);
+
+                return matchName || matchNameOriginal || matchCode;
             }).slice(0, 10);
         }
 
