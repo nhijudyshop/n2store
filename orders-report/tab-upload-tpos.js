@@ -214,25 +214,11 @@
                 productCounts[key].count++;
             });
 
-            // Create product list HTML
-            const productsHtml = Object.values(productCounts).map(product => {
-                const imageHtml = product.imageUrl
-                    ? `<img src="${product.imageUrl}" class="product-mini-image" alt="${product.productName}">`
-                    : `<div class="product-mini-image no-image">📦</div>`;
-
-                return `
-                    <div class="product-item">
-                        ${imageHtml}
-                        <div class="product-item-info">
-                            <div class="product-item-name">${product.productName}</div>
-                            <div class="product-item-code">${product.productCode || 'N/A'}</div>
-                        </div>
-                        <div class="product-item-quantity">
-                            <span class="quantity-badge">x${product.count}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            // Create product list text (simple format: N55 x2, N60 x1)
+            const productsText = Object.values(productCounts).map(product => {
+                const code = product.productCode || product.productName;
+                return `${code} x${product.count}`;
+            }).join(', ');
 
             // Calculate total quantity
             const totalQuantity = data.products.length;
@@ -272,8 +258,8 @@
                         </div>
                     </td>
                     <td>
-                        <div class="products-list">
-                            ${productsHtml}
+                        <div class="products-text">
+                            ${productsText}
                         </div>
                     </td>
                     <td class="text-center">
