@@ -357,7 +357,7 @@
                 ? assignment.sttList.map((item, index) => `
                     <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, ${index})">
                         <span class="stt-chip-number">STT ${item.stt}</span>
-                        ${item.orderInfo?.customerName ? `<span class="stt-chip-customer">${item.orderInfo.customerName}</span>` : ''}
+                        ${item.orderInfo?.note ? `<span class="stt-chip-customer">${item.orderInfo.note}</span>` : ''}
                         <button class="stt-chip-remove" onclick="event.stopPropagation(); removeSTTByIndex(${assignment.id}, ${index})">
                             <i class="fas fa-times"></i>
                         </button>
@@ -477,7 +477,7 @@
         suggestionsDiv.innerHTML = filteredOrders.map(order => `
             <div class="stt-suggestion-item" data-assignment-id="${assignmentId}" data-stt="${order.stt}" data-order='${JSON.stringify(order)}'>
                 <span class="stt-number">${order.stt}</span>
-                <span class="customer-name">${order.customerName || 'N/A'}</span>
+                <span class="customer-name">${order.note || 'Không có ghi chú'}</span>
             </div>
         `).join('');
 
