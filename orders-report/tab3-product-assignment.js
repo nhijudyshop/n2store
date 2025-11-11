@@ -354,15 +354,18 @@
 
             // Render STT chips (with index for duplicate STT)
             const chipsHtml = assignment.sttList.length > 0
-                ? assignment.sttList.map((item, index) => `
-                    <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, ${index})">
-                        <span class="stt-chip-number">STT ${item.stt}</span>
-                        ${item.orderInfo?.note ? `<span class="stt-chip-customer">${item.orderInfo.note}</span>` : ''}
-                        <button class="stt-chip-remove" onclick="event.stopPropagation(); removeSTTByIndex(${assignment.id}, ${index})">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                `).join('')
+                ? assignment.sttList.map((item, index) => {
+                    const chipText = [item.orderInfo?.customerName, item.orderInfo?.note].filter(Boolean).join(' - ');
+                    return `
+                        <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, ${index})">
+                            <span class="stt-chip-number">STT ${item.stt}</span>
+                            ${chipText ? `<span class="stt-chip-customer">${chipText}</span>` : ''}
+                            <button class="stt-chip-remove" onclick="event.stopPropagation(); removeSTTByIndex(${assignment.id}, ${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('')
                 : '<span class="stt-chips-empty">Chưa có STT nào</span>';
 
             return `
@@ -474,12 +477,15 @@
             return;
         }
 
-        suggestionsDiv.innerHTML = filteredOrders.map(order => `
-            <div class="stt-suggestion-item" data-assignment-id="${assignmentId}" data-stt="${order.stt}" data-order='${JSON.stringify(order)}'>
-                <span class="stt-number">${order.stt}</span>
-                <span class="customer-name">${order.note || 'Không có ghi chú'}</span>
-            </div>
-        `).join('');
+        suggestionsDiv.innerHTML = filteredOrders.map(order => {
+            const displayText = [order.customerName, order.note].filter(Boolean).join(' - ') || 'N/A';
+            return `
+                <div class="stt-suggestion-item" data-assignment-id="${assignmentId}" data-stt="${order.stt}" data-order='${JSON.stringify(order)}'>
+                    <span class="stt-number">${order.stt}</span>
+                    <span class="customer-name">${displayText}</span>
+                </div>
+            `;
+        }).join('');
 
         suggestionsDiv.classList.add('show');
 
