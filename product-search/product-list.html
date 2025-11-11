@@ -1651,7 +1651,7 @@
                 return matchName || matchNameOriginal;
             });
 
-            // Sort by priority: match in [] first, then name
+            // Sort by priority: match in [] first, then by name alphabetically
             matchedProducts.sort((a, b) => {
                 // Extract text within [] brackets
                 const extractBracket = (name) => {
@@ -1670,8 +1670,22 @@
                 if (aMatchInBracket && !bMatchInBracket) return -1;
                 if (!aMatchInBracket && bMatchInBracket) return 1;
 
-                // Priority 2: Keep original order
-                return 0;
+                // Priority 2: When both match or both don't match in brackets,
+                // prioritize exact match in bracket code (e.g., [Q5] before [Q5X1])
+                if (aMatchInBracket && bMatchInBracket) {
+                    const aExactMatch = aBracket === searchLower;
+                    const bExactMatch = bBracket === searchLower;
+                    if (aExactMatch && !bExactMatch) return -1;
+                    if (!aExactMatch && bExactMatch) return 1;
+
+                    // If both exact or both not exact, sort by bracket content length (shorter first)
+                    if (aBracket.length !== bBracket.length) {
+                        return aBracket.length - bBracket.length;
+                    }
+                }
+
+                // Priority 3: Sort alphabetically by product name
+                return a.NameGet.localeCompare(b.NameGet);
             });
 
             filteredProducts = matchedProducts;
