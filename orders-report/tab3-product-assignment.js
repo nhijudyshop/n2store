@@ -9,6 +9,7 @@
     let isLoadingProducts = false;
     let bearerToken = null;
     let tokenExpiry = null;
+    let saveDebounceTimer = null;
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -199,11 +200,28 @@
             const cachedOrders = localStorage.getItem('ordersData');
             if (cachedOrders) {
                 ordersData = JSON.parse(cachedOrders);
-                console.log(`Đã load ${ordersData.length} đơn hàng từ cache`);
+                console.log(`📦 Đã load ${ordersData.length} đơn hàng từ cache`);
+            } else {
+                console.log('⚠️ Chưa có orders data trong cache, đang request từ tab1...');
             }
+
+            // Always request fresh data from tab1
+            requestOrdersDataFromTab1();
         } catch (error) {
             console.error('Error loading orders:', error);
             ordersData = [];
+            requestOrdersDataFromTab1();
+        }
+    }
+
+    // Request orders data from tab1
+    function requestOrdersDataFromTab1() {
+        // Send message to parent window to request data from tab1
+        if (window.parent) {
+            window.parent.postMessage({
+                type: 'REQUEST_ORDERS_DATA_FROM_TAB3'
+            }, '*');
+            console.log('📤 Đã gửi request lấy orders data từ tab1');
         }
     }
 
@@ -376,7 +394,14 @@
         const assignment = assignments.find(a => a.id === assignmentId);
         if (assignment) {
             assignment.sttNumber = value;
-            saveAssignments();
+
+            // Debounce save to prevent lag
+            if (saveDebounceTimer) {
+                clearTimeout(saveDebounceTimer);
+            }
+            saveDebounceTimer = setTimeout(() => {
+                saveAssignments();
+            }, 500);
         }
 
         // Update input class
@@ -386,7 +411,7 @@
             input.classList.remove('has-value');
         }
 
-        // Show suggestions
+        // Show suggestions immediately (no debounce for better UX)
         if (value.length >= 1) {
             showSTTSuggestions(assignmentId, value);
         } else {
@@ -470,9 +495,14 @@
         if (assignment) {
             assignment.sttNumber = stt;
             assignment.orderInfo = orderData;
+
+            // Clear debounce timer and save immediately when selecting
+            if (saveDebounceTimer) {
+                clearTimeout(saveDebounceTimer);
+            }
             saveAssignments();
             renderAssignmentTable();
-            showNotification(`Đã gán STT ${stt}`);
+            showNotification(`✅ Đã gán STT ${stt} - ${orderData.customerName || 'N/A'}`);
         }
     }
 
@@ -625,6 +655,7 @@
             loadAssignments();
             setupFirebaseListeners();
             await loadProductsData();
+            updateOrdersCount(); // Update initial count
         } catch (error) {
             console.error('Initialization error:', error);
             showNotification('Lỗi khởi tạo: ' + error.message, 'error');
@@ -636,8 +667,24 @@
         if (event.data.type === 'ORDERS_DATA_UPDATE') {
             ordersData = event.data.orders;
             localStorage.setItem('ordersData', JSON.stringify(ordersData));
-            console.log('Đã cập nhật dữ liệu đơn hàng:', ordersData.length);
+            console.log('✅ Đã cập nhật dữ liệu đơn hàng:', ordersData.length, 'đơn');
+
+            // Update orders count badge
+            updateOrdersCount();
+
+            // Show notification
+            if (ordersData.length > 0) {
+                showNotification(`📦 Đã load ${ordersData.length} đơn hàng từ Tab Quản Lý`);
+            }
         }
     });
+
+    // Update orders count display
+    function updateOrdersCount() {
+        const countElement = document.getElementById('ordersCount');
+        if (countElement) {
+            countElement.textContent = ordersData.length;
+        }
+    }
 
 })();

@@ -357,6 +357,16 @@
                 } else if (e.data.type === "SWITCH_TO_TAB1") {
                     // Switch to orders tab
                     switchTab("orders");
+                } else if (e.data.type === "REQUEST_ORDERS_DATA_FROM_TAB3") {
+                    // Tab 3 requesting orders data
+                    const ordersFrame = document.getElementById("ordersFrame");
+                    if (ordersFrame && ordersFrame.contentWindow) {
+                        // Request orders data from tab1
+                        ordersFrame.contentWindow.postMessage(
+                            { type: "REQUEST_ORDERS_DATA" },
+                            "*"
+                        );
+                    }
                 }
             });
 
