@@ -1086,14 +1086,9 @@ function handleSelectAll() {
     );
     const isChecked = document.getElementById("selectAll").checked;
 
+    // Check/uncheck TẤT CẢ checkbox
     checkboxes.forEach((cb) => {
-        const orderId = cb.value;
-        // Chỉ check nếu order có thể được select
-        if (isOrderSelectable(orderId)) {
-            cb.checked = isChecked;
-        } else {
-            cb.checked = false; // Luôn uncheck nếu không selectable
-        }
+        cb.checked = isChecked;
     });
 
     // Trigger update action buttons
