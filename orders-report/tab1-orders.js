@@ -1684,9 +1684,16 @@ function removeProduct(index) {
         )
     )
         return;
+
+    // Remove product from array
     currentEditOrderData.Details.splice(index, 1);
-    switchEditTab("products");
+
+    // Recalculate totals BEFORE re-rendering
     recalculateTotals();
+
+    // Re-render products tab with updated data
+    switchEditTab("products");
+
     showSaveIndicator("success", "Đã xóa sản phẩm");
 
     // 🔄 Refresh inline search UI to remove green highlight and badge
@@ -1709,10 +1716,17 @@ function editProductDetail(index) {
 
 function saveProductDetail(index) {
     const product = currentEditOrderData.Details[index];
-    product.Price =
-        parseInt(document.getElementById(`price-edit-${index}`).value, 10) || 0;
-    switchEditTab("products");
+    const newPrice = parseInt(document.getElementById(`price-edit-${index}`).value, 10) || 0;
+
+    // Update price
+    product.Price = newPrice;
+
+    // Recalculate totals BEFORE re-rendering
     recalculateTotals();
+
+    // Re-render products tab with updated data
+    switchEditTab("products");
+
     showSaveIndicator("success", "Giá đã cập nhật");
 
     // 🔄 Refresh inline search UI (in case price affects display)
@@ -1732,11 +1746,21 @@ function recalculateTotals() {
     });
     currentEditOrderData.TotalQuantity = totalQty;
     currentEditOrderData.TotalAmount = totalAmount;
-    document.getElementById("totalQuantity").textContent = totalQty;
-    document.getElementById("totalAmount").textContent =
-        totalAmount.toLocaleString("vi-VN") + "đ";
-    document.getElementById("productCount").textContent =
-        currentEditOrderData.Details.length;
+
+    // Update DOM elements if they exist (may not exist if tab is not rendered yet)
+    const totalQuantityEl = document.getElementById("totalQuantity");
+    const totalAmountEl = document.getElementById("totalAmount");
+    const productCountEl = document.getElementById("productCount");
+
+    if (totalQuantityEl) {
+        totalQuantityEl.textContent = totalQty;
+    }
+    if (totalAmountEl) {
+        totalAmountEl.textContent = totalAmount.toLocaleString("vi-VN") + "đ";
+    }
+    if (productCountEl) {
+        productCountEl.textContent = currentEditOrderData.Details.length;
+    }
 }
 
 async function saveAllOrderChanges() {
@@ -2321,9 +2345,11 @@ async function addProductToOrderFromInline(productId) {
             searchInput.select();
         }
 
+        // Recalculate totals BEFORE re-rendering
+        recalculateTotals();
+
         // ✅ FIX: Use switchEditTab instead of renderTabContent to re-init event listeners
         switchEditTab("products");
-        recalculateTotals();
     } catch (error) {
         console.error("[INLINE ADD] Error:", error);
 
