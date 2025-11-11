@@ -151,7 +151,7 @@
         .btn-hide {
             position: absolute;
             top: 4px;
-            left: 32px;
+            left: 4px;
             background: rgba(255, 255, 255, 0.95);
             color: #ff9800;
             border: 2px solid #ff9800;
@@ -1568,7 +1568,6 @@
                         <div class="grid-item-name">${product.NameGet}</div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
-                                <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS" ${isMerged ? 'disabled' : ''}>🔄</button>
                                 <button class="btn-hide" onclick="hideProduct(${product.Id})" title="${isMerged ? 'Tắt chế độ gộp để ẩn sản phẩm' : 'Ẩn sản phẩm'}" ${isMerged ? 'disabled' : ''}>👁️</button>
                                 <div class="grid-stat-label">📦 TỔNG</div>
                                 ${isMerged && product.remainingQtyList ? `
