@@ -2458,39 +2458,59 @@ function debugPayloadBeforeSend(payload) {
 window.addEventListener("message", function(event) {
     // Handle request for orders data from product assignment tab
     if (event.data.type === "REQUEST_ORDERS_DATA") {
-        // Prepare orders data with STT (SessionIndex)
-        const ordersDataToSend = allData.map((order, index) => ({
-            stt: order.SessionIndex || (index + 1).toString(), // Use SessionIndex as STT
-            orderId: order.Id,
-            orderCode: order.Code,
-            customerName: order.PartnerName || order.Name,
-            phone: order.PartnerPhone || order.Telephone,
-            address: order.PartnerAddress || order.Address,
-            totalAmount: order.TotalAmount || order.AmountTotal,
-            quantity: order.TotalQuantity || order.Details?.reduce((sum, d) => sum + (d.ProductUOMQty || 0), 0) || 0,
-            note: order.Note,
-            state: order.Status || order.State,
-            dateOrder: order.DateCreated || order.DateOrder,
-            products: order.Details?.map(d => ({
-                id: d.ProductId,
-                name: d.ProductName,
-                quantity: d.ProductUOMQty
-            })) || []
-        }));
+        console.log('📨 Nhận request orders data, allData length:', allData.length);
 
-        // Save to localStorage for persistence
-        localStorage.setItem('ordersData', JSON.stringify(ordersDataToSend));
-
-        // Send to product assignment tab via parent window
-        if (window.parent) {
-            const productAssignmentFrame = window.parent.document.getElementById('productAssignmentFrame');
-            if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
-                productAssignmentFrame.contentWindow.postMessage({
-                    type: 'ORDERS_DATA_UPDATE',
-                    orders: ordersDataToSend
-                }, '*');
-                console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng sang tab gán sản phẩm`);
-            }
+        // Check if data is loaded
+        if (!allData || allData.length === 0) {
+            console.log('⚠️ allData chưa có dữ liệu, sẽ retry sau 1s');
+            // Retry after 1 second
+            setTimeout(() => {
+                if (allData && allData.length > 0) {
+                    sendOrdersDataToTab3();
+                } else {
+                    console.log('❌ Vẫn chưa có dữ liệu sau khi retry');
+                }
+            }, 1000);
+            return;
         }
+
+        sendOrdersDataToTab3();
     }
 });
+
+function sendOrdersDataToTab3() {
+    // Prepare orders data with STT (SessionIndex)
+    const ordersDataToSend = allData.map((order, index) => ({
+        stt: order.SessionIndex || (index + 1).toString(), // Use SessionIndex as STT
+        orderId: order.Id,
+        orderCode: order.Code,
+        customerName: order.PartnerName || order.Name,
+        phone: order.PartnerPhone || order.Telephone,
+        address: order.PartnerAddress || order.Address,
+        totalAmount: order.TotalAmount || order.AmountTotal,
+        quantity: order.TotalQuantity || order.Details?.reduce((sum, d) => sum + (d.ProductUOMQty || 0), 0) || 0,
+        note: order.Note,
+        state: order.Status || order.State,
+        dateOrder: order.DateCreated || order.DateOrder,
+        products: order.Details?.map(d => ({
+            id: d.ProductId,
+            name: d.ProductName,
+            quantity: d.ProductUOMQty
+        })) || []
+    }));
+
+    // Save to localStorage for persistence
+    localStorage.setItem('ordersData', JSON.stringify(ordersDataToSend));
+
+    // Send to product assignment tab via parent window
+    if (window.parent) {
+        const productAssignmentFrame = window.parent.document.getElementById('productAssignmentFrame');
+        if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
+            productAssignmentFrame.contentWindow.postMessage({
+                type: 'ORDERS_DATA_UPDATE',
+                orders: ordersDataToSend
+            }, '*');
+            console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng sang tab gán sản phẩm`);
+        }
+    }
+}
