@@ -2451,3 +2451,46 @@ function debugPayloadBeforeSend(payload) {
             : "Payload is valid",
     };
 }
+
+// =====================================================
+// MESSAGE HANDLER FOR CROSS-TAB COMMUNICATION
+// =====================================================
+window.addEventListener("message", function(event) {
+    // Handle request for orders data from product assignment tab
+    if (event.data.type === "REQUEST_ORDERS_DATA") {
+        // Prepare orders data with STT
+        const ordersDataToSend = allData.map((order, index) => ({
+            stt: index + 1,
+            orderId: order.Id,
+            orderCode: order.Code,
+            customerName: order.PartnerName,
+            phone: order.PartnerPhone,
+            address: order.PartnerAddress,
+            totalAmount: order.AmountTotal,
+            quantity: order.Details?.reduce((sum, d) => sum + (d.ProductUOMQty || 0), 0) || 0,
+            note: order.Note,
+            state: order.State,
+            dateOrder: order.DateOrder,
+            products: order.Details?.map(d => ({
+                id: d.ProductId,
+                name: d.ProductName,
+                quantity: d.ProductUOMQty
+            })) || []
+        }));
+
+        // Save to localStorage for persistence
+        localStorage.setItem('ordersData', JSON.stringify(ordersDataToSend));
+
+        // Send to product assignment tab via parent window
+        if (window.parent) {
+            const productAssignmentFrame = window.parent.document.getElementById('productAssignmentFrame');
+            if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
+                productAssignmentFrame.contentWindow.postMessage({
+                    type: 'ORDERS_DATA_UPDATE',
+                    orders: ordersDataToSend
+                }, '*');
+                console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng sang tab gán sản phẩm`);
+            }
+        }
+    }
+});
