@@ -1656,21 +1656,21 @@
                 // Extract text within [] brackets
                 const extractBracket = (name) => {
                     const match = name?.match(/\[([^\]]+)\]/);
-                    return match ? match[1].toLowerCase() : '';
+                    return match ? match[1].toLowerCase().trim() : '';
                 };
 
                 const aBracket = extractBracket(a.NameGet);
                 const bBracket = extractBracket(b.NameGet);
 
                 // Check if search term matches in brackets
-                const aMatchInBracket = aBracket.includes(searchLower);
-                const bMatchInBracket = bBracket.includes(searchLower);
+                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
+                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
 
                 // Priority 1: Match in brackets
                 if (aMatchInBracket && !bMatchInBracket) return -1;
                 if (!aMatchInBracket && bMatchInBracket) return 1;
 
-                // Priority 2: When both match or both don't match in brackets,
+                // Priority 2: When both match in brackets,
                 // prioritize exact match in bracket code (e.g., [Q5] before [Q5X1])
                 if (aMatchInBracket && bMatchInBracket) {
                     const aExactMatch = aBracket === searchLower;
@@ -1682,6 +1682,9 @@
                     if (aBracket.length !== bBracket.length) {
                         return aBracket.length - bBracket.length;
                     }
+
+                    // If same length, sort alphabetically
+                    return aBracket.localeCompare(bBracket);
                 }
 
                 // Priority 3: Sort alphabetically by product name
