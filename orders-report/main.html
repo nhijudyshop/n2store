@@ -268,6 +268,9 @@
 
             // Tab switching
             function switchTab(tabName) {
+                // Save current tab to localStorage
+                localStorage.setItem("currentTab", tabName);
+
                 // Update tab buttons
                 document.querySelectorAll(".tab-button").forEach((btn) => {
                     btn.classList.remove("active");
@@ -421,6 +424,14 @@
                     }
                 } catch (error) {
                     console.error("Error loading user info:", error);
+                }
+
+                // Restore last active tab or default to orders
+                const savedTab = localStorage.getItem("currentTab");
+                if (savedTab && ["orders", "statistics", "upload", "product-assignment"].includes(savedTab)) {
+                    switchTab(savedTab);
+                } else {
+                    switchTab("orders");
                 }
 
                 // Reinitialize icons after everything loads
