@@ -12,113 +12,125 @@
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        }
 
-        .coming-soon-container {
-            text-align: center;
-            color: white;
-            max-width: 600px;
-            padding: 40px;
-        }
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-        .coming-soon-icon {
-            font-size: 120px;
-            margin-bottom: 30px;
-            animation: float 3s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(0px);
-            }
-            50% {
-                transform: translateY(-20px);
-            }
-        }
-
-        .coming-soon-title {
-            font-size: 48px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .coming-soon-description {
-            font-size: 20px;
-            margin-bottom: 30px;
-            opacity: 0.9;
-        }
-
-        .feature-list {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 30px;
-            margin-top: 40px;
-            text-align: left;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-
-        .feature-item i {
-            color: #10b981;
-            font-size: 24px;
-        }
-
-        .feature-item:last-child {
-            margin-bottom: 0;
-        }
-    </style>
+    <link rel="stylesheet" href="tab-upload-tpos.css" />
 </head>
 <body>
-    <div class="coming-soon-container">
-        <div class="coming-soon-icon">
-            <i class="fas fa-rocket"></i>
+    <!-- Main Container -->
+    <div class="container-fluid p-4">
+        <!-- Header -->
+        <div class="header-section mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-cloud-upload-alt"></i> Upload Đơn Hàng Lên TPOS</h2>
+                    <p class="text-muted mb-0">Chọn sản phẩm và upload lên hệ thống TPOS</p>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="window.location.reload()">
+                        <i class="fas fa-sync"></i> Reload
+                    </button>
+                    <span class="badge bg-info ms-2" id="totalProductsBadge">
+                        <i class="fas fa-box"></i> <span id="totalProducts">0</span> sản phẩm
+                    </span>
+                </div>
+            </div>
         </div>
-        <h1 class="coming-soon-title">Sắp Ra Mắt!</h1>
-        <p class="coming-soon-description">
-            Chức năng Upload Đơn Hàng Lên TPOS đang được phát triển và sẽ sớm có mặt.
-        </p>
 
-        <div class="feature-list">
-            <h3 style="margin-bottom: 20px;">
-                <i class="fas fa-list-check"></i> Tính năng sắp tới:
-            </h3>
-            <div class="feature-item">
-                <i class="fas fa-check-circle"></i>
-                <span>Tự động upload đơn hàng từ chiến dịch lên TPOS</span>
+        <!-- Action Buttons -->
+        <div class="action-section mb-4" id="actionSection" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="selected-count">
+                        <i class="fas fa-check-circle"></i>
+                        Đã chọn: <strong id="selectedCount">0</strong> sản phẩm
+                    </span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success" id="uploadBtn" onclick="uploadToTPOS()" disabled>
+                        <i class="fas fa-upload"></i> Upload lên TPOS
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="clearSelection()">
+                        <i class="fas fa-times"></i> Bỏ chọn tất cả
+                    </button>
+                </div>
             </div>
-            <div class="feature-item">
-                <i class="fas fa-check-circle"></i>
-                <span>Đồng bộ thông tin khách hàng và sản phẩm</span>
+        </div>
+
+        <!-- Products Table -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-table"></i> Danh sách sản phẩm đã gán STT</h5>
+                    <div class="form-check form-check-inline mb-0">
+                        <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                        <label class="form-check-label text-white" for="selectAll">
+                            Chọn tất cả
+                        </label>
+                    </div>
+                </div>
             </div>
-            <div class="feature-item">
-                <i class="fas fa-check-circle"></i>
-                <span>Xử lý hàng loạt nhiều đơn hàng cùng lúc</span>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="productsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px">
+                                    <input type="checkbox" class="form-check-input" disabled>
+                                </th>
+                                <th style="width: 100px">Hình ảnh</th>
+                                <th style="width: 25%">Sản phẩm</th>
+                                <th style="width: 15%">Mã SP</th>
+                                <th style="width: 40%">SessionIndex đã gán</th>
+                                <th style="width: 10%">Số lượng STT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-5">
+                                    <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                    <p class="mb-2">Chưa có sản phẩm nào được gán STT</p>
+                                    <p class="small">Vui lòng vào tab "Gán Sản Phẩm - STT" để thêm sản phẩm</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="feature-item">
-                <i class="fas fa-check-circle"></i>
-                <span>Báo cáo chi tiết quá trình upload</span>
-            </div>
-            <div class="feature-item">
-                <i class="fas fa-check-circle"></i>
-                <span>Tự động xử lý lỗi và retry thông minh</span>
+        </div>
+
+        <!-- Upload Progress Modal -->
+        <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-spinner fa-spin"></i> Đang upload...
+                        </h5>
+                    </div>
+                    <div class="modal-body">
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar"
+                                 id="uploadProgress"
+                                 style="width: 0%">0%</div>
+                        </div>
+                        <p class="text-center mb-0" id="uploadStatus">Đang chuẩn bị...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="token-manager.js"></script>
+    <script src="cache.js"></script>
+    <script src="auth.js"></script>
+    <script src="notification-system.js"></script>
+    <script src="tab-upload-tpos.js"></script>
 </body>
 </html>
