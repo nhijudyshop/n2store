@@ -4,7 +4,8 @@
 
     // State
     let assignments = [];
-    let selectedProducts = new Set();
+    let sessionIndexData = {}; // Group by SessionIndex
+    let selectedSessionIndexes = new Set();
     let bearerToken = null;
     let tokenExpiry = null;
 
@@ -122,7 +123,7 @@
         return response;
     }
 
-    // Load Assignments Data
+    // Load Assignments Data and Group by SessionIndex
     function loadAssignments() {
         try {
             const saved = localStorage.getItem('productAssignments');
@@ -133,6 +134,8 @@
                 // Filter only products with STT assigned
                 assignments = assignments.filter(a => a.sttList && a.sttList.length > 0);
 
+                // Group by SessionIndex
+                groupBySessionIndex();
                 renderTable();
                 updateTotalCount();
             } else {
@@ -144,17 +147,47 @@
         }
     }
 
-    // Render Table
+    // Group assignments by SessionIndex
+    function groupBySessionIndex() {
+        sessionIndexData = {};
+
+        assignments.forEach(assignment => {
+            assignment.sttList.forEach(sttItem => {
+                const stt = sttItem.stt;
+
+                if (!sessionIndexData[stt]) {
+                    sessionIndexData[stt] = {
+                        stt: stt,
+                        orderInfo: sttItem.orderInfo,
+                        products: []
+                    };
+                }
+
+                // Add product to this SessionIndex
+                sessionIndexData[stt].products.push({
+                    productId: assignment.productId,
+                    productName: assignment.productName,
+                    productCode: assignment.productCode,
+                    imageUrl: assignment.imageUrl
+                });
+            });
+        });
+
+        console.log(`📊 Đã group thành ${Object.keys(sessionIndexData).length} SessionIndex`);
+    }
+
+    // Render Table (grouped by SessionIndex)
     function renderTable() {
         const tbody = document.getElementById('productsTableBody');
         const totalProducts = document.getElementById('totalProducts');
 
-        totalProducts.textContent = assignments.length;
+        const sessionIndexKeys = Object.keys(sessionIndexData);
+        totalProducts.textContent = sessionIndexKeys.length;
 
-        if (assignments.length === 0) {
+        if (sessionIndexKeys.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-5">
+                    <td colspan="5" class="text-center text-muted py-5">
                         <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                         <p class="mb-2">Chưa có sản phẩm nào được gán STT</p>
                         <p class="small">Vui lòng vào tab "Gán Sản Phẩm - STT" để thêm sản phẩm</p>
@@ -164,65 +197,89 @@
             return;
         }
 
-        tbody.innerHTML = assignments.map(assignment => {
-            const imageHtml = assignment.imageUrl
-                ? `<img src="${assignment.imageUrl}" alt="${assignment.productName}">`
-                : `<div class="no-image">📦</div>`;
+        tbody.innerHTML = sessionIndexKeys.map(stt => {
+            const data = sessionIndexData[stt];
+            const isSelected = selectedSessionIndexes.has(stt);
 
-            // Count occurrences of each STT
-            const sttCounts = {};
-            assignment.sttList.forEach(item => {
-                sttCounts[item.stt] = (sttCounts[item.stt] || 0) + 1;
+            // Count products by ID
+            const productCounts = {};
+            data.products.forEach(product => {
+                const key = product.productId;
+                if (!productCounts[key]) {
+                    productCounts[key] = {
+                        ...product,
+                        count: 0
+                    };
+                }
+                productCounts[key].count++;
             });
 
-            // Create badges with count
-            const sttBadges = Object.entries(sttCounts).map(([stt, count]) => {
-                const orderInfo = assignment.sttList.find(item => item.stt === stt)?.orderInfo;
-                const countText = count > 1 ? ` x${count}` : '';
-                return `<span class="stt-badge" title="${orderInfo?.customerName || 'N/A'}">
-                    <i class="fas fa-hashtag"></i>${stt}${countText}
-                </span>`;
+            // Create product list HTML
+            const productsHtml = Object.values(productCounts).map(product => {
+                const imageHtml = product.imageUrl
+                    ? `<img src="${product.imageUrl}" class="product-mini-image" alt="${product.productName}">`
+                    : `<div class="product-mini-image no-image">📦</div>`;
+
+                return `
+                    <div class="product-item">
+                        ${imageHtml}
+                        <div class="product-item-info">
+                            <div class="product-item-name">${product.productName}</div>
+                            <div class="product-item-code">${product.productCode || 'N/A'}</div>
+                        </div>
+                        <div class="product-item-quantity">
+                            <span class="quantity-badge">x${product.count}</span>
+                        </div>
+                    </div>
+                `;
             }).join('');
 
             // Calculate total quantity
-            const totalQuantity = assignment.sttList.length;
-            const uniqueSTT = Object.keys(sttCounts).length;
-
-            const isSelected = selectedProducts.has(assignment.id);
+            const totalQuantity = data.products.length;
 
             return `
                 <tr class="${isSelected ? 'selected' : ''}">
                     <td>
                         <input
                             type="checkbox"
-                            class="form-check-input product-checkbox"
-                            data-product-id="${assignment.id}"
+                            class="form-check-input stt-checkbox"
+                            data-stt="${stt}"
                             ${isSelected ? 'checked' : ''}
-                            onchange="handleProductCheckbox(${assignment.id}, this.checked)"
+                            onchange="handleSTTCheckbox('${stt}', this.checked)"
                         >
                     </td>
-                    <td class="product-image-cell">
-                        ${imageHtml}
-                    </td>
                     <td>
-                        <div class="product-name">${assignment.productName}</div>
-                    </td>
-                    <td>
-                        <div class="product-code">${assignment.productCode || 'N/A'}</div>
-                    </td>
-                    <td>
-                        <div class="stt-badges-container">
-                            ${sttBadges}
+                        <div class="stt-cell">
+                            <div class="stt-badge-large">
+                                <i class="fas fa-hashtag"></i>${stt}
+                            </div>
                         </div>
                     </td>
                     <td>
-                        <div class="quantity-info">
-                            <div class="total-quantity">
-                                <strong>Tổng SL:</strong> <span class="badge bg-success">${totalQuantity}</span>
+                        <div class="order-info-cell">
+                            <div class="order-customer">
+                                <i class="fas fa-user"></i>
+                                ${data.orderInfo?.customerName || 'N/A'}
                             </div>
-                            <div class="unique-stt" style="font-size: 12px; color: #6b7280; margin-top: 4px;">
-                                ${uniqueSTT} STT khác nhau
+                            <div class="order-phone">
+                                <i class="fas fa-phone"></i>
+                                ${data.orderInfo?.phone || 'N/A'}
                             </div>
+                            <div class="order-address">
+                                <i class="fas fa-map-marker-alt"></i>
+                                ${data.orderInfo?.address || 'N/A'}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="products-list">
+                            ${productsHtml}
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <div class="total-quantity-cell">
+                            <div class="total-badge">${totalQuantity}</div>
+                            <div class="total-label">sản phẩm</div>
                         </div>
                     </td>
                 </tr>
@@ -233,7 +290,7 @@
     // Update Total Count
     function updateTotalCount() {
         const totalProducts = document.getElementById('totalProducts');
-        totalProducts.textContent = assignments.length;
+        totalProducts.textContent = Object.keys(sessionIndexData).length;
     }
 
     // Update Selected Count
@@ -243,10 +300,10 @@
         const actionSection = document.getElementById('actionSection');
         const selectAllCheckbox = document.getElementById('selectAll');
 
-        selectedCount.textContent = selectedProducts.size;
+        selectedCount.textContent = selectedSessionIndexes.size;
 
         // Show/hide action section
-        if (selectedProducts.size > 0) {
+        if (selectedSessionIndexes.size > 0) {
             actionSection.style.display = 'block';
             uploadBtn.disabled = false;
         } else {
@@ -255,21 +312,22 @@
         }
 
         // Update select all checkbox
-        if (assignments.length > 0) {
-            const allSelected = selectedProducts.size === assignments.length;
-            const someSelected = selectedProducts.size > 0 && selectedProducts.size < assignments.length;
+        const totalSTT = Object.keys(sessionIndexData).length;
+        if (totalSTT > 0) {
+            const allSelected = selectedSessionIndexes.size === totalSTT;
+            const someSelected = selectedSessionIndexes.size > 0 && selectedSessionIndexes.size < totalSTT;
 
             selectAllCheckbox.checked = allSelected;
             selectAllCheckbox.indeterminate = someSelected;
         }
     }
 
-    // Handle Product Checkbox
-    window.handleProductCheckbox = function(productId, checked) {
+    // Handle STT Checkbox
+    window.handleSTTCheckbox = function(stt, checked) {
         if (checked) {
-            selectedProducts.add(productId);
+            selectedSessionIndexes.add(stt);
         } else {
-            selectedProducts.delete(productId);
+            selectedSessionIndexes.delete(stt);
         }
 
         updateSelectedCount();
@@ -282,11 +340,11 @@
         const isChecked = selectAllCheckbox.checked;
 
         if (isChecked) {
-            // Select all
-            assignments.forEach(a => selectedProducts.add(a.id));
+            // Select all SessionIndexes
+            Object.keys(sessionIndexData).forEach(stt => selectedSessionIndexes.add(stt));
         } else {
             // Deselect all
-            selectedProducts.clear();
+            selectedSessionIndexes.clear();
         }
 
         updateSelectedCount();
@@ -295,7 +353,7 @@
 
     // Clear Selection
     window.clearSelection = function() {
-        selectedProducts.clear();
+        selectedSessionIndexes.clear();
         document.getElementById('selectAll').checked = false;
         updateSelectedCount();
         renderTable();
@@ -303,16 +361,20 @@
 
     // Upload to TPOS
     window.uploadToTPOS = async function() {
-        if (selectedProducts.size === 0) {
-            showNotification('Vui lòng chọn sản phẩm để upload', 'error');
+        if (selectedSessionIndexes.size === 0) {
+            showNotification('Vui lòng chọn SessionIndex để upload', 'error');
             return;
         }
 
-        const selectedAssignments = assignments.filter(a => selectedProducts.has(a.id));
+        const selectedSTTs = Array.from(selectedSessionIndexes);
+        const selectedData = selectedSTTs.map(stt => sessionIndexData[stt]);
 
         // Show confirmation
-        const confirmMessage = `Bạn có chắc muốn upload ${selectedProducts.size} sản phẩm lên TPOS?\n\n` +
-            selectedAssignments.map(a => `• ${a.productName} (${a.sttList.length} STT)`).join('\n');
+        const confirmMessage = `Bạn có chắc muốn upload ${selectedSTTs.length} đơn hàng lên TPOS?\n\n` +
+            selectedData.map(data => {
+                const totalProducts = data.products.length;
+                return `• STT ${data.stt}: ${totalProducts} sản phẩm - ${data.orderInfo?.customerName || 'N/A'}`;
+            }).join('\n');
 
         if (!confirm(confirmMessage)) {
             return;
@@ -327,10 +389,10 @@
 
         try {
             let completed = 0;
-            const total = selectedAssignments.length;
+            const total = selectedData.length;
 
-            for (const assignment of selectedAssignments) {
-                statusText.textContent = `Đang upload ${assignment.productName}...`;
+            for (const data of selectedData) {
+                statusText.textContent = `Đang upload STT ${data.stt} - ${data.orderInfo?.customerName || 'N/A'}...`;
 
                 // TODO: Implement actual TPOS API upload here
                 // For now, simulate upload
@@ -349,7 +411,7 @@
 
             setTimeout(() => {
                 uploadModal.hide();
-                showNotification(`✅ Đã upload ${total} sản phẩm lên TPOS thành công!`);
+                showNotification(`✅ Đã upload ${total} đơn hàng lên TPOS thành công!`);
 
                 // Clear selection after successful upload
                 clearSelection();
@@ -375,6 +437,7 @@
             if (data && Array.isArray(data)) {
                 assignments = data.filter(a => a.sttList && a.sttList.length > 0);
                 localStorage.setItem('productAssignments', JSON.stringify(data));
+                groupBySessionIndex();
                 renderTable();
                 updateTotalCount();
                 console.log('🔄 Đã sync assignments từ Firebase');
