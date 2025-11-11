@@ -731,9 +731,14 @@ function createRowHTML(order) {
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
 
+    // Kiểm tra xem order có thể được chọn không
+    const selectable = isOrderSelectable(order.Id);
+    const checkboxDisabled = selectable ? "" : "disabled";
+    const rowOpacity = selectable ? "" : 'style="opacity: 0.5;"';
+
     return `
-        <tr>
-            <td><input type="checkbox" value="${order.Id}" /></td>
+        <tr ${rowOpacity}>
+            <td><input type="checkbox" value="${order.Id}" ${checkboxDisabled} /></td>
             <td>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span>${order.SessionIndex || ""}</span>
@@ -836,13 +841,76 @@ function sendDataToTab2() {
     localStorage.setItem("tab1_filter_data", JSON.stringify(filterData));
 }
 
+// =====================================================
+// HELPER: CHECK IF ORDER SHOULD BE SELECTABLE
+// =====================================================
+function isOrderSelectable(orderId) {
+    // Tìm order trong data
+    const order = allData.find(o => o.Id === orderId);
+    if (!order) return true; // Nếu không tìm thấy, cho phép select
+
+    // Kiểm tra số lượng = 0
+    if (order.TotalQuantity === 0) {
+        console.log(`[SELECT] Skipping order ${order.Code}: TotalQuantity = 0`);
+        return false;
+    }
+
+    // Kiểm tra tag "GIỎ TRỐNG"
+    if (order.Tags) {
+        try {
+            const tags = JSON.parse(order.Tags);
+            if (Array.isArray(tags)) {
+                const hasEmptyCartTag = tags.some(tag =>
+                    tag.Name && tag.Name.toUpperCase() === "GIỎ TRỐNG"
+                );
+                if (hasEmptyCartTag) {
+                    console.log(`[SELECT] Skipping order ${order.Code}: Has "GIỎ TRỐNG" tag`);
+                    return false;
+                }
+            }
+        } catch (e) {
+            // Nếu parse lỗi, cho phép select
+        }
+    }
+
+    return true;
+}
+
 function handleSelectAll() {
     const checkboxes = document.querySelectorAll(
         '#tableBody input[type="checkbox"]',
     );
-    checkboxes.forEach(
-        (cb) => (cb.checked = document.getElementById("selectAll").checked),
-    );
+    const isChecked = document.getElementById("selectAll").checked;
+
+    checkboxes.forEach((cb) => {
+        const orderId = cb.value;
+        // Chỉ check nếu order có thể được select
+        if (isOrderSelectable(orderId)) {
+            cb.checked = isChecked;
+        } else {
+            cb.checked = false; // Luôn uncheck nếu không selectable
+        }
+    });
+
+    // Trigger update action buttons
+    updateActionButtons();
+}
+
+// =====================================================
+// UPDATE ACTION BUTTONS VISIBILITY
+// =====================================================
+function updateActionButtons() {
+    const actionButtonsSection = document.getElementById('actionButtonsSection');
+    const selectedCountSpan = document.getElementById('selectedOrdersCount');
+    const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+
+    if (checkedCount > 0) {
+        actionButtonsSection.style.display = 'flex';
+        selectedCountSpan.textContent = checkedCount;
+    } else {
+        actionButtonsSection.style.display = 'none';
+    }
 }
 
 function handleClearCache() {
