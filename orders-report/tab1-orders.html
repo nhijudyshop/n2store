@@ -297,42 +297,20 @@
             // Handle checkbox selection
             document.addEventListener('DOMContentLoaded', function() {
                 const selectAllCheckbox = document.getElementById('selectAll');
-                const actionButtonsSection = document.getElementById('actionButtonsSection');
-                const selectedCountSpan = document.getElementById('selectedOrdersCount');
-
-                function updateActionButtons() {
-                    const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
-                    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-                    
-                    if (checkedCount > 0) {
-                        actionButtonsSection.style.display = 'flex';
-                        selectedCountSpan.textContent = checkedCount;
-                    } else {
-                        actionButtonsSection.style.display = 'none';
-                    }
-                }
-
-                // Select All
-                if (selectAllCheckbox) {
-                    selectAllCheckbox.addEventListener('change', function() {
-                        const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
-                        checkboxes.forEach(cb => {
-                            cb.checked = this.checked;
-                        });
-                        updateActionButtons();
-                    });
-                }
 
                 // Individual checkbox change
                 document.addEventListener('change', function(e) {
                     if (e.target.matches('tbody input[type="checkbox"]')) {
-                        updateActionButtons();
-                        
+                        // Call global updateActionButtons from tab1-orders.js
+                        if (typeof updateActionButtons === 'function') {
+                            updateActionButtons();
+                        }
+
                         // Update select all checkbox state
                         const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
                         const allChecked = Array.from(checkboxes).every(cb => cb.checked);
                         const someChecked = Array.from(checkboxes).some(cb => cb.checked);
-                        
+
                         if (selectAllCheckbox) {
                             selectAllCheckbox.checked = allChecked;
                             selectAllCheckbox.indeterminate = someChecked && !allChecked;
