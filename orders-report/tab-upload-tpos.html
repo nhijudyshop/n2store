@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload Đơn Hàng Lên TPOS</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    />
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .coming-soon-container {
+            text-align: center;
+            color: white;
+            max-width: 600px;
+            padding: 40px;
+        }
+
+        .coming-soon-icon {
+            font-size: 120px;
+            margin-bottom: 30px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .coming-soon-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .coming-soon-description {
+            font-size: 20px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .feature-list {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 40px;
+            text-align: left;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .feature-item i {
+            color: #10b981;
+            font-size: 24px;
+        }
+
+        .feature-item:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="coming-soon-container">
+        <div class="coming-soon-icon">
+            <i class="fas fa-rocket"></i>
+        </div>
+        <h1 class="coming-soon-title">Sắp Ra Mắt!</h1>
+        <p class="coming-soon-description">
+            Chức năng Upload Đơn Hàng Lên TPOS đang được phát triển và sẽ sớm có mặt.
+        </p>
+
+        <div class="feature-list">
+            <h3 style="margin-bottom: 20px;">
+                <i class="fas fa-list-check"></i> Tính năng sắp tới:
+            </h3>
+            <div class="feature-item">
+                <i class="fas fa-check-circle"></i>
+                <span>Tự động upload đơn hàng từ chiến dịch lên TPOS</span>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-check-circle"></i>
+                <span>Đồng bộ thông tin khách hàng và sản phẩm</span>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-check-circle"></i>
+                <span>Xử lý hàng loạt nhiều đơn hàng cùng lúc</span>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-check-circle"></i>
+                <span>Báo cáo chi tiết quá trình upload</span>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-check-circle"></i>
+                <span>Tự động xử lý lỗi và retry thông minh</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
