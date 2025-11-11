@@ -1479,10 +1479,11 @@
             pageInfo.style.display = 'block';
 
             // Use filtered products if searching, otherwise use all products
+            // Note: filteredProducts are already merged if merge mode is enabled
             let baseProducts = searchKeyword ? filteredProducts : savedProducts;
 
-            // Use merged products if merge mode is enabled
-            const displayProducts = isMergeVariants ? mergeProductsByTemplate(baseProducts) : baseProducts;
+            // Use merged products if merge mode is enabled (only when not searching)
+            const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
 
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
             const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1583,10 +1584,11 @@
 
         function changePage(direction) {
             // Use filtered products if searching, otherwise use all products
+            // Note: filteredProducts are already merged if merge mode is enabled
             let baseProducts = searchKeyword ? filteredProducts : savedProducts;
 
-            // Use merged products if merge mode is enabled
-            const displayProducts = isMergeVariants ? mergeProductsByTemplate(baseProducts) : baseProducts;
+            // Use merged products if merge mode is enabled (only when not searching)
+            const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
 
             if (direction === 'prev' && currentPage > 1) {
@@ -1639,14 +1641,26 @@
             const searchLower = searchKeyword.toLowerCase();
             const searchNoSign = removeVietnameseTones(searchKeyword);
 
+            // Apply merge first if enabled, then search on merged products
+            const productsToSearch = isMergeVariants ? mergeProductsByTemplate(savedProducts) : savedProducts;
+
             // Filter products that match
-            const matchedProducts = savedProducts.filter(product => {
+            const matchedProducts = productsToSearch.filter(product => {
                 // Match in product name (no Vietnamese tones)
                 const nameNoSign = removeVietnameseTones(product.NameGet || '');
                 const matchName = nameNoSign.includes(searchNoSign);
 
                 // Match in original name (lowercase, for special chars like [Q5X1])
                 const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+
+                // Debug: Log products with bracket info
+                const bracket = product.NameGet?.match(/\[([^\]]+)\]/);
+                if (bracket) {
+                    const bracketContent = bracket[1].toLowerCase().trim();
+                    if (bracketContent.includes(searchLower)) {
+                        console.log(`✅ Match bracket: [${bracket[1]}] in "${product.NameGet}"`);
+                    }
+                }
 
                 return matchName || matchNameOriginal;
             });
@@ -1656,21 +1670,21 @@
                 // Extract text within [] brackets
                 const extractBracket = (name) => {
                     const match = name?.match(/\[([^\]]+)\]/);
-                    return match ? match[1].toLowerCase() : '';
+                    return match ? match[1].toLowerCase().trim() : '';
                 };
 
                 const aBracket = extractBracket(a.NameGet);
                 const bBracket = extractBracket(b.NameGet);
 
                 // Check if search term matches in brackets
-                const aMatchInBracket = aBracket.includes(searchLower);
-                const bMatchInBracket = bBracket.includes(searchLower);
+                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
+                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
 
                 // Priority 1: Match in brackets
                 if (aMatchInBracket && !bMatchInBracket) return -1;
                 if (!aMatchInBracket && bMatchInBracket) return 1;
 
-                // Priority 2: When both match or both don't match in brackets,
+                // Priority 2: When both match in brackets,
                 // prioritize exact match in bracket code (e.g., [Q5] before [Q5X1])
                 if (aMatchInBracket && bMatchInBracket) {
                     const aExactMatch = aBracket === searchLower;
@@ -1682,6 +1696,9 @@
                     if (aBracket.length !== bBracket.length) {
                         return aBracket.length - bBracket.length;
                     }
+
+                    // If same length, sort alphabetically
+                    return aBracket.localeCompare(bBracket);
                 }
 
                 // Priority 3: Sort alphabetically by product name
