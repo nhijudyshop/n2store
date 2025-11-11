@@ -1291,7 +1291,8 @@
             const searchLower = searchText.toLowerCase();
             const searchNoSign = removeVietnameseTones(searchText);
 
-            return productsData.filter(product => {
+            // Filter products that match
+            const matchedProducts = productsData.filter(product => {
                 // Match in product name (no Vietnamese tones)
                 const matchName = product.nameNoSign.includes(searchNoSign);
 
@@ -1302,7 +1303,39 @@
                 const matchCode = product.code && product.code.toLowerCase().includes(searchLower);
 
                 return matchName || matchNameOriginal || matchCode;
-            }).slice(0, 10);
+            });
+
+            // Sort by priority: match in [] first, then code, then name
+            matchedProducts.sort((a, b) => {
+                // Extract text within [] brackets
+                const extractBracket = (name) => {
+                    const match = name?.match(/\[([^\]]+)\]/);
+                    return match ? match[1].toLowerCase() : '';
+                };
+
+                const aBracket = extractBracket(a.name);
+                const bBracket = extractBracket(b.name);
+
+                // Check if search term matches in brackets
+                const aMatchInBracket = aBracket.includes(searchLower);
+                const bMatchInBracket = bBracket.includes(searchLower);
+
+                // Priority 1: Match in brackets
+                if (aMatchInBracket && !bMatchInBracket) return -1;
+                if (!aMatchInBracket && bMatchInBracket) return 1;
+
+                // Priority 2: Match in product code
+                const aMatchInCode = a.code && a.code.toLowerCase().includes(searchLower);
+                const bMatchInCode = b.code && b.code.toLowerCase().includes(searchLower);
+
+                if (aMatchInCode && !bMatchInCode) return -1;
+                if (!aMatchInCode && bMatchInCode) return 1;
+
+                // Priority 3: Keep original order (match in name)
+                return 0;
+            });
+
+            return matchedProducts.slice(0, 10);
         }
 
         function displaySuggestions(suggestions) {
