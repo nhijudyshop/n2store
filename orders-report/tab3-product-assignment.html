@@ -25,8 +25,20 @@
     <div class="container-fluid p-4">
         <!-- Header -->
         <div class="header-section mb-4">
-            <h2><i class="fas fa-link"></i> Gán Sản Phẩm - Số Thứ Tự Đơn Hàng</h2>
-            <p class="text-muted">Liên kết sản phẩm với số thứ tự đơn hàng</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-link"></i> Gán Sản Phẩm - Số Thứ Tự Đơn Hàng</h2>
+                    <p class="text-muted mb-0">Liên kết sản phẩm với số thứ tự đơn hàng</p>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="window.location.reload()">
+                        <i class="fas fa-sync"></i> Reload
+                    </button>
+                    <span class="badge bg-info ms-2" id="ordersCountBadge">
+                        <i class="fas fa-database"></i> <span id="ordersCount">0</span> đơn hàng
+                    </span>
+                </div>
+            </div>
         </div>
 
         <!-- Product Search Section -->
