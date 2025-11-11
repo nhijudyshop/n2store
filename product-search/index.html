@@ -1090,6 +1090,18 @@
             </div>
             <div class="product-list-preview" id="productListPreview"></div>
         </div>
+
+        <!-- Hidden Products Section -->
+        <div class="product-list-section" id="hiddenProductsSection" style="display: none; background: #fff3e0; border-top: 3px solid #ff9800;">
+            <div class="list-header">
+                <h2>👁️ Sản phẩm đã ẩn (<span id="hiddenProductCount">0</span>)</h2>
+                <div class="list-search-box">
+                    <input type="text" class="list-search-input" id="hiddenListSearchInput" placeholder="🔍 Tìm kiếm trong danh sách đã ẩn..." autocomplete="off">
+                    <button class="list-search-clear" id="hiddenListSearchClear" onclick="clearHiddenListSearch()">×</button>
+                </div>
+            </div>
+            <div class="product-list-preview" id="hiddenProductListPreview"></div>
+        </div>
     </div>
 
     <script>
@@ -1100,6 +1112,8 @@
         let savedProducts = [];
         let filteredProductsInList = []; // For search in product list
         let listSearchKeyword = ''; // Current search keyword for product list
+        let filteredHiddenProducts = []; // For search in hidden product list
+        let hiddenListSearchKeyword = ''; // Current search keyword for hidden product list
         let isSyncMode = false;
         let autoAddVariants = true; // Mặc định BẬT chế độ tự động thêm variants
 
@@ -1584,19 +1598,21 @@
             const productListPreview = document.getElementById('productListPreview');
             const productCount = document.getElementById('productCount');
 
-            if (savedProducts.length === 0) {
+            // Filter visible (not hidden) products
+            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+
+            if (visibleProducts.length === 0) {
                 productListSection.style.display = 'none';
-                return;
+            } else {
+                productListSection.style.display = 'block';
             }
 
-            productListSection.style.display = 'block';
-
-            // Use filtered products if searching, otherwise use all products
-            const productsToDisplay = listSearchKeyword ? filteredProductsInList : savedProducts;
+            // Use filtered products if searching, otherwise use all visible products
+            const productsToDisplay = listSearchKeyword ? filteredProductsInList : visibleProducts;
 
             productCount.textContent = listSearchKeyword
-                ? `${productsToDisplay.length}/${savedProducts.length}`
-                : savedProducts.length;
+                ? `${productsToDisplay.length}/${visibleProducts.length}`
+                : visibleProducts.length;
 
             const recentProducts = [...productsToDisplay].reverse();
 
@@ -1626,6 +1642,79 @@
                     </div>
                 `;
             }).join('');
+
+            // Update hidden products list
+            updateHiddenProductListPreview();
+        }
+
+        function updateHiddenProductListPreview() {
+            const hiddenProductsSection = document.getElementById('hiddenProductsSection');
+            const hiddenProductListPreview = document.getElementById('hiddenProductListPreview');
+            const hiddenProductCount = document.getElementById('hiddenProductCount');
+
+            // Filter hidden products
+            const hiddenProducts = savedProducts.filter(p => p.isHidden);
+
+            if (hiddenProducts.length === 0) {
+                hiddenProductsSection.style.display = 'none';
+                return;
+            }
+
+            hiddenProductsSection.style.display = 'block';
+
+            // Use filtered products if searching, otherwise use all hidden products
+            const productsToDisplay = hiddenListSearchKeyword ? filteredHiddenProducts : hiddenProducts;
+
+            hiddenProductCount.textContent = hiddenListSearchKeyword
+                ? `${productsToDisplay.length}/${hiddenProducts.length}`
+                : hiddenProducts.length;
+
+            const recentProducts = [...productsToDisplay].reverse();
+
+            hiddenProductListPreview.innerHTML = recentProducts.map(product => {
+                const imageHtml = product.imageUrl
+                    ? `<img src="${product.imageUrl}" class="preview-image" alt="${product.NameGet}">`
+                    : `<div class="preview-image no-image">📦</div>`;
+
+                return `
+                    <div class="preview-item">
+                        ${imageHtml}
+                        <div class="preview-info">
+                            <div class="preview-name">${product.NameGet}</div>
+                            <div class="preview-stats">
+                                <span>📦 Tổng: ${product.QtyAvailable}</span>
+                                <div class="qty-control">
+                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)">−</button>
+                                    <span class="qty-value">${product.soldQty}</span>
+                                    <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)">+</button>
+                                </div>
+                                <span>✅ Còn: ${product.remainingQty}</span>
+                            </div>
+                        </div>
+                        <div class="preview-actions">
+                            <button class="btn-remove" onclick="unhideProduct(${product.Id})" style="background: #28a745;">👁️ Hiện</button>
+                            <button class="btn-remove" onclick="removeProduct(${product.Id})">🗑️ Xóa</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function unhideProduct(productId) {
+            const product = savedProducts.find(p => p.Id === productId);
+            if (!product) return;
+
+            product.isHidden = false;
+
+            if (!isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
+            }
+
+            updateProductListPreview();
+            updateHiddenProductListPreview();
+            showNotificationMessage('👁️ Đã hiện sản phẩm');
         }
 
         function updateProductQty(productId, change) {
@@ -1680,8 +1769,9 @@
             const searchLower = listSearchKeyword.toLowerCase();
             const searchNoSign = removeVietnameseTones(listSearchKeyword);
 
-            // Filter products that match
-            const matchedProducts = savedProducts.filter(product => {
+            // Filter visible products that match
+            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const matchedProducts = visibleProducts.filter(product => {
                 // Match in product name (no Vietnamese tones)
                 const nameNoSign = removeVietnameseTones(product.NameGet || '');
                 const matchName = nameNoSign.includes(searchNoSign);
@@ -1734,6 +1824,75 @@
             document.getElementById('listSearchInput').value = '';
             document.getElementById('listSearchClear').classList.remove('show');
             updateProductListPreview();
+        }
+
+        function performHiddenListSearch(keyword) {
+            hiddenListSearchKeyword = keyword.trim();
+
+            if (!hiddenListSearchKeyword) {
+                filteredHiddenProducts = [];
+                updateHiddenProductListPreview();
+                return;
+            }
+
+            const searchLower = hiddenListSearchKeyword.toLowerCase();
+            const searchNoSign = removeVietnameseTones(hiddenListSearchKeyword);
+
+            // Filter hidden products that match
+            const hiddenProducts = savedProducts.filter(p => p.isHidden);
+            const matchedProducts = hiddenProducts.filter(product => {
+                // Match in product name (no Vietnamese tones)
+                const nameNoSign = removeVietnameseTones(product.NameGet || '');
+                const matchName = nameNoSign.includes(searchNoSign);
+
+                // Match in original name (lowercase, for special chars like [Q5X1])
+                const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+
+                return matchName || matchNameOriginal;
+            });
+
+            // Sort by priority: match in [] first
+            matchedProducts.sort((a, b) => {
+                const extractBracket = (name) => {
+                    const match = name?.match(/\[([^\]]+)\]/);
+                    return match ? match[1].toLowerCase().trim() : '';
+                };
+
+                const aBracket = extractBracket(a.NameGet);
+                const bBracket = extractBracket(b.NameGet);
+
+                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
+                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
+
+                if (aMatchInBracket && !bMatchInBracket) return -1;
+                if (!aMatchInBracket && bMatchInBracket) return 1;
+
+                if (aMatchInBracket && bMatchInBracket) {
+                    const aExactMatch = aBracket === searchLower;
+                    const bExactMatch = bBracket === searchLower;
+                    if (aExactMatch && !bExactMatch) return -1;
+                    if (!aExactMatch && bExactMatch) return 1;
+
+                    if (aBracket.length !== bBracket.length) {
+                        return aBracket.length - bBracket.length;
+                    }
+
+                    return aBracket.localeCompare(bBracket);
+                }
+
+                return a.NameGet.localeCompare(b.NameGet);
+            });
+
+            filteredHiddenProducts = matchedProducts;
+            updateHiddenProductListPreview();
+        }
+
+        function clearHiddenListSearch() {
+            hiddenListSearchKeyword = '';
+            filteredHiddenProducts = [];
+            document.getElementById('hiddenListSearchInput').value = '';
+            document.getElementById('hiddenListSearchClear').classList.remove('show');
+            updateHiddenProductListPreview();
         }
 
         function showNotificationMessage(message) {
@@ -2138,6 +2297,33 @@
                     listSearchInput.addEventListener('keydown', (e) => {
                         if (e.key === 'Escape') {
                             clearListSearch();
+                        }
+                    });
+                }
+
+                // Setup hidden list search event listener
+                const hiddenListSearchInput = document.getElementById('hiddenListSearchInput');
+                const hiddenListSearchClear = document.getElementById('hiddenListSearchClear');
+
+                if (hiddenListSearchInput) {
+                    hiddenListSearchInput.addEventListener('input', (e) => {
+                        const value = e.target.value;
+
+                        // Show/hide clear button
+                        if (value) {
+                            hiddenListSearchClear.classList.add('show');
+                        } else {
+                            hiddenListSearchClear.classList.remove('show');
+                        }
+
+                        // Perform search
+                        performHiddenListSearch(value);
+                    });
+
+                    // Handle Escape key to clear search
+                    hiddenListSearchInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape') {
+                            clearHiddenListSearch();
                         }
                     });
                 }
