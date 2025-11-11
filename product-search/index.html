@@ -184,6 +184,8 @@
             border-radius: 10px;
             outline: none;
             transition: all 0.3s;
+            position: relative;
+            z-index: 1;
         }
 
         .search-input:focus {
@@ -193,18 +195,18 @@
 
         .suggestions {
             position: absolute;
-            top: 100%;
+            top: calc(100% + 2px);
             left: 0;
             right: 0;
             background: white;
             border: 2px solid #667eea;
-            border-top: none;
-            border-radius: 0 0 10px 10px;
+            border-radius: 10px;
             max-height: 300px;
             overflow-y: auto;
             display: none;
             z-index: 1000;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 5px;
         }
 
         .suggestions.show {
