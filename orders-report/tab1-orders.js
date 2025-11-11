@@ -54,10 +54,6 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("campaignFilter")
         .addEventListener("change", handleCampaignChange);
 
-    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
-    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
-    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
-
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
     const tableWrapper = document.getElementById("tableWrapper");
@@ -74,8 +70,13 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // Load tags
+    // ⚠️ QUAN TRỌNG: Load tags TRƯỚC để auto-assign tag có thể hoạt động
+    console.log('[INIT] Loading available tags...');
     await loadAvailableTags();
+
+    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
+    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
+    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
