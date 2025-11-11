@@ -54,10 +54,6 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("campaignFilter")
         .addEventListener("change", handleCampaignChange);
 
-    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
-    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
-    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
-
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
     const tableWrapper = document.getElementById("tableWrapper");
@@ -74,8 +70,10 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // Load tags
-    await loadAvailableTags();
+    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
+    // Tags sẽ được load SAU KHI load xong đơn hàng và hiển thị bảng
+    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
+    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
 
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
@@ -610,6 +608,10 @@ async function fetchOrders() {
             `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
         );
         sendDataToTab2();
+
+        // ⚠️ QUAN TRỌNG: Load tags SAU KHI hiển thị bảng
+        console.log('[AUTO-TAG] Loading available tags...');
+        await loadAvailableTags();
 
         // 🎯 TỰ ĐỘNG GÁN TAG "GIỎ TRỐNG" CHO ĐƠN HÀNG CÓ SỐ LƯỢNG = 0
         await autoAssignEmptyCartTags();
