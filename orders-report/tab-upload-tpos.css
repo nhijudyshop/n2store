@@ -168,6 +168,29 @@ body {
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
+.quantity-info {
+    text-align: center;
+}
+
+.total-quantity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.total-quantity .badge {
+    font-size: 16px;
+    padding: 6px 12px;
+}
+
+.unique-stt {
+    font-size: 12px;
+    color: var(--gray-600);
+    margin-top: 4px;
+}
+
 /* Checkbox */
 .form-check-input {
     width: 20px;

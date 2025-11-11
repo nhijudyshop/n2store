@@ -169,11 +169,24 @@
                 ? `<img src="${assignment.imageUrl}" alt="${assignment.productName}">`
                 : `<div class="no-image">📦</div>`;
 
-            const sttBadges = assignment.sttList.map(item =>
-                `<span class="stt-badge" title="${item.orderInfo?.customerName || 'N/A'}">
-                    <i class="fas fa-hashtag"></i>${item.stt}
-                </span>`
-            ).join('');
+            // Count occurrences of each STT
+            const sttCounts = {};
+            assignment.sttList.forEach(item => {
+                sttCounts[item.stt] = (sttCounts[item.stt] || 0) + 1;
+            });
+
+            // Create badges with count
+            const sttBadges = Object.entries(sttCounts).map(([stt, count]) => {
+                const orderInfo = assignment.sttList.find(item => item.stt === stt)?.orderInfo;
+                const countText = count > 1 ? ` x${count}` : '';
+                return `<span class="stt-badge" title="${orderInfo?.customerName || 'N/A'}">
+                    <i class="fas fa-hashtag"></i>${stt}${countText}
+                </span>`;
+            }).join('');
+
+            // Calculate total quantity
+            const totalQuantity = assignment.sttList.length;
+            const uniqueSTT = Object.keys(sttCounts).length;
 
             const isSelected = selectedProducts.has(assignment.id);
 
@@ -202,8 +215,15 @@
                             ${sttBadges}
                         </div>
                     </td>
-                    <td class="text-center">
-                        <div class="stt-count-badge">${assignment.sttList.length}</div>
+                    <td>
+                        <div class="quantity-info">
+                            <div class="total-quantity">
+                                <strong>Tổng SL:</strong> <span class="badge bg-success">${totalQuantity}</span>
+                            </div>
+                            <div class="unique-stt" style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+                                ${uniqueSTT} STT khác nhau
+                            </div>
+                        </div>
                     </td>
                 </tr>
             `;
