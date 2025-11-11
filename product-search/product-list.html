@@ -562,6 +562,101 @@
             opacity: 1;
         }
 
+        /* Search Box Styles */
+        .search-hover-area {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 80px;
+            z-index: 998;
+        }
+
+        .search-container {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-hover-area:hover ~ .search-container,
+        .search-container:hover,
+        .search-container.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 45px 12px 20px;
+            font-size: 15px;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            outline: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: #764ba2;
+            box-shadow: 0 5px 25px rgba(102, 126, 234, 0.5);
+            background: white;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: #667eea;
+            pointer-events: none;
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 45px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .search-clear:hover {
+            background: #c82333;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .search-clear.show {
+            display: flex;
+        }
+
         .empty-state {
             text-align: center;
             color: white;
@@ -877,12 +972,24 @@
     <div class="sync-hover-area" style="left: calc(50%); transform: translateX(0);"></div>
     <button class="btn-sync-toggle" id="btnToggleEdit" onclick="toggleHideEditControls()" style="left: calc(50%); transform: translateX(0); background: rgba(255, 152, 0, 0.9); border-color: #ff9800;">👁️ Ẩn chỉnh sửa</button>
 
+    <!-- Search Box -->
+    <div class="search-hover-area"></div>
+    <div class="search-container" id="searchContainer">
+        <div class="search-input-wrapper">
+            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Tìm kiếm sản phẩm..." autocomplete="off">
+            <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
+            <span class="search-icon">🔍</span>
+        </div>
+    </div>
+
     <span class="page-info" id="pageInfo">Trang 1/1</span>
 
     <script src="../js/shared-auth-manager.js"></script>
     <script src="../js/shared-cache-manager.js"></script>
     <script>
         let savedProducts = [];
+        let filteredProducts = []; // For search results
+        let searchKeyword = ''; // Current search keyword
         let currentPage = 1;
         let itemsPerPage = 8;
         let displaySettings = {
@@ -1341,8 +1448,11 @@
             btnNext.style.display = 'block';
             pageInfo.style.display = 'block';
 
+            // Use filtered products if searching, otherwise use all products
+            let baseProducts = searchKeyword ? filteredProducts : savedProducts;
+
             // Use merged products if merge mode is enabled
-            const displayProducts = isMergeVariants ? mergeProductsByTemplate(savedProducts) : savedProducts;
+            const displayProducts = isMergeVariants ? mergeProductsByTemplate(baseProducts) : baseProducts;
 
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
             const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1435,14 +1545,18 @@
                 `;
             }).join('');
 
-            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})`;
+            const searchInfo = searchKeyword ? ` - 🔍 "${searchKeyword}"` : '';
+            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})${searchInfo}`;
             btnPrev.disabled = currentPage === 1;
             btnNext.disabled = currentPage >= totalPages;
         }
 
         function changePage(direction) {
+            // Use filtered products if searching, otherwise use all products
+            let baseProducts = searchKeyword ? filteredProducts : savedProducts;
+
             // Use merged products if merge mode is enabled
-            const displayProducts = isMergeVariants ? mergeProductsByTemplate(savedProducts) : savedProducts;
+            const displayProducts = isMergeVariants ? mergeProductsByTemplate(baseProducts) : baseProducts;
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
 
             if (direction === 'prev' && currentPage > 1) {
@@ -1461,6 +1575,82 @@
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function removeVietnameseTones(str) {
+            if (!str) return '';
+            str = str.toLowerCase();
+            str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+            str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+            str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+            str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+            str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+            str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+            str = str.replace(/đ/g, 'd');
+            return str;
+        }
+
+        function performSearch(keyword) {
+            searchKeyword = keyword.trim();
+
+            if (!searchKeyword) {
+                // Clear search
+                filteredProducts = [];
+                currentPage = 1;
+                updateProductGrid();
+                return;
+            }
+
+            const searchLower = searchKeyword.toLowerCase();
+            const searchNoSign = removeVietnameseTones(searchKeyword);
+
+            // Filter products that match
+            const matchedProducts = savedProducts.filter(product => {
+                // Match in product name (no Vietnamese tones)
+                const nameNoSign = removeVietnameseTones(product.NameGet || '');
+                const matchName = nameNoSign.includes(searchNoSign);
+
+                // Match in original name (lowercase, for special chars like [Q5X1])
+                const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
+
+                return matchName || matchNameOriginal;
+            });
+
+            // Sort by priority: match in [] first, then name
+            matchedProducts.sort((a, b) => {
+                // Extract text within [] brackets
+                const extractBracket = (name) => {
+                    const match = name?.match(/\[([^\]]+)\]/);
+                    return match ? match[1].toLowerCase() : '';
+                };
+
+                const aBracket = extractBracket(a.NameGet);
+                const bBracket = extractBracket(b.NameGet);
+
+                // Check if search term matches in brackets
+                const aMatchInBracket = aBracket.includes(searchLower);
+                const bMatchInBracket = bBracket.includes(searchLower);
+
+                // Priority 1: Match in brackets
+                if (aMatchInBracket && !bMatchInBracket) return -1;
+                if (!aMatchInBracket && bMatchInBracket) return 1;
+
+                // Priority 2: Keep original order
+                return 0;
+            });
+
+            filteredProducts = matchedProducts;
+            currentPage = 1; // Reset to first page
+            updateProductGrid();
+        }
+
+        function clearSearch() {
+            searchKeyword = '';
+            filteredProducts = [];
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchClear').classList.remove('show');
+            currentPage = 1;
+            updateProductGrid();
         }
 
         function updateProductQty(productId, change) {
@@ -1911,6 +2101,43 @@
             if (isSyncMode) {
                 database.ref('syncCurrentPage').set(currentPage).catch(error => {
                     console.error('❌ Lỗi sync initial page lên Firebase:', error);
+                });
+            }
+
+            // Setup search input event listener
+            const searchInput = document.getElementById('searchInput');
+            const searchClear = document.getElementById('searchClear');
+            const searchContainer = document.getElementById('searchContainer');
+
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const value = e.target.value;
+
+                    // Show/hide clear button
+                    if (value) {
+                        searchClear.classList.add('show');
+                        searchContainer.classList.add('active'); // Keep visible while typing
+                    } else {
+                        searchClear.classList.remove('show');
+                        searchContainer.classList.remove('active');
+                    }
+
+                    // Perform search
+                    performSearch(value);
+                });
+
+                // Handle Enter key
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        performSearch(e.target.value);
+                    }
+                });
+
+                // Handle Escape key to clear search
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        clearSearch();
+                    }
                 });
             }
         });
