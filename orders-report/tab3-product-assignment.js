@@ -310,8 +310,7 @@
                 productName: productData.NameGet,
                 productCode: productData.DefaultCode || '',
                 imageUrl: imageUrl,
-                sttNumber: '',
-                orderInfo: null
+                sttList: [] // Changed from sttNumber to sttList array
             };
 
             assignments.push(assignment);
@@ -348,6 +347,24 @@
                 ? `<img src="${assignment.imageUrl}" class="product-image" alt="${assignment.productName}">`
                 : `<div class="product-image no-image">📦</div>`;
 
+            // Ensure backward compatibility
+            if (!assignment.sttList) {
+                assignment.sttList = assignment.sttNumber ? [{stt: assignment.sttNumber, orderInfo: assignment.orderInfo}] : [];
+            }
+
+            // Render STT chips
+            const chipsHtml = assignment.sttList.length > 0
+                ? assignment.sttList.map(item => `
+                    <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, '${item.stt}')">
+                        <span class="stt-chip-number">STT ${item.stt}</span>
+                        ${item.orderInfo?.customerName ? `<span class="stt-chip-customer">${item.orderInfo.customerName}</span>` : ''}
+                        <button class="stt-chip-remove" onclick="event.stopPropagation(); removeSTTFromAssignment(${assignment.id}, '${item.stt}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `).join('')
+                : '<span class="stt-chips-empty">Chưa có STT nào</span>';
+
             return `
                 <tr class="assignment-row">
                     <td>
@@ -361,15 +378,18 @@
                     </td>
                     <td>
                         <div class="stt-input-wrapper">
+                            <div class="stt-chips-container ${assignment.sttList.length > 0 ? 'has-items' : ''}">
+                                ${chipsHtml}
+                            </div>
                             <input
                                 type="text"
-                                class="stt-input ${assignment.sttNumber ? 'has-value' : ''}"
-                                placeholder="Nhập STT..."
-                                value="${assignment.sttNumber}"
+                                class="stt-input"
+                                placeholder="Nhập STT để thêm..."
                                 data-assignment-id="${assignment.id}"
                                 oninput="handleSTTInput(event)"
                                 onfocus="handleSTTFocus(event)"
                                 onblur="handleSTTBlur(event)"
+                                onkeypress="handleSTTKeyPress(event)"
                             />
                             <div class="stt-suggestions" id="stt-suggestions-${assignment.id}"></div>
                         </div>
@@ -389,27 +409,6 @@
         const input = event.target;
         const assignmentId = parseInt(input.dataset.assignmentId);
         const value = input.value.trim();
-
-        // Update assignment
-        const assignment = assignments.find(a => a.id === assignmentId);
-        if (assignment) {
-            assignment.sttNumber = value;
-
-            // Debounce save to prevent lag
-            if (saveDebounceTimer) {
-                clearTimeout(saveDebounceTimer);
-            }
-            saveDebounceTimer = setTimeout(() => {
-                saveAssignments();
-            }, 500);
-        }
-
-        // Update input class
-        if (value) {
-            input.classList.add('has-value');
-        } else {
-            input.classList.remove('has-value');
-        }
 
         // Show suggestions immediately (no debounce for better UX)
         if (value.length >= 1) {
@@ -435,6 +434,27 @@
         setTimeout(() => {
             hideSTTSuggestions(assignmentId);
         }, 200);
+    };
+
+    window.handleSTTKeyPress = function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const input = event.target;
+            const assignmentId = parseInt(input.dataset.assignmentId);
+            const value = input.value.trim();
+
+            if (value) {
+                // Try to find exact match
+                const order = ordersData.find(o => o.stt && o.stt.toString() === value);
+                if (order) {
+                    addSTTToAssignment(assignmentId, value, order);
+                    input.value = '';
+                    hideSTTSuggestions(assignmentId);
+                } else {
+                    showNotification('Không tìm thấy STT: ' + value, 'error');
+                }
+            }
+        }
     };
 
     function showSTTSuggestions(assignmentId, searchText) {
@@ -491,20 +511,66 @@
     }
 
     function selectSTT(assignmentId, stt, orderData) {
-        const assignment = assignments.find(a => a.id === assignmentId);
-        if (assignment) {
-            assignment.sttNumber = stt;
-            assignment.orderInfo = orderData;
+        addSTTToAssignment(assignmentId, stt, orderData);
 
-            // Clear debounce timer and save immediately when selecting
-            if (saveDebounceTimer) {
-                clearTimeout(saveDebounceTimer);
-            }
-            saveAssignments();
-            renderAssignmentTable();
-            showNotification(`✅ Đã gán STT ${stt} - ${orderData.customerName || 'N/A'}`);
+        // Clear input
+        const input = document.querySelector(`input[data-assignment-id="${assignmentId}"]`);
+        if (input) {
+            input.value = '';
         }
+        hideSTTSuggestions(assignmentId);
     }
+
+    // Add STT to assignment (supports multiple STT)
+    function addSTTToAssignment(assignmentId, stt, orderData) {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (!assignment) return;
+
+        // Ensure sttList exists
+        if (!assignment.sttList) {
+            assignment.sttList = [];
+        }
+
+        // Check if STT already exists
+        const existingIndex = assignment.sttList.findIndex(item => item.stt === stt);
+        if (existingIndex !== -1) {
+            showNotification(`⚠️ STT ${stt} đã được gán cho sản phẩm này`, 'error');
+            return;
+        }
+
+        // Add new STT
+        assignment.sttList.push({
+            stt: stt,
+            orderInfo: orderData
+        });
+
+        saveAssignments();
+        renderAssignmentTable();
+        showNotification(`✅ Đã thêm STT ${stt} - ${orderData.customerName || 'N/A'}`);
+    }
+
+    // Remove STT from assignment
+    window.removeSTTFromAssignment = function(assignmentId, stt) {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (!assignment || !assignment.sttList) return;
+
+        assignment.sttList = assignment.sttList.filter(item => item.stt !== stt);
+
+        saveAssignments();
+        renderAssignmentTable();
+        showNotification(`🗑️ Đã xóa STT ${stt}`);
+    };
+
+    // Show tooltip for STT chip
+    window.showSTTChipTooltip = function(event, assignmentId, stt) {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (!assignment || !assignment.sttList) return;
+
+        const sttItem = assignment.sttList.find(item => item.stt === stt);
+        if (sttItem && sttItem.orderInfo) {
+            showOrderTooltip(sttItem.orderInfo, event);
+        }
+    };
 
     // Order Tooltip
     function showOrderTooltip(orderData, event) {
