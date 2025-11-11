@@ -70,11 +70,8 @@ window.addEventListener("DOMContentLoaded", async function () {
         tableWrapper.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // ⚠️ QUAN TRỌNG: Load tags TRƯỚC để auto-assign tag có thể hoạt động
-    console.log('[INIT] Loading available tags...');
-    await loadAvailableTags();
-
     // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
+    // Tags sẽ được load SAU KHI load xong đơn hàng và hiển thị bảng
     console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
     await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
 
@@ -611,6 +608,10 @@ async function fetchOrders() {
             `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
         );
         sendDataToTab2();
+
+        // ⚠️ QUAN TRỌNG: Load tags SAU KHI hiển thị bảng
+        console.log('[AUTO-TAG] Loading available tags...');
+        await loadAvailableTags();
 
         // 🎯 TỰ ĐỘNG GÁN TAG "GIỎ TRỐNG" CHO ĐƠN HÀNG CÓ SỐ LƯỢNG = 0
         await autoAssignEmptyCartTags();
