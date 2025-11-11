@@ -1244,7 +1244,9 @@
             // Check if we're in empty state (no product-grid element)
             if (!document.getElementById('productGrid')) {
                 mainContent.innerHTML = '<div class="product-grid" id="productGrid"></div>';
-                console.log('✅ Restored grid structure from empty state');
+                // Apply settings to the newly created grid
+                applySettings();
+                console.log('✅ Restored grid structure from empty state and applied settings');
             }
         }
 
