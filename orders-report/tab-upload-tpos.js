@@ -8,6 +8,7 @@
     let selectedSessionIndexes = new Set();
     let bearerToken = null;
     let tokenExpiry = null;
+    let ordersData = []; // Orders data from tab1
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -345,26 +346,156 @@
         renderTable();
     };
 
-    // Upload to TPOS
+    // Upload to TPOS - Show Preview Modal First
     window.uploadToTPOS = async function() {
         if (selectedSessionIndexes.size === 0) {
             showNotification('Vui lòng chọn SessionIndex để upload', 'error');
             return;
         }
 
+        // Load orders data from localStorage
+        try {
+            const cachedOrders = localStorage.getItem('ordersData');
+            if (cachedOrders) {
+                ordersData = JSON.parse(cachedOrders);
+            }
+        } catch (error) {
+            console.error('Error loading orders data:', error);
+        }
+
+        // Show preview modal
+        showPreviewModal();
+    };
+
+    // Show Preview Modal with Both Assigned and Original Products
+    function showPreviewModal() {
+        const selectedSTTs = Array.from(selectedSessionIndexes);
+        const modalBody = document.getElementById('previewModalBody');
+
+        let html = '';
+
+        selectedSTTs.forEach(stt => {
+            const data = sessionIndexData[stt];
+            if (!data) return;
+
+            // Find original order by SessionIndex
+            const originalOrder = ordersData.find(order => order.stt === stt);
+
+            // Count assigned products
+            const assignedProductCounts = {};
+            data.products.forEach(product => {
+                const key = product.productId;
+                if (!assignedProductCounts[key]) {
+                    assignedProductCounts[key] = {
+                        ...product,
+                        count: 0
+                    };
+                }
+                assignedProductCounts[key].count++;
+            });
+
+            html += `
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-hashtag"></i> STT ${stt}
+                            ${data.orderInfo?.customerName ? `- ${data.orderInfo.customerName}` : ''}
+                            ${data.orderInfo?.note ? `- ${data.orderInfo.note}` : ''}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Assigned Products -->
+                            <div class="col-md-6">
+                                <h6 class="text-success">
+                                    <i class="fas fa-plus-circle"></i> Sản phẩm đã gán (${Object.keys(assignedProductCounts).length})
+                                </h6>
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Sản phẩm</th>
+                                            <th class="text-center">SL</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${Object.values(assignedProductCounts).map(product => `
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        ${product.imageUrl ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                                        <div>
+                                                            <div style="font-weight: 600;">${product.productName}</div>
+                                                            <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge bg-success">${product.count}</span>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Original Order Products -->
+                            <div class="col-md-6">
+                                <h6 class="text-info">
+                                    <i class="fas fa-box"></i> Sản phẩm có sẵn (${originalOrder?.products?.length || 0})
+                                </h6>
+                                ${originalOrder && originalOrder.products && originalOrder.products.length > 0 ? `
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Sản phẩm</th>
+                                                <th class="text-center">SL</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${originalOrder.products.map(product => `
+                                                <tr>
+                                                    <td>
+                                                        <div>
+                                                            <div style="font-weight: 600;">${product.name}</div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span class="badge bg-info">${product.quantity}</span>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                ` : `
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                                        <p class="mb-0">Không có sản phẩm có sẵn</p>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        modalBody.innerHTML = html;
+
+        // Show modal
+        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+        previewModal.show();
+    }
+
+    // Confirm Upload - Proceed with Actual Upload
+    window.confirmUpload = async function() {
+        // Hide preview modal
+        const previewModal = bootstrap.Modal.getInstance(document.getElementById('previewModal'));
+        if (previewModal) {
+            previewModal.hide();
+        }
+
         const selectedSTTs = Array.from(selectedSessionIndexes);
         const selectedData = selectedSTTs.map(stt => sessionIndexData[stt]);
-
-        // Show confirmation
-        const confirmMessage = `Bạn có chắc muốn upload ${selectedSTTs.length} đơn hàng lên TPOS?\n\n` +
-            selectedData.map(data => {
-                const totalProducts = data.products.length;
-                return `• STT ${data.stt}: ${totalProducts} sản phẩm - ${data.orderInfo?.customerName || 'N/A'}`;
-            }).join('\n');
-
-        if (!confirm(confirmMessage)) {
-            return;
-        }
 
         // Show upload modal
         const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));

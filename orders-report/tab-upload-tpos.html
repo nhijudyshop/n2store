@@ -101,6 +101,31 @@
             </div>
         </div>
 
+        <!-- Preview Modal -->
+        <div class="modal fade" id="previewModal" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-eye"></i> Xem trước sản phẩm
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="previewModalBody">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Hủy
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="confirmUpload()">
+                            <i class="fas fa-upload"></i> Xác nhận Upload
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Upload Progress Modal -->
         <div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
             <div class="modal-dialog modal-dialog-centered">
