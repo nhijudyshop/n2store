@@ -148,6 +148,46 @@
             to { transform: rotate(360deg); }
         }
 
+        .btn-hide {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(255, 255, 255, 0.95);
+            color: #ff9800;
+            border: 2px solid #ff9800;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .grid-item:hover .btn-hide {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .btn-hide:hover {
+            background: #ff9800;
+            color: white;
+            transform: scale(1.15);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+
+        .btn-hide:active {
+            transform: scale(0.95);
+        }
+
         .grid-item-image {
             width: 100%;
             height: 0;
@@ -1483,9 +1523,12 @@
             btnNext.style.display = 'block';
             pageInfo.style.display = 'block';
 
-            // Use filtered products if searching, otherwise use all products
+            // Filter out hidden products first
+            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+
+            // Use filtered products if searching, otherwise use all visible products
             // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts : savedProducts;
+            let baseProducts = searchKeyword ? filteredProducts.filter(p => !p.isHidden) : visibleProducts;
 
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
@@ -1513,6 +1556,7 @@
 
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
+                        <button class="btn-hide" onclick="hideProduct(${product.Id})" title="Ẩn sản phẩm">👁️</button>
                         ${imageHtml}
                         <div class="grid-item-name">${product.NameGet}</div>
                         <div class="grid-item-stats">
@@ -1653,8 +1697,11 @@
             const searchLower = searchKeyword.toLowerCase();
             const searchNoSign = removeVietnameseTones(searchKeyword);
 
+            // Filter out hidden products first
+            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+
             // Apply merge first if enabled, then search on merged products
-            const productsToSearch = isMergeVariants ? mergeProductsByTemplate(savedProducts) : savedProducts;
+            const productsToSearch = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
 
             // Filter products that match
             const matchedProducts = productsToSearch.filter(product => {
@@ -1792,6 +1839,42 @@
             }
 
             updateProductGrid();
+        }
+
+        function hideProduct(productId) {
+            if (!confirm('Bạn có chắc muốn ẩn sản phẩm này?')) {
+                return;
+            }
+
+            const product = savedProducts.find(p => p.Id === productId);
+            if (!product) return;
+
+            product.isHidden = true;
+
+            if (!isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
+            }
+
+            updateProductGrid();
+            console.log(`👁️ Đã ẩn sản phẩm: ${product.NameGet}`);
+        }
+
+        function unhideProduct(productId) {
+            const product = savedProducts.find(p => p.Id === productId);
+            if (!product) return;
+
+            product.isHidden = false;
+
+            if (!isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
+            }
+
+            updateProductGrid();
+            console.log(`👁️ Đã hiện sản phẩm: ${product.NameGet}`);
         }
 
         function updateProductTotal(productId, change) {
