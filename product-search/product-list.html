@@ -151,7 +151,7 @@
         .btn-hide {
             position: absolute;
             top: 4px;
-            right: 4px;
+            left: 32px;
             background: rgba(255, 255, 255, 0.95);
             color: #ff9800;
             border: 2px solid #ff9800;
@@ -171,7 +171,8 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        .grid-item:hover .btn-hide {
+        .grid-stat-total:hover .btn-hide,
+        .btn-hide:hover {
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
@@ -186,6 +187,13 @@
 
         .btn-hide:active {
             transform: scale(0.95);
+        }
+
+        .btn-hide:disabled {
+            opacity: 0;
+            visibility: hidden;
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         .grid-item-image {
@@ -1556,12 +1564,12 @@
 
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
-                        <button class="btn-hide" onclick="hideProduct(${product.Id})" title="Ẩn sản phẩm">👁️</button>
                         ${imageHtml}
                         <div class="grid-item-name">${product.NameGet}</div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
                                 <button class="btn-refresh" onclick="refreshProduct(${product.Id})" title="Cập nhật từ TPOS" ${isMerged ? 'disabled' : ''}>🔄</button>
+                                <button class="btn-hide" onclick="hideProduct(${product.Id})" title="${isMerged ? 'Tắt chế độ gộp để ẩn sản phẩm' : 'Ẩn sản phẩm'}" ${isMerged ? 'disabled' : ''}>👁️</button>
                                 <div class="grid-stat-label">📦 TỔNG</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
