@@ -1648,6 +1648,15 @@
                 // Match in original name (lowercase, for special chars like [Q5X1])
                 const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
 
+                // Debug: Log products with bracket info
+                const bracket = product.NameGet?.match(/\[([^\]]+)\]/);
+                if (bracket) {
+                    const bracketContent = bracket[1].toLowerCase().trim();
+                    if (bracketContent.includes(searchLower)) {
+                        console.log(`✅ Match bracket: [${bracket[1]}] in "${product.NameGet}"`);
+                    }
+                }
+
                 return matchName || matchNameOriginal;
             });
 
