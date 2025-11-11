@@ -2458,19 +2458,19 @@ function debugPayloadBeforeSend(payload) {
 window.addEventListener("message", function(event) {
     // Handle request for orders data from product assignment tab
     if (event.data.type === "REQUEST_ORDERS_DATA") {
-        // Prepare orders data with STT
+        // Prepare orders data with STT (SessionIndex)
         const ordersDataToSend = allData.map((order, index) => ({
-            stt: index + 1,
+            stt: order.SessionIndex || (index + 1).toString(), // Use SessionIndex as STT
             orderId: order.Id,
             orderCode: order.Code,
-            customerName: order.PartnerName,
-            phone: order.PartnerPhone,
-            address: order.PartnerAddress,
-            totalAmount: order.AmountTotal,
-            quantity: order.Details?.reduce((sum, d) => sum + (d.ProductUOMQty || 0), 0) || 0,
+            customerName: order.PartnerName || order.Name,
+            phone: order.PartnerPhone || order.Telephone,
+            address: order.PartnerAddress || order.Address,
+            totalAmount: order.TotalAmount || order.AmountTotal,
+            quantity: order.TotalQuantity || order.Details?.reduce((sum, d) => sum + (d.ProductUOMQty || 0), 0) || 0,
             note: order.Note,
-            state: order.State,
-            dateOrder: order.DateOrder,
+            state: order.Status || order.State,
+            dateOrder: order.DateCreated || order.DateOrder,
             products: order.Details?.map(d => ({
                 id: d.ProductId,
                 name: d.ProductName,
