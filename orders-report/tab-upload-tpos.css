@@ -335,3 +335,40 @@ body {
         opacity: 0;
     }
 }
+
+/* Preview Modal */
+#previewModal .modal-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #764ba2 100%);
+    color: white;
+}
+
+#previewModal .card {
+    border: 2px solid var(--gray-200);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#previewModal .card-header {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+#previewModal .table {
+    margin-bottom: 0;
+}
+
+#previewModal .table th {
+    background: var(--gray-50);
+    font-weight: 600;
+    color: var(--gray-700);
+    border-bottom: 2px solid var(--gray-200);
+}
+
+#previewModal .table td {
+    vertical-align: middle;
+}
+
+#previewModal h6 {
+    font-weight: 700;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--gray-200);
+}
