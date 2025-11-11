@@ -352,13 +352,13 @@
                 assignment.sttList = assignment.sttNumber ? [{stt: assignment.sttNumber, orderInfo: assignment.orderInfo}] : [];
             }
 
-            // Render STT chips
+            // Render STT chips (with index for duplicate STT)
             const chipsHtml = assignment.sttList.length > 0
-                ? assignment.sttList.map(item => `
-                    <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, '${item.stt}')">
+                ? assignment.sttList.map((item, index) => `
+                    <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, ${index})">
                         <span class="stt-chip-number">STT ${item.stt}</span>
                         ${item.orderInfo?.customerName ? `<span class="stt-chip-customer">${item.orderInfo.customerName}</span>` : ''}
-                        <button class="stt-chip-remove" onclick="event.stopPropagation(); removeSTTFromAssignment(${assignment.id}, '${item.stt}')">
+                        <button class="stt-chip-remove" onclick="event.stopPropagation(); removeSTTByIndex(${assignment.id}, ${index})">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -522,7 +522,7 @@
         hideOrderTooltip(); // Hide tooltip after selection
     }
 
-    // Add STT to assignment (supports multiple STT)
+    // Add STT to assignment (supports multiple STT, including duplicates)
     function addSTTToAssignment(assignmentId, stt, orderData) {
         const assignment = assignments.find(a => a.id === assignmentId);
         if (!assignment) return;
@@ -532,44 +532,46 @@
             assignment.sttList = [];
         }
 
-        // Check if STT already exists
-        const existingIndex = assignment.sttList.findIndex(item => item.stt === stt);
-        if (existingIndex !== -1) {
-            showNotification(`⚠️ STT ${stt} đã được gán cho sản phẩm này`, 'error');
-            hideOrderTooltip(); // Hide tooltip on error too
-            return;
-        }
-
-        // Add new STT
+        // Allow duplicate STT - count quantity based on total entries
         assignment.sttList.push({
             stt: stt,
-            orderInfo: orderData
+            orderInfo: orderData,
+            addedAt: Date.now() // Track when added
         });
 
         saveAssignments();
         renderAssignmentTable();
-        showNotification(`✅ Đã thêm STT ${stt} - ${orderData.customerName || 'N/A'}`);
+
+        // Show count if duplicate
+        const count = assignment.sttList.filter(item => item.stt === stt).length;
+        const countText = count > 1 ? ` (x${count})` : '';
+        showNotification(`✅ Đã thêm STT ${stt}${countText} - ${orderData.customerName || 'N/A'}`);
         hideOrderTooltip(); // Hide tooltip after adding
     }
 
-    // Remove STT from assignment
-    window.removeSTTFromAssignment = function(assignmentId, stt) {
+    // Remove STT by index (to support duplicate STT)
+    window.removeSTTByIndex = function(assignmentId, index) {
         const assignment = assignments.find(a => a.id === assignmentId);
         if (!assignment || !assignment.sttList) return;
 
-        assignment.sttList = assignment.sttList.filter(item => item.stt !== stt);
+        const stt = assignment.sttList[index].stt;
+        assignment.sttList.splice(index, 1);
 
         saveAssignments();
         renderAssignmentTable();
-        showNotification(`🗑️ Đã xóa STT ${stt}`);
+
+        // Show remaining count if there are duplicates
+        const remainingCount = assignment.sttList.filter(item => item.stt === stt).length;
+        const countText = remainingCount > 0 ? ` (còn ${remainingCount})` : '';
+        showNotification(`🗑️ Đã xóa STT ${stt}${countText}`);
     };
 
-    // Show tooltip for STT chip
-    window.showSTTChipTooltip = function(event, assignmentId, stt) {
+    // Show tooltip for STT chip (by index)
+    window.showSTTChipTooltip = function(event, assignmentId, index) {
         const assignment = assignments.find(a => a.id === assignmentId);
         if (!assignment || !assignment.sttList) return;
 
-        const sttItem = assignment.sttList.find(item => item.stt === stt);
+        const sttItem = assignment.sttList[index];
         if (sttItem && sttItem.orderInfo) {
             showOrderTooltip(sttItem.orderInfo, event);
         }
