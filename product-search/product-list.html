@@ -575,7 +575,7 @@
 
         .search-hint {
             position: fixed;
-            top: 10px;
+            top: 60px;
             left: 50%;
             transform: translateX(-50%);
             color: rgba(255, 255, 255, 0.7);
@@ -596,13 +596,20 @@
 
         .search-container {
             position: fixed;
-            top: 15px;
+            top: 65px;
             left: 50%;
             transform: translateX(-50%);
             width: 500px;
             z-index: 999;
             opacity: 0.3;
             transition: all 0.3s ease;
+        }
+
+        /* Hide search when edit controls are hidden */
+        body.hide-edit-controls .search-hover-area,
+        body.hide-edit-controls .search-hint,
+        body.hide-edit-controls .search-container {
+            display: none !important;
         }
 
         .search-hover-area:hover ~ .search-container,
