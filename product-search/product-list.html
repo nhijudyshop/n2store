@@ -1191,87 +1191,6 @@
             document.documentElement.style.setProperty('--stats-margin-top', `${displaySettings.statsMarginTop || 4}px`);
         }
 
-        function cleanProductForFirebase(product) {
-            // Safely parse QtyAvailable - handle corrupted data
-            let qtyAvailable = 0;
-            if (typeof product.QtyAvailable === 'number') {
-                qtyAvailable = product.QtyAvailable;
-            } else if (typeof product.QtyAvailable === 'string') {
-                // Try to parse string to number
-                const parsed = parseFloat(product.QtyAvailable);
-                qtyAvailable = isNaN(parsed) ? 0 : parsed;
-            }
-
-            // Safely parse soldQty
-            let soldQty = 0;
-            if (typeof product.soldQty === 'number') {
-                soldQty = product.soldQty;
-            } else if (typeof product.soldQty === 'string') {
-                const parsed = parseFloat(product.soldQty);
-                soldQty = isNaN(parsed) ? 0 : parsed;
-            }
-
-            // Safely parse remainingQty
-            let remainingQty = 0;
-            if (typeof product.remainingQty === 'number') {
-                remainingQty = product.remainingQty;
-            } else if (typeof product.remainingQty === 'string') {
-                const parsed = parseFloat(product.remainingQty);
-                remainingQty = isNaN(parsed) ? 0 : parsed;
-            }
-
-            // Ensure soldQty doesn't exceed qtyAvailable
-            if (soldQty > qtyAvailable) {
-                soldQty = qtyAvailable;
-            }
-
-            // Recalculate remainingQty to ensure consistency
-            remainingQty = qtyAvailable - soldQty;
-
-            const cleanProduct = {
-                Id: typeof product.Id === 'object' ? product.Id?.Id : product.Id,
-                NameGet: String(product.NameGet || ''),
-                QtyAvailable: qtyAvailable,
-                soldQty: soldQty,
-                remainingQty: remainingQty,
-                imageUrl: product.imageUrl ? String(product.imageUrl) : null,
-                ProductTmplId: typeof product.ProductTmplId === 'object' ? product.ProductTmplId?.Id : product.ProductTmplId,
-                addedAt: product.addedAt || Date.now(),
-                lastRefreshed: product.lastRefreshed || null
-            };
-            return cleanProduct;
-        }
-
-        function fixCorruptedProducts() {
-            // Fix products with corrupted data (e.g., product name in QtyAvailable field)
-            let fixedCount = 0;
-
-            savedProducts = savedProducts.map(product => {
-                // Check if QtyAvailable is corrupted (is a string that doesn't parse to a number)
-                const isCorrupted = typeof product.QtyAvailable === 'string' && isNaN(parseFloat(product.QtyAvailable));
-
-                if (isCorrupted) {
-                    console.log(`🔧 Fixing corrupted product: ${product.NameGet} (QtyAvailable was: "${product.QtyAvailable}")`);
-                    fixedCount++;
-                }
-
-                // Clean the product using the improved cleanProductForFirebase function
-                return cleanProductForFirebase(product);
-            });
-
-            if (fixedCount > 0) {
-                console.log(`✅ Fixed ${fixedCount} corrupted products`);
-
-                if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync sau khi fix corrupted products:', error);
-                    });
-                }
-            }
-
-            return fixedCount;
-        }
-
         async function loadProducts() {
             // Load from Firebase only (removed localStorage)
             try {
@@ -1286,9 +1205,6 @@
                         return timeB - timeA; // Descending order (newest first)
                     });
                     console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (sorted by newest first)');
-
-                    // Fix any corrupted products
-                    fixCorruptedProducts();
                 } else {
                     savedProducts = [];
                     console.log('📭 No products found in Firebase');
@@ -1859,11 +1775,8 @@
                     isSyncingFromFirebase = true;
 
                     if (products && Array.isArray(products)) {
-                        // Clean products first to ensure data integrity
-                        const cleanedProducts = products.map(p => cleanProductForFirebase(p));
-
                         // Sort products by addedAt timestamp (newest first)
-                        savedProducts = cleanedProducts.sort((a, b) => {
+                        savedProducts = products.sort((a, b) => {
                             const timeA = a.addedAt || 0;
                             const timeB = b.addedAt || 0;
                             return timeB - timeA; // Descending order (newest first)
