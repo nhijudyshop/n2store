@@ -1131,6 +1131,11 @@
                 database.ref('syncCurrentPage').set(currentPage).catch(error => {
                     console.error('❌ Lỗi sync page:', error);
                 });
+
+                // Sync current search keyword when enabling sync mode
+                database.ref('syncSearchKeyword').set(searchKeyword).catch(error => {
+                    console.error('❌ Lỗi sync search keyword:', error);
+                });
             }
 
             console.log(isSyncMode ? '🔄 Đã bật chế độ đồng bộ' : '⏸️ Đã tắt chế độ đồng bộ');
@@ -1622,7 +1627,7 @@
             return str;
         }
 
-        function performSearch(keyword) {
+        function performSearch(keyword, syncToFirebase = true) {
             searchKeyword = keyword.trim();
 
             if (!searchKeyword) {
@@ -1630,6 +1635,13 @@
                 filteredProducts = [];
                 currentPage = pageBeforeSearch;
                 updateProductGrid();
+
+                // Sync empty search to Firebase if in sync mode
+                if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
+                    database.ref('syncSearchKeyword').set('').catch(error => {
+                        console.error('❌ Lỗi sync search keyword:', error);
+                    });
+                }
                 return;
             }
 
@@ -1714,6 +1726,13 @@
             }
 
             updateProductGrid();
+
+            // Sync search keyword to Firebase if in sync mode
+            if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
+                database.ref('syncSearchKeyword').set(searchKeyword).catch(error => {
+                    console.error('❌ Lỗi sync search keyword:', error);
+                });
+            }
         }
 
         function clearSearch() {
@@ -1726,6 +1745,13 @@
             currentPage = pageBeforeSearch;
 
             updateProductGrid();
+
+            // Sync empty search to Firebase if in sync mode
+            if (isSyncMode && !isSyncingFromFirebase) {
+                database.ref('syncSearchKeyword').set('').catch(error => {
+                    console.error('❌ Lỗi sync clear search:', error);
+                });
+            }
         }
 
         function updateProductQty(productId, change) {
@@ -2083,6 +2109,45 @@
                     setTimeout(() => { isSyncingFromFirebase = false; }, 100);
                 }
             });
+
+            // Listen for search keyword changes
+            database.ref('syncSearchKeyword').on('value', (snapshot) => {
+                const keyword = snapshot.val();
+
+                // Only sync if in sync mode and not already syncing
+                if (isSyncMode && !isSyncingFromFirebase) {
+                    const currentKeyword = document.getElementById('searchInput')?.value || '';
+
+                    // Only update if keyword is different
+                    if (keyword !== currentKeyword) {
+                        isSyncingFromFirebase = true;
+
+                        const searchInput = document.getElementById('searchInput');
+                        const searchClear = document.getElementById('searchClear');
+                        const searchContainer = document.getElementById('searchContainer');
+
+                        if (searchInput) {
+                            searchInput.value = keyword || '';
+
+                            // Show/hide clear button
+                            if (keyword) {
+                                searchClear.classList.add('show');
+                                searchContainer.classList.add('active');
+                            } else {
+                                searchClear.classList.remove('show');
+                                searchContainer.classList.remove('active');
+                            }
+                        }
+
+                        // Perform search without syncing back to Firebase (prevent loop)
+                        performSearch(keyword || '', false);
+
+                        console.log('🔥 Search keyword synced from Firebase:', keyword);
+
+                        setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                    }
+                }
+            });
         }
 
         const settingsChannel = new BroadcastChannel('product-settings');
@@ -2177,6 +2242,30 @@
                 database.ref('syncCurrentPage').set(currentPage).catch(error => {
                     console.error('❌ Lỗi sync initial page lên Firebase:', error);
                 });
+
+                // Load current search keyword from Firebase when in sync mode
+                try {
+                    const snapshot = await database.ref('syncSearchKeyword').once('value');
+                    const keyword = snapshot.val();
+
+                    if (keyword) {
+                        const searchInput = document.getElementById('searchInput');
+                        const searchClear = document.getElementById('searchClear');
+                        const searchContainer = document.getElementById('searchContainer');
+
+                        if (searchInput) {
+                            searchInput.value = keyword;
+                            searchClear.classList.add('show');
+                            searchContainer.classList.add('active');
+                        }
+
+                        // Perform initial search without syncing back
+                        performSearch(keyword, false);
+                        console.log('🔥 Loaded search keyword from Firebase:', keyword);
+                    }
+                } catch (error) {
+                    console.error('❌ Lỗi loading search keyword từ Firebase:', error);
+                }
             }
 
             // Setup search input event listener
