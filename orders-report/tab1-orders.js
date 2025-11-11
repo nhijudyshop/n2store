@@ -53,6 +53,9 @@ window.addEventListener("DOMContentLoaded", async function () {
     document
         .getElementById("campaignFilter")
         .addEventListener("change", handleCampaignChange);
+    document
+        .getElementById("assignEmptyCartTagBtn")
+        .addEventListener("click", assignEmptyCartTagToSelected);
 
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
@@ -609,12 +612,9 @@ async function fetchOrders() {
         );
         sendDataToTab2();
 
-        // ⚠️ QUAN TRỌNG: Load tags SAU KHI hiển thị bảng
-        console.log('[AUTO-TAG] Loading available tags...');
+        // Load tags sau khi hiển thị bảng (để sẵn sàng cho manual tag assignment)
+        console.log('[INIT] Loading available tags...');
         await loadAvailableTags();
-
-        // 🎯 TỰ ĐỘNG GÁN TAG "GIỎ TRỐNG" CHO ĐƠN HÀNG CÓ SỐ LƯỢNG = 0
-        await autoAssignEmptyCartTags();
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -640,11 +640,30 @@ async function fetchOrders() {
 }
 
 // =====================================================
-// AUTO-ASSIGN "GIỎ TRỐNG" TAG
+// MANUAL ASSIGN "GIỎ TRỐNG" TAG (FOR SELECTED ORDERS)
 // =====================================================
-async function autoAssignEmptyCartTags() {
+async function assignEmptyCartTagToSelected() {
     try {
-        console.log('[AUTO-TAG] Checking for orders with TotalQuantity = 0...');
+        // Lấy danh sách đơn hàng đã được chọn
+        const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
+        const selectedOrderIds = Array.from(checkboxes).map(cb => cb.value);
+
+        if (selectedOrderIds.length === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng', 3000);
+            } else {
+                alert('Vui lòng chọn ít nhất 1 đơn hàng');
+            }
+            return;
+        }
+
+        console.log(`[ASSIGN-TAG] Processing ${selectedOrderIds.length} selected orders...`);
+
+        // Load tags nếu chưa có
+        if (availableTags.length === 0) {
+            console.log('[ASSIGN-TAG] Loading tags...');
+            await loadAvailableTags();
+        }
 
         // Tìm tag "GIỎ TRỐNG" trong availableTags
         const emptyCartTag = availableTags.find(tag =>
@@ -652,14 +671,21 @@ async function autoAssignEmptyCartTags() {
         );
 
         if (!emptyCartTag) {
-            console.warn('[AUTO-TAG] Tag "GIỎ TRỐNG" not found in available tags');
+            if (window.notificationManager) {
+                window.notificationManager.error('Không tìm thấy tag "GIỎ TRỐNG" trong hệ thống', 4000);
+            } else {
+                alert('Không tìm thấy tag "GIỎ TRỐNG" trong hệ thống');
+            }
             return;
         }
 
-        console.log('[AUTO-TAG] Found "GIỎ TRỐNG" tag:', emptyCartTag);
+        console.log('[ASSIGN-TAG] Found "GIỎ TRỐNG" tag:', emptyCartTag);
 
-        // Tìm orders có TotalQuantity = 0 và chưa có tag "GIỎ TRỐNG"
+        // Lọc các đơn hàng có TotalQuantity = 0 và chưa có tag "GIỎ TRỐNG"
         const ordersNeedingTag = allData.filter(order => {
+            // Phải nằm trong danh sách selected
+            if (!selectedOrderIds.includes(order.Id)) return false;
+
             // Check TotalQuantity = 0
             if (order.TotalQuantity !== 0) return false;
 
@@ -682,16 +708,34 @@ async function autoAssignEmptyCartTags() {
         });
 
         if (ordersNeedingTag.length === 0) {
-            console.log('[AUTO-TAG] No orders need "GIỎ TRỐNG" tag');
+            console.log('[ASSIGN-TAG] No selected orders with TotalQuantity = 0 need "GIỎ TRỐNG" tag');
+
+            // Đếm số đơn có số lượng > 0
+            const nonZeroCount = allData.filter(order =>
+                selectedOrderIds.includes(order.Id) && order.TotalQuantity > 0
+            ).length;
+
+            let message = '';
+            if (nonZeroCount > 0) {
+                message = `${nonZeroCount} đơn đã chọn có số lượng > 0, không cần gán tag "GIỎ TRỐNG"`;
+            } else {
+                message = 'Các đơn đã chọn đã có tag "GIỎ TRỐNG" rồi';
+            }
+
+            if (window.notificationManager) {
+                window.notificationManager.info(message, 3000);
+            } else {
+                alert(message);
+            }
             return;
         }
 
-        console.log(`[AUTO-TAG] Found ${ordersNeedingTag.length} orders needing "GIỎ TRỐNG" tag`);
+        console.log(`[ASSIGN-TAG] Found ${ordersNeedingTag.length} orders needing "GIỎ TRỐNG" tag`);
 
         // Thông báo cho user
         if (window.notificationManager) {
             window.notificationManager.info(
-                `Đang tự động gán tag "GIỎ TRỐNG" cho ${ordersNeedingTag.length} đơn hàng...`,
+                `Đang gán tag "GIỎ TRỐNG" cho ${ordersNeedingTag.length} đơn hàng...`,
                 3000
             );
         }
@@ -751,10 +795,10 @@ async function autoAssignEmptyCartTags() {
                     const updatedData = { Tags: JSON.stringify(newTags) };
                     updateOrderInTable(order.Id, updatedData);
                     successCount++;
-                    console.log(`[AUTO-TAG] ✓ Tagged order ${order.Code}`);
+                    console.log(`[ASSIGN-TAG] ✓ Tagged order ${order.Code}`);
                 } else {
                     failCount++;
-                    console.error(`[AUTO-TAG] ✗ Failed to tag order ${order.Code}: HTTP ${response.status}`);
+                    console.error(`[ASSIGN-TAG] ✗ Failed to tag order ${order.Code}: HTTP ${response.status}`);
                 }
 
                 // Delay 500ms giữa các requests để tránh spam API
@@ -762,17 +806,17 @@ async function autoAssignEmptyCartTags() {
 
             } catch (error) {
                 failCount++;
-                console.error(`[AUTO-TAG] ✗ Error tagging order ${order.Code}:`, error);
+                console.error(`[ASSIGN-TAG] ✗ Error tagging order ${order.Code}:`, error);
             }
         }
 
         // Thông báo kết quả
-        console.log(`[AUTO-TAG] Completed: ${successCount} success, ${failCount} failed`);
+        console.log(`[ASSIGN-TAG] Completed: ${successCount} success, ${failCount} failed`);
 
         if (window.notificationManager) {
             if (successCount > 0) {
                 window.notificationManager.success(
-                    `Đã tự động gán tag "GIỎ TRỐNG" cho ${successCount} đơn hàng${failCount > 0 ? ` (${failCount} lỗi)` : ''}`,
+                    `Đã gán tag "GIỎ TRỐNG" cho ${successCount} đơn hàng${failCount > 0 ? ` (${failCount} lỗi)` : ''}`,
                     4000
                 );
             }
@@ -791,7 +835,10 @@ async function autoAssignEmptyCartTags() {
         }
 
     } catch (error) {
-        console.error('[AUTO-TAG] Error in autoAssignEmptyCartTags:', error);
+        console.error('[ASSIGN-TAG] Error in assignEmptyCartTagToSelected:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi: ${error.message}`, 4000);
+        }
     }
 }
 
