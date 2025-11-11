@@ -54,6 +54,10 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("campaignFilter")
         .addEventListener("change", handleCampaignChange);
 
+    // 🎯 TỰ ĐỘNG TẢI 1000 ĐƠN HÀNG ĐẦU TIÊN VÀ CHIẾN DỊCH MỚI NHẤT
+    console.log('[AUTO-LOAD] Tự động tải campaigns từ 1000 đơn hàng đầu tiên...');
+    await loadCampaignList(0, document.getElementById("startDate").value, document.getElementById("endDate").value, true);
+
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
     const tableWrapper = document.getElementById("tableWrapper");
@@ -409,7 +413,7 @@ async function handleLoadCampaigns() {
     await loadCampaignList(skip, startDateValue, endDateValue);
 }
 
-async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = null) {
+async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = null, autoLoad = false) {
     try {
         showLoading(true);
 
@@ -421,12 +425,12 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
             url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
 
-            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}`);
+            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}, autoLoad=${autoLoad}`);
         } else {
             // Fallback: không có date filter
             url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
 
-            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter`);
+            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter, autoLoad=${autoLoad}`);
         }
 
         const headers = await window.tokenManager.getAuthHeader();
@@ -461,17 +465,19 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
         showLoading(false);
 
-        // Populate dropdown (không auto-load data)
-        await populateCampaignFilter(campaigns, false);
+        // Populate dropdown với autoLoad parameter
+        await populateCampaignFilter(campaigns, autoLoad);
 
-        // Hiển thị thông báo
-        if (window.notificationManager) {
-            window.notificationManager.success(
-                `Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng (${skip + 1}-${skip + orders.length}/${totalCount})`,
-                3000
-            );
-        } else {
-            showInfoBanner(`✅ Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng`);
+        // Hiển thị thông báo (chỉ khi không auto-load để tránh spam)
+        if (!autoLoad) {
+            if (window.notificationManager) {
+                window.notificationManager.success(
+                    `Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng (${skip + 1}-${skip + orders.length}/${totalCount})`,
+                    3000
+                );
+            } else {
+                showInfoBanner(`✅ Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng`);
+            }
         }
 
     } catch (error) {
