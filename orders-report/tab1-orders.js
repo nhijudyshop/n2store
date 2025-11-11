@@ -891,14 +891,9 @@ function createRowHTML(order) {
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
 
-    // Kiểm tra xem order có thể được chọn không
-    const selectable = isOrderSelectable(order.Id);
-    const checkboxDisabled = selectable ? "" : "disabled";
-    const rowOpacity = selectable ? "" : 'style="opacity: 0.5;"';
-
     return `
-        <tr ${rowOpacity}>
-            <td><input type="checkbox" value="${order.Id}" ${checkboxDisabled} /></td>
+        <tr>
+            <td><input type="checkbox" value="${order.Id}" /></td>
             <td>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span>${order.SessionIndex || ""}</span>
