@@ -1374,29 +1374,45 @@
                 // Extract text within [] brackets
                 const extractBracket = (name) => {
                     const match = name?.match(/\[([^\]]+)\]/);
-                    return match ? match[1].toLowerCase() : '';
+                    return match ? match[1].toLowerCase().trim() : '';
                 };
 
                 const aBracket = extractBracket(a.name);
                 const bBracket = extractBracket(b.name);
 
                 // Check if search term matches in brackets
-                const aMatchInBracket = aBracket.includes(searchLower);
-                const bMatchInBracket = bBracket.includes(searchLower);
+                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
+                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
 
                 // Priority 1: Match in brackets
                 if (aMatchInBracket && !bMatchInBracket) return -1;
                 if (!aMatchInBracket && bMatchInBracket) return 1;
 
-                // Priority 2: Match in product code
+                // Priority 2: Among bracket matches, exact match comes first
+                if (aMatchInBracket && bMatchInBracket) {
+                    const aExactMatch = aBracket === searchLower;
+                    const bExactMatch = bBracket === searchLower;
+                    if (aExactMatch && !bExactMatch) return -1;
+                    if (!aExactMatch && bExactMatch) return 1;
+
+                    // If both exact or both not exact, sort by bracket length (shorter first)
+                    if (aBracket.length !== bBracket.length) {
+                        return aBracket.length - bBracket.length;
+                    }
+
+                    // If same length, sort alphabetically
+                    return aBracket.localeCompare(bBracket);
+                }
+
+                // Priority 3: Match in product code
                 const aMatchInCode = a.code && a.code.toLowerCase().includes(searchLower);
                 const bMatchInCode = b.code && b.code.toLowerCase().includes(searchLower);
 
                 if (aMatchInCode && !bMatchInCode) return -1;
                 if (!aMatchInCode && bMatchInCode) return 1;
 
-                // Priority 3: Keep original order (match in name)
-                return 0;
+                // Priority 4: Sort alphabetically by product name
+                return a.name.localeCompare(b.name);
             });
 
             return matchedProducts.slice(0, 10);
