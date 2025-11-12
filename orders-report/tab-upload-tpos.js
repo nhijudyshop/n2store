@@ -255,14 +255,28 @@
             selectedSessionIndexes.delete(stt);
         }
 
+        // Update row visual state
+        const checkbox = document.querySelector(`.stt-checkbox[data-stt="${stt}"]`);
+        if (checkbox) {
+            const row = checkbox.closest('tr');
+            if (row) {
+                if (checked) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            }
+        }
+
         updateSelectedCount();
-        renderTable();
     };
 
     // Toggle Select All
     window.toggleSelectAll = function() {
         const selectAllCheckbox = document.getElementById('selectAll');
         const isChecked = selectAllCheckbox.checked;
+
+        console.log('[SELECT-ALL] Toggle called, checked:', isChecked);
 
         if (isChecked) {
             // Select all SessionIndexes
@@ -272,16 +286,43 @@
             selectedSessionIndexes.clear();
         }
 
+        // Update all individual checkboxes without re-rendering entire table
+        document.querySelectorAll('.stt-checkbox').forEach(checkbox => {
+            const stt = checkbox.dataset.stt;
+            checkbox.checked = selectedSessionIndexes.has(stt);
+
+            // Update row visual state
+            const row = checkbox.closest('tr');
+            if (row) {
+                if (checkbox.checked) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            }
+        });
+
         updateSelectedCount();
-        renderTable();
     };
 
     // Clear Selection
     window.clearSelection = function() {
         selectedSessionIndexes.clear();
         document.getElementById('selectAll').checked = false;
+        document.getElementById('selectAll').indeterminate = false;
+
+        // Update all individual checkboxes without re-rendering
+        document.querySelectorAll('.stt-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+
+            // Update row visual state
+            const row = checkbox.closest('tr');
+            if (row) {
+                row.classList.remove('selected');
+            }
+        });
+
         updateSelectedCount();
-        renderTable();
     };
 
     // Upload to TPOS - Show Preview Modal First
