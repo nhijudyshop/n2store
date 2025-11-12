@@ -551,6 +551,11 @@
                     </td>
                 </tr>
             `;
+            // Clear search input when table is empty
+            const searchInput = document.getElementById('assignmentSearch');
+            if (searchInput) {
+                searchInput.value = '';
+            }
             return;
         }
 
@@ -581,7 +586,7 @@
                 : '<span class="stt-chips-empty">Chưa có STT nào</span>';
 
             return `
-                <tr class="assignment-row">
+                <tr class="assignment-row" data-assignment-id="${assignment.id}">
                     <td>
                         <div class="product-cell">
                             ${imageHtml}
@@ -617,6 +622,12 @@
                 </tr>
             `;
         }).join('');
+
+        // Reapply filter if search input has value
+        const searchInput = document.getElementById('assignmentSearch');
+        if (searchInput && searchInput.value.trim() !== '') {
+            filterAssignments(searchInput.value);
+        }
     }
 
     // STT Input Handlers
@@ -1028,5 +1039,64 @@
             countElement.textContent = ordersData.length;
         }
     }
+
+    // Filter Assignments by search text
+    window.filterAssignments = function(searchText) {
+        const searchLower = removeVietnameseTones(searchText.toLowerCase().trim());
+        const tableBody = document.getElementById('assignmentTableBody');
+        const rows = tableBody.querySelectorAll('tr.assignment-row');
+        const countSpan = document.getElementById('assignmentCount');
+
+        if (!searchText || searchText.trim() === '') {
+            // Show all rows if search is empty
+            rows.forEach(row => {
+                row.style.display = '';
+            });
+            // Reset count
+            countSpan.textContent = assignments.length;
+            return;
+        }
+
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const assignmentId = parseInt(row.dataset.assignmentId);
+            const assignment = assignments.find(a => a.id === assignmentId);
+
+            if (!assignment) {
+                row.style.display = 'none';
+                return;
+            }
+
+            // Search in product code
+            const productCodeMatch = assignment.productCode &&
+                removeVietnameseTones(assignment.productCode.toLowerCase()).includes(searchLower);
+
+            // Search in product name
+            const productNameMatch = assignment.productName &&
+                removeVietnameseTones(assignment.productName.toLowerCase()).includes(searchLower);
+
+            // Search in STT list
+            const sttMatch = assignment.sttList && assignment.sttList.some(item =>
+                item.stt && item.stt.toString().includes(searchText.trim())
+            );
+
+            // Show row if any match
+            if (productCodeMatch || productNameMatch || sttMatch) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Update count badge with filtered results
+        const countSpan = document.getElementById('assignmentCount');
+        if (visibleCount < assignments.length) {
+            countSpan.textContent = `${visibleCount}/${assignments.length}`;
+        } else {
+            countSpan.textContent = assignments.length;
+        }
+    };
 
 })();
