@@ -389,7 +389,7 @@
                         nameGet: detail.Product?.NameGet || detail.ProductName || '',
                         quantity: detail.Quantity || 0,
                         price: detail.Price || 0,
-                        imageUrl: detail.Product?.Image1 || ''
+                        imageUrl: detail.Product?.ImageUrl || ''
                     }));
                     console.log(`💾 Stored ${sessionIndexData[result.stt].fetchedProducts.length} products for STT ${result.stt}`);
                 }
@@ -1038,7 +1038,7 @@
                         name: detail.Product?.NameGet || detail.ProductName || '',
                         quantity: detail.Quantity || 0,
                         price: detail.Price || 0,
-                        imageUrl: detail.Product?.Image1 || '',
+                        imageUrl: detail.Product?.ImageUrl || '',
                         source: 'existing'
                     };
                 }
