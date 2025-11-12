@@ -2514,14 +2514,19 @@ function sendOrdersDataToTab3() {
         phone: order.PartnerPhone || order.Telephone,
         address: order.PartnerAddress || order.Address,
         totalAmount: order.TotalAmount || order.AmountTotal,
-        quantity: order.TotalQuantity || order.Details?.reduce((sum, d) => sum + (d.ProductUOMQty || 0), 0) || 0,
+        quantity: order.TotalQuantity || order.Details?.reduce((sum, d) => sum + (d.Quantity || d.ProductUOMQty || 0), 0) || 0,
         note: order.Note,
         state: order.Status || order.State,
         dateOrder: order.DateCreated || order.DateOrder,
         products: order.Details?.map(d => ({
             id: d.ProductId,
             name: d.ProductName,
-            quantity: d.ProductUOMQty
+            nameGet: d.ProductNameGet,
+            code: d.ProductCode,
+            quantity: d.Quantity || d.ProductUOMQty || 0,
+            price: d.Price || 0,
+            imageUrl: d.ImageUrl,
+            uom: d.UOMName
         })) || []
     }));
 
