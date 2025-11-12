@@ -224,6 +224,10 @@
             // Calculate total quantity
             const totalQuantity = data.products.length;
 
+            // Find order ID from ordersData by STT
+            const originalOrder = ordersData.find(order => order.stt === stt);
+            const orderId = originalOrder?.Id || '';
+
             return `
                 <tr class="${isSelected ? 'selected' : ''}">
                     <td>
@@ -240,6 +244,7 @@
                             <div class="stt-badge-large">
                                 <i class="fas fa-hashtag"></i>${stt}
                             </div>
+                            ${orderId ? `<button class="btn btn-sm btn-outline-primary mt-1" onclick="openEditModal('${stt}', '${orderId}')" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>` : ''}
                         </div>
                     </td>
                     <td>
@@ -555,6 +560,232 @@
         }
     };
 
+    // =====================================================
+    // EDIT MODAL FUNCTIONALITY
+    // =====================================================
+    let currentEditOrderData = null;
+    let currentEditSTT = null;
+
+    // Open Edit Modal - Fetch Order Data from TPOS
+    window.openEditModal = async function(stt, orderId) {
+        currentEditSTT = stt;
+
+        // Show modal
+        const editModal = new bootstrap.Modal(document.getElementById('editOrderModal'));
+        editModal.show();
+
+        // Show loading state
+        document.getElementById('editModalBody').innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted">Đang tải dữ liệu đơn hàng...</p>
+            </div>
+        `;
+
+        try {
+            // Fetch order data from TPOS API
+            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+            const response = await authenticatedFetch(apiUrl);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            currentEditOrderData = await response.json();
+
+            // Render modal content
+            renderEditModalContent(stt);
+
+        } catch (error) {
+            console.error('Error fetching order data:', error);
+            document.getElementById('editModalBody').innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <p class="text-danger">Lỗi: ${error.message}</p>
+                    <button class="btn btn-primary" onclick="openEditModal('${stt}', '${orderId}')">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                </div>
+            `;
+        }
+    };
+
+    // Render Edit Modal Content with Merged Products
+    function renderEditModalContent(stt) {
+        const data = sessionIndexData[stt];
+        if (!data || !currentEditOrderData) return;
+
+        // Get assigned products for this STT
+        const assignedProductCounts = {};
+        data.products.forEach(product => {
+            const key = product.productCode || product.productName;
+            if (!assignedProductCounts[key]) {
+                assignedProductCounts[key] = {
+                    ...product,
+                    count: 0,
+                    source: 'assigned'
+                };
+            }
+            assignedProductCounts[key].count++;
+        });
+
+        // Get existing products from order
+        const existingProducts = {};
+        if (currentEditOrderData.Details && Array.isArray(currentEditOrderData.Details)) {
+            currentEditOrderData.Details.forEach(detail => {
+                const code = detail.Product?.Code || detail.ProductCode || '';
+                if (code) {
+                    existingProducts[code] = {
+                        code: code,
+                        name: detail.Product?.NameGet || detail.ProductName || '',
+                        quantity: detail.Quantity || 0,
+                        price: detail.Price || 0,
+                        imageUrl: detail.Product?.Image1 || '',
+                        source: 'existing'
+                    };
+                }
+            });
+        }
+
+        // Merge products: combine quantities if codes match
+        const mergedProducts = {};
+
+        // Add existing products first
+        Object.keys(existingProducts).forEach(code => {
+            mergedProducts[code] = {
+                ...existingProducts[code],
+                assignedQuantity: 0,
+                existingQuantity: existingProducts[code].quantity,
+                totalQuantity: existingProducts[code].quantity,
+                hasMatch: false
+            };
+        });
+
+        // Add assigned products and merge if match
+        Object.keys(assignedProductCounts).forEach(code => {
+            const assignedProduct = assignedProductCounts[code];
+            if (mergedProducts[code]) {
+                // Match found - merge quantities
+                mergedProducts[code].assignedQuantity = assignedProduct.count;
+                mergedProducts[code].totalQuantity = mergedProducts[code].existingQuantity + assignedProduct.count;
+                mergedProducts[code].hasMatch = true;
+                mergedProducts[code].imageUrl = mergedProducts[code].imageUrl || assignedProduct.imageUrl;
+            } else {
+                // New product to be added
+                mergedProducts[code] = {
+                    code: code,
+                    name: assignedProduct.productName,
+                    quantity: 0,
+                    price: 0,
+                    imageUrl: assignedProduct.imageUrl || '',
+                    assignedQuantity: assignedProduct.count,
+                    existingQuantity: 0,
+                    totalQuantity: assignedProduct.count,
+                    hasMatch: false,
+                    source: 'new'
+                };
+            }
+        });
+
+        // Render modal body
+        const modalBody = document.getElementById('editModalBody');
+
+        let html = `
+            <div class="mb-4">
+                <h5 class="mb-3">
+                    <i class="fas fa-hashtag"></i> STT ${stt} - ${data.orderInfo?.customerName || 'N/A'}
+                </h5>
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Mã đơn hàng:</strong> ${currentEditOrderData.Code || 'N/A'}
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px">#</th>
+                            <th>Sản phẩm</th>
+                            <th class="text-center" style="width: 120px">SL có sẵn</th>
+                            <th class="text-center" style="width: 120px">SL sẽ upload</th>
+                            <th class="text-center" style="width: 120px">Tổng</th>
+                            <th class="text-end" style="width: 150px">Giá</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        Object.values(mergedProducts).forEach((product, index) => {
+            const rowClass = product.hasMatch ? 'table-warning' : (product.source === 'new' ? 'table-success' : '');
+            const badge = product.hasMatch ? '<span class="badge bg-warning text-dark ms-2">Trùng mã</span>' :
+                         (product.source === 'new' ? '<span class="badge bg-success ms-2">Mới</span>' : '');
+
+            html += `
+                <tr class="${rowClass}">
+                    <td class="text-center">${index + 1}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            ${product.imageUrl ?
+                                `<img src="${product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` :
+                                '<div style="width: 50px; height: 50px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-box"></i></div>'
+                            }
+                            <div>
+                                <div style="font-weight: 600;">${product.name}</div>
+                                <div style="font-size: 12px; color: #6b7280;">
+                                    ${product.code}${badge}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-info">${product.existingQuantity}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-success">${product.assignedQuantity}</span>
+                    </td>
+                    <td class="text-center">
+                        <strong class="badge bg-primary">${product.totalQuantity}</strong>
+                    </td>
+                    <td class="text-end">
+                        <span style="font-weight: 600; color: #3b82f6;">
+                            ${product.price.toLocaleString('vi-VN')}đ
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="alert alert-warning mt-3">
+                <i class="fas fa-lightbulb"></i>
+                <strong>Lưu ý:</strong>
+                <ul class="mb-0 mt-2">
+                    <li><span class="badge bg-warning text-dark">Trùng mã</span>: Sản phẩm có sẵn sẽ được cộng thêm số lượng khi upload</li>
+                    <li><span class="badge bg-success">Mới</span>: Sản phẩm mới sẽ được thêm vào đơn hàng</li>
+                </ul>
+            </div>
+        `;
+
+        modalBody.innerHTML = html;
+    }
+
+    // Close Edit Modal
+    window.closeEditModal = function() {
+        const editModal = bootstrap.Modal.getInstance(document.getElementById('editOrderModal'));
+        if (editModal) {
+            editModal.hide();
+        }
+        currentEditOrderData = null;
+        currentEditSTT = null;
+    };
+
     // Setup Firebase Listeners
     function setupFirebaseListeners() {
         database.ref('productAssignments').on('value', (snapshot) => {
@@ -570,10 +801,27 @@
         });
     }
 
+    // Load Orders Data from localStorage
+    function loadOrdersData() {
+        try {
+            const cachedOrders = localStorage.getItem('ordersData');
+            if (cachedOrders) {
+                ordersData = JSON.parse(cachedOrders);
+                console.log(`📦 Đã load ${ordersData.length} đơn hàng từ localStorage`);
+            } else {
+                console.log('⚠️ Chưa có orders data trong localStorage');
+            }
+        } catch (error) {
+            console.error('Error loading orders data:', error);
+            ordersData = [];
+        }
+    }
+
     // Initialize on load
     window.addEventListener('load', async () => {
         try {
             await getValidToken();
+            loadOrdersData();
             loadAssignments();
             setupFirebaseListeners();
             updateSelectedCount();
