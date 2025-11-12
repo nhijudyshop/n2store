@@ -449,18 +449,26 @@
                                             <tr>
                                                 <th>Sản phẩm</th>
                                                 <th class="text-center">SL</th>
+                                                <th class="text-end">Giá</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             ${originalOrder.products.map(product => `
                                                 <tr>
                                                     <td>
-                                                        <div>
-                                                            <div style="font-weight: 600;">${product.name}</div>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            ${product.imageUrl ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                                            <div>
+                                                                <div style="font-weight: 600;">${product.nameGet || product.name}</div>
+                                                                <div style="font-size: 12px; color: #6b7280;">${product.code || 'N/A'}</div>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td class="text-center">
                                                         <span class="badge bg-info">${product.quantity}</span>
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <span style="font-weight: 600; color: #3b82f6;">${(product.price || 0).toLocaleString('vi-VN')}đ</span>
                                                     </td>
                                                 </tr>
                                             `).join('')}
