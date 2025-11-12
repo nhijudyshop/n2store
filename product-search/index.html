@@ -2039,6 +2039,7 @@
 
                     // Add all variants
                     let addedCount = 0;
+                    let updatedCount = 0;
                     for (const variant of sortedVariants) {
                         const qtyAvailable = variant.QtyAvailable || 0;
                         const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
@@ -2056,7 +2057,18 @@
 
                         const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
                         if (existingIndex !== -1) {
-                            savedProducts[existingIndex] = cleanProduct;
+                            // Variant exists - update info but keep soldQty
+                            const existingProduct = savedProducts[existingIndex];
+                            const existingSoldQty = existingProduct.soldQty || 0;
+
+                            savedProducts[existingIndex] = {
+                                ...cleanProduct,
+                                soldQty: existingSoldQty, // Keep existing soldQty
+                                remainingQty: cleanProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
+                                addedAt: existingProduct.addedAt || cleanProduct.addedAt, // Keep original addedAt time
+                                lastRefreshed: Date.now() // Mark as refreshed
+                            };
+                            updatedCount++;
                         } else {
                             savedProducts.push(cleanProduct);
                         }
@@ -2078,7 +2090,17 @@
 
                     const mainProductIndex = savedProducts.findIndex(p => p.Id === mainProduct.Id);
                     if (mainProductIndex !== -1) {
-                        savedProducts[mainProductIndex] = mainProduct;
+                        // Main product exists - update info but keep soldQty
+                        const existingMainProduct = savedProducts[mainProductIndex];
+                        const existingSoldQty = existingMainProduct.soldQty || 0;
+
+                        savedProducts[mainProductIndex] = {
+                            ...mainProduct,
+                            soldQty: existingSoldQty, // Keep existing soldQty
+                            remainingQty: mainProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
+                            addedAt: existingMainProduct.addedAt || mainProduct.addedAt, // Keep original addedAt time
+                            lastRefreshed: Date.now() // Mark as refreshed
+                        };
                     } else {
                         savedProducts.push(mainProduct);
                     }
@@ -2097,7 +2119,14 @@
                     updateProductListPreview();
 
                     if (addedCount > 0) {
-                        showNotificationMessage(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
+                        const newCount = addedCount - updatedCount;
+                        if (updatedCount > 0 && newCount > 0) {
+                            showNotificationMessage(`✅ Đã thêm ${newCount} biến thể mới, cập nhật ${updatedCount} biến thể (giữ nguyên số lượng đã bán)`);
+                        } else if (updatedCount > 0) {
+                            showNotificationMessage(`🔄 Đã cập nhật ${updatedCount} biến thể (giữ nguyên số lượng đã bán)`);
+                        } else {
+                            showNotificationMessage(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
+                        }
                         document.getElementById('productSearch').value = '';
                     }
                 } else {
@@ -2130,9 +2159,29 @@
                 const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
 
                 if (existingIndex !== -1) {
-                    savedProducts[existingIndex] = cleanProduct;
+                    // Product already exists - update info but keep soldQty
+                    const existingProduct = savedProducts[existingIndex];
+                    const existingSoldQty = existingProduct.soldQty || 0;
+
+                    // Update product with new info
+                    savedProducts[existingIndex] = {
+                        ...cleanProduct,
+                        soldQty: existingSoldQty, // Keep existing soldQty
+                        remainingQty: cleanProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
+                        addedAt: existingProduct.addedAt || cleanProduct.addedAt, // Keep original addedAt time
+                        lastRefreshed: Date.now() // Mark as refreshed
+                    };
+
+                    if (showNotification) {
+                        showNotificationMessage('🔄 Đã cập nhật thông tin sản phẩm (giữ nguyên số lượng đã bán)');
+                    }
                 } else {
+                    // New product - add to list
                     savedProducts.push(cleanProduct);
+
+                    if (showNotification) {
+                        showNotificationMessage('✅ Đã thêm sản phẩm vào danh sách');
+                    }
                 }
 
                 if (!isSyncingFromFirebase) {
@@ -2143,10 +2192,6 @@
                 }
 
                 updateProductListPreview();
-
-                if (showNotification) {
-                    showNotificationMessage('✅ Đã thêm sản phẩm vào danh sách');
-                }
 
                 return true;
             } catch (error) {
