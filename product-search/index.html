@@ -2730,17 +2730,39 @@
                 return;
             }
 
-            // Update the image URL (can be null, base64, or URL)
-            product.imageUrl = currentImageData || null;
+            const newImageUrl = currentImageData || null;
+            const timestamp = Date.now();
 
-            // Add timestamp for cache-busting on product-list page
-            product.lastRefreshed = Date.now();
+            // Update the image URL (can be null, base64, or URL)
+            product.imageUrl = newImageUrl;
+            product.lastRefreshed = timestamp;
+
+            // If product has a template (is a variant), update all products with same template
+            let updatedCount = 1;
+            if (product.ProductTmplId) {
+                const templateId = product.ProductTmplId;
+
+                // Find and update all products with the same ProductTmplId (including main product and all variants)
+                savedProducts.forEach(p => {
+                    if (p.ProductTmplId === templateId && p.Id !== product.Id) {
+                        p.imageUrl = newImageUrl;
+                        p.lastRefreshed = timestamp;
+                        updatedCount++;
+                    }
+                });
+
+                console.log(`🖼️ Updated image for ${updatedCount} products with template ID ${templateId}`);
+            }
 
             // Sync to Firebase
             if (!isSyncingFromFirebase) {
                 database.ref('savedProducts').set(savedProducts).then(() => {
                     console.log(`✅ Updated image for product ${product.NameGet}`);
-                    showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
+                    if (updatedCount > 1) {
+                        showNotificationMessage(`🖼️ Đã cập nhật hình ảnh cho ${updatedCount} sản phẩm cùng nhóm`);
+                    } else {
+                        showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
+                    }
                     closeImageModal();
                 }).catch(error => {
                     console.error('❌ Lỗi sync products lên Firebase:', error);
