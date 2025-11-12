@@ -171,7 +171,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        .grid-stat-remaining:hover .btn-hide,
+        .grid-stat-sold:hover .btn-hide,
         .btn-hide:hover {
             opacity: 1;
             visibility: visible;
@@ -1598,6 +1598,7 @@
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-sold">
+                                <button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">👁️</button>
                                 <div class="grid-stat-label">🛒 BÁN</div>
                                 ${isMerged && product.soldQtyList ? `
                                     <div class="remaining-qty-list">
@@ -1620,7 +1621,6 @@
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-remaining">
-                                <button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">👁️</button>
                                 <div class="grid-stat-label">✅ CÒN</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
