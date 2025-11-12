@@ -1509,7 +1509,8 @@
                             ProductTmplId: productData.ProductTmplId,
                             imageUrl: variantImageUrl,
                             soldQty: 0,
-                            remainingQty: qtyAvailable
+                            remainingQty: qtyAvailable,
+                            isHidden: false // Variants are visible
                         });
 
                         const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
@@ -1521,9 +1522,29 @@
                         addedCount++;
                     }
 
-                    // Save all variants to Firebase in one operation
+                    // Add main product to hidden list
+                    const mainProductQty = templateData.QtyAvailable || 0;
+                    const mainProduct = cleanProductForFirebase({
+                        Id: templateData.Id,
+                        NameGet: templateData.NameGet,
+                        QtyAvailable: mainProductQty,
+                        ProductTmplId: templateData.Id,
+                        imageUrl: imageUrl,
+                        soldQty: 0,
+                        remainingQty: mainProductQty,
+                        isHidden: true // Main product is hidden
+                    });
+
+                    const mainProductIndex = savedProducts.findIndex(p => p.Id === mainProduct.Id);
+                    if (mainProductIndex !== -1) {
+                        savedProducts[mainProductIndex] = mainProduct;
+                    } else {
+                        savedProducts.push(mainProduct);
+                    }
+
+                    // Save all variants + main product to Firebase in one operation
                     database.ref('savedProducts').set(savedProducts).then(() => {
-                        console.log(`✅ Saved ${addedCount} variants to Firebase`);
+                        console.log(`✅ Saved ${addedCount} variants + main product to Firebase`);
                         // Re-enable Firebase sync after a short delay
                         setTimeout(() => { isSyncingFromFirebase = false; }, 200);
                     }).catch(error => {
