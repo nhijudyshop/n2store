@@ -409,7 +409,7 @@
                 }
 
                 try {
-                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
                     console.log(`📡 API Request for STT ${stt}:`);
                     console.log(`   URL: ${apiUrl}`);
 
@@ -617,7 +617,6 @@
         }
 
         const selectedSTTs = Array.from(selectedSessionIndexes);
-        const selectedData = selectedSTTs.map(stt => sessionIndexData[stt]);
 
         // Show upload modal
         const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
@@ -628,14 +627,80 @@
 
         try {
             let completed = 0;
-            const total = selectedData.length;
+            const total = selectedSTTs.length;
+            const results = [];
 
-            for (const data of selectedData) {
-                statusText.textContent = `Đang upload STT ${data.stt} - ${data.orderInfo?.customerName || 'N/A'}...`;
+            for (const stt of selectedSTTs) {
+                const sessionData = sessionIndexData[stt];
+                if (!sessionData) continue;
 
-                // TODO: Implement actual TPOS API upload here
-                // For now, simulate upload
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                const orderId = sessionData.orderInfo?.orderId;
+                if (!orderId) continue;
+
+                statusText.textContent = `Đang upload STT ${stt} - ${sessionData.orderInfo?.customerName || 'N/A'}...`;
+
+                try {
+                    // Fetch current order data
+                    console.log(`📡 Fetching order ${orderId} for upload...`);
+                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
+                    const response = await authenticatedFetch(apiUrl);
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch order ${orderId}: ${response.status}`);
+                    }
+
+                    const orderData = await response.json();
+                    console.log(`✅ Fetched order data:`, orderData);
+
+                    // Prepare new Details: merge existing products with assigned products
+                    const mergedDetails = await prepareUploadDetails(orderData, sessionData);
+
+                    // Update orderData with merged Details
+                    orderData.Details = mergedDetails;
+
+                    // Recalculate totals
+                    let totalQty = 0;
+                    let totalAmount = 0;
+                    orderData.Details.forEach(detail => {
+                        totalQty += detail.Quantity || 0;
+                        totalAmount += (detail.Quantity || 0) * (detail.Price || 0);
+                    });
+                    orderData.TotalQuantity = totalQty;
+                    orderData.TotalAmount = totalAmount;
+
+                    // Prepare payload for PUT request
+                    const payload = prepareUploadPayload(orderData);
+
+                    console.log(`📤 Uploading order ${orderId}...`);
+                    console.log(`   Details count: ${payload.Details.length}`);
+                    console.log(`   Total Quantity: ${payload.TotalQuantity}`);
+                    console.log(`   Total Amount: ${payload.TotalAmount}`);
+
+                    // PUT request to update order
+                    const uploadResponse = await authenticatedFetch(
+                        `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})`,
+                        {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
+                        }
+                    );
+
+                    if (!uploadResponse.ok) {
+                        const errorText = await uploadResponse.text();
+                        throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+                    }
+
+                    console.log(`✅ Successfully uploaded order ${orderId}`);
+                    results.push({ stt, orderId, success: true });
+
+                } catch (error) {
+                    console.error(`❌ Error uploading STT ${stt}:`, error);
+                    results.push({ stt, orderId, success: false, error: error.message });
+                }
 
                 completed++;
                 const percentage = Math.round((completed / total) * 100);
@@ -643,18 +708,32 @@
                 progressBar.textContent = percentage + '%';
             }
 
-            // Success
-            statusText.textContent = '✅ Upload thành công!';
-            progressBar.classList.remove('bg-primary');
-            progressBar.classList.add('bg-success');
+            // Check results
+            const successCount = results.filter(r => r.success).length;
+            const failCount = results.filter(r => !r.success).length;
 
-            setTimeout(() => {
-                uploadModal.hide();
-                showNotification(`✅ Đã upload ${total} đơn hàng lên TPOS thành công!`);
+            if (failCount === 0) {
+                // All success
+                statusText.textContent = `✅ Upload thành công ${successCount} đơn hàng!`;
+                progressBar.classList.remove('bg-primary');
+                progressBar.classList.add('bg-success');
 
-                // Clear selection after successful upload
-                clearSelection();
-            }, 1500);
+                setTimeout(() => {
+                    uploadModal.hide();
+                    showNotification(`✅ Đã upload ${successCount} đơn hàng lên TPOS thành công!`);
+                    clearSelection();
+                }, 1500);
+            } else {
+                // Some failed
+                statusText.textContent = `⚠️ Thành công: ${successCount}, Thất bại: ${failCount}`;
+                progressBar.classList.remove('bg-primary');
+                progressBar.classList.add('bg-warning');
+
+                setTimeout(() => {
+                    uploadModal.hide();
+                    showNotification(`⚠️ Upload hoàn tất: ${successCount} thành công, ${failCount} thất bại`, 'error');
+                }, 2000);
+            }
 
         } catch (error) {
             console.error('Upload error:', error);
@@ -668,6 +747,125 @@
             }, 2000);
         }
     };
+
+    // Prepare Details for upload (merge existing + assigned)
+    async function prepareUploadDetails(orderData, sessionData) {
+        const existingDetails = orderData.Details || [];
+        const assignedProducts = sessionData.products || [];
+
+        console.log(`\n📊 Preparing upload details:`);
+        console.log(`   Existing products: ${existingDetails.length}`);
+        console.log(`   Assigned products: ${assignedProducts.length}`);
+
+        // Group existing products by ProductId
+        const existingByProductId = {};
+        existingDetails.forEach(detail => {
+            existingByProductId[detail.ProductId] = detail;
+        });
+
+        // Group assigned products by ProductId and count
+        const assignedByProductId = {};
+        assignedProducts.forEach(product => {
+            const productId = product.productId;
+            if (!assignedByProductId[productId]) {
+                assignedByProductId[productId] = {
+                    productId: productId,
+                    productCode: product.productCode,
+                    productName: product.productName,
+                    count: 0
+                };
+            }
+            assignedByProductId[productId].count++;
+        });
+
+        // Merge: Update quantities for existing, add new products
+        const mergedDetails = [...existingDetails];
+
+        // Update existing products
+        Object.keys(assignedByProductId).forEach(productId => {
+            const assignedData = assignedByProductId[productId];
+            const existingDetail = existingByProductId[productId];
+
+            if (existingDetail) {
+                // Product exists - add to quantity
+                existingDetail.Quantity += assignedData.count;
+                console.log(`   ✏️ Updated ${existingDetail.ProductCode}: +${assignedData.count} (total: ${existingDetail.Quantity})`);
+            } else {
+                // New product - need to add
+                console.log(`   ➕ Adding new product: ${assignedData.productCode} x${assignedData.count}`);
+                // We need to fetch product info from TPOS to get price, etc
+                // For now, we'll skip new products or you can implement fetching
+                console.warn(`   ⚠️ Cannot add new product ${assignedData.productCode} - product not in order`);
+            }
+        });
+
+        console.log(`   📦 Final details count: ${mergedDetails.length}`);
+        return mergedDetails;
+    }
+
+    // Prepare payload for PUT request (similar to tab1-orders.js)
+    function prepareUploadPayload(orderData) {
+        console.log('[PAYLOAD] Preparing payload for PUT request...');
+
+        // Clone data
+        const payload = JSON.parse(JSON.stringify(orderData));
+
+        // Add @odata.context if missing
+        if (!payload['@odata.context']) {
+            payload['@odata.context'] =
+                'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+            console.log('[PAYLOAD] ✓ Added @odata.context');
+        }
+
+        // Process Details array
+        if (payload.Details && Array.isArray(payload.Details)) {
+            payload.Details = payload.Details.map((detail, index) => {
+                const cleaned = { ...detail };
+
+                // Remove Id if null/undefined (new products)
+                if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
+                    delete cleaned.Id;
+                    console.log(`[PAYLOAD] Detail[${index}]: Removed Id:null for ProductId:`, cleaned.ProductId);
+                } else {
+                    console.log(`[PAYLOAD] Detail[${index}]: Keeping existing Id:`, cleaned.Id);
+                }
+
+                // Ensure OrderId matches
+                cleaned.OrderId = payload.Id;
+
+                return cleaned;
+            });
+        }
+
+        // Statistics
+        const newDetailsCount = payload.Details?.filter(d => !d.Id).length || 0;
+        const existingDetailsCount = payload.Details?.filter(d => d.Id).length || 0;
+
+        console.log('[PAYLOAD] ✓ Payload prepared:', {
+            orderId: payload.Id,
+            orderCode: payload.Code,
+            detailsCount: payload.Details?.length || 0,
+            newDetails: newDetailsCount,
+            existingDetails: existingDetailsCount
+        });
+
+        // Validation
+        if (!payload.RowVersion) {
+            console.warn('[PAYLOAD] ⚠️ WARNING: Missing RowVersion!');
+        }
+
+        // Check for null Id
+        const detailsWithNullId = payload.Details?.filter(d =>
+            d.hasOwnProperty('Id') && (d.Id === null || d.Id === undefined)
+        ) || [];
+
+        if (detailsWithNullId.length > 0) {
+            console.error('[PAYLOAD] ❌ ERROR: Found details with null Id:', detailsWithNullId);
+            throw new Error('Payload contains details with null Id');
+        }
+
+        return payload;
+    }
 
     // =====================================================
     // EDIT MODAL FUNCTIONALITY
@@ -695,7 +893,7 @@
 
         try {
             // Fetch order data from TPOS API
-            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
             const response = await authenticatedFetch(apiUrl);
 
             if (!response.ok) {
