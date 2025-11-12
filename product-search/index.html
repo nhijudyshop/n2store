@@ -1347,6 +1347,104 @@
             cursor: not-allowed;
             transform: none;
         }
+
+        /* Camera styles */
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            min-height: 300px;
+        }
+
+        .camera-video {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 400px;
+            object-fit: contain;
+        }
+
+        .camera-canvas {
+            display: none;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-camera {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-camera-start {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-camera-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-camera-capture {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
+
+        .btn-camera-capture:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
+        }
+
+        .btn-camera-switch {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+
+        .btn-camera-switch:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-camera-stop {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .btn-camera-stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        .camera-message {
+            padding: 40px;
+            text-align: center;
+            color: #666;
+            font-size: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .camera-message-icon {
+            font-size: 48px;
+            color: #17a2b8;
+        }
     </style>
 </head>
 <body>
@@ -1361,6 +1459,7 @@
                 <div class="image-modal-tabs">
                     <button class="image-modal-tab active" onclick="switchImageTab('paste')">📋 Paste ảnh</button>
                     <button class="image-modal-tab" onclick="switchImageTab('upload')">📁 Chọn file</button>
+                    <button class="image-modal-tab" onclick="switchImageTab('camera')">📷 Chụp hình</button>
                     <button class="image-modal-tab" onclick="switchImageTab('link')">🔗 Nhập link</button>
                 </div>
 
@@ -1383,6 +1482,33 @@
                     </div>
                     <input type="file" id="fileUploadInput" class="file-upload-input" accept="image/*" onchange="handleFileSelect(event)">
                     <img class="paste-preview" id="uploadPreview" alt="Preview">
+                </div>
+
+                <!-- Camera Tab -->
+                <div class="image-modal-content" id="cameraTab">
+                    <div class="camera-container" id="cameraContainer">
+                        <div class="camera-message" id="cameraMessage">
+                            <div class="camera-message-icon">📷</div>
+                            <div>Click "Bật camera" để bắt đầu chụp hình</div>
+                        </div>
+                        <video id="cameraVideo" class="camera-video" autoplay playsinline style="display: none;"></video>
+                        <canvas id="cameraCanvas" class="camera-canvas"></canvas>
+                    </div>
+                    <img class="paste-preview" id="cameraPreview" alt="Preview">
+                    <div class="camera-controls">
+                        <button class="btn-camera btn-camera-start" id="btnStartCamera" onclick="startCamera()">
+                            📷 Bật camera
+                        </button>
+                        <button class="btn-camera btn-camera-switch" id="btnSwitchCamera" onclick="switchCamera()" style="display: none;">
+                            🔄 Đổi camera
+                        </button>
+                        <button class="btn-camera btn-camera-capture" id="btnCapturePhoto" onclick="capturePhoto()" style="display: none;">
+                            📸 Chụp ảnh
+                        </button>
+                        <button class="btn-camera btn-camera-stop" id="btnStopCamera" onclick="stopCamera()" style="display: none;">
+                            ⏹️ Tắt camera
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Link Tab -->
@@ -2274,6 +2400,7 @@
             // Reset all tabs
             resetPasteTab();
             resetUploadTab();
+            resetCameraTab();
             resetLinkTab();
 
             // Switch back to paste tab
@@ -2296,8 +2423,11 @@
             } else if (tabName === 'upload') {
                 tabs[1].classList.add('active');
                 document.getElementById('uploadTab').classList.add('active');
-            } else if (tabName === 'link') {
+            } else if (tabName === 'camera') {
                 tabs[2].classList.add('active');
+                document.getElementById('cameraTab').classList.add('active');
+            } else if (tabName === 'link') {
+                tabs[3].classList.add('active');
                 document.getElementById('linkTab').classList.add('active');
             }
         }
@@ -2327,6 +2457,108 @@
             linkInput.value = '';
             linkPreviewContainer.classList.remove('show');
             linkPreviewImage.src = '';
+        }
+
+        function resetCameraTab() {
+            stopCamera();
+            const cameraPreview = document.getElementById('cameraPreview');
+            cameraPreview.classList.remove('show');
+            cameraPreview.src = '';
+        }
+
+        // Camera functionality
+        let cameraStream = null;
+        let currentFacingMode = 'environment'; // 'user' for front, 'environment' for back
+
+        async function startCamera() {
+            try {
+                // Request camera permission
+                const constraints = {
+                    video: {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                };
+
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                // Set video source
+                const video = document.getElementById('cameraVideo');
+                video.srcObject = cameraStream;
+
+                // Show video, hide message
+                const cameraMessage = document.getElementById('cameraMessage');
+                cameraMessage.style.display = 'none';
+                video.style.display = 'block';
+
+                // Update button visibility
+                document.getElementById('btnStartCamera').style.display = 'none';
+                document.getElementById('btnSwitchCamera').style.display = 'flex';
+                document.getElementById('btnCapturePhoto').style.display = 'flex';
+                document.getElementById('btnStopCamera').style.display = 'flex';
+
+                showNotificationMessage('✅ Đã bật camera');
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                showNotificationMessage('❌ Không thể truy cập camera: ' + error.message);
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+
+                const video = document.getElementById('cameraVideo');
+                const cameraMessage = document.getElementById('cameraMessage');
+
+                video.style.display = 'none';
+                cameraMessage.style.display = 'flex';
+
+                // Update button visibility
+                document.getElementById('btnStartCamera').style.display = 'flex';
+                document.getElementById('btnSwitchCamera').style.display = 'none';
+                document.getElementById('btnCapturePhoto').style.display = 'none';
+                document.getElementById('btnStopCamera').style.display = 'none';
+            }
+        }
+
+        async function switchCamera() {
+            // Toggle facing mode
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+            // Restart camera with new facing mode
+            stopCamera();
+            await startCamera();
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('cameraCanvas');
+            const preview = document.getElementById('cameraPreview');
+
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw video frame to canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert to base64
+            const base64 = canvas.toDataURL('image/jpeg', 0.9);
+            currentImageData = base64;
+
+            // Show preview
+            preview.src = base64;
+            preview.classList.add('show');
+
+            // Stop camera after capture
+            stopCamera();
+
+            showNotificationMessage('📸 Đã chụp ảnh thành công');
         }
 
         // Paste Image Handler
