@@ -151,7 +151,7 @@
         .btn-hide {
             position: absolute;
             top: 4px;
-            left: 4px;
+            right: 4px;
             background: rgba(255, 255, 255, 0.95);
             color: #ff9800;
             border: 2px solid #ff9800;
@@ -171,7 +171,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        .grid-stat-total:hover .btn-hide,
+        .grid-stat-remaining:hover .btn-hide,
         .btn-hide:hover {
             opacity: 1;
             visibility: visible;
@@ -1581,7 +1581,6 @@
                         <div class="grid-item-name">${product.NameGet}</div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
-                                <button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">👁️</button>
                                 <div class="grid-stat-label">📦 TỔNG</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
@@ -1621,6 +1620,7 @@
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-remaining">
+                                <button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">👁️</button>
                                 <div class="grid-stat-label">✅ CÒN</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
