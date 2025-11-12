@@ -73,7 +73,12 @@
                     <i class="fas fa-box-open"></i> Danh sách sản phẩm đã thêm
                     <span class="badge bg-light text-dark ms-2" id="savedProductsCount">0</span>
                 </h5>
-                <small><i class="fas fa-sync"></i> Đồng bộ từ Product Search</small>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-light btn-sm" onclick="addAllSavedProducts()">
+                        <i class="fas fa-plus-circle"></i> Thêm tất cả
+                    </button>
+                    <small><i class="fas fa-sync"></i> Đồng bộ từ Product Search</small>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="saved-products-grid" id="savedProductsContainer">

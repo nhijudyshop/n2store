@@ -388,6 +388,75 @@
         }
     };
 
+    // Add All Saved Products to Assignment
+    window.addAllSavedProducts = async function() {
+        if (savedProducts.length === 0) {
+            showNotification('Không có sản phẩm nào để thêm', 'error');
+            return;
+        }
+
+        // Count products that will be added (exclude already added)
+        const productsToAdd = savedProducts.filter(product =>
+            !assignments.some(a => a.productId === product.Id)
+        );
+
+        if (productsToAdd.length === 0) {
+            showNotification('Tất cả sản phẩm đã có trong danh sách gán', 'error');
+            return;
+        }
+
+        // Confirm with user
+        if (!confirm(`Bạn có muốn thêm ${productsToAdd.length} sản phẩm vào danh sách gán không?`)) {
+            return;
+        }
+
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        // Add each product to assignments
+        for (const product of savedProducts) {
+            // Check if product already assigned
+            const existingIndex = assignments.findIndex(a => a.productId === product.Id);
+            if (existingIndex !== -1) {
+                skippedCount++;
+                continue;
+            }
+
+            // Add to assignments
+            const assignment = {
+                id: Date.now() + addedCount, // Ensure unique IDs
+                productId: product.Id,
+                productName: product.NameGet,
+                productCode: product.DefaultCode || '',
+                imageUrl: product.imageUrl || '',
+                sttList: []
+            };
+
+            assignments.push(assignment);
+            addedCount++;
+
+            // Small delay to ensure unique timestamps
+            await new Promise(resolve => setTimeout(resolve, 1));
+        }
+
+        // Save and render
+        saveAssignments();
+        renderAssignmentTable();
+
+        // Show success notification
+        if (addedCount > 0) {
+            showNotification(`✅ Đã thêm ${addedCount} sản phẩm vào danh sách gán${skippedCount > 0 ? ` (bỏ qua ${skippedCount} đã có)` : ''}`);
+        }
+
+        // Scroll to assignment table
+        setTimeout(() => {
+            const assignmentTable = document.querySelector('.card:has(#assignmentTableBody)');
+            if (assignmentTable) {
+                assignmentTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    };
+
     // Render Saved Products List from product-search
     function renderSavedProductsList() {
         const container = document.getElementById('savedProductsContainer');
