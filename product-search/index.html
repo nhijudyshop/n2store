@@ -1693,7 +1693,6 @@
             const cleanProduct = {
                 Id: typeof product.Id === 'object' ? product.Id?.Id : product.Id,
                 NameGet: String(product.NameGet || ''),
-                Code: product.Code || product.DefaultCode || product.Barcode || null,
                 QtyAvailable: Number(product.QtyAvailable) || 0,
                 soldQty: Number(product.soldQty) || 0,
                 remainingQty: Number(product.remainingQty) || 0,
@@ -2048,8 +2047,6 @@
                         const cleanProduct = cleanProductForFirebase({
                             Id: variant.Id,
                             NameGet: variant.NameGet,
-                            DefaultCode: variant.DefaultCode,
-                            Barcode: variant.Barcode,
                             QtyAvailable: qtyAvailable,
                             ProductTmplId: productData.ProductTmplId,
                             imageUrl: variantImageUrl,
@@ -2083,8 +2080,6 @@
                     const mainProduct = cleanProductForFirebase({
                         Id: templateData.Id,
                         NameGet: templateData.NameGet,
-                        DefaultCode: templateData.DefaultCode,
-                        Barcode: templateData.Barcode,
                         QtyAvailable: mainProductQty,
                         ProductTmplId: templateData.Id,
                         imageUrl: imageUrl,
@@ -2140,8 +2135,6 @@
                     const addSuccess = addProductToList({
                         Id: productData.Id,
                         NameGet: productData.NameGet,
-                        DefaultCode: productData.DefaultCode,
-                        Barcode: productData.Barcode,
                         QtyAvailable: qtyAvailable,
                         ProductTmplId: productData.ProductTmplId,
                         imageUrl: imageUrl,
