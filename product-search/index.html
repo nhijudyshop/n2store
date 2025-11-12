@@ -924,29 +924,6 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-refresh-all {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-        }
-
-        .btn-refresh-all:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
-        }
-
-        .btn-refresh-all:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
         .product-list-preview {
             background: white;
             padding: 20px;
@@ -1595,7 +1572,6 @@
                     <button class="list-search-clear" id="listSearchClear" onclick="clearListSearch()">×</button>
                 </div>
                 <div class="list-header-actions">
-                    <button class="btn-refresh-all" onclick="refreshAllProducts()" title="Cập nhật thông tin và mã sản phẩm từ API">🔄 Refresh All</button>
                     <a href="product-list.html#sync" class="btn-expand" id="btnExpandList" target="_blank" style="text-decoration: none; display: inline-block;">🔍 Phóng to</a>
                 </div>
             </div>
@@ -1778,104 +1754,6 @@
 
                 updateProductListPreview();
                 showNotificationMessage('🗑️ Đã xóa tất cả sản phẩm');
-            }
-        }
-
-        async function refreshAllProducts() {
-            if (savedProducts.length === 0) {
-                showNotificationMessage('⚠️ Không có sản phẩm nào để refresh');
-                return;
-            }
-
-            if (!confirm(`Bạn có muốn cập nhật thông tin (bao gồm mã sản phẩm) cho tất cả ${savedProducts.length} sản phẩm không?\n\nQuá trình này có thể mất vài phút.`)) {
-                return;
-            }
-
-            // Disable the refresh button
-            const refreshBtn = document.querySelector('.btn-refresh-all');
-            if (refreshBtn) {
-                refreshBtn.disabled = true;
-                refreshBtn.textContent = '🔄 Đang cập nhật...';
-            }
-
-            isSyncingFromFirebase = true;
-
-            let successCount = 0;
-            let errorCount = 0;
-            let noChangeCount = 0;
-
-            showNotificationMessage(`🔄 Bắt đầu cập nhật ${savedProducts.length} sản phẩm...`);
-
-            try {
-                for (let i = 0; i < savedProducts.length; i++) {
-                    const product = savedProducts[i];
-
-                    try {
-                        // Fetch product details from API
-                        const response = await authenticatedFetch(
-                            `https://tomato.tpos.vn/odata/Product(${product.Id})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
-                        );
-
-                        if (response.ok) {
-                            const productData = await response.json();
-
-                            // Check if Code field needs updating
-                            const newCode = productData.DefaultCode || productData.Barcode || null;
-                            const hasChanged = product.Code !== newCode || !product.Code;
-
-                            if (hasChanged) {
-                                // Update product with new info while keeping soldQty
-                                savedProducts[i] = {
-                                    ...product,
-                                    Code: newCode,
-                                    QtyAvailable: productData.QtyAvailable || product.QtyAvailable,
-                                    lastRefreshed: Date.now()
-                                };
-                                successCount++;
-                            } else {
-                                noChangeCount++;
-                            }
-                        } else {
-                            console.error(`Failed to fetch product ${product.Id}:`, response.status);
-                            errorCount++;
-                        }
-                    } catch (error) {
-                        console.error(`Error refreshing product ${product.Id}:`, error);
-                        errorCount++;
-                    }
-
-                    // Show progress every 10 products
-                    if ((i + 1) % 10 === 0) {
-                        showNotificationMessage(`🔄 Đã xử lý ${i + 1}/${savedProducts.length} sản phẩm...`);
-                    }
-
-                    // Small delay to avoid overwhelming the API
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-
-                // Save to Firebase
-                await database.ref('savedProducts').set(savedProducts);
-
-                // Re-enable Firebase sync
-                setTimeout(() => { isSyncingFromFirebase = false; }, 500);
-
-                // Update UI
-                updateProductListPreview();
-
-                // Show completion message
-                const message = `✅ Hoàn tất! Cập nhật: ${successCount}, Không đổi: ${noChangeCount}${errorCount > 0 ? `, Lỗi: ${errorCount}` : ''}`;
-                showNotificationMessage(message);
-
-            } catch (error) {
-                console.error('Error during refresh all:', error);
-                showNotificationMessage('❌ Lỗi khi cập nhật: ' + error.message);
-                isSyncingFromFirebase = false;
-            } finally {
-                // Re-enable the refresh button
-                if (refreshBtn) {
-                    refreshBtn.disabled = false;
-                    refreshBtn.textContent = '🔄 Refresh All';
-                }
             }
         }
 
