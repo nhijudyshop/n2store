@@ -675,6 +675,14 @@
                     console.log(`   Details count: ${payload.Details.length}`);
                     console.log(`   Total Quantity: ${payload.TotalQuantity}`);
                     console.log(`   Total Amount: ${payload.TotalAmount}`);
+                    console.log(`   Payload size: ${JSON.stringify(payload).length} bytes`);
+
+                    // Log full payload for debugging (can be removed in production)
+                    if (console.groupCollapsed) {
+                        console.groupCollapsed(`📋 Full Payload for ${payload.Code}`);
+                        console.log(JSON.stringify(payload, null, 2));
+                        console.groupEnd();
+                    }
 
                     // PUT request to update order
                     const uploadResponse = await authenticatedFetch(
