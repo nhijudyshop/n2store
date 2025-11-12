@@ -368,12 +368,107 @@
             console.error('Error loading orders data:', error);
         }
 
-        // Show preview modal
+        // Show preview modal with loading state
         showPreviewModal();
+
+        // Fetch detailed order data from TPOS API
+        await fetchOrdersDetails();
     };
+
+    // Fetch Orders Details from TPOS API
+    async function fetchOrdersDetails() {
+        const selectedSTTs = Array.from(selectedSessionIndexes);
+        const modalBody = document.getElementById('previewModalBody');
+
+        // Show loading state
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted">Đang tải dữ liệu sản phẩm từ TPOS...</p>
+            </div>
+        `;
+
+        try {
+            // Fetch all orders in parallel
+            const fetchPromises = selectedSTTs.map(async stt => {
+                const originalOrder = ordersData.find(order => order.stt === stt);
+                if (!originalOrder || !originalOrder.Id) {
+                    return { stt, orderData: null };
+                }
+
+                try {
+                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${originalOrder.Id})?$expand=Details`;
+                    const response = await authenticatedFetch(apiUrl);
+
+                    if (!response.ok) {
+                        console.error(`Failed to fetch order ${originalOrder.Id}`);
+                        return { stt, orderData: null };
+                    }
+
+                    const orderData = await response.json();
+                    return { stt, orderData };
+                } catch (error) {
+                    console.error(`Error fetching order ${originalOrder.Id}:`, error);
+                    return { stt, orderData: null };
+                }
+            });
+
+            const results = await Promise.all(fetchPromises);
+
+            // Update ordersData with fetched details
+            results.forEach(result => {
+                const originalOrder = ordersData.find(order => order.stt === result.stt);
+                if (originalOrder && result.orderData) {
+                    // Parse products from Details
+                    originalOrder.products = (result.orderData.Details || []).map(detail => ({
+                        code: detail.Product?.Code || detail.ProductCode || '',
+                        name: detail.Product?.NameGet || detail.ProductName || '',
+                        nameGet: detail.Product?.NameGet || detail.ProductName || '',
+                        quantity: detail.Quantity || 0,
+                        price: detail.Price || 0,
+                        imageUrl: detail.Product?.Image1 || ''
+                    }));
+                }
+            });
+
+            // Re-render modal with fetched data
+            renderPreviewModal();
+
+        } catch (error) {
+            console.error('Error fetching orders details:', error);
+            modalBody.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <p class="text-danger">Lỗi: ${error.message}</p>
+                    <button class="btn btn-primary" onclick="uploadToTPOS()">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                </div>
+            `;
+        }
+    }
 
     // Show Preview Modal with Both Assigned and Original Products
     function showPreviewModal() {
+        // Show modal first with loading state
+        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+        previewModal.show();
+
+        const modalBody = document.getElementById('previewModalBody');
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted">Đang chuẩn bị...</p>
+            </div>
+        `;
+    }
+
+    // Render Preview Modal Content
+    function renderPreviewModal() {
         const selectedSTTs = Array.from(selectedSessionIndexes);
         const modalBody = document.getElementById('previewModalBody');
 
@@ -493,10 +588,6 @@
         });
 
         modalBody.innerHTML = html;
-
-        // Show modal
-        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-        previewModal.show();
     }
 
     // Confirm Upload - Proceed with Actual Upload
