@@ -149,33 +149,22 @@
         }
 
         .btn-hide {
-            position: absolute;
-            top: 4px;
-            right: 4px;
             background: rgba(255, 255, 255, 0.95);
             color: #ff9800;
             border: 2px solid #ff9800;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             cursor: pointer;
-            font-size: 14px;
-            display: flex;
+            font-size: 12px;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
             z-index: 10;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .grid-stat-sold:hover .btn-hide,
-        .btn-hide:hover {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
+            margin-left: 4px;
+            flex-shrink: 0;
         }
 
         .btn-hide:hover {
@@ -190,10 +179,14 @@
         }
 
         .btn-hide:disabled {
-            opacity: 0;
-            visibility: hidden;
+            opacity: 0.3;
             cursor: not-allowed;
-            pointer-events: none;
+        }
+
+        .grid-stat-label-with-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .grid-item-image {
@@ -1598,8 +1591,10 @@
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-sold">
-                                <button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">👁️</button>
-                                <div class="grid-stat-label">🛒 BÁN</div>
+                                <div class="grid-stat-label-with-button">
+                                    <div class="grid-stat-label">🛒 BÁN</div>
+                                    <button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">👁️</button>
+                                </div>
                                 ${isMerged && product.soldQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.soldQtyList.map(item => {
