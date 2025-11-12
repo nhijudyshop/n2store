@@ -1884,7 +1884,12 @@
                 });
             }
 
-            updateProductGrid();
+            // Fix: If searching, re-run search to update filteredProducts
+            if (searchKeyword) {
+                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+            } else {
+                updateProductGrid();
+            }
         }
 
         function updateVariantQty(variantId, change) {
@@ -1904,7 +1909,12 @@
                 });
             }
 
-            updateProductGrid();
+            // Fix: If searching, re-run search to update filteredProducts
+            if (searchKeyword) {
+                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+            } else {
+                updateProductGrid();
+            }
         }
 
         function hideProduct(productId) {
@@ -1923,7 +1933,12 @@
                 });
             }
 
-            updateProductGrid();
+            // Fix: If searching, re-run search to update filteredProducts
+            if (searchKeyword) {
+                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+            } else {
+                updateProductGrid();
+            }
             console.log(`👁️ Đã ẩn sản phẩm: ${product.NameGet}`);
         }
 
@@ -1948,7 +1963,12 @@
                 });
             }
 
-            updateProductGrid();
+            // Fix: If searching, re-run search to update filteredProducts
+            if (searchKeyword) {
+                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+            } else {
+                updateProductGrid();
+            }
             console.log(`👁️ Đã ẩn ${hiddenCount} biến thể`);
         }
 
@@ -1964,7 +1984,12 @@
                 });
             }
 
-            updateProductGrid();
+            // Fix: If searching, re-run search to update filteredProducts
+            if (searchKeyword) {
+                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+            } else {
+                updateProductGrid();
+            }
             console.log(`👁️ Đã hiện sản phẩm: ${product.NameGet}`);
         }
 
@@ -1991,7 +2016,12 @@
                 });
             }
 
-            updateProductGrid();
+            // Fix: If searching, re-run search to update filteredProducts
+            if (searchKeyword) {
+                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+            } else {
+                updateProductGrid();
+            }
         }
 
         function cleanupOldProducts() {
@@ -2101,7 +2131,12 @@
                     });
                 }
 
-                updateProductGrid();
+                // Fix: If searching, re-run search to update filteredProducts
+                if (searchKeyword) {
+                    performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+                } else {
+                    updateProductGrid();
+                }
 
                 console.log(`✅ Đã cập nhật sản phẩm ${product.NameGet}:`, {
                     oldTotal: oldQtyAvailable,
