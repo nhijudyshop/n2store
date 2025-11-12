@@ -803,65 +803,80 @@
         return mergedDetails;
     }
 
-    // Prepare payload for PUT request (similar to tab1-orders.js)
+    // Prepare payload for PUT request (exactly like tab1-orders.js)
     function prepareUploadPayload(orderData) {
         console.log('[PAYLOAD] Preparing payload for PUT request...');
 
-        // Clone data
+        // Clone data to avoid modifying original
         const payload = JSON.parse(JSON.stringify(orderData));
 
-        // Add @odata.context if missing
+        // CRITICAL: Add @odata.context (exactly as in tab1-orders.js)
         if (!payload['@odata.context']) {
             payload['@odata.context'] =
                 'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
             console.log('[PAYLOAD] ✓ Added @odata.context');
         }
 
-        // Process Details array
+        // Process Details array (exactly as in tab1-orders.js)
         if (payload.Details && Array.isArray(payload.Details)) {
             payload.Details = payload.Details.map((detail, index) => {
                 const cleaned = { ...detail };
 
-                // Remove Id if null/undefined (new products)
+                // Remove Id if null/undefined (new products that need to be created)
+                // Keep Id if exists (existing products that need to be updated)
                 if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
                     delete cleaned.Id;
-                    console.log(`[PAYLOAD] Detail[${index}]: Removed Id:null for ProductId:`, cleaned.ProductId);
+                    console.log(`[PAYLOAD FIX] Detail[${index}]: Removed Id:null for ProductId:`, cleaned.ProductId);
                 } else {
                     console.log(`[PAYLOAD] Detail[${index}]: Keeping existing Id:`, cleaned.Id);
                 }
 
-                // Ensure OrderId matches
+                // Ensure OrderId matches the parent order
                 cleaned.OrderId = payload.Id;
+
+                // Keep all other fields intact (ProductName, ProductNameGet, ProductCode, etc.)
+                // These fields are already in the detail object from TPOS API
 
                 return cleaned;
             });
         }
 
-        // Statistics
+        // Statistics for logging
         const newDetailsCount = payload.Details?.filter(d => !d.Id).length || 0;
         const existingDetailsCount = payload.Details?.filter(d => d.Id).length || 0;
 
-        console.log('[PAYLOAD] ✓ Payload prepared:', {
+        const summary = {
             orderId: payload.Id,
             orderCode: payload.Code,
+            topLevelFields: Object.keys(payload).length,
             detailsCount: payload.Details?.length || 0,
             newDetails: newDetailsCount,
-            existingDetails: existingDetailsCount
-        });
+            existingDetails: existingDetailsCount,
+            hasContext: !!payload['@odata.context'],
+            hasPartner: !!payload.Partner,
+            hasUser: !!payload.User,
+            hasCRMTeam: !!payload.CRMTeam,
+            hasRowVersion: !!payload.RowVersion
+        };
 
-        // Validation
+        console.log('[PAYLOAD] ✓ Payload prepared successfully:', summary);
+
+        // Validate critical fields
         if (!payload.RowVersion) {
             console.warn('[PAYLOAD] ⚠️ WARNING: Missing RowVersion!');
         }
+        if (!payload['@odata.context']) {
+            console.error('[PAYLOAD] ❌ ERROR: Missing @odata.context!');
+        }
 
-        // Check for null Id
+        // VALIDATION: Check for Id: null (this will cause API error)
         const detailsWithNullId = payload.Details?.filter(d =>
             d.hasOwnProperty('Id') && (d.Id === null || d.Id === undefined)
         ) || [];
 
         if (detailsWithNullId.length > 0) {
             console.error('[PAYLOAD] ❌ ERROR: Found details with null Id:', detailsWithNullId);
-            throw new Error('Payload contains details with null Id');
+            throw new Error('Payload contains details with null Id - this will cause API error');
         }
 
         return payload;
