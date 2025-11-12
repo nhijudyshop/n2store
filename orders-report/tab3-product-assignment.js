@@ -573,8 +573,18 @@
                     addSTTToAssignment(assignmentId, value, order);
                     input.value = '';
                     hideSTTSuggestions(assignmentId);
+
+                    // Keep focus on the input after render
+                    setTimeout(() => {
+                        const newInput = document.querySelector(`input[data-assignment-id="${assignmentId}"]`);
+                        if (newInput) {
+                            newInput.focus();
+                        }
+                    }, 50);
                 } else {
                     showNotification('Không tìm thấy STT: ' + value, 'error');
+                    // Keep focus on input even for errors
+                    input.focus();
                 }
             }
         }
@@ -646,6 +656,14 @@
         }
         hideSTTSuggestions(assignmentId);
         hideOrderTooltip(); // Hide tooltip after selection
+
+        // Keep focus on the input after render
+        setTimeout(() => {
+            const newInput = document.querySelector(`input[data-assignment-id="${assignmentId}"]`);
+            if (newInput) {
+                newInput.focus();
+            }
+        }, 50);
     }
 
     // Add STT to assignment (supports multiple STT, including duplicates)
@@ -820,17 +838,33 @@
             }
         });
 
-        // Listen for saved products from product-search
+        // Listen for saved products from product-search - AUTO ADD to assignments
+        let previousSavedProducts = [];
         database.ref('savedProducts').on('value', (snapshot) => {
             const data = snapshot.val();
-            if (data && Array.isArray(data)) {
-                savedProducts = data.filter(p => !p.isHidden); // Only show visible products
-                console.log(`📦 Đã đồng bộ ${savedProducts.length} sản phẩm từ product-search`);
-                renderSavedProductsList();
-            } else {
-                savedProducts = [];
-                renderSavedProductsList();
+            const newSavedProducts = data && Array.isArray(data) ? data.filter(p => !p.isHidden) : [];
+
+            // Detect newly added products (compare by Id and addedAt timestamp)
+            if (previousSavedProducts.length > 0) {
+                const previousIds = new Set(previousSavedProducts.map(p => p.Id));
+                const newProducts = newSavedProducts.filter(p => !previousIds.has(p.Id));
+
+                // Auto-add new products to assignment list
+                newProducts.forEach(product => {
+                    addSavedProductToAssignment(product.Id, product.NameGet, product.DefaultCode || '', product.imageUrl || '');
+                });
+
+                if (newProducts.length > 0) {
+                    console.log(`✨ Tự động thêm ${newProducts.length} sản phẩm mới vào danh sách gán`);
+                }
             }
+
+            // Update savedProducts and previous list
+            savedProducts = newSavedProducts;
+            previousSavedProducts = [...newSavedProducts];
+
+            console.log(`📦 Đã đồng bộ ${savedProducts.length} sản phẩm từ product-search`);
+            renderSavedProductsList();
         });
     }
 
