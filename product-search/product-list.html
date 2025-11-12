@@ -1077,6 +1077,15 @@
         let isMergeVariants = false; // Merge variants mode disabled by default
         let isHideEditControls = false; // Hide edit controls mode disabled by default
 
+        // Optimization: Cache normalized product names for faster search
+        let normalizedProductNames = new Map(); // productId -> normalized name
+
+        // Optimization: Debounce timers for search input and Firebase sync
+        let searchInputDebounceTimer = null;
+        let firebaseSyncDebounceTimer = null;
+        const SEARCH_INPUT_DEBOUNCE_MS = 300; // Wait 300ms after user stops typing
+        const FIREBASE_SYNC_DEBOUNCE_MS = 500; // Wait 500ms before syncing to Firebase
+
         const firebaseConfig = {
             apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
             authDomain: "product-s-98d2c.firebaseapp.com",
@@ -1176,10 +1185,8 @@
                     console.error('❌ Lỗi sync page:', error);
                 });
 
-                // Sync current search keyword when enabling sync mode
-                database.ref('syncSearchKeyword').set(searchKeyword).catch(error => {
-                    console.error('❌ Lỗi sync search keyword:', error);
-                });
+                // Sync current search data when enabling sync mode
+                syncSearchKeywordToFirebase(searchKeyword);
             }
 
             console.log(isSyncMode ? '🔄 Đã bật chế độ đồng bộ' : '⏸️ Đã tắt chế độ đồng bộ');
@@ -1391,6 +1398,9 @@
                         return timeB - timeA; // Descending order (newest first)
                     });
                     console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (sorted by newest first)');
+
+                    // Optimization: Rebuild normalized cache when products are loaded
+                    buildNormalizedCache(savedProducts);
                 } else {
                     savedProducts = [];
                     console.log('📭 No products found in Firebase');
@@ -1689,6 +1699,31 @@
             return str;
         }
 
+        // Optimization: Build cache of normalized product names
+        function buildNormalizedCache(products) {
+            normalizedProductNames.clear();
+            products.forEach(product => {
+                if (product && product.Id && product.NameGet) {
+                    normalizedProductNames.set(product.Id, removeVietnameseTones(product.NameGet));
+                }
+            });
+        }
+
+        // Optimization: Get normalized name from cache (or compute if not cached)
+        function getNormalizedName(product) {
+            if (!product || !product.Id) return '';
+
+            // Check cache first
+            if (normalizedProductNames.has(product.Id)) {
+                return normalizedProductNames.get(product.Id);
+            }
+
+            // Compute and cache
+            const normalized = removeVietnameseTones(product.NameGet || '');
+            normalizedProductNames.set(product.Id, normalized);
+            return normalized;
+        }
+
         function performSearch(keyword, syncToFirebase = true) {
             searchKeyword = keyword.trim();
 
@@ -1698,11 +1733,9 @@
                 currentPage = pageBeforeSearch;
                 updateProductGrid();
 
-                // Sync empty search to Firebase if in sync mode
+                // Sync empty search to Firebase if in sync mode (with debounce)
                 if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
-                    database.ref('syncSearchKeyword').set('').catch(error => {
-                        console.error('❌ Lỗi sync search keyword:', error);
-                    });
+                    syncSearchKeywordToFirebase('');
                 }
                 return;
             }
@@ -1721,23 +1754,19 @@
             // Apply merge first if enabled, then search on merged products
             const productsToSearch = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
 
+            // Optimization: Build cache if needed (only once per search)
+            if (normalizedProductNames.size === 0) {
+                buildNormalizedCache(productsToSearch);
+            }
+
             // Filter products that match
             const matchedProducts = productsToSearch.filter(product => {
-                // Match in product name (no Vietnamese tones)
-                const nameNoSign = removeVietnameseTones(product.NameGet || '');
+                // Optimization: Use cached normalized name
+                const nameNoSign = getNormalizedName(product);
                 const matchName = nameNoSign.includes(searchNoSign);
 
                 // Match in original name (lowercase, for special chars like [Q5X1])
                 const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
-
-                // Debug: Log products with bracket info
-                const bracket = product.NameGet?.match(/\[([^\]]+)\]/);
-                if (bracket) {
-                    const bracketContent = bracket[1].toLowerCase().trim();
-                    if (bracketContent.includes(searchLower)) {
-                        console.log(`✅ Match bracket: [${bracket[1]}] in "${product.NameGet}"`);
-                    }
-                }
 
                 return matchName || matchNameOriginal;
             });
@@ -1792,12 +1821,33 @@
 
             updateProductGrid();
 
-            // Sync search keyword to Firebase if in sync mode
+            // Sync search keyword to Firebase if in sync mode (with debounce)
             if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
-                database.ref('syncSearchKeyword').set(searchKeyword).catch(error => {
+                syncSearchKeywordToFirebase(searchKeyword);
+            }
+        }
+
+        // Optimization: Debounced Firebase sync for search keyword
+        function syncSearchKeywordToFirebase(keyword) {
+            // Clear existing timer
+            if (firebaseSyncDebounceTimer) {
+                clearTimeout(firebaseSyncDebounceTimer);
+            }
+
+            // Set new timer to sync after delay
+            firebaseSyncDebounceTimer = setTimeout(() => {
+                // Add timestamp to detect which search is most recent (avoid race conditions)
+                const syncData = {
+                    keyword: keyword || '',
+                    timestamp: Date.now()
+                };
+
+                database.ref('syncSearchData').set(syncData).catch(error => {
                     console.error('❌ Lỗi sync search keyword:', error);
                 });
-            }
+
+                console.log('🔄 Synced search to Firebase:', keyword);
+            }, FIREBASE_SYNC_DEBOUNCE_MS);
         }
 
         function clearSearch() {
@@ -1811,11 +1861,9 @@
 
             updateProductGrid();
 
-            // Sync empty search to Firebase if in sync mode
+            // Sync empty search to Firebase if in sync mode (with debounce)
             if (isSyncMode && !isSyncingFromFirebase) {
-                database.ref('syncSearchKeyword').set('').catch(error => {
-                    console.error('❌ Lỗi sync clear search:', error);
-                });
+                syncSearchKeywordToFirebase('');
             }
         }
 
@@ -2199,6 +2247,9 @@
                             return timeB - timeA; // Descending order (newest first)
                         });
 
+                        // Optimization: Rebuild normalized cache when products change
+                        buildNormalizedCache(savedProducts);
+
                         if (savedProducts.length === 0) {
                             showEmptyState();
                         } else {
@@ -2208,6 +2259,7 @@
                         console.log('🔥 Products synced from Firebase:', products.length, 'items (sorted by newest first)');
                     } else if (products === null || products === undefined) {
                         savedProducts = [];
+                        normalizedProductNames.clear(); // Clear cache when no products
                         showEmptyState();
                         console.log('🔥 No products in Firebase yet');
                     }
@@ -2236,41 +2288,49 @@
                 }
             });
 
-            // Listen for search keyword changes
-            database.ref('syncSearchKeyword').on('value', (snapshot) => {
-                const keyword = snapshot.val();
+            // Optimization: Listen for search data changes (with timestamp for race condition handling)
+            let lastSyncedSearchTimestamp = 0;
+            database.ref('syncSearchData').on('value', (snapshot) => {
+                const searchData = snapshot.val();
 
                 // Only sync if in sync mode and not already syncing
-                if (isSyncMode && !isSyncingFromFirebase) {
-                    const currentKeyword = document.getElementById('searchInput')?.value || '';
+                if (isSyncMode && !isSyncingFromFirebase && searchData) {
+                    const keyword = searchData.keyword || '';
+                    const timestamp = searchData.timestamp || 0;
 
-                    // Only update if keyword is different
-                    if (keyword !== currentKeyword) {
-                        isSyncingFromFirebase = true;
+                    // Optimization: Only apply if this is a newer search (prevent race conditions)
+                    if (timestamp > lastSyncedSearchTimestamp) {
+                        const currentKeyword = document.getElementById('searchInput')?.value || '';
 
-                        const searchInput = document.getElementById('searchInput');
-                        const searchClear = document.getElementById('searchClear');
-                        const searchContainer = document.getElementById('searchContainer');
+                        // Only update if keyword is different
+                        if (keyword !== currentKeyword) {
+                            isSyncingFromFirebase = true;
+                            lastSyncedSearchTimestamp = timestamp;
 
-                        if (searchInput) {
-                            searchInput.value = keyword || '';
+                            const searchInput = document.getElementById('searchInput');
+                            const searchClear = document.getElementById('searchClear');
+                            const searchContainer = document.getElementById('searchContainer');
 
-                            // Show/hide clear button
-                            if (keyword) {
-                                searchClear.classList.add('show');
-                                searchContainer.classList.add('active');
-                            } else {
-                                searchClear.classList.remove('show');
-                                searchContainer.classList.remove('active');
+                            if (searchInput) {
+                                searchInput.value = keyword;
+
+                                // Show/hide clear button
+                                if (keyword) {
+                                    searchClear.classList.add('show');
+                                    searchContainer.classList.add('active');
+                                } else {
+                                    searchClear.classList.remove('show');
+                                    searchContainer.classList.remove('active');
+                                }
                             }
+
+                            // Perform search without syncing back to Firebase (prevent loop)
+                            performSearch(keyword, false);
+
+                            console.log('🔥 Search synced from Firebase:', keyword, '@', new Date(timestamp).toLocaleTimeString());
+
+                            setTimeout(() => { isSyncingFromFirebase = false; }, 100);
                         }
-
-                        // Perform search without syncing back to Firebase (prevent loop)
-                        performSearch(keyword || '', false);
-
-                        console.log('🔥 Search keyword synced from Firebase:', keyword);
-
-                        setTimeout(() => { isSyncingFromFirebase = false; }, 100);
                     }
                 }
             });
@@ -2369,12 +2429,13 @@
                     console.error('❌ Lỗi sync initial page lên Firebase:', error);
                 });
 
-                // Load current search keyword from Firebase when in sync mode
+                // Load current search data from Firebase when in sync mode
                 try {
-                    const snapshot = await database.ref('syncSearchKeyword').once('value');
-                    const keyword = snapshot.val();
+                    const snapshot = await database.ref('syncSearchData').once('value');
+                    const searchData = snapshot.val();
 
-                    if (keyword) {
+                    if (searchData && searchData.keyword) {
+                        const keyword = searchData.keyword;
                         const searchInput = document.getElementById('searchInput');
                         const searchClear = document.getElementById('searchClear');
                         const searchContainer = document.getElementById('searchContainer');
@@ -2387,10 +2448,10 @@
 
                         // Perform initial search without syncing back
                         performSearch(keyword, false);
-                        console.log('🔥 Loaded search keyword from Firebase:', keyword);
+                        console.log('🔥 Loaded search from Firebase:', keyword);
                     }
                 } catch (error) {
-                    console.error('❌ Lỗi loading search keyword từ Firebase:', error);
+                    console.error('❌ Lỗi loading search từ Firebase:', error);
                 }
             }
 
@@ -2405,10 +2466,11 @@
                     searchInput.focus();
                 });
 
+                // Optimization: Debounced search input to reduce Firebase calls
                 searchInput.addEventListener('input', (e) => {
                     const value = e.target.value;
 
-                    // Show/hide clear button
+                    // Show/hide clear button (immediate visual feedback)
                     if (value) {
                         searchClear.classList.add('show');
                         searchContainer.classList.add('active'); // Keep visible while typing
@@ -2417,13 +2479,25 @@
                         searchContainer.classList.remove('active');
                     }
 
-                    // Perform search
-                    performSearch(value);
+                    // Clear existing debounce timer
+                    if (searchInputDebounceTimer) {
+                        clearTimeout(searchInputDebounceTimer);
+                    }
+
+                    // Perform search after user stops typing (debounced)
+                    searchInputDebounceTimer = setTimeout(() => {
+                        performSearch(value);
+                    }, SEARCH_INPUT_DEBOUNCE_MS);
                 });
 
-                // Handle Enter key
+                // Handle Enter key - perform search immediately (bypass debounce)
                 searchInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
+                        // Clear debounce timer
+                        if (searchInputDebounceTimer) {
+                            clearTimeout(searchInputDebounceTimer);
+                        }
+                        // Perform search immediately
                         performSearch(e.target.value);
                     }
                 });
