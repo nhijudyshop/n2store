@@ -578,7 +578,7 @@ async function fetchOrders() {
         const headers = await window.tokenManager.getAuthHeader();
 
         while (hasMore) {
-            const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true&$expand=Details`;
             const response = await fetch(url, {
                 headers: { ...headers, accept: "application/json" },
             });
