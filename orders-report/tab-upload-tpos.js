@@ -7,6 +7,7 @@
     let sessionIndexData = {}; // Group by SessionIndex
     let selectedSessionIndexes = new Set();
     let ordersData = []; // Orders data from tab1
+    let productNotes = {}; // Store notes for each product: { "stt-productId": "note text" }
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -453,13 +454,24 @@
                             }
                         }
 
+                        const productId = detail.ProductId;
+                        const noteKey = `${result.stt}-${productId}`;
+
+                        // Store existing note for this product
+                        if (detail.Note) {
+                            productNotes[noteKey] = detail.Note;
+                        }
+
                         return {
                             code: detail.Product?.Code || detail.ProductCode || '',
                             name: detail.Product?.NameGet || detail.ProductName || '',
                             nameGet: detail.Product?.NameGet || detail.ProductName || '',
                             quantity: detail.Quantity || 0,
                             price: detail.Price || 0,
-                            imageUrl: imageUrl
+                            imageUrl: imageUrl,
+                            productId: productId,
+                            detailId: detail.Id, // Store detail ID to update existing products
+                            note: detail.Note || '' // Store existing note
                         };
                     }));
 
@@ -502,6 +514,12 @@
         `;
     }
 
+    // Update Product Note
+    window.updateProductNote = function(noteKey, value) {
+        productNotes[noteKey] = value;
+        console.log(`📝 Updated note for ${noteKey}:`, value);
+    };
+
     // Render Preview Modal Content
     function renderPreviewModal() {
         const selectedSTTs = Array.from(selectedSessionIndexes);
@@ -540,7 +558,7 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <!-- Assigned Products -->
+                            <!-- Assigned Products with Note -->
                             <div class="col-md-6">
                                 <h6 class="text-success">
                                     <i class="fas fa-plus-circle"></i> Sản phẩm đã gán (${Object.keys(assignedProductCounts).length})
@@ -550,10 +568,14 @@
                                         <tr>
                                             <th>Sản phẩm</th>
                                             <th class="text-center">SL</th>
+                                            <th style="width: 200px;">Note</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${Object.values(assignedProductCounts).map(product => `
+                                        ${Object.values(assignedProductCounts).map(product => {
+                                            const noteKey = `${stt}-${product.productId}`;
+                                            const existingNote = productNotes[noteKey] || '';
+                                            return `
                                             <tr>
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
@@ -567,13 +589,23 @@
                                                 <td class="text-center">
                                                     <span class="badge bg-success">${product.count}</span>
                                                 </td>
+                                                <td>
+                                                    <input
+                                                        type="text"
+                                                        class="form-control form-control-sm"
+                                                        placeholder="Nhập ghi chú..."
+                                                        value="${existingNote}"
+                                                        data-note-key="${noteKey}"
+                                                        onchange="updateProductNote('${noteKey}', this.value)"
+                                                    />
+                                                </td>
                                             </tr>
-                                        `).join('')}
+                                        `}).join('')}
                                     </tbody>
                                 </table>
                             </div>
 
-                            <!-- Original Order Products -->
+                            <!-- Original Order Products with Note -->
                             <div class="col-md-6">
                                 <h6 class="text-info">
                                     <i class="fas fa-box"></i> Sản phẩm có sẵn (${orderProducts.length})
@@ -585,6 +617,7 @@
                                                 <th>Sản phẩm</th>
                                                 <th class="text-center">SL</th>
                                                 <th class="text-end">Giá</th>
+                                                <th style="width: 150px;">Note hiện tại</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -604,6 +637,9 @@
                                                     </td>
                                                     <td class="text-end">
                                                         <span style="font-weight: 600; color: #3b82f6;">${(product.price || 0).toLocaleString('vi-VN')}đ</span>
+                                                    </td>
+                                                    <td>
+                                                        <small class="text-muted">${product.note || '-'}</small>
                                                     </td>
                                                 </tr>
                                             `).join('')}
@@ -796,6 +832,7 @@
     async function prepareUploadDetails(orderData, sessionData) {
         const existingDetails = orderData.Details || [];
         const assignedProducts = sessionData.products || [];
+        const stt = sessionData.stt; // Get STT for note lookup
 
         console.log(`\n📊 Preparing upload details:`);
         console.log(`   Existing products: ${existingDetails.length}`);
@@ -831,12 +868,23 @@
             const assignedData = assignedByProductId[productId];
             const existingDetail = existingByProductId[productId];
 
+            // Get note for this product
+            const noteKey = `${stt}-${productId}`;
+            const note = productNotes[noteKey] || null;
+
             if (existingDetail) {
                 // ============================================
-                // PRODUCT EXISTS - Increase quantity
+                // PRODUCT EXISTS - Increase quantity and update note
                 // ============================================
                 const oldQty = existingDetail.Quantity || 0;
                 existingDetail.Quantity = oldQty + assignedData.count;
+
+                // Update note if provided
+                if (note !== null && note.trim() !== '') {
+                    existingDetail.Note = note;
+                    console.log(`   📝 Updated note for ${existingDetail.ProductCode}: "${note}"`);
+                }
+
                 console.log(`   ✏️ Updated ${existingDetail.ProductCode}: ${oldQty} → ${existingDetail.Quantity} (+${assignedData.count})`);
             } else {
                 // ============================================
@@ -869,7 +917,7 @@
                             fullProduct.ListPrice ||
                             fullProduct.StandardPrice ||
                             0,
-                        Note: null,
+                        Note: note && note.trim() !== '' ? note : null, // Add note from input
                         UOMId: fullProduct.UOM?.Id || 1,
                         Factor: 1,
                         Priority: 0,
@@ -894,6 +942,10 @@
                         // Creator ID
                         CreatedById: orderData.UserId || orderData.CreatedById,
                     };
+
+                    if (note && note.trim() !== '') {
+                        console.log(`   📝 Added note for new product ${assignedData.productCode}: "${note}"`);
+                    }
 
                     mergedDetails.push(newProduct);
                     console.log(`   ✅ Added new product with computed fields:`, newProduct);
