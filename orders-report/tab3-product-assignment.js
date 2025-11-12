@@ -44,6 +44,13 @@
         return str;
     }
 
+    function extractProductCode(productName) {
+        if (!productName) return '';
+        // Extract code from square brackets [CODE]
+        const match = productName.match(/\[([^\]]+)\]/);
+        return match ? match[1].trim() : '';
+    }
+
     function formatCurrency(amount) {
         if (!amount) return '0đ';
         return new Intl.NumberFormat('vi-VN', {
@@ -177,12 +184,16 @@
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-            productsData = jsonData.map(row => ({
-                id: row['Id sản phẩm (*)'],
-                name: row['Tên sản phẩm'],
-                nameNoSign: removeVietnameseTones(row['Tên sản phẩm'] || ''),
-                code: row['Mã sản phẩm']
-            }));
+            productsData = jsonData.map(row => {
+                const productName = row['Tên sản phẩm'];
+                const codeFromName = extractProductCode(productName);
+                return {
+                    id: row['Id sản phẩm (*)'],
+                    name: productName,
+                    nameNoSign: removeVietnameseTones(productName || ''),
+                    code: codeFromName || row['Mã sản phẩm'] // Prefer code from name, fallback to default code
+                };
+            });
 
             console.log(`Đã load ${productsData.length} sản phẩm`);
         } catch (error) {
@@ -320,11 +331,12 @@
             }
 
             // Add to assignments
+            const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
             const assignment = {
                 id: Date.now(),
                 productId: productData.Id,
                 productName: productData.NameGet,
-                productCode: productData.DefaultCode || '',
+                productCode: productCode,
                 imageUrl: imageUrl,
                 sttList: [] // Changed from sttNumber to sttList array
             };
@@ -359,12 +371,15 @@
                 return;
             }
 
+            // Extract code from product name (in square brackets)
+            const codeFromName = extractProductCode(productName);
+
             // Add to assignments
             const assignment = {
                 id: Date.now(),
                 productId: productId,
                 productName: productName,
-                productCode: productCode || '',
+                productCode: codeFromName || productCode || '',
                 imageUrl: imageUrl,
                 sttList: []
             };
@@ -422,12 +437,15 @@
                 continue;
             }
 
+            // Extract code from product name (in square brackets)
+            const codeFromName = extractProductCode(product.NameGet);
+
             // Add to assignments
             const assignment = {
                 id: Date.now() + addedCount, // Ensure unique IDs
                 productId: product.Id,
                 productName: product.NameGet,
-                productCode: product.Code || product.DefaultCode || '',
+                productCode: codeFromName || product.Code || product.DefaultCode || '',
                 imageUrl: product.imageUrl || '',
                 sttList: []
             };
@@ -490,7 +508,9 @@
             // Check if already in assignments
             const isAlreadyAdded = assignments.some(a => a.productId === product.Id);
 
-            const productCode = product.Code || product.DefaultCode || '';
+            // Extract code from product name (in square brackets)
+            const codeFromName = extractProductCode(product.NameGet);
+            const productCode = codeFromName || product.Code || product.DefaultCode || '';
 
             return `
                 <div class="saved-product-item ${isAlreadyAdded ? 'already-added' : ''}"
