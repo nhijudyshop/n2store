@@ -1553,12 +1553,15 @@
             const currentProducts = displayProducts.slice(startIndex, endIndex);
 
             productGrid.innerHTML = currentProducts.map(product => {
-                // Add cache-busting version to image URL
+                // Add cache-busting version to image URL (only for HTTP URLs, not base64)
                 // Use lastRefreshed (if exists) or addedAt (fallback) or Id (final fallback)
                 const cacheVersion = product.lastRefreshed || product.addedAt || product.Id;
-                const imageUrlWithVersion = product.imageUrl
-                    ? `${product.imageUrl}${product.imageUrl.includes('?') ? '&' : '?'}v=${cacheVersion}`
-                    : null;
+                let imageUrlWithVersion = product.imageUrl;
+
+                // Only add cache-busting parameter for HTTP URLs, not base64 data URIs
+                if (imageUrlWithVersion && !imageUrlWithVersion.startsWith('data:')) {
+                    imageUrlWithVersion = `${imageUrlWithVersion}${imageUrlWithVersion.includes('?') ? '&' : '?'}v=${cacheVersion}`;
+                }
 
                 const imageHtml = imageUrlWithVersion
                     ? `<img src="${imageUrlWithVersion}" class="grid-item-image" alt="${product.NameGet}">`
