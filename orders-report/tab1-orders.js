@@ -420,16 +420,16 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
         let url;
         if (startDateLocal && endDateLocal) {
-            // Sử dụng date filter với skip
+            // Sử dụng date filter với skip - Tải 3000 đơn hàng
             const startDate = convertToUTC(startDateLocal);
             const endDate = convertToUTC(endDateLocal);
             const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
-            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}, autoLoad=${autoLoad}`);
         } else {
-            // Fallback: không có date filter
-            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=1000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
+            // Fallback: không có date filter - Tải 3000 đơn hàng
+            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter, autoLoad=${autoLoad}`);
         }
@@ -445,39 +445,83 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
         console.log(`[CAMPAIGNS] Loaded ${orders.length} orders out of ${totalCount} total`);
 
-        const campaignMap = new Map();
+        // 🎯 GỘP CÁC CHIẾN DỊCH CÙNG NGÀY
+        const campaignsByDate = new Map(); // key: date (YYYY-MM-DD), value: array of campaigns
+
         orders.forEach((order) => {
-            if (
-                order.LiveCampaignId &&
-                !campaignMap.has(order.LiveCampaignId)
-            ) {
-                campaignMap.set(order.LiveCampaignId, {
+            if (!order.LiveCampaignId) return;
+
+            // Lấy ngày từ DateCreated (bỏ phần giờ)
+            const dateCreated = new Date(order.DateCreated);
+            const dateKey = `${dateCreated.getFullYear()}-${String(dateCreated.getMonth() + 1).padStart(2, '0')}-${String(dateCreated.getDate()).padStart(2, '0')}`;
+
+            if (!campaignsByDate.has(dateKey)) {
+                campaignsByDate.set(dateKey, []);
+            }
+
+            const dateCampaigns = campaignsByDate.get(dateKey);
+
+            // Kiểm tra xem campaign này đã có trong ngày này chưa
+            const existingCampaign = dateCampaigns.find(c => c.campaignId === order.LiveCampaignId);
+
+            if (!existingCampaign) {
+                dateCampaigns.push({
                     campaignId: order.LiveCampaignId,
-                    displayName: order.LiveCampaignName || "Không có tên",
-                    latestDate: order.DateCreated,
+                    campaignName: order.LiveCampaignName || "Không có tên",
+                    dateCreated: order.DateCreated
                 });
             }
         });
-        const campaigns = Array.from(campaignMap.values()).sort(
-            (a, b) => new Date(b.latestDate) - new Date(a.latestDate),
-        );
 
-        console.log(`[CAMPAIGNS] Found ${campaigns.length} unique campaigns`);
+        // Tạo danh sách campaigns đã gộp theo ngày
+        const mergedCampaigns = [];
+
+        // Sort dates descending
+        const sortedDates = Array.from(campaignsByDate.keys()).sort((a, b) => b.localeCompare(a));
+
+        sortedDates.forEach(dateKey => {
+            const dateCampaigns = campaignsByDate.get(dateKey);
+
+            if (dateCampaigns.length > 0) {
+                // Gộp tất cả campaigns trong cùng 1 ngày
+                const campaignIds = dateCampaigns.map(c => c.campaignId);
+                const campaignNames = dateCampaigns.map(c => c.campaignName);
+
+                // Tạo display name
+                let displayName;
+                if (dateCampaigns.length === 1) {
+                    displayName = `[${dateKey}] ${campaignNames[0]}`;
+                } else {
+                    displayName = `[${dateKey}] ${dateCampaigns.length} chiến dịch: ${campaignNames.join(', ')}`;
+                }
+
+                mergedCampaigns.push({
+                    campaignId: campaignIds, // Array of IDs for campaigns on same day
+                    campaignIds: campaignIds, // Keep both for clarity
+                    displayName: displayName,
+                    date: dateKey,
+                    latestDate: dateCampaigns[0].dateCreated,
+                    count: dateCampaigns.length
+                });
+            }
+        });
+
+        console.log(`[CAMPAIGNS] Found ${mergedCampaigns.length} unique dates with campaigns (merged from ${orders.length} orders)`);
 
         showLoading(false);
 
         // Populate dropdown với autoLoad parameter
-        await populateCampaignFilter(campaigns, autoLoad);
+        await populateCampaignFilter(mergedCampaigns, autoLoad);
 
         // Hiển thị thông báo (chỉ khi không auto-load để tránh spam)
         if (!autoLoad) {
             if (window.notificationManager) {
                 window.notificationManager.success(
-                    `Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng (${skip + 1}-${skip + orders.length}/${totalCount})`,
+                    `Tải thành công ${mergedCampaigns.length} ngày chiến dịch từ ${orders.length} đơn hàng (${skip + 1}-${skip + orders.length}/${totalCount})`,
                     3000
                 );
             } else {
-                showInfoBanner(`✅ Tải thành công ${campaigns.length} chiến dịch từ ${orders.length} đơn hàng`);
+                showInfoBanner(`✅ Tải thành công ${mergedCampaigns.length} ngày chiến dịch từ ${orders.length} đơn hàng`);
             }
         }
 
@@ -496,9 +540,10 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 async function populateCampaignFilter(campaigns, autoLoad = false) {
     const select = document.getElementById("campaignFilter");
     select.innerHTML = '<option value="">-- Chọn chiến dịch --</option>';
-    campaigns.forEach((campaign) => {
+    campaigns.forEach((campaign, index) => {
         const option = document.createElement("option");
-        option.value = campaign.campaignId;
+        // Sử dụng index làm value vì campaignId giờ là array
+        option.value = index;
         option.textContent = campaign.displayName;
         option.dataset.campaign = JSON.stringify(campaign);
         select.appendChild(option);
@@ -506,7 +551,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
     if (campaigns.length > 0 && autoLoad) {
         // Tự động chọn chiến dịch đầu tiên
-        select.value = campaigns[0].campaignId;
+        select.value = 0;
         handleCampaignChange();
 
         // 🎯 TỰ ĐỘNG TẢI DỮ LIỆU NGAY LẬP TỨC
@@ -525,7 +570,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
         await handleSearch();
     } else if (campaigns.length > 0) {
         // Chỉ chọn campaign đầu tiên, không auto-load
-        select.value = campaigns[0].campaignId;
+        select.value = 0;
         handleCampaignChange();
         console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên:', campaigns[0].displayName);
     }
@@ -540,20 +585,20 @@ function handleCampaignChange() {
 }
 
 async function handleSearch() {
-    if (!selectedCampaign?.campaignId) {
+    if (!selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
         alert("Vui lòng chọn chiến dịch");
         return;
     }
-    
+
     // Validate dates
     const startDateValue = document.getElementById("startDate").value;
     const endDateValue = document.getElementById("endDate").value;
-    
+
     if (!startDateValue || !endDateValue) {
         alert("Vui lòng chọn khoảng thời gian (Từ ngày - Đến ngày)");
         return;
     }
-    
+
     window.cacheManager.clear("orders");
     searchQuery = "";
     document.getElementById("tableSearchInput").value = "";
@@ -569,8 +614,23 @@ async function fetchOrders() {
             document.getElementById("startDate").value,
         );
         const endDate = convertToUTC(document.getElementById("endDate").value);
-        const campaignId = selectedCampaign.campaignId;
-        const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and LiveCampaignId eq ${campaignId}`;
+
+        // Xử lý campaignId có thể là array (nhiều campaigns cùng ngày) hoặc single value
+        const campaignIds = selectedCampaign.campaignIds || (Array.isArray(selectedCampaign.campaignId) ? selectedCampaign.campaignId : [selectedCampaign.campaignId]);
+
+        // Tạo filter cho nhiều campaign IDs
+        let campaignFilter;
+        if (campaignIds.length === 1) {
+            campaignFilter = `LiveCampaignId eq ${campaignIds[0]}`;
+        } else {
+            // Tạo filter dạng: (LiveCampaignId eq 123 or LiveCampaignId eq 456 or ...)
+            const campaignConditions = campaignIds.map(id => `LiveCampaignId eq ${id}`).join(' or ');
+            campaignFilter = `(${campaignConditions})`;
+        }
+
+        const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and ${campaignFilter}`;
+        console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
+
         const PAGE_SIZE = 1000;
         let skip = 0;
         let hasMore = true;
