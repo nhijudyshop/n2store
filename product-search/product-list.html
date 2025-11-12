@@ -1562,13 +1562,19 @@
                 const isMerged = product.isMerged || false;
                 const disableEdit = isMerged ? 'disabled title="Tắt chế độ gộp để chỉnh sửa"' : '';
 
+                // For hide button, pass variant IDs if merged
+                const hideButtonOnclick = isMerged && product.variants
+                    ? `hideProducts([${product.variants.map(v => v.Id).join(',')}])`
+                    : `hideProduct(${product.Id})`;
+                const hideButtonTitle = isMerged ? 'Ẩn tất cả biến thể' : 'Ẩn sản phẩm';
+
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
                         ${imageHtml}
                         <div class="grid-item-name">${product.NameGet}</div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
-                                <button class="btn-hide" onclick="hideProduct(${product.Id})" title="${isMerged ? 'Tắt chế độ gộp để ẩn sản phẩm' : 'Ẩn sản phẩm'}" ${isMerged ? 'disabled' : ''}>👁️</button>
+                                <button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">👁️</button>
                                 <div class="grid-stat-label">📦 TỔNG</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
@@ -1866,6 +1872,31 @@
 
             updateProductGrid();
             console.log(`👁️ Đã ẩn sản phẩm: ${product.NameGet}`);
+        }
+
+        function hideProducts(productIds) {
+            const count = productIds.length;
+            if (!confirm(`Bạn có chắc muốn ẩn tất cả ${count} biến thể?`)) {
+                return;
+            }
+
+            let hiddenCount = 0;
+            productIds.forEach(productId => {
+                const product = savedProducts.find(p => p.Id === productId);
+                if (product) {
+                    product.isHidden = true;
+                    hiddenCount++;
+                }
+            });
+
+            if (hiddenCount > 0 && !isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
+            }
+
+            updateProductGrid();
+            console.log(`👁️ Đã ẩn ${hiddenCount} biến thể`);
         }
 
         function unhideProduct(productId) {
