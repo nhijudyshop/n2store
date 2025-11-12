@@ -824,6 +824,16 @@
 
                     const productData = await response.json();
                     console.log(`   ✅ Fetched product: ${productData.Code} - ${productData.NameGet}`);
+                    console.log(`   📋 Product data fields:`, {
+                        Code: productData.Code,
+                        Name: productData.Name,
+                        NameGet: productData.NameGet,
+                        Price: productData.Price,
+                        UOMId: productData.UOMId,
+                        UOMName: productData.UOMName,
+                        Weight: productData.Weight,
+                        Image1: productData.Image1
+                    });
                     return {
                         productId: productId,
                         productData: productData
@@ -870,6 +880,7 @@
 
                 mergedDetails.push(newDetail);
                 console.log(`   ✅ Added new product: ${newDetail.ProductCode} x${newDetail.Quantity}`);
+                console.log(`   🔍 newDetail structure:`, JSON.stringify(newDetail, null, 2));
             });
         }
 
@@ -893,7 +904,18 @@
 
         // Process Details array (exactly as in tab1-orders.js)
         if (payload.Details && Array.isArray(payload.Details)) {
+            console.log(`[PAYLOAD] Processing ${payload.Details.length} details...`);
+
             payload.Details = payload.Details.map((detail, index) => {
+                console.log(`[PAYLOAD] Detail[${index}] BEFORE processing:`, {
+                    hasId: !!detail.Id,
+                    ProductId: detail.ProductId,
+                    ProductIdType: typeof detail.ProductId,
+                    ProductCode: detail.ProductCode,
+                    UOMName: detail.UOMName,
+                    hasAllFields: !!(detail.ProductCode && detail.Note !== undefined && detail.Priority !== undefined)
+                });
+
                 const cleaned = { ...detail };
 
                 // CRITICAL: Remove nested "Product" object (only for GET, not for PUT)
@@ -906,7 +928,7 @@
                 // Keep Id if exists (existing products that need to be updated)
                 if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
                     delete cleaned.Id;
-                    console.log(`[PAYLOAD FIX] Detail[${index}]: Removed Id:null for ProductId:`, cleaned.ProductId);
+                    console.log(`[PAYLOAD FIX] Detail[${index}]: Removed Id:null for ProductId:`, cleaned.ProductId, `(type: ${typeof cleaned.ProductId})`);
                 } else {
                     console.log(`[PAYLOAD] Detail[${index}]: Keeping existing Id:`, cleaned.Id);
                 }
