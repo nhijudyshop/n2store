@@ -1001,6 +1001,18 @@
         }
     });
 
+    // Ensure products are synced after initialization
+    async function ensureProductsSync() {
+        // Wait a bit for Firebase to sync
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Check if there are saved products that need to be added
+        if (savedProducts.length > 0) {
+            console.log('🔍 Kiểm tra sync sản phẩm sau khi load trang...');
+            await autoAddAllSavedProducts();
+        }
+    }
+
     // Initialize on load
     window.addEventListener('load', async () => {
         try {
@@ -1010,6 +1022,9 @@
             setupFirebaseListeners();
             await loadProductsData();
             updateOrdersCount(); // Update initial count
+
+            // Ensure products are synced after Firebase has time to load
+            ensureProductsSync();
         } catch (error) {
             console.error('Initialization error:', error);
             showNotification('Lỗi khởi tạo: ' + error.message, 'error');
