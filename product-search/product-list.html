@@ -1562,11 +1562,18 @@
                 const isMerged = product.isMerged || false;
                 const disableEdit = isMerged ? 'disabled title="Tắt chế độ gộp để chỉnh sửa"' : '';
 
-                // For hide button, pass variant IDs if merged
-                const hideButtonOnclick = isMerged && product.variants
-                    ? `hideProducts([${product.variants.map(v => v.Id).join(',')}])`
-                    : `hideProduct(${product.Id})`;
-                const hideButtonTitle = isMerged ? 'Ẩn tất cả biến thể' : 'Ẩn sản phẩm';
+                // For hide button, create proper onclick handler
+                let hideButtonOnclick;
+                let hideButtonTitle;
+
+                if (isMerged && product.variants && product.variants.length > 0) {
+                    const variantIds = product.variants.map(v => v.Id).join(',');
+                    hideButtonOnclick = `hideProducts([${variantIds}])`;
+                    hideButtonTitle = 'Ẩn tất cả biến thể';
+                } else {
+                    hideButtonOnclick = `hideProduct(${product.Id})`;
+                    hideButtonTitle = 'Ẩn sản phẩm';
+                }
 
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
