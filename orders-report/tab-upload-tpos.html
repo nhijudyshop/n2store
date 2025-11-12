@@ -147,6 +147,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- Edit Order Modal -->
+        <div class="modal fade" id="editOrderModal" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-edit"></i> Xem chi tiết đơn hàng
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="closeEditModal()"></button>
+                    </div>
+                    <div class="modal-body" id="editModalBody">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeEditModal()">
+                            <i class="fas fa-times"></i> Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->
