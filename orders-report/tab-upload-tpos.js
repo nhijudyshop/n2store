@@ -399,7 +399,7 @@
                 }
 
                 try {
-                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${originalOrder.Id})?$expand=Details`;
+                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${originalOrder.Id})?$expand=Details,Partner,User,CRMTeam`;
                     const response = await authenticatedFetch(apiUrl);
 
                     if (!response.ok) {
