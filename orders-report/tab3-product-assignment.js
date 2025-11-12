@@ -7,6 +7,7 @@
     let ordersData = [];
     let assignments = [];
     let savedProducts = []; // Products from product-search
+    let previousSavedProducts = []; // Track previous state for auto-add detection
     let isLoadingProducts = false;
     let bearerToken = null;
     let tokenExpiry = null;
@@ -839,24 +840,33 @@
         });
 
         // Listen for saved products from product-search - AUTO ADD to assignments
-        let previousSavedProducts = [];
         database.ref('savedProducts').on('value', (snapshot) => {
             const data = snapshot.val();
             const newSavedProducts = data && Array.isArray(data) ? data.filter(p => !p.isHidden) : [];
 
-            // Detect newly added products (compare by Id and addedAt timestamp)
+            console.log(`🔄 Firebase savedProducts update received:`, {
+                previousCount: previousSavedProducts.length,
+                newCount: newSavedProducts.length
+            });
+
+            // Detect newly added products (compare by Id)
             if (previousSavedProducts.length > 0) {
                 const previousIds = new Set(previousSavedProducts.map(p => p.Id));
                 const newProducts = newSavedProducts.filter(p => !previousIds.has(p.Id));
 
-                // Auto-add new products to assignment list
-                newProducts.forEach(product => {
-                    addSavedProductToAssignment(product.Id, product.NameGet, product.DefaultCode || '', product.imageUrl || '');
-                });
+                console.log(`🔍 Detected ${newProducts.length} new products:`, newProducts.map(p => ({ Id: p.Id, Name: p.NameGet })));
 
+                // Auto-add new products to assignment list
                 if (newProducts.length > 0) {
+                    newProducts.forEach(product => {
+                        console.log(`➕ Auto-adding product: ${product.NameGet} (ID: ${product.Id})`);
+                        addSavedProductToAssignment(product.Id, product.NameGet, product.DefaultCode || '', product.imageUrl || '');
+                    });
                     console.log(`✨ Tự động thêm ${newProducts.length} sản phẩm mới vào danh sách gán`);
+                    showNotification(`✨ Tự động thêm ${newProducts.length} sản phẩm mới vào danh sách gán`);
                 }
+            } else {
+                console.log(`📌 Initial load: ${newSavedProducts.length} products available (not auto-adding)`);
             }
 
             // Update savedProducts and previous list
