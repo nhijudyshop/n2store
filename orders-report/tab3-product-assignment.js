@@ -1091,7 +1091,6 @@
         });
 
         // Update count badge with filtered results
-        const countSpan = document.getElementById('assignmentCount');
         if (visibleCount < assignments.length) {
             countSpan.textContent = `${visibleCount}/${assignments.length}`;
         } else {
