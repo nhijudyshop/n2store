@@ -1045,6 +1045,23 @@
         .btn-remove:hover {
             background: #c82333;
         }
+
+        .btn-change-image {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-change-image:hover {
+            background: #138496;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -1212,7 +1229,8 @@
                 imageUrl: product.imageUrl ? String(product.imageUrl) : null,
                 ProductTmplId: typeof product.ProductTmplId === 'object' ? product.ProductTmplId?.Id : product.ProductTmplId,
                 addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
-                isHidden: product.isHidden || false // Hidden status
+                isHidden: product.isHidden || false, // Hidden status
+                lastRefreshed: product.lastRefreshed || null // Timestamp for image cache-busting
             };
             return cleanProduct;
         }
@@ -1739,6 +1757,7 @@
                             </div>
                         </div>
                         <div class="preview-actions">
+                            <button class="btn-change-image" onclick="changeProductImage(${product.Id})">🖼️ Đổi ảnh</button>
                             <button class="btn-remove" onclick="removeProduct(${product.Id})">🗑️ Xóa</button>
                         </div>
                     </div>
@@ -1794,6 +1813,7 @@
                             </div>
                         </div>
                         <div class="preview-actions">
+                            <button class="btn-change-image" onclick="changeProductImage(${product.Id})">🖼️ Đổi ảnh</button>
                             <button class="btn-remove" onclick="unhideProduct(${product.Id})" style="background: #28a745;">👁️ Hiện</button>
                             <button class="btn-remove" onclick="removeProduct(${product.Id})">🗑️ Xóa</button>
                         </div>
@@ -1866,6 +1886,47 @@
 
                 showNotificationMessage('🗑️ Đã xóa sản phẩm');
             }
+        }
+
+        function changeProductImage(productId) {
+            const product = savedProducts.find(p => p.Id === productId);
+            if (!product) {
+                showNotificationMessage('❌ Không tìm thấy sản phẩm');
+                return;
+            }
+
+            const currentImageUrl = product.imageUrl || '';
+            const newImageUrl = prompt(
+                `Nhập URL hình ảnh mới cho "${product.NameGet}":\n\n(Để trống để xóa hình ảnh)`,
+                currentImageUrl
+            );
+
+            // User cancelled the prompt
+            if (newImageUrl === null) {
+                return;
+            }
+
+            // Update the image URL (empty string if user wants to remove the image)
+            const trimmedUrl = newImageUrl.trim();
+            product.imageUrl = trimmedUrl || null;
+
+            // Add timestamp for cache-busting on product-list page
+            product.lastRefreshed = Date.now();
+
+            // Sync to Firebase
+            if (!isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).then(() => {
+                    console.log(`✅ Updated image for product ${product.NameGet}`);
+                    showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
+                }).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                    showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
+                });
+            }
+
+            // Update UI
+            updateProductListPreview();
+            updateHiddenProductListPreview();
         }
 
         function performListSearch(keyword) {
