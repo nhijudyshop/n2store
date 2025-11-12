@@ -534,14 +534,23 @@
             // Get order products from the fetched data (stored temporarily)
             const orderProducts = data.fetchedProducts || [];
 
-            // Count assigned products
+            // Create map of existing products by ProductId for quick lookup
+            const existingProductsMap = {};
+            orderProducts.forEach(product => {
+                if (product.productId) {
+                    existingProductsMap[product.productId] = product;
+                }
+            });
+
+            // Count assigned products and check if they exist
             const assignedProductCounts = {};
             data.products.forEach(product => {
                 const key = product.productId;
                 if (!assignedProductCounts[key]) {
                     assignedProductCounts[key] = {
                         ...product,
-                        count: 0
+                        count: 0,
+                        isExisting: !!existingProductsMap[product.productId] // Check if product exists in order
                     };
                 }
                 assignedProductCounts[key].count++;
@@ -561,7 +570,7 @@
                             <!-- Assigned Products with Note -->
                             <div class="col-md-6">
                                 <h6 class="text-success">
-                                    <i class="fas fa-plus-circle"></i> Sản phẩm đã gán (${Object.keys(assignedProductCounts).length})
+                                    <i class="fas fa-plus-circle"></i> Sản phẩm sẽ upload (${Object.keys(assignedProductCounts).length})
                                 </h6>
                                 <table class="table table-sm">
                                     <thead>
@@ -575,19 +584,28 @@
                                         ${Object.values(assignedProductCounts).map(product => {
                                             const noteKey = `${stt}-${product.productId}`;
                                             const existingNote = productNotes[noteKey] || '';
+
+                                            // Badge to show if product is new or existing
+                                            const statusBadge = product.isExisting
+                                                ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, sẽ cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
+                                                : '<span class="badge bg-success ms-2" title="Sản phẩm mới sẽ được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
+
                                             return `
-                                            <tr>
+                                            <tr class="${product.isExisting ? 'table-warning' : 'table-success'}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
                                                         ${product.imageUrl ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                         <div>
                                                             <div style="font-weight: 600;">${product.productName}</div>
-                                                            <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
+                                                            <div style="font-size: 12px; color: #6b7280;">
+                                                                ${product.productCode || 'N/A'}
+                                                                ${statusBadge}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td class="text-center">
-                                                    <span class="badge bg-success">${product.count}</span>
+                                                    <span class="badge ${product.isExisting ? 'bg-warning text-dark' : 'bg-success'}">${product.count}</span>
                                                 </td>
                                                 <td>
                                                     <input
@@ -605,10 +623,10 @@
                                 </table>
                             </div>
 
-                            <!-- Original Order Products with Note -->
+                            <!-- Original Order Products with Note (Editable) -->
                             <div class="col-md-6">
                                 <h6 class="text-info">
-                                    <i class="fas fa-box"></i> Sản phẩm có sẵn (${orderProducts.length})
+                                    <i class="fas fa-box"></i> Sản phẩm có sẵn trong đơn (${orderProducts.length})
                                 </h6>
                                 ${orderProducts.length > 0 ? `
                                     <table class="table table-sm">
@@ -617,18 +635,28 @@
                                                 <th>Sản phẩm</th>
                                                 <th class="text-center">SL</th>
                                                 <th class="text-end">Giá</th>
-                                                <th style="width: 150px;">Note hiện tại</th>
+                                                <th style="width: 180px;">Note</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${orderProducts.map(product => `
-                                                <tr>
+                                            ${orderProducts.map(product => {
+                                                const noteKey = `${stt}-${product.productId}`;
+                                                const existingNote = productNotes[noteKey] || product.note || '';
+
+                                                // Check if this product will be updated (exists in assigned products)
+                                                const willBeUpdated = !!assignedProductCounts[product.productId];
+                                                const updateBadge = willBeUpdated
+                                                    ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này sẽ được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
+                                                    : '';
+
+                                                return `
+                                                <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                     <td>
                                                         <div class="d-flex align-items-center gap-2">
                                                             ${product.imageUrl ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                             <div>
                                                                 <div style="font-weight: 600;">${product.nameGet || product.name}</div>
-                                                                <div style="font-size: 12px; color: #6b7280;">${product.code || 'N/A'}</div>
+                                                                <div style="font-size: 12px; color: #6b7280;">${product.code || 'N/A'}${updateBadge}</div>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -639,10 +667,17 @@
                                                         <span style="font-weight: 600; color: #3b82f6;">${(product.price || 0).toLocaleString('vi-VN')}đ</span>
                                                     </td>
                                                     <td>
-                                                        <small class="text-muted">${product.note || '-'}</small>
+                                                        <input
+                                                            type="text"
+                                                            class="form-control form-control-sm"
+                                                            placeholder="Ghi chú..."
+                                                            value="${existingNote}"
+                                                            data-note-key="${noteKey}"
+                                                            onchange="updateProductNote('${noteKey}', this.value)"
+                                                        />
                                                     </td>
                                                 </tr>
-                                            `).join('')}
+                                            `}).join('')}
                                         </tbody>
                                     </table>
                                 ` : `
@@ -652,6 +687,16 @@
                                     </div>
                                 `}
                             </div>
+                        </div>
+
+                        <!-- Legend -->
+                        <div class="alert alert-light mt-3 mb-0">
+                            <small>
+                                <strong><i class="fas fa-info-circle"></i> Chú thích:</strong><br>
+                                <span class="badge bg-success me-2"><i class="fas fa-star"></i> Mới</span> Sản phẩm mới sẽ được thêm vào đơn hàng<br>
+                                <span class="badge bg-warning text-dark me-2"><i class="fas fa-plus"></i> Cộng SL</span> Sản phẩm đã có, sẽ cộng thêm số lượng<br>
+                                <span class="badge bg-warning text-dark me-2"><i class="fas fa-arrow-up"></i></span> Đánh dấu sản phẩm có sẵn sẽ được cập nhật
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -954,6 +999,28 @@
                     console.error(`   ❌ Error adding product ${productId}:`, error);
                     console.error(`   ⚠️ Skipping product ${assignedData.productCode}`);
                 }
+            }
+        }
+
+        // ============================================
+        // UPDATE NOTES for existing products that are NOT in assigned products
+        // (User might have edited notes for products already in order)
+        // ============================================
+        for (const existingDetail of mergedDetails) {
+            const productId = existingDetail.ProductId;
+
+            // Skip if this product was already processed above (in assigned products)
+            if (assignedByProductId[productId]) {
+                continue;
+            }
+
+            // Check if there's a note update for this existing product
+            const noteKey = `${stt}-${productId}`;
+            const note = productNotes[noteKey] || null;
+
+            if (note !== null && note.trim() !== '') {
+                existingDetail.Note = note;
+                console.log(`   📝 Updated note for existing product ${existingDetail.ProductCode}: "${note}"`);
             }
         }
 
