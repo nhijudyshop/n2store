@@ -830,6 +830,12 @@
             payload.Details = payload.Details.map((detail, index) => {
                 const cleaned = { ...detail };
 
+                // CRITICAL: Remove nested "Product" object (only for GET, not for PUT)
+                if (cleaned.Product) {
+                    delete cleaned.Product;
+                    console.log(`[PAYLOAD FIX] Detail[${index}]: Removed nested Product object`);
+                }
+
                 // Remove Id if null/undefined (new products that need to be created)
                 // Keep Id if exists (existing products that need to be updated)
                 if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
@@ -839,11 +845,13 @@
                     console.log(`[PAYLOAD] Detail[${index}]: Keeping existing Id:`, cleaned.Id);
                 }
 
-                // Ensure OrderId matches the parent order
-                cleaned.OrderId = payload.Id;
+                // Ensure OrderId matches the parent order (for existing details)
+                if (cleaned.Id) {
+                    cleaned.OrderId = payload.Id;
+                }
 
-                // Keep all other fields intact (ProductName, ProductNameGet, ProductCode, etc.)
-                // These fields are already in the detail object from TPOS API
+                // For new details (no Id), ensure minimum required fields
+                // ProductId, ProductName, ProductNameGet, UOMId, UOMName, Quantity, Price, Factor, ProductWeight
 
                 return cleaned;
             });
