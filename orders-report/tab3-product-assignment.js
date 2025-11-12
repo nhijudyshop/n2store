@@ -11,6 +11,7 @@
     let bearerToken = null;
     let tokenExpiry = null;
     let saveDebounceTimer = null;
+    let isLocalUpdate = false; // Flag to prevent duplicate renders from Firebase listener
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -886,13 +887,24 @@
     // Save/Load Assignments
     function saveAssignments() {
         try {
+            // Mark as local update to prevent duplicate render from Firebase listener
+            isLocalUpdate = true;
+
             localStorage.setItem('productAssignments', JSON.stringify(assignments));
+
             // Also save to Firebase
             database.ref('productAssignments').set(assignments).catch(error => {
                 console.error('Error saving to Firebase:', error);
+                isLocalUpdate = false; // Reset flag on error
+            }).then(() => {
+                // Reset flag after Firebase sync completes
+                setTimeout(() => {
+                    isLocalUpdate = false;
+                }, 500); // Small delay to ensure listener has processed
             });
         } catch (error) {
             console.error('Error saving assignments:', error);
+            isLocalUpdate = false; // Reset flag on error
         }
     }
 
@@ -913,11 +925,26 @@
     function setupFirebaseListeners() {
         // Listen for product assignments
         database.ref('productAssignments').on('value', (snapshot) => {
+            // Skip if this is a local update (to prevent duplicate render)
+            if (isLocalUpdate) {
+                console.log('⏭️ Skip Firebase listener render (local update)');
+                return;
+            }
+
             const data = snapshot.val();
             if (data && Array.isArray(data)) {
-                assignments = data;
-                localStorage.setItem('productAssignments', JSON.stringify(assignments));
-                renderAssignmentTable();
+                // Check if data actually changed to avoid unnecessary renders
+                const currentData = JSON.stringify(assignments);
+                const newData = JSON.stringify(data);
+
+                if (currentData !== newData) {
+                    console.log('🔄 Firebase sync: updating assignments from remote');
+                    assignments = data;
+                    localStorage.setItem('productAssignments', JSON.stringify(assignments));
+                    renderAssignmentTable();
+                } else {
+                    console.log('⏭️ Skip render: data unchanged');
+                }
             }
         });
 
