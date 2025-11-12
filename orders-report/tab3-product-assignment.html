@@ -49,6 +49,27 @@
                     <i class="fas fa-trash"></i> Xóa tất cả
                 </button>
             </div>
+
+            <!-- Product Search Section (inside Assignment Table) -->
+            <div class="card-body bg-light border-bottom">
+                <div class="search-wrapper position-relative">
+                    <input
+                        type="text"
+                        class="form-control form-control-lg"
+                        id="productSearch"
+                        placeholder="🔍 Tìm kiếm sản phẩm (nhập mã hoặc barcode)..."
+                        autocomplete="off"
+                    />
+                    <div class="suggestions-dropdown" id="productSuggestions"></div>
+                </div>
+                <div id="loadingIndicator" class="text-center mt-3" style="display: none;">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <small class="d-block mt-2 text-muted">Đang tải dữ liệu sản phẩm...</small>
+                </div>
+            </div>
+
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
@@ -68,31 +89,6 @@
                             </tr>
                         </tbody>
                     </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Product Search Section -->
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-search"></i> Tìm kiếm sản phẩm</h5>
-            </div>
-            <div class="card-body">
-                <div class="search-wrapper position-relative">
-                    <input
-                        type="text"
-                        class="form-control form-control-lg"
-                        id="productSearch"
-                        placeholder="Nhập mã hoặc barcode sản phẩm..."
-                        autocomplete="off"
-                    />
-                    <div class="suggestions-dropdown" id="productSuggestions"></div>
-                </div>
-                <div id="loadingIndicator" class="text-center mt-3" style="display: none;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Đang tải...</span>
-                    </div>
-                    <p class="mt-2">Đang tải dữ liệu sản phẩm...</p>
                 </div>
             </div>
         </div>
