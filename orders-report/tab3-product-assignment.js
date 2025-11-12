@@ -427,7 +427,7 @@
                 id: Date.now() + addedCount, // Ensure unique IDs
                 productId: product.Id,
                 productName: product.NameGet,
-                productCode: product.DefaultCode || '',
+                productCode: product.Code || product.DefaultCode || '',
                 imageUrl: product.imageUrl || '',
                 sttList: []
             };
@@ -490,9 +490,11 @@
             // Check if already in assignments
             const isAlreadyAdded = assignments.some(a => a.productId === product.Id);
 
+            const productCode = product.Code || product.DefaultCode || '';
+
             return `
                 <div class="saved-product-item ${isAlreadyAdded ? 'already-added' : ''}"
-                     onclick="${isAlreadyAdded ? '' : `addSavedProductToAssignment(${product.Id}, '${product.NameGet.replace(/'/g, "\\'")}', '', '${product.imageUrl || ''}')`}"
+                     onclick="${isAlreadyAdded ? '' : `addSavedProductToAssignment(${product.Id}, '${product.NameGet.replace(/'/g, "\\'")}', '${productCode.replace(/'/g, "\\'")}', '${product.imageUrl || ''}')`}"
                      title="${isAlreadyAdded ? 'Đã có trong danh sách gán' : 'Click để thêm vào danh sách gán'}">
                     ${imageHtml}
                     <div class="saved-product-info">
