@@ -6,8 +6,6 @@
     let assignments = [];
     let sessionIndexData = {}; // Group by SessionIndex
     let selectedSessionIndexes = new Set();
-    let bearerToken = null;
-    let tokenExpiry = null;
     let ordersData = []; // Orders data from tab1
 
     // Firebase Configuration
@@ -53,76 +51,12 @@
         }, 3000);
     }
 
-    // Auth Functions
-    async function getAuthToken() {
-        try {
-            const response = await fetch('https://tomato.tpos.vn/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'grant_type=password&username=nvkt&password=Aa%40123456789&client_id=tmtWebApp'
-            });
-
-            if (!response.ok) {
-                throw new Error('Không thể xác thực');
-            }
-
-            const data = await response.json();
-            bearerToken = data.access_token;
-            tokenExpiry = Date.now() + (data.expires_in * 1000);
-
-            localStorage.setItem('bearerToken', bearerToken);
-            localStorage.setItem('tokenExpiry', tokenExpiry.toString());
-
-            return bearerToken;
-        } catch (error) {
-            console.error('Lỗi xác thực:', error);
-            throw error;
-        }
-    }
-
-    async function getValidToken() {
-        const storedToken = localStorage.getItem('bearerToken');
-        const storedExpiry = localStorage.getItem('tokenExpiry');
-
-        if (storedToken && storedExpiry) {
-            const expiry = parseInt(storedExpiry);
-            if (expiry > Date.now() + 300000) {
-                bearerToken = storedToken;
-                tokenExpiry = expiry;
-                return bearerToken;
-            }
-        }
-
-        return await getAuthToken();
-    }
-
-    async function authenticatedFetch(url, options = {}) {
-        const token = await getValidToken();
-
-        const headers = {
-            ...options.headers,
-            'Authorization': `Bearer ${token}`
-        };
-
-        const response = await fetch(url, {
-            ...options,
-            headers
-        });
-
-        if (response.status === 401) {
-            const newToken = await getAuthToken();
-            headers.Authorization = `Bearer ${newToken}`;
-
-            return fetch(url, {
-                ...options,
-                headers
-            });
-        }
-
-        return response;
-    }
+    // =====================================================
+    // AUTH: Using tokenManager (EXACTLY like tab1-orders.js)
+    // =====================================================
+    // Auth is handled by token-manager.js (loaded in HTML)
+    // Use: const headers = await window.tokenManager.getAuthHeader();
+    // Then: fetch(url, { method: 'PUT', headers: { ...headers, ... }, ... })
 
     // Load Assignments Data and Group by SessionIndex
     function loadAssignments() {
@@ -413,7 +347,17 @@
                     console.log(`📡 API Request for STT ${stt}:`);
                     console.log(`   URL: ${apiUrl}`);
 
-                    const response = await authenticatedFetch(apiUrl);
+                    // Get auth headers from tokenManager
+                    const headers = await window.tokenManager.getAuthHeader();
+                    
+                    const response = await fetch(apiUrl, {
+                        headers: {
+                            ...headers,
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                    });
+                    
                     console.log(`📬 Response status for STT ${stt}:`, response.status);
 
                     if (!response.ok) {
@@ -640,10 +584,20 @@
                 statusText.textContent = `Đang upload STT ${stt} - ${sessionData.orderInfo?.customerName || 'N/A'}...`;
 
                 try {
-                    // Fetch current order data
+                    // Fetch current order data (EXACTLY like tab1-orders.js)
                     console.log(`📡 Fetching order ${orderId} for upload...`);
                     const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
-                    const response = await authenticatedFetch(apiUrl);
+                    
+                    // Get auth headers from tokenManager
+                    const headers = await window.tokenManager.getAuthHeader();
+                    
+                    const response = await fetch(apiUrl, {
+                        headers: {
+                            ...headers,
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                    });
 
                     if (!response.ok) {
                         throw new Error(`Failed to fetch order ${orderId}: ${response.status}`);
@@ -684,17 +638,25 @@
                         console.groupEnd();
                     }
 
+                    // =====================================================
+                    // PUT REQUEST (EXACTLY like tab1-orders.js - line 1796-1810)
+                    // =====================================================
+                    
+                    // Get auth headers from tokenManager
+                    const uploadHeaders = await window.tokenManager.getAuthHeader();
+                    
                     // PUT request to update order
-                    const uploadResponse = await authenticatedFetch(
+                    const uploadResponse = await fetch(
                         `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})`,
                         {
-                            method: 'PUT',
+                            method: "PUT",
                             headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
+                                ...uploadHeaders,
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
                             },
-                            body: JSON.stringify(payload)
-                        }
+                            body: JSON.stringify(payload),
+                        },
                     );
 
                     if (!uploadResponse.ok) {
@@ -757,6 +719,7 @@
     };
 
     // Prepare Details for upload (merge existing + assigned)
+    // LOGIC GIỐNG tab1-orders.js: addProductToOrderFromInline (dòng 2214-2369)
     async function prepareUploadDetails(orderData, sessionData) {
         const existingDetails = orderData.Details || [];
         const assignedProducts = sessionData.products || [];
@@ -780,112 +743,128 @@
                     productId: productId,
                     productCode: product.productCode,
                     productName: product.productName,
+                    imageUrl: product.imageUrl,
                     count: 0
                 };
             }
             assignedByProductId[productId].count++;
         });
 
-        // Merge: Update quantities for existing, add new products
+        // Clone existing details to modify
         const mergedDetails = [...existingDetails];
 
-        // Process assigned products: update existing or fetch and add new
-        const newProductIds = [];
-
-        Object.keys(assignedByProductId).forEach(productId => {
+        // Process assigned products: Update existing OR Add new
+        for (const productId of Object.keys(assignedByProductId)) {
             const assignedData = assignedByProductId[productId];
             const existingDetail = existingByProductId[productId];
 
             if (existingDetail) {
-                // Product exists - add to quantity
-                existingDetail.Quantity += assignedData.count;
-                console.log(`   ✏️ Updated ${existingDetail.ProductCode}: +${assignedData.count} (total: ${existingDetail.Quantity})`);
+                // ============================================
+                // PRODUCT EXISTS - Increase quantity
+                // ============================================
+                const oldQty = existingDetail.Quantity || 0;
+                existingDetail.Quantity = oldQty + assignedData.count;
+                console.log(`   ✏️ Updated ${existingDetail.ProductCode}: ${oldQty} → ${existingDetail.Quantity} (+${assignedData.count})`);
             } else {
-                // New product - need to fetch and add
-                console.log(`   ➕ Will fetch and add new product: ${assignedData.productCode} x${assignedData.count}`);
-                newProductIds.push(productId);
-            }
-        });
-
-        // Fetch product info for new products from TPOS API
-        if (newProductIds.length > 0) {
-            console.log(`\n🔍 Fetching ${newProductIds.length} new products from TPOS...`);
-
-            const fetchPromises = newProductIds.map(async productId => {
+                // ============================================
+                // NEW PRODUCT - Fetch full info and add (EXACTLY like tab1-orders.js)
+                // ============================================
+                console.log(`   ➕ Adding new product: ${assignedData.productCode} x${assignedData.count}`);
+                
                 try {
-                    const apiUrl = `https://tomato.tpos.vn/odata/Product(${productId})`;
-                    console.log(`   📡 Fetching product: ${productId}`);
-
-                    const response = await authenticatedFetch(apiUrl);
-                    if (!response.ok) {
-                        console.error(`   ❌ Failed to fetch product ${productId}: ${response.status}`);
-                        return null;
+                    // Fetch full product details from API
+                    const fullProduct = await fetchProductDetails(productId);
+                    
+                    if (!fullProduct) {
+                        console.error(`   ❌ Cannot fetch product ${productId}, skipping...`);
+                        continue;
                     }
 
-                    const productData = await response.json();
-                    console.log(`   ✅ Fetched product: ${productData.Code} - ${productData.NameGet}`);
-                    console.log(`   📋 Product data fields:`, {
-                        Code: productData.Code,
-                        Name: productData.Name,
-                        NameGet: productData.NameGet,
-                        Price: productData.Price,
-                        UOMId: productData.UOMId,
-                        UOMName: productData.UOMName,
-                        Weight: productData.Weight,
-                        Image1: productData.Image1
-                    });
-                    return {
-                        productId: productId,
-                        productData: productData
+                    // ============================================
+                    // CREATE NEW DETAIL WITH COMPUTED FIELDS
+                    // EXACTLY like tab1-orders.js (dòng 2284-2322)
+                    // ============================================
+                    const newProduct = {
+                        // ============================================
+                        // REQUIRED FIELDS
+                        // ============================================
+                        // ✅ KHÔNG có Id: để API tự tạo cho sản phẩm mới
+                        ProductId: fullProduct.Id,
+                        Quantity: assignedData.count,  // Use counted quantity
+                        Price:
+                            fullProduct.PriceVariant ||
+                            fullProduct.ListPrice ||
+                            fullProduct.StandardPrice ||
+                            0,
+                        Note: null,
+                        UOMId: fullProduct.UOM?.Id || 1,
+                        Factor: 1,
+                        Priority: 0,
+                        OrderId: orderData.Id,
+                        LiveCampaign_DetailId: null,
+                        ProductWeight: 0,
+
+                        // ============================================
+                        // COMPUTED FIELDS - PHẢI CÓ! (EXACTLY like tab1-orders.js)
+                        // ============================================
+                        ProductName: fullProduct.Name || fullProduct.NameTemplate,
+                        ProductNameGet:
+                            fullProduct.NameGet ||
+                            `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                        ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
+                        UOMName: fullProduct.UOM?.Name || "Cái",
+                        ImageUrl: fullProduct.ImageUrl || assignedData.imageUrl,
+                        IsOrderPriority: null,
+                        QuantityRegex: null,
+                        IsDisabledLiveCampaignDetail: false,
+
+                        // Creator ID
+                        CreatedById: orderData.UserId || orderData.CreatedById,
                     };
+
+                    mergedDetails.push(newProduct);
+                    console.log(`   ✅ Added new product with computed fields:`, newProduct);
+                    
                 } catch (error) {
-                    console.error(`   ❌ Error fetching product ${productId}:`, error);
-                    return null;
+                    console.error(`   ❌ Error adding product ${productId}:`, error);
+                    console.error(`   ⚠️ Skipping product ${assignedData.productCode}`);
                 }
-            });
-
-            const fetchedProducts = await Promise.all(fetchPromises);
-
-            // Add new products to mergedDetails
-            fetchedProducts.forEach(result => {
-                if (!result || !result.productData) return;
-
-                const productId = result.productId;
-                const productData = result.productData;
-                const assignedData = assignedByProductId[productId];
-
-                // Create new Detail object matching existing details structure EXACTLY
-                const newDetail = {
-                    // Note: No Id field - this is a new detail, API will create it
-                    Quantity: assignedData.count,
-                    Price: productData.Price || 0,
-                    ProductId: parseInt(productId), // MUST be number, not string
-                    ProductName: productData.Name,
-                    ProductNameGet: productData.NameGet || productData.Name,
-                    ProductCode: productData.Code,
-                    UOMId: productData.UOMId || 1,
-                    UOMName: productData.UOMName || 'Cái',
-                    Note: null,
-                    Factor: 1,
-                    OrderId: orderData.Id,
-                    Priority: 0,
-                    ImageUrl: productData.Image1 || '',
-                    LiveCampaign_DetailId: null,
-                    IsOrderPriority: null,
-                    QuantityRegex: null,
-                    IsDisabledLiveCampaignDetail: false,
-                    ProductWeight: productData.Weight || 0,
-                    CreatedById: orderData.UserId || null
-                };
-
-                mergedDetails.push(newDetail);
-                console.log(`   ✅ Added new product: ${newDetail.ProductCode} x${newDetail.Quantity}`);
-                console.log(`   🔍 newDetail structure:`, JSON.stringify(newDetail, null, 2));
-            });
+            }
         }
 
         console.log(`   📦 Final details count: ${mergedDetails.length}`);
         return mergedDetails;
+    }
+
+    // Fetch full product details from TPOS API
+    async function fetchProductDetails(productId) {
+        try {
+            const apiUrl = `https://tomato.tpos.vn/odata/Product(${productId})?$expand=UOM`;
+            
+            // Get auth headers from tokenManager
+            const headers = await window.tokenManager.getAuthHeader();
+            
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+            });
+
+            if (!response.ok) {
+                console.error(`Failed to fetch product ${productId}: ${response.status}`);
+                return null;
+            }
+
+            const product = await response.json();
+            console.log(`   📦 Fetched product details for ${productId}:`, product);
+            return product;
+            
+        } catch (error) {
+            console.error(`Error fetching product ${productId}:`, error);
+            return null;
+        }
     }
 
     // Prepare payload for PUT request (exactly like tab1-orders.js)
@@ -904,42 +883,23 @@
 
         // Process Details array (exactly as in tab1-orders.js)
         if (payload.Details && Array.isArray(payload.Details)) {
-            console.log(`[PAYLOAD] Processing ${payload.Details.length} details...`);
-
             payload.Details = payload.Details.map((detail, index) => {
-                console.log(`[PAYLOAD] Detail[${index}] BEFORE processing:`, {
-                    hasId: !!detail.Id,
-                    ProductId: detail.ProductId,
-                    ProductIdType: typeof detail.ProductId,
-                    ProductCode: detail.ProductCode,
-                    UOMName: detail.UOMName,
-                    hasAllFields: !!(detail.ProductCode && detail.Note !== undefined && detail.Priority !== undefined)
-                });
-
                 const cleaned = { ...detail };
-
-                // CRITICAL: Remove nested "Product" object (only for GET, not for PUT)
-                if (cleaned.Product) {
-                    delete cleaned.Product;
-                    console.log(`[PAYLOAD FIX] Detail[${index}]: Removed nested Product object`);
-                }
 
                 // Remove Id if null/undefined (new products that need to be created)
                 // Keep Id if exists (existing products that need to be updated)
                 if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
                     delete cleaned.Id;
-                    console.log(`[PAYLOAD FIX] Detail[${index}]: Removed Id:null for ProductId:`, cleaned.ProductId, `(type: ${typeof cleaned.ProductId})`);
+                    console.log(`[PAYLOAD FIX] Detail[${index}]: Removed Id:null for ProductId:`, cleaned.ProductId);
                 } else {
                     console.log(`[PAYLOAD] Detail[${index}]: Keeping existing Id:`, cleaned.Id);
                 }
 
-                // Ensure OrderId matches the parent order (for existing details)
-                if (cleaned.Id) {
-                    cleaned.OrderId = payload.Id;
-                }
+                // Ensure OrderId matches the parent order
+                cleaned.OrderId = payload.Id;
 
-                // For new details (no Id), ensure minimum required fields
-                // ProductId, ProductName, ProductNameGet, UOMId, UOMName, Quantity, Price, Factor, ProductWeight
+                // Keep all other fields intact (ProductName, ProductNameGet, ProductCode, etc.)
+                // These fields are already in the detail object from TPOS API
 
                 return cleaned;
             });
@@ -1011,9 +971,19 @@
         `;
 
         try {
-            // Fetch order data from TPOS API
+            // Fetch order data from TPOS API (EXACTLY like tab1-orders.js)
             const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
-            const response = await authenticatedFetch(apiUrl);
+            
+            // Get auth headers from tokenManager
+            const headers = await window.tokenManager.getAuthHeader();
+            
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1246,7 +1216,7 @@
     // Initialize on load
     window.addEventListener('load', async () => {
         try {
-            await getValidToken();
+            // Auth handled by tokenManager automatically when needed
             loadOrdersData();
             loadAssignments();
             setupFirebaseListeners();
