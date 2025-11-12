@@ -183,12 +183,6 @@
             cursor: not-allowed;
         }
 
-        .grid-stat-label-with-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
         .grid-item-image {
             width: 100%;
             height: 0;
@@ -216,14 +210,21 @@
             margin-bottom: var(--name-margin, 3px);
             font-size: var(--name-font-size, 13px);
             line-height: var(--name-line-height, 1.2);
-            display: -webkit-box;
-            -webkit-line-clamp: var(--name-line-clamp, 1);
-            -webkit-box-orient: vertical;
             overflow: hidden;
             flex: 10 1 0%;
             text-overflow: ellipsis;
             text-align: center;
             min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .grid-item-name-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .grid-item-stats {
@@ -1571,7 +1572,10 @@
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
                         ${imageHtml}
-                        <div class="grid-item-name">${product.NameGet}</div>
+                        <div class="grid-item-name">
+                            <span class="grid-item-name-text">${product.NameGet}</span>
+                            ${!isHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
+                        </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
                                 <div class="grid-stat-label">📦 TỔNG</div>
@@ -1591,10 +1595,7 @@
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-sold">
-                                <div class="grid-stat-label-with-button">
-                                    <div class="grid-stat-label">🛒 BÁN</div>
-                                    ${!isHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
-                                </div>
+                                <div class="grid-stat-label">🛒 BÁN</div>
                                 ${isMerged && product.soldQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.soldQtyList.map(item => {
