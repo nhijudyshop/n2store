@@ -1593,7 +1593,7 @@
                             <div class="grid-stat grid-stat-sold">
                                 <div class="grid-stat-label-with-button">
                                     <div class="grid-stat-label">🛒 BÁN</div>
-                                    ${!isMerged ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
+                                    ${!isHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
                                 </div>
                                 ${isMerged && product.soldQtyList ? `
                                     <div class="remaining-qty-list">
