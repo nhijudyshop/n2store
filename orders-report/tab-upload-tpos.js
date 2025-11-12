@@ -844,20 +844,28 @@
                 const productData = result.productData;
                 const assignedData = assignedByProductId[productId];
 
-                // Create new Detail object (without Id - will be created by API)
+                // Create new Detail object matching existing details structure EXACTLY
                 const newDetail = {
-                    ProductId: productId,
-                    ProductCode: productData.Code,
-                    ProductName: productData.Name,
-                    ProductNameGet: productData.NameGet || productData.Name,
+                    // Note: No Id field - this is a new detail, API will create it
                     Quantity: assignedData.count,
                     Price: productData.Price || 0,
-                    UOMId: productData.UOMId || null,
-                    UOMName: productData.UOMName || '',
+                    ProductId: parseInt(productId), // MUST be number, not string
+                    ProductName: productData.Name,
+                    ProductNameGet: productData.NameGet || productData.Name,
+                    ProductCode: productData.Code,
+                    UOMId: productData.UOMId || 1,
+                    UOMName: productData.UOMName || 'Cái',
+                    Note: null,
                     Factor: 1,
+                    OrderId: orderData.Id,
+                    Priority: 0,
+                    ImageUrl: productData.Image1 || '',
+                    LiveCampaign_DetailId: null,
+                    IsOrderPriority: null,
+                    QuantityRegex: null,
+                    IsDisabledLiveCampaignDetail: false,
                     ProductWeight: productData.Weight || 0,
-                    OrderId: orderData.Id
-                    // Note: No Id field - this is a new detail
+                    CreatedById: orderData.UserId || null
                 };
 
                 mergedDetails.push(newDetail);
