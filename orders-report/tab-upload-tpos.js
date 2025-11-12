@@ -379,21 +379,53 @@
             const results = await Promise.all(fetchPromises);
             console.log(`✅ All fetch requests completed. Results:`, results.length);
 
-            // Store fetched products in sessionIndexData
-            results.forEach(result => {
+            // Store fetched products in sessionIndexData and fetch template images if needed
+            for (const result of results) {
                 if (result.orderData && sessionIndexData[result.stt]) {
-                    // Parse products from Details and store in sessionIndexData
-                    sessionIndexData[result.stt].fetchedProducts = (result.orderData.Details || []).map(detail => ({
-                        code: detail.Product?.Code || detail.ProductCode || '',
-                        name: detail.Product?.NameGet || detail.ProductName || '',
-                        nameGet: detail.Product?.NameGet || detail.ProductName || '',
-                        quantity: detail.Quantity || 0,
-                        price: detail.Price || 0,
-                        imageUrl: detail.Product?.ImageUrl || ''
+                    // Parse products from Details
+                    const products = await Promise.all((result.orderData.Details || []).map(async detail => {
+                        let imageUrl = detail.Product?.ImageUrl || '';
+
+                        // Load template image if product has no image
+                        if (!imageUrl && detail.Product?.ProductTmplId) {
+                            try {
+                                console.log(`📸 Fetching template image for ProductTmplId: ${detail.Product.ProductTmplId}`);
+                                const headers = await window.tokenManager.getAuthHeader();
+                                const templateResponse = await fetch(
+                                    `https://tomato.tpos.vn/odata/ProductTemplate(${detail.Product.ProductTmplId})`,
+                                    {
+                                        headers: {
+                                            ...headers,
+                                            "Content-Type": "application/json",
+                                            Accept: "application/json",
+                                        },
+                                    }
+                                );
+
+                                if (templateResponse.ok) {
+                                    const templateData = await templateResponse.json();
+                                    imageUrl = templateData.ImageUrl || '';
+                                    console.log(`✅ Got template image: ${imageUrl ? 'Yes' : 'No'}`);
+                                }
+                            } catch (error) {
+                                console.error('Error fetching template image:', error);
+                            }
+                        }
+
+                        return {
+                            code: detail.Product?.Code || detail.ProductCode || '',
+                            name: detail.Product?.NameGet || detail.ProductName || '',
+                            nameGet: detail.Product?.NameGet || detail.ProductName || '',
+                            quantity: detail.Quantity || 0,
+                            price: detail.Price || 0,
+                            imageUrl: imageUrl
+                        };
                     }));
-                    console.log(`💾 Stored ${sessionIndexData[result.stt].fetchedProducts.length} products for STT ${result.stt}`);
+
+                    sessionIndexData[result.stt].fetchedProducts = products;
+                    console.log(`💾 Stored ${products.length} products for STT ${result.stt}`);
                 }
-            });
+            }
 
             // Re-render modal with fetched data
             renderPreviewModal();
@@ -990,6 +1022,36 @@
             }
 
             currentEditOrderData = await response.json();
+
+            // Fetch template images for products without ImageUrl
+            if (currentEditOrderData.Details && Array.isArray(currentEditOrderData.Details)) {
+                for (const detail of currentEditOrderData.Details) {
+                    if (detail.Product && !detail.Product.ImageUrl && detail.Product.ProductTmplId) {
+                        try {
+                            console.log(`📸 Fetching template image for ProductTmplId: ${detail.Product.ProductTmplId}`);
+                            const headers = await window.tokenManager.getAuthHeader();
+                            const templateResponse = await fetch(
+                                `https://tomato.tpos.vn/odata/ProductTemplate(${detail.Product.ProductTmplId})`,
+                                {
+                                    headers: {
+                                        ...headers,
+                                        "Content-Type": "application/json",
+                                        Accept: "application/json",
+                                    },
+                                }
+                            );
+
+                            if (templateResponse.ok) {
+                                const templateData = await templateResponse.json();
+                                detail.Product.ImageUrl = templateData.ImageUrl || '';
+                                console.log(`✅ Got template image for edit modal: ${detail.Product.ImageUrl ? 'Yes' : 'No'}`);
+                            }
+                        } catch (error) {
+                            console.error('Error fetching template image:', error);
+                        }
+                    }
+                }
+            }
 
             // Render modal content
             renderEditModalContent(stt);
