@@ -789,7 +789,9 @@
         // Merge: Update quantities for existing, add new products
         const mergedDetails = [...existingDetails];
 
-        // Update existing products
+        // Process assigned products: update existing or fetch and add new
+        const newProductIds = [];
+
         Object.keys(assignedByProductId).forEach(productId => {
             const assignedData = assignedByProductId[productId];
             const existingDetail = existingByProductId[productId];
@@ -799,13 +801,69 @@
                 existingDetail.Quantity += assignedData.count;
                 console.log(`   ✏️ Updated ${existingDetail.ProductCode}: +${assignedData.count} (total: ${existingDetail.Quantity})`);
             } else {
-                // New product - need to add
-                console.log(`   ➕ Adding new product: ${assignedData.productCode} x${assignedData.count}`);
-                // We need to fetch product info from TPOS to get price, etc
-                // For now, we'll skip new products or you can implement fetching
-                console.warn(`   ⚠️ Cannot add new product ${assignedData.productCode} - product not in order`);
+                // New product - need to fetch and add
+                console.log(`   ➕ Will fetch and add new product: ${assignedData.productCode} x${assignedData.count}`);
+                newProductIds.push(productId);
             }
         });
+
+        // Fetch product info for new products from TPOS API
+        if (newProductIds.length > 0) {
+            console.log(`\n🔍 Fetching ${newProductIds.length} new products from TPOS...`);
+
+            const fetchPromises = newProductIds.map(async productId => {
+                try {
+                    const apiUrl = `https://tomato.tpos.vn/odata/Product(${productId})`;
+                    console.log(`   📡 Fetching product: ${productId}`);
+
+                    const response = await authenticatedFetch(apiUrl);
+                    if (!response.ok) {
+                        console.error(`   ❌ Failed to fetch product ${productId}: ${response.status}`);
+                        return null;
+                    }
+
+                    const productData = await response.json();
+                    console.log(`   ✅ Fetched product: ${productData.Code} - ${productData.NameGet}`);
+                    return {
+                        productId: productId,
+                        productData: productData
+                    };
+                } catch (error) {
+                    console.error(`   ❌ Error fetching product ${productId}:`, error);
+                    return null;
+                }
+            });
+
+            const fetchedProducts = await Promise.all(fetchPromises);
+
+            // Add new products to mergedDetails
+            fetchedProducts.forEach(result => {
+                if (!result || !result.productData) return;
+
+                const productId = result.productId;
+                const productData = result.productData;
+                const assignedData = assignedByProductId[productId];
+
+                // Create new Detail object (without Id - will be created by API)
+                const newDetail = {
+                    ProductId: productId,
+                    ProductCode: productData.Code,
+                    ProductName: productData.Name,
+                    ProductNameGet: productData.NameGet || productData.Name,
+                    Quantity: assignedData.count,
+                    Price: productData.Price || 0,
+                    UOMId: productData.UOMId || null,
+                    UOMName: productData.UOMName || '',
+                    Factor: 1,
+                    ProductWeight: productData.Weight || 0,
+                    OrderId: orderData.Id
+                    // Note: No Id field - this is a new detail
+                };
+
+                mergedDetails.push(newDetail);
+                console.log(`   ✅ Added new product: ${newDetail.ProductCode} x${newDetail.Quantity}`);
+            });
+        }
 
         console.log(`   📦 Final details count: ${mergedDetails.length}`);
         return mergedDetails;
