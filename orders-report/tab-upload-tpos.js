@@ -353,6 +353,9 @@
 
     // Upload to TPOS - Show Preview Modal First
     window.uploadToTPOS = async function() {
+        console.log('🚀 uploadToTPOS called');
+        console.log('📊 selectedSessionIndexes:', selectedSessionIndexes);
+
         if (selectedSessionIndexes.size === 0) {
             showNotification('Vui lòng chọn SessionIndex để upload', 'error');
             return;
@@ -361,17 +364,23 @@
         // Load orders data from localStorage
         try {
             const cachedOrders = localStorage.getItem('ordersData');
+            console.log('📦 cachedOrders length:', cachedOrders ? cachedOrders.length : 0);
             if (cachedOrders) {
                 ordersData = JSON.parse(cachedOrders);
+                console.log('✅ ordersData loaded:', ordersData.length, 'orders');
+                console.log('📋 Sample order:', ordersData[0]);
+            } else {
+                console.warn('⚠️ No ordersData in localStorage');
             }
         } catch (error) {
-            console.error('Error loading orders data:', error);
+            console.error('❌ Error loading orders data:', error);
         }
 
         // Show preview modal with loading state
         showPreviewModal();
 
         // Fetch detailed order data from TPOS API
+        console.log('🔄 Calling fetchOrdersDetails...');
         await fetchOrdersDetails();
     };
 
@@ -380,8 +389,14 @@
         const selectedSTTs = Array.from(selectedSessionIndexes);
         const modalBody = document.getElementById('previewModalBody');
 
-        console.log('🔍 fetchOrdersDetails - selectedSTTs:', selectedSTTs);
-        console.log('🔍 ordersData:', ordersData);
+        console.log('🔍 fetchOrdersDetails START');
+        console.log('📊 selectedSTTs:', selectedSTTs);
+        console.log('📦 ordersData available:', !!ordersData);
+        console.log('📦 ordersData length:', ordersData ? ordersData.length : 0);
+
+        if (ordersData && ordersData.length > 0) {
+            console.log('📋 All available STTs in ordersData:', ordersData.map(o => o.stt));
+        }
 
         // Show loading state
         modalBody.innerHTML = `
@@ -393,37 +408,63 @@
             </div>
         `;
 
+        // Check if ordersData is empty
+        if (!ordersData || ordersData.length === 0) {
+            console.error('❌ ordersData is empty! Cannot fetch order details.');
+            modalBody.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <p class="text-danger">Không tìm thấy dữ liệu đơn hàng!</p>
+                    <p class="text-muted">Vui lòng vào tab "Quản lý đơn hàng" để load dữ liệu trước.</p>
+                </div>
+            `;
+            return;
+        }
+
         try {
             // Fetch all orders in parallel
             const fetchPromises = selectedSTTs.map(async stt => {
+                console.log(`\n🔎 Processing STT: ${stt}`);
                 const originalOrder = ordersData.find(order => order.stt === stt);
-                console.log(`🔍 STT ${stt} - Found order:`, originalOrder);
+                console.log(`📄 Found order for STT ${stt}:`, originalOrder);
 
-                if (!originalOrder || !originalOrder.orderId) {
-                    console.warn(`⚠️ STT ${stt} - No order or orderId found`);
+                if (!originalOrder) {
+                    console.warn(`⚠️ STT ${stt} - No matching order found in ordersData`);
+                    return { stt, orderData: null };
+                }
+
+                if (!originalOrder.orderId) {
+                    console.warn(`⚠️ STT ${stt} - Order found but no orderId:`, originalOrder);
                     return { stt, orderData: null };
                 }
 
                 try {
                     const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${originalOrder.orderId})?$expand=Details,Partner,User,CRMTeam`;
-                    console.log(`📡 Fetching order ${originalOrder.orderId} for STT ${stt}`);
+                    console.log(`📡 API Request for STT ${stt}:`);
+                    console.log(`   URL: ${apiUrl}`);
+                    console.log(`   OrderId: ${originalOrder.orderId}`);
+
                     const response = await authenticatedFetch(apiUrl);
+                    console.log(`📬 Response status for STT ${stt}:`, response.status);
 
                     if (!response.ok) {
-                        console.error(`Failed to fetch order ${originalOrder.orderId}`);
+                        console.error(`❌ Failed to fetch order ${originalOrder.orderId} - Status: ${response.status}`);
                         return { stt, orderData: null };
                     }
 
                     const orderData = await response.json();
-                    console.log(`✅ Fetched order data for STT ${stt}:`, orderData);
+                    console.log(`✅ Successfully fetched order data for STT ${stt}`);
+                    console.log(`   Products count: ${orderData.Details?.length || 0}`);
                     return { stt, orderData };
                 } catch (error) {
-                    console.error(`Error fetching order ${originalOrder.orderId}:`, error);
+                    console.error(`❌ Error fetching order ${originalOrder.orderId}:`, error);
                     return { stt, orderData: null };
                 }
             });
 
+            console.log(`\n⏳ Waiting for ${fetchPromises.length} fetch requests...`);
             const results = await Promise.all(fetchPromises);
+            console.log(`✅ All fetch requests completed. Results:`, results.length);
 
             // Update ordersData with fetched details
             results.forEach(result => {
