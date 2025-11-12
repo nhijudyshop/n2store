@@ -226,7 +226,7 @@
 
             // Find order ID from ordersData by STT
             const originalOrder = ordersData.find(order => order.stt === stt);
-            const orderId = originalOrder?.Id || '';
+            const orderId = originalOrder?.orderId || '';
 
             return `
                 <tr class="${isSelected ? 'selected' : ''}">
@@ -380,6 +380,9 @@
         const selectedSTTs = Array.from(selectedSessionIndexes);
         const modalBody = document.getElementById('previewModalBody');
 
+        console.log('🔍 fetchOrdersDetails - selectedSTTs:', selectedSTTs);
+        console.log('🔍 ordersData:', ordersData);
+
         // Show loading state
         modalBody.innerHTML = `
             <div class="text-center py-5">
@@ -394,23 +397,28 @@
             // Fetch all orders in parallel
             const fetchPromises = selectedSTTs.map(async stt => {
                 const originalOrder = ordersData.find(order => order.stt === stt);
-                if (!originalOrder || !originalOrder.Id) {
+                console.log(`🔍 STT ${stt} - Found order:`, originalOrder);
+
+                if (!originalOrder || !originalOrder.orderId) {
+                    console.warn(`⚠️ STT ${stt} - No order or orderId found`);
                     return { stt, orderData: null };
                 }
 
                 try {
-                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${originalOrder.Id})?$expand=Details,Partner,User,CRMTeam`;
+                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${originalOrder.orderId})?$expand=Details,Partner,User,CRMTeam`;
+                    console.log(`📡 Fetching order ${originalOrder.orderId} for STT ${stt}`);
                     const response = await authenticatedFetch(apiUrl);
 
                     if (!response.ok) {
-                        console.error(`Failed to fetch order ${originalOrder.Id}`);
+                        console.error(`Failed to fetch order ${originalOrder.orderId}`);
                         return { stt, orderData: null };
                     }
 
                     const orderData = await response.json();
+                    console.log(`✅ Fetched order data for STT ${stt}:`, orderData);
                     return { stt, orderData };
                 } catch (error) {
-                    console.error(`Error fetching order ${originalOrder.Id}:`, error);
+                    console.error(`Error fetching order ${originalOrder.orderId}:`, error);
                     return { stt, orderData: null };
                 }
             });
