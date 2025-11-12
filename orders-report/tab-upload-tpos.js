@@ -178,7 +178,6 @@
                             <div class="stt-badge-large">
                                 <i class="fas fa-hashtag"></i>${stt}
                             </div>
-                            ${orderId ? `<button class="btn btn-sm btn-outline-primary mt-1" onclick="openEditModal('${stt}', '${orderId}')" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>` : ''}
                         </div>
                     </td>
                     <td>
