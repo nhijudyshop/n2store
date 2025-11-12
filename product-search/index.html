@@ -1062,9 +1062,353 @@
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
         }
+
+        /* Image Change Modal */
+        .image-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .image-modal-overlay.show {
+            display: flex;
+        }
+
+        .image-modal {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .image-modal-header {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .image-modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .image-modal-close {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .image-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        .image-modal-body {
+            padding: 20px;
+            max-height: calc(90vh - 140px);
+            overflow-y: auto;
+        }
+
+        .image-modal-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .image-modal-tab {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            position: relative;
+            top: 2px;
+        }
+
+        .image-modal-tab:hover {
+            color: #17a2b8;
+        }
+
+        .image-modal-tab.active {
+            color: #17a2b8;
+            border-bottom-color: #17a2b8;
+        }
+
+        .image-modal-content {
+            display: none;
+        }
+
+        .image-modal-content.active {
+            display: block;
+        }
+
+        .paste-area {
+            border: 3px dashed #17a2b8;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .paste-area:hover {
+            background: #e9ecef;
+            border-color: #138496;
+        }
+
+        .paste-area.has-image {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .paste-icon {
+            font-size: 48px;
+            color: #17a2b8;
+        }
+
+        .paste-text {
+            font-size: 16px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .paste-hint {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .paste-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .paste-preview.show {
+            display: block;
+        }
+
+        .file-upload-area {
+            border: 3px dashed #17a2b8;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload-area:hover {
+            background: #e9ecef;
+            border-color: #138496;
+        }
+
+        .file-upload-area.dragover {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+            transform: scale(1.02);
+        }
+
+        .file-upload-input {
+            display: none;
+        }
+
+        .link-input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .link-input {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 15px;
+            border: 2px solid #17a2b8;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .link-input:focus {
+            border-color: #138496;
+            box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.1);
+        }
+
+        .link-preview-container {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .link-preview-container.show {
+            display: block;
+        }
+
+        .link-preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            border: 2px solid #17a2b8;
+        }
+
+        .image-modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-modal {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-modal-cancel {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-modal-cancel:hover {
+            background: #5a6268;
+        }
+
+        .btn-modal-save {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+        }
+
+        .btn-modal-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
+        }
+
+        .btn-modal-save:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
     </style>
 </head>
 <body>
+    <!-- Image Change Modal -->
+    <div class="image-modal-overlay" id="imageModalOverlay" onclick="if(event.target === this) closeImageModal()">
+        <div class="image-modal">
+            <div class="image-modal-header">
+                <h3>🖼️ Thay đổi hình ảnh sản phẩm</h3>
+                <button class="image-modal-close" onclick="closeImageModal()">×</button>
+            </div>
+            <div class="image-modal-body">
+                <div class="image-modal-tabs">
+                    <button class="image-modal-tab active" onclick="switchImageTab('paste')">📋 Paste ảnh</button>
+                    <button class="image-modal-tab" onclick="switchImageTab('upload')">📁 Chọn file</button>
+                    <button class="image-modal-tab" onclick="switchImageTab('link')">🔗 Nhập link</button>
+                </div>
+
+                <!-- Paste Tab -->
+                <div class="image-modal-content active" id="pasteTab">
+                    <div class="paste-area" id="pasteArea" onclick="focusPasteArea()">
+                        <div class="paste-icon">📋</div>
+                        <div class="paste-text">Click vào đây và paste ảnh (Ctrl+V / Cmd+V)</div>
+                        <div class="paste-hint">Hoặc nhấn Ctrl+V / Cmd+V ở bất kỳ đâu trong modal này</div>
+                    </div>
+                    <img class="paste-preview" id="pastePreview" alt="Preview">
+                </div>
+
+                <!-- Upload Tab -->
+                <div class="image-modal-content" id="uploadTab">
+                    <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileUploadInput').click()">
+                        <div class="paste-icon">📁</div>
+                        <div class="paste-text">Click để chọn file hoặc kéo thả vào đây</div>
+                        <div class="paste-hint">Hỗ trợ: JPG, PNG, GIF, WEBP</div>
+                    </div>
+                    <input type="file" id="fileUploadInput" class="file-upload-input" accept="image/*" onchange="handleFileSelect(event)">
+                    <img class="paste-preview" id="uploadPreview" alt="Preview">
+                </div>
+
+                <!-- Link Tab -->
+                <div class="image-modal-content" id="linkTab">
+                    <div class="link-input-area">
+                        <input
+                            type="text"
+                            class="link-input"
+                            id="linkInput"
+                            placeholder="Nhập URL hình ảnh (https://...)"
+                            oninput="handleLinkInput(event)"
+                        >
+                        <div class="paste-hint">Để trống để xóa hình ảnh hiện tại</div>
+                    </div>
+                    <div class="link-preview-container" id="linkPreviewContainer">
+                        <img class="link-preview-image" id="linkPreviewImage" alt="Preview">
+                    </div>
+                </div>
+            </div>
+            <div class="image-modal-footer">
+                <button class="btn-modal btn-modal-cancel" onclick="closeImageModal()">Hủy</button>
+                <button class="btn-modal btn-modal-save" id="btnSaveImage" onclick="saveImageChange()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>🛍️ Quản lý Sản phẩm N2Shop</h1>
@@ -1888,6 +2232,10 @@
             }
         }
 
+        // Image Modal State
+        let currentEditingProductId = null;
+        let currentImageData = null; // Store base64 or URL
+
         function changeProductImage(productId) {
             const product = savedProducts.find(p => p.Id === productId);
             if (!product) {
@@ -1895,20 +2243,263 @@
                 return;
             }
 
-            const currentImageUrl = product.imageUrl || '';
-            const newImageUrl = prompt(
-                `Nhập URL hình ảnh mới cho "${product.NameGet}":\n\n(Để trống để xóa hình ảnh)`,
-                currentImageUrl
-            );
+            currentEditingProductId = productId;
+            currentImageData = null;
 
-            // User cancelled the prompt
-            if (newImageUrl === null) {
+            // Pre-fill link input if product has existing image
+            const linkInput = document.getElementById('linkInput');
+            if (linkInput && product.imageUrl) {
+                linkInput.value = product.imageUrl;
+                handleLinkInput({ target: linkInput });
+            }
+
+            // Open modal
+            const modal = document.getElementById('imageModalOverlay');
+            modal.classList.add('show');
+
+            // Focus on paste area by default
+            setTimeout(() => {
+                document.getElementById('pasteArea').focus();
+            }, 100);
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('imageModalOverlay');
+            modal.classList.remove('show');
+
+            // Reset state
+            currentEditingProductId = null;
+            currentImageData = null;
+
+            // Reset all tabs
+            resetPasteTab();
+            resetUploadTab();
+            resetLinkTab();
+
+            // Switch back to paste tab
+            switchImageTab('paste');
+        }
+
+        function switchImageTab(tabName) {
+            // Update tab buttons
+            const tabs = document.querySelectorAll('.image-modal-tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            // Update tab contents
+            const contents = document.querySelectorAll('.image-modal-content');
+            contents.forEach(content => content.classList.remove('active'));
+
+            // Activate selected tab
+            if (tabName === 'paste') {
+                tabs[0].classList.add('active');
+                document.getElementById('pasteTab').classList.add('active');
+            } else if (tabName === 'upload') {
+                tabs[1].classList.add('active');
+                document.getElementById('uploadTab').classList.add('active');
+            } else if (tabName === 'link') {
+                tabs[2].classList.add('active');
+                document.getElementById('linkTab').classList.add('active');
+            }
+        }
+
+        function resetPasteTab() {
+            const pasteArea = document.getElementById('pasteArea');
+            const pastePreview = document.getElementById('pastePreview');
+            pasteArea.classList.remove('has-image');
+            pastePreview.classList.remove('show');
+            pastePreview.src = '';
+        }
+
+        function resetUploadTab() {
+            const uploadArea = document.getElementById('fileUploadArea');
+            const uploadPreview = document.getElementById('uploadPreview');
+            const fileInput = document.getElementById('fileUploadInput');
+            uploadArea.classList.remove('has-image');
+            uploadPreview.classList.remove('show');
+            uploadPreview.src = '';
+            fileInput.value = '';
+        }
+
+        function resetLinkTab() {
+            const linkInput = document.getElementById('linkInput');
+            const linkPreviewContainer = document.getElementById('linkPreviewContainer');
+            const linkPreviewImage = document.getElementById('linkPreviewImage');
+            linkInput.value = '';
+            linkPreviewContainer.classList.remove('show');
+            linkPreviewImage.src = '';
+        }
+
+        // Paste Image Handler
+        function focusPasteArea() {
+            const pasteArea = document.getElementById('pasteArea');
+            pasteArea.focus();
+        }
+
+        // Listen for paste events in the modal
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('imageModalOverlay');
+
+            modal.addEventListener('paste', (e) => {
+                // Only handle if modal is open and paste tab is active
+                const isModalOpen = modal.classList.contains('show');
+                const isPasteTabActive = document.getElementById('pasteTab').classList.contains('active');
+
+                if (!isModalOpen || !isPasteTabActive) return;
+
+                handlePaste(e);
+            });
+        });
+
+        function handlePaste(e) {
+            e.preventDefault();
+
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+
+                    reader.onload = (event) => {
+                        const base64 = event.target.result;
+                        currentImageData = base64;
+
+                        // Show preview
+                        const pastePreview = document.getElementById('pastePreview');
+                        const pasteArea = document.getElementById('pasteArea');
+
+                        pastePreview.src = base64;
+                        pastePreview.classList.add('show');
+                        pasteArea.classList.add('has-image');
+
+                        showNotificationMessage('✅ Đã paste ảnh thành công');
+                    };
+
+                    reader.readAsDataURL(blob);
+                    return;
+                }
+            }
+
+            showNotificationMessage('⚠️ Không tìm thấy ảnh trong clipboard');
+        }
+
+        // Upload File Handler
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showNotificationMessage('⚠️ Vui lòng chọn file ảnh');
                 return;
             }
 
-            // Update the image URL (empty string if user wants to remove the image)
-            const trimmedUrl = newImageUrl.trim();
-            product.imageUrl = trimmedUrl || null;
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const base64 = e.target.result;
+                currentImageData = base64;
+
+                // Show preview
+                const uploadPreview = document.getElementById('uploadPreview');
+                const uploadArea = document.getElementById('fileUploadArea');
+
+                uploadPreview.src = base64;
+                uploadPreview.classList.add('show');
+                uploadArea.classList.add('has-image');
+
+                showNotificationMessage('✅ Đã chọn file thành công');
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        // Drag and Drop for Upload
+        document.addEventListener('DOMContentLoaded', () => {
+            const uploadArea = document.getElementById('fileUploadArea');
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+
+                const file = e.dataTransfer.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith('image/')) {
+                    showNotificationMessage('⚠️ Vui lòng chọn file ảnh');
+                    return;
+                }
+
+                const reader = new FileReader();
+
+                reader.onload = (event) => {
+                    const base64 = event.target.result;
+                    currentImageData = base64;
+
+                    // Show preview
+                    const uploadPreview = document.getElementById('uploadPreview');
+
+                    uploadPreview.src = base64;
+                    uploadPreview.classList.add('show');
+                    uploadArea.classList.add('has-image');
+
+                    showNotificationMessage('✅ Đã tải ảnh lên thành công');
+                };
+
+                reader.readAsDataURL(file);
+            });
+        });
+
+        // Link Input Handler
+        function handleLinkInput(event) {
+            const url = event.target.value.trim();
+            const linkPreviewContainer = document.getElementById('linkPreviewContainer');
+            const linkPreviewImage = document.getElementById('linkPreviewImage');
+
+            if (!url) {
+                linkPreviewContainer.classList.remove('show');
+                currentImageData = null;
+                return;
+            }
+
+            // Set current image data to URL
+            currentImageData = url;
+
+            // Show preview
+            linkPreviewImage.src = url;
+            linkPreviewContainer.classList.add('show');
+
+            // Handle image load errors
+            linkPreviewImage.onerror = () => {
+                showNotificationMessage('⚠️ Không thể tải ảnh từ URL này');
+                linkPreviewContainer.classList.remove('show');
+                currentImageData = null;
+            };
+        }
+
+        // Save Image Change
+        function saveImageChange() {
+            if (!currentEditingProductId) {
+                showNotificationMessage('❌ Không tìm thấy sản phẩm');
+                return;
+            }
+
+            const product = savedProducts.find(p => p.Id === currentEditingProductId);
+            if (!product) {
+                showNotificationMessage('❌ Không tìm thấy sản phẩm');
+                return;
+            }
+
+            // Update the image URL (can be null, base64, or URL)
+            product.imageUrl = currentImageData || null;
 
             // Add timestamp for cache-busting on product-list page
             product.lastRefreshed = Date.now();
@@ -1918,6 +2509,7 @@
                 database.ref('savedProducts').set(savedProducts).then(() => {
                     console.log(`✅ Updated image for product ${product.NameGet}`);
                     showNotificationMessage('🖼️ Đã cập nhật hình ảnh sản phẩm');
+                    closeImageModal();
                 }).catch(error => {
                     console.error('❌ Lỗi sync products lên Firebase:', error);
                     showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
