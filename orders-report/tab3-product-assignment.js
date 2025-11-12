@@ -664,6 +664,7 @@
                     addSTTToAssignment(assignmentId, value, order);
                     input.value = '';
                     hideSTTSuggestions(assignmentId);
+                    input.focus(); // Keep focus for continuous input
                 } else {
                     showNotification('Không tìm thấy STT: ' + value, 'error');
                 }
@@ -734,6 +735,7 @@
         const input = document.querySelector(`input[data-assignment-id="${assignmentId}"]`);
         if (input) {
             input.value = '';
+            input.focus(); // Keep focus for continuous input
         }
         hideSTTSuggestions(assignmentId);
         hideOrderTooltip(); // Hide tooltip after selection
