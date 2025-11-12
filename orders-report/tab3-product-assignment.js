@@ -6,6 +6,7 @@
     let productsData = [];
     let ordersData = [];
     let assignments = [];
+    let savedProducts = []; // Products from product-search
     let isLoadingProducts = false;
     let bearerToken = null;
     let tokenExpiry = null;
@@ -338,12 +339,116 @@
         }
     }
 
+    // Add Saved Product to Assignment (from product-search list)
+    window.addSavedProductToAssignment = async function(productId, productName, productCode, imageUrl) {
+        try {
+            // Check if product already assigned
+            const existingIndex = assignments.findIndex(a => a.productId === productId);
+            if (existingIndex !== -1) {
+                showNotification('Sản phẩm đã có trong danh sách', 'error');
+                // Scroll to the existing assignment
+                const tableBody = document.getElementById('assignmentTableBody');
+                const existingRow = tableBody.children[existingIndex];
+                if (existingRow) {
+                    existingRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    existingRow.style.backgroundColor = '#fff3cd';
+                    setTimeout(() => {
+                        existingRow.style.backgroundColor = '';
+                    }, 2000);
+                }
+                return;
+            }
+
+            // Add to assignments
+            const assignment = {
+                id: Date.now(),
+                productId: productId,
+                productName: productName,
+                productCode: productCode || '',
+                imageUrl: imageUrl,
+                sttList: []
+            };
+
+            assignments.push(assignment);
+            saveAssignments();
+            renderAssignmentTable();
+            showNotification('✅ Đã thêm sản phẩm vào danh sách gán');
+
+            // Scroll to the new assignment
+            setTimeout(() => {
+                const tableBody = document.getElementById('assignmentTableBody');
+                const newRow = tableBody.lastElementChild;
+                if (newRow) {
+                    newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Error adding saved product:', error);
+            showNotification('Lỗi: ' + error.message, 'error');
+        }
+    };
+
+    // Render Saved Products List from product-search
+    function renderSavedProductsList() {
+        const container = document.getElementById('savedProductsContainer');
+        const countBadge = document.getElementById('savedProductsCount');
+
+        if (!container) return;
+
+        // Update count
+        if (countBadge) {
+            countBadge.textContent = savedProducts.length;
+        }
+
+        if (savedProducts.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                    <small>Chưa có sản phẩm nào trong danh sách.<br>Thêm sản phẩm từ trang Product Search.</small>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort products by addedAt (newest first)
+        const sortedProducts = [...savedProducts].sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+        container.innerHTML = sortedProducts.map(product => {
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="saved-product-image" alt="${product.NameGet}">`
+                : `<div class="saved-product-image no-image"><i class="fas fa-box"></i></div>`;
+
+            // Check if already in assignments
+            const isAlreadyAdded = assignments.some(a => a.productId === product.Id);
+
+            return `
+                <div class="saved-product-item ${isAlreadyAdded ? 'already-added' : ''}"
+                     onclick="${isAlreadyAdded ? '' : `addSavedProductToAssignment(${product.Id}, '${product.NameGet.replace(/'/g, "\\'")}', '', '${product.imageUrl || ''}')`}"
+                     title="${isAlreadyAdded ? 'Đã có trong danh sách gán' : 'Click để thêm vào danh sách gán'}">
+                    ${imageHtml}
+                    <div class="saved-product-info">
+                        <div class="saved-product-name">${product.NameGet}</div>
+                        <div class="saved-product-stats">
+                            <span class="badge bg-secondary">📦 ${product.QtyAvailable || 0}</span>
+                            ${product.soldQty > 0 ? `<span class="badge bg-success">✅ ${product.soldQty}</span>` : ''}
+                            ${product.remainingQty !== undefined ? `<span class="badge bg-info">Còn ${product.remainingQty}</span>` : ''}
+                        </div>
+                    </div>
+                    ${isAlreadyAdded ? '<div class="added-checkmark"><i class="fas fa-check-circle"></i></div>' : '<div class="add-icon"><i class="fas fa-plus-circle"></i></div>'}
+                </div>
+            `;
+        }).join('');
+    }
+
     // Render Assignment Table
     function renderAssignmentTable() {
         const tableBody = document.getElementById('assignmentTableBody');
         const countSpan = document.getElementById('assignmentCount');
 
         countSpan.textContent = assignments.length;
+
+        // Update saved products list to show "already-added" state
+        renderSavedProductsList();
 
         if (assignments.length === 0) {
             tableBody.innerHTML = `
@@ -705,12 +810,26 @@
 
     // Setup Firebase Listeners
     function setupFirebaseListeners() {
+        // Listen for product assignments
         database.ref('productAssignments').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && Array.isArray(data)) {
                 assignments = data;
                 localStorage.setItem('productAssignments', JSON.stringify(assignments));
                 renderAssignmentTable();
+            }
+        });
+
+        // Listen for saved products from product-search
+        database.ref('savedProducts').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && Array.isArray(data)) {
+                savedProducts = data.filter(p => !p.isHidden); // Only show visible products
+                console.log(`📦 Đã đồng bộ ${savedProducts.length} sản phẩm từ product-search`);
+                renderSavedProductsList();
+            } else {
+                savedProducts = [];
+                renderSavedProductsList();
             }
         });
     }
