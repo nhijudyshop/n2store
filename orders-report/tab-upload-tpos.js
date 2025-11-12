@@ -688,16 +688,6 @@
                                 `}
                             </div>
                         </div>
-
-                        <!-- Legend -->
-                        <div class="alert alert-light mt-3 mb-0">
-                            <small>
-                                <strong><i class="fas fa-info-circle"></i> Chú thích:</strong><br>
-                                <span class="badge bg-success me-2"><i class="fas fa-star"></i> Mới</span> Sản phẩm mới sẽ được thêm vào đơn hàng<br>
-                                <span class="badge bg-warning text-dark me-2"><i class="fas fa-plus"></i> Cộng SL</span> Sản phẩm đã có, sẽ cộng thêm số lượng<br>
-                                <span class="badge bg-warning text-dark me-2"><i class="fas fa-arrow-up"></i></span> Đánh dấu sản phẩm có sẵn sẽ được cập nhật
-                            </small>
-                        </div>
                     </div>
                 </div>
             `;
