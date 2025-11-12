@@ -52,15 +52,29 @@
 
             <!-- Product Search Section (inside Assignment Table) -->
             <div class="card-body bg-light border-bottom">
-                <div class="search-wrapper position-relative">
-                    <input
-                        type="text"
-                        class="form-control form-control-lg"
-                        id="productSearch"
-                        placeholder="🔍 Tìm kiếm sản phẩm (nhập mã hoặc barcode)..."
-                        autocomplete="off"
-                    />
-                    <div class="suggestions-dropdown" id="productSuggestions"></div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <div class="search-wrapper position-relative">
+                            <input
+                                type="text"
+                                class="form-control form-control-lg"
+                                id="productSearch"
+                                placeholder="🔍 Tìm kiếm sản phẩm (nhập mã hoặc barcode)..."
+                                autocomplete="off"
+                            />
+                            <div class="suggestions-dropdown" id="productSuggestions"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <input
+                            type="text"
+                            class="form-control form-control-lg"
+                            id="assignmentSearch"
+                            placeholder="🔎 Lọc danh sách (mã SP, tên SP, STT)..."
+                            autocomplete="off"
+                            oninput="filterAssignments(this.value)"
+                        />
+                    </div>
                 </div>
                 <div id="loadingIndicator" class="text-center mt-3" style="display: none;">
                     <div class="spinner-border text-success" role="status">
