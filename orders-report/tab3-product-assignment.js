@@ -661,10 +661,10 @@
                 // Try to find exact match
                 const order = ordersData.find(o => o.stt && o.stt.toString() === value);
                 if (order) {
-                    addSTTToAssignment(assignmentId, value, order);
                     input.value = '';
                     hideSTTSuggestions(assignmentId);
-                    input.focus(); // Keep focus for continuous input
+                    addSTTToAssignment(assignmentId, value, order);
+                    // Focus is handled in addSTTToAssignment after render
                 } else {
                     showNotification('Không tìm thấy STT: ' + value, 'error');
                 }
@@ -729,16 +729,16 @@
     }
 
     function selectSTT(assignmentId, stt, orderData) {
-        addSTTToAssignment(assignmentId, stt, orderData);
-
-        // Clear input
+        // Clear input before adding (to avoid race condition)
         const input = document.querySelector(`input[data-assignment-id="${assignmentId}"]`);
         if (input) {
             input.value = '';
-            input.focus(); // Keep focus for continuous input
         }
         hideSTTSuggestions(assignmentId);
         hideOrderTooltip(); // Hide tooltip after selection
+
+        addSTTToAssignment(assignmentId, stt, orderData);
+        // Focus is handled in addSTTToAssignment after render
     }
 
     // Add STT to assignment (supports multiple STT, including duplicates)
@@ -760,6 +760,14 @@
 
         saveAssignments();
         renderAssignmentTable();
+
+        // Refocus input after render (use setTimeout to ensure DOM is updated)
+        setTimeout(() => {
+            const input = document.querySelector(`input[data-assignment-id="${assignmentId}"]`);
+            if (input) {
+                input.focus();
+            }
+        }, 0);
 
         // Show count if duplicate
         const count = assignment.sttList.filter(item => item.stt === stt).length;
