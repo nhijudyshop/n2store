@@ -17,8 +17,8 @@
     <script type="text/babel" data-type="module">
         const { useState, useEffect, useRef } = React;
 
-        // Use proxy to bypass CORS
-        const API_BASE = '/api';
+        // Direct API URL
+        const API_BASE = 'https://tomato.tpos.vn';
 
         // Auto-login configuration
         const DEFAULT_CREDENTIALS = {
@@ -30,10 +30,17 @@
         // Auto authentication functions
         async function getAuthToken() {
             try {
-                const response = await fetch(`${API_BASE}/token`, {
+                const response = await fetch('https://tomato.tpos.vn/token', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'accept': 'application/json, text/plain, */*',
+                        'content-type': 'application/x-www-form-urlencoded',
+                        'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+                        'sec-ch-ua-mobile': '?0',
+                        'sec-ch-ua-platform': '"macOS"',
+                        'tposappversion': '5.10.26.1',
+                        'x-tpos-lang': 'vi',
+                        'Referer': 'https://tomato.tpos.vn/'
                     },
                     body: `grant_type=password&username=${DEFAULT_CREDENTIALS.username}&password=${encodeURIComponent(DEFAULT_CREDENTIALS.password)}&client_id=${DEFAULT_CREDENTIALS.client_id}`
                 });
@@ -121,9 +128,15 @@
                         const response = await fetch(`${API_BASE}/api-ms/chatomni/v1/conversations/search`, {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json',
+                                'accept': 'application/json, text/plain, */*',
+                                'content-type': 'application/json',
                                 'Authorization': `Bearer ${validToken}`,
-                                'accept': 'application/json',
+                                'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+                                'sec-ch-ua-mobile': '?0',
+                                'sec-ch-ua-platform': '"macOS"',
+                                'tposappversion': '5.10.26.1',
+                                'x-tpos-lang': 'vi',
+                                'Referer': 'https://tomato.tpos.vn/'
                             },
                             body: JSON.stringify({
                                 Keyword: null,
@@ -167,9 +180,15 @@
                     const response = await fetch(`${API_BASE}/api-ms/chatomni/v1/conversations/search`, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'accept': 'application/json, text/plain, */*',
+                            'content-type': 'application/json',
                             'Authorization': `Bearer ${token}`,
-                            'accept': 'application/json',
+                            'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+                            'sec-ch-ua-mobile': '?0',
+                            'sec-ch-ua-platform': '"macOS"',
+                            'tposappversion': '5.10.26.1',
+                            'x-tpos-lang': 'vi',
+                            'Referer': 'https://tomato.tpos.vn/'
                         },
                         body: JSON.stringify({
                             Keyword: null,
@@ -209,8 +228,14 @@
                         `${API_BASE}/api-ms/chatomni/v1/messages?type=4&channelId=${channelId}&userId=${userId}`,
                         {
                             headers: {
+                                'accept': 'application/json, text/plain, */*',
                                 'Authorization': `Bearer ${token}`,
-                                'accept': 'application/json',
+                                'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+                                'sec-ch-ua-mobile': '?0',
+                                'sec-ch-ua-platform': '"macOS"',
+                                'tposappversion': '5.10.26.1',
+                                'x-tpos-lang': 'vi',
+                                'Referer': 'https://tomato.tpos.vn/'
                             }
                         }
                     );
@@ -232,8 +257,15 @@
                         {
                             method: 'POST',
                             headers: {
+                                'accept': 'application/json, text/plain, */*',
+                                'content-type': 'application/json',
                                 'Authorization': `Bearer ${token}`,
-                                'accept': 'application/json',
+                                'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+                                'sec-ch-ua-mobile': '?0',
+                                'sec-ch-ua-platform': '"macOS"',
+                                'tposappversion': '5.10.26.1',
+                                'x-tpos-lang': 'vi',
+                                'Referer': 'https://tomato.tpos.vn/'
                             }
                         }
                     );
