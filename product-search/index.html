@@ -1643,25 +1643,35 @@
         }
 
         function sortVariants(variants) {
-            // Define size order
-            const sizeOrder = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+            // Define size order - added more sizes including XS, 2XL, 3XL, 4XL
+            const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL'];
 
             return [...variants].sort((a, b) => {
                 const nameA = a.NameGet || '';
                 const nameB = b.NameGet || '';
 
-                // Extract number in parentheses (1), (2), (3), etc.
-                const numberMatchA = nameA.match(/\((\d+)\)/);
-                const numberMatchB = nameB.match(/\((\d+)\)/);
+                // Extract ALL numbers in parentheses, get the LAST one (most specific)
+                // Example: "Product (Color 1) (2)" -> get (2)
+                const numberMatchesA = [...nameA.matchAll(/\((\d+)\)/g)];
+                const numberMatchesB = [...nameB.matchAll(/\((\d+)\)/g)];
+                const numberMatchA = numberMatchesA.length > 0 ? numberMatchesA[numberMatchesA.length - 1] : null;
+                const numberMatchB = numberMatchesB.length > 0 ? numberMatchesB[numberMatchesB.length - 1] : null;
 
-                // If both have numbers, sort by number
+                // If both have numbers in parentheses, sort by number
                 if (numberMatchA && numberMatchB) {
-                    return parseInt(numberMatchA[1]) - parseInt(numberMatchB[1]);
+                    const numA = parseInt(numberMatchA[1]);
+                    const numB = parseInt(numberMatchB[1]);
+                    if (numA !== numB) {
+                        return numA - numB;
+                    }
                 }
 
-                // Extract size in parentheses (S), (M), (L), etc.
-                const sizeMatchA = nameA.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
-                const sizeMatchB = nameB.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
+                // Extract ALL sizes in parentheses, get the LAST one
+                const sizeRegex = /\((XS|S|M|L|XL|XXL|XXXL|2XL|3XL|4XL)\)/gi;
+                const sizeMatchesA = [...nameA.matchAll(sizeRegex)];
+                const sizeMatchesB = [...nameB.matchAll(sizeRegex)];
+                const sizeMatchA = sizeMatchesA.length > 0 ? sizeMatchesA[sizeMatchesA.length - 1] : null;
+                const sizeMatchB = sizeMatchesB.length > 0 ? sizeMatchesB[sizeMatchesB.length - 1] : null;
 
                 // If both have sizes, sort by size order
                 if (sizeMatchA && sizeMatchB) {
@@ -1672,7 +1682,9 @@
 
                     // If both sizes are in the order list
                     if (indexA !== -1 && indexB !== -1) {
-                        return indexA - indexB;
+                        if (indexA !== indexB) {
+                            return indexA - indexB;
+                        }
                     }
                     // If only one is in the list, prioritize it
                     if (indexA !== -1) return -1;
@@ -1686,6 +1698,18 @@
                 // If one has pattern and other doesn't, pattern comes first
                 if ((numberMatchA || sizeMatchA) && !(numberMatchB || sizeMatchB)) return -1;
                 if ((numberMatchB || sizeMatchB) && !(numberMatchA || sizeMatchA)) return 1;
+
+                // Fallback: extract numbers WITHOUT parentheses (like "Size 1", "Màu 2")
+                const freeNumberA = nameA.match(/\s(\d+)(?!\))/);
+                const freeNumberB = nameB.match(/\s(\d+)(?!\))/);
+
+                if (freeNumberA && freeNumberB) {
+                    const numA = parseInt(freeNumberA[1]);
+                    const numB = parseInt(freeNumberB[1]);
+                    if (numA !== numB) {
+                        return numA - numB;
+                    }
+                }
 
                 // Default: alphabetical sort
                 return nameA.localeCompare(nameB);
