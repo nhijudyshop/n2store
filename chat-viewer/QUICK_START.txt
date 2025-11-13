@@ -1,0 +1,86 @@
+╔══════════════════════════════════════════════════════╗
+║          CHATOMNI VIEWER - QUICK START              ║
+╚══════════════════════════════════════════════════════╝
+
+📁 CÁC FILE TRONG PACKAGE:
+├── package.json        → npm configuration
+├── server.js           → Express proxy server
+├── chat-viewer.html    → Giao diện web chính
+├── README.md           → Hướng dẫn chi tiết
+├── INSTALL.md          → Hướng dẫn cài đặt nhanh
+└── .gitignore          → Git ignore file
+
+⚡ KHỞI ĐỘNG NHANH (3 BƯỚC):
+
+1. Cài Node.js (nếu chưa có):
+   → https://nodejs.org/ (tải bản LTS)
+
+2. Cài dependencies:
+   npm install
+
+3. Chạy server:
+   npm start
+
+4. Mở trình duyệt:
+   → http://localhost:8080
+
+5. Đăng nhập:
+   • Cách 1 (Khuyến nghị): Nhập username & password
+   • Cách 2 (Backup): Paste Bearer token từ TPOS
+   • Click "Đăng nhập"
+
+═══════════════════════════════════════════════════════
+
+✨ TÍNH NĂNG:
+✓ Login: Username/Password hoặc Token 🔑
+✓ Avatar Facebook - Ảnh đại diện thật 👤
+✓ Xem danh sách hội thoại
+✓ Đọc tin nhắn (text + ảnh)
+✓ Số tin nhắn chưa đọc
+✓ Thông tin khách hàng
+✓ Dual WebSocket 🔥🔥 (2 servers cho độ tin cậy tối đa)
+  • Chat WS: Tin nhắn tức thì
+  • RT WS: Thông báo & updates
+✓ Auto-refresh polling (mặc định OFF, bật khi cần)
+✓ Triple-redundancy: 2 WebSockets + Polling!
+✓ Status: 🟢 Chat | 🟢 RT | ⚡ Realtime
+✓ CORS proxy tích hợp
+
+═══════════════════════════════════════════════════════
+
+⚙️ CÁC LỆNH NPM:
+
+npm install       → Cài đặt dependencies
+npm start         → Chạy server
+PORT=3000 npm start → Chạy với port khác
+
+═══════════════════════════════════════════════════════
+
+⚠️ LƯU Ý:
+• Token có thời hạn, cần lấy mới khi hết hạn
+• Server chỉ chạy local (an toàn)
+• KHÔNG chia sẻ token
+
+═══════════════════════════════════════════════════════
+
+🆘 KHẮC PHỤC SỰ CỐ:
+
+Lỗi: "npm: command not found"
+→ Cài Node.js trước
+
+Lỗi: "Cannot find module 'express'"
+→ Chạy: npm install
+
+Lỗi: "Port 8080 already in use"
+→ Chạy: PORT=3000 npm start (Mac/Linux)
+→ Hoặc: set PORT=3000 && npm start (Windows)
+
+Lỗi: "Failed to fetch"
+→ Kiểm tra server đang chạy (npm start)
+→ Truy cập đúng URL: http://localhost:8080
+
+═══════════════════════════════════════════════════════
+
+📖 Xem README.md hoặc INSTALL.md để biết thêm chi tiết!
+
+Happy chatting! 🎉

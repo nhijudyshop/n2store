@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatOmni Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        const { useState, useEffect, useRef } = React;
+
+        // Use proxy to bypass CORS
+        const API_BASE = '/api';
+
+        function ChatApp() {
+            const [token, setToken] = useState('');
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [loginMethod, setLoginMethod] = useState('credentials'); // 'credentials' or 'token'
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [loginError, setLoginError] = useState('');
+            const [conversations, setConversations] = useState([]);
+            const [selectedConv, setSelectedConv] = useState(null);
+            const [messages, setMessages] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [autoRefresh, setAutoRefresh] = useState(false); // Default OFF
+            const [chatSocket, setChatSocket] = useState(null);
+            const [rtSocket, setRtSocket] = useState(null);
+            const [chatSocketConnected, setChatSocketConnected] = useState(false);
+            const [rtSocketConnected, setRtSocketConnected] = useState(false);
+            const messagesEndRef = useRef(null);
+            const refreshIntervalRef = useRef(null);
+
+            // Helper function to get Facebook avatar
+            const getFacebookAvatar = (userId) => {
+                if (!userId) return null;
+                return `https://platform-lookaside.fbsbx.com/platform/profilepic/?psid=${userId}&height=200&width=200`;
+            };
+
+            // Scroll to bottom of messages
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            // Login with username and password
+            const handleLoginWithCredentials = async () => {
+                if (!username.trim() || !password.trim()) {
+                    setLoginError('Vui lòng nhập username và password!');
+                    return;
+                }
+                
+                try {
+                    setLoading(true);
+                    setLoginError('');
+                    
+                    const response = await fetch(`${API_BASE}/token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'accept': 'application/json',
+                        },
+                        body: `client_id=tmtWebApp&grant_type=password&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&scope=profile`
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Đăng nhập thất bại! Kiểm tra lại username/password');
+                    }
+                    
+                    const data = await response.json();
+                    const accessToken = data.access_token;
+                    
+                    if (!accessToken) {
+                        throw new Error('Không nhận được token!');
+                    }
+                    
+                    setToken(accessToken);
+                    setIsAuthenticated(true);
+                    fetchConversations();
+                    
+                } catch (error) {
+                    console.error('Login error:', error);
+                    setLoginError(error.message || 'Lỗi đăng nhập!');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Fetch conversations
+            const fetchConversations = async () => {
+                try {
+                    setLoading(true);
+                    const response = await fetch(`${API_BASE}/api-ms/chatomni/v1/conversations/search`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                            'accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            Keyword: null,
+                            Limit: 50,
+                            Sort: null,
+                            Before: null,
+                            After: null,
+                            Channels: [{ Id: "270136663390370", Type: 4 }],
+                            Type: "message",
+                            HasPhone: null,
+                            HasAddress: null,
+                            HasOrder: null,
+                            IsUnread: null,
+                            IsUnreplied: null,
+                            TagIds: [],
+                            UserIds: [],
+                            Start: null,
+                            End: null,
+                            FromNewToOld: null
+                        })
+                    });
+                    const data = await response.json();
+                    setConversations(data.Data || []);
+                } catch (error) {
+                    console.error('Error fetching conversations:', error);
+                    alert('Lỗi khi tải danh sách chat: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Fetch messages for selected conversation
+            const fetchMessages = async (channelId, userId) => {
+                try {
+                    setLoading(true);
+                    const response = await fetch(
+                        `${API_BASE}/api-ms/chatomni/v1/messages?type=4&channelId=${channelId}&userId=${userId}`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'accept': 'application/json',
+                            }
+                        }
+                    );
+                    const data = await response.json();
+                    setMessages(data.Data || []);
+                } catch (error) {
+                    console.error('Error fetching messages:', error);
+                    alert('Lỗi khi tải tin nhắn: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Mark as seen
+            const markAsSeen = async (channelId, userId) => {
+                try {
+                    await fetch(
+                        `${API_BASE}/api-ms/chatomni/v1/conversations/4/${channelId}/${userId}/seen?isSeen=true&type=message`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'accept': 'application/json',
+                            }
+                        }
+                    );
+                } catch (error) {
+                    console.error('Error marking as seen:', error);
+                }
+            };
+
+            // Auto-refresh conversations
+            useEffect(() => {
+                if (!isAuthenticated || !autoRefresh) return;
+
+                // Refresh every 10 seconds
+                refreshIntervalRef.current = setInterval(() => {
+                    fetchConversations();
+                    if (selectedConv) {
+                        fetchMessages(selectedConv.Channel.Id, selectedConv.User.Id);
+                    }
+                }, 10000);
+
+                return () => {
+                    if (refreshIntervalRef.current) {
+                        clearInterval(refreshIntervalRef.current);
+                    }
+                };
+            }, [isAuthenticated, autoRefresh, selectedConv]);
+
+            // WebSocket connections for real-time updates (DUAL MODE)
+            useEffect(() => {
+                if (!isAuthenticated || !token) return;
+
+                console.log('🔌 Connecting to WebSocket servers...');
+
+                // ====== CONNECTION 1: ChatOmni Server ======
+                const newChatSocket = io('wss://ws.chatomni.tpos.app', {
+                    transports: ['websocket'],
+                    query: {
+                        room: 'tomato.tpos.vn',
+                        EIO: '4'
+                    },
+                    reconnection: true,
+                    reconnectionDelay: 1000,
+                    reconnectionAttempts: 5
+                });
+
+                // Chat Socket Events
+                newChatSocket.on('connect', () => {
+                    console.log('✅ [CHAT] WebSocket connected:', newChatSocket.id);
+                    setChatSocketConnected(true);
+                    
+                    // Authenticate with token
+                    newChatSocket.emit('40/chatomni', JSON.stringify({ token }));
+                    console.log('🔐 [CHAT] Authentication sent');
+                });
+
+                newChatSocket.on('disconnect', (reason) => {
+                    console.log('❌ [CHAT] WebSocket disconnected:', reason);
+                    setChatSocketConnected(false);
+                });
+
+                newChatSocket.on('connect_error', (error) => {
+                    console.error('🔥 [CHAT] Connection error:', error.message);
+                    setChatSocketConnected(false);
+                });
+
+                newChatSocket.on('reconnect', (attemptNumber) => {
+                    console.log('🔄 [CHAT] Reconnected after', attemptNumber, 'attempts');
+                    setChatSocketConnected(true);
+                });
+
+                // Listen for chat messages
+                newChatSocket.on('42/chatomni', (data) => {
+                    console.log('📨 [CHAT] New message received:', data);
+                    fetchConversations();
+                    if (selectedConv) {
+                        fetchMessages(selectedConv.Channel.Id, selectedConv.User.Id);
+                    }
+                });
+
+                // Listen for any chat event
+                newChatSocket.onAny((eventName, ...args) => {
+                    if (eventName.includes('chatomni') || eventName.includes('message')) {
+                        console.log('📬 [CHAT] Event:', eventName, args);
+                        fetchConversations();
+                        if (selectedConv) {
+                            fetchMessages(selectedConv.Channel.Id, selectedConv.User.Id);
+                        }
+                    }
+                });
+
+                // ====== CONNECTION 2: Real-time Server ======
+                const newRtSocket = io('wss://rt-2.tpos.app', {
+                    transports: ['websocket'],
+                    query: {
+                        room: 'tomato.tpos.vn',
+                        EIO: '4'
+                    },
+                    reconnection: true,
+                    reconnectionDelay: 1000,
+                    reconnectionAttempts: 5
+                });
+
+                // RT Socket Events
+                newRtSocket.on('connect', () => {
+                    console.log('✅ [RT] WebSocket connected:', newRtSocket.id);
+                    setRtSocketConnected(true);
+                    
+                    // Authenticate with token (if needed)
+                    newRtSocket.emit('authenticate', { token });
+                    console.log('🔐 [RT] Authentication sent');
+                });
+
+                newRtSocket.on('disconnect', (reason) => {
+                    console.log('❌ [RT] WebSocket disconnected:', reason);
+                    setRtSocketConnected(false);
+                });
+
+                newRtSocket.on('connect_error', (error) => {
+                    console.error('🔥 [RT] Connection error:', error.message);
+                    setRtSocketConnected(false);
+                });
+
+                newRtSocket.on('reconnect', (attemptNumber) => {
+                    console.log('🔄 [RT] Reconnected after', attemptNumber, 'attempts');
+                    setRtSocketConnected(true);
+                });
+
+                // Listen for real-time events
+                newRtSocket.on('notification', (data) => {
+                    console.log('🔔 [RT] Notification:', data);
+                    fetchConversations();
+                });
+
+                newRtSocket.on('update', (data) => {
+                    console.log('🔄 [RT] Update:', data);
+                    fetchConversations();
+                    if (selectedConv) {
+                        fetchMessages(selectedConv.Channel.Id, selectedConv.User.Id);
+                    }
+                });
+
+                // Listen for any RT event
+                newRtSocket.onAny((eventName, ...args) => {
+                    console.log('📡 [RT] Event:', eventName, args);
+                    // Refresh on any significant event
+                    if (!eventName.includes('ping') && !eventName.includes('pong')) {
+                        fetchConversations();
+                    }
+                });
+
+                setChatSocket(newChatSocket);
+                setRtSocket(newRtSocket);
+
+                // Cleanup both connections
+                return () => {
+                    console.log('🔌 Disconnecting WebSocket servers...');
+                    newChatSocket.close();
+                    newRtSocket.close();
+                    setChatSocketConnected(false);
+                    setRtSocketConnected(false);
+                };
+            }, [isAuthenticated, token]);
+
+            // Handle login
+            const handleLogin = () => {
+                if (!token.trim()) {
+                    alert('Vui lòng nhập Bearer token!');
+                    return;
+                }
+                setIsAuthenticated(true);
+                fetchConversations();
+            };
+
+            // Handle conversation selection
+            const handleSelectConversation = (conv) => {
+                setSelectedConv(conv);
+                fetchMessages(conv.Channel.Id, conv.User.Id);
+                if (conv.LastActivities.HasUnread) {
+                    markAsSeen(conv.Channel.Id, conv.User.Id);
+                }
+            };
+
+            // Format time
+            const formatTime = (dateString) => {
+                const date = new Date(dateString);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+
+                if (diffMins < 1) return 'Vừa xong';
+                if (diffMins < 60) return `${diffMins} phút trước`;
+                if (diffHours < 24) return `${diffHours} giờ trước`;
+                if (diffDays < 7) return `${diffDays} ngày trước`;
+                return date.toLocaleDateString('vi-VN');
+            };
+
+            // Login Screen
+            if (!isAuthenticated) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
+                        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+                            <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">
+                                ChatOmni Viewer
+                            </h1>
+                            <p className="text-gray-600 mb-6 text-sm text-center">
+                                Đăng nhập để xem tin nhắn
+                            </p>
+
+                            {/* Login Method Tabs */}
+                            <div className="flex gap-2 mb-4">
+                                <button
+                                    onClick={() => setLoginMethod('credentials')}
+                                    className={`flex-1 py-2 rounded-lg font-medium transition ${
+                                        loginMethod === 'credentials'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-gray-200 text-gray-700'
+                                    }`}
+                                >
+                                    Username/Password
+                                </button>
+                                <button
+                                    onClick={() => setLoginMethod('token')}
+                                    className={`flex-1 py-2 rounded-lg font-medium transition ${
+                                        loginMethod === 'token'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-gray-200 text-gray-700'
+                                    }`}
+                                >
+                                    Token
+                                </button>
+                            </div>
+
+                            {loginError && (
+                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                                    {loginError}
+                                </div>
+                            )}
+
+                            {/* Credentials Login Form */}
+                            {loginMethod === 'credentials' && (
+                                <>
+                                    <input
+                                        type="text"
+                                        className="w-full p-3 border border-gray-300 rounded-lg mb-3"
+                                        placeholder="Username (vd: nv20)"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleLoginWithCredentials()}
+                                    />
+                                    <input
+                                        type="password"
+                                        className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+                                        placeholder="Password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleLoginWithCredentials()}
+                                    />
+                                    <button
+                                        onClick={handleLoginWithCredentials}
+                                        disabled={loading}
+                                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400"
+                                    >
+                                        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                                    </button>
+                                </>
+                            )}
+
+                            {/* Token Login Form */}
+                            {loginMethod === 'token' && (
+                                <>
+                                    <p className="text-gray-600 mb-3 text-sm">
+                                        Paste Bearer token từ TPOS
+                                    </p>
+                                    <textarea
+                                        className="w-full p-3 border border-gray-300 rounded-lg mb-4 font-mono text-sm"
+                                        rows="6"
+                                        placeholder="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                        value={token}
+                                        onChange={(e) => setToken(e.target.value)}
+                                    />
+                                    <button
+                                        onClick={handleLogin}
+                                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                                    >
+                                        Đăng nhập
+                                    </button>
+                                </>
+                            )}
+
+                            <p className="text-xs text-gray-500 text-center mt-4">
+                                🔒 Thông tin đăng nhập được lưu trong session
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Main Chat Interface
+            return (
+                <div className="h-screen flex">
+                    {/* Sidebar - Conversations List */}
+                    <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+                        {/* Header */}
+                        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">Tin nhắn</h2>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <p className="text-blue-100 text-sm">{conversations.length} cuộc hội thoại</p>
+                                        <div className="flex gap-1">
+                                            <span 
+                                                className={`text-xs px-2 py-0.5 rounded-full ${
+                                                    chatSocketConnected 
+                                                        ? 'bg-green-500 text-white' 
+                                                        : 'bg-gray-400 text-white'
+                                                }`}
+                                                title={chatSocketConnected ? 'Chat WebSocket connected' : 'Chat WebSocket disconnected'}
+                                            >
+                                                {chatSocketConnected ? '🟢 Chat' : '⚪ Chat'}
+                                            </span>
+                                            <span 
+                                                className={`text-xs px-2 py-0.5 rounded-full ${
+                                                    rtSocketConnected 
+                                                        ? 'bg-green-500 text-white' 
+                                                        : 'bg-gray-400 text-white'
+                                                }`}
+                                                title={rtSocketConnected ? 'RT WebSocket connected' : 'RT WebSocket disconnected'}
+                                            >
+                                                {rtSocketConnected ? '🟢 RT' : '⚪ RT'}
+                                            </span>
+                                            {(chatSocketConnected || rtSocketConnected) && (
+                                                <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-400 text-gray-900 animate-pulse">
+                                                    ⚡ Realtime
+                                                </span>
+                                            )}
+                                            {!chatSocketConnected && !rtSocketConnected && (
+                                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-400 text-white">
+                                                    🔄 Polling
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            fetchConversations();
+                                            if (selectedConv) {
+                                                fetchMessages(selectedConv.Channel.Id, selectedConv.User.Id);
+                                            }
+                                        }}
+                                        className="px-3 py-1 rounded-lg text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 transition"
+                                        title="Làm mới ngay"
+                                    >
+                                        🔄
+                                    </button>
+                                    <button
+                                        onClick={() => setAutoRefresh(!autoRefresh)}
+                                        className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
+                                            autoRefresh 
+                                                ? 'bg-green-500 text-white' 
+                                                : 'bg-white text-gray-700'
+                                        }`}
+                                        title={autoRefresh ? 'Tắt tự động làm mới (10s)' : 'Bật tự động làm mới (10s)'}
+                                    >
+                                        {autoRefresh ? 'Auto ON' : 'Auto OFF'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Conversations List */}
+                        <div className="flex-1 overflow-y-auto scrollbar-hide">
+                            {loading && conversations.length === 0 ? (
+                                <div className="p-8 text-center text-gray-500">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                    Đang tải...
+                                </div>
+                            ) : (
+                                conversations.map((conv) => (
+                                    <div
+                                        key={conv.Id}
+                                        onClick={() => handleSelectConversation(conv)}
+                                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition ${
+                                            selectedConv?.Id === conv.Id ? 'bg-blue-50 border-l-4 border-blue-600' : ''
+                                        }`}
+                                    >
+                                        <div className="flex gap-3">
+                                            {/* Avatar */}
+                                            <div className="flex-shrink-0">
+                                                {getFacebookAvatar(conv.User?.Id) ? (
+                                                    <img
+                                                        src={getFacebookAvatar(conv.User.Id)}
+                                                        alt={conv.Name}
+                                                        className="w-12 h-12 rounded-full object-cover"
+                                                        onError={(e) => {
+                                                            e.target.onerror = null;
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236B7280"%3E%3Cpath d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/%3E%3C/svg%3E';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-lg">
+                                                        {conv.Name?.charAt(0)?.toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h3 className="font-semibold text-gray-900 truncate">{conv.Name}</h3>
+                                                    {conv.LastActivities.HasUnread && (
+                                                        <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 ml-2">
+                                                            {conv.LastActivities.UnreadCount}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-gray-600 truncate">
+                                                    {conv.Phone || 'Chưa có số điện thoại'}
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1 truncate">
+                                                    {conv.LastActivities.Message?.Message || 'Không có tin nhắn'}
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {formatTime(conv.LastActivities.ActivitedTime)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Main Chat Area */}
+                    <div className="flex-1 flex flex-col bg-gray-50">
+                        {selectedConv ? (
+                            <>
+                                {/* Chat Header */}
+                                <div className="bg-white p-4 border-b border-gray-200 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        {/* Avatar */}
+                                        {getFacebookAvatar(selectedConv.User?.Id) ? (
+                                            <img
+                                                src={getFacebookAvatar(selectedConv.User.Id)}
+                                                alt={selectedConv.Name}
+                                                className="w-12 h-12 rounded-full object-cover"
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236B7280"%3E%3Cpath d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/%3E%3C/svg%3E';
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl">
+                                                {selectedConv.Name?.charAt(0)?.toUpperCase()}
+                                            </div>
+                                        )}
+
+                                        {/* Info */}
+                                        <div className="flex-1">
+                                            <h2 className="text-xl font-bold text-gray-900">{selectedConv.Name}</h2>
+                                            <div className="flex gap-4 text-sm text-gray-600 mt-1">
+                                                <span>📞 {selectedConv.Phone || 'N/A'}</span>
+                                                {selectedConv.ApplicationPartner?.StatusText && (
+                                                    <span className={`px-2 py-0.5 rounded ${
+                                                        selectedConv.ApplicationPartner.StatusText === 'Bình thường' 
+                                                            ? 'bg-green-100 text-green-700'
+                                                            : 'bg-yellow-100 text-yellow-700'
+                                                    }`}>
+                                                        {selectedConv.ApplicationPartner.StatusText}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Messages Area */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+                                    {messages.length === 0 ? (
+                                        <div className="text-center text-gray-500 py-8">
+                                            Không có tin nhắn
+                                        </div>
+                                    ) : (
+                                        messages.slice().reverse().map((msg) => (
+                                            <div
+                                                key={msg.Id}
+                                                className={`flex ${msg.IsOwner ? 'justify-end' : 'justify-start'}`}
+                                            >
+                                                <div
+                                                    className={`max-w-md px-4 py-2 rounded-2xl ${
+                                                        msg.IsOwner
+                                                            ? 'bg-blue-600 text-white'
+                                                            : 'bg-white text-gray-900 border border-gray-200'
+                                                    }`}
+                                                >
+                                                    {msg.Message && (
+                                                        <p className="whitespace-pre-wrap break-words">{msg.Message}</p>
+                                                    )}
+                                                    {msg.Attachments?.map((att, idx) => (
+                                                        att.Type === 'image' && (
+                                                            <img
+                                                                key={idx}
+                                                                src={att.Payload.Url}
+                                                                alt="Attachment"
+                                                                className="rounded-lg mt-2 max-w-full"
+                                                                loading="lazy"
+                                                            />
+                                                        )
+                                                    ))}
+                                                    <p className={`text-xs mt-1 ${msg.IsOwner ? 'text-blue-200' : 'text-gray-500'}`}>
+                                                        {formatTime(msg.CreatedTime)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                    <div ref={messagesEndRef} />
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center text-gray-500">
+                                <div className="text-center">
+                                    <svg className="w-24 h-24 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    <p className="text-xl">Chọn một cuộc hội thoại để xem tin nhắn</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Render app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ChatApp />);
+    </script>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
