@@ -10,8 +10,9 @@ let isSyncingFromFirebase = false;
 document.addEventListener("DOMContentLoaded", function() {
     console.log("🚀 Initializing Hidden Products page...");
 
-    // Check authentication
-    if (!Utils.checkAuth()) {
+    // Check authentication (authManager handles redirect automatically)
+    if (!authManager || !authManager.isAuthenticated()) {
+        console.warn("Not authenticated, waiting for redirect...");
         return;
     }
 
@@ -30,11 +31,13 @@ document.addEventListener("DOMContentLoaded", function() {
 // Initialize UI components
 function initializeUI() {
     // Set user info
-    const auth = Utils.getAuthState();
-    if (auth && auth.userName) {
+    const auth = authManager ? authManager.getAuthState() : null;
+    if (auth && auth.userType) {
         const userNameEl = document.getElementById("userName");
         if (userNameEl) {
-            userNameEl.textContent = auth.userName;
+            // Extract username from userType (format: "username-role")
+            const userName = auth.userType.split("-")[0];
+            userNameEl.textContent = userName || "Admin";
         }
     }
 
@@ -167,24 +170,27 @@ function showErrorState(errorMessage) {
 
 // Handle logout
 function handleLogout() {
-    if (confirm("Bạn có chắc muốn đăng xuất không?")) {
-        localStorage.removeItem(APP_CONFIG.AUTH_STORAGE_KEY);
-        window.location.href = "../loginindex/login.html";
+    if (authManager) {
+        authManager.logout();
+    } else {
+        if (confirm("Bạn có chắc muốn đăng xuất không?")) {
+            localStorage.removeItem(APP_CONFIG.AUTH_STORAGE_KEY);
+            window.location.href = "../index.html";
+        }
     }
 }
 
 // Show user permissions
 function showPermissions() {
-    const auth = Utils.getAuthState();
+    const auth = authManager ? authManager.getAuthState() : null;
     if (!auth) {
         Utils.showNotification("Không thể lấy thông tin quyền", "error");
         return;
     }
 
     const permissions = [];
-    permissions.push(`Tên: ${auth.userName || "N/A"}`);
-    permissions.push(`Email: ${auth.userEmail || "N/A"}`);
-    permissions.push(`Vai trò: ${auth.userRole || "N/A"}`);
+    permissions.push(`Tên: ${auth.userType || "N/A"}`);
+    permissions.push(`Vai trò: ${auth.isLoggedIn === "true" ? "Đã đăng nhập" : "Chưa đăng nhập"}`);
     permissions.push(`Cấp độ: ${auth.checkLogin || "N/A"}`);
 
     alert("QUYỀN CỦA TÔI\n\n" + permissions.join("\n"));
