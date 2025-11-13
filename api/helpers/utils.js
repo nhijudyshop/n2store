@@ -1,3 +1,5 @@
+const { getDynamicHeaderManager } = require("./dynamic-header-manager");
+
 function generateRandomId() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
         /[xy]/g,
@@ -22,12 +24,23 @@ function cleanBase64(base64String) {
     return base64String.replace(/\s/g, "");
 }
 
+/**
+ * Get headers for API requests with dynamic header support
+ * ✅ Implements proxy headers pattern from proxy-headers-explained.md
+ * 🔥 Includes Dynamic Header Learning capability
+ */
 function getHeaders() {
-    return {
+    // Get dynamic headers from manager
+    const dynamicHeaderManager = getDynamicHeaderManager();
+    const dynamicHeaders = dynamicHeaderManager.getHeaders();
+
+    // Static headers (always the same)
+    const staticHeaders = {
         accept: "application/json, text/plain, */*",
         "accept-encoding": "gzip, deflate, br",
         "accept-language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
         "content-type": "application/json;charset=UTF-8",
+        // ✅ Proxy pattern: Replace origin/referer with target domain
         origin: "https://tomato.tpos.vn",
         referer: "https://tomato.tpos.vn/",
         "sec-ch-ua":
@@ -37,11 +50,33 @@ function getHeaders() {
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
-        tposappversion: "5.9.10.1",
         "user-agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         "x-request-id": generateRandomId(),
     };
+
+    // Merge static and dynamic headers
+    // Dynamic headers override static if same key exists
+    return {
+        ...staticHeaders,
+        ...dynamicHeaders, // 🔥 Dynamic: API-Version, tposappversion, etc.
+    };
+}
+
+/**
+ * Get headers with optional logging
+ */
+function getHeadersWithLogging(context = "API Request") {
+    const headers = getHeaders();
+
+    if (process.env.ENABLE_HEADER_LOGGING === "true") {
+        console.log("\n" + "=".repeat(60));
+        console.log(`📤 HEADERS FOR: ${context}`);
+        console.log(JSON.stringify(headers, null, 2));
+        console.log("=".repeat(60) + "\n");
+    }
+
+    return headers;
 }
 
 module.exports = {
@@ -49,4 +84,5 @@ module.exports = {
     randomDelay,
     cleanBase64,
     getHeaders,
+    getHeadersWithLogging,
 };

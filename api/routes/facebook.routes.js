@@ -2,9 +2,15 @@ const express = require("express");
 const router = express.Router();
 const fetch = require("node-fetch");
 
+// Load environment variables
+require("dotenv").config();
+
 // Facebook API Config
-const FACEBOOK_API_URL = "https://tomato.tpos.vn/api/facebook-graph/livevideo";
+const FACEBOOK_API_URL =
+    process.env.FACEBOOK_API_URL ||
+    "https://tomato.tpos.vn/api/facebook-graph/livevideo";
 const FACEBOOK_TOKEN =
+    process.env.FACEBOOK_TOKEN ||
     "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJDbGllbnRJZCI6InRtdFdlYkFwcCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiZmMwZjQ0MzktOWNmNi00ZDg4LWE4YzctNzU5Y2E4Mjk1MTQyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Im52MjAiLCJEaXNwbGF5TmFtZSI6IlTDuiIsIkF2YXRhclVybCI6IiIsIlNlY3VyaXR5U3RhbXAiOiI1ZjY1NjQwMy01NjdmLTRmYzAtYjYxNy0yODJhYzgxZGY1ZWQiLCJDb21wYW55SWQiOiIxIiwiVGVuYW50SWQiOiJ0b21hdG8udHBvcy52biIsIlJvbGVJZHMiOiI0MmZmYzk5Yi1lNGY2LTQwMDAtYjcyOS1hZTNmMDAyOGEyODksNmExZDAwMDAtNWQxYS0wMDE1LTBlNmMtMDhkYzM3OTUzMmU5LDc2MzlhMDQ4LTdjZmUtNDBiNS1hNDFkLWFlM2YwMDNiODlkZiw4YmM4ZjQ1YS05MWY4LTQ5NzMtYjE4Mi1hZTNmMDAzYWI4NTUsYTljMjAwMDAtNWRiNi0wMDE1LTQ1YWItMDhkYWIxYmZlMjIyIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjpbIlF14bqjbiBMw70gTWFpIiwiQ8OSSSIsIkNTS0ggLSBMw6BpIiwiS2hvIFBoxrDhu5tjLSBLaeG7h3QiLCJRdeG6o24gTMO9IEtobyAtIEJvIl0sImp0aSI6IjYxMDI0MTA5LTdmOGEtNDk3Zi05NGYxLTY3YzIwMjZiZWUyNCIsImlhdCI6IjE3NTk4MTI1MzAiLCJuYmYiOjE3NTk4MTI1MzAsImV4cCI6MTc2MTEwODUzMCwiaXNzIjoiaHR0cHM6Ly90b21hdG8udHBvcy52biIsImF1ZCI6Imh0dHBzOi8vdG9tYXRvLnRwb3Mudm4saHR0cHM6Ly90cG9zLnZuIn0.OVAcmG1fPovK8rJ65dkNlEADtnyWu-d6BUKP0wxZuXk";
 
 /**
@@ -32,6 +38,11 @@ router.get("/facebook/livevideo", async (req, res) => {
                 Authorization: FACEBOOK_TOKEN,
                 "Content-Type": "application/json",
                 Accept: "application/json",
+                // ✅ Proxy headers pattern - giả mạo thành TPOS domain
+                Origin: "https://tomato.tpos.vn",
+                Referer: "https://tomato.tpos.vn/",
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
             },
         });
 
@@ -96,6 +107,11 @@ router.get("/facebook/comments", async (req, res) => {
                 Authorization: FACEBOOK_TOKEN,
                 "Content-Type": "application/json",
                 Accept: "application/json",
+                // ✅ Proxy headers pattern - giả mạo thành TPOS domain
+                Origin: "https://tomato.tpos.vn",
+                Referer: "https://tomato.tpos.vn/",
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
             },
         });
 
