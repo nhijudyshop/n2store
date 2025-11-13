@@ -87,14 +87,6 @@ const MENU_CONFIG = [
         permissionRequired: "product-search",
     },
     {
-        href: "../hidden-products/index.html",
-        icon: "eye-off",
-        text: "Sản Phẩm Đã Ẩn",
-        shortText: "SP Ẩn",
-        pageIdentifier: "hidden-products",
-        permissionRequired: "hidden-products",
-    },
-    {
         href: "../hangdat/index.html",
         icon: "bookmark",
         text: "Hàng Đặt",
