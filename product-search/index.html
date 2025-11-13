@@ -2332,11 +2332,17 @@
         }
 
         function viewProductInList(productId, templateId) {
-            // Open product-list.html with highlight parameter
             // Use templateId for merged products, productId for individual products
             const targetId = templateId || productId;
-            const url = `product-list.html#sync&highlight=${targetId}`;
-            window.open(url, '_blank');
+
+            // Try to send message to already-open product-list tab via BroadcastChannel
+            const channel = new BroadcastChannel('product-highlight-channel');
+            channel.postMessage({ action: 'highlight', productId: targetId });
+            channel.close();
+
+            // Open product-list.html in named window (reuses same tab if already open)
+            const url = `product-list.html#sync`;
+            window.open(url, 'product-list-sync');
         }
 
         async function updateProductQty(productId, change) {

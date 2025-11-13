@@ -2587,6 +2587,15 @@
         });
 
         window.addEventListener('load', async () => {
+            // Setup BroadcastChannel to receive highlight messages from index.html
+            const highlightChannel = new BroadcastChannel('product-highlight-channel');
+            highlightChannel.onmessage = (event) => {
+                if (event.data.action === 'highlight' && event.data.productId) {
+                    // Wait a bit for page to be fully loaded
+                    setTimeout(() => highlightProduct(event.data.productId), 500);
+                }
+            };
+
             setupFirebaseListeners();
             loadSettings();
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
