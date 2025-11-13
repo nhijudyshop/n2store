@@ -97,6 +97,23 @@
             transform: translateY(-3px);
         }
 
+        .product-highlight {
+            animation: highlight-pulse 1s ease-in-out 3;
+            border-color: #ff9800 !important;
+            box-shadow: 0 0 30px rgba(255, 152, 0, 0.8) !important;
+        }
+
+        @keyframes highlight-pulse {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(255, 152, 0, 0.6);
+                border-color: #ff9800;
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(255, 152, 0, 1);
+                border-color: #ff5722;
+            }
+        }
+
         .btn-refresh {
             position: absolute;
             top: 4px;
@@ -1322,6 +1339,11 @@
                 params.page = parseInt(pageMatch[1]);
             }
 
+            const highlightMatch = hash.match(/highlight=(\d+)/);
+            if (highlightMatch) {
+                params.highlight = parseInt(highlightMatch[1]);
+            }
+
             return params;
         }
 
@@ -1726,6 +1748,45 @@
             pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})${searchInfo}`;
             btnPrev.disabled = currentPage === 1;
             btnNext.disabled = currentPage >= totalPages;
+
+            // Handle highlight from URL hash
+            const hashParams = parseHashParams();
+            if (hashParams.highlight) {
+                setTimeout(() => highlightProduct(hashParams.highlight), 300);
+            }
+        }
+
+        function highlightProduct(productId) {
+            // Find product by ID or templateId (for merged products)
+            let targetElement = document.querySelector(`[data-product-id="${productId}"]`);
+
+            if (!targetElement) {
+                // Try finding by template ID in merged mode
+                const product = savedProducts.find(p =>
+                    p.Id === productId || p.ProductTmplId === productId
+                );
+                if (product) {
+                    const tmplId = product.ProductTmplId || product.Id;
+                    targetElement = document.querySelector(`[data-product-id="${tmplId}"]`);
+                }
+            }
+
+            if (targetElement) {
+                // Scroll to product
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Add highlight class
+                targetElement.classList.add('product-highlight');
+
+                // Remove highlight after 3 seconds
+                setTimeout(() => {
+                    targetElement.classList.remove('product-highlight');
+                }, 3000);
+
+                // Clear highlight param from URL
+                const newHash = window.location.hash.replace(/&?highlight=\d+/, '');
+                window.history.replaceState(null, null, newHash);
+            }
         }
 
         function changePage(direction) {
