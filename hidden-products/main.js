@@ -2,13 +2,78 @@
 // MAIN APPLICATION LOGIC FOR HIDDEN PRODUCTS
 // =====================================================
 
+// Constants
+const AUTH_STORAGE_KEY = "loginindex_auth";
+const CONFIG = {
+    firebase: {
+        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+        authDomain: "n2shop-69e37.firebaseapp.com",
+        projectId: "n2shop-69e37",
+        databaseURL: "https://n2shop-69e37-default-rtdb.firebaseio.com",
+        storageBucket: "n2shop-69e37-ne0q1",
+        messagingSenderId: "598906493303",
+        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+        measurementId: "G-TEJH3S2T1D",
+    },
+    filter: {
+        debounceDelay: 300,
+    },
+};
+
+// Application Constants
+const APP_CONFIG = {
+    FILTER_DEBOUNCE_DELAY: CONFIG.filter.debounceDelay,
+    AUTH_STORAGE_KEY: AUTH_STORAGE_KEY,
+};
+
+// Global State
+let globalState = {
+    hiddenProducts: [],
+    filteredProducts: [],
+    isLoading: false,
+    currentFilters: {
+        search: "",
+        hiddenDate: "all",
+        sortBy: "newest",
+    },
+};
+
 // Global variables
 window.savedProducts = [];
 let isSyncingFromFirebase = false;
+let authManager;
+let database;
 
-// Initialize application
-document.addEventListener("DOMContentLoaded", function() {
+// Export to window
+window.CONFIG = CONFIG;
+window.APP_CONFIG = APP_CONFIG;
+window.globalState = globalState;
+
+// =====================================================
+// INITIALIZATION
+// =====================================================
+
+// Initialize Firebase and authManager
+function initializeApp() {
     console.log("🚀 Initializing Hidden Products page...");
+
+    // Initialize Firebase
+    try {
+        const app = firebase.initializeApp(CONFIG.firebase);
+        database = firebase.database();
+        window.database = database;
+        console.log("✅ Firebase initialized successfully");
+    } catch (error) {
+        console.error("❌ Firebase initialization error:", error);
+    }
+
+    // Initialize shared AuthManager with configuration
+    authManager = new AuthManager({
+        storageKey: AUTH_STORAGE_KEY,
+        redirectUrl: "../index.html",
+        sessionDuration: 8 * 60 * 60 * 1000, // 8 hours
+    });
+    window.authManager = authManager;
 
     // Check authentication (authManager handles redirect automatically)
     if (!authManager || !authManager.isAuthenticated()) {
@@ -26,17 +91,41 @@ document.addEventListener("DOMContentLoaded", function() {
     loadHiddenProducts();
 
     console.log("✅ Hidden Products page initialized");
+}
+
+// Track readiness states
+let domReady = false;
+let coreReady = false;
+
+function checkAndInitialize() {
+    if (domReady && coreReady) {
+        initializeApp();
+    }
+}
+
+// Wait for DOM
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("✅ DOM ready");
+    domReady = true;
+    checkAndInitialize();
+});
+
+// Wait for core utilities
+document.addEventListener("coreUtilitiesLoaded", () => {
+    console.log("✅ Core utilities ready");
+    coreReady = true;
+    checkAndInitialize();
 });
 
 // Initialize UI components
 function initializeUI() {
     // Set user info
-    const auth = authManager ? authManager.getAuthState() : null;
-    if (auth && auth.userType) {
+    const authData = authManager ? authManager.getAuthData() : null;
+    if (authData && authData.userType) {
         const userNameEl = document.getElementById("userName");
         if (userNameEl) {
             // Extract username from userType (format: "username-role")
-            const userName = auth.userType.split("-")[0];
+            const userName = authData.userType.split("-")[0];
             userNameEl.textContent = userName || "Admin";
         }
     }
@@ -182,16 +271,16 @@ function handleLogout() {
 
 // Show user permissions
 function showPermissions() {
-    const auth = authManager ? authManager.getAuthState() : null;
-    if (!auth) {
+    const authData = authManager ? authManager.getAuthData() : null;
+    if (!authData) {
         Utils.showNotification("Không thể lấy thông tin quyền", "error");
         return;
     }
 
     const permissions = [];
-    permissions.push(`Tên: ${auth.userType || "N/A"}`);
-    permissions.push(`Vai trò: ${auth.isLoggedIn === "true" ? "Đã đăng nhập" : "Chưa đăng nhập"}`);
-    permissions.push(`Cấp độ: ${auth.checkLogin || "N/A"}`);
+    permissions.push(`Tên: ${authData.userType || "N/A"}`);
+    permissions.push(`Vai trò: ${authData.isLoggedIn === "true" ? "Đã đăng nhập" : "Chưa đăng nhập"}`);
+    permissions.push(`Cấp độ: ${authData.checkLogin || "N/A"}`);
 
     alert("QUYỀN CỦA TÔI\n\n" + permissions.join("\n"));
 }
@@ -210,7 +299,9 @@ function setupFirebaseListener() {
 
 // Call this after initial load to enable real-time updates
 setTimeout(() => {
-    setupFirebaseListener();
+    if (database) {
+        setupFirebaseListener();
+    }
 }, 2000);
 
 // Export functions
