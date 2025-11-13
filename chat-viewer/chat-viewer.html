@@ -78,16 +78,11 @@
         function ChatApp() {
             const [token, setToken] = useState('');
             const [isAuthenticated, setIsAuthenticated] = useState(false);
-            const [loginMethod, setLoginMethod] = useState('credentials'); // 'credentials' or 'token'
-            const [username, setUsername] = useState('');
-            const [password, setPassword] = useState('');
-            const [loginError, setLoginError] = useState('');
             const [conversations, setConversations] = useState([]);
             const [selectedConv, setSelectedConv] = useState(null);
             const [messages, setMessages] = useState([]);
-            const [loading, setLoading] = useState(false);
+            const [loading, setLoading] = useState(true); // Start with loading
             const [autoRefresh, setAutoRefresh] = useState(false); // Default OFF
-            const [autoLogin, setAutoLogin] = useState(true); // Enable auto-login by default
             const [chatSocket, setChatSocket] = useState(null);
             const [rtSocket, setRtSocket] = useState(null);
             const [chatSocketConnected, setChatSocketConnected] = useState(false);
@@ -113,11 +108,10 @@
             // Auto-login on component mount
             useEffect(() => {
                 const performAutoLogin = async () => {
-                    if (!autoLogin || isAuthenticated) return;
+                    if (isAuthenticated) return;
 
                     try {
-                        setLoading(true);
-                        console.log('🔄 Đang thử auto-login...');
+                        console.log('🔄 Đang tự động lấy token...');
 
                         const validToken = await getValidToken();
                         setToken(validToken);
@@ -154,65 +148,17 @@
                         const data = await response.json();
                         setConversations(data.Data || []);
 
-                        console.log('✅ Auto-login hoàn tất!');
+                        console.log('✅ Đã tải ' + (data.Data?.length || 0) + ' cuộc hội thoại!');
                     } catch (error) {
-                        console.error('❌ Auto-login thất bại:', error);
-                        setLoginError('Auto-login thất bại. Vui lòng đăng nhập thủ công.');
+                        console.error('❌ Lỗi khi tải dữ liệu:', error);
+                        alert('Lỗi: ' + error.message);
                     } finally {
                         setLoading(false);
                     }
                 };
 
                 performAutoLogin();
-            }, [autoLogin]);
-
-            // Login with username and password
-            const handleLoginWithCredentials = async () => {
-                if (!username.trim() || !password.trim()) {
-                    setLoginError('Vui lòng nhập username và password!');
-                    return;
-                }
-                
-                try {
-                    setLoading(true);
-                    setLoginError('');
-                    
-                    const response = await fetch(`${API_BASE}/token`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'accept': 'application/json',
-                        },
-                        body: `client_id=tmtWebApp&grant_type=password&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&scope=profile`
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error('Đăng nhập thất bại! Kiểm tra lại username/password');
-                    }
-                    
-                    const data = await response.json();
-                    const accessToken = data.access_token;
-
-                    if (!accessToken) {
-                        throw new Error('Không nhận được token!');
-                    }
-
-                    // Save to localStorage
-                    const expiry = Date.now() + (data.expires_in * 1000);
-                    localStorage.setItem('bearerToken', accessToken);
-                    localStorage.setItem('tokenExpiry', expiry.toString());
-
-                    setToken(accessToken);
-                    setIsAuthenticated(true);
-                    fetchConversations();
-                    
-                } catch (error) {
-                    console.error('Login error:', error);
-                    setLoginError(error.message || 'Lỗi đăng nhập!');
-                } finally {
-                    setLoading(false);
-                }
-            };
+            }, []);
 
             // Fetch conversations
             const fetchConversations = async () => {
@@ -451,16 +397,6 @@
                 };
             }, [isAuthenticated, token]);
 
-            // Handle login
-            const handleLogin = () => {
-                if (!token.trim()) {
-                    alert('Vui lòng nhập Bearer token!');
-                    return;
-                }
-                setIsAuthenticated(true);
-                fetchConversations();
-            };
-
             // Handle conversation selection
             const handleSelectConversation = (conv) => {
                 setSelectedConv(conv);
@@ -486,123 +422,19 @@
                 return date.toLocaleDateString('vi-VN');
             };
 
-            // Login Screen
-            if (!isAuthenticated) {
+            // Loading Screen
+            if (loading || !isAuthenticated) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-                        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-                            <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">
+                        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md text-center">
+                            <div className="mb-4">
+                                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                            </div>
+                            <h1 className="text-2xl font-bold text-gray-800 mb-2">
                                 ChatOmni Viewer
                             </h1>
-                            <p className="text-gray-600 mb-4 text-sm text-center">
-                                Đăng nhập để xem tin nhắn
-                            </p>
-
-                            {/* Auto-login Toggle */}
-                            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-800">🤖 Auto-login</p>
-                                        <p className="text-xs text-gray-600">Tự động đăng nhập với tài khoản mặc định</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setAutoLogin(!autoLogin)}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                            autoLogin ? 'bg-blue-600' : 'bg-gray-300'
-                                        }`}
-                                    >
-                                        <span
-                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                autoLogin ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
-                                        />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Login Method Tabs */}
-                            <div className="flex gap-2 mb-4">
-                                <button
-                                    onClick={() => setLoginMethod('credentials')}
-                                    className={`flex-1 py-2 rounded-lg font-medium transition ${
-                                        loginMethod === 'credentials'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-200 text-gray-700'
-                                    }`}
-                                >
-                                    Username/Password
-                                </button>
-                                <button
-                                    onClick={() => setLoginMethod('token')}
-                                    className={`flex-1 py-2 rounded-lg font-medium transition ${
-                                        loginMethod === 'token'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-200 text-gray-700'
-                                    }`}
-                                >
-                                    Token
-                                </button>
-                            </div>
-
-                            {loginError && (
-                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                                    {loginError}
-                                </div>
-                            )}
-
-                            {/* Credentials Login Form */}
-                            {loginMethod === 'credentials' && (
-                                <>
-                                    <input
-                                        type="text"
-                                        className="w-full p-3 border border-gray-300 rounded-lg mb-3"
-                                        placeholder="Username (vd: nv20)"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        onKeyPress={(e) => e.key === 'Enter' && handleLoginWithCredentials()}
-                                    />
-                                    <input
-                                        type="password"
-                                        className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-                                        placeholder="Password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        onKeyPress={(e) => e.key === 'Enter' && handleLoginWithCredentials()}
-                                    />
-                                    <button
-                                        onClick={handleLoginWithCredentials}
-                                        disabled={loading}
-                                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400"
-                                    >
-                                        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                                    </button>
-                                </>
-                            )}
-
-                            {/* Token Login Form */}
-                            {loginMethod === 'token' && (
-                                <>
-                                    <p className="text-gray-600 mb-3 text-sm">
-                                        Paste Bearer token từ TPOS
-                                    </p>
-                                    <textarea
-                                        className="w-full p-3 border border-gray-300 rounded-lg mb-4 font-mono text-sm"
-                                        rows="6"
-                                        placeholder="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                                        value={token}
-                                        onChange={(e) => setToken(e.target.value)}
-                                    />
-                                    <button
-                                        onClick={handleLogin}
-                                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
-                                    >
-                                        Đăng nhập
-                                    </button>
-                                </>
-                            )}
-
-                            <p className="text-xs text-gray-500 text-center mt-4">
-                                🔒 Token được lưu tự động và tự động refresh khi hết hạn
+                            <p className="text-gray-600">
+                                Đang tải dữ liệu...
                             </p>
                         </div>
                     </div>
