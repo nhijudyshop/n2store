@@ -2051,45 +2051,24 @@
                     // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
                     const sortedVariants = sortVariants(templateData.ProductVariants);
 
-                    // Add all variants
-                    let addedCount = 0;
-                    let updatedCount = 0;
-                    for (const variant of sortedVariants) {
-                        const qtyAvailable = variant.QtyAvailable || 0;
-                        const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
-
-                        const cleanProduct = cleanProductForFirebase({
-                            Id: variant.Id,
-                            NameGet: variant.NameGet,
+                    // Prepare all variants for Firebase
+                    const variantsToAdd = sortedVariants.map(v => {
+                        const qtyAvailable = v.QtyAvailable || 0;
+                        const variantImageUrl = v.ImageUrl || imageUrl;
+                        return cleanProductForFirebase({
+                            Id: v.Id,
+                            NameGet: v.NameGet,
                             QtyAvailable: qtyAvailable,
                             ProductTmplId: productData.ProductTmplId,
                             imageUrl: variantImageUrl,
                             soldQty: 0,
                             remainingQty: qtyAvailable,
+                            addedAt: Date.now(),
                             isHidden: false // Variants are visible
                         });
+                    });
 
-                        const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
-                        if (existingIndex !== -1) {
-                            // Variant exists - update info but keep soldQty
-                            const existingProduct = savedProducts[existingIndex];
-                            const existingSoldQty = existingProduct.soldQty || 0;
-
-                            savedProducts[existingIndex] = {
-                                ...cleanProduct,
-                                soldQty: existingSoldQty, // Keep existing soldQty
-                                remainingQty: cleanProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
-                                addedAt: existingProduct.addedAt || cleanProduct.addedAt, // Keep original addedAt time
-                                lastRefreshed: Date.now() // Mark as refreshed
-                            };
-                            updatedCount++;
-                        } else {
-                            savedProducts.push(cleanProduct);
-                        }
-                        addedCount++;
-                    }
-
-                    // Add main product to hidden list
+                    // Prepare main product (hidden)
                     const mainProductQty = templateData.QtyAvailable || 0;
                     const mainProduct = cleanProductForFirebase({
                         Id: templateData.Id,
@@ -2099,66 +2078,44 @@
                         imageUrl: imageUrl,
                         soldQty: 0,
                         remainingQty: mainProductQty,
+                        addedAt: Date.now(),
                         isHidden: true // Main product is hidden
                     });
 
-                    const mainProductIndex = savedProducts.findIndex(p => p.Id === mainProduct.Id);
-                    if (mainProductIndex !== -1) {
-                        // Main product exists - update info but keep soldQty
-                        const existingMainProduct = savedProducts[mainProductIndex];
-                        const existingSoldQty = existingMainProduct.soldQty || 0;
+                    // Combine all products (variants + main product)
+                    const allProductsToAdd = [...variantsToAdd, mainProduct];
 
-                        savedProducts[mainProductIndex] = {
-                            ...mainProduct,
-                            soldQty: existingSoldQty, // Keep existing soldQty
-                            remainingQty: mainProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
-                            addedAt: existingMainProduct.addedAt || mainProduct.addedAt, // Keep original addedAt time
-                            lastRefreshed: Date.now() // Mark as refreshed
-                        };
-                    } else {
-                        savedProducts.push(mainProduct);
-                    }
-
-                    // Save all variants + main product to Firebase using object-based structure
-                    const allProductsToAdd = [...sortedVariants.map(v => {
-                        const qtyAvailable = v.QtyAvailable || 0;
-                        const variantImageUrl = v.ImageUrl || imageUrl;
-                        const existingProduct = savedProducts.find(p => p.Id === v.Id);
-                        return cleanProductForFirebase({
-                            Id: v.Id,
-                            NameGet: v.NameGet,
-                            QtyAvailable: qtyAvailable,
-                            ProductTmplId: productData.ProductTmplId,
-                            imageUrl: variantImageUrl,
-                            soldQty: existingProduct?.soldQty || 0,
-                            remainingQty: qtyAvailable - (existingProduct?.soldQty || 0),
-                            addedAt: existingProduct?.addedAt || Date.now(),
-                            isHidden: false
-                        });
-                    }), mainProduct];
-
+                    // Add all to Firebase in one batch operation
+                    // This function will handle:
+                    // - Check existing products and preserve soldQty
+                    // - Update local savedProducts array
+                    // - Sync to Firebase
                     addProductsToFirebase(database, allProductsToAdd, savedProducts).then((result) => {
                         console.log(`✅ Saved ${result.added} new + ${result.updated} updated variants to Firebase`);
+
+                        // Update UI
+                        updateProductListPreview();
+
+                        // Show notification with accurate counts
+                        const totalVariants = sortedVariants.length;
+                        if (result.updated > 0 && result.added > 0) {
+                            showNotificationMessage(`✅ Đã thêm ${result.added} biến thể mới, cập nhật ${result.updated} biến thể (giữ nguyên số lượng đã bán)`);
+                        } else if (result.updated > 0) {
+                            showNotificationMessage(`🔄 Đã cập nhật ${result.updated} biến thể (giữ nguyên số lượng đã bán)`);
+                        } else {
+                            showNotificationMessage(`✅ Đã thêm ${totalVariants} biến thể sản phẩm`);
+                        }
+
+                        // Clear search input
+                        document.getElementById('productSearch').value = '';
+
+                        // Re-enable Firebase sync after delay
                         setTimeout(() => { isSyncingFromFirebase = false; }, 200);
                     }).catch(error => {
                         console.error('❌ Error saving variants to Firebase:', error);
                         showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
                         isSyncingFromFirebase = false;
                     });
-
-                    updateProductListPreview();
-
-                    if (addedCount > 0) {
-                        const newCount = addedCount - updatedCount;
-                        if (updatedCount > 0 && newCount > 0) {
-                            showNotificationMessage(`✅ Đã thêm ${newCount} biến thể mới, cập nhật ${updatedCount} biến thể (giữ nguyên số lượng đã bán)`);
-                        } else if (updatedCount > 0) {
-                            showNotificationMessage(`🔄 Đã cập nhật ${updatedCount} biến thể (giữ nguyên số lượng đã bán)`);
-                        } else {
-                            showNotificationMessage(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
-                        }
-                        document.getElementById('productSearch').value = '';
-                    }
                 } else {
                     // Add single product (original behavior)
                     const qtyAvailable = productData.QtyAvailable || 0;
