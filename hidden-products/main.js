@@ -103,6 +103,12 @@ document.addEventListener("coreUtilitiesLoaded", () => {
     checkAndInitialize();
 });
 
+// In case core utilities are already loaded
+if (window.CORE_UTILITIES_LOADED) {
+    console.log("✅ Core utilities already loaded");
+    coreReady = true;
+}
+
 // Initialize UI components
 function initializeUI() {
     // Set user info
