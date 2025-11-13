@@ -147,7 +147,7 @@ const debouncedApplyFilters = Utils.debounce(() => {
     } finally {
         isFilteringInProgress = false;
     }
-}, APP_CONFIG.FILTER_DEBOUNCE_DELAY);
+}, 300); // 300ms debounce delay
 
 // Execute filters
 function executeFilters() {

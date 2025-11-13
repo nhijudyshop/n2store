@@ -26,20 +26,7 @@ const APP_CONFIG = {
     AUTH_STORAGE_KEY: AUTH_STORAGE_KEY,
 };
 
-// Global State
-let globalState = {
-    hiddenProducts: [],
-    filteredProducts: [],
-    isLoading: false,
-    currentFilters: {
-        search: "",
-        hiddenDate: "all",
-        sortBy: "newest",
-    },
-};
-
-// Global variables
-window.savedProducts = [];
+// Global variables (globalState and savedProducts already initialized in init.js)
 let isSyncingFromFirebase = false;
 let authManager;
 let database;
@@ -47,7 +34,6 @@ let database;
 // Export to window
 window.CONFIG = CONFIG;
 window.APP_CONFIG = APP_CONFIG;
-window.globalState = globalState;
 
 // =====================================================
 // INITIALIZATION
