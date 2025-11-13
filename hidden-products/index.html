@@ -110,8 +110,15 @@
             }
         </style>
 
+        <!-- Config must load first -->
+        <script src="config.js"></script>
+
         <!-- Navigation Manager -->
         <script src="../js/core-loader.js"></script>
+
+        <!-- Auth must load BEFORE navigation -->
+        <script src="auth.js"></script>
+
         <script src="../js/navigation-modern.js"></script>
         <script src="../js/common-utils.js"></script>
 
@@ -426,8 +433,6 @@
         </div>
 
         <!-- JavaScript Files -->
-        <script src="config.js"></script>
-        <script src="auth.js"></script>
         <script src="utils.js"></script>
         <script src="filters.js"></script>
         <script src="table-renderer.js"></script>
