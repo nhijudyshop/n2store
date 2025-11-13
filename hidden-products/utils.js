@@ -114,27 +114,6 @@ const Utils = {
         });
     },
 
-    // Get authentication state
-    getAuthState() {
-        try {
-            const authData = localStorage.getItem(APP_CONFIG.AUTH_STORAGE_KEY);
-            if (!authData) return null;
-            return JSON.parse(authData);
-        } catch (error) {
-            console.error("Error getting auth state:", error);
-            return null;
-        }
-    },
-
-    // Check if user is authenticated
-    checkAuth() {
-        const auth = this.getAuthState();
-        if (!auth || !auth.isLoggedIn) {
-            window.location.href = "../loginindex/login.html";
-            return false;
-        }
-        return true;
-    },
 
     // Format number with thousand separators
     formatNumber(num) {
