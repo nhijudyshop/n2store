@@ -1425,6 +1425,80 @@
             document.getElementById('pageInfo').style.display = 'none';
         }
 
+        // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL)...
+        function sortVariantsByPattern(variants) {
+            // Define size order - added more sizes
+            const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL'];
+
+            return [...variants].sort((a, b) => {
+                const nameA = a.NameGet || '';
+                const nameB = b.NameGet || '';
+
+                // Extract ALL numbers in parentheses, get the LAST one (most specific)
+                const numberMatchesA = [...nameA.matchAll(/\((\d+)\)/g)];
+                const numberMatchesB = [...nameB.matchAll(/\((\d+)\)/g)];
+                const numberMatchA = numberMatchesA.length > 0 ? numberMatchesA[numberMatchesA.length - 1] : null;
+                const numberMatchB = numberMatchesB.length > 0 ? numberMatchesB[numberMatchesB.length - 1] : null;
+
+                // If both have numbers in parentheses, sort by number
+                if (numberMatchA && numberMatchB) {
+                    const numA = parseInt(numberMatchA[1]);
+                    const numB = parseInt(numberMatchB[1]);
+                    if (numA !== numB) {
+                        return numA - numB;
+                    }
+                }
+
+                // Extract ALL sizes in parentheses, get the LAST one
+                const sizeRegex = /\((XS|S|M|L|XL|XXL|XXXL|2XL|3XL|4XL)\)/gi;
+                const sizeMatchesA = [...nameA.matchAll(sizeRegex)];
+                const sizeMatchesB = [...nameB.matchAll(sizeRegex)];
+                const sizeMatchA = sizeMatchesA.length > 0 ? sizeMatchesA[sizeMatchesA.length - 1] : null;
+                const sizeMatchB = sizeMatchesB.length > 0 ? sizeMatchesB[sizeMatchesB.length - 1] : null;
+
+                // If both have sizes, sort by size order
+                if (sizeMatchA && sizeMatchB) {
+                    const sizeA = sizeMatchA[1].toUpperCase();
+                    const sizeB = sizeMatchB[1].toUpperCase();
+                    const indexA = sizeOrder.indexOf(sizeA);
+                    const indexB = sizeOrder.indexOf(sizeB);
+
+                    // If both sizes are in the order list
+                    if (indexA !== -1 && indexB !== -1) {
+                        if (indexA !== indexB) {
+                            return indexA - indexB;
+                        }
+                    }
+                    // If only one is in the list, prioritize it
+                    if (indexA !== -1) return -1;
+                    if (indexB !== -1) return 1;
+                }
+
+                // If one has number and other has size, number comes first
+                if (numberMatchA && sizeMatchB) return -1;
+                if (sizeMatchA && numberMatchB) return 1;
+
+                // If one has pattern and other doesn't, pattern comes first
+                if ((numberMatchA || sizeMatchA) && !(numberMatchB || sizeMatchB)) return -1;
+                if ((numberMatchB || sizeMatchB) && !(numberMatchA || sizeMatchA)) return 1;
+
+                // Fallback: extract numbers WITHOUT parentheses (like "Size 1", "Màu 2")
+                const freeNumberA = nameA.match(/\s(\d+)(?!\))/);
+                const freeNumberB = nameB.match(/\s(\d+)(?!\))/);
+
+                if (freeNumberA && freeNumberB) {
+                    const numA = parseInt(freeNumberA[1]);
+                    const numB = parseInt(freeNumberB[1]);
+                    if (numA !== numB) {
+                        return numA - numB;
+                    }
+                }
+
+                // Default: alphabetical sort
+                return nameA.localeCompare(nameB);
+            });
+        }
+
         function mergeProductsByTemplate(products) {
             // Group products by ProductTmplId
             const groupedProducts = {};
@@ -1455,7 +1529,10 @@
                     mergedProducts.push(variants[0]);
                 } else {
                     // Multiple variants, merge them
-                    const firstVariant = variants[0];
+
+                    // ⭐ IMPORTANT: Sort variants BEFORE processing to ensure correct display order
+                    const sortedVariants = sortVariantsByPattern(variants);
+                    const firstVariant = sortedVariants[0];
 
                     // Extract common name (remove variant-specific parts)
                     let commonName = firstVariant.NameGet;
@@ -1466,41 +1543,41 @@
                         commonName = nameParts[0];
                     }
 
-                    // Sum up quantities
-                    const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
-                    const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
+                    // Sum up quantities from SORTED variants
+                    const totalQtyAvailable = sortedVariants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
+                    const totalSoldQty = sortedVariants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
 
-                    // Create list of sold quantities for each variant
-                    const soldQtyList = variants.map(v => ({
+                    // Create list of sold quantities for each variant (NOW IN CORRECT ORDER!)
+                    const soldQtyList = sortedVariants.map(v => ({
                         id: v.Id,
                         name: v.NameGet,
                         qty: v.soldQty || 0,
                         maxQty: v.QtyAvailable || 0
                     }));
 
-                    // Create list of remaining quantities for each variant
-                    const remainingQtyList = variants.map(v => ({
+                    // Create list of remaining quantities for each variant (NOW IN CORRECT ORDER!)
+                    const remainingQtyList = sortedVariants.map(v => ({
                         id: v.Id,
                         name: v.NameGet,
                         qty: v.remainingQty || 0
                     }));
 
                     // Get the most recent addedAt timestamp from all variants
-                    const mostRecentAddedAt = Math.max(...variants.map(v => v.addedAt || 0));
+                    const mostRecentAddedAt = Math.max(...sortedVariants.map(v => v.addedAt || 0));
 
                     // Create merged product
                     const mergedProduct = {
                         ...firstVariant,
-                        NameGet: commonName + ` (${variants.length} biến thể)`,
+                        NameGet: commonName + ` (${sortedVariants.length} biến thể)`,
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
                         remainingQty: 0, // Not used for merged products
-                        soldQtyList: soldQtyList, // List of sold qty for each variant
-                        remainingQtyList: remainingQtyList, // List of remaining qty for each variant
+                        soldQtyList: soldQtyList, // List of sold qty for each variant (SORTED)
+                        remainingQtyList: remainingQtyList, // List of remaining qty for each variant (SORTED)
                         addedAt: mostRecentAddedAt, // Use most recent timestamp for sorting
                         isMerged: true,
-                        variantCount: variants.length,
-                        variants: variants // Keep reference to original variants for future use
+                        variantCount: sortedVariants.length,
+                        variants: sortedVariants // Keep reference to SORTED variants for future use
                     };
 
                     mergedProducts.push(mergedProduct);
