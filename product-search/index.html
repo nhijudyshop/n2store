@@ -1066,23 +1066,6 @@
             box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
         }
 
-        .btn-view {
-            background: #17a2b8;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-
-        .btn-view:hover {
-            background: #138496;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
-        }
-
         /* Image Change Modal */
         .image-modal-overlay {
             position: fixed;
@@ -2249,7 +2232,6 @@
                         </div>
                         <div class="preview-actions">
                             <button class="btn-change-image" onclick="changeProductImage(${product.Id})">🖼️ Đổi ảnh</button>
-                            <button class="btn-view" onclick="viewProductInList(${product.Id}, ${product.ProductTmplId || product.Id})">👁️ Xem</button>
                             <button class="btn-remove" onclick="removeProduct(${product.Id})">🗑️ Xóa</button>
                         </div>
                     </div>
@@ -2329,20 +2311,6 @@
             updateProductListPreview();
             updateHiddenProductListPreview();
             showNotificationMessage('👁️ Đã hiện sản phẩm');
-        }
-
-        function viewProductInList(productId, templateId) {
-            // Use templateId for merged products, productId for individual products
-            const targetId = templateId || productId;
-
-            // Try to send message to already-open product-list tab via BroadcastChannel
-            const channel = new BroadcastChannel('product-highlight-channel');
-            channel.postMessage({ action: 'highlight', productId: targetId });
-            channel.close();
-
-            // Open product-list.html in named window (reuses same tab if already open)
-            const url = `product-list.html#sync`;
-            window.open(url, 'product-list-sync');
         }
 
         async function updateProductQty(productId, change) {
