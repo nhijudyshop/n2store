@@ -9,6 +9,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
+    <!-- Firebase Helper Functions for Object-based Structure -->
+    <script src="firebase-helpers.js"></script>
+
     <style>
         :root {
             /* Frame Layout CSS Variables */
@@ -1385,26 +1388,13 @@
         }
 
         async function loadProducts() {
-            // Load from Firebase only (removed localStorage)
+            // Load from Firebase using object-based structure
             try {
-                const snapshot = await database.ref('savedProducts').once('value');
-                const products = snapshot.val();
+                savedProducts = await loadAllProductsFromFirebase(database);
+                console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (object-based structure, sorted by newest first)');
 
-                if (products && Array.isArray(products)) {
-                    // Sort products by addedAt timestamp (newest first)
-                    savedProducts = products.sort((a, b) => {
-                        const timeA = a.addedAt || 0;
-                        const timeB = b.addedAt || 0;
-                        return timeB - timeA; // Descending order (newest first)
-                    });
-                    console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (sorted by newest first)');
-
-                    // Optimization: Rebuild normalized cache when products are loaded
-                    buildNormalizedCache(savedProducts);
-                } else {
-                    savedProducts = [];
-                    console.log('📭 No products found in Firebase');
-                }
+                // Build normalized cache
+                buildNormalizedCache(savedProducts);
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
                 savedProducts = [];
@@ -1870,7 +1860,7 @@
             }
         }
 
-        function updateProductQty(productId, change) {
+        async function updateProductQty(productId, change) {
             const product = savedProducts.find(p => p.Id === productId);
             if (!product) return;
 
@@ -1878,13 +1868,13 @@
 
             if (newSoldQty === product.soldQty) return;
 
-            product.soldQty = newSoldQty;
-            product.remainingQty = product.QtyAvailable - newSoldQty;
-
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
-                });
+                // Use object-based Firebase structure
+                await updateProductQtyInFirebase(database, productId, change, savedProducts);
+            } else {
+                // During Firebase sync, just update local
+                product.soldQty = newSoldQty;
+                product.remainingQty = product.QtyAvailable - newSoldQty;
             }
 
             // Fix: If searching, re-run search to update filteredProducts
@@ -1895,7 +1885,7 @@
             }
         }
 
-        function updateVariantQty(variantId, change) {
+        async function updateVariantQty(variantId, change) {
             const variant = savedProducts.find(p => p.Id === variantId);
             if (!variant) return;
 
@@ -1903,13 +1893,13 @@
 
             if (newSoldQty === variant.soldQty) return;
 
-            variant.soldQty = newSoldQty;
-            variant.remainingQty = variant.QtyAvailable - newSoldQty;
-
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
-                });
+                // Use object-based Firebase structure
+                await updateProductQtyInFirebase(database, variantId, change, savedProducts);
+            } else {
+                // During Firebase sync, just update local
+                variant.soldQty = newSoldQty;
+                variant.remainingQty = variant.QtyAvailable - newSoldQty;
             }
 
             // Fix: If searching, re-run search to update filteredProducts
@@ -1920,7 +1910,7 @@
             }
         }
 
-        function hideProduct(productId) {
+        async function hideProduct(productId) {
             if (!confirm('Bạn có chắc muốn ẩn sản phẩm này?')) {
                 return;
             }
@@ -1928,12 +1918,12 @@
             const product = savedProducts.find(p => p.Id === productId);
             if (!product) return;
 
-            product.isHidden = true;
-
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
-                });
+                // Use object-based Firebase structure
+                await updateProductVisibility(database, productId, true, savedProducts);
+            } else {
+                // During Firebase sync, just update local
+                product.isHidden = true;
             }
 
             // Fix: If searching, re-run search to update filteredProducts
@@ -1945,24 +1935,25 @@
             console.log(`👁️ Đã ẩn sản phẩm: ${product.NameGet}`);
         }
 
-        function hideProducts(productIds) {
+        async function hideProducts(productIds) {
             const count = productIds.length;
             if (!confirm(`Bạn có chắc muốn ẩn tất cả ${count} biến thể?`)) {
                 return;
             }
 
-            let hiddenCount = 0;
-            productIds.forEach(productId => {
-                const product = savedProducts.find(p => p.Id === productId);
-                if (product) {
-                    product.isHidden = true;
-                    hiddenCount++;
-                }
-            });
-
-            if (hiddenCount > 0 && !isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
+            if (!isSyncingFromFirebase) {
+                // Use object-based Firebase structure - update each product
+                const promises = productIds.map(productId =>
+                    updateProductVisibility(database, productId, true, savedProducts)
+                );
+                await Promise.all(promises);
+            } else {
+                // During Firebase sync, just update local
+                productIds.forEach(productId => {
+                    const product = savedProducts.find(p => p.Id === productId);
+                    if (product) {
+                        product.isHidden = true;
+                    }
                 });
             }
 
@@ -1972,7 +1963,7 @@
             } else {
                 updateProductGrid();
             }
-            console.log(`👁️ Đã ẩn ${hiddenCount} biến thể`);
+            console.log(`👁️ Đã ẩn ${productIds.length} biến thể`);
         }
 
         function unhideProduct(productId) {
@@ -2272,37 +2263,57 @@
                 }
             });
 
-            database.ref('savedProducts').on('value', (snapshot) => {
-                const products = snapshot.val();
-                if (!isSyncingFromFirebase) {
-                    isSyncingFromFirebase = true;
+            // Setup child event listeners for object-based structure
+            setupFirebaseChildListeners(database, savedProducts, {
+                onProductAdded: (product) => {
+                    console.log('🔥 Product added:', product.NameGet);
 
-                    if (products && Array.isArray(products)) {
-                        // Sort products by addedAt timestamp (newest first)
-                        savedProducts = products.sort((a, b) => {
-                            const timeA = a.addedAt || 0;
-                            const timeB = b.addedAt || 0;
-                            return timeB - timeA; // Descending order (newest first)
-                        });
-
-                        // Optimization: Rebuild normalized cache when products change
-                        buildNormalizedCache(savedProducts);
-
-                        if (savedProducts.length === 0) {
-                            showEmptyState();
-                        } else {
-                            updateProductGrid();
-                        }
-
-                        console.log('🔥 Products synced from Firebase:', products.length, 'items (sorted by newest first)');
-                    } else if (products === null || products === undefined) {
-                        savedProducts = [];
-                        normalizedProductNames.clear(); // Clear cache when no products
-                        showEmptyState();
-                        console.log('🔥 No products in Firebase yet');
+                    // Update normalized cache for this product
+                    if (product && product.Id && product.NameGet) {
+                        normalizedProductNames.set(product.Id, removeVietnameseTones(product.NameGet));
                     }
 
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                    // Re-run search if active
+                    if (searchKeyword) {
+                        performSearch(searchKeyword, false);
+                    } else {
+                        updateProductGrid();
+                    }
+                },
+                onProductChanged: (product, index) => {
+                    console.log('🔥 Product updated:', product.NameGet);
+
+                    // Update normalized cache for this product
+                    if (product && product.Id && product.NameGet) {
+                        normalizedProductNames.set(product.Id, removeVietnameseTones(product.NameGet));
+                    }
+
+                    // Re-run search if active
+                    if (searchKeyword) {
+                        performSearch(searchKeyword, false);
+                    } else {
+                        updateProductGrid();
+                    }
+                },
+                onProductRemoved: (product, index) => {
+                    console.log('🔥 Product removed:', product.NameGet);
+
+                    // Remove from cache
+                    if (product && product.Id) {
+                        normalizedProductNames.delete(product.Id);
+                    }
+
+                    // Re-run search if active
+                    if (searchKeyword) {
+                        performSearch(searchKeyword, false);
+                    } else if (savedProducts.length === 0) {
+                        showEmptyState();
+                    } else {
+                        updateProductGrid();
+                    }
+                },
+                onInitialLoadComplete: () => {
+                    console.log('🔥 Initial products sync complete');
                 }
             });
 
