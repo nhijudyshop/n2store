@@ -2068,22 +2068,8 @@
                         });
                     });
 
-                    // Prepare main product (hidden)
-                    const mainProductQty = templateData.QtyAvailable || 0;
-                    const mainProduct = cleanProductForFirebase({
-                        Id: templateData.Id,
-                        NameGet: templateData.NameGet,
-                        QtyAvailable: mainProductQty,
-                        ProductTmplId: templateData.Id,
-                        imageUrl: imageUrl,
-                        soldQty: 0,
-                        remainingQty: mainProductQty,
-                        addedAt: Date.now(),
-                        isHidden: true // Main product is hidden
-                    });
-
-                    // Combine all products (variants + main product)
-                    const allProductsToAdd = [...variantsToAdd, mainProduct];
+                    // Only add variants, not the main product
+                    const allProductsToAdd = variantsToAdd;
 
                     // Add all to Firebase in one batch operation
                     // This function will handle:
