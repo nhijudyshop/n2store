@@ -1859,18 +1859,20 @@
             const product = savedProducts[productKey];
             if (!product) return;
 
-            const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.soldQty + change));
-            if (newSoldQty === product.soldQty) return;
+            // Check if update is valid before calling helper
+            const currentSoldQty = product.soldQty || 0;
+            const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, currentSoldQty + change));
+            if (newSoldQty === currentSoldQty) return;
 
-            product.soldQty = newSoldQty;
-            product.remainingQty = product.QtyAvailable - newSoldQty;
-
+            // Let helper function update both local and Firebase
+            // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
                 updateProductQtyInFirebase(database, productId, change, savedProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
 
+            // Update UI after helper updates local (helper updates synchronously)
             if (searchKeyword) {
                 performSearch(searchKeyword, false);
             } else {
@@ -1883,18 +1885,20 @@
             const variant = savedProducts[variantKey];
             if (!variant) return;
 
-            const newSoldQty = Math.max(0, Math.min(variant.QtyAvailable, variant.soldQty + change));
-            if (newSoldQty === variant.soldQty) return;
+            // Check if update is valid before calling helper
+            const currentSoldQty = variant.soldQty || 0;
+            const newSoldQty = Math.max(0, Math.min(variant.QtyAvailable, currentSoldQty + change));
+            if (newSoldQty === currentSoldQty) return;
 
-            variant.soldQty = newSoldQty;
-            variant.remainingQty = variant.QtyAvailable - newSoldQty;
-
+            // Let helper function update both local and Firebase
+            // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
                 updateProductQtyInFirebase(database, variantId, change, savedProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
 
+            // Update UI after helper updates local (helper updates synchronously)
             if (searchKeyword) {
                 performSearch(searchKeyword, false);
             } else {
