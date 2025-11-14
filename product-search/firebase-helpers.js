@@ -256,54 +256,29 @@ async function loadAllProductsFromFirebase(database) {
 
 /**
  * Setup Firebase child listeners for realtime updates
+ * NOTE: This should be called AFTER loadAllProductsFromFirebase() to avoid duplicate loading
  */
 function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
     const productsRef = database.ref('savedProducts');
 
-    let isInitialLoad = true;
-    let initialLoadCount = 0;
+    console.log('🔧 Setting up Firebase child listeners...');
 
-    // Get expected count for initial load
-    database.ref('savedProductsMeta/count').once('value', (snapshot) => {
-        const expectedCount = snapshot.val() || 0;
+    // child_added: Fired for each existing child and when new child is added
+    // Since loadAllProductsFromFirebase() already loaded all products,
+    // we only add to localProductsObject if it doesn't exist (new addition)
+    productsRef.on('child_added', (snapshot) => {
+        const product = snapshot.val();
+        const productKey = snapshot.key;
 
-        // If no products exist, mark initial load as complete immediately
-        if (expectedCount === 0) {
-            isInitialLoad = false;
-            if (callbacks.onInitialLoadComplete) {
-                callbacks.onInitialLoadComplete();
+        // Only add if not already in local object (skip already loaded products)
+        if (!localProductsObject[productKey]) {
+            console.log('🔥 [child_added] New product:', product.NameGet);
+            localProductsObject[productKey] = product;
+
+            if (callbacks.onProductAdded) {
+                callbacks.onProductAdded(product);
             }
         }
-
-        // child_added: Fired for each existing child and when new child is added
-        productsRef.on('child_added', (snapshot) => {
-            const product = snapshot.val();
-            const productKey = snapshot.key;
-
-            // During initial load, count items
-            if (isInitialLoad) {
-                initialLoadCount++;
-
-                // Check if initial load is complete
-                if (initialLoadCount >= expectedCount) {
-                    isInitialLoad = false;
-                    if (callbacks.onInitialLoadComplete) {
-                        callbacks.onInitialLoadComplete();
-                    }
-                }
-                // Don't call onProductAdded during initial load
-                return;
-            }
-
-            // After initial load, this is a real addition
-            if (!localProductsObject[productKey]) {
-                localProductsObject[productKey] = product;
-
-                if (callbacks.onProductAdded) {
-                    callbacks.onProductAdded(product);
-                }
-            }
-        });
     });
 
     // child_changed: When a product is updated
@@ -311,12 +286,13 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
         const updatedProduct = snapshot.val();
         const productKey = snapshot.key;
 
-        if (localProductsObject[productKey]) {
-            localProductsObject[productKey] = updatedProduct;
+        console.log('🔥 [child_changed] Product updated:', updatedProduct.NameGet);
 
-            if (callbacks.onProductChanged) {
-                callbacks.onProductChanged(updatedProduct, productKey);
-            }
+        // Always update local object with latest data
+        localProductsObject[productKey] = updatedProduct;
+
+        if (callbacks.onProductChanged) {
+            callbacks.onProductChanged(updatedProduct, productKey);
         }
     });
 
@@ -324,6 +300,8 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
     productsRef.on('child_removed', (snapshot) => {
         const removedProduct = snapshot.val();
         const productKey = snapshot.key;
+
+        console.log('🔥 [child_removed] Product removed:', removedProduct.NameGet);
 
         if (localProductsObject[productKey]) {
             delete localProductsObject[productKey];
@@ -333,6 +311,12 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
             }
         }
     });
+
+    // Call onInitialLoadComplete immediately since products were already loaded
+    if (callbacks.onInitialLoadComplete) {
+        console.log('✅ Firebase listeners setup complete');
+        callbacks.onInitialLoadComplete();
+    }
 
     return {
         detach: () => {
