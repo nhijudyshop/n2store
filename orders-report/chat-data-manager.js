@@ -1,5 +1,5 @@
 // Chat Data Manager - Quản lý dữ liệu tin nhắn từ ChatOmni
-// Tích hợp với bảng đơn hàng để hiển thị trạng thái tin nhắn
+// Sử dụng POLLING thay vì WebSocket/Socket.IO để tránh phức tạp
 
 const ChatDataManager = (() => {
     // API Configuration
@@ -10,13 +10,21 @@ const ChatDataManager = (() => {
         client_id: 'tmtWebApp'
     };
 
+    // Polling Configuration
+    const POLLING_CONFIG = {
+        INTERVAL: 3 * 60 * 1000,      // Poll mỗi 3 phút
+        CACHE_DURATION: 5 * 60 * 1000, // Cache 5 phút
+        RETRY_DELAY: 10 * 60 * 1000,   // Retry sau 10 phút nếu failed
+        MAX_CONVERSATIONS: 200          // Số lượng conversations tối đa
+    };
+
     // Cache for chat data
     let conversationsMap = new Map(); // Map<phoneNumber, conversation>
     let lastFetchTime = 0;
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     let isFetching = false;
     let apiAvailable = true; // Track if API is available
     let lastErrorTime = 0;
+    let pollingInterval = null;
 
     // Authentication functions
     async function getAuthToken() {
@@ -77,27 +85,30 @@ const ChatDataManager = (() => {
         return await getAuthToken();
     }
 
-    // Fetch conversations from ChatOmni API
-    async function fetchConversations() {
+    // Fetch conversations from ChatOmni API (POLLING method)
+    async function fetchConversations(forceRefresh = false) {
         // Skip if API is known to be unavailable (avoid repeated failures)
-        if (!apiAvailable && Date.now() - lastErrorTime < 10 * 60 * 1000) {
+        if (!apiAvailable && Date.now() - lastErrorTime < POLLING_CONFIG.RETRY_DELAY) {
             // Silently skip, API was unavailable recently
             return false;
         }
 
         if (isFetching) {
+            console.log('⏳ [POLLING] Đang fetch dữ liệu...');
             return false;
         }
 
-        // Check cache first
+        // Check cache first (unless force refresh)
         const now = Date.now();
-        if (now - lastFetchTime < CACHE_DURATION && conversationsMap.size > 0) {
-            console.log('✅ Chat API: Sử dụng dữ liệu cache');
+        if (!forceRefresh && now - lastFetchTime < POLLING_CONFIG.CACHE_DURATION && conversationsMap.size > 0) {
+            console.log('✅ [POLLING] Sử dụng cache (còn hiệu lực)');
             return true;
         }
 
         try {
             isFetching = true;
+            console.log('🔄 [POLLING] Đang tải dữ liệu tin nhắn từ API...');
+
             const token = await getValidToken();
 
             if (!token) {
@@ -114,7 +125,7 @@ const ChatDataManager = (() => {
                 },
                 body: JSON.stringify({
                     Keyword: null,
-                    Limit: 200, // Tăng limit để lấy nhiều cuộc hội thoại hơn
+                    Limit: POLLING_CONFIG.MAX_CONVERSATIONS,
                     Sort: null,
                     Before: null,
                     After: null,
@@ -141,6 +152,7 @@ const ChatDataManager = (() => {
             const conversations = data.Data || [];
 
             // Build phone number map
+            const previousSize = conversationsMap.size;
             conversationsMap.clear();
             conversations.forEach(conv => {
                 if (conv.Phone) {
@@ -151,14 +163,24 @@ const ChatDataManager = (() => {
             });
 
             lastFetchTime = now;
-            console.log(`✅ Chat API: Đã tải ${conversations.length} cuộc hội thoại (${conversationsMap.size} có SĐT)`);
+            apiAvailable = true;
+
+            const changeInfo = previousSize > 0 ? ` (${conversationsMap.size - previousSize > 0 ? '+' : ''}${conversationsMap.size - previousSize} thay đổi)` : '';
+            console.log(`✅ [POLLING] Đã tải ${conversations.length} cuộc hội thoại (${conversationsMap.size} có SĐT)${changeInfo}`);
+
+            // Trigger table refresh if needed
+            if (typeof renderTable === 'function' && previousSize > 0 && conversationsMap.size !== previousSize) {
+                console.log('🔄 [POLLING] Có thay đổi, refresh bảng...');
+                renderTable();
+            }
+
             return true;
 
         } catch (error) {
             apiAvailable = false;
             // Only log once to avoid spam (only when first time or no conversations)
-            if (conversationsMap.size === 0 && (lastErrorTime === 0 || Date.now() - lastErrorTime > 10 * 60 * 1000)) {
-                console.warn('⚠️ Chat API: Không thể tải dữ liệu tin nhắn (chức năng này tạm thời không khả dụng)');
+            if (conversationsMap.size === 0 && (lastErrorTime === 0 || Date.now() - lastErrorTime > POLLING_CONFIG.RETRY_DELAY)) {
+                console.warn('⚠️ [POLLING] Không thể tải dữ liệu tin nhắn (chức năng này tạm thời không khả dụng)');
                 lastErrorTime = Date.now();
             }
             return false;
@@ -256,29 +278,81 @@ const ChatDataManager = (() => {
         }
     }
 
-    // Initialize - automatically fetch data when module loads
-    function initialize() {
-        console.log('🚀 Chat Data Manager: Khởi tạo...');
+    // Start polling - Initialize and start automatic polling
+    function startPolling() {
+        console.log('🚀 [POLLING] Khởi tạo Chat Data Manager...');
+        console.log(`⚙️ [POLLING] Config: Interval=${POLLING_CONFIG.INTERVAL/1000}s, Cache=${POLLING_CONFIG.CACHE_DURATION/1000}s, Max=${POLLING_CONFIG.MAX_CONVERSATIONS} conversations`);
 
-        // Fetch conversations immediately (silently, error will be logged if needed)
+        // Fetch conversations immediately
         fetchConversations();
 
-        // Auto-refresh every 5 minutes (reduced frequency to avoid spam)
-        setInterval(() => {
+        // Setup automatic polling
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+
+        pollingInterval = setInterval(() => {
             // Only try to fetch if API was available or enough time has passed since last error
-            if (apiAvailable || Date.now() - lastErrorTime > 10 * 60 * 1000) {
+            if (apiAvailable || Date.now() - lastErrorTime > POLLING_CONFIG.RETRY_DELAY) {
+                console.log('⏰ [POLLING] Auto-refresh trigger...');
                 fetchConversations();
+            } else {
+                console.log('⏸️ [POLLING] Skipped (API unavailable)');
             }
-        }, 5 * 60 * 1000);
+        }, POLLING_CONFIG.INTERVAL);
+
+        console.log(`✅ [POLLING] Started (polling every ${POLLING_CONFIG.INTERVAL/60000} minutes)`);
+    }
+
+    // Stop polling
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+            console.log('⏹️ [POLLING] Stopped');
+        }
+    }
+
+    // Manual refresh - force refresh bỏ qua cache
+    function manualRefresh() {
+        console.log('🔄 [POLLING] Manual refresh triggered...');
+        return fetchConversations(true);
+    }
+
+    // Initialize (backward compatibility)
+    function initialize() {
+        startPolling();
     }
 
     // Public API
     return {
+        // Core functions
         initialize,
+        startPolling,
+        stopPolling,
+        manualRefresh,
+
+        // Data access
         fetchConversations,
         getMessageInfo,
         formatMessageBadge,
-        // Expose for debugging
+
+        // Configuration
+        getConfig: () => POLLING_CONFIG,
+
+        // Debug & Status
+        getStatus: () => ({
+            isPolling: pollingInterval !== null,
+            isFetching,
+            apiAvailable,
+            conversationsCount: conversationsMap.size,
+            lastFetchTime: lastFetchTime ? new Date(lastFetchTime).toLocaleString('vi-VN') : 'Chưa tải',
+            cacheAge: lastFetchTime ? Math.floor((Date.now() - lastFetchTime) / 1000) + 's' : 'N/A',
+            lastError: lastErrorTime ? new Date(lastErrorTime).toLocaleString('vi-VN') : 'Không có lỗi',
+            nextPoll: pollingInterval ? Math.ceil((lastFetchTime + POLLING_CONFIG.INTERVAL - Date.now()) / 1000) + 's' : 'N/A'
+        }),
+
+        // Backward compatibility
         _debug: {
             getConversationsMap: () => conversationsMap,
             getCache: () => ({
@@ -300,3 +374,21 @@ if (document.readyState === 'loading') {
 } else {
     ChatDataManager.initialize();
 }
+
+// ==========================================
+// USAGE EXAMPLES:
+// ==========================================
+//
+// 1. Check status:
+//    ChatDataManager.getStatus()
+//
+// 2. Manual refresh:
+//    ChatDataManager.manualRefresh()
+//
+// 3. Stop/Start polling:
+//    ChatDataManager.stopPolling()
+//    ChatDataManager.startPolling()
+//
+// 4. Get config:
+//    ChatDataManager.getConfig()
+// ==========================================
