@@ -9,6 +9,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="firebase-helpers.js"></script>
 
     <style>
         * {
@@ -1596,7 +1597,7 @@
         let isLoadingExcel = false;
         let bearerToken = null;
         let tokenExpiry = null;
-        let savedProducts = [];
+        let savedProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
         let filteredProductsInList = []; // For search in product list
         let listSearchKeyword = ''; // Current search keyword for product list
         let filteredHiddenProducts = []; // For search in hidden product list
@@ -1710,50 +1711,39 @@
             return products.map(p => cleanProductForFirebase(p));
         }
 
-        function cleanupOldProducts() {
-            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-            const now = Date.now();
+        async function cleanupOldProductsLocal() {
+            const initialCount = Object.keys(savedProducts).length;
 
-            const initialCount = savedProducts.length;
-            savedProducts = savedProducts.filter(product => {
-                const addedAt = product.addedAt || 0;
-                const age = now - addedAt;
-                return age < SEVEN_DAYS;
-            });
+            try {
+                const result = await cleanupOldProducts(database, savedProducts);
 
-            const removedCount = initialCount - savedProducts.length;
-
-            if (removedCount > 0) {
-                console.log(`🗑️ Đã xóa ${removedCount} sản phẩm cũ hơn 7 ngày`);
-
-                if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync sau khi cleanup:', error);
-                    });
+                if (result.removed > 0) {
+                    console.log(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
+                    updateProductListPreview();
+                    showNotificationMessage(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
                 }
-
-                updateProductListPreview();
-                showNotificationMessage(`🗑️ Đã xóa ${removedCount} sản phẩm cũ hơn 7 ngày`);
+            } catch (error) {
+                console.error('❌ Lỗi cleanup:', error);
             }
         }
 
-        function clearAllProducts() {
-            if (savedProducts.length === 0) {
+        async function clearAllProductsLocal() {
+            const count = Object.keys(savedProducts).length;
+
+            if (count === 0) {
                 showNotificationMessage('⚠️ Danh sách đã trống');
                 return;
             }
 
-            if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
-                savedProducts = [];
-
-                if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync sau khi xóa tất cả:', error);
-                    });
+            if (confirm(`Bạn có chắc muốn xóa tất cả ${count} sản phẩm không?`)) {
+                try {
+                    await clearAllProducts(database, savedProducts);
+                    updateProductListPreview();
+                    showNotificationMessage('🗑️ Đã xóa tất cả sản phẩm');
+                } catch (error) {
+                    console.error('❌ Lỗi xóa tất cả:', error);
+                    showNotificationMessage('❌ Lỗi: ' + error.message);
                 }
-
-                updateProductListPreview();
-                showNotificationMessage('🗑️ Đã xóa tất cả sản phẩm');
             }
         }
 
@@ -2031,20 +2021,15 @@
 
                 // Check if auto-add variants is enabled and variants exist
                 if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
-                    // CRITICAL: Set flag to prevent Firebase listener from overwriting during bulk add
-                    isSyncingFromFirebase = true;
-
                     // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
                     const sortedVariants = sortVariants(templateData.ProductVariants);
 
-                    // Add all variants
-                    let addedCount = 0;
-                    let updatedCount = 0;
-                    for (const variant of sortedVariants) {
+                    // Prepare all variants for batch add
+                    const variantsToAdd = sortedVariants.map(variant => {
                         const qtyAvailable = variant.QtyAvailable || 0;
                         const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
 
-                        const cleanProduct = cleanProductForFirebase({
+                        return cleanProductForFirebase({
                             Id: variant.Id,
                             NameGet: variant.NameGet,
                             QtyAvailable: qtyAvailable,
@@ -2054,26 +2039,7 @@
                             remainingQty: qtyAvailable,
                             isHidden: false // Variants are visible
                         });
-
-                        const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
-                        if (existingIndex !== -1) {
-                            // Variant exists - update info but keep soldQty
-                            const existingProduct = savedProducts[existingIndex];
-                            const existingSoldQty = existingProduct.soldQty || 0;
-
-                            savedProducts[existingIndex] = {
-                                ...cleanProduct,
-                                soldQty: existingSoldQty, // Keep existing soldQty
-                                remainingQty: cleanProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
-                                addedAt: existingProduct.addedAt || cleanProduct.addedAt, // Keep original addedAt time
-                                lastRefreshed: Date.now() // Mark as refreshed
-                            };
-                            updatedCount++;
-                        } else {
-                            savedProducts.push(cleanProduct);
-                        }
-                        addedCount++;
-                    }
+                    });
 
                     // Add main product to hidden list
                     const mainProductQty = templateData.QtyAvailable || 0;
@@ -2088,46 +2054,30 @@
                         isHidden: true // Main product is hidden
                     });
 
-                    const mainProductIndex = savedProducts.findIndex(p => p.Id === mainProduct.Id);
-                    if (mainProductIndex !== -1) {
-                        // Main product exists - update info but keep soldQty
-                        const existingMainProduct = savedProducts[mainProductIndex];
-                        const existingSoldQty = existingMainProduct.soldQty || 0;
+                    // Add main product to the batch
+                    const allProducts = [...variantsToAdd, mainProduct];
 
-                        savedProducts[mainProductIndex] = {
-                            ...mainProduct,
-                            soldQty: existingSoldQty, // Keep existing soldQty
-                            remainingQty: mainProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
-                            addedAt: existingMainProduct.addedAt || mainProduct.addedAt, // Keep original addedAt time
-                            lastRefreshed: Date.now() // Mark as refreshed
-                        };
-                    } else {
-                        savedProducts.push(mainProduct);
-                    }
+                    // Use batch add helper
+                    try {
+                        const result = await addProductsToFirebase(database, allProducts, savedProducts);
 
-                    // Save all variants + main product to Firebase in one operation
-                    database.ref('savedProducts').set(savedProducts).then(() => {
-                        console.log(`✅ Saved ${addedCount} variants + main product to Firebase`);
-                        // Re-enable Firebase sync after a short delay
-                        setTimeout(() => { isSyncingFromFirebase = false; }, 200);
-                    }).catch(error => {
+                        updateProductListPreview();
+
+                        const totalAdded = result.added;
+                        const totalUpdated = result.updated;
+
+                        if (totalAdded > 0 && totalUpdated > 0) {
+                            showNotificationMessage(`✅ Đã thêm ${totalAdded} biến thể mới, cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
+                        } else if (totalUpdated > 0) {
+                            showNotificationMessage(`🔄 Đã cập nhật ${totalUpdated} biến thể (giữ nguyên số lượng đã bán)`);
+                        } else if (totalAdded > 0) {
+                            showNotificationMessage(`✅ Đã thêm ${totalAdded} biến thể sản phẩm`);
+                        }
+
+                        document.getElementById('productSearch').value = '';
+                    } catch (error) {
                         console.error('❌ Error saving variants to Firebase:', error);
                         showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
-                        isSyncingFromFirebase = false;
-                    });
-
-                    updateProductListPreview();
-
-                    if (addedCount > 0) {
-                        const newCount = addedCount - updatedCount;
-                        if (updatedCount > 0 && newCount > 0) {
-                            showNotificationMessage(`✅ Đã thêm ${newCount} biến thể mới, cập nhật ${updatedCount} biến thể (giữ nguyên số lượng đã bán)`);
-                        } else if (updatedCount > 0) {
-                            showNotificationMessage(`🔄 Đã cập nhật ${updatedCount} biến thể (giữ nguyên số lượng đã bán)`);
-                        } else {
-                            showNotificationMessage(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
-                        }
-                        document.getElementById('productSearch').value = '';
                     }
                 } else {
                     // Add single product (original behavior)
@@ -2152,43 +2102,36 @@
             }
         }
 
-        function addProductToList(product, showNotification = true) {
+        async function addProductToList(product, showNotification = true) {
             try {
                 const cleanProduct = cleanProductForFirebase(product);
 
-                const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
-
-                if (existingIndex !== -1) {
-                    // Product already exists - update info but keep soldQty
-                    const existingProduct = savedProducts[existingIndex];
-                    const existingSoldQty = existingProduct.soldQty || 0;
-
-                    // Update product with new info
-                    savedProducts[existingIndex] = {
-                        ...cleanProduct,
-                        soldQty: existingSoldQty, // Keep existing soldQty
-                        remainingQty: cleanProduct.QtyAvailable - existingSoldQty, // Recalculate remainingQty
-                        addedAt: existingProduct.addedAt || cleanProduct.addedAt, // Keep original addedAt time
-                        lastRefreshed: Date.now() // Mark as refreshed
-                    };
+                if (!isSyncingFromFirebase) {
+                    const result = await addProductToFirebase(database, cleanProduct, savedProducts);
 
                     if (showNotification) {
-                        showNotificationMessage('🔄 Đã cập nhật thông tin sản phẩm (giữ nguyên số lượng đã bán)');
+                        if (result.action === 'updated') {
+                            showNotificationMessage('🔄 Đã cập nhật thông tin sản phẩm (giữ nguyên số lượng đã bán)');
+                        } else {
+                            showNotificationMessage('✅ Đã thêm sản phẩm vào danh sách');
+                        }
                     }
                 } else {
-                    // New product - add to list
-                    savedProducts.push(cleanProduct);
+                    // During sync from Firebase, just add to local object
+                    const productKey = `product_${cleanProduct.Id}`;
+                    const existingProduct = savedProducts[productKey];
 
-                    if (showNotification) {
-                        showNotificationMessage('✅ Đã thêm sản phẩm vào danh sách');
+                    if (existingProduct) {
+                        savedProducts[productKey] = {
+                            ...cleanProduct,
+                            soldQty: existingProduct.soldQty || 0,
+                            remainingQty: cleanProduct.QtyAvailable - (existingProduct.soldQty || 0),
+                            addedAt: existingProduct.addedAt || cleanProduct.addedAt,
+                            lastRefreshed: Date.now()
+                        };
+                    } else {
+                        savedProducts[productKey] = cleanProduct;
                     }
-                }
-
-                if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync products lên Firebase:', error);
-                        showNotificationMessage('⚠️ Lỗi đồng bộ Firebase: ' + error.message);
-                    });
                 }
 
                 updateProductListPreview();
@@ -2207,7 +2150,7 @@
             const productCount = document.getElementById('productCount');
 
             // Filter visible (not hidden) products
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
 
             if (visibleProducts.length === 0) {
                 productListSection.style.display = 'none';
@@ -2289,7 +2232,7 @@
             const hiddenProductCount = document.getElementById('hiddenProductCount');
 
             // Filter hidden products
-            const hiddenProducts = savedProducts.filter(p => p.isHidden);
+            const hiddenProducts = Object.values(savedProducts).filter(p => p.isHidden);
 
             if (hiddenProducts.length === 0) {
                 hiddenProductsSection.style.display = 'none';
@@ -2337,69 +2280,57 @@
             }).join('');
         }
 
-        function unhideProduct(productId) {
-            const product = savedProducts.find(p => p.Id === productId);
-            if (!product) return;
-
-            product.isHidden = false;
-
+        async function unhideProduct(productId) {
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
-                });
-            }
-
-            updateProductListPreview();
-            updateHiddenProductListPreview();
-            showNotificationMessage('👁️ Đã hiện sản phẩm');
-        }
-
-        function updateProductQty(productId, change) {
-            const product = savedProducts.find(p => p.Id === productId);
-            if (!product) return;
-
-            const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.soldQty + change));
-
-            if (newSoldQty === product.soldQty) return;
-
-            product.soldQty = newSoldQty;
-            product.remainingQty = product.QtyAvailable - newSoldQty;
-
-            if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
-                });
-            }
-
-            updateProductListPreview();
-            updateHiddenProductListPreview();
-        }
-
-        function removeProduct(productId) {
-            if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
-                savedProducts = savedProducts.filter(p => p.Id !== productId);
-
-                if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync products lên Firebase:', error);
-                    });
-                }
-
-                // Re-apply search if active
-                if (listSearchKeyword) {
-                    performListSearch(listSearchKeyword);
-                } else {
+                try {
+                    await updateProductVisibility(database, productId, false, savedProducts);
                     updateProductListPreview();
-                }
-
-                // Also update hidden products list
-                if (hiddenListSearchKeyword) {
-                    performHiddenListSearch(hiddenListSearchKeyword);
-                } else {
                     updateHiddenProductListPreview();
+                    showNotificationMessage('👁️ Đã hiện sản phẩm');
+                } catch (error) {
+                    console.error('❌ Lỗi hiện sản phẩm:', error);
                 }
+            }
+        }
 
-                showNotificationMessage('🗑️ Đã xóa sản phẩm');
+        async function updateProductQty(productId, change) {
+            if (!isSyncingFromFirebase) {
+                try {
+                    await updateProductQtyInFirebase(database, productId, change, savedProducts);
+                    updateProductListPreview();
+                    updateHiddenProductListPreview();
+                } catch (error) {
+                    console.error('❌ Lỗi cập nhật số lượng:', error);
+                }
+            }
+        }
+
+        async function removeProduct(productId) {
+            if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
+                try {
+                    if (!isSyncingFromFirebase) {
+                        await removeProductFromFirebase(database, productId, savedProducts);
+                    }
+
+                    // Re-apply search if active
+                    if (listSearchKeyword) {
+                        performListSearch(listSearchKeyword);
+                    } else {
+                        updateProductListPreview();
+                    }
+
+                    // Also update hidden products list
+                    if (hiddenListSearchKeyword) {
+                        performHiddenListSearch(hiddenListSearchKeyword);
+                    } else {
+                        updateHiddenProductListPreview();
+                    }
+
+                    showNotificationMessage('🗑️ Đã xóa sản phẩm');
+                } catch (error) {
+                    console.error('❌ Lỗi xóa sản phẩm:', error);
+                    showNotificationMessage('❌ Lỗi: ' + error.message);
+                }
             }
         }
 
@@ -2408,7 +2339,8 @@
         let currentImageData = null; // Store base64 or URL
 
         function changeProductImage(productId) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const productKey = `product_${productId}`;
+            const product = savedProducts[productKey];
             if (!product) {
                 showNotificationMessage('❌ Không tìm thấy sản phẩm');
                 return;
@@ -2769,7 +2701,8 @@
                 return;
             }
 
-            const product = savedProducts.find(p => p.Id === currentEditingProductId);
+            const productKey = `product_${currentEditingProductId}`;
+            const product = savedProducts[productKey];
             if (!product) {
                 showNotificationMessage('❌ Không tìm thấy sản phẩm');
                 return;
@@ -2784,14 +2717,20 @@
 
             // If product has a template (is a variant), update all products with same template
             let updatedCount = 1;
+            const updates = {};
+            updates[`savedProducts/${productKey}/imageUrl`] = newImageUrl;
+            updates[`savedProducts/${productKey}/lastRefreshed`] = timestamp;
+
             if (product.ProductTmplId) {
                 const templateId = product.ProductTmplId;
 
                 // Find and update all products with the same ProductTmplId (including main product and all variants)
-                savedProducts.forEach(p => {
+                Object.entries(savedProducts).forEach(([key, p]) => {
                     if (p.ProductTmplId === templateId && p.Id !== product.Id) {
                         p.imageUrl = newImageUrl;
                         p.lastRefreshed = timestamp;
+                        updates[`savedProducts/${key}/imageUrl`] = newImageUrl;
+                        updates[`savedProducts/${key}/lastRefreshed`] = timestamp;
                         updatedCount++;
                     }
                 });
@@ -2801,7 +2740,7 @@
 
             // Sync to Firebase
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).then(() => {
+                database.ref().update(updates).then(() => {
                     console.log(`✅ Updated image for product ${product.NameGet}`);
                     if (updatedCount > 1) {
                         showNotificationMessage(`🖼️ Đã cập nhật hình ảnh cho ${updatedCount} sản phẩm cùng nhóm`);
@@ -2833,7 +2772,7 @@
             const searchNoSign = removeVietnameseTones(listSearchKeyword);
 
             // Filter visible products that match
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
             const matchedProducts = visibleProducts.filter(product => {
                 // Match in product name (no Vietnamese tones)
                 const nameNoSign = removeVietnameseTones(product.NameGet || '');
@@ -2902,7 +2841,7 @@
             const searchNoSign = removeVietnameseTones(hiddenListSearchKeyword);
 
             // Filter hidden products that match
-            const hiddenProducts = savedProducts.filter(p => p.isHidden);
+            const hiddenProducts = Object.values(savedProducts).filter(p => p.isHidden);
             const matchedProducts = hiddenProducts.filter(product => {
                 // Match in product name (no Vietnamese tones)
                 const nameNoSign = removeVietnameseTones(product.NameGet || '');
@@ -3256,6 +3195,7 @@
         window.settingsChannel = new BroadcastChannel('product-settings');
 
         function setupFirebaseListeners() {
+            // Setup listeners for displaySettings
             database.ref('displaySettings').on('value', (snapshot) => {
                 const settings = snapshot.val();
                 if (settings && !isSyncingFromFirebase) {
@@ -3276,43 +3216,41 @@
                 }
             });
 
-            database.ref('savedProducts').on('value', (snapshot) => {
-                const products = snapshot.val();
-                if (!isSyncingFromFirebase) {
-                    isSyncingFromFirebase = true;
-
-                    if (products && Array.isArray(products)) {
-                        savedProducts = cleanProductsArray(products);
+            // Setup child listeners for products (realtime sync)
+            setupFirebaseChildListeners(database, savedProducts, {
+                onProductAdded: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product added from Firebase:', product.NameGet);
                         updateProductListPreview();
-                        console.log('🔥 Products synced from Firebase:', savedProducts.length, 'items');
-                    } else if (products === null || products === undefined) {
-                        savedProducts = [];
-                        updateProductListPreview();
-                        console.log('🔥 No products in Firebase yet');
                     }
-
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                },
+                onProductChanged: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product updated from Firebase:', product.NameGet);
+                        updateProductListPreview();
+                    }
+                },
+                onProductRemoved: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product removed from Firebase:', product.NameGet);
+                        updateProductListPreview();
+                    }
+                },
+                onInitialLoadComplete: () => {
+                    console.log('✅ Firebase listeners setup complete');
                 }
             });
         }
 
         async function loadInitialData() {
-            // Load from Firebase only (removed localStorage)
             try {
-                const snapshot = await database.ref('savedProducts').once('value');
-                const products = snapshot.val();
+                savedProducts = await loadAllProductsFromFirebase(database);
+                console.log('🔥 Loaded from Firebase:', Object.keys(savedProducts).length, 'products');
 
-                if (products && Array.isArray(products)) {
-                    savedProducts = cleanProductsArray(products);
-                    console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products');
-                } else {
-                    savedProducts = [];
-                    console.log('📭 No products found in Firebase');
-                }
+                updateProductListPreview();
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                savedProducts = [];
-                console.log('⚠️ Using empty product list');
+                savedProducts = {};
             }
         }
 
@@ -3323,14 +3261,14 @@
                 await getValidToken();
                 await loadExcelData();
 
-                // Setup Firebase listeners for realtime sync
-                setupFirebaseListeners();
-
-                // Load initial data from localStorage or Firebase
+                // Load initial data from Firebase FIRST
                 await loadInitialData();
 
+                // THEN setup Firebase listeners for realtime sync
+                setupFirebaseListeners();
+
                 // Cleanup products older than 7 days
-                cleanupOldProducts();
+                cleanupOldProductsLocal();
 
                 // Always update preview to ensure correct visibility
                 updateProductListPreview();
@@ -3472,7 +3410,7 @@
 
             <!-- Clear All Products Button -->
             <div style="margin-bottom: 20px;">
-                <button class="btn-apply-settings" onclick="clearAllProducts(); toggleSettingsSidebar();" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+                <button class="btn-apply-settings" onclick="clearAllProductsLocal(); toggleSettingsSidebar();" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
                     🗑️ Xóa Tất Cả Sản Phẩm
                 </button>
                 <div class="setting-description" style="text-align: center; margin-top: 10px;">Xóa toàn bộ danh sách sản phẩm đã thêm</div>
