@@ -2531,13 +2531,15 @@
         });
 
         window.addEventListener('load', async () => {
-            setupFirebaseListeners();
             loadSettings();
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
             loadHideEditControlsMode(); // Load hide edit controls mode from localStorage
 
-            // Load products from localStorage or Firebase
+            // Load products from localStorage or Firebase FIRST
             await loadProducts();
+
+            // Setup Firebase listeners AFTER loading products
+            setupFirebaseListeners();
 
             // Cleanup products older than 7 days
             cleanupOldProducts();

@@ -3273,11 +3273,11 @@
                 await getValidToken();
                 await loadExcelData();
 
-                // Setup Firebase listeners for realtime sync
-                setupFirebaseListeners();
-
-                // Load initial data from localStorage or Firebase
+                // Load initial data from localStorage or Firebase FIRST
                 await loadInitialData();
+
+                // Setup Firebase listeners for realtime sync AFTER loading data
+                setupFirebaseListeners();
 
                 // Cleanup products older than 7 days
                 cleanupOldProductsLocal();
