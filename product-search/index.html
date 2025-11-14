@@ -1599,7 +1599,7 @@
         let isLoadingExcel = false;
         let bearerToken = null;
         let tokenExpiry = null;
-        let savedProducts = [];
+        let savedProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
         let filteredProductsInList = []; // For search in product list
         let listSearchKeyword = ''; // Current search keyword for product list
         let filteredHiddenProducts = []; // For search in hidden product list
@@ -1753,17 +1753,17 @@
         }
 
         async function clearAllProductsLocal() {
-            if (savedProducts.length === 0) {
+            if (Object.keys(savedProducts).length === 0) {
                 showNotificationMessage('⚠️ Danh sách đã trống');
                 return;
             }
 
-            if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
+            if (confirm(`Bạn có chắc muốn xóa tất cả ${Object.keys(savedProducts).length} sản phẩm không?`)) {
                 if (!isSyncingFromFirebase) {
                     // Use object-based Firebase structure from helper
                     await clearAllProducts(database, savedProducts);
                 } else {
-                    savedProducts.length = 0;
+                    savedProducts = {};
                 }
 
                 updateProductListPreview();
@@ -2074,7 +2074,7 @@
                     // Add all to Firebase in one batch operation
                     // This function will handle:
                     // - Check existing products and preserve soldQty
-                    // - Update local savedProducts array
+                    // - Update local savedProducts object
                     // - Sync to Firebase
                     addProductsToFirebase(database, allProductsToAdd, savedProducts).then((result) => {
                         console.log(`✅ Saved ${result.added} new + ${result.updated} updated variants to Firebase`);
@@ -2141,13 +2141,9 @@
                         }
                     }
                 } else {
-                    // During Firebase sync, just update local array
-                    const existingIndex = savedProducts.findIndex(p => p.Id === cleanProduct.Id);
-                    if (existingIndex !== -1) {
-                        savedProducts[existingIndex] = cleanProduct;
-                    } else {
-                        savedProducts.push(cleanProduct);
-                    }
+                    // During Firebase sync, just update local object
+                    const productKey = `product_${cleanProduct.Id}`;
+                    savedProducts[productKey] = cleanProduct;
                 }
 
                 updateProductListPreview();
@@ -2166,7 +2162,7 @@
             const productCount = document.getElementById('productCount');
 
             // Filter visible (not hidden) products
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
 
             if (visibleProducts.length === 0) {
                 productListSection.style.display = 'none';
@@ -2248,7 +2244,7 @@
             const hiddenProductCount = document.getElementById('hiddenProductCount');
 
             // Filter hidden products
-            const hiddenProducts = savedProducts.filter(p => p.isHidden);
+            const hiddenProducts = Object.values(savedProducts).filter(p => p.isHidden);
 
             if (hiddenProducts.length === 0) {
                 hiddenProductsSection.style.display = 'none';
@@ -2297,7 +2293,7 @@
         }
 
         async function unhideProduct(productId) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const product = savedProducts[`product_${productId}`];
             if (!product) return;
 
             if (!isSyncingFromFirebase) {
@@ -2314,7 +2310,7 @@
         }
 
         async function updateProductQty(productId, change) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const product = savedProducts[`product_${productId}`];
             if (!product) return;
 
             const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.soldQty + change));
@@ -2340,8 +2336,8 @@
                     // Use object-based Firebase structure
                     await removeProductFromFirebase(database, productId, savedProducts);
                 } else {
-                    // During Firebase sync, just update local array
-                    savedProducts = savedProducts.filter(p => p.Id !== productId);
+                    // During Firebase sync, just update local object
+                    delete savedProducts[`product_${productId}`];
                 }
 
                 // Re-apply search if active
@@ -2367,7 +2363,7 @@
         let currentImageData = null; // Store base64 or URL
 
         function changeProductImage(productId) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const product = savedProducts[`product_${productId}`];
             if (!product) {
                 showNotificationMessage('❌ Không tìm thấy sản phẩm');
                 return;
@@ -2728,7 +2724,7 @@
                 return;
             }
 
-            const product = savedProducts.find(p => p.Id === currentEditingProductId);
+            const product = savedProducts[`product_${currentEditingProductId}`];
             if (!product) {
                 showNotificationMessage('❌ Không tìm thấy sản phẩm');
                 return;
@@ -2747,7 +2743,7 @@
                 const templateId = product.ProductTmplId;
 
                 // Find and update all products with the same ProductTmplId (including main product and all variants)
-                savedProducts.forEach(p => {
+                Object.values(savedProducts).forEach(p => {
                     if (p.ProductTmplId === templateId && p.Id !== product.Id) {
                         p.imageUrl = newImageUrl;
                         p.lastRefreshed = timestamp;
@@ -2792,7 +2788,7 @@
             const searchNoSign = removeVietnameseTones(listSearchKeyword);
 
             // Filter visible products that match
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
             const matchedProducts = visibleProducts.filter(product => {
                 // Match in product name (no Vietnamese tones)
                 const nameNoSign = removeVietnameseTones(product.NameGet || '');
@@ -2861,7 +2857,7 @@
             const searchNoSign = removeVietnameseTones(hiddenListSearchKeyword);
 
             // Filter hidden products that match
-            const hiddenProducts = savedProducts.filter(p => p.isHidden);
+            const hiddenProducts = Object.values(savedProducts).filter(p => p.isHidden);
             const matchedProducts = hiddenProducts.filter(product => {
                 // Match in product name (no Vietnamese tones)
                 const nameNoSign = removeVietnameseTones(product.NameGet || '');
@@ -3262,10 +3258,10 @@
             // Load from Firebase using object-based structure
             try {
                 savedProducts = await loadAllProductsFromFirebase(database);
-                console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (object-based structure)');
+                console.log('🔥 Loaded from Firebase:', Object.keys(savedProducts).length, 'products (object-based structure)');
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                savedProducts = [];
+                savedProducts = {};
                 console.log('⚠️ Using empty product list');
             }
         }
