@@ -3293,11 +3293,16 @@
         async function loadInitialData() {
             // Load from Firebase using object-based structure
             try {
-                savedProducts = await loadAllProductsFromFirebase(database);
+                const products = await loadAllProductsFromFirebase(database);
+
+                // Clear and repopulate array (keeps same reference for Firebase listeners)
+                savedProducts.length = 0;
+                savedProducts.push(...products);
+
                 console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (object-based structure)');
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                savedProducts = [];
+                savedProducts.length = 0; // Clear instead of reassign
                 console.log('⚠️ Using empty product list');
             }
         }
