@@ -8,6 +8,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="firebase-helpers.js"></script>
 
     <style>
         :root {
@@ -1060,7 +1061,7 @@
     <script src="../js/shared-auth-manager.js"></script>
     <script src="../js/shared-cache-manager.js"></script>
     <script>
-        let savedProducts = [];
+        let savedProducts = {}; // Object-based structure
         let filteredProducts = []; // For search results
         let searchKeyword = ''; // Current search keyword
         let pageBeforeSearch = 1; // Save page before searching
@@ -1385,36 +1386,19 @@
         }
 
         async function loadProducts() {
-            // Load from Firebase only (removed localStorage)
             try {
-                const snapshot = await database.ref('savedProducts').once('value');
-                const products = snapshot.val();
+                savedProducts = await loadAllProductsFromFirebase(database);
+                console.log('🔥 Loaded from Firebase:', Object.keys(savedProducts).length, 'products');
 
-                if (products && Array.isArray(products)) {
-                    // Sort products by addedAt timestamp (newest first)
-                    savedProducts = products.sort((a, b) => {
-                        const timeA = a.addedAt || 0;
-                        const timeB = b.addedAt || 0;
-                        return timeB - timeA; // Descending order (newest first)
-                    });
-                    console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (sorted by newest first)');
-
-                    // Optimization: Rebuild normalized cache when products are loaded
-                    buildNormalizedCache(savedProducts);
+                if (Object.keys(savedProducts).length === 0) {
+                    showEmptyState();
                 } else {
-                    savedProducts = [];
-                    console.log('📭 No products found in Firebase');
+                    updateProductGrid();
                 }
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                savedProducts = [];
+                savedProducts = {};
                 console.log('⚠️ Using empty product list');
-            }
-
-            if (savedProducts.length === 0) {
-                showEmptyState();
-            } else {
-                updateProductGrid();
             }
         }
 
@@ -1538,7 +1522,7 @@
             pageInfo.style.display = 'block';
 
             // Filter out hidden products first
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
 
             // Use filtered products if searching, otherwise use all visible products
             // Note: filteredProducts are already merged if merge mode is enabled
@@ -1665,7 +1649,7 @@
         function changePage(direction) {
             // Use filtered products if searching, otherwise use all products
             // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts : savedProducts;
+            let baseProducts = searchKeyword ? filteredProducts : Object.values(savedProducts);
 
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
@@ -1752,7 +1736,7 @@
             const searchNoSign = removeVietnameseTones(searchKeyword);
 
             // Filter out hidden products first
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
 
             // Apply merge first if enabled, then search on merged products
             const productsToSearch = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
@@ -1871,74 +1855,70 @@
         }
 
         function updateProductQty(productId, change) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const productKey = `product_${productId}`;
+            const product = savedProducts[productKey];
             if (!product) return;
 
             const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.soldQty + change));
-
             if (newSoldQty === product.soldQty) return;
 
             product.soldQty = newSoldQty;
             product.remainingQty = product.QtyAvailable - newSoldQty;
 
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                updateProductQtyInFirebase(database, productId, change, savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Fix: If searching, re-run search to update filteredProducts
             if (searchKeyword) {
-                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+                performSearch(searchKeyword, false);
             } else {
                 updateProductGrid();
             }
         }
 
         function updateVariantQty(variantId, change) {
-            const variant = savedProducts.find(p => p.Id === variantId);
+            const variantKey = `product_${variantId}`;
+            const variant = savedProducts[variantKey];
             if (!variant) return;
 
             const newSoldQty = Math.max(0, Math.min(variant.QtyAvailable, variant.soldQty + change));
-
             if (newSoldQty === variant.soldQty) return;
 
             variant.soldQty = newSoldQty;
             variant.remainingQty = variant.QtyAvailable - newSoldQty;
 
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                updateProductQtyInFirebase(database, variantId, change, savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Fix: If searching, re-run search to update filteredProducts
             if (searchKeyword) {
-                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+                performSearch(searchKeyword, false);
             } else {
                 updateProductGrid();
             }
         }
 
         function hideProduct(productId) {
-            if (!confirm('Bạn có chắc muốn ẩn sản phẩm này?')) {
-                return;
-            }
+            if (!confirm('Bạn có chắc muốn ẩn sản phẩm này?')) return;
 
-            const product = savedProducts.find(p => p.Id === productId);
+            const productKey = `product_${productId}`;
+            const product = savedProducts[productKey];
             if (!product) return;
 
             product.isHidden = true;
 
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                updateProductVisibility(database, productId, true, savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Fix: If searching, re-run search to update filteredProducts
             if (searchKeyword) {
-                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+                performSearch(searchKeyword, false);
             } else {
                 updateProductGrid();
             }
@@ -1947,13 +1927,12 @@
 
         function hideProducts(productIds) {
             const count = productIds.length;
-            if (!confirm(`Bạn có chắc muốn ẩn tất cả ${count} biến thể?`)) {
-                return;
-            }
+            if (!confirm(`Bạn có chắc muốn ẩn tất cả ${count} biến thể?`)) return;
 
             let hiddenCount = 0;
             productIds.forEach(productId => {
-                const product = savedProducts.find(p => p.Id === productId);
+                const productKey = `product_${productId}`;
+                const product = savedProducts[productKey];
                 if (product) {
                     product.isHidden = true;
                     hiddenCount++;
@@ -1961,14 +1940,21 @@
             });
 
             if (hiddenCount > 0 && !isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                // Batch update for all products
+                const updates = {};
+                productIds.forEach(productId => {
+                    const productKey = `product_${productId}`;
+                    if (savedProducts[productKey]) {
+                        updates[`savedProducts/${productKey}/isHidden`] = true;
+                    }
+                });
+                database.ref().update(updates).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Fix: If searching, re-run search to update filteredProducts
             if (searchKeyword) {
-                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+                performSearch(searchKeyword, false);
             } else {
                 updateProductGrid();
             }
@@ -1976,20 +1962,20 @@
         }
 
         function unhideProduct(productId) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const productKey = `product_${productId}`;
+            const product = savedProducts[productKey];
             if (!product) return;
 
             product.isHidden = false;
 
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                updateProductVisibility(database, productId, false, savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Fix: If searching, re-run search to update filteredProducts
             if (searchKeyword) {
-                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+                performSearch(searchKeyword, false);
             } else {
                 updateProductGrid();
             }
@@ -1997,11 +1983,11 @@
         }
 
         function updateProductTotal(productId, change) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const productKey = `product_${productId}`;
+            const product = savedProducts[productKey];
             if (!product) return;
 
             const newQtyAvailable = Math.max(0, product.QtyAvailable + change);
-
             if (newQtyAvailable === product.QtyAvailable) return;
 
             product.QtyAvailable = newQtyAvailable;
@@ -2014,64 +2000,48 @@
             product.remainingQty = product.QtyAvailable - product.soldQty;
 
             if (!isSyncingFromFirebase) {
-                database.ref('savedProducts').set(savedProducts).catch(error => {
-                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                database.ref(`savedProducts/${productKey}`).update({
+                    QtyAvailable: product.QtyAvailable,
+                    soldQty: product.soldQty,
+                    remainingQty: product.remainingQty
+                }).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Fix: If searching, re-run search to update filteredProducts
             if (searchKeyword) {
-                performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
+                performSearch(searchKeyword, false);
             } else {
                 updateProductGrid();
             }
         }
 
-        function cleanupOldProducts() {
-            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-            const now = Date.now();
+        async function cleanupOldProductsLocal() {
+            if (!isSyncingFromFirebase) {
+                const result = await cleanupOldProducts(database, savedProducts);
+                if (result.removed > 0) {
+                    console.log(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
 
-            const initialCount = savedProducts.length;
-            savedProducts = savedProducts.filter(product => {
-                const addedAt = product.addedAt || 0;
-                const age = now - addedAt;
-                return age < SEVEN_DAYS;
-            });
-
-            const removedCount = initialCount - savedProducts.length;
-
-            if (removedCount > 0) {
-                console.log(`🗑️ Đã xóa ${removedCount} sản phẩm cũ hơn 7 ngày`);
-
-                if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync sau khi cleanup:', error);
-                    });
-                }
-
-                if (savedProducts.length === 0) {
-                    showEmptyState();
-                } else {
-                    updateProductGrid();
+                    if (Object.keys(savedProducts).length === 0) {
+                        showEmptyState();
+                    } else {
+                        updateProductGrid();
+                    }
                 }
             }
         }
 
-        function clearAllProducts() {
-            if (savedProducts.length === 0) {
+        async function clearAllProductsLocal() {
+            const productCount = Object.keys(savedProducts).length;
+            if (productCount === 0) {
                 alert('⚠️ Danh sách đã trống');
                 return;
             }
 
-            if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
-                savedProducts = [];
-
+            if (confirm(`Bạn có chắc muốn xóa tất cả ${productCount} sản phẩm không?`)) {
                 if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync sau khi xóa tất cả:', error);
-                    });
+                    await clearAllProducts(database, savedProducts);
                 }
-
                 showEmptyState();
             }
         }
@@ -2093,7 +2063,8 @@
                 }
 
                 const productData = await response.json();
-                const product = savedProducts.find(p => p.Id === productId);
+                const productKey = `product_${productId}`;
+                const product = savedProducts[productKey];
                 if (!product) {
                     throw new Error('Không tìm thấy sản phẩm trong danh sách');
                 }
@@ -2129,8 +2100,13 @@
                 product.lastRefreshed = Date.now();
 
                 if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync products lên Firebase:', error);
+                    database.ref(`savedProducts/${productKey}`).update({
+                        QtyAvailable: product.QtyAvailable,
+                        remainingQty: product.remainingQty,
+                        imageUrl: product.imageUrl,
+                        lastRefreshed: product.lastRefreshed
+                    }).catch(error => {
+                        console.error('❌ Lỗi sync products:', error);
                     });
                 }
 
@@ -2272,37 +2248,46 @@
                 }
             });
 
-            database.ref('savedProducts').on('value', (snapshot) => {
-                const products = snapshot.val();
-                if (!isSyncingFromFirebase) {
-                    isSyncingFromFirebase = true;
-
-                    if (products && Array.isArray(products)) {
-                        // Sort products by addedAt timestamp (newest first)
-                        savedProducts = products.sort((a, b) => {
-                            const timeA = a.addedAt || 0;
-                            const timeB = b.addedAt || 0;
-                            return timeB - timeA; // Descending order (newest first)
-                        });
-
-                        // Optimization: Rebuild normalized cache when products change
-                        buildNormalizedCache(savedProducts);
-
-                        if (savedProducts.length === 0) {
-                            showEmptyState();
+            // Products listener - USE CHILD LISTENERS
+            setupFirebaseChildListeners(database, savedProducts, {
+                onProductAdded: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product added from Firebase:', product.NameGet);
+                        // Rebuild normalized cache
+                        buildNormalizedCache(Object.values(savedProducts));
+                        if (searchKeyword) {
+                            performSearch(searchKeyword, false);
                         } else {
                             updateProductGrid();
                         }
-
-                        console.log('🔥 Products synced from Firebase:', products.length, 'items (sorted by newest first)');
-                    } else if (products === null || products === undefined) {
-                        savedProducts = [];
-                        normalizedProductNames.clear(); // Clear cache when no products
-                        showEmptyState();
-                        console.log('🔥 No products in Firebase yet');
                     }
-
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                },
+                onProductChanged: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product updated from Firebase:', product.NameGet);
+                        // Rebuild normalized cache
+                        buildNormalizedCache(Object.values(savedProducts));
+                        if (searchKeyword) {
+                            performSearch(searchKeyword, false);
+                        } else {
+                            updateProductGrid();
+                        }
+                    }
+                },
+                onProductRemoved: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product removed from Firebase:', product.NameGet);
+                        // Rebuild normalized cache
+                        buildNormalizedCache(Object.values(savedProducts));
+                        if (searchKeyword) {
+                            performSearch(searchKeyword, false);
+                        } else {
+                            updateProductGrid();
+                        }
+                    }
+                },
+                onInitialLoadComplete: () => {
+                    console.log('✅ Firebase listeners setup complete');
                 }
             });
 
@@ -2312,7 +2297,7 @@
                 if (isSyncMode && page && !isSyncingFromFirebase && page !== currentPage) {
                     isSyncingFromFirebase = true;
 
-                    const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
+                    const totalPages = Math.ceil(Object.keys(savedProducts).length / itemsPerPage);
 
                     if (page >= 1 && page <= totalPages) {
                         currentPage = page;
@@ -2412,7 +2397,7 @@
             }
 
             if (params.page) {
-                const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
+                const totalPages = Math.ceil(Object.keys(savedProducts).length / itemsPerPage);
                 if (params.page >= 1 && params.page <= totalPages) {
                     currentPage = params.page;
                     updateProductGrid();
@@ -2438,16 +2423,18 @@
         });
 
         window.addEventListener('load', async () => {
-            setupFirebaseListeners();
             loadSettings();
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
             loadHideEditControlsMode(); // Load hide edit controls mode from localStorage
 
-            // Load products from localStorage or Firebase
+            // Load products FIRST (before listeners)
             await loadProducts();
 
+            // THEN setup Firebase listeners
+            setupFirebaseListeners();
+
             // Cleanup products older than 7 days
-            cleanupOldProducts();
+            await cleanupOldProductsLocal();
 
             const params = parseHashParams();
 
