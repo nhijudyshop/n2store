@@ -292,45 +292,35 @@ async function loadAllProductsFromFirebase(database) {
 function setupFirebaseChildListeners(database, localProductsArray, callbacks) {
     const productsRef = database.ref('savedProducts');
 
-    let isInitialLoad = true;
-    let initialLoadCount = 0;
+    // Track when listeners are ready (after brief delay to avoid initial flood)
+    let listenersReady = false;
+    setTimeout(() => {
+        listenersReady = true;
+        console.log('🔥 Firebase listeners are now active');
+        if (callbacks.onInitialLoadComplete) {
+            callbacks.onInitialLoadComplete();
+        }
+    }, 500);
 
-    // Get expected count for initial load
-    database.ref('savedProductsMeta/count').once('value', (snapshot) => {
-        const expectedCount = snapshot.val() || 0;
+    // child_added: Fired for each existing child and when new child is added
+    productsRef.on('child_added', (snapshot) => {
+        const product = snapshot.val();
 
-        // child_added: Fired for each existing child and when new child is added
-        productsRef.on('child_added', (snapshot) => {
-            const product = snapshot.val();
+        // Check if product already exists in local array
+        const exists = localProductsArray.find(p => p.Id === product.Id);
 
-            // During initial load, count items
-            if (isInitialLoad) {
-                initialLoadCount++;
+        if (!exists) {
+            // This is a NEW product (not in initial load)
+            localProductsArray.push(product);
 
-                // Check if initial load is complete
-                if (initialLoadCount >= expectedCount) {
-                    isInitialLoad = false;
-                    if (callbacks.onInitialLoadComplete) {
-                        callbacks.onInitialLoadComplete();
-                    }
-                }
-                // Don't call onProductAdded during initial load
-                return;
+            // Sort by addedAt (newest first)
+            localProductsArray.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+            // Only notify if listeners are ready (skip initial flood)
+            if (listenersReady && callbacks.onProductAdded) {
+                callbacks.onProductAdded(product);
             }
-
-            // After initial load, this is a real addition
-            const exists = localProductsArray.find(p => p.Id === product.Id);
-            if (!exists) {
-                localProductsArray.push(product);
-
-                // Sort by addedAt (newest first)
-                localProductsArray.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-
-                if (callbacks.onProductAdded) {
-                    callbacks.onProductAdded(product);
-                }
-            }
-        });
+        }
     });
 
     // child_changed: When a product is updated
@@ -369,3 +359,4 @@ function setupFirebaseChildListeners(database, localProductsArray, callbacks) {
         }
     };
 }
+
