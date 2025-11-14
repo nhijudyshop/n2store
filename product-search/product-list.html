@@ -1062,7 +1062,7 @@
     <script src="../js/shared-auth-manager.js"></script>
     <script src="../js/shared-cache-manager.js"></script>
     <script>
-        let savedProducts = [];
+        let savedProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
         let filteredProducts = []; // For search results
         let searchKeyword = ''; // Current search keyword
         let pageBeforeSearch = 1; // Save page before searching
@@ -1390,17 +1390,17 @@
             // Load from Firebase using object-based structure
             try {
                 savedProducts = await loadAllProductsFromFirebase(database);
-                console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (object-based structure, sorted by newest first)');
+                console.log('🔥 Loaded from Firebase:', Object.keys(savedProducts).length, 'products (object-based structure, sorted by newest first)');
 
                 // Build normalized cache
                 buildNormalizedCache(savedProducts);
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                savedProducts = [];
+                savedProducts = {};
                 console.log('⚠️ Using empty product list');
             }
 
-            if (savedProducts.length === 0) {
+            if (Object.keys(savedProducts).length === 0) {
                 showEmptyState();
             } else {
                 updateProductGrid();
@@ -1604,7 +1604,7 @@
             pageInfo.style.display = 'block';
 
             // Filter out hidden products first
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
 
             // Use filtered products if searching, otherwise use all visible products
             // Note: filteredProducts are already merged if merge mode is enabled
@@ -1731,7 +1731,7 @@
         function changePage(direction) {
             // Use filtered products if searching, otherwise use all products
             // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts : savedProducts;
+            let baseProducts = searchKeyword ? filteredProducts : Object.values(savedProducts);
 
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
@@ -1771,7 +1771,7 @@
         // Optimization: Build cache of normalized product names
         function buildNormalizedCache(products) {
             normalizedProductNames.clear();
-            products.forEach(product => {
+            Object.values(products).forEach(product => {
                 if (product && product.Id && product.NameGet) {
                     normalizedProductNames.set(product.Id, removeVietnameseTones(product.NameGet));
                 }
@@ -1818,7 +1818,7 @@
             const searchNoSign = removeVietnameseTones(searchKeyword);
 
             // Filter out hidden products first
-            const visibleProducts = savedProducts.filter(p => !p.isHidden);
+            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
 
             // Apply merge first if enabled, then search on merged products
             const productsToSearch = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
@@ -1937,7 +1937,7 @@
         }
 
         async function updateProductQty(productId, change) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const product = savedProducts[`product_${productId}`];
             if (!product) return;
 
             const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.soldQty + change));
@@ -1962,7 +1962,7 @@
         }
 
         async function updateVariantQty(variantId, change) {
-            const variant = savedProducts.find(p => p.Id === variantId);
+            const variant = savedProducts[`product_${variantId}`];
             if (!variant) return;
 
             const newSoldQty = Math.max(0, Math.min(variant.QtyAvailable, variant.soldQty + change));
@@ -1991,7 +1991,7 @@
                 return;
             }
 
-            const product = savedProducts.find(p => p.Id === productId);
+            const product = savedProducts[`product_${productId}`];
             if (!product) return;
 
             if (!isSyncingFromFirebase) {
@@ -2026,7 +2026,7 @@
             } else {
                 // During Firebase sync, just update local
                 productIds.forEach(productId => {
-                    const product = savedProducts.find(p => p.Id === productId);
+                    const product = savedProducts[`product_${productId}`];
                     if (product) {
                         product.isHidden = true;
                     }
@@ -2043,7 +2043,7 @@
         }
 
         function unhideProduct(productId) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const product = savedProducts[`product_${productId}`];
             if (!product) return;
 
             product.isHidden = false;
@@ -2064,7 +2064,7 @@
         }
 
         function updateProductTotal(productId, change) {
-            const product = savedProducts.find(p => p.Id === productId);
+            const product = savedProducts[`product_${productId}`];
             if (!product) return;
 
             const newQtyAvailable = Math.max(0, product.QtyAvailable + change);
@@ -2098,14 +2098,20 @@
             const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
             const now = Date.now();
 
-            const initialCount = savedProducts.length;
-            savedProducts = savedProducts.filter(product => {
+            const initialCount = Object.keys(savedProducts).length;
+
+            // Filter and rebuild object
+            const newSavedProducts = {};
+            Object.entries(savedProducts).forEach(([key, product]) => {
                 const addedAt = product.addedAt || 0;
                 const age = now - addedAt;
-                return age < SEVEN_DAYS;
+                if (age < SEVEN_DAYS) {
+                    newSavedProducts[key] = product;
+                }
             });
+            savedProducts = newSavedProducts;
 
-            const removedCount = initialCount - savedProducts.length;
+            const removedCount = initialCount - Object.keys(savedProducts).length;
 
             if (removedCount > 0) {
                 console.log(`🗑️ Đã xóa ${removedCount} sản phẩm cũ hơn 7 ngày`);
@@ -2116,7 +2122,7 @@
                     });
                 }
 
-                if (savedProducts.length === 0) {
+                if (Object.keys(savedProducts).length === 0) {
                     showEmptyState();
                 } else {
                     updateProductGrid();
@@ -2125,13 +2131,13 @@
         }
 
         function clearAllProducts() {
-            if (savedProducts.length === 0) {
+            if (Object.keys(savedProducts).length === 0) {
                 alert('⚠️ Danh sách đã trống');
                 return;
             }
 
-            if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
-                savedProducts = [];
+            if (confirm(`Bạn có chắc muốn xóa tất cả ${Object.keys(savedProducts).length} sản phẩm không?`)) {
+                savedProducts = {};
 
                 if (!isSyncingFromFirebase) {
                     database.ref('savedProducts').set(savedProducts).catch(error => {
@@ -2160,7 +2166,7 @@
                 }
 
                 const productData = await response.json();
-                const product = savedProducts.find(p => p.Id === productId);
+                const product = savedProducts[`product_${productId}`];
                 if (!product) {
                     throw new Error('Không tìm thấy sản phẩm trong danh sách');
                 }
@@ -2382,7 +2388,7 @@
                     // Re-run search if active
                     if (searchKeyword) {
                         performSearch(searchKeyword, false);
-                    } else if (savedProducts.length === 0) {
+                    } else if (Object.keys(savedProducts).length === 0) {
                         showEmptyState();
                     } else {
                         updateProductGrid();
@@ -2399,7 +2405,7 @@
                 if (isSyncMode && page && !isSyncingFromFirebase && page !== currentPage) {
                     isSyncingFromFirebase = true;
 
-                    const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
+                    const totalPages = Math.ceil(Object.keys(savedProducts).length / itemsPerPage);
 
                     if (page >= 1 && page <= totalPages) {
                         currentPage = page;
@@ -2499,7 +2505,7 @@
             }
 
             if (params.page) {
-                const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
+                const totalPages = Math.ceil(Object.keys(savedProducts).length / itemsPerPage);
                 if (params.page >= 1 && params.page <= totalPages) {
                     currentPage = params.page;
                     updateProductGrid();
