@@ -978,7 +978,7 @@ function renderTable() {
     const tbody = document.getElementById("tableBody");
     if (displayedData.length === 0) {
         tbody.innerHTML =
-            '<tr><td colspan="13" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="11" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
     tbody.innerHTML = displayedData.map(createRowHTML).join("");
@@ -999,11 +999,6 @@ function createRowHTML(order) {
     }
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
-
-    // Get message badge HTML
-    const messageBadge = typeof ChatDataManager !== 'undefined'
-        ? ChatDataManager.formatMessageBadge(order.Telephone)
-        : '<span style="color: #9ca3af; font-size: 12px;">-</span>';
 
     return `
         <tr>
@@ -1032,8 +1027,6 @@ function createRowHTML(order) {
             <td>${order.TotalQuantity || 0}</td>
             <td>${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
             <td><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">${highlight(order.StatusText || order.Status)}</span></td>
-            <td>${messageBadge}</td>
-            <td></td>
         </tr>`;
 }
 
