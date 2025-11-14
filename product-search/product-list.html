@@ -2311,6 +2311,113 @@
             });
         });
 
+        function setupFirebaseChildListeners(database, productsArray, callbacks) {
+            const { onProductAdded, onProductChanged, onProductRemoved, onInitialLoadComplete } = callbacks;
+            let isInitialLoad = true;
+            let initialLoadCount = 0;
+
+            const productsRef = database.ref('savedProducts');
+
+            // Listen for added products
+            productsRef.on('child_added', (snapshot) => {
+                if (!isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+
+                    const productData = snapshot.val();
+                    const key = snapshot.key;
+
+                    // During initial load, just count
+                    if (isInitialLoad) {
+                        initialLoadCount++;
+                        setTimeout(() => { isSyncingFromFirebase = false; }, 50);
+                        return;
+                    }
+
+                    // Add product to array if not already exists
+                    const existingIndex = productsArray.findIndex(p => p.Id === productData.Id);
+                    if (existingIndex === -1) {
+                        productsArray.push(productData);
+                        localStorage.setItem('savedProducts', JSON.stringify(productsArray));
+
+                        if (onProductAdded) {
+                            onProductAdded(productData);
+                        }
+                    }
+
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
+            // Listen for changed products
+            productsRef.on('child_changed', (snapshot) => {
+                if (!isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+
+                    const productData = snapshot.val();
+                    const key = snapshot.key;
+
+                    // Update product in array
+                    const index = productsArray.findIndex(p => p.Id === productData.Id);
+                    if (index !== -1) {
+                        productsArray[index] = productData;
+                        localStorage.setItem('savedProducts', JSON.stringify(productsArray));
+
+                        if (onProductChanged) {
+                            onProductChanged(productData, index);
+                        }
+                    }
+
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
+            // Listen for removed products
+            productsRef.on('child_removed', (snapshot) => {
+                if (!isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+
+                    const productData = snapshot.val();
+                    const key = snapshot.key;
+
+                    // Remove product from array
+                    const index = productsArray.findIndex(p => p.Id === productData.Id);
+                    if (index !== -1) {
+                        productsArray.splice(index, 1);
+                        localStorage.setItem('savedProducts', JSON.stringify(productsArray));
+
+                        if (onProductRemoved) {
+                            onProductRemoved(productData, index);
+                        }
+                    }
+
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
+            // Complete initial load after Firebase has loaded all children
+            productsRef.once('value', (snapshot) => {
+                const firebaseData = snapshot.val();
+
+                if (firebaseData) {
+                    // Convert object to array
+                    const firebaseProducts = Object.values(firebaseData);
+
+                    // Replace local array with Firebase data
+                    productsArray.length = 0;
+                    productsArray.push(...firebaseProducts);
+                    localStorage.setItem('savedProducts', JSON.stringify(productsArray));
+
+                    console.log(`🔥 Loaded ${firebaseProducts.length} products from Firebase`);
+                }
+
+                isInitialLoad = false;
+
+                if (onInitialLoadComplete) {
+                    onInitialLoadComplete();
+                }
+            });
+        }
+
         function setupFirebaseListeners() {
             database.ref('displaySettings').on('value', (snapshot) => {
                 const settings = snapshot.val();
