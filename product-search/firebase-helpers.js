@@ -267,6 +267,14 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
     database.ref('savedProductsMeta/count').once('value', (snapshot) => {
         const expectedCount = snapshot.val() || 0;
 
+        // If no products exist, mark initial load as complete immediately
+        if (expectedCount === 0) {
+            isInitialLoad = false;
+            if (callbacks.onInitialLoadComplete) {
+                callbacks.onInitialLoadComplete();
+            }
+        }
+
         // child_added: Fired for each existing child and when new child is added
         productsRef.on('child_added', (snapshot) => {
             const product = snapshot.val();
