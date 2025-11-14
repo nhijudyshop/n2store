@@ -326,6 +326,9 @@ function setupFirebaseChildListeners(database, localProductsArray, callbacks) {
                 // Sort by addedAt (newest first)
                 localProductsArray.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
 
+                // Sync to localStorage
+                localStorage.setItem('savedProducts', JSON.stringify(localProductsArray));
+
                 if (callbacks.onProductAdded) {
                     callbacks.onProductAdded(product);
                 }
@@ -341,6 +344,9 @@ function setupFirebaseChildListeners(database, localProductsArray, callbacks) {
         if (index !== -1) {
             localProductsArray[index] = updatedProduct;
 
+            // Sync to localStorage
+            localStorage.setItem('savedProducts', JSON.stringify(localProductsArray));
+
             if (callbacks.onProductChanged) {
                 callbacks.onProductChanged(updatedProduct, index);
             }
@@ -354,6 +360,9 @@ function setupFirebaseChildListeners(database, localProductsArray, callbacks) {
 
         if (index !== -1) {
             localProductsArray.splice(index, 1);
+
+            // Sync to localStorage
+            localStorage.setItem('savedProducts', JSON.stringify(localProductsArray));
 
             if (callbacks.onProductRemoved) {
                 callbacks.onProductRemoved(removedProduct, index);
