@@ -1389,14 +1389,19 @@
         async function loadProducts() {
             // Load from Firebase using object-based structure
             try {
-                savedProducts = await loadAllProductsFromFirebase(database);
+                const products = await loadAllProductsFromFirebase(database);
+
+                // Clear and repopulate array (keeps same reference for Firebase listeners)
+                savedProducts.length = 0;
+                savedProducts.push(...products);
+
                 console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (object-based structure, sorted by newest first)');
 
                 // Build normalized cache
                 buildNormalizedCache(savedProducts);
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                savedProducts = [];
+                savedProducts.length = 0; // Clear instead of reassign
                 console.log('⚠️ Using empty product list');
             }
 
@@ -2124,19 +2129,19 @@
             }
         }
 
-        function clearAllProducts() {
+        async function clearAllProductsLocal() {
             if (savedProducts.length === 0) {
                 alert('⚠️ Danh sách đã trống');
                 return;
             }
 
             if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
-                savedProducts = [];
-
                 if (!isSyncingFromFirebase) {
-                    database.ref('savedProducts').set(savedProducts).catch(error => {
-                        console.error('❌ Lỗi sync sau khi xóa tất cả:', error);
-                    });
+                    // Use helper function to clear all products and keep array reference
+                    await clearAllProducts(database, savedProducts);
+                } else {
+                    // During Firebase sync, just clear local array
+                    savedProducts.length = 0;
                 }
 
                 showEmptyState();
