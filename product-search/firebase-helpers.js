@@ -299,9 +299,6 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
             if (!localProductsObject[productKey]) {
                 localProductsObject[productKey] = product;
 
-                // Sync to localStorage
-                localStorage.setItem('savedProducts', JSON.stringify(localProductsObject));
-
                 if (callbacks.onProductAdded) {
                     callbacks.onProductAdded(product);
                 }
@@ -317,9 +314,6 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
         if (localProductsObject[productKey]) {
             localProductsObject[productKey] = updatedProduct;
 
-            // Sync to localStorage
-            localStorage.setItem('savedProducts', JSON.stringify(localProductsObject));
-
             if (callbacks.onProductChanged) {
                 callbacks.onProductChanged(updatedProduct, productKey);
             }
@@ -333,9 +327,6 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
 
         if (localProductsObject[productKey]) {
             delete localProductsObject[productKey];
-
-            // Sync to localStorage
-            localStorage.setItem('savedProducts', JSON.stringify(localProductsObject));
 
             if (callbacks.onProductRemoved) {
                 callbacks.onProductRemoved(removedProduct, productKey);
