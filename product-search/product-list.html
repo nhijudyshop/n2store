@@ -9,9 +9,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-    <!-- Firebase Helper Functions for Object-based Structure -->
-    <script src="firebase-helpers.js"></script>
-
     <style>
         :root {
             /* Frame Layout CSS Variables */
@@ -1049,6 +1046,7 @@
 
     <!-- Search Box -->
     <div class="search-hover-area"></div>
+    <span class="search-hint">🔍 Hover để tìm kiếm</span>
     <div class="search-container" id="searchContainer">
         <div class="search-input-wrapper">
             <input type="text" class="search-input" id="searchInput" placeholder="🔍 Tìm kiếm sản phẩm..." autocomplete="off">
@@ -1062,7 +1060,7 @@
     <script src="../js/shared-auth-manager.js"></script>
     <script src="../js/shared-cache-manager.js"></script>
     <script>
-        let savedProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
+        let savedProducts = [];
         let filteredProducts = []; // For search results
         let searchKeyword = ''; // Current search keyword
         let pageBeforeSearch = 1; // Save page before searching
@@ -1387,20 +1385,33 @@
         }
 
         async function loadProducts() {
-            // Load from Firebase using object-based structure
+            // Load from Firebase only (removed localStorage)
             try {
-                savedProducts = await loadAllProductsFromFirebase(database);
-                console.log('🔥 Loaded from Firebase:', Object.keys(savedProducts).length, 'products (object-based structure, sorted by newest first)');
+                const snapshot = await database.ref('savedProducts').once('value');
+                const products = snapshot.val();
 
-                // Build normalized cache
-                buildNormalizedCache(savedProducts);
+                if (products && Array.isArray(products)) {
+                    // Sort products by addedAt timestamp (newest first)
+                    savedProducts = products.sort((a, b) => {
+                        const timeA = a.addedAt || 0;
+                        const timeB = b.addedAt || 0;
+                        return timeB - timeA; // Descending order (newest first)
+                    });
+                    console.log('🔥 Loaded from Firebase:', savedProducts.length, 'products (sorted by newest first)');
+
+                    // Optimization: Rebuild normalized cache when products are loaded
+                    buildNormalizedCache(savedProducts);
+                } else {
+                    savedProducts = [];
+                    console.log('📭 No products found in Firebase');
+                }
             } catch (error) {
                 console.error('❌ Error loading from Firebase:', error);
-                savedProducts = {};
+                savedProducts = [];
                 console.log('⚠️ Using empty product list');
             }
 
-            if (Object.keys(savedProducts).length === 0) {
+            if (savedProducts.length === 0) {
                 showEmptyState();
             } else {
                 updateProductGrid();
@@ -1422,80 +1433,6 @@
             document.getElementById('btnPrev').style.display = 'none';
             document.getElementById('btnNext').style.display = 'none';
             document.getElementById('pageInfo').style.display = 'none';
-        }
-
-        // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL)...
-        function sortVariantsByPattern(variants) {
-            // Define size order - added more sizes
-            const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL'];
-
-            return [...variants].sort((a, b) => {
-                const nameA = a.NameGet || '';
-                const nameB = b.NameGet || '';
-
-                // Extract ALL numbers in parentheses, get the LAST one (most specific)
-                const numberMatchesA = [...nameA.matchAll(/\((\d+)\)/g)];
-                const numberMatchesB = [...nameB.matchAll(/\((\d+)\)/g)];
-                const numberMatchA = numberMatchesA.length > 0 ? numberMatchesA[numberMatchesA.length - 1] : null;
-                const numberMatchB = numberMatchesB.length > 0 ? numberMatchesB[numberMatchesB.length - 1] : null;
-
-                // If both have numbers in parentheses, sort by number
-                if (numberMatchA && numberMatchB) {
-                    const numA = parseInt(numberMatchA[1]);
-                    const numB = parseInt(numberMatchB[1]);
-                    if (numA !== numB) {
-                        return numA - numB;
-                    }
-                }
-
-                // Extract ALL sizes in parentheses, get the LAST one
-                const sizeRegex = /\((XS|S|M|L|XL|XXL|XXXL|2XL|3XL|4XL)\)/gi;
-                const sizeMatchesA = [...nameA.matchAll(sizeRegex)];
-                const sizeMatchesB = [...nameB.matchAll(sizeRegex)];
-                const sizeMatchA = sizeMatchesA.length > 0 ? sizeMatchesA[sizeMatchesA.length - 1] : null;
-                const sizeMatchB = sizeMatchesB.length > 0 ? sizeMatchesB[sizeMatchesB.length - 1] : null;
-
-                // If both have sizes, sort by size order
-                if (sizeMatchA && sizeMatchB) {
-                    const sizeA = sizeMatchA[1].toUpperCase();
-                    const sizeB = sizeMatchB[1].toUpperCase();
-                    const indexA = sizeOrder.indexOf(sizeA);
-                    const indexB = sizeOrder.indexOf(sizeB);
-
-                    // If both sizes are in the order list
-                    if (indexA !== -1 && indexB !== -1) {
-                        if (indexA !== indexB) {
-                            return indexA - indexB;
-                        }
-                    }
-                    // If only one is in the list, prioritize it
-                    if (indexA !== -1) return -1;
-                    if (indexB !== -1) return 1;
-                }
-
-                // If one has number and other has size, number comes first
-                if (numberMatchA && sizeMatchB) return -1;
-                if (sizeMatchA && numberMatchB) return 1;
-
-                // If one has pattern and other doesn't, pattern comes first
-                if ((numberMatchA || sizeMatchA) && !(numberMatchB || sizeMatchB)) return -1;
-                if ((numberMatchB || sizeMatchB) && !(numberMatchA || sizeMatchA)) return 1;
-
-                // Fallback: extract numbers WITHOUT parentheses (like "Size 1", "Màu 2")
-                const freeNumberA = nameA.match(/\s(\d+)(?!\))/);
-                const freeNumberB = nameB.match(/\s(\d+)(?!\))/);
-
-                if (freeNumberA && freeNumberB) {
-                    const numA = parseInt(freeNumberA[1]);
-                    const numB = parseInt(freeNumberB[1]);
-                    if (numA !== numB) {
-                        return numA - numB;
-                    }
-                }
-
-                // Default: alphabetical sort
-                return nameA.localeCompare(nameB);
-            });
         }
 
         function mergeProductsByTemplate(products) {
@@ -1528,10 +1465,7 @@
                     mergedProducts.push(variants[0]);
                 } else {
                     // Multiple variants, merge them
-
-                    // ⭐ IMPORTANT: Sort variants BEFORE processing to ensure correct display order
-                    const sortedVariants = sortVariantsByPattern(variants);
-                    const firstVariant = sortedVariants[0];
+                    const firstVariant = variants[0];
 
                     // Extract common name (remove variant-specific parts)
                     let commonName = firstVariant.NameGet;
@@ -1542,41 +1476,41 @@
                         commonName = nameParts[0];
                     }
 
-                    // Sum up quantities from SORTED variants
-                    const totalQtyAvailable = sortedVariants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
-                    const totalSoldQty = sortedVariants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
+                    // Sum up quantities
+                    const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
+                    const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
 
-                    // Create list of sold quantities for each variant (NOW IN CORRECT ORDER!)
-                    const soldQtyList = sortedVariants.map(v => ({
+                    // Create list of sold quantities for each variant
+                    const soldQtyList = variants.map(v => ({
                         id: v.Id,
                         name: v.NameGet,
                         qty: v.soldQty || 0,
                         maxQty: v.QtyAvailable || 0
                     }));
 
-                    // Create list of remaining quantities for each variant (NOW IN CORRECT ORDER!)
-                    const remainingQtyList = sortedVariants.map(v => ({
+                    // Create list of remaining quantities for each variant
+                    const remainingQtyList = variants.map(v => ({
                         id: v.Id,
                         name: v.NameGet,
                         qty: v.remainingQty || 0
                     }));
 
                     // Get the most recent addedAt timestamp from all variants
-                    const mostRecentAddedAt = Math.max(...sortedVariants.map(v => v.addedAt || 0));
+                    const mostRecentAddedAt = Math.max(...variants.map(v => v.addedAt || 0));
 
                     // Create merged product
                     const mergedProduct = {
                         ...firstVariant,
-                        NameGet: commonName + ` (${sortedVariants.length} biến thể)`,
+                        NameGet: commonName + ` (${variants.length} biến thể)`,
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
                         remainingQty: 0, // Not used for merged products
-                        soldQtyList: soldQtyList, // List of sold qty for each variant (SORTED)
-                        remainingQtyList: remainingQtyList, // List of remaining qty for each variant (SORTED)
+                        soldQtyList: soldQtyList, // List of sold qty for each variant
+                        remainingQtyList: remainingQtyList, // List of remaining qty for each variant
                         addedAt: mostRecentAddedAt, // Use most recent timestamp for sorting
                         isMerged: true,
-                        variantCount: sortedVariants.length,
-                        variants: sortedVariants // Keep reference to SORTED variants for future use
+                        variantCount: variants.length,
+                        variants: variants // Keep reference to original variants for future use
                     };
 
                     mergedProducts.push(mergedProduct);
@@ -1604,7 +1538,7 @@
             pageInfo.style.display = 'block';
 
             // Filter out hidden products first
-            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
+            const visibleProducts = savedProducts.filter(p => !p.isHidden);
 
             // Use filtered products if searching, otherwise use all visible products
             // Note: filteredProducts are already merged if merge mode is enabled
@@ -1731,7 +1665,7 @@
         function changePage(direction) {
             // Use filtered products if searching, otherwise use all products
             // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts : Object.values(savedProducts);
+            let baseProducts = searchKeyword ? filteredProducts : savedProducts;
 
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
@@ -1771,7 +1705,7 @@
         // Optimization: Build cache of normalized product names
         function buildNormalizedCache(products) {
             normalizedProductNames.clear();
-            Object.values(products).forEach(product => {
+            products.forEach(product => {
                 if (product && product.Id && product.NameGet) {
                     normalizedProductNames.set(product.Id, removeVietnameseTones(product.NameGet));
                 }
@@ -1818,7 +1752,7 @@
             const searchNoSign = removeVietnameseTones(searchKeyword);
 
             // Filter out hidden products first
-            const visibleProducts = Object.values(savedProducts).filter(p => !p.isHidden);
+            const visibleProducts = savedProducts.filter(p => !p.isHidden);
 
             // Apply merge first if enabled, then search on merged products
             const productsToSearch = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
@@ -1936,21 +1870,21 @@
             }
         }
 
-        async function updateProductQty(productId, change) {
-            const product = savedProducts[`product_${productId}`];
+        function updateProductQty(productId, change) {
+            const product = savedProducts.find(p => p.Id === productId);
             if (!product) return;
 
             const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.soldQty + change));
 
             if (newSoldQty === product.soldQty) return;
 
+            product.soldQty = newSoldQty;
+            product.remainingQty = product.QtyAvailable - newSoldQty;
+
             if (!isSyncingFromFirebase) {
-                // Use object-based Firebase structure
-                await updateProductQtyInFirebase(database, productId, change, savedProducts);
-            } else {
-                // During Firebase sync, just update local
-                product.soldQty = newSoldQty;
-                product.remainingQty = product.QtyAvailable - newSoldQty;
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
             }
 
             // Fix: If searching, re-run search to update filteredProducts
@@ -1961,21 +1895,21 @@
             }
         }
 
-        async function updateVariantQty(variantId, change) {
-            const variant = savedProducts[`product_${variantId}`];
+        function updateVariantQty(variantId, change) {
+            const variant = savedProducts.find(p => p.Id === variantId);
             if (!variant) return;
 
             const newSoldQty = Math.max(0, Math.min(variant.QtyAvailable, variant.soldQty + change));
 
             if (newSoldQty === variant.soldQty) return;
 
+            variant.soldQty = newSoldQty;
+            variant.remainingQty = variant.QtyAvailable - newSoldQty;
+
             if (!isSyncingFromFirebase) {
-                // Use object-based Firebase structure
-                await updateProductQtyInFirebase(database, variantId, change, savedProducts);
-            } else {
-                // During Firebase sync, just update local
-                variant.soldQty = newSoldQty;
-                variant.remainingQty = variant.QtyAvailable - newSoldQty;
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
             }
 
             // Fix: If searching, re-run search to update filteredProducts
@@ -1986,20 +1920,20 @@
             }
         }
 
-        async function hideProduct(productId) {
+        function hideProduct(productId) {
             if (!confirm('Bạn có chắc muốn ẩn sản phẩm này?')) {
                 return;
             }
 
-            const product = savedProducts[`product_${productId}`];
+            const product = savedProducts.find(p => p.Id === productId);
             if (!product) return;
 
+            product.isHidden = true;
+
             if (!isSyncingFromFirebase) {
-                // Use object-based Firebase structure
-                await updateProductVisibility(database, productId, true, savedProducts);
-            } else {
-                // During Firebase sync, just update local
-                product.isHidden = true;
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
+                });
             }
 
             // Fix: If searching, re-run search to update filteredProducts
@@ -2011,25 +1945,24 @@
             console.log(`👁️ Đã ẩn sản phẩm: ${product.NameGet}`);
         }
 
-        async function hideProducts(productIds) {
+        function hideProducts(productIds) {
             const count = productIds.length;
             if (!confirm(`Bạn có chắc muốn ẩn tất cả ${count} biến thể?`)) {
                 return;
             }
 
-            if (!isSyncingFromFirebase) {
-                // Use object-based Firebase structure - update each product
-                const promises = productIds.map(productId =>
-                    updateProductVisibility(database, productId, true, savedProducts)
-                );
-                await Promise.all(promises);
-            } else {
-                // During Firebase sync, just update local
-                productIds.forEach(productId => {
-                    const product = savedProducts[`product_${productId}`];
-                    if (product) {
-                        product.isHidden = true;
-                    }
+            let hiddenCount = 0;
+            productIds.forEach(productId => {
+                const product = savedProducts.find(p => p.Id === productId);
+                if (product) {
+                    product.isHidden = true;
+                    hiddenCount++;
+                }
+            });
+
+            if (hiddenCount > 0 && !isSyncingFromFirebase) {
+                database.ref('savedProducts').set(savedProducts).catch(error => {
+                    console.error('❌ Lỗi sync products lên Firebase:', error);
                 });
             }
 
@@ -2039,11 +1972,11 @@
             } else {
                 updateProductGrid();
             }
-            console.log(`👁️ Đã ẩn ${productIds.length} biến thể`);
+            console.log(`👁️ Đã ẩn ${hiddenCount} biến thể`);
         }
 
         function unhideProduct(productId) {
-            const product = savedProducts[`product_${productId}`];
+            const product = savedProducts.find(p => p.Id === productId);
             if (!product) return;
 
             product.isHidden = false;
@@ -2064,7 +1997,7 @@
         }
 
         function updateProductTotal(productId, change) {
-            const product = savedProducts[`product_${productId}`];
+            const product = savedProducts.find(p => p.Id === productId);
             if (!product) return;
 
             const newQtyAvailable = Math.max(0, product.QtyAvailable + change);
@@ -2098,20 +2031,14 @@
             const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
             const now = Date.now();
 
-            const initialCount = Object.keys(savedProducts).length;
-
-            // Filter and rebuild object
-            const newSavedProducts = {};
-            Object.entries(savedProducts).forEach(([key, product]) => {
+            const initialCount = savedProducts.length;
+            savedProducts = savedProducts.filter(product => {
                 const addedAt = product.addedAt || 0;
                 const age = now - addedAt;
-                if (age < SEVEN_DAYS) {
-                    newSavedProducts[key] = product;
-                }
+                return age < SEVEN_DAYS;
             });
-            savedProducts = newSavedProducts;
 
-            const removedCount = initialCount - Object.keys(savedProducts).length;
+            const removedCount = initialCount - savedProducts.length;
 
             if (removedCount > 0) {
                 console.log(`🗑️ Đã xóa ${removedCount} sản phẩm cũ hơn 7 ngày`);
@@ -2122,7 +2049,7 @@
                     });
                 }
 
-                if (Object.keys(savedProducts).length === 0) {
+                if (savedProducts.length === 0) {
                     showEmptyState();
                 } else {
                     updateProductGrid();
@@ -2131,13 +2058,13 @@
         }
 
         function clearAllProducts() {
-            if (Object.keys(savedProducts).length === 0) {
+            if (savedProducts.length === 0) {
                 alert('⚠️ Danh sách đã trống');
                 return;
             }
 
-            if (confirm(`Bạn có chắc muốn xóa tất cả ${Object.keys(savedProducts).length} sản phẩm không?`)) {
-                savedProducts = {};
+            if (confirm(`Bạn có chắc muốn xóa tất cả ${savedProducts.length} sản phẩm không?`)) {
+                savedProducts = [];
 
                 if (!isSyncingFromFirebase) {
                     database.ref('savedProducts').set(savedProducts).catch(error => {
@@ -2166,7 +2093,7 @@
                 }
 
                 const productData = await response.json();
-                const product = savedProducts[`product_${productId}`];
+                const product = savedProducts.find(p => p.Id === productId);
                 if (!product) {
                     throw new Error('Không tìm thấy sản phẩm trong danh sách');
                 }
@@ -2345,57 +2272,37 @@
                 }
             });
 
-            // Setup child event listeners for object-based structure
-            setupFirebaseChildListeners(database, savedProducts, {
-                onProductAdded: (product) => {
-                    console.log('🔥 Product added:', product.NameGet);
+            database.ref('savedProducts').on('value', (snapshot) => {
+                const products = snapshot.val();
+                if (!isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
 
-                    // Update normalized cache for this product
-                    if (product && product.Id && product.NameGet) {
-                        normalizedProductNames.set(product.Id, removeVietnameseTones(product.NameGet));
-                    }
+                    if (products && Array.isArray(products)) {
+                        // Sort products by addedAt timestamp (newest first)
+                        savedProducts = products.sort((a, b) => {
+                            const timeA = a.addedAt || 0;
+                            const timeB = b.addedAt || 0;
+                            return timeB - timeA; // Descending order (newest first)
+                        });
 
-                    // Re-run search if active
-                    if (searchKeyword) {
-                        performSearch(searchKeyword, false);
-                    } else {
-                        updateProductGrid();
-                    }
-                },
-                onProductChanged: (product, index) => {
-                    console.log('🔥 Product updated:', product.NameGet);
+                        // Optimization: Rebuild normalized cache when products change
+                        buildNormalizedCache(savedProducts);
 
-                    // Update normalized cache for this product
-                    if (product && product.Id && product.NameGet) {
-                        normalizedProductNames.set(product.Id, removeVietnameseTones(product.NameGet));
-                    }
+                        if (savedProducts.length === 0) {
+                            showEmptyState();
+                        } else {
+                            updateProductGrid();
+                        }
 
-                    // Re-run search if active
-                    if (searchKeyword) {
-                        performSearch(searchKeyword, false);
-                    } else {
-                        updateProductGrid();
-                    }
-                },
-                onProductRemoved: (product, index) => {
-                    console.log('🔥 Product removed:', product.NameGet);
-
-                    // Remove from cache
-                    if (product && product.Id) {
-                        normalizedProductNames.delete(product.Id);
-                    }
-
-                    // Re-run search if active
-                    if (searchKeyword) {
-                        performSearch(searchKeyword, false);
-                    } else if (Object.keys(savedProducts).length === 0) {
+                        console.log('🔥 Products synced from Firebase:', products.length, 'items (sorted by newest first)');
+                    } else if (products === null || products === undefined) {
+                        savedProducts = [];
+                        normalizedProductNames.clear(); // Clear cache when no products
                         showEmptyState();
-                    } else {
-                        updateProductGrid();
+                        console.log('🔥 No products in Firebase yet');
                     }
-                },
-                onInitialLoadComplete: () => {
-                    console.log('🔥 Initial products sync complete');
+
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
                 }
             });
 
@@ -2405,7 +2312,7 @@
                 if (isSyncMode && page && !isSyncingFromFirebase && page !== currentPage) {
                     isSyncingFromFirebase = true;
 
-                    const totalPages = Math.ceil(Object.keys(savedProducts).length / itemsPerPage);
+                    const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
 
                     if (page >= 1 && page <= totalPages) {
                         currentPage = page;
@@ -2505,7 +2412,7 @@
             }
 
             if (params.page) {
-                const totalPages = Math.ceil(Object.keys(savedProducts).length / itemsPerPage);
+                const totalPages = Math.ceil(savedProducts.length / itemsPerPage);
                 if (params.page >= 1 && params.page <= totalPages) {
                     currentPage = params.page;
                     updateProductGrid();
@@ -2531,15 +2438,13 @@
         });
 
         window.addEventListener('load', async () => {
+            setupFirebaseListeners();
             loadSettings();
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
             loadHideEditControlsMode(); // Load hide edit controls mode from localStorage
 
-            // Load products from localStorage or Firebase FIRST
+            // Load products from localStorage or Firebase
             await loadProducts();
-
-            // Setup Firebase listeners AFTER loading products
-            setupFirebaseListeners();
 
             // Cleanup products older than 7 days
             cleanupOldProducts();
