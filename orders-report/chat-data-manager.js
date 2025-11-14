@@ -15,6 +15,8 @@ const ChatDataManager = (() => {
     let lastFetchTime = 0;
     const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     let isFetching = false;
+    let apiAvailable = true; // Track if API is available
+    let lastErrorTime = 0;
 
     // Authentication functions
     async function getAuthToken() {
@@ -28,7 +30,13 @@ const ChatDataManager = (() => {
             });
 
             if (!response.ok) {
-                throw new Error('Không thể xác thực với ChatOmni API');
+                apiAvailable = false;
+                // Only log error once every 10 minutes to avoid spam
+                if (lastErrorTime === 0 || Date.now() - lastErrorTime > 10 * 60 * 1000) {
+                    console.warn('⚠️ Chat API: Không thể xác thực (API có thể đang offline)');
+                    lastErrorTime = Date.now();
+                }
+                return null;
             }
 
             const data = await response.json();
@@ -39,10 +47,16 @@ const ChatDataManager = (() => {
             localStorage.setItem('chatBearerToken', token);
             localStorage.setItem('chatTokenExpiry', expiry.toString());
 
+            apiAvailable = true;
             console.log('✅ Chat API: Đăng nhập thành công');
             return token;
         } catch (error) {
-            console.error('❌ Chat API: Lỗi xác thực:', error);
+            apiAvailable = false;
+            // Only log once every 10 minutes to avoid spam
+            if (lastErrorTime === 0 || Date.now() - lastErrorTime > 10 * 60 * 1000) {
+                console.warn('⚠️ Chat API: Lỗi kết nối:', error.message);
+                lastErrorTime = Date.now();
+            }
             return null;
         }
     }
@@ -65,8 +79,13 @@ const ChatDataManager = (() => {
 
     // Fetch conversations from ChatOmni API
     async function fetchConversations() {
+        // Skip if API is known to be unavailable (avoid repeated failures)
+        if (!apiAvailable && Date.now() - lastErrorTime < 10 * 60 * 1000) {
+            // Silently skip, API was unavailable recently
+            return false;
+        }
+
         if (isFetching) {
-            console.log('⏳ Chat API: Đang tải dữ liệu...');
             return false;
         }
 
@@ -82,7 +101,7 @@ const ChatDataManager = (() => {
             const token = await getValidToken();
 
             if (!token) {
-                console.error('❌ Chat API: Không có token hợp lệ');
+                // Token fetch failed, API might be unavailable
                 return false;
             }
 
@@ -136,7 +155,12 @@ const ChatDataManager = (() => {
             return true;
 
         } catch (error) {
-            console.error('❌ Chat API: Lỗi khi tải dữ liệu:', error);
+            apiAvailable = false;
+            // Only log once to avoid spam (only when first time or no conversations)
+            if (conversationsMap.size === 0 && (lastErrorTime === 0 || Date.now() - lastErrorTime > 10 * 60 * 1000)) {
+                console.warn('⚠️ Chat API: Không thể tải dữ liệu tin nhắn (chức năng này tạm thời không khả dụng)');
+                lastErrorTime = Date.now();
+            }
             return false;
         } finally {
             isFetching = false;
@@ -236,14 +260,16 @@ const ChatDataManager = (() => {
     function initialize() {
         console.log('🚀 Chat Data Manager: Khởi tạo...');
 
-        // Fetch conversations immediately
+        // Fetch conversations immediately (silently, error will be logged if needed)
         fetchConversations();
 
-        // Auto-refresh every 2 minutes
+        // Auto-refresh every 5 minutes (reduced frequency to avoid spam)
         setInterval(() => {
-            console.log('🔄 Chat API: Tự động làm mới dữ liệu...');
-            fetchConversations();
-        }, 2 * 60 * 1000);
+            // Only try to fetch if API was available or enough time has passed since last error
+            if (apiAvailable || Date.now() - lastErrorTime > 10 * 60 * 1000) {
+                fetchConversations();
+            }
+        }, 5 * 60 * 1000);
     }
 
     // Public API
@@ -257,8 +283,10 @@ const ChatDataManager = (() => {
             getConversationsMap: () => conversationsMap,
             getCache: () => ({
                 size: conversationsMap.size,
-                lastFetchTime: new Date(lastFetchTime).toLocaleString('vi-VN'),
-                cacheAge: Math.floor((Date.now() - lastFetchTime) / 1000) + 's'
+                lastFetchTime: lastFetchTime ? new Date(lastFetchTime).toLocaleString('vi-VN') : 'Chưa tải',
+                cacheAge: lastFetchTime ? Math.floor((Date.now() - lastFetchTime) / 1000) + 's' : 'N/A',
+                apiAvailable,
+                lastError: lastErrorTime ? new Date(lastErrorTime).toLocaleString('vi-VN') : 'Chưa có lỗi'
             })
         }
     };
