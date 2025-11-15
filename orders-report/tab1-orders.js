@@ -1119,8 +1119,9 @@ function createRowHTML(order) {
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
 
-    // Get chat info
-    const chatHTML = renderChatColumn(order);
+    // Get messages and comments columns
+    const messagesHTML = renderMessagesColumn(order);
+    const commentsHTML = renderCommentsColumn(order);
 
     return `
         <tr>
@@ -1142,7 +1143,8 @@ function createRowHTML(order) {
                 ${tagsHTML}
             </td>
             <td data-column="customer"><div>${highlight(order.Name)}</div>${partnerStatusHTML}</td>
-            ${chatHTML}
+            ${messagesHTML}
+            ${commentsHTML}
             <td data-column="phone" style="max-width: 100px; white-space: normal;">${highlight(order.Telephone)}</td>
             <td data-column="address" style="max-width: 500px; white-space: normal;">${highlight(order.Address)}</td>
             <td data-column="notes" style="max-width: 200px; white-space: normal;">${highlight(order.Note)}</td>
@@ -1154,7 +1156,8 @@ function createRowHTML(order) {
         </tr>`;
 }
 
-function renderChatColumn(order) {
+// Render messages column only (not comments)
+function renderMessagesColumn(order) {
     if (!window.chatDataManager) {
         console.log('[CHAT RENDER] chatDataManager not available');
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
@@ -1179,30 +1182,49 @@ function renderChatColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+    const messageInfo = window.chatDataManager.getLastMessageForOrder(order);
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 
-    // Không có conversation - check for comments
-    if (!chatInfo.message && !chatInfo.hasUnread) {
-        // Try to get comment from comment conversations
-        const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
-
-        if (commentInfo.message) {
-            // We have comment conversation, use it
-            return renderChatColumnWithData(order, commentInfo, channelId, psid);
-        }
-
-        // No message and no comment - show dash
+    // If no message, show dash
+    if (!messageInfo.message && !messageInfo.hasUnread) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
     // Render with message data
-    return renderChatColumnWithData(order, chatInfo, channelId, psid);
+    return renderChatColumnWithData(order, messageInfo, channelId, psid, 'messages');
+}
+
+// Render comments column only (not messages)
+function renderCommentsColumn(order) {
+    if (!window.chatDataManager) {
+        console.log('[CHAT RENDER] chatDataManager not available');
+        return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    // Get chat info for order
+    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
+
+    // If no PSID or Channel ID, show dash
+    if (!orderChatInfo.psid || !orderChatInfo.channelId) {
+        return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    const commentInfo = window.chatDataManager.getLastCommentForOrder(orderChatInfo.channelId, orderChatInfo.psid);
+    const channelId = orderChatInfo.channelId;
+    const psid = orderChatInfo.psid;
+
+    // If no comment, show dash
+    if (!commentInfo.message) {
+        return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    // Render with comment data
+    return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
 }
 
 // Helper function to render chat column with data (for both messages and comments)
-function renderChatColumnWithData(order, chatInfo, channelId, psid) {
+function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType = 'messages') {
     // Format message based on type
     let displayMessage = 'Emoji hoặc ảnh';
     let messageIcon = '';
@@ -1246,7 +1268,7 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid) {
         : '';
 
     // Count badge for comments
-    const countBadge = chatInfo.type === 'comment' && chatInfo.commentsCount > 1
+    const countBadge = columnType === 'comments' && chatInfo.commentsCount > 1
         ? `<span class="chat-count-badge" style="
             background: #f3f4f6;
             color: #6b7280;
@@ -1257,19 +1279,22 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid) {
         ">${chatInfo.commentsCount}</span>`
         : '';
 
-    // Icon based on type (message vs comment)
-    const typeIcon = chatInfo.type === 'comment'
+    // Icon based on column type (messages vs comments)
+    const typeIcon = columnType === 'comments'
         ? '<i class="fas fa-comment" style="color: #65676b;"></i>'
         : '<i class="fab fa-facebook-messenger" style="color: #0084ff;"></i>';
 
-    const tooltipText = chatInfo.type === 'comment'
+    const tooltipText = columnType === 'comments'
         ? 'Click để xem bình luận'
         : 'Click để xem toàn bộ tin nhắn';
 
+    // Modal type for opening chat
+    const modalType = columnType === 'comments' ? 'comment' : 'message';
+
     return `
-        <td data-column="messages" class="chat-column ${highlightClass}"
+        <td data-column="${columnType}" class="chat-column ${highlightClass}"
             style="max-width: 200px; white-space: normal; cursor: pointer;"
-            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}', '${chatInfo.type || 'message'}')"
+            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}', '${modalType}')"
             title="${tooltipText}">
             <div style="display: flex; align-items: center; gap: 6px;">
                 ${typeIcon}
