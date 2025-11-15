@@ -45,7 +45,7 @@ class ChatDataManager {
 
             const requestBody = {
                 Keyword: null,
-                Limit: 200,
+                Limit: 2000,  // Increased from 200 to 2000 to fetch more conversations
                 Sort: null,
                 Before: null,
                 After: null,
