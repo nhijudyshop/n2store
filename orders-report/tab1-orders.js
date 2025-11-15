@@ -11,11 +11,6 @@ let selectedCampaign = null;
 let searchQuery = "";
 let searchTimeout = null;
 
-// Product Code Search State (NEW)
-let productCodeSearchQuery = "";
-let productCodeSearchTimeout = null;
-let isProductCodeSearchActive = false;
-
 // Tag Management State
 let availableTags = [];
 let currentEditingOrderId = null;
@@ -102,32 +97,6 @@ window.addEventListener("DOMContentLoaded", async function () {
         if (e.key === "Escape") {
             searchInput.value = "";
             handleTableSearch("");
-        }
-    });
-
-    // Product Code Search functionality (NEW)
-    const productCodeSearchInput = document.getElementById(
-        "productCodeSearchInput",
-    );
-    const productCodeClearBtn = document.getElementById(
-        "productCodeClearBtn",
-    );
-
-    productCodeSearchInput.addEventListener("input", function (e) {
-        handleProductCodeSearch(e.target.value);
-    });
-
-    productCodeClearBtn.addEventListener("click", function () {
-        productCodeSearchInput.value = "";
-        handleProductCodeSearch("");
-        productCodeSearchInput.focus();
-    });
-
-    // Clear product code search on Escape
-    productCodeSearchInput.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") {
-            productCodeSearchInput.value = "";
-            handleProductCodeSearch("");
         }
     });
 });
@@ -346,8 +315,14 @@ function handleTableSearch(query) {
 }
 
 function performTableSearch() {
-    // Sử dụng performCombinedSearch() để kết hợp cả 2 loại tìm kiếm
-    performCombinedSearch();
+    filteredData = searchQuery
+        ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
+        : [...allData];
+    displayedData = filteredData;
+    renderTable();
+    updateStats();
+    updatePageInfo();
+    updateSearchResultCount();
 }
 
 function matchesSearchQuery(order, query) {
@@ -379,8 +354,8 @@ function removeVietnameseTones(str) {
 }
 
 function updateSearchResultCount() {
-    // Gọi hàm mới để cập nhật cả 2 ô tìm kiếm
-    updateSearchResultCounts();
+    document.getElementById("searchResultCount").textContent =
+        filteredData.length.toLocaleString("vi-VN");
 }
 
 function highlightSearchText(text, query) {
@@ -391,127 +366,6 @@ function highlightSearchText(text, query) {
 
 function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// =====================================================
-// PRODUCT CODE SEARCH (NEW)
-// =====================================================
-
-/**
- * Kiểm tra xem order có chứa sản phẩm với mã tương ứng không
- */
-function orderContainsProductCode(order, productCodeQuery) {
-    if (!order.Details || !Array.isArray(order.Details)) {
-        return false;
-    }
-
-    const normalizedQuery = removeVietnameseTones(
-        productCodeQuery.toLowerCase(),
-    );
-
-    return order.Details.some((detail) => {
-        const productCode = detail.ProductCode || "";
-        const productName = detail.ProductName || "";
-        const productNameGet = detail.ProductNameGet || "";
-
-        const searchableText = [productCode, productName, productNameGet]
-            .join(" ")
-            .toLowerCase();
-
-        const normalizedText = removeVietnameseTones(searchableText);
-
-        return (
-            searchableText.includes(productCodeQuery.toLowerCase()) ||
-            normalizedText.includes(normalizedQuery)
-        );
-    });
-}
-
-/**
- * Xử lý tìm kiếm theo mã sản phẩm (debounced)
- */
-function handleProductCodeSearch(query) {
-    if (productCodeSearchTimeout) {
-        clearTimeout(productCodeSearchTimeout);
-    }
-
-    productCodeSearchTimeout = setTimeout(() => {
-        productCodeSearchQuery = query.trim().toLowerCase();
-        isProductCodeSearchActive = !!productCodeSearchQuery;
-
-        // Hiện/ẩn nút Clear
-        document
-            .getElementById("productCodeClearBtn")
-            .classList.toggle("active", isProductCodeSearchActive);
-
-        // Thực hiện tìm kiếm kết hợp
-        performCombinedSearch();
-    }, 300);
-}
-
-/**
- * Tìm kiếm kết hợp: General Search + Product Code Search
- */
-function performCombinedSearch() {
-    let results = [...allData];
-
-    // 1. Lọc theo General Search (nếu có)
-    if (searchQuery) {
-        results = results.filter((order) =>
-            matchesSearchQuery(order, searchQuery),
-        );
-    }
-
-    // 2. Lọc theo Product Code Search (nếu có)
-    if (isProductCodeSearchActive) {
-        results = results.filter((order) =>
-            orderContainsProductCode(order, productCodeSearchQuery),
-        );
-    }
-
-    // Cập nhật filteredData và hiển thị
-    filteredData = results;
-    displayedData = results;
-
-    renderTable();
-    updateStats();
-    updatePageInfo();
-    updateSearchResultCounts();
-}
-
-/**
- * Cập nhật số lượng kết quả cho cả 2 ô tìm kiếm
- */
-function updateSearchResultCounts() {
-    // General search count
-    document.getElementById("searchResultCount").textContent =
-        filteredData.length.toLocaleString("vi-VN");
-
-    // Product code search count
-    if (isProductCodeSearchActive) {
-        const productCodeMatches = allData.filter((order) =>
-            orderContainsProductCode(order, productCodeSearchQuery),
-        );
-        document.getElementById("productCodeResultCount").textContent =
-            productCodeMatches.length.toLocaleString("vi-VN");
-    } else {
-        document.getElementById("productCodeResultCount").textContent = "0";
-    }
-}
-
-/**
- * Highlight mã sản phẩm trong text
- */
-function highlightProductCode(productCode, query) {
-    if (!isProductCodeSearchActive || !query || !productCode) {
-        return productCode;
-    }
-
-    const regex = new RegExp(`(${escapeRegex(query)})`, "gi");
-    return productCode.replace(
-        regex,
-        '<span class="highlight-product">$1</span>',
-    );
 }
 
 // =====================================================
@@ -1573,34 +1427,19 @@ function renderProductsTab(data) {
         return `<div class="info-card">${inlineSearchHTML}<div class="empty-state"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm</p></div></div>`;
     }
 
-    const productsHTML = data.Details.map((p, i) => {
-        // Kiểm tra xem sản phẩm này có match với product code search không
-        const isMatchingProduct =
-            isProductCodeSearchActive &&
-            orderContainsProductCode({ Details: [p] }, productCodeSearchQuery);
-
-        const rowClass = isMatchingProduct
-            ? "product-row matching-product"
-            : "product-row";
-
-        // Highlight mã sản phẩm nếu có product code search
-        const productCodeDisplay = highlightProductCode(
-            p.ProductCode || "N/A",
-            productCodeSearchQuery,
-        );
-
-        return `
-        <tr class="${rowClass}" data-index="${i}">
+    const productsHTML = data.Details.map(
+        (p, i) => `
+        <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
             <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image">` : ""}</td>
-            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${productCodeDisplay}</div></td>
+            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
             <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
             <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
             <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString("vi-VN")}đ</td>
             <td><input type="text" class="note-input" value="${p.Note || ""}" onchange="updateProductNote(${i}, this.value)"></td>
             <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
-        </tr>`;
-    }).join("");
+        </tr>`,
+    ).join("");
 
     return `
         <div class="info-card">
