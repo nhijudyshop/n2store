@@ -6,6 +6,7 @@ class ChatDataManager {
     constructor() {
         this.conversations = [];
         this.conversationMap = new Map(); // Map PSID -> conversation
+        this.comments = new Map(); // Map "channelId_userId" -> comments array
         this.isLoading = false;
         this.lastFetchTime = null;
         // Use Cloudflare Worker proxy to bypass CORS (faster, no cold start)
@@ -172,6 +173,55 @@ class ChatDataManager {
     }
 
     /**
+     * Lấy danh sách comments của user từ API
+     * @param {string} channelId - Facebook Page ID
+     * @param {string} userId - Facebook PSID
+     * @returns {Promise<Array>}
+     */
+    async fetchComments(channelId, userId) {
+        try {
+            console.log(`[CHAT] Fetching comments for channelId=${channelId}, userId=${userId}`);
+
+            // Check cache first
+            const cacheKey = `${channelId}_${userId}`;
+            if (this.comments.has(cacheKey)) {
+                console.log(`[CHAT] Using cached comments for ${cacheKey}`);
+                return this.comments.get(cacheKey);
+            }
+
+            const headers = await window.tokenManager.getAuthHeader();
+
+            const response = await fetch(
+                `${this.API_BASE}/messages/comments?type=4&channelId=${channelId}&userId=${userId}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        ...headers,
+                        'accept': 'application/json'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            const comments = data.Data || [];
+
+            // Cache the comments
+            this.comments.set(cacheKey, comments);
+
+            console.log(`[CHAT] Fetched ${comments.length} comments`);
+            return comments;
+
+        } catch (error) {
+            console.error('[CHAT] Error fetching comments:', error);
+            return [];
+        }
+    }
+
+    /**
      * Đánh dấu conversation là đã đọc
      * @param {string} channelId - Facebook Page ID
      * @param {string} userId - Facebook PSID
@@ -257,7 +307,7 @@ class ChatDataManager {
     /**
      * Lấy tin nhắn cuối cùng cho order
      * @param {Object} order - Order object
-     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments }
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type, commentsCount }
      */
     getLastMessageForOrder(order) {
         const chatInfo = this.getChatInfoForOrder(order);
@@ -268,7 +318,9 @@ class ChatDataManager {
                 messageType: null,
                 hasUnread: false,
                 unreadCount: 0,
-                attachments: null
+                attachments: null,
+                type: null,
+                commentsCount: 0
             };
         }
 
@@ -285,7 +337,48 @@ class ChatDataManager {
             messageType,
             hasUnread,
             unreadCount,
-            attachments
+            attachments,
+            type: 'message',
+            commentsCount: 0
+        };
+    }
+
+    /**
+     * Lấy comment cuối cùng cho order từ cache
+     * @param {string} channelId - Facebook Page ID
+     * @param {string} userId - Facebook PSID
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, type, commentsCount }
+     */
+    getLastCommentForOrder(channelId, userId) {
+        const cacheKey = `${channelId}_${userId}`;
+        const comments = this.comments.get(cacheKey);
+
+        if (!comments || comments.length === 0) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                type: 'comment',
+                commentsCount: 0
+            };
+        }
+
+        // Get the most recent comment (first in array)
+        const lastComment = comments[0];
+        const message = lastComment.Message || null;
+        const messageType = 'text';
+        const hasUnread = lastComment.Status === 30; // Status 30 means unread
+        const commentsCount = comments.length;
+
+        return {
+            message,
+            messageType,
+            hasUnread,
+            unreadCount: hasUnread ? 1 : 0,
+            type: 'comment',
+            commentsCount,
+            object: lastComment.Object
         };
     }
 
@@ -295,6 +388,7 @@ class ChatDataManager {
     clearCache() {
         this.conversations = [];
         this.conversationMap.clear();
+        this.comments.clear();
         this.lastFetchTime = null;
         console.log('[CHAT] Cache cleared');
     }

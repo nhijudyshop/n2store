@@ -1169,12 +1169,48 @@ function renderChatColumn(order) {
     }
 
     const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+    const channelId = orderChatInfo.channelId;
+    const psid = orderChatInfo.psid;
 
-    // Không có conversation
+    // Không có conversation - check for comments
     if (!chatInfo.message && !chatInfo.hasUnread) {
-        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
+        // Try to get cached comments
+        const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
+
+        if (commentInfo.message) {
+            // We have cached comments, use them
+            return renderChatColumnWithData(order, commentInfo, channelId, psid);
+        }
+
+        // No cached comments - show fetch button
+        return `<td data-column="messages" style="text-align: center;">
+            <button
+                class="btn-fetch-comments"
+                onclick="fetchAndShowComments('${order.Id}', '${channelId}', '${psid}')"
+                style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                "
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(102, 126, 234, 0.3)';"
+                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+            >
+                <i class="fas fa-download"></i> Tải bình luận
+            </button>
+        </td>`;
     }
 
+    // Render with message data
+    return renderChatColumnWithData(order, chatInfo, channelId, psid);
+}
+
+// Helper function to render chat column with data (for both messages and comments)
+function renderChatColumnWithData(order, chatInfo, channelId, psid) {
     // Format message based on type
     let displayMessage = 'Emoji hoặc ảnh';
     let messageIcon = '';
@@ -1209,15 +1245,24 @@ function renderChatColumn(order) {
             : chatInfo.message;
     }
 
-    const channelId = orderChatInfo.channelId;
-    const psid = orderChatInfo.psid;
-
     // Highlight class
     const highlightClass = chatInfo.hasUnread ? 'chat-has-unread' : '';
 
     // Badge
     const badge = chatInfo.hasUnread && chatInfo.unreadCount > 0
         ? `<span class="chat-unread-badge">${chatInfo.unreadCount}</span>`
+        : '';
+
+    // Count badge for comments
+    const countBadge = chatInfo.type === 'comment' && chatInfo.commentsCount > 1
+        ? `<span class="chat-count-badge" style="
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+        ">${chatInfo.commentsCount}</span>`
         : '';
 
     // Icon based on type (message vs comment)
@@ -1232,13 +1277,14 @@ function renderChatColumn(order) {
     return `
         <td data-column="messages" class="chat-column ${highlightClass}"
             style="max-width: 200px; white-space: normal; cursor: pointer;"
-            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}')"
+            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}', '${chatInfo.type || 'message'}')"
             title="${tooltipText}">
             <div style="display: flex; align-items: center; gap: 6px;">
                 ${typeIcon}
                 ${messageIcon ? `<span style="font-size: 16px;">${messageIcon}</span>` : ''}
                 <span style="flex: 1;">${displayMessage}</span>
                 ${badge}
+                ${countBadge}
             </div>
         </td>`;
 }
@@ -2825,7 +2871,67 @@ function sendOrdersDataToTab3() {
 let currentChatChannelId = null;
 let currentChatPSID = null;
 
-async function openChatModal(orderId, channelId, psid) {
+// Fetch and display comments for an order
+async function fetchAndShowComments(orderId, channelId, psid) {
+    try {
+        // Find the button element and show loading state
+        const button = event.target.closest('.btn-fetch-comments');
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+        }
+
+        // Fetch comments
+        const comments = await window.chatDataManager.fetchComments(channelId, psid);
+
+        if (comments && comments.length > 0) {
+            // Get the order
+            const order = allData.find(o => o.Id === orderId);
+            if (!order) {
+                console.error('[CHAT] Order not found:', orderId);
+                return;
+            }
+
+            // Find the row and update the messages column
+            const rows = document.querySelectorAll('#tableBody tr');
+            for (const row of rows) {
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                if (checkbox && checkbox.dataset.orderId === orderId) {
+                    // Get comment info
+                    const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
+
+                    // Update the messages cell
+                    const messagesCell = row.querySelector('[data-column="messages"]');
+                    if (messagesCell) {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = renderChatColumnWithData(order, commentInfo, channelId, psid);
+                        messagesCell.replaceWith(tempDiv.firstElementChild);
+                    }
+                    break;
+                }
+            }
+
+            console.log(`[CHAT] ✅ Loaded ${comments.length} comments for order ${orderId}`);
+        } else {
+            // No comments found - keep the button
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-download"></i> Không có bình luận';
+                button.style.background = '#9ca3af';
+            }
+        }
+    } catch (error) {
+        console.error('[CHAT] Error fetching comments:', error);
+        const button = event.target.closest('.btn-fetch-comments');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-exclamation-circle"></i> Lỗi';
+            button.style.background = '#ef4444';
+        }
+    }
+}
+
+async function openChatModal(orderId, channelId, psid, type = 'message') {
     if (!channelId || !psid) {
         alert('Không có thông tin tin nhắn cho đơn hàng này');
         return;
@@ -2841,8 +2947,9 @@ async function openChatModal(orderId, channelId, psid) {
         return;
     }
 
-    // Update modal title
-    document.getElementById('chatModalTitle').textContent = `Tin nhắn với ${order.Name}`;
+    // Update modal title based on type
+    const titleText = type === 'comment' ? 'Bình luận' : 'Tin nhắn';
+    document.getElementById('chatModalTitle').textContent = `${titleText} với ${order.Name}`;
     document.getElementById('chatModalSubtitle').textContent = `SĐT: ${order.Telephone || 'N/A'} • Mã ĐH: ${order.Code}`;
 
     // Show modal
@@ -2850,31 +2957,40 @@ async function openChatModal(orderId, channelId, psid) {
 
     // Show loading
     const modalBody = document.getElementById('chatModalBody');
+    const loadingText = type === 'comment' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';
     modalBody.innerHTML = `
         <div class="chat-loading">
             <i class="fas fa-spinner fa-spin"></i>
-            <p>Đang tải tin nhắn...</p>
+            <p>${loadingText}</p>
         </div>`;
 
-    // Check if has unread messages
-    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+    // Hide mark as read button for comments (not applicable)
     const markReadBtn = document.getElementById('chatMarkReadBtn');
-    if (chatInfo.hasUnread) {
-        markReadBtn.style.display = 'inline-flex';
-    } else {
-        markReadBtn.style.display = 'none';
-    }
+    markReadBtn.style.display = 'none';
 
-    // Fetch messages
+    // Fetch messages or comments based on type
     try {
-        const messages = await window.chatDataManager.fetchMessages(channelId, psid);
-        renderChatMessages(messages);
+        if (type === 'comment') {
+            // Fetch comments
+            const comments = await window.chatDataManager.fetchComments(channelId, psid);
+            renderComments(comments);
+        } else {
+            // Fetch messages
+            const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+            if (chatInfo.hasUnread) {
+                markReadBtn.style.display = 'inline-flex';
+            }
+
+            const messages = await window.chatDataManager.fetchMessages(channelId, psid);
+            renderChatMessages(messages);
+        }
     } catch (error) {
-        console.error('[CHAT] Error loading messages:', error);
+        console.error(`[CHAT] Error loading ${type}:`, error);
+        const errorText = type === 'comment' ? 'Lỗi khi tải bình luận' : 'Lỗi khi tải tin nhắn';
         modalBody.innerHTML = `
             <div class="chat-error">
                 <i class="fas fa-exclamation-triangle"></i>
-                <p>Lỗi khi tải tin nhắn</p>
+                <p>${errorText}</p>
                 <p style="font-size: 12px; color: #9ca3af;">${error.message}</p>
             </div>`;
     }
@@ -2946,6 +3062,109 @@ function renderChatMessages(messages) {
     }).join('');
 
     modalBody.innerHTML = `<div class="chat-messages-container">${messagesHTML}</div>`;
+
+    // Auto scroll to bottom
+    setTimeout(() => {
+        modalBody.scrollTop = modalBody.scrollHeight;
+    }, 100);
+}
+
+function renderComments(comments) {
+    const modalBody = document.getElementById('chatModalBody');
+
+    if (!comments || comments.length === 0) {
+        modalBody.innerHTML = `
+            <div class="chat-empty">
+                <i class="fas fa-comments"></i>
+                <p>Chưa có bình luận</p>
+            </div>`;
+        return;
+    }
+
+    // Format time helper
+    const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+    };
+
+    // Reverse comments to show oldest first
+    const sortedComments = comments.slice().reverse();
+
+    const commentsHTML = sortedComments.map(comment => {
+        const isOwner = comment.IsOwner;
+        const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
+        const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+
+        let content = '';
+        if (comment.Message) {
+            content = `<p class="chat-message-text">${comment.Message}</p>`;
+        }
+
+        // Status badge for unread comments
+        const statusBadge = comment.Status === 30
+            ? '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">Mới</span>'
+            : '';
+
+        // Render nested replies if any
+        let repliesHTML = '';
+        if (comment.Messages && comment.Messages.length > 0) {
+            repliesHTML = comment.Messages.map(reply => {
+                const replyIsOwner = reply.IsOwner;
+                const replyAlignClass = replyIsOwner ? 'chat-message-right' : 'chat-message-left';
+                const replyBgClass = replyIsOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+
+                return `
+                    <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px;">
+                        <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
+                            <p class="chat-message-text">${reply.Message || ''}</p>
+                            <p class="chat-message-time">${formatTime(reply.CreatedTime)}</p>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        return `
+            <div class="chat-message ${alignClass}">
+                <div class="chat-bubble ${bgClass}">
+                    ${content}
+                    <p class="chat-message-time">${formatTime(comment.CreatedTime)} ${statusBadge}</p>
+                </div>
+            </div>
+            ${repliesHTML}`;
+    }).join('');
+
+    // Add post/video context at the top if available
+    let postContext = '';
+    if (comments[0] && comments[0].Object) {
+        const obj = comments[0].Object;
+        postContext = `
+            <div style="
+                background: #f9fafb;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 12px;
+                margin-bottom: 16px;
+            ">
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">
+                    <i class="fas fa-video"></i> ${obj.ObjectType === 1 ? 'Video' : 'Bài viết'} Live
+                </div>
+                <div style="font-size: 13px; font-weight: 500; color: #1f2937;">
+                    ${obj.Description || obj.Title || 'Không có mô tả'}
+                </div>
+            </div>`;
+    }
+
+    modalBody.innerHTML = `<div class="chat-messages-container">${postContext}${commentsHTML}</div>`;
 
     // Auto scroll to bottom
     setTimeout(() => {
