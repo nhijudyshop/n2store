@@ -517,6 +517,69 @@ class ChatDataManager {
     }
 
     /**
+     * Lấy messages từ conversation có sẵn (không cần fetch mới)
+     * @param {string} psid - Facebook PSID
+     * @returns {Array} Array of messages (có thể là 1 message hoặc nhiều messages)
+     */
+    getMessagesFromConversation(psid) {
+        const conv = this.conversationMap.get(psid);
+        if (!conv) return [];
+
+        // Check if conversation has Messages array (full history)
+        if (conv.Messages && Array.isArray(conv.Messages)) {
+            return conv.Messages;
+        }
+
+        // Otherwise, return last message only
+        if (conv.LastActivities?.Message) {
+            const msg = conv.LastActivities.Message;
+            // Wrap in array with required fields for renderChatMessages
+            return [{
+                Id: msg.Id || Date.now(),
+                Message: msg.Message,
+                Type: msg.Type,
+                Attachments: msg.Attachments,
+                CreatedTime: conv.LastActivities.ActivitedTime,
+                IsOwner: msg.IsOwner || false
+            }];
+        }
+
+        return [];
+    }
+
+    /**
+     * Lấy comments từ conversation có sẵn (không cần fetch mới)
+     * @param {string} psid - Facebook PSID
+     * @returns {Array} Array of comments (có thể là 1 comment hoặc nhiều comments)
+     */
+    getCommentsFromConversation(psid) {
+        const conv = this.commentConversationMap.get(psid);
+        if (!conv) return [];
+
+        // Check if conversation has Messages array (full history)
+        if (conv.Messages && Array.isArray(conv.Messages)) {
+            return conv.Messages;
+        }
+
+        // Otherwise, return last comment only
+        if (conv.LastActivities?.Comment) {
+            const comment = conv.LastActivities.Comment;
+            // Wrap in array with required fields for renderComments
+            return [{
+                Id: comment.Id || Date.now(),
+                Message: comment.Message,
+                Type: comment.Type,
+                Status: comment.Status,
+                CreatedTime: conv.LastActivities.ActivitedTime,
+                IsOwner: comment.IsOwner || false,
+                Messages: comment.Messages || [] // Nested replies
+            }];
+        }
+
+        return [];
+    }
+
+    /**
      * Clear cache
      */
     clearCache() {
