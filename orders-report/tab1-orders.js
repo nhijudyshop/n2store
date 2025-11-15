@@ -447,7 +447,6 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
         // 🎯 GỘP CÁC CHIẾN DỊCH CÙNG NGÀY
         const campaignsByDate = new Map(); // key: date (YYYY-MM-DD), value: array of campaigns
-        const channelsByDate = new Map();  // key: date (YYYY-MM-DD), value: Set of channelIds
 
         orders.forEach((order) => {
             if (!order.LiveCampaignId) return;
@@ -456,19 +455,11 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const dateCreated = new Date(order.DateCreated);
             const dateKey = `${dateCreated.getFullYear()}-${String(dateCreated.getMonth() + 1).padStart(2, '0')}-${String(dateCreated.getDate()).padStart(2, '0')}`;
 
-            // Initialize maps if not exists
             if (!campaignsByDate.has(dateKey)) {
                 campaignsByDate.set(dateKey, []);
-                channelsByDate.set(dateKey, new Set());
             }
 
             const dateCampaigns = campaignsByDate.get(dateKey);
-
-            // 🆕 Collect ALL channelIds từ TẤT CẢ orders trong cùng ngày
-            const channelId = window.chatDataManager?.parseChannelId(order.Facebook_PostId);
-            if (channelId) {
-                channelsByDate.get(dateKey).add(channelId);
-            }
 
             // Kiểm tra xem campaign này đã có trong ngày này chưa
             const existingCampaign = dateCampaigns.find(c => c.campaignId === order.LiveCampaignId);
@@ -496,9 +487,6 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                 const campaignIds = dateCampaigns.map(c => c.campaignId);
                 const campaignNames = dateCampaigns.map(c => c.campaignName);
 
-                // 🆕 Lấy ALL unique channelIds từ tất cả orders trong ngày này
-                const channelIds = Array.from(channelsByDate.get(dateKey) || []);
-
                 // Tạo display name
                 let displayName;
                 if (dateCampaigns.length === 1) {
@@ -510,7 +498,6 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                 mergedCampaigns.push({
                     campaignId: campaignIds, // Array of IDs for campaigns on same day
                     campaignIds: campaignIds, // Keep both for clarity
-                    channelIds: channelIds,  // 🆕 Array of ALL unique channel IDs from all orders on this date
                     displayName: displayName,
                     date: dateKey,
                     latestDate: dateCampaigns[0].dateCreated,
@@ -589,27 +576,12 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
     }
 }
 
-async function handleCampaignChange() {
+function handleCampaignChange() {
     const select = document.getElementById("campaignFilter");
     const selectedOption = select.options[select.selectedIndex];
     selectedCampaign = selectedOption?.dataset.campaign
         ? JSON.parse(selectedOption.dataset.campaign)
         : null;
-
-    // 🚀 Pre-fetch conversations khi chọn campaign (nếu có channelIds)
-    if (selectedCampaign?.channelIds && selectedCampaign.channelIds.length > 0 && window.chatDataManager) {
-        console.log('[CAMPAIGN] Pre-fetching conversations for channelIds:', selectedCampaign.channelIds);
-
-        // Fetch conversations và comment conversations song song (không chờ, chạy ngầm)
-        Promise.all([
-            window.chatDataManager.fetchConversations(false, selectedCampaign.channelIds),
-            window.chatDataManager.fetchCommentConversations(false, selectedCampaign.channelIds)
-        ]).then(() => {
-            console.log('[CAMPAIGN] ✅ Pre-fetched conversations successfully');
-        }).catch(err => {
-            console.error('[CAMPAIGN] ❌ Error pre-fetching conversations:', err);
-        });
-    }
 }
 
 async function handleSearch() {
@@ -712,21 +684,13 @@ async function fetchOrders() {
         // Load conversations and comment conversations for first batch
         console.log('[PROGRESSIVE] Loading conversations for first batch...');
         if (window.chatDataManager) {
-            // 🎯 Ưu tiên dùng channelIds từ selectedCampaign (đã được pre-fetched)
-            // Nếu không có, parse từ orders (fallback)
-            let channelIds = selectedCampaign?.channelIds || [];
-
-            if (channelIds.length === 0) {
-                // Fallback: Collect unique channel IDs from orders
-                channelIds = [...new Set(
-                    allData
-                        .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
-                        .filter(id => id) // Remove null/undefined
-                )];
-                console.log('[PROGRESSIVE] Parsed channel IDs from orders:', channelIds);
-            } else {
-                console.log('[PROGRESSIVE] Using channel IDs from campaign data (already pre-fetched):', channelIds);
-            }
+            // Collect unique channel IDs from orders (parse from Facebook_PostId)
+            const channelIds = [...new Set(
+                allData
+                    .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
+                    .filter(id => id) // Remove null/undefined
+            )];
+            console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
 
             await Promise.all([
                 window.chatDataManager.fetchConversations(false, channelIds),
@@ -1215,41 +1179,26 @@ function renderChatColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
+    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 
-    // Get both message and comment data
-    const messageInfo = window.chatDataManager.getLastMessageForOrder(order);
-    const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
+    // Không có conversation - check for comments
+    if (!chatInfo.message && !chatInfo.hasUnread) {
+        // Try to get comment from comment conversations
+        const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
 
-    // Determine which one to show based on priority:
-    // 1. Prioritize unread messages
-    // 2. Then unread comments
-    // 3. Then existing messages
-    // 4. Then existing comments
-    let chatInfoToShow = null;
+        if (commentInfo.message) {
+            // We have comment conversation, use it
+            return renderChatColumnWithData(order, commentInfo, channelId, psid);
+        }
 
-    if (messageInfo.hasUnread) {
-        // Message has unread - highest priority
-        chatInfoToShow = messageInfo;
-    } else if (commentInfo.hasUnread) {
-        // Comment has unread - second priority
-        chatInfoToShow = commentInfo;
-    } else if (messageInfo.message) {
-        // Message exists (no unread)
-        chatInfoToShow = messageInfo;
-    } else if (commentInfo.message) {
-        // Comment exists (no unread)
-        chatInfoToShow = commentInfo;
+        // No message and no comment - show dash
+        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // If we have data to show, render it
-    if (chatInfoToShow && (chatInfoToShow.message || chatInfoToShow.hasUnread)) {
-        return renderChatColumnWithData(order, chatInfoToShow, channelId, psid);
-    }
-
-    // No message and no comment - show dash
-    return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
+    // Render with message data
+    return renderChatColumnWithData(order, chatInfo, channelId, psid);
 }
 
 // Helper function to render chat column with data (for both messages and comments)
