@@ -1090,6 +1090,9 @@ function renderTable() {
     if (window.columnVisibility) {
         window.columnVisibility.initialize();
     }
+
+    // Auto-fetch comments for cells marked with data-auto-fetch="pending"
+    autoFetchAllComments();
 }
 
 function createRowHTML(order) {
@@ -1182,26 +1185,10 @@ function renderChatColumn(order) {
             return renderChatColumnWithData(order, commentInfo, channelId, psid);
         }
 
-        // No cached comments - show fetch button
-        return `<td data-column="messages" style="text-align: center;">
-            <button
-                class="btn-fetch-comments"
-                onclick="fetchAndShowComments('${order.Id}', '${channelId}', '${psid}')"
-                style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    font-size: 12px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                "
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(102, 126, 234, 0.3)';"
-                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
-            >
-                <i class="fas fa-download"></i> Tải bình luận
-            </button>
+        // No cached comments - show loading state and mark for auto-fetch
+        return `<td data-column="messages" data-order-id="${order.Id}" data-channel-id="${channelId}" data-psid="${psid}" data-auto-fetch="pending" style="text-align: center; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="margin-right: 4px;"></i>
+            <span style="font-size: 12px;">Đang tải...</span>
         </td>`;
     }
 
@@ -2871,14 +2858,41 @@ function sendOrdersDataToTab3() {
 let currentChatChannelId = null;
 let currentChatPSID = null;
 
+// Auto-fetch all comments for cells that need it
+async function autoFetchAllComments() {
+    const cellsToFetch = document.querySelectorAll('[data-auto-fetch="pending"]');
+
+    if (cellsToFetch.length === 0) {
+        return;
+    }
+
+    console.log(`[CHAT] Auto-fetching comments for ${cellsToFetch.length} orders...`);
+
+    // Fetch comments with delay to avoid overwhelming the server
+    for (const cell of cellsToFetch) {
+        const orderId = cell.dataset.orderId;
+        const channelId = cell.dataset.channelId;
+        const psid = cell.dataset.psid;
+
+        if (orderId && channelId && psid) {
+            // Mark as processing to avoid duplicate fetches
+            cell.dataset.autoFetch = 'processing';
+
+            // Fetch with a small delay between requests
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await fetchAndShowComments(orderId, channelId, psid, cell);
+        }
+    }
+
+    console.log('[CHAT] ✅ Finished auto-fetching comments');
+}
+
 // Fetch and display comments for an order
-async function fetchAndShowComments(orderId, channelId, psid) {
+async function fetchAndShowComments(orderId, channelId, psid, cell = null) {
     try {
-        // Find the button element and show loading state
-        const button = event.target.closest('.btn-fetch-comments');
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+        // If no cell provided, find it
+        if (!cell) {
+            cell = document.querySelector(`[data-column="messages"][data-order-id="${orderId}"]`);
         }
 
         // Fetch comments
@@ -2889,44 +2903,36 @@ async function fetchAndShowComments(orderId, channelId, psid) {
             const order = allData.find(o => o.Id === orderId);
             if (!order) {
                 console.error('[CHAT] Order not found:', orderId);
+                if (cell) {
+                    cell.innerHTML = '<span style="color: #ef4444; font-size: 12px;">Lỗi</span>';
+                    cell.dataset.autoFetch = 'error';
+                }
                 return;
             }
 
-            // Find the row and update the messages column
-            const rows = document.querySelectorAll('#tableBody tr');
-            for (const row of rows) {
-                const checkbox = row.querySelector('input[type="checkbox"]');
-                if (checkbox && checkbox.dataset.orderId === orderId) {
-                    // Get comment info
-                    const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
+            // Get comment info
+            const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
 
-                    // Update the messages cell
-                    const messagesCell = row.querySelector('[data-column="messages"]');
-                    if (messagesCell) {
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = renderChatColumnWithData(order, commentInfo, channelId, psid);
-                        messagesCell.replaceWith(tempDiv.firstElementChild);
-                    }
-                    break;
-                }
+            // Update the messages cell
+            if (cell) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = renderChatColumnWithData(order, commentInfo, channelId, psid);
+                cell.replaceWith(tempDiv.firstElementChild);
             }
 
             console.log(`[CHAT] ✅ Loaded ${comments.length} comments for order ${orderId}`);
         } else {
-            // No comments found - keep the button
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = '<i class="fas fa-download"></i> Không có bình luận';
-                button.style.background = '#9ca3af';
+            // No comments found - show dash
+            if (cell) {
+                cell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+                cell.dataset.autoFetch = 'none';
             }
         }
     } catch (error) {
         console.error('[CHAT] Error fetching comments:', error);
-        const button = event.target.closest('.btn-fetch-comments');
-        if (button) {
-            button.disabled = false;
-            button.innerHTML = '<i class="fas fa-exclamation-circle"></i> Lỗi';
-            button.style.background = '#ef4444';
+        if (cell) {
+            cell.innerHTML = '<span style="color: #ef4444; font-size: 12px;">Lỗi</span>';
+            cell.dataset.autoFetch = 'error';
         }
     }
 }
