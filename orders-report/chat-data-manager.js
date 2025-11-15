@@ -271,7 +271,7 @@ class ChatDataManager {
     /**
      * Lấy tin nhắn cuối cùng cho order
      * @param {Object} order - Order object
-     * @returns {Object} { message, hasUnread, unreadCount }
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments }
      */
     getLastMessageForOrder(order) {
         const chatInfo = this.getChatInfoForOrder(order);
@@ -279,20 +279,27 @@ class ChatDataManager {
         if (!chatInfo.hasChat || !chatInfo.conversation) {
             return {
                 message: null,
+                messageType: null,
                 hasUnread: false,
-                unreadCount: 0
+                unreadCount: 0,
+                attachments: null
             };
         }
 
         const conv = chatInfo.conversation;
-        const lastMessage = conv.LastActivities?.Message?.Message || null;
+        const messageObj = conv.LastActivities?.Message || {};
+        const lastMessage = messageObj.Message || null;
+        const messageType = messageObj.Type || 'text';
+        const attachments = messageObj.Attachments || null;
         const hasUnread = conv.LastActivities?.HasUnread || false;
         const unreadCount = conv.LastActivities?.UnreadCount || 0;
 
         return {
             message: lastMessage,
+            messageType,
             hasUnread,
-            unreadCount
+            unreadCount,
+            attachments
         };
     }
 
