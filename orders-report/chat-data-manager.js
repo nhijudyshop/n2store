@@ -13,6 +13,8 @@ class ChatDataManager {
         this.isLoadingComments = false;
         this.lastFetchTime = null;
         this.lastCommentFetchTime = null;
+        this.lastChannelIds = null;  // 🆕 Track channelIds used in last fetch
+        this.lastCommentChannelIds = null;  // 🆕 Track channelIds used in last comment fetch
         // Use Cloudflare Worker proxy to bypass CORS (faster, no cold start)
         this.API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/api-ms/chatomni/v1';
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
@@ -26,22 +28,33 @@ class ChatDataManager {
      */
     async fetchConversations(forceRefresh = false, channelIds = null) {
         try {
-            // Check cache
-            if (!forceRefresh && this.conversations.length > 0 && this.lastFetchTime) {
+            // Normalize channelIds for comparison (sort để so sánh đúng)
+            const normalizedChannelIds = channelIds && channelIds.length > 0
+                ? [...channelIds].sort().join(',')
+                : 'default';
+
+            // Check cache: phải cùng channelIds VÀ trong thời gian cache
+            if (!forceRefresh && this.conversations.length > 0 && this.lastFetchTime && this.lastChannelIds) {
                 const cacheAge = Date.now() - this.lastFetchTime;
-                if (cacheAge < this.CACHE_DURATION) {
-                    console.log('[CHAT] Using cached conversations, count:', this.conversations.length);
+                const sameChannels = this.lastChannelIds === normalizedChannelIds;
+
+                if (cacheAge < this.CACHE_DURATION && sameChannels) {
+                    console.log('[CHAT MESSAGE] ✅ Using cached conversations (same channels), count:', this.conversations.length);
                     return this.conversations;
+                } else if (!sameChannels) {
+                    console.log('[CHAT MESSAGE] ⚠️ ChannelIds changed, fetching new data...');
+                    console.log('[CHAT MESSAGE] Old channels:', this.lastChannelIds);
+                    console.log('[CHAT MESSAGE] New channels:', normalizedChannelIds);
                 }
             }
 
             if (this.isLoading) {
-                console.log('[CHAT] Already loading conversations...');
+                console.log('[CHAT MESSAGE] Already loading conversations...');
                 return this.conversations;
             }
 
             this.isLoading = true;
-            console.log('[CHAT] Fetching conversations from API...');
+            console.log('[CHAT MESSAGE] Fetching conversations from API for channels:', normalizedChannelIds);
 
             const headers = await window.tokenManager.getAuthHeader();
             const url = `${this.API_BASE}/conversations/search`;
@@ -95,15 +108,16 @@ class ChatDataManager {
             }
 
             const data = await response.json();
-            console.log('[CHAT] Response data:', data);
+            console.log('[CHAT MESSAGE] Response data:', data);
 
             this.conversations = data.Data || [];
             this.lastFetchTime = Date.now();
+            this.lastChannelIds = normalizedChannelIds;  // 🆕 Lưu channelIds đã fetch
 
             // Build map for quick lookup
             this.buildConversationMap();
 
-            console.log(`[CHAT] ✅ Fetched ${this.conversations.length} conversations`);
+            console.log(`[CHAT MESSAGE] ✅ Fetched ${this.conversations.length} conversations for channels:`, normalizedChannelIds);
             return this.conversations;
 
         } catch (error) {
@@ -137,22 +151,33 @@ class ChatDataManager {
      */
     async fetchCommentConversations(forceRefresh = false, channelIds = null) {
         try {
-            // Check cache
-            if (!forceRefresh && this.commentConversations.length > 0 && this.lastCommentFetchTime) {
+            // Normalize channelIds for comparison (sort để so sánh đúng)
+            const normalizedChannelIds = channelIds && channelIds.length > 0
+                ? [...channelIds].sort().join(',')
+                : 'default';
+
+            // Check cache: phải cùng channelIds VÀ trong thời gian cache
+            if (!forceRefresh && this.commentConversations.length > 0 && this.lastCommentFetchTime && this.lastCommentChannelIds) {
                 const cacheAge = Date.now() - this.lastCommentFetchTime;
-                if (cacheAge < this.CACHE_DURATION) {
-                    console.log('[CHAT] Using cached comment conversations, count:', this.commentConversations.length);
+                const sameChannels = this.lastCommentChannelIds === normalizedChannelIds;
+
+                if (cacheAge < this.CACHE_DURATION && sameChannels) {
+                    console.log('[CHAT COMMENT] ✅ Using cached comment conversations (same channels), count:', this.commentConversations.length);
                     return this.commentConversations;
+                } else if (!sameChannels) {
+                    console.log('[CHAT COMMENT] ⚠️ ChannelIds changed, fetching new data...');
+                    console.log('[CHAT COMMENT] Old channels:', this.lastCommentChannelIds);
+                    console.log('[CHAT COMMENT] New channels:', normalizedChannelIds);
                 }
             }
 
             if (this.isLoadingComments) {
-                console.log('[CHAT] Already loading comment conversations...');
+                console.log('[CHAT COMMENT] Already loading comment conversations...');
                 return this.commentConversations;
             }
 
             this.isLoadingComments = true;
-            console.log('[CHAT] Fetching comment conversations from API...');
+            console.log('[CHAT COMMENT] Fetching comment conversations from API for channels:', normalizedChannelIds);
 
             const headers = await window.tokenManager.getAuthHeader();
             const url = `${this.API_BASE}/conversations/search`;
@@ -203,15 +228,16 @@ class ChatDataManager {
             }
 
             const data = await response.json();
-            console.log('[CHAT] Response data:', data);
+            console.log('[CHAT COMMENT] Response data:', data);
 
             this.commentConversations = data.Data || [];
             this.lastCommentFetchTime = Date.now();
+            this.lastCommentChannelIds = normalizedChannelIds;  // 🆕 Lưu channelIds đã fetch
 
             // Build map for quick lookup
             this.buildCommentConversationMap();
 
-            console.log(`[CHAT] ✅ Fetched ${this.commentConversations.length} comment conversations`);
+            console.log(`[CHAT COMMENT] ✅ Fetched ${this.commentConversations.length} comment conversations for channels:`, normalizedChannelIds);
             return this.commentConversations;
 
         } catch (error) {
@@ -527,6 +553,8 @@ class ChatDataManager {
         this.comments.clear();
         this.lastFetchTime = null;
         this.lastCommentFetchTime = null;
+        this.lastChannelIds = null;  // 🆕 Clear cached channelIds
+        this.lastCommentChannelIds = null;  // 🆕 Clear cached comment channelIds
         console.log('[CHAT] Cache cleared');
     }
 }
