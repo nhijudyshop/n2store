@@ -1202,29 +1202,11 @@ function renderChatColumn(order) {
         displayMessage = 'Đã gửi sticker';
         messageIcon = '😊';
     } else if (chatInfo.message) {
-        // Check if message is an image URL
-        const imageUrlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i;
-        const isImageUrl = imageUrlPattern.test(chatInfo.message.trim());
-
-        // Check if message contains only emojis (no text characters)
-        const emojiOnlyPattern = /^[\p{Emoji}\s]+$/u;
-        const isEmojiOnly = emojiOnlyPattern.test(chatInfo.message.trim()) && chatInfo.message.trim().length <= 10;
-
-        if (isImageUrl) {
-            // Display image thumbnail
-            displayMessage = `<img src="${chatInfo.message.trim()}" style="max-width: 50px; max-height: 50px; border-radius: 4px; object-fit: cover;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';" /><span style="display:none;">Đã gửi ảnh</span>`;
-            messageIcon = '📷';
-        } else if (isEmojiOnly) {
-            // Display emoji directly without truncation
-            displayMessage = chatInfo.message.trim();
-            messageIcon = '';
-        } else {
-            // Regular text message - truncate if too long
-            const maxLength = 30;
-            displayMessage = chatInfo.message.length > maxLength
-                ? chatInfo.message.substring(0, maxLength) + '...'
-                : chatInfo.message;
-        }
+        // Regular text message - truncate if too long
+        const maxLength = 30;
+        displayMessage = chatInfo.message.length > maxLength
+            ? chatInfo.message.substring(0, maxLength) + '...'
+            : chatInfo.message;
     }
 
     const channelId = orderChatInfo.channelId;
