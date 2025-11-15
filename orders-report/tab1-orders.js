@@ -676,6 +676,14 @@ async function fetchOrders() {
         console.log('[INIT] Loading available tags...');
         await loadAvailableTags();
 
+        // Load chat conversations sau khi hiển thị bảng
+        console.log('[INIT] Loading chat conversations...');
+        if (window.chatDataManager) {
+            await window.chatDataManager.fetchConversations();
+            // Re-render table to show chat data
+            renderTable();
+        }
+
     } catch (error) {
         console.error("Error fetching data:", error);
 
@@ -978,7 +986,7 @@ function renderTable() {
     const tbody = document.getElementById("tableBody");
     if (displayedData.length === 0) {
         tbody.innerHTML =
-            '<tr><td colspan="11" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="13" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
     tbody.innerHTML = displayedData.map(createRowHTML).join("");
@@ -1000,6 +1008,9 @@ function createRowHTML(order) {
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
 
+    // Get chat info
+    const chatHTML = renderChatColumn(order);
+
     return `
         <tr>
             <td><input type="checkbox" value="${order.Id}" /></td>
@@ -1020,6 +1031,7 @@ function createRowHTML(order) {
                 ${tagsHTML}
             </td>
             <td><div>${highlight(order.Name)}</div>${partnerStatusHTML}</td>
+            ${chatHTML}
             <td style="max-width: 100px; white-space: normal;">${highlight(order.Telephone)}</td>
             <td style="max-width: 500px; white-space: normal;">${highlight(order.Address)}</td>
             <td style="max-width: 200px; white-space: normal;">${highlight(order.Note)}</td>
@@ -1028,6 +1040,52 @@ function createRowHTML(order) {
             <td>${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
             <td><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">${highlight(order.StatusText || order.Status)}</span></td>
         </tr>`;
+}
+
+function renderChatColumn(order) {
+    if (!window.chatDataManager) {
+        return '<td style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+
+    // Không có conversation
+    if (!chatInfo.message && !chatInfo.hasUnread) {
+        return '<td style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    // Truncate message
+    const maxLength = 30;
+    const displayMessage = chatInfo.message
+        ? (chatInfo.message.length > maxLength
+            ? chatInfo.message.substring(0, maxLength) + '...'
+            : chatInfo.message)
+        : 'Không có tin nhắn';
+
+    // Get chat info for onclick
+    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
+    const channelId = orderChatInfo.channelId || '';
+    const psid = orderChatInfo.psid || '';
+
+    // Highlight class
+    const highlightClass = chatInfo.hasUnread ? 'chat-has-unread' : '';
+
+    // Badge
+    const badge = chatInfo.hasUnread && chatInfo.unreadCount > 0
+        ? `<span class="chat-unread-badge">${chatInfo.unreadCount}</span>`
+        : '';
+
+    return `
+        <td class="chat-column ${highlightClass}"
+            style="max-width: 200px; white-space: normal; cursor: pointer;"
+            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}')"
+            title="Click để xem toàn bộ tin nhắn">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <i class="fab fa-facebook-messenger" style="color: #0084ff;"></i>
+                <span style="flex: 1;">${displayMessage}</span>
+                ${badge}
+            </div>
+        </td>`;
 }
 
 function parseOrderTags(tagsJson) {
@@ -2602,6 +2660,169 @@ function sendOrdersDataToTab3() {
                 orders: ordersDataToSend
             }, '*');
             console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng sang tab gán sản phẩm`);
+        }
+    }
+}
+
+// =====================================================
+// CHAT MODAL FUNCTIONS
+// =====================================================
+let currentChatChannelId = null;
+let currentChatPSID = null;
+
+async function openChatModal(orderId, channelId, psid) {
+    if (!channelId || !psid) {
+        alert('Không có thông tin tin nhắn cho đơn hàng này');
+        return;
+    }
+
+    currentChatChannelId = channelId;
+    currentChatPSID = psid;
+
+    // Get order info
+    const order = allData.find(o => o.Id === orderId);
+    if (!order) {
+        alert('Không tìm thấy đơn hàng');
+        return;
+    }
+
+    // Update modal title
+    document.getElementById('chatModalTitle').textContent = `Tin nhắn với ${order.Name}`;
+    document.getElementById('chatModalSubtitle').textContent = `SĐT: ${order.Telephone || 'N/A'} • Mã ĐH: ${order.Code}`;
+
+    // Show modal
+    document.getElementById('chatModal').classList.add('show');
+
+    // Show loading
+    const modalBody = document.getElementById('chatModalBody');
+    modalBody.innerHTML = `
+        <div class="chat-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Đang tải tin nhắn...</p>
+        </div>`;
+
+    // Check if has unread messages
+    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+    const markReadBtn = document.getElementById('chatMarkReadBtn');
+    if (chatInfo.hasUnread) {
+        markReadBtn.style.display = 'inline-flex';
+    } else {
+        markReadBtn.style.display = 'none';
+    }
+
+    // Fetch messages
+    try {
+        const messages = await window.chatDataManager.fetchMessages(channelId, psid);
+        renderChatMessages(messages);
+    } catch (error) {
+        console.error('[CHAT] Error loading messages:', error);
+        modalBody.innerHTML = `
+            <div class="chat-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Lỗi khi tải tin nhắn</p>
+                <p style="font-size: 12px; color: #9ca3af;">${error.message}</p>
+            </div>`;
+    }
+}
+
+function closeChatModal() {
+    document.getElementById('chatModal').classList.remove('show');
+    currentChatChannelId = null;
+    currentChatPSID = null;
+}
+
+function renderChatMessages(messages) {
+    const modalBody = document.getElementById('chatModalBody');
+
+    if (!messages || messages.length === 0) {
+        modalBody.innerHTML = `
+            <div class="chat-empty">
+                <i class="fas fa-comments"></i>
+                <p>Chưa có tin nhắn</p>
+            </div>`;
+        return;
+    }
+
+    // Format time helper
+    const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+    };
+
+    // Reverse messages to show oldest first
+    const sortedMessages = messages.slice().reverse();
+
+    const messagesHTML = sortedMessages.map(msg => {
+        const isOwner = msg.IsOwner;
+        const alignClass = isOwner ? 'chat-message-right' : 'chat-message-left';
+        const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+
+        let content = '';
+        if (msg.Message) {
+            content = `<p class="chat-message-text">${msg.Message}</p>`;
+        }
+
+        // Handle attachments (images)
+        if (msg.Attachments && msg.Attachments.length > 0) {
+            msg.Attachments.forEach(att => {
+                if (att.Type === 'image' && att.Payload && att.Payload.Url) {
+                    content += `<img src="${att.Payload.Url}" class="chat-message-image" loading="lazy" />`;
+                }
+            });
+        }
+
+        return `
+            <div class="chat-message ${alignClass}">
+                <div class="chat-bubble ${bgClass}">
+                    ${content}
+                    <p class="chat-message-time">${formatTime(msg.CreatedTime)}</p>
+                </div>
+            </div>`;
+    }).join('');
+
+    modalBody.innerHTML = `<div class="chat-messages-container">${messagesHTML}</div>`;
+
+    // Auto scroll to bottom
+    setTimeout(() => {
+        modalBody.scrollTop = modalBody.scrollHeight;
+    }, 100);
+}
+
+async function markChatAsRead() {
+    if (!currentChatChannelId || !currentChatPSID) return;
+
+    try {
+        const markReadBtn = document.getElementById('chatMarkReadBtn');
+        markReadBtn.disabled = true;
+        markReadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+
+        await window.chatDataManager.markAsSeen(currentChatChannelId, currentChatPSID);
+
+        // Hide button
+        markReadBtn.style.display = 'none';
+        markReadBtn.disabled = false;
+        markReadBtn.innerHTML = '<i class="fas fa-check"></i> Đánh dấu đã đọc';
+
+        // Re-render table to update UI
+        renderTable();
+
+        if (window.notificationManager) {
+            window.notificationManager.success('Đã đánh dấu tin nhắn là đã đọc', 2000);
+        }
+    } catch (error) {
+        console.error('[CHAT] Error marking as read:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi khi đánh dấu đã đọc: ' + error.message, 3000);
         }
     }
 }
