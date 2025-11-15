@@ -8,7 +8,8 @@ class ChatDataManager {
         this.conversationMap = new Map(); // Map PSID -> conversation
         this.isLoading = false;
         this.lastFetchTime = null;
-        this.API_BASE = 'https://tomato.tpos.vn/api-ms/chatomni/v1';
+        // Use proxy server to bypass CORS
+        this.API_BASE = 'https://chat-viewer-ubjn.onrender.com/api/api-ms/chatomni/v1';
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     }
 
