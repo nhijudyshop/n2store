@@ -2863,7 +2863,7 @@ function sendOrdersDataToTab3() {
 let currentChatChannelId = null;
 let currentChatPSID = null;
 
-async function openChatModal(orderId, channelId, psid, type = 'message') {
+function openChatModal(orderId, channelId, psid, type = 'message') {
     if (!channelId || !psid) {
         alert('Không có thông tin tin nhắn cho đơn hàng này');
         return;
@@ -2887,33 +2887,24 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
     // Show modal
     document.getElementById('chatModal').classList.add('show');
 
-    // Show loading
     const modalBody = document.getElementById('chatModalBody');
-    const loadingText = type === 'comment' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';
-    modalBody.innerHTML = `
-        <div class="chat-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>${loadingText}</p>
-        </div>`;
-
-    // Hide mark as read button for comments (not applicable)
     const markReadBtn = document.getElementById('chatMarkReadBtn');
     markReadBtn.style.display = 'none';
 
-    // Fetch messages or comments based on type
+    // Get messages or comments from cached conversation data (no API request needed)
     try {
         if (type === 'comment') {
-            // Fetch comments
-            const comments = await window.chatDataManager.fetchComments(channelId, psid);
+            // Get comments from cached conversation
+            const comments = window.chatDataManager.getCommentsFromConversation(psid);
             renderComments(comments);
         } else {
-            // Fetch messages
+            // Get messages from cached conversation
             const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
             if (chatInfo.hasUnread) {
                 markReadBtn.style.display = 'inline-flex';
             }
 
-            const messages = await window.chatDataManager.fetchMessages(channelId, psid);
+            const messages = window.chatDataManager.getMessagesFromConversation(psid);
             renderChatMessages(messages);
         }
     } catch (error) {
