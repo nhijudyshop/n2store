@@ -1179,26 +1179,41 @@ function renderChatColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 
-    // Không có conversation - check for comments
-    if (!chatInfo.message && !chatInfo.hasUnread) {
-        // Try to get comment from comment conversations
-        const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
+    // Get both message and comment data
+    const messageInfo = window.chatDataManager.getLastMessageForOrder(order);
+    const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
 
-        if (commentInfo.message) {
-            // We have comment conversation, use it
-            return renderChatColumnWithData(order, commentInfo, channelId, psid);
-        }
+    // Determine which one to show based on priority:
+    // 1. Prioritize unread messages
+    // 2. Then unread comments
+    // 3. Then existing messages
+    // 4. Then existing comments
+    let chatInfoToShow = null;
 
-        // No message and no comment - show dash
-        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
+    if (messageInfo.hasUnread) {
+        // Message has unread - highest priority
+        chatInfoToShow = messageInfo;
+    } else if (commentInfo.hasUnread) {
+        // Comment has unread - second priority
+        chatInfoToShow = commentInfo;
+    } else if (messageInfo.message) {
+        // Message exists (no unread)
+        chatInfoToShow = messageInfo;
+    } else if (commentInfo.message) {
+        // Comment exists (no unread)
+        chatInfoToShow = commentInfo;
     }
 
-    // Render with message data
-    return renderChatColumnWithData(order, chatInfo, channelId, psid);
+    // If we have data to show, render it
+    if (chatInfoToShow && (chatInfoToShow.message || chatInfoToShow.hasUnread)) {
+        return renderChatColumnWithData(order, chatInfoToShow, channelId, psid);
+    }
+
+    // No message and no comment - show dash
+    return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
 }
 
 // Helper function to render chat column with data (for both messages and comments)
