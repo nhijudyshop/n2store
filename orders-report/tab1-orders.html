@@ -224,6 +224,7 @@
                                 <th>STT</th>
                                 <th>Mã ĐH</th>
                                 <th>Khách hàng</th>
+                                <th>Tin nhắn</th>
                                 <th>SĐT</th>
                                 <th>Địa chỉ</th>
                                 <th>Ghi chú</th>
@@ -237,7 +238,7 @@
                         <tbody id="tableBody">
                             <tr>
                                 <td
-                                    colspan="12"
+                                    colspan="13"
                                     style="text-align: center; padding: 40px"
                                 >
                                     Vui lòng chọn chiến dịch và bấm Tìm kiếm
@@ -305,11 +306,45 @@
                 </div>
             </div>
         </div>
+
+        <!-- Chat Messages Modal -->
+        <div class="chat-modal" id="chatModal">
+            <div class="chat-modal-content">
+                <div class="chat-modal-header">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="fab fa-facebook-messenger" style="color: #0084ff; font-size: 24px;"></i>
+                        <div>
+                            <h3 id="chatModalTitle">Tin nhắn</h3>
+                            <p id="chatModalSubtitle" style="margin: 0; font-size: 12px; color: #6b7280;"></p>
+                        </div>
+                    </div>
+                    <button class="chat-modal-close" onclick="closeChatModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="chat-modal-body" id="chatModalBody">
+                    <div class="chat-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải tin nhắn...</p>
+                    </div>
+                </div>
+                <div class="chat-modal-footer">
+                    <button class="chat-btn-close" onclick="closeChatModal()">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
+                    <button class="chat-btn-mark-read" id="chatMarkReadBtn" onclick="markChatAsRead()" style="display: none;">
+                        <i class="fas fa-check"></i> Đánh dấu đã đọc
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Scripts -->
         <script src="token-manager.js"></script>
         <script src="cache.js"></script>
         <script src="auth.js"></script>
         <script src="notification-system.js"></script>
+        <script src="chat-data-manager.js"></script>
         <script src="message-template-manager.js"></script>
         <script src="product-search-manager.js"></script>
         <script src="search-functions.js"></script>
