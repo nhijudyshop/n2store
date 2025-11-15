@@ -447,6 +447,7 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
         // 🎯 GỘP CÁC CHIẾN DỊCH CÙNG NGÀY
         const campaignsByDate = new Map(); // key: date (YYYY-MM-DD), value: array of campaigns
+        const channelsByDate = new Map();  // key: date (YYYY-MM-DD), value: Set of channelIds
 
         orders.forEach((order) => {
             if (!order.LiveCampaignId) return;
@@ -455,24 +456,28 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const dateCreated = new Date(order.DateCreated);
             const dateKey = `${dateCreated.getFullYear()}-${String(dateCreated.getMonth() + 1).padStart(2, '0')}-${String(dateCreated.getDate()).padStart(2, '0')}`;
 
+            // Initialize maps if not exists
             if (!campaignsByDate.has(dateKey)) {
                 campaignsByDate.set(dateKey, []);
+                channelsByDate.set(dateKey, new Set());
             }
 
             const dateCampaigns = campaignsByDate.get(dateKey);
+
+            // 🆕 Collect ALL channelIds từ TẤT CẢ orders trong cùng ngày
+            const channelId = window.chatDataManager?.parseChannelId(order.Facebook_PostId);
+            if (channelId) {
+                channelsByDate.get(dateKey).add(channelId);
+            }
 
             // Kiểm tra xem campaign này đã có trong ngày này chưa
             const existingCampaign = dateCampaigns.find(c => c.campaignId === order.LiveCampaignId);
 
             if (!existingCampaign) {
-                // Parse channelId từ Facebook_PostId (format: "channelId_postId")
-                const channelId = window.chatDataManager?.parseChannelId(order.Facebook_PostId) || null;
-
                 dateCampaigns.push({
                     campaignId: order.LiveCampaignId,
                     campaignName: order.LiveCampaignName || "Không có tên",
-                    dateCreated: order.DateCreated,
-                    channelId: channelId  // 🆕 Lưu channelId
+                    dateCreated: order.DateCreated
                 });
             }
         });
@@ -491,12 +496,8 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                 const campaignIds = dateCampaigns.map(c => c.campaignId);
                 const campaignNames = dateCampaigns.map(c => c.campaignName);
 
-                // 🆕 Collect unique channelIds từ các campaigns
-                const channelIds = [...new Set(
-                    dateCampaigns
-                        .map(c => c.channelId)
-                        .filter(id => id)  // Remove null/undefined
-                )];
+                // 🆕 Lấy ALL unique channelIds từ tất cả orders trong ngày này
+                const channelIds = Array.from(channelsByDate.get(dateKey) || []);
 
                 // Tạo display name
                 let displayName;
@@ -509,7 +510,7 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                 mergedCampaigns.push({
                     campaignId: campaignIds, // Array of IDs for campaigns on same day
                     campaignIds: campaignIds, // Keep both for clarity
-                    channelIds: channelIds,  // 🆕 Array of unique channel IDs
+                    channelIds: channelIds,  // 🆕 Array of ALL unique channel IDs from all orders on this date
                     displayName: displayName,
                     date: dateKey,
                     latestDate: dateCampaigns[0].dateCreated,
