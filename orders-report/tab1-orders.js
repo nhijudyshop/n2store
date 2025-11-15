@@ -1149,34 +1149,30 @@ function renderChatColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Get last message/comment for order (supports message, comment by PSID, comment by OrderId)
-    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+    // Get chat info for order
+    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
 
     // Debug log first few orders
     if (order.SessionIndex && order.SessionIndex <= 3) {
         console.log(`[CHAT RENDER] Order ${order.Code}:`, {
             Facebook_ASUserId: order.Facebook_ASUserId,
             Facebook_PostId: order.Facebook_PostId,
-            OrderId: order.Id,
-            chatInfoType: chatInfo.type,
-            hasMessage: !!chatInfo.message
+            channelId: orderChatInfo.channelId,
+            psid: orderChatInfo.psid,
+            hasChat: orderChatInfo.hasChat
         });
     }
 
-    // Không có conversation/comment
-    if (!chatInfo.message && !chatInfo.hasUnread && !chatInfo.type) {
+    // If no PSID or Channel ID, show dash
+    if (!orderChatInfo.psid || !orderChatInfo.channelId) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Get PSID and channelId (for messages, or for opening modal)
-    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
-    let channelId = orderChatInfo.channelId;
-    let psid = orderChatInfo.psid;
+    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
 
-    // For comments found by OrderId, try to extract from conversation
-    if (!channelId && chatInfo.conversation) {
-        channelId = chatInfo.conversation.Channel?.Id || '270136663390370';
-        psid = chatInfo.conversation.User?.Id || '';
+    // Không có conversation
+    if (!chatInfo.message && !chatInfo.hasUnread) {
+        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
     // Format message based on type
@@ -1213,6 +1209,9 @@ function renderChatColumn(order) {
             : chatInfo.message;
     }
 
+    const channelId = orderChatInfo.channelId;
+    const psid = orderChatInfo.psid;
+
     // Highlight class
     const highlightClass = chatInfo.hasUnread ? 'chat-has-unread' : '';
 
@@ -1226,7 +1225,6 @@ function renderChatColumn(order) {
         ? '<i class="fas fa-comment" style="color: #65676b;"></i>'
         : '<i class="fab fa-facebook-messenger" style="color: #0084ff;"></i>';
 
-    // Tooltip text
     const tooltipText = chatInfo.type === 'comment'
         ? 'Click để xem bình luận'
         : 'Click để xem toàn bộ tin nhắn';
@@ -1234,7 +1232,7 @@ function renderChatColumn(order) {
     return `
         <td data-column="messages" class="chat-column ${highlightClass}"
             style="max-width: 200px; white-space: normal; cursor: pointer;"
-            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}', '${chatInfo.type || 'message'}')"
+            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}')"
             title="${tooltipText}">
             <div style="display: flex; align-items: center; gap: 6px;">
                 ${typeIcon}
