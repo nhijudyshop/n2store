@@ -1080,13 +1080,39 @@ function renderChatColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Truncate message
-    const maxLength = 30;
-    const displayMessage = chatInfo.message
-        ? (chatInfo.message.length > maxLength
+    // Format message based on type
+    let displayMessage = 'Không có tin nhắn';
+    let messageIcon = '';
+
+    if (chatInfo.attachments && chatInfo.attachments.length > 0) {
+        // Has attachments (images, files, etc.)
+        const attachment = chatInfo.attachments[0];
+        if (attachment.Type === 'image' || attachment.Type === 'photo') {
+            displayMessage = 'Đã gửi ảnh';
+            messageIcon = '📷';
+        } else if (attachment.Type === 'video') {
+            displayMessage = 'Đã gửi video';
+            messageIcon = '🎥';
+        } else if (attachment.Type === 'file') {
+            displayMessage = 'Đã gửi file';
+            messageIcon = '📎';
+        } else if (attachment.Type === 'audio') {
+            displayMessage = 'Đã gửi audio';
+            messageIcon = '🎵';
+        } else {
+            displayMessage = 'Đã gửi tệp đính kèm';
+            messageIcon = '📎';
+        }
+    } else if (chatInfo.messageType === 'sticker') {
+        displayMessage = 'Đã gửi sticker';
+        messageIcon = '😊';
+    } else if (chatInfo.message) {
+        // Regular text message - truncate if too long
+        const maxLength = 30;
+        displayMessage = chatInfo.message.length > maxLength
             ? chatInfo.message.substring(0, maxLength) + '...'
-            : chatInfo.message)
-        : 'Không có tin nhắn';
+            : chatInfo.message;
+    }
 
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
@@ -1106,6 +1132,7 @@ function renderChatColumn(order) {
             title="Click để xem toàn bộ tin nhắn">
             <div style="display: flex; align-items: center; gap: 6px;">
                 <i class="fab fa-facebook-messenger" style="color: #0084ff;"></i>
+                ${messageIcon ? `<span style="font-size: 16px;">${messageIcon}</span>` : ''}
                 <span style="flex: 1;">${displayMessage}</span>
                 ${badge}
             </div>
