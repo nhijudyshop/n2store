@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Cloudflare Pages Deployment Control
+# Exit code 0 = SKIP deployment
+# Exit code 1 = PROCEED with deployment
+
+# Only deploy if cloudflare-worker directory was changed
+if git diff --name-only $CF_PAGES_COMMIT_SHA^ $CF_PAGES_COMMIT_SHA | grep -q "^cloudflare-worker/"; then
+  echo "✅ Worker code changed - proceeding with deployment"
+  exit 1
+else
+  echo "⏭️  No worker changes - skipping deployment"
+  exit 0
+fi
