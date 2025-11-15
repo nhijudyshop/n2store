@@ -6,9 +6,13 @@ class ChatDataManager {
     constructor() {
         this.conversations = [];
         this.conversationMap = new Map(); // Map PSID -> conversation
-        this.comments = new Map(); // Map "channelId_userId" -> comments array
+        this.commentConversations = [];
+        this.commentConversationMap = new Map(); // Map PSID -> comment conversation
+        this.comments = new Map(); // Map "channelId_userId" -> comments array (legacy)
         this.isLoading = false;
+        this.isLoadingComments = false;
         this.lastFetchTime = null;
+        this.lastCommentFetchTime = null;
         // Use Cloudflare Worker proxy to bypass CORS (faster, no cold start)
         this.API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/api-ms/chatomni/v1';
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
@@ -122,6 +126,112 @@ class ChatDataManager {
             }
         });
         console.log(`[CHAT] Built conversation map with ${this.conversationMap.size} entries`);
+    }
+
+    /**
+     * Lấy danh sách comment conversations từ API
+     * @param {boolean} forceRefresh - Bắt buộc refresh (bỏ qua cache)
+     * @returns {Promise<Array>}
+     */
+    async fetchCommentConversations(forceRefresh = false) {
+        try {
+            // Check cache
+            if (!forceRefresh && this.commentConversations.length > 0 && this.lastCommentFetchTime) {
+                const cacheAge = Date.now() - this.lastCommentFetchTime;
+                if (cacheAge < this.CACHE_DURATION) {
+                    console.log('[CHAT] Using cached comment conversations, count:', this.commentConversations.length);
+                    return this.commentConversations;
+                }
+            }
+
+            if (this.isLoadingComments) {
+                console.log('[CHAT] Already loading comment conversations...');
+                return this.commentConversations;
+            }
+
+            this.isLoadingComments = true;
+            console.log('[CHAT] Fetching comment conversations from API...');
+
+            const headers = await window.tokenManager.getAuthHeader();
+            const url = `${this.API_BASE}/conversations/search`;
+
+            const requestBody = {
+                Keyword: null,
+                Limit: 2000,
+                Sort: null,
+                Before: null,
+                After: null,
+                Channels: [
+                    {
+                        Id: "270136663390370",
+                        Type: 4
+                    }
+                ],
+                Type: "comment", // Changed to comment type
+                HasPhone: null,
+                HasAddress: null,
+                HasOrder: null,
+                IsUnread: null,
+                IsUnreplied: null,
+                TagIds: [],
+                UserIds: [],
+                Start: null,
+                End: null,
+                FromNewToOld: null
+            };
+
+            console.log('[CHAT] Request body:', JSON.stringify(requestBody, null, 2));
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            console.log('[CHAT] Response status:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[CHAT] Error response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('[CHAT] Response data:', data);
+
+            this.commentConversations = data.Data || [];
+            this.lastCommentFetchTime = Date.now();
+
+            // Build map for quick lookup
+            this.buildCommentConversationMap();
+
+            console.log(`[CHAT] ✅ Fetched ${this.commentConversations.length} comment conversations`);
+            return this.commentConversations;
+
+        } catch (error) {
+            console.error('[CHAT] ❌ Error fetching comment conversations:', error);
+            console.error('[CHAT] Error stack:', error.stack);
+            return [];
+        } finally {
+            this.isLoadingComments = false;
+        }
+    }
+
+    /**
+     * Xây dựng Map từ PSID -> comment conversation để lookup nhanh
+     */
+    buildCommentConversationMap() {
+        this.commentConversationMap.clear();
+        this.commentConversations.forEach(conv => {
+            if (conv.User && conv.User.Id) {
+                this.commentConversationMap.set(conv.User.Id, conv);
+            }
+        });
+        console.log(`[CHAT] Built comment conversation map with ${this.commentConversationMap.size} entries`);
     }
 
     /**
@@ -344,16 +454,13 @@ class ChatDataManager {
     }
 
     /**
-     * Lấy comment cuối cùng cho order từ cache
-     * @param {string} channelId - Facebook Page ID
+     * Lấy comment cuối cùng cho order từ comment conversation map
+     * @param {string} channelId - Facebook Page ID (not used, kept for compatibility)
      * @param {string} userId - Facebook PSID
      * @returns {Object} { message, messageType, hasUnread, unreadCount, type, commentsCount }
      */
     getLastCommentForOrder(channelId, userId) {
-        const cacheKey = `${channelId}_${userId}`;
-        const comments = this.comments.get(cacheKey);
-
-        if (!comments || comments.length === 0) {
+        if (!userId) {
             return {
                 message: null,
                 messageType: null,
@@ -364,21 +471,46 @@ class ChatDataManager {
             };
         }
 
-        // Get the most recent comment (first in array)
-        const lastComment = comments[0];
+        // Get comment conversation from map
+        const commentConv = this.commentConversationMap.get(userId);
+
+        if (!commentConv) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                type: 'comment',
+                commentsCount: 0
+            };
+        }
+
+        // Extract comment info from LastActivities.Comment
+        const lastComment = commentConv.LastActivities?.Comment;
+        if (!lastComment) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                type: 'comment',
+                commentsCount: 0
+            };
+        }
+
         const message = lastComment.Message || null;
-        const messageType = 'text';
-        const hasUnread = lastComment.Status === 30; // Status 30 means unread
-        const commentsCount = comments.length;
+        const messageType = lastComment.Type === 1 ? 'text' : 'other';
+        const hasUnread = commentConv.LastActivities?.HasUnread || false;
+        const unreadCount = commentConv.LastActivities?.UnreadCount || 0;
 
         return {
             message,
             messageType,
             hasUnread,
-            unreadCount: hasUnread ? 1 : 0,
+            unreadCount,
             type: 'comment',
-            commentsCount,
-            object: lastComment.Object
+            commentsCount: 1, // We only have the last comment info
+            commentConversation: commentConv
         };
     }
 
@@ -388,8 +520,11 @@ class ChatDataManager {
     clearCache() {
         this.conversations = [];
         this.conversationMap.clear();
+        this.commentConversations = [];
+        this.commentConversationMap.clear();
         this.comments.clear();
         this.lastFetchTime = null;
+        this.lastCommentFetchTime = null;
         console.log('[CHAT] Cache cleared');
     }
 }

@@ -681,10 +681,13 @@ async function fetchOrders() {
         );
         sendDataToTab2();
 
-        // Load conversations for first batch
+        // Load conversations and comment conversations for first batch
         console.log('[PROGRESSIVE] Loading conversations for first batch...');
         if (window.chatDataManager) {
-            await window.chatDataManager.fetchConversations();
+            await Promise.all([
+                window.chatDataManager.fetchConversations(),
+                window.chatDataManager.fetchCommentConversations()
+            ]);
             renderTable(); // Re-render with chat data
         }
 
@@ -1090,9 +1093,6 @@ function renderTable() {
     if (window.columnVisibility) {
         window.columnVisibility.initialize();
     }
-
-    // Auto-fetch comments for cells marked with data-auto-fetch="pending"
-    autoFetchAllComments();
 }
 
 function createRowHTML(order) {
@@ -1177,19 +1177,16 @@ function renderChatColumn(order) {
 
     // Không có conversation - check for comments
     if (!chatInfo.message && !chatInfo.hasUnread) {
-        // Try to get cached comments
+        // Try to get comment from comment conversations
         const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
 
         if (commentInfo.message) {
-            // We have cached comments, use them
+            // We have comment conversation, use it
             return renderChatColumnWithData(order, commentInfo, channelId, psid);
         }
 
-        // No cached comments - show loading state and mark for auto-fetch
-        return `<td data-column="messages" data-order-id="${order.Id}" data-channel-id="${channelId}" data-psid="${psid}" data-auto-fetch="pending" style="text-align: center; color: #9ca3af;">
-            <i class="fas fa-spinner fa-spin" style="margin-right: 4px;"></i>
-            <span style="font-size: 12px;">Đang tải...</span>
-        </td>`;
+        // No message and no comment - show dash
+        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
     // Render with message data
@@ -2857,85 +2854,6 @@ function sendOrdersDataToTab3() {
 // =====================================================
 let currentChatChannelId = null;
 let currentChatPSID = null;
-
-// Auto-fetch all comments for cells that need it
-async function autoFetchAllComments() {
-    const cellsToFetch = document.querySelectorAll('[data-auto-fetch="pending"]');
-
-    if (cellsToFetch.length === 0) {
-        return;
-    }
-
-    console.log(`[CHAT] Auto-fetching comments for ${cellsToFetch.length} orders...`);
-
-    // Fetch comments with delay to avoid overwhelming the server
-    for (const cell of cellsToFetch) {
-        const orderId = cell.dataset.orderId;
-        const channelId = cell.dataset.channelId;
-        const psid = cell.dataset.psid;
-
-        if (orderId && channelId && psid) {
-            // Mark as processing to avoid duplicate fetches
-            cell.dataset.autoFetch = 'processing';
-
-            // Fetch with a small delay between requests
-            await new Promise(resolve => setTimeout(resolve, 100));
-            await fetchAndShowComments(orderId, channelId, psid, cell);
-        }
-    }
-
-    console.log('[CHAT] ✅ Finished auto-fetching comments');
-}
-
-// Fetch and display comments for an order
-async function fetchAndShowComments(orderId, channelId, psid, cell = null) {
-    try {
-        // If no cell provided, find it
-        if (!cell) {
-            cell = document.querySelector(`[data-column="messages"][data-order-id="${orderId}"]`);
-        }
-
-        // Fetch comments
-        const comments = await window.chatDataManager.fetchComments(channelId, psid);
-
-        if (comments && comments.length > 0) {
-            // Get the order
-            const order = allData.find(o => o.Id === orderId);
-            if (!order) {
-                console.error('[CHAT] Order not found:', orderId);
-                if (cell) {
-                    cell.innerHTML = '<span style="color: #ef4444; font-size: 12px;">Lỗi</span>';
-                    cell.dataset.autoFetch = 'error';
-                }
-                return;
-            }
-
-            // Get comment info
-            const commentInfo = window.chatDataManager.getLastCommentForOrder(channelId, psid);
-
-            // Update the messages cell
-            if (cell) {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = renderChatColumnWithData(order, commentInfo, channelId, psid);
-                cell.replaceWith(tempDiv.firstElementChild);
-            }
-
-            console.log(`[CHAT] ✅ Loaded ${comments.length} comments for order ${orderId}`);
-        } else {
-            // No comments found - show dash
-            if (cell) {
-                cell.innerHTML = '<span style="color: #9ca3af;">−</span>';
-                cell.dataset.autoFetch = 'none';
-            }
-        }
-    } catch (error) {
-        console.error('[CHAT] Error fetching comments:', error);
-        if (cell) {
-            cell.innerHTML = '<span style="color: #ef4444; font-size: 12px;">Lỗi</span>';
-            cell.dataset.autoFetch = 'error';
-        }
-    }
-}
 
 async function openChatModal(orderId, channelId, psid, type = 'message') {
     if (!channelId || !psid) {
