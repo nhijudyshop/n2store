@@ -599,6 +599,14 @@ async function handleSearch() {
         return;
     }
 
+    // Abort any ongoing background loading
+    if (isLoadingInBackground) {
+        console.log('[PROGRESSIVE] Aborting background loading for new search...');
+        loadingAborted = true;
+        // Wait a bit for background loading to stop
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
     window.cacheManager.clear("orders");
     searchQuery = "";
     document.getElementById("tableSearchInput").value = "";
@@ -607,9 +615,15 @@ async function handleSearch() {
     await fetchOrders();
 }
 
+// Progressive loading state
+let isLoadingInBackground = false;
+let loadingAborted = false;
+
 async function fetchOrders() {
     try {
         showLoading(true);
+        loadingAborted = false;
+
         const startDate = convertToUTC(
             document.getElementById("startDate").value,
         );
@@ -632,33 +646,28 @@ async function fetchOrders() {
         console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
 
         const PAGE_SIZE = 1000;
+        const BATCH_SIZE = 200; // Show every 200 orders
         let skip = 0;
         let hasMore = true;
         allData = [];
         const headers = await window.tokenManager.getAuthHeader();
 
-        while (hasMore) {
-            const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
-            const response = await fetch(url, {
-                headers: { ...headers, accept: "application/json" },
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            const orders = data.value || [];
-            if (skip === 0) totalCount = data["@odata.count"] || 0;
-            allData = allData.concat(orders);
-            document.querySelector(
-                ".loading-overlay .loading-text",
-            ).textContent = `Đang tải dữ liệu... (${allData.length} đơn hàng)`;
-            hasMore = orders.length === PAGE_SIZE;
-            skip += PAGE_SIZE;
-            if (hasMore)
-                await new Promise((resolve) => setTimeout(resolve, 300));
-        }
+        // ===== PHASE 1: Load first batch and show immediately =====
+        console.log('[PROGRESSIVE] Loading first batch...');
+        const firstUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+        const firstResponse = await fetch(firstUrl, {
+            headers: { ...headers, accept: "application/json" },
+        });
+        if (!firstResponse.ok) throw new Error(`HTTP ${firstResponse.status}`);
+        const firstData = await firstResponse.json();
+        const firstOrders = firstData.value || [];
+        totalCount = firstData["@odata.count"] || 0;
 
+        allData = firstOrders;
         filteredData = allData.filter((order) => order && order.Id);
         displayedData = filteredData;
 
+        // Show UI immediately with first batch
         document.getElementById("statsBar").style.display = "flex";
         document.getElementById("tableContainer").style.display = "block";
         document.getElementById("searchSection").classList.add("active");
@@ -668,20 +677,103 @@ async function fetchOrders() {
         updateStats();
         updateSearchResultCount();
         showInfoBanner(
-            `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
+            `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
         );
         sendDataToTab2();
 
-        // Load tags sau khi hiển thị bảng (để sẵn sàng cho manual tag assignment)
-        console.log('[INIT] Loading available tags...');
-        await loadAvailableTags();
-
-        // Load chat conversations sau khi hiển thị bảng
-        console.log('[INIT] Loading chat conversations...');
+        // Load conversations for first batch
+        console.log('[PROGRESSIVE] Loading conversations for first batch...');
         if (window.chatDataManager) {
             await window.chatDataManager.fetchConversations();
-            // Re-render table to show chat data
-            renderTable();
+            renderTable(); // Re-render with chat data
+        }
+
+        // Load tags in background
+        loadAvailableTags().catch(err => console.error('[TAGS] Error loading tags:', err));
+
+        // Hide loading overlay after first batch
+        showLoading(false);
+
+        // ===== PHASE 2: Continue loading remaining orders in background =====
+        hasMore = firstOrders.length === PAGE_SIZE;
+        skip += PAGE_SIZE;
+
+        if (hasMore) {
+            isLoadingInBackground = true;
+            console.log('[PROGRESSIVE] Starting background loading...');
+
+            // Run background loading
+            (async () => {
+                try {
+                    let batchCount = 0;
+
+                    while (hasMore && !loadingAborted) {
+                        const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
+                        const response = await fetch(url, {
+                            headers: { ...headers, accept: "application/json" },
+                        });
+                        if (!response.ok) {
+                            console.error(`[PROGRESSIVE] Error fetching batch at skip=${skip}`);
+                            break;
+                        }
+
+                        const data = await response.json();
+                        const orders = data.value || [];
+
+                        if (orders.length > 0) {
+                            allData = allData.concat(orders);
+                            filteredData = allData.filter((order) => order && order.Id);
+                            displayedData = filteredData;
+
+                            batchCount++;
+
+                            // Update table every BATCH_SIZE orders
+                            if (batchCount * PAGE_SIZE % BATCH_SIZE === 0 || orders.length < PAGE_SIZE) {
+                                console.log(`[PROGRESSIVE] Updating table: ${allData.length}/${totalCount} orders`);
+                                renderTable();
+                                updatePageInfo();
+                                updateStats();
+                                updateSearchResultCount();
+                                showInfoBanner(
+                                    `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
+                                );
+                                sendDataToTab2();
+                            }
+                        }
+
+                        hasMore = orders.length === PAGE_SIZE;
+                        skip += PAGE_SIZE;
+
+                        // Small delay to allow UI interaction
+                        if (hasMore) {
+                            await new Promise((resolve) => setTimeout(resolve, 100));
+                        }
+                    }
+
+                    // Final update
+                    if (!loadingAborted) {
+                        console.log('[PROGRESSIVE] Background loading completed');
+                        renderTable();
+                        updatePageInfo();
+                        updateStats();
+                        updateSearchResultCount();
+                        showInfoBanner(
+                            `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
+                        );
+                        sendDataToTab2();
+                    }
+
+                } catch (error) {
+                    console.error('[PROGRESSIVE] Background loading error:', error);
+                } finally {
+                    isLoadingInBackground = false;
+                }
+            })();
+        } else {
+            // No more data, we're done
+            showInfoBanner(
+                `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
+            );
         }
 
     } catch (error) {
@@ -702,7 +794,7 @@ async function fetchOrders() {
         } else {
             alert(errorMessage);
         }
-    } finally {
+
         showLoading(false);
     }
 }
