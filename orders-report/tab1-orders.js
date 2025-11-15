@@ -645,8 +645,8 @@ async function fetchOrders() {
         const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and ${campaignFilter}`;
         console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
 
-        const PAGE_SIZE = 1000;
-        const BATCH_SIZE = 200; // Show every 200 orders
+        const PAGE_SIZE = 1000; // API fetch size
+        const UPDATE_EVERY = 200; // Update UI every 200 orders
         let skip = 0;
         let hasMore = true;
         allData = [];
@@ -705,7 +705,7 @@ async function fetchOrders() {
             // Run background loading
             (async () => {
                 try {
-                    let batchCount = 0;
+                    let lastUpdateCount = allData.length; // Track when we last updated
 
                     while (hasMore && !loadingAborted) {
                         const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
@@ -725,10 +725,12 @@ async function fetchOrders() {
                             filteredData = allData.filter((order) => order && order.Id);
                             displayedData = filteredData;
 
-                            batchCount++;
+                            // Update table every UPDATE_EVERY orders OR if this is the last batch
+                            const shouldUpdate =
+                                allData.length - lastUpdateCount >= UPDATE_EVERY ||
+                                orders.length < PAGE_SIZE;
 
-                            // Update table every BATCH_SIZE orders
-                            if (batchCount * PAGE_SIZE % BATCH_SIZE === 0 || orders.length < PAGE_SIZE) {
+                            if (shouldUpdate) {
                                 console.log(`[PROGRESSIVE] Updating table: ${allData.length}/${totalCount} orders`);
                                 renderTable();
                                 updatePageInfo();
@@ -738,6 +740,7 @@ async function fetchOrders() {
                                     `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
                                 );
                                 sendDataToTab2();
+                                lastUpdateCount = allData.length;
                             }
                         }
 
