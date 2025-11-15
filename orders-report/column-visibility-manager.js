@@ -11,6 +11,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'order-code': true,
     'customer': true,
     'messages': true,
+    'comments': true,
     'phone': true,
     'address': true,
     'notes': true,
@@ -167,7 +168,7 @@ function initializeColumnVisibility() {
  */
 function addColumnAttributesToRow(row) {
     const cells = row.querySelectorAll('td');
-    const columns = ['', 'stt', 'order-code', 'customer', 'messages', 'phone', 'address', 'notes', 'total', 'quantity', 'created-date', 'status', ''];
+    const columns = ['', 'stt', 'order-code', 'customer', 'messages', 'comments', 'phone', 'address', 'notes', 'total', 'quantity', 'created-date', 'status', ''];
 
     cells.forEach((cell, index) => {
         if (columns[index] && columns[index] !== '') {
