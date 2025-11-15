@@ -35,7 +35,7 @@ class ChatDataManager {
             }
 
             this.isLoading = true;
-            console.log('[CHAT] Fetching conversations from API...');
+            console.log('[CHAT] Fetching conversations (messages + comments) from API...');
 
             const headers = await window.tokenManager.getAuthHeader();
             const url = `${this.API_BASE}/conversations/search`;
@@ -55,7 +55,7 @@ class ChatDataManager {
                         Type: 4
                     }
                 ],
-                Type: "message",
+                Type: null,  // null = fetch both messages and comments
                 HasPhone: null,
                 HasAddress: null,
                 HasOrder: null,
@@ -257,7 +257,7 @@ class ChatDataManager {
     /**
      * Lấy tin nhắn cuối cùng cho order
      * @param {Object} order - Order object
-     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments }
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type }
      */
     getLastMessageForOrder(order) {
         const chatInfo = this.getChatInfoForOrder(order);
@@ -268,24 +268,46 @@ class ChatDataManager {
                 messageType: null,
                 hasUnread: false,
                 unreadCount: 0,
-                attachments: null
+                attachments: null,
+                type: null
             };
         }
 
         const conv = chatInfo.conversation;
-        const messageObj = conv.LastActivities?.Message || {};
-        const lastMessage = messageObj.Message || null;
-        const messageType = messageObj.Type || 'text';
-        const attachments = messageObj.Attachments || null;
-        const hasUnread = conv.LastActivities?.HasUnread || false;
-        const unreadCount = conv.LastActivities?.UnreadCount || 0;
+        const convType = conv.Type; // 'message' or 'comment'
 
+        // Handle based on conversation type
+        if (convType === 'message') {
+            // Message type: data in LastActivities.Message
+            const messageObj = conv.LastActivities?.Message || {};
+            return {
+                message: messageObj.Message || null,
+                messageType: messageObj.Type || 'text',
+                hasUnread: conv.LastActivities?.HasUnread || false,
+                unreadCount: conv.LastActivities?.UnreadCount || 0,
+                attachments: messageObj.Attachments || null,
+                type: 'message'
+            };
+        } else if (convType === 'comment') {
+            // Comment type: data directly in conversation
+            return {
+                message: conv.Message || null,
+                messageType: 'text',
+                hasUnread: false, // Comments don't have unread count
+                unreadCount: 0,
+                attachments: null,
+                type: 'comment'
+            };
+        }
+
+        // Unknown type
         return {
-            message: lastMessage,
-            messageType,
-            hasUnread,
-            unreadCount,
-            attachments
+            message: null,
+            messageType: null,
+            hasUnread: false,
+            unreadCount: 0,
+            attachments: null,
+            type: null
         };
     }
 

@@ -1220,13 +1220,22 @@ function renderChatColumn(order) {
         ? `<span class="chat-unread-badge">${chatInfo.unreadCount}</span>`
         : '';
 
+    // Icon based on type (message vs comment)
+    const typeIcon = chatInfo.type === 'comment'
+        ? '<i class="fas fa-comment" style="color: #65676b;"></i>'
+        : '<i class="fab fa-facebook-messenger" style="color: #0084ff;"></i>';
+
+    const tooltipText = chatInfo.type === 'comment'
+        ? 'Click để xem bình luận'
+        : 'Click để xem toàn bộ tin nhắn';
+
     return `
         <td data-column="messages" class="chat-column ${highlightClass}"
             style="max-width: 200px; white-space: normal; cursor: pointer;"
             onclick="openChatModal('${order.Id}', '${channelId}', '${psid}')"
-            title="Click để xem toàn bộ tin nhắn">
+            title="${tooltipText}">
             <div style="display: flex; align-items: center; gap: 6px;">
-                <i class="fab fa-facebook-messenger" style="color: #0084ff;"></i>
+                ${typeIcon}
                 ${messageIcon ? `<span style="font-size: 16px;">${messageIcon}</span>` : ''}
                 <span style="flex: 1;">${displayMessage}</span>
                 ${badge}
