@@ -990,6 +990,11 @@ function renderTable() {
         return;
     }
     tbody.innerHTML = displayedData.map(createRowHTML).join("");
+
+    // Apply column visibility after rendering
+    if (window.columnVisibility) {
+        window.columnVisibility.initialize();
+    }
 }
 
 function createRowHTML(order) {
@@ -1014,13 +1019,13 @@ function createRowHTML(order) {
     return `
         <tr>
             <td><input type="checkbox" value="${order.Id}" /></td>
-            <td>
+            <td data-column="stt">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span>${order.SessionIndex || ""}</span>
                     <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
-            <td style="max-width: 120px; white-space: normal;">
+            <td data-column="order-code" style="max-width: 120px; white-space: normal;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                     <span>${highlight(order.Code)}</span>
                     <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
@@ -1030,22 +1035,23 @@ function createRowHTML(order) {
                 </div>
                 ${tagsHTML}
             </td>
-            <td><div>${highlight(order.Name)}</div>${partnerStatusHTML}</td>
+            <td data-column="customer"><div>${highlight(order.Name)}</div>${partnerStatusHTML}</td>
             ${chatHTML}
-            <td style="max-width: 100px; white-space: normal;">${highlight(order.Telephone)}</td>
-            <td style="max-width: 500px; white-space: normal;">${highlight(order.Address)}</td>
-            <td style="max-width: 200px; white-space: normal;">${highlight(order.Note)}</td>
-            <td>${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
-            <td>${order.TotalQuantity || 0}</td>
-            <td>${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
-            <td><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">${highlight(order.StatusText || order.Status)}</span></td>
+            <td data-column="phone" style="max-width: 100px; white-space: normal;">${highlight(order.Telephone)}</td>
+            <td data-column="address" style="max-width: 500px; white-space: normal;">${highlight(order.Address)}</td>
+            <td data-column="notes" style="max-width: 200px; white-space: normal;">${highlight(order.Note)}</td>
+            <td data-column="total">${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
+            <td data-column="quantity">${order.TotalQuantity || 0}</td>
+            <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
+            <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">${highlight(order.StatusText || order.Status)}</span></td>
+            <td></td>
         </tr>`;
 }
 
 function renderChatColumn(order) {
     if (!window.chatDataManager) {
         console.log('[CHAT RENDER] chatDataManager not available');
-        return '<td style="text-align: center; color: #9ca3af;">−</td>';
+        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
     // Get chat info for order
@@ -1064,14 +1070,14 @@ function renderChatColumn(order) {
 
     // If no PSID or Channel ID, show dash
     if (!orderChatInfo.psid || !orderChatInfo.channelId) {
-        return '<td style="text-align: center; color: #9ca3af;">−</td>';
+        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
     const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
 
     // Không có conversation
     if (!chatInfo.message && !chatInfo.hasUnread) {
-        return '<td style="text-align: center; color: #9ca3af;">−</td>';
+        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
     // Truncate message
@@ -1094,7 +1100,7 @@ function renderChatColumn(order) {
         : '';
 
     return `
-        <td class="chat-column ${highlightClass}"
+        <td data-column="messages" class="chat-column ${highlightClass}"
             style="max-width: 200px; white-space: normal; cursor: pointer;"
             onclick="openChatModal('${order.Id}', '${channelId}', '${psid}')"
             title="Click để xem toàn bộ tin nhắn">

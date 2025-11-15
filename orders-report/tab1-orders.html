@@ -205,7 +205,12 @@
                         >
                         <span> kết quả</span>
                     </div>
-                    <div class="search-tips">💡 Gõ để tìm kiếm nhanh</div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="search-tips">💡 Gõ để tìm kiếm nhanh</div>
+                        <button class="btn-column-settings" id="columnSettingsBtn" onclick="openColumnSettingsModal()">
+                            <i class="fas fa-columns"></i> Cài đặt cột
+                        </button>
+                    </div>
                 </div>
             </div>
             <!-- Table Container -->
@@ -221,17 +226,17 @@
                                 <th>
                                     <input type="checkbox" id="selectAll" />
                                 </th>
-                                <th>STT</th>
-                                <th>Mã ĐH</th>
-                                <th>Khách hàng</th>
-                                <th>Tin nhắn</th>
-                                <th>SĐT</th>
-                                <th>Địa chỉ</th>
-                                <th>Ghi chú</th>
-                                <th>Tổng tiền</th>
-                                <th>SL</th>
-                                <th>Ngày tạo</th>
-                                <th>Trạng thái</th>
+                                <th data-column="stt">STT</th>
+                                <th data-column="order-code">Mã ĐH</th>
+                                <th data-column="customer">Khách hàng</th>
+                                <th data-column="messages">Tin nhắn</th>
+                                <th data-column="phone">SĐT</th>
+                                <th data-column="address">Địa chỉ</th>
+                                <th data-column="notes">Ghi chú</th>
+                                <th data-column="total">Tổng tiền</th>
+                                <th data-column="quantity">SL</th>
+                                <th data-column="created-date">Ngày tạo</th>
+                                <th data-column="status">Trạng thái</th>
                                 <th>Thao tác</th>
                             </tr>
                         </thead>
@@ -307,6 +312,82 @@
             </div>
         </div>
 
+        <!-- Column Settings Modal -->
+        <div class="column-settings-modal" id="columnSettingsModal">
+            <div class="column-settings-modal-content">
+                <div class="column-settings-modal-header">
+                    <h3><i class="fas fa-columns"></i> Cài đặt hiển thị cột</h3>
+                    <button class="column-settings-modal-close" onclick="closeColumnSettingsModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="column-settings-modal-body">
+                    <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">
+                        Chọn các cột bạn muốn hiển thị trong bảng:
+                    </p>
+                    <div class="column-settings-list" id="columnSettingsList">
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="stt" checked />
+                            <span>STT</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="order-code" checked />
+                            <span>Mã đơn hàng</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="customer" checked />
+                            <span>Khách hàng</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="messages" checked />
+                            <span>Tin nhắn</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="phone" checked />
+                            <span>Số điện thoại</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="address" checked />
+                            <span>Địa chỉ</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="notes" checked />
+                            <span>Ghi chú</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="total" checked />
+                            <span>Tổng tiền</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="quantity" checked />
+                            <span>Số lượng</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="created-date" checked />
+                            <span>Ngày tạo</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="status" checked />
+                            <span>Trạng thái</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="column-settings-modal-footer">
+                    <button class="column-settings-btn-reset" onclick="resetColumnSettings()">
+                        <i class="fas fa-undo"></i> Đặt lại mặc định
+                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="column-settings-btn-cancel" onclick="closeColumnSettingsModal()">
+                            Hủy
+                        </button>
+                        <button class="column-settings-btn-save" onclick="saveColumnSettings()">
+                            <i class="fas fa-save"></i> Lưu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Chat Messages Modal -->
         <div class="chat-modal" id="chatModal">
             <div class="chat-modal-content">
@@ -348,6 +429,7 @@
         <script src="message-template-manager.js"></script>
         <script src="product-search-manager.js"></script>
         <script src="search-functions.js"></script>
+        <script src="column-visibility-manager.js"></script>
         <script src="tab1-orders.js"></script>
         
         <!-- Additional Script for Checkbox Handling -->
