@@ -1176,7 +1176,7 @@ function renderChatColumn(order) {
     }
 
     // Format message based on type
-    let displayMessage = 'Không có tin nhắn';
+    let displayMessage = 'Emoji hoặc ảnh';
     let messageIcon = '';
 
     if (chatInfo.attachments && chatInfo.attachments.length > 0) {
