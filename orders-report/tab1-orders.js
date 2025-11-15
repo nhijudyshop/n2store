@@ -1190,6 +1190,26 @@ function createRowHTML(order) {
 
 function renderChatColumn(order) {
     if (!window.chatDataManager) {
+        console.log('[CHAT RENDER] chatDataManager not available');
+        return '<td style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    // Get chat info for order
+    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
+
+    // Debug log first few orders
+    if (order.SessionIndex && order.SessionIndex <= 3) {
+        console.log(`[CHAT RENDER] Order ${order.Code}:`, {
+            Facebook_ASUserId: order.Facebook_ASUserId,
+            Facebook_PostId: order.Facebook_PostId,
+            channelId: orderChatInfo.channelId,
+            psid: orderChatInfo.psid,
+            hasChat: orderChatInfo.hasChat
+        });
+    }
+
+    // If no PSID or Channel ID, show dash
+    if (!orderChatInfo.psid || !orderChatInfo.channelId) {
         return '<td style="text-align: center; color: #9ca3af;">−</td>';
     }
 
@@ -1208,10 +1228,8 @@ function renderChatColumn(order) {
             : chatInfo.message)
         : 'Không có tin nhắn';
 
-    // Get chat info for onclick
-    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
-    const channelId = orderChatInfo.channelId || '';
-    const psid = orderChatInfo.psid || '';
+    const channelId = orderChatInfo.channelId;
+    const psid = orderChatInfo.psid;
 
     // Highlight class
     const highlightClass = chatInfo.hasUnread ? 'chat-has-unread' : '';

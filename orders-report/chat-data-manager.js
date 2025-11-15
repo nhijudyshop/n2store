@@ -23,7 +23,7 @@ class ChatDataManager {
             if (!forceRefresh && this.conversations.length > 0 && this.lastFetchTime) {
                 const cacheAge = Date.now() - this.lastFetchTime;
                 if (cacheAge < this.CACHE_DURATION) {
-                    console.log('[CHAT] Using cached conversations');
+                    console.log('[CHAT] Using cached conversations, count:', this.conversations.length);
                     return this.conversations;
                 }
             }
@@ -37,56 +37,71 @@ class ChatDataManager {
             console.log('[CHAT] Fetching conversations from API...');
 
             const headers = await window.tokenManager.getAuthHeader();
+            const url = `${this.API_BASE}/conversations/search`;
 
-            const response = await fetch(`${this.API_BASE}/conversations/search`, {
+            console.log('[CHAT] Request URL:', url);
+            console.log('[CHAT] Request headers:', headers);
+
+            const requestBody = {
+                Keyword: null,
+                Limit: 200,
+                Sort: null,
+                Before: null,
+                After: null,
+                Channels: [
+                    {
+                        Id: "270136663390370",
+                        Type: 4
+                    }
+                ],
+                Type: "message",
+                HasPhone: null,
+                HasAddress: null,
+                HasOrder: null,
+                IsUnread: null,
+                IsUnreplied: null,
+                TagIds: [],
+                UserIds: [],
+                Start: null,
+                End: null,
+                FromNewToOld: null
+            };
+
+            console.log('[CHAT] Request body:', JSON.stringify(requestBody, null, 2));
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     ...headers,
                     'Content-Type': 'application/json',
                     'accept': 'application/json'
                 },
-                body: JSON.stringify({
-                    Keyword: null,
-                    Limit: 200, // Lấy nhiều hơn để đảm bảo đủ
-                    Sort: null,
-                    Before: null,
-                    After: null,
-                    Channels: [
-                        {
-                            Id: "270136663390370",
-                            Type: 4 // Facebook Messenger
-                        }
-                    ],
-                    Type: "message",
-                    HasPhone: null,
-                    HasAddress: null,
-                    HasOrder: null,
-                    IsUnread: null,
-                    IsUnreplied: null,
-                    TagIds: [],
-                    UserIds: [],
-                    Start: null,
-                    End: null,
-                    FromNewToOld: null
-                })
+                body: JSON.stringify(requestBody)
             });
 
+            console.log('[CHAT] Response status:', response.status, response.statusText);
+
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[CHAT] Error response:', errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
+            console.log('[CHAT] Response data:', data);
+
             this.conversations = data.Data || [];
             this.lastFetchTime = Date.now();
 
             // Build map for quick lookup
             this.buildConversationMap();
 
-            console.log(`[CHAT] Fetched ${this.conversations.length} conversations`);
+            console.log(`[CHAT] ✅ Fetched ${this.conversations.length} conversations`);
             return this.conversations;
 
         } catch (error) {
-            console.error('[CHAT] Error fetching conversations:', error);
+            console.error('[CHAT] ❌ Error fetching conversations:', error);
+            console.error('[CHAT] Error stack:', error.stack);
             // Return empty array on error, don't block the UI
             return [];
         } finally {
