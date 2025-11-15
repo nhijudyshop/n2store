@@ -465,10 +465,14 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const existingCampaign = dateCampaigns.find(c => c.campaignId === order.LiveCampaignId);
 
             if (!existingCampaign) {
+                // Parse channelId từ Facebook_PostId (format: "channelId_postId")
+                const channelId = window.chatDataManager?.parseChannelId(order.Facebook_PostId) || null;
+
                 dateCampaigns.push({
                     campaignId: order.LiveCampaignId,
                     campaignName: order.LiveCampaignName || "Không có tên",
-                    dateCreated: order.DateCreated
+                    dateCreated: order.DateCreated,
+                    channelId: channelId  // 🆕 Lưu channelId
                 });
             }
         });
@@ -487,6 +491,13 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                 const campaignIds = dateCampaigns.map(c => c.campaignId);
                 const campaignNames = dateCampaigns.map(c => c.campaignName);
 
+                // 🆕 Collect unique channelIds từ các campaigns
+                const channelIds = [...new Set(
+                    dateCampaigns
+                        .map(c => c.channelId)
+                        .filter(id => id)  // Remove null/undefined
+                )];
+
                 // Tạo display name
                 let displayName;
                 if (dateCampaigns.length === 1) {
@@ -498,6 +509,7 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
                 mergedCampaigns.push({
                     campaignId: campaignIds, // Array of IDs for campaigns on same day
                     campaignIds: campaignIds, // Keep both for clarity
+                    channelIds: channelIds,  // 🆕 Array of unique channel IDs
                     displayName: displayName,
                     date: dateKey,
                     latestDate: dateCampaigns[0].dateCreated,
@@ -576,12 +588,27 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
     }
 }
 
-function handleCampaignChange() {
+async function handleCampaignChange() {
     const select = document.getElementById("campaignFilter");
     const selectedOption = select.options[select.selectedIndex];
     selectedCampaign = selectedOption?.dataset.campaign
         ? JSON.parse(selectedOption.dataset.campaign)
         : null;
+
+    // 🚀 Pre-fetch conversations khi chọn campaign (nếu có channelIds)
+    if (selectedCampaign?.channelIds && selectedCampaign.channelIds.length > 0 && window.chatDataManager) {
+        console.log('[CAMPAIGN] Pre-fetching conversations for channelIds:', selectedCampaign.channelIds);
+
+        // Fetch conversations và comment conversations song song (không chờ, chạy ngầm)
+        Promise.all([
+            window.chatDataManager.fetchConversations(false, selectedCampaign.channelIds),
+            window.chatDataManager.fetchCommentConversations(false, selectedCampaign.channelIds)
+        ]).then(() => {
+            console.log('[CAMPAIGN] ✅ Pre-fetched conversations successfully');
+        }).catch(err => {
+            console.error('[CAMPAIGN] ❌ Error pre-fetching conversations:', err);
+        });
+    }
 }
 
 async function handleSearch() {
@@ -684,13 +711,21 @@ async function fetchOrders() {
         // Load conversations and comment conversations for first batch
         console.log('[PROGRESSIVE] Loading conversations for first batch...');
         if (window.chatDataManager) {
-            // Collect unique channel IDs from orders (parse from Facebook_PostId)
-            const channelIds = [...new Set(
-                allData
-                    .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
-                    .filter(id => id) // Remove null/undefined
-            )];
-            console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
+            // 🎯 Ưu tiên dùng channelIds từ selectedCampaign (đã được pre-fetched)
+            // Nếu không có, parse từ orders (fallback)
+            let channelIds = selectedCampaign?.channelIds || [];
+
+            if (channelIds.length === 0) {
+                // Fallback: Collect unique channel IDs from orders
+                channelIds = [...new Set(
+                    allData
+                        .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
+                        .filter(id => id) // Remove null/undefined
+                )];
+                console.log('[PROGRESSIVE] Parsed channel IDs from orders:', channelIds);
+            } else {
+                console.log('[PROGRESSIVE] Using channel IDs from campaign data (already pre-fetched):', channelIds);
+            }
 
             await Promise.all([
                 window.chatDataManager.fetchConversations(false, channelIds),
