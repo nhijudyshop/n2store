@@ -293,4 +293,4 @@ class ChatDataManager {
 }
 
 // Khởi tạo global instance
-window.chatDataManager = new window.chatDataManager || new ChatDataManager();
+window.chatDataManager = window.chatDataManager || new ChatDataManager();
