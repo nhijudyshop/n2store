@@ -122,6 +122,10 @@ class ChatDataManager {
             }
         });
         console.log(`[CHAT] Built conversation map with ${this.conversationMap.size} entries`);
+
+        // Debug: Show first 5 PSIDs in the map
+        const firstFive = Array.from(this.conversationMap.keys()).slice(0, 5);
+        console.log('[CHAT] Sample PSIDs in map:', firstFive);
     }
 
     /**
@@ -131,7 +135,16 @@ class ChatDataManager {
      */
     getConversationByPSID(psid) {
         if (!psid) return null;
-        return this.conversationMap.get(psid) || null;
+        const conv = this.conversationMap.get(psid);
+
+        // Debug first 3 lookups
+        if (this._debugCount === undefined) this._debugCount = 0;
+        if (this._debugCount < 3) {
+            console.log(`[CHAT LOOKUP] PSID: "${psid}" → Found: ${!!conv}`);
+            this._debugCount++;
+        }
+
+        return conv || null;
     }
 
     /**
