@@ -1149,30 +1149,34 @@ function renderChatColumn(order) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Get chat info for order
-    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
+    // Get last message/comment for order (supports message, comment by PSID, comment by OrderId)
+    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
 
     // Debug log first few orders
     if (order.SessionIndex && order.SessionIndex <= 3) {
         console.log(`[CHAT RENDER] Order ${order.Code}:`, {
             Facebook_ASUserId: order.Facebook_ASUserId,
             Facebook_PostId: order.Facebook_PostId,
-            channelId: orderChatInfo.channelId,
-            psid: orderChatInfo.psid,
-            hasChat: orderChatInfo.hasChat
+            OrderId: order.Id,
+            chatInfoType: chatInfo.type,
+            hasMessage: !!chatInfo.message
         });
     }
 
-    // If no PSID or Channel ID, show dash
-    if (!orderChatInfo.psid || !orderChatInfo.channelId) {
+    // Không có conversation/comment
+    if (!chatInfo.message && !chatInfo.hasUnread && !chatInfo.type) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+    // Get PSID and channelId (for messages, or for opening modal)
+    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
+    let channelId = orderChatInfo.channelId;
+    let psid = orderChatInfo.psid;
 
-    // Không có conversation
-    if (!chatInfo.message && !chatInfo.hasUnread && !chatInfo.type) {
-        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
+    // For comments found by OrderId, try to extract from conversation
+    if (!channelId && chatInfo.conversation) {
+        channelId = chatInfo.conversation.Channel?.Id || '270136663390370';
+        psid = chatInfo.conversation.User?.Id || '';
     }
 
     // Format message based on type
@@ -1208,9 +1212,6 @@ function renderChatColumn(order) {
             ? chatInfo.message.substring(0, maxLength) + '...'
             : chatInfo.message;
     }
-
-    const channelId = orderChatInfo.channelId;
-    const psid = orderChatInfo.psid;
 
     // Highlight class
     const highlightClass = chatInfo.hasUnread ? 'chat-has-unread' : '';
