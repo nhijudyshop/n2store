@@ -8,8 +8,9 @@ class ChatDataManager {
         this.conversationMap = new Map(); // Map PSID -> conversation
         this.isLoading = false;
         this.lastFetchTime = null;
-        // Use Cloudflare Worker proxy to bypass CORS (faster, no cold start)
-        this.API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/api-ms/chatomni/v1';
+        // Use proxy server to bypass CORS
+        // TODO: Switch to Cloudflare Worker when it's ready (currently returns 403)
+        this.API_BASE = 'https://chat-viewer-ubjn.onrender.com/api/api-ms/chatomni/v1';
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     }
 
@@ -121,6 +122,10 @@ class ChatDataManager {
             }
         });
         console.log(`[CHAT] Built conversation map with ${this.conversationMap.size} entries`);
+
+        // Debug: Show first 5 PSIDs in the map
+        const firstFive = Array.from(this.conversationMap.keys()).slice(0, 5);
+        console.log('[CHAT] Sample PSIDs in map:', firstFive);
     }
 
     /**
@@ -130,7 +135,16 @@ class ChatDataManager {
      */
     getConversationByPSID(psid) {
         if (!psid) return null;
-        return this.conversationMap.get(psid) || null;
+        const conv = this.conversationMap.get(psid);
+
+        // Debug first 3 lookups
+        if (this._debugCount === undefined) this._debugCount = 0;
+        if (this._debugCount < 3) {
+            console.log(`[CHAT LOOKUP] PSID: "${psid}" → Found: ${!!conv}`);
+            this._debugCount++;
+        }
+
+        return conv || null;
     }
 
     /**
