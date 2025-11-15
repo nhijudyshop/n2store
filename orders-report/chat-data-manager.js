@@ -44,15 +44,13 @@ class ChatDataManager {
             console.log('[CHAT] Fetching conversations from API...');
 
             const headers = await window.tokenManager.getAuthHeader();
-            const url = `${this.API_BASE}/conversations/search`;
-
-            console.log('[CHAT] Request URL:', url);
-            console.log('[CHAT] Request headers:', headers);
 
             // Build Channels array from channelIds or use default
             const channels = channelIds && channelIds.length > 0
                 ? channelIds.map(id => ({ Id: id, Type: 4 }))
                 : [{ Id: "270136663390370", Type: 4 }];  // Default fallback
+
+            console.log('[CHAT MESSAGE] Using channels:', channels);
 
             const requestBody = {
                 Keyword: null,
@@ -74,23 +72,62 @@ class ChatDataManager {
                 FromNewToOld: null
             };
 
-            console.log('[CHAT] Request body:', JSON.stringify(requestBody, null, 2));
+            console.log('[CHAT MESSAGE] Request body:', JSON.stringify(requestBody, null, 2));
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'accept': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
+            // Try Cloudflare Worker first
+            let response;
+            let url = `${this.API_BASE}/conversations/search`;
 
-            console.log('[CHAT] Response status:', response.status, response.statusText);
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        'accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('[CHAT MESSAGE] Response status:', response.status, response.statusText);
+
+                // If 525 error (SSL Handshake Failed), try direct API
+                if (response.status === 525) {
+                    console.warn('[CHAT MESSAGE] ⚠️ Cloudflare Worker failed with 525, trying direct API...');
+                    url = 'https://tomato.tpos.vn/api-ms/chatomni/v1/conversations/search';
+
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            ...headers,
+                            'Content-Type': 'application/json',
+                            'accept': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    console.log('[CHAT MESSAGE] Direct API response status:', response.status, response.statusText);
+                }
+            } catch (fetchError) {
+                console.error('[CHAT MESSAGE] Fetch error:', fetchError);
+                // Try direct API as fallback
+                console.warn('[CHAT MESSAGE] Trying direct API as fallback...');
+                url = 'https://tomato.tpos.vn/api-ms/chatomni/v1/conversations/search';
+
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        'accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+            }
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[CHAT] Error response:', errorText);
+                console.error('[CHAT MESSAGE] Error response:', errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
@@ -155,12 +192,13 @@ class ChatDataManager {
             console.log('[CHAT] Fetching comment conversations from API...');
 
             const headers = await window.tokenManager.getAuthHeader();
-            const url = `${this.API_BASE}/conversations/search`;
 
             // Build Channels array from channelIds or use default
             const channels = channelIds && channelIds.length > 0
                 ? channelIds.map(id => ({ Id: id, Type: 4 }))
                 : [{ Id: "270136663390370", Type: 4 }];  // Default fallback
+
+            console.log('[CHAT COMMENT] Using channels:', channels);
 
             const requestBody = {
                 Keyword: null,
@@ -182,28 +220,67 @@ class ChatDataManager {
                 FromNewToOld: null
             };
 
-            console.log('[CHAT] Request body:', JSON.stringify(requestBody, null, 2));
+            console.log('[CHAT COMMENT] Request body:', JSON.stringify(requestBody, null, 2));
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'accept': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
+            // Try Cloudflare Worker first
+            let response;
+            let url = `${this.API_BASE}/conversations/search`;
 
-            console.log('[CHAT] Response status:', response.status, response.statusText);
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        'accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('[CHAT COMMENT] Response status:', response.status, response.statusText);
+
+                // If 525 error (SSL Handshake Failed), try direct API
+                if (response.status === 525) {
+                    console.warn('[CHAT COMMENT] ⚠️ Cloudflare Worker failed with 525, trying direct API...');
+                    url = 'https://tomato.tpos.vn/api-ms/chatomni/v1/conversations/search';
+
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            ...headers,
+                            'Content-Type': 'application/json',
+                            'accept': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    console.log('[CHAT COMMENT] Direct API response status:', response.status, response.statusText);
+                }
+            } catch (fetchError) {
+                console.error('[CHAT COMMENT] Fetch error:', fetchError);
+                // Try direct API as fallback
+                console.warn('[CHAT COMMENT] Trying direct API as fallback...');
+                url = 'https://tomato.tpos.vn/api-ms/chatomni/v1/conversations/search';
+
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        'accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+            }
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[CHAT] Error response:', errorText);
+                console.error('[CHAT COMMENT] Error response:', errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
-            console.log('[CHAT] Response data:', data);
+            console.log('[CHAT COMMENT] Response data:', data);
 
             this.commentConversations = data.Data || [];
             this.lastCommentFetchTime = Date.now();
@@ -211,12 +288,12 @@ class ChatDataManager {
             // Build map for quick lookup
             this.buildCommentConversationMap();
 
-            console.log(`[CHAT] ✅ Fetched ${this.commentConversations.length} comment conversations`);
+            console.log(`[CHAT COMMENT] ✅ Fetched ${this.commentConversations.length} comment conversations`);
             return this.commentConversations;
 
         } catch (error) {
-            console.error('[CHAT] ❌ Error fetching comment conversations:', error);
-            console.error('[CHAT] Error stack:', error.stack);
+            console.error('[CHAT COMMENT] ❌ Error fetching comment conversations:', error);
+            console.error('[CHAT COMMENT] Error stack:', error.stack);
             return [];
         } finally {
             this.isLoadingComments = false;
