@@ -8,8 +8,9 @@ class ChatDataManager {
         this.conversationMap = new Map(); // Map PSID -> conversation
         this.isLoading = false;
         this.lastFetchTime = null;
-        // Use Cloudflare Worker proxy to bypass CORS (faster, no cold start)
-        this.API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/api-ms/chatomni/v1';
+        // Use proxy server to bypass CORS
+        // TODO: Switch to Cloudflare Worker when it's ready (currently returns 403)
+        this.API_BASE = 'https://chat-viewer-ubjn.onrender.com/api/api-ms/chatomni/v1';
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     }
 
