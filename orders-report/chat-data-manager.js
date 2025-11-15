@@ -21,9 +21,10 @@ class ChatDataManager {
     /**
      * Lấy danh sách conversations từ API
      * @param {boolean} forceRefresh - Bắt buộc refresh (bỏ qua cache)
+     * @param {Array<string>} channelIds - Danh sách channel IDs (lấy từ Facebook_PostId)
      * @returns {Promise<Array>}
      */
-    async fetchConversations(forceRefresh = false) {
+    async fetchConversations(forceRefresh = false, channelIds = null) {
         try {
             // Check cache
             if (!forceRefresh && this.conversations.length > 0 && this.lastFetchTime) {
@@ -48,18 +49,18 @@ class ChatDataManager {
             console.log('[CHAT] Request URL:', url);
             console.log('[CHAT] Request headers:', headers);
 
+            // Build Channels array from channelIds or use default
+            const channels = channelIds && channelIds.length > 0
+                ? channelIds.map(id => ({ Id: id, Type: 4 }))
+                : [{ Id: "270136663390370", Type: 4 }];  // Default fallback
+
             const requestBody = {
                 Keyword: null,
                 Limit: 2000,  // Increased from 200 to 2000 to fetch more conversations
                 Sort: null,
                 Before: null,
                 After: null,
-                Channels: [
-                    {
-                        Id: "270136663390370",
-                        Type: 4
-                    }
-                ],
+                Channels: channels,
                 Type: "message",
                 HasPhone: null,
                 HasAddress: null,
@@ -131,9 +132,10 @@ class ChatDataManager {
     /**
      * Lấy danh sách comment conversations từ API
      * @param {boolean} forceRefresh - Bắt buộc refresh (bỏ qua cache)
+     * @param {Array<string>} channelIds - Danh sách channel IDs (lấy từ Facebook_PostId)
      * @returns {Promise<Array>}
      */
-    async fetchCommentConversations(forceRefresh = false) {
+    async fetchCommentConversations(forceRefresh = false, channelIds = null) {
         try {
             // Check cache
             if (!forceRefresh && this.commentConversations.length > 0 && this.lastCommentFetchTime) {
@@ -155,18 +157,18 @@ class ChatDataManager {
             const headers = await window.tokenManager.getAuthHeader();
             const url = `${this.API_BASE}/conversations/search`;
 
+            // Build Channels array from channelIds or use default
+            const channels = channelIds && channelIds.length > 0
+                ? channelIds.map(id => ({ Id: id, Type: 4 }))
+                : [{ Id: "270136663390370", Type: 4 }];  // Default fallback
+
             const requestBody = {
                 Keyword: null,
                 Limit: 2000,
                 Sort: null,
                 Before: null,
                 After: null,
-                Channels: [
-                    {
-                        Id: "270136663390370",
-                        Type: 4
-                    }
-                ],
+                Channels: channels,
                 Type: "comment", // Changed to comment type
                 HasPhone: null,
                 HasAddress: null,

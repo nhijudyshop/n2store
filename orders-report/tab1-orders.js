@@ -684,9 +684,17 @@ async function fetchOrders() {
         // Load conversations and comment conversations for first batch
         console.log('[PROGRESSIVE] Loading conversations for first batch...');
         if (window.chatDataManager) {
+            // Collect unique channel IDs from orders (parse from Facebook_PostId)
+            const channelIds = [...new Set(
+                allData
+                    .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
+                    .filter(id => id) // Remove null/undefined
+            )];
+            console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
+
             await Promise.all([
-                window.chatDataManager.fetchConversations(),
-                window.chatDataManager.fetchCommentConversations()
+                window.chatDataManager.fetchConversations(false, channelIds),
+                window.chatDataManager.fetchCommentConversations(false, channelIds)
             ]);
             renderTable(); // Re-render with chat data
         }
