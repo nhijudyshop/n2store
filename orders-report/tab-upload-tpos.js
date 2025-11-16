@@ -59,28 +59,58 @@
     // Use: const headers = await window.tokenManager.getAuthHeader();
     // Then: fetch(url, { method: 'PUT', headers: { ...headers, ... }, ... })
 
-    // Load Assignments Data and Group by SessionIndex
-    function loadAssignments() {
+    // Load Assignments Data from localStorage (SOURCE OF TRUTH)
+    function loadAssignmentsFromLocalStorage() {
         try {
             const saved = localStorage.getItem('productAssignments');
             if (saved) {
-                assignments = JSON.parse(saved);
-                console.log(`📦 Đã load ${assignments.length} sản phẩm từ assignments`);
+                const data = JSON.parse(saved);
 
-                // Filter only products with STT assigned
-                assignments = assignments.filter(a => a.sttList && a.sttList.length > 0);
+                // Handle both old format (array) and new format (object with timestamp)
+                let rawAssignments = [];
+                if (Array.isArray(data)) {
+                    // Old format
+                    console.log('[LOAD] 📦 Old format detected');
+                    rawAssignments = data;
+                } else if (data && data.assignments) {
+                    // New format with timestamp
+                    console.log('[LOAD] ✅ New format with timestamp:', data._timestamp);
+                    rawAssignments = data.assignments;
+                } else {
+                    rawAssignments = [];
+                }
+
+                // Filter only products with STT assigned (DO NOT MUTATE original array)
+                const assignmentsWithSTT = rawAssignments.filter(a => a.sttList && a.sttList.length > 0);
+
+                // Use filtered array for display
+                assignments = assignmentsWithSTT;
+
+                console.log(`[LOAD] 📦 Loaded ${rawAssignments.length} products, ${assignments.length} with STT`);
 
                 // Group by SessionIndex
                 groupBySessionIndex();
                 renderTable();
                 updateTotalCount();
             } else {
-                console.log('⚠️ Chưa có assignments data');
+                console.log('[LOAD] ⚠️ No assignments data in localStorage');
+                assignments = [];
+                groupBySessionIndex();
+                renderTable();
+                updateTotalCount();
             }
         } catch (error) {
-            console.error('Error loading assignments:', error);
+            console.error('[LOAD] ❌ Error loading assignments:', error);
             assignments = [];
+            groupBySessionIndex();
+            renderTable();
+            updateTotalCount();
         }
+    }
+
+    // Backward compatibility - deprecated, use loadAssignmentsFromLocalStorage instead
+    function loadAssignments() {
+        loadAssignmentsFromLocalStorage();
     }
 
     // Group assignments by SessionIndex
@@ -703,23 +733,42 @@
     // Remove uploaded STTs from productAssignments
     async function removeUploadedSTTsFromAssignments(uploadedSTTs) {
         try {
-            console.log('🗑️ Removing uploaded STTs from productAssignments...');
-            console.log('   STTs to remove:', uploadedSTTs);
-            console.log('   STTs types:', uploadedSTTs.map(s => `${s} (${typeof s})`));
+            console.log('[REMOVE-STT] 🗑️ Removing uploaded STTs from productAssignments...');
+            console.log('[REMOVE-STT] STTs to remove:', uploadedSTTs);
+            console.log('[REMOVE-STT] STTs types:', uploadedSTTs.map(s => `${s} (${typeof s})`));
 
             // Convert uploadedSTTs to strings for consistent comparison
             const uploadedSTTsStr = uploadedSTTs.map(s => String(s));
-            console.log('   STTs as strings:', uploadedSTTsStr);
+            console.log('[REMOVE-STT] STTs as strings:', uploadedSTTsStr);
 
             // Load current assignments from localStorage
             const saved = localStorage.getItem('productAssignments');
             if (!saved) {
-                console.log('   No assignments found in localStorage');
+                console.log('[REMOVE-STT] No assignments found in localStorage');
                 return;
             }
 
-            let productAssignments = JSON.parse(saved);
-            console.log(`   Current assignments: ${productAssignments.length} products`);
+            const data = JSON.parse(saved);
+
+            // Handle both old and new format
+            let productAssignments = [];
+            let isOldFormat = false;
+
+            if (Array.isArray(data)) {
+                // Old format
+                isOldFormat = true;
+                productAssignments = data;
+                console.log('[REMOVE-STT] Old format detected');
+            } else if (data && data.assignments) {
+                // New format
+                productAssignments = data.assignments;
+                console.log('[REMOVE-STT] New format detected, timestamp:', data._timestamp);
+            } else {
+                console.log('[REMOVE-STT] Invalid data format');
+                return;
+            }
+
+            console.log(`[REMOVE-STT] Current assignments: ${productAssignments.length} products`);
 
             // Log all current STTs in assignments before removal
             console.log('   Current STTs in assignments:');
@@ -768,19 +817,26 @@
                 return true; // Keep products that still have STTs
             });
 
-            console.log(`   ✅ Removed ${totalRemovedSTTs} STT entries from ${removedProducts} products`);
-            console.log(`   📦 Remaining assignments: ${productAssignments.length} products`);
+            console.log(`[REMOVE-STT] ✅ Removed ${totalRemovedSTTs} STT entries from ${removedProducts} products`);
+            console.log(`[REMOVE-STT] 📦 Remaining assignments: ${productAssignments.length} products`);
 
-            // Save updated assignments to localStorage
-            localStorage.setItem('productAssignments', JSON.stringify(productAssignments));
+            // Save updated assignments to localStorage with timestamp
+            const dataWithTimestamp = {
+                assignments: productAssignments,
+                _timestamp: Date.now(),
+                _version: 1
+            };
+
+            localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+            console.log('[REMOVE-STT] ✅ Saved to localStorage with timestamp:', dataWithTimestamp._timestamp);
 
             // Save to Firebase
-            console.log('   📤 Syncing to Firebase:', productAssignments.length, 'products');
-            await database.ref('productAssignments').set(productAssignments);
-            console.log('   ✅ Synced to Firebase successfully');
+            console.log('[REMOVE-STT] 📤 Syncing to Firebase:', productAssignments.length, 'products');
+            await database.ref('productAssignments').set(dataWithTimestamp);
+            console.log('[REMOVE-STT] ✅ Synced to Firebase successfully');
 
         } catch (error) {
-            console.error('❌ Error removing uploaded STTs:', error);
+            console.error('[REMOVE-STT] ❌ Error removing uploaded STTs:', error);
         }
     }
 
@@ -1495,19 +1551,100 @@
         currentEditSTT = null;
     };
 
-    // Setup Firebase Listeners
+    // Setup Firebase Listeners with timestamp-based conflict resolution
     function setupFirebaseListeners() {
+        console.log('[SYNC] 🔧 Setting up Firebase listeners...');
+
+        let isFirstLoad = true; // Skip first trigger (we already loaded from localStorage)
+
         database.ref('productAssignments').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data && Array.isArray(data)) {
-                assignments = data.filter(a => a.sttList && a.sttList.length > 0);
-                localStorage.setItem('productAssignments', JSON.stringify(data));
-                groupBySessionIndex();
-                renderTable();
-                updateTotalCount();
-                console.log('🔄 Đã sync assignments từ Firebase');
+            console.log('[SYNC] 🔔 Firebase listener triggered!');
+
+            // Skip first trigger (already loaded in init)
+            if (isFirstLoad) {
+                console.log('[SYNC] ⏭️ Skip first listener trigger (initial data already loaded)');
+                isFirstLoad = false;
+                return;
+            }
+
+            // Read localStorage for comparison
+            const localData = localStorage.getItem('productAssignments');
+            const localParsed = localData ? JSON.parse(localData) : null;
+            const localTimestamp = localParsed?._timestamp || 0;
+
+            // Read Firebase data
+            const firebaseData = snapshot.val();
+            const firebaseTimestamp = firebaseData?._timestamp || 0;
+
+            console.log('[SYNC] 📊 Timestamp comparison:');
+            console.log('[SYNC]   localStorage:', localTimestamp, new Date(localTimestamp).toLocaleTimeString());
+            console.log('[SYNC]   Firebase:', firebaseTimestamp, new Date(firebaseTimestamp).toLocaleTimeString());
+
+            // Only update if Firebase is newer
+            if (firebaseTimestamp > localTimestamp) {
+                console.log('[SYNC] ✅ Firebase is newer, syncing to localStorage and updating display');
+
+                // Handle new format
+                if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
+                    // Update localStorage with Firebase data
+                    localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
+
+                    // Update display using filtered assignments
+                    const assignmentsWithSTT = firebaseData.assignments.filter(a => a.sttList?.length > 0);
+                    assignments = assignmentsWithSTT;
+
+                    groupBySessionIndex();
+                    renderTable();
+                    updateTotalCount();
+
+                    console.log('[SYNC] 🔄 Synced from Firebase:', assignmentsWithSTT.length, 'products with STT');
+                }
+                // Handle old format (backward compatibility)
+                else if (firebaseData && Array.isArray(firebaseData)) {
+                    console.log('[SYNC] 📦 Old format detected, syncing...');
+
+                    // Convert to new format
+                    const dataWithTimestamp = {
+                        assignments: firebaseData,
+                        _timestamp: firebaseTimestamp || Date.now(),
+                        _version: 1
+                    };
+                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+
+                    const assignmentsWithSTT = firebaseData.filter(a => a.sttList?.length > 0);
+                    assignments = assignmentsWithSTT;
+
+                    groupBySessionIndex();
+                    renderTable();
+                    updateTotalCount();
+
+                    console.log('[SYNC] 🔄 Synced old format:', assignmentsWithSTT.length, 'products');
+                }
+                // Handle empty/null data
+                else if (firebaseData === null) {
+                    console.log('[SYNC] 🗑️ Firebase is empty, clearing assignments');
+
+                    const dataWithTimestamp = {
+                        assignments: [],
+                        _timestamp: Date.now(),
+                        _version: 1
+                    };
+                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+
+                    assignments = [];
+                    groupBySessionIndex();
+                    renderTable();
+                    updateTotalCount();
+                } else {
+                    console.log('[SYNC] ⚠️ Unexpected Firebase data format:', typeof firebaseData);
+                }
+            } else {
+                console.log('[SYNC] ⏭️ Skip sync: localStorage is newer or equal');
+                console.log('[SYNC]   Difference:', (localTimestamp - firebaseTimestamp) / 1000, 'seconds');
             }
         });
+
+        console.log('[SYNC] ✅ Firebase listeners setup complete');
     }
 
     // Load Orders Data from localStorage
@@ -1526,16 +1663,72 @@
         }
     }
 
+    // Setup localStorage event listener (for cross-tab sync)
+    function setupLocalStorageListener() {
+        // Note: storage event only fires in OTHER tabs, not the current tab
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'productAssignments') {
+                console.log('[STORAGE-EVENT] 🔔 productAssignments changed in another tab!');
+                console.log('[STORAGE-EVENT] Old value timestamp:', e.oldValue ? JSON.parse(e.oldValue)?._timestamp : 'null');
+                console.log('[STORAGE-EVENT] New value timestamp:', e.newValue ? JSON.parse(e.newValue)?._timestamp : 'null');
+
+                // Reload from localStorage
+                loadAssignmentsFromLocalStorage();
+            }
+        });
+
+        console.log('[STORAGE-EVENT] ✅ localStorage event listener setup complete');
+    }
+
+    // Setup visibility change listener (reload when tab becomes visible)
+    function setupVisibilityListener() {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                console.log('[VISIBILITY] 👁️ Tab became visible, reloading data...');
+                loadAssignmentsFromLocalStorage();
+            }
+        });
+
+        console.log('[VISIBILITY] ✅ Visibility change listener setup complete');
+    }
+
+    // Setup focus listener (reload when iframe gains focus)
+    function setupFocusListener() {
+        window.addEventListener('focus', () => {
+            console.log('[FOCUS] 🎯 Tab gained focus, reloading data...');
+            loadAssignmentsFromLocalStorage();
+        });
+
+        console.log('[FOCUS] ✅ Focus listener setup complete');
+    }
+
     // Initialize on load
     window.addEventListener('load', async () => {
         try {
+            console.log('[INIT] 🚀 Initializing Tab Upload TPOS...');
+
             // Auth handled by tokenManager automatically when needed
+
+            // 1. Load orders data from localStorage
             loadOrdersData();
-            loadAssignments();
-            setupFirebaseListeners();
+
+            // 2. Load assignments from localStorage FIRST (source of truth)
+            console.log('[INIT] 📱 Loading from localStorage (source of truth)...');
+            loadAssignmentsFromLocalStorage();
+
+            // 3. Setup all listeners (do NOT overwrite localStorage unless Firebase is newer)
+            console.log('[INIT] 🔧 Setting up listeners...');
+            setupFirebaseListeners();       // Firebase sync (with timestamp check)
+            setupLocalStorageListener();    // Cross-tab sync via storage event
+            setupVisibilityListener();      // Reload when tab visible
+            setupFocusListener();           // Reload when iframe focused
+
+            // 4. Update UI
             updateSelectedCount();
+
+            console.log('[INIT] ✅ Initialization complete!');
         } catch (error) {
-            console.error('Initialization error:', error);
+            console.error('[INIT] ❌ Initialization error:', error);
             showNotification('Lỗi khởi tạo: ' + error.message, 'error');
         }
     });

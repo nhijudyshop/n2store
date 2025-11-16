@@ -901,18 +901,34 @@
             // Mark as local update to prevent duplicate render from Firebase listener
             isLocalUpdate = true;
 
-            localStorage.setItem('productAssignments', JSON.stringify(assignments));
+            // Create data with timestamp
+            const dataWithTimestamp = {
+                assignments: assignments,
+                _timestamp: Date.now(), // Add timestamp for conflict resolution
+                _version: 1 // Version for future compatibility
+            };
 
-            // Also save to Firebase
-            database.ref('productAssignments').set(assignments).catch(error => {
-                console.error('Error saving to Firebase:', error);
-                isLocalUpdate = false; // Reset flag on error
-            }).then(() => {
-                // Reset flag after Firebase sync completes
-                setTimeout(() => {
-                    isLocalUpdate = false;
-                }, 500); // Small delay to ensure listener has processed
-            });
+            // Save to localStorage immediately (source of truth)
+            localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+            console.log('[SAVE] ✅ Saved to localStorage with timestamp:', dataWithTimestamp._timestamp);
+
+            // Debounce Firebase save to reduce writes
+            if (saveDebounceTimer) {
+                clearTimeout(saveDebounceTimer);
+            }
+
+            saveDebounceTimer = setTimeout(() => {
+                console.log('[SAVE] 📤 Debounced Firebase save starting...');
+                database.ref('productAssignments').set(dataWithTimestamp)
+                    .then(() => {
+                        console.log('[SAVE] ✅ Firebase save success');
+                        isLocalUpdate = false;
+                    })
+                    .catch(error => {
+                        console.error('[SAVE] ❌ Firebase save error:', error);
+                        isLocalUpdate = false;
+                    });
+            }, 1000); // Wait 1 second after last save
         } catch (error) {
             console.error('Error saving assignments:', error);
             isLocalUpdate = false; // Reset flag on error
@@ -923,7 +939,20 @@
         try {
             const saved = localStorage.getItem('productAssignments');
             if (saved) {
-                assignments = JSON.parse(saved);
+                const data = JSON.parse(saved);
+                // Handle both old format (array) and new format (object with timestamp)
+                if (Array.isArray(data)) {
+                    // Old format - migrate to new format
+                    console.log('[LOAD] 📦 Old format detected, migrating...');
+                    assignments = data;
+                    saveAssignments(); // Save with timestamp
+                } else if (data && data.assignments) {
+                    // New format with timestamp
+                    assignments = data.assignments;
+                    console.log('[LOAD] ✅ Loaded from localStorage with timestamp:', data._timestamp);
+                } else {
+                    assignments = [];
+                }
                 renderAssignmentTable();
             }
         } catch (error) {
@@ -932,94 +961,168 @@
         }
     }
 
-    // Load assignments from Firebase (source of truth)
+    // Load assignments from Firebase with timestamp-based conflict resolution
     async function loadAssignmentsFromFirebase() {
         try {
-            console.log('[TAB3] Loading assignments from Firebase...');
-            console.log('[TAB3] isLocalUpdate before load:', isLocalUpdate);
+            console.log('[INIT] 🔄 Loading assignments from Firebase...');
 
+            // Read localStorage first (source of truth)
+            const localData = localStorage.getItem('productAssignments');
+            const localParsed = localData ? JSON.parse(localData) : null;
+
+            // Get local timestamp (handle both old and new format)
+            let localTimestamp = 0;
+            if (localParsed) {
+                if (localParsed._timestamp) {
+                    localTimestamp = localParsed._timestamp;
+                } else if (Array.isArray(localParsed)) {
+                    // Old format - treat as very old
+                    localTimestamp = 0;
+                }
+            }
+            console.log('[INIT] 📱 localStorage timestamp:', localTimestamp);
+
+            // Read Firebase
             const snapshot = await database.ref('productAssignments').once('value');
-            const data = snapshot.val();
+            const firebaseData = snapshot.val();
 
-            if (data && Array.isArray(data)) {
-                console.log(`[TAB3] ✅ Loaded ${data.length} assignments from Firebase`);
-                assignments = data;
-                localStorage.setItem('productAssignments', JSON.stringify(assignments));
+            // Get Firebase timestamp
+            const firebaseTimestamp = firebaseData?._timestamp || 0;
+            console.log('[INIT] ☁️  Firebase timestamp:', firebaseTimestamp);
+
+            // Compare timestamps and decide which to use
+            if (firebaseData && firebaseTimestamp > localTimestamp) {
+                // Firebase is newer - update localStorage
+                console.log('[INIT] ✅ Firebase is newer, updating localStorage');
+
+                if (firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
+                    assignments = firebaseData.assignments;
+                    localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
+                } else if (Array.isArray(firebaseData)) {
+                    // Old format from Firebase
+                    console.log('[INIT] 📦 Old Firebase format detected, migrating...');
+                    assignments = firebaseData;
+                    saveAssignments(); // Save with timestamp
+                } else {
+                    assignments = [];
+                }
                 renderAssignmentTable();
-            } else if (data === null) {
-                console.log('[TAB3] Firebase is empty, initializing with empty array');
-                assignments = [];
+            } else if (localParsed) {
+                // localStorage is newer or equal - use it
+                console.log('[INIT] ✅ localStorage is newer or equal, keeping it');
+
+                if (Array.isArray(localParsed)) {
+                    // Old format
+                    assignments = localParsed;
+                    saveAssignments(); // Migrate to new format
+                } else if (localParsed.assignments) {
+                    assignments = localParsed.assignments;
+                }
                 renderAssignmentTable();
             } else {
-                console.log('[TAB3] No data in Firebase, loading from localStorage...');
-                loadAssignments(); // Fallback to localStorage
+                // Both empty
+                console.log('[INIT] 📭 Both localStorage and Firebase are empty');
+                assignments = [];
+                renderAssignmentTable();
             }
 
             // Ensure isLocalUpdate is false after initial load
             isLocalUpdate = false;
-            console.log('[TAB3] Reset isLocalUpdate to false');
+            console.log('[INIT] ✅ Initial load complete, assignments count:', assignments.length);
         } catch (error) {
-            console.error('[TAB3] Error loading from Firebase:', error);
-            console.log('[TAB3] Falling back to localStorage...');
+            console.error('[INIT] ❌ Error loading from Firebase:', error);
+            console.log('[INIT] 🔄 Falling back to localStorage...');
             loadAssignments(); // Fallback to localStorage
             isLocalUpdate = false;
         }
     }
 
-    // Setup Firebase Listeners
+    // Setup Firebase Listeners with timestamp-based conflict resolution
     function setupFirebaseListeners() {
-        console.log('[TAB3] Setting up Firebase listeners...');
+        console.log('[SYNC] 🔧 Setting up Firebase listeners...');
 
         let isFirstLoad = true; // Skip first trigger (we already loaded initial data)
 
-        // Listen for product assignments - sync when Tab2 removes uploaded STTs
+        // Listen for product assignments - sync when other tabs/devices update
         database.ref('productAssignments').on('value', (snapshot) => {
-            console.log('[TAB3] 🔔 Firebase listener triggered!');
-            console.log('[TAB3] isLocalUpdate:', isLocalUpdate, '| isFirstLoad:', isFirstLoad);
+            console.log('[SYNC] 🔔 Firebase listener triggered!');
+            console.log('[SYNC] isLocalUpdate:', isLocalUpdate, '| isFirstLoad:', isFirstLoad);
 
             // Skip first trigger (already loaded in loadAssignmentsFromFirebase)
             if (isFirstLoad) {
-                console.log('[TAB3] ⏭️ Skip first listener trigger (initial data already loaded)');
+                console.log('[SYNC] ⏭️ Skip first listener trigger (initial data already loaded)');
                 isFirstLoad = false;
                 return;
             }
 
             // Skip if this is a local update (to prevent duplicate render)
             if (isLocalUpdate) {
-                console.log('[TAB3] ⏭️ Skip Firebase listener render (local update)');
+                console.log('[SYNC] ⏭️ Skip Firebase listener render (local update in progress)');
                 return;
             }
 
-            const data = snapshot.val();
-            console.log('[TAB3] Firebase data received:', data ? `${data.length} items` : 'null/empty');
+            // Read localStorage for comparison
+            const localData = localStorage.getItem('productAssignments');
+            const localParsed = localData ? JSON.parse(localData) : null;
+            const localTimestamp = localParsed?._timestamp || 0;
 
-            // Handle both array and null/empty cases
-            if (data && Array.isArray(data)) {
-                // Check if data actually changed to avoid unnecessary renders
-                const currentData = JSON.stringify(assignments);
-                const newData = JSON.stringify(data);
+            // Read Firebase data
+            const firebaseData = snapshot.val();
+            const firebaseTimestamp = firebaseData?._timestamp || 0;
 
-                if (currentData !== newData) {
-                    console.log('[TAB3] 🔄 Firebase sync: updating assignments from remote');
-                    console.log('[TAB3] Old count:', assignments.length, '→ New count:', data.length);
-                    assignments = data;
-                    localStorage.setItem('productAssignments', JSON.stringify(assignments));
+            console.log('[SYNC] 📊 Timestamp comparison:');
+            console.log('[SYNC]   localStorage:', localTimestamp, new Date(localTimestamp).toLocaleTimeString());
+            console.log('[SYNC]   Firebase:', firebaseTimestamp, new Date(firebaseTimestamp).toLocaleTimeString());
+
+            // Only update if Firebase is newer
+            if (firebaseTimestamp > localTimestamp) {
+                console.log('[SYNC] ✅ Firebase is newer, syncing to localStorage');
+
+                // Handle new format
+                if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
+                    const oldCount = assignments.length;
+                    const newCount = firebaseData.assignments.length;
+
+                    assignments = firebaseData.assignments;
+                    localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
+                    renderAssignmentTable();
+
+                    console.log('[SYNC] 🔄 Synced:', oldCount, '→', newCount, 'assignments');
+                }
+                // Handle old format (backward compatibility)
+                else if (firebaseData && Array.isArray(firebaseData)) {
+                    console.log('[SYNC] 📦 Old format detected, syncing...');
+                    assignments = firebaseData;
+                    // Migrate to new format
+                    const dataWithTimestamp = {
+                        assignments: assignments,
+                        _timestamp: Date.now(),
+                        _version: 1
+                    };
+                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+                    renderAssignmentTable();
+                }
+                // Handle empty/null data
+                else if (firebaseData === null) {
+                    console.log('[SYNC] 🗑️ Firebase is empty, clearing assignments');
+                    assignments = [];
+                    const dataWithTimestamp = {
+                        assignments: [],
+                        _timestamp: Date.now(),
+                        _version: 1
+                    };
+                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
                     renderAssignmentTable();
                 } else {
-                    console.log('[TAB3] ⏭️ Skip render: data unchanged');
+                    console.log('[SYNC] ⚠️ Unexpected Firebase data format:', typeof firebaseData);
                 }
-            } else if (data === null || (Array.isArray(data) && data.length === 0)) {
-                // Handle empty/null data (Tab2 deleted all assignments)
-                console.log('[TAB3] 🔄 Firebase sync: clearing all assignments');
-                assignments = [];
-                localStorage.setItem('productAssignments', JSON.stringify(assignments));
-                renderAssignmentTable();
             } else {
-                console.log('[TAB3] ⚠️ Unexpected data format:', typeof data);
+                console.log('[SYNC] ⏭️ Skip sync: localStorage is newer or equal');
+                console.log('[SYNC]   Difference:', (localTimestamp - firebaseTimestamp) / 1000, 'seconds');
             }
         });
 
-        console.log('[TAB3] ✅ Firebase listeners setup complete');
+        console.log('[SYNC] ✅ Firebase listeners setup complete');
 
         // Listen for saved products from product-search
         database.ref('savedProducts').on('value', (snapshot) => {
