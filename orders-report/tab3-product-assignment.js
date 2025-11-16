@@ -898,9 +898,6 @@
     // Save/Load Assignments
     function saveAssignments() {
         try {
-            // Mark as local update to prevent duplicate render from Firebase listener
-            isLocalUpdate = true;
-
             // Create data with timestamp
             const dataWithTimestamp = {
                 assignments: assignments,
@@ -912,7 +909,13 @@
             localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
             console.log('[SAVE] ✅ Saved to localStorage with timestamp:', dataWithTimestamp._timestamp);
 
-            // Debounce Firebase save to reduce writes
+            // Mark as local update ONLY for a short time (300ms) to prevent immediate duplicate render
+            isLocalUpdate = true;
+            setTimeout(() => {
+                isLocalUpdate = false;
+            }, 300); // Reset after 300ms to allow Firebase updates from other tabs
+
+            // Debounce Firebase save to reduce writes (reduced to 300ms for faster sync)
             if (saveDebounceTimer) {
                 clearTimeout(saveDebounceTimer);
             }
@@ -922,13 +925,11 @@
                 database.ref('productAssignments').set(dataWithTimestamp)
                     .then(() => {
                         console.log('[SAVE] ✅ Firebase save success');
-                        isLocalUpdate = false;
                     })
                     .catch(error => {
                         console.error('[SAVE] ❌ Firebase save error:', error);
-                        isLocalUpdate = false;
                     });
-            }, 1000); // Wait 1 second after last save
+            }, 300); // Reduced from 1000ms to 300ms for faster sync
         } catch (error) {
             console.error('Error saving assignments:', error);
             isLocalUpdate = false; // Reset flag on error
