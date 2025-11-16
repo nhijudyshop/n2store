@@ -1138,6 +1138,58 @@
         });
     }
 
+    // =====================================================
+    // HELPER: Sync from Firebase if newer than localStorage
+    // =====================================================
+    // This function checks if Firebase has newer data than localStorage
+    // and syncs if needed. Used by visibility/focus listeners to prevent
+    // stale data from background tabs.
+    // Returns: true if synced, false if no sync needed
+    async function syncFromFirebaseIfNewer(eventType) {
+        try {
+            console.log(`[${eventType}] 🔍 Checking Firebase for updates...`);
+
+            // Step 1: Read localStorage timestamp
+            const localData = localStorage.getItem('productAssignments');
+            const localParsed = localData ? JSON.parse(localData) : null;
+            const localTimestamp = localParsed?._timestamp || 0;
+
+            // Step 2: Read ONLY Firebase timestamp (lightweight query)
+            const timestampSnapshot = await database.ref('productAssignments/_timestamp').once('value');
+            const firebaseTimestamp = timestampSnapshot.val() || 0;
+
+            console.log(`[${eventType}] 📊 Timestamp comparison:`);
+            console.log(`[${eventType}]   localStorage: ${localTimestamp} (${new Date(localTimestamp).toLocaleString('vi-VN')})`);
+            console.log(`[${eventType}]   Firebase: ${firebaseTimestamp} (${new Date(firebaseTimestamp).toLocaleString('vi-VN')})`);
+
+            // Step 3: Only fetch full data if Firebase is newer
+            if (firebaseTimestamp > localTimestamp) {
+                console.log(`[${eventType}] ⚠️ localStorage is STALE! Syncing from Firebase...`);
+
+                // Fetch full data from Firebase
+                const fullSnapshot = await database.ref('productAssignments').once('value');
+                const firebaseData = fullSnapshot.val();
+
+                if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
+                    // Update localStorage with newer data from Firebase
+                    localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
+                    console.log(`[${eventType}] ✅ Synced from Firebase: ${firebaseData.assignments.length} products`);
+                    return true; // Data was synced
+                } else {
+                    console.warn(`[${eventType}] ⚠️ Firebase has newer timestamp but invalid data format`);
+                    return false;
+                }
+            } else {
+                console.log(`[${eventType}] ✅ localStorage is up-to-date (${(localTimestamp - firebaseTimestamp) / 1000}s newer)`);
+                return false; // No sync needed
+            }
+        } catch (error) {
+            console.error(`[${eventType}] ❌ Error checking Firebase:`, error);
+            console.log(`[${eventType}] 🔄 Falling back to localStorage (safe mode)`);
+            return false; // On error, trust localStorage (safe fallback)
+        }
+    }
+
     // Setup localStorage event listener (for cross-tab sync)
     function setupLocalStorageListener() {
         // Note: storage event only fires in OTHER tabs, not the current tab
@@ -1157,10 +1209,35 @@
 
     // Setup visibility change listener (reload when tab becomes visible)
     function setupVisibilityListener() {
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                console.log('[VISIBILITY] 👁️ Tab became visible, reloading data...');
-                loadAssignments();
+        // Flag to prevent duplicate syncs from rapid tab switches
+        let isVisibilitySyncing = false;
+
+        document.addEventListener('visibilitychange', async () => {
+            if (!document.hidden && !isVisibilitySyncing) {
+                isVisibilitySyncing = true;
+                console.log('[VISIBILITY] 👁️ Tab became visible, checking for updates...');
+
+                try {
+                    // Check Firebase first (background tabs may have stale localStorage)
+                    const synced = await syncFromFirebaseIfNewer('VISIBILITY');
+
+                    // Reload data (from localStorage, which may have been synced above)
+                    loadAssignments();
+
+                    // Show notification only if data actually changed
+                    if (synced) {
+                        showNotification('🔄 Đã đồng bộ dữ liệu mới từ các tab khác');
+                    }
+                } catch (error) {
+                    console.error('[VISIBILITY] ❌ Error during sync:', error);
+                    // Still load from localStorage as fallback
+                    loadAssignments();
+                } finally {
+                    // Release lock after 1 second to allow next sync
+                    setTimeout(() => {
+                        isVisibilitySyncing = false;
+                    }, 1000);
+                }
             }
         });
 
@@ -1169,9 +1246,36 @@
 
     // Setup focus listener (reload when iframe gains focus)
     function setupFocusListener() {
-        window.addEventListener('focus', () => {
-            console.log('[FOCUS] 🎯 Tab gained focus, reloading data...');
-            loadAssignments();
+        // Flag to prevent duplicate syncs
+        let isFocusSyncing = false;
+
+        window.addEventListener('focus', async () => {
+            if (!isFocusSyncing) {
+                isFocusSyncing = true;
+                console.log('[FOCUS] 🎯 Tab gained focus, checking for updates...');
+
+                try {
+                    // Check Firebase first (may be stale from background)
+                    const synced = await syncFromFirebaseIfNewer('FOCUS');
+
+                    // Reload data (from localStorage, which may have been synced above)
+                    loadAssignments();
+
+                    // Show notification only if data actually changed
+                    if (synced) {
+                        showNotification('🔄 Đã đồng bộ dữ liệu mới');
+                    }
+                } catch (error) {
+                    console.error('[FOCUS] ❌ Error during sync:', error);
+                    // Still load from localStorage as fallback
+                    loadAssignments();
+                } finally {
+                    // Release lock after 500ms (focus is less frequent than visibility)
+                    setTimeout(() => {
+                        isFocusSyncing = false;
+                    }, 500);
+                }
+            }
         });
 
         console.log('[FOCUS] ✅ Focus listener setup complete');
