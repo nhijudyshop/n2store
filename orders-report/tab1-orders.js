@@ -18,6 +18,30 @@ let currentEditingOrderId = null;
 // Edit Modal State
 let currentEditOrderData = null;
 let currentOrderTags = [];
+let currentEditOrderId = null;
+
+// Live Note Mapping State
+let liveNoteMappings = {};
+
+// =====================================================
+// FIREBASE CONFIGURATION
+// =====================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
+    authDomain: "product-s-98d2c.firebaseapp.com",
+    databaseURL: "https://product-s-98d2c-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "product-s-98d2c",
+    storageBucket: "product-s-98d2c.firebasestorage.app",
+    messagingSenderId: "692514176406",
+    appId: "1:692514176406:web:429fb683b8905e10e131b7",
+    measurementId: "G-MXT4TJK349"
+};
+
+// Initialize Firebase if not already initialized
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const database = firebase.database();
 
 // =====================================================
 // INITIALIZATION
@@ -1524,6 +1548,39 @@ async function openEditModal(orderId) {
     }
 }
 
+// Load live note mappings from Firebase
+async function loadLiveNoteMappingsForOrder(orderId) {
+    try {
+        console.log(`📥 Loading live note mappings for order ${orderId}...`);
+        const snapshot = await database.ref(`liveNoteMappings/${orderId}`).once('value');
+        const mappings = snapshot.val();
+
+        if (mappings) {
+            // Filter out expired mappings
+            const now = Date.now();
+            const validMappings = {};
+
+            Object.keys(mappings).forEach(productId => {
+                const mapping = mappings[productId];
+                if (mapping.expiresAt > now) {
+                    validMappings[productId] = mapping;
+                } else {
+                    console.log(`⚠️ Mapping expired for product ${productId}`);
+                }
+            });
+
+            liveNoteMappings = validMappings;
+            console.log(`✅ Loaded ${Object.keys(validMappings).length} valid mappings`);
+        } else {
+            liveNoteMappings = {};
+            console.log('ℹ️ No mappings found for this order');
+        }
+    } catch (error) {
+        console.error('❌ Error loading live note mappings:', error);
+        liveNoteMappings = {};
+    }
+}
+
 async function fetchOrderData(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
     const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
@@ -1537,6 +1594,10 @@ async function fetchOrderData(orderId) {
     if (!response.ok)
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     currentEditOrderData = await response.json();
+
+    // Load live note mappings for this order
+    await loadLiveNoteMappingsForOrder(orderId);
+
     updateModalWithData(currentEditOrderData);
 }
 
@@ -1622,17 +1683,26 @@ function renderProductsTab(data) {
     }
 
     const productsHTML = data.Details.map(
-        (p, i) => `
-        <tr class="product-row" data-index="${i}">
-            <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image">` : ""}</td>
-            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
-            <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
-            <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
-            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString("vi-VN")}đ</td>
-            <td><input type="text" class="note-input" value="${p.Note || ""}" onchange="updateProductNote(${i}, this.value)"></td>
-            <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
-        </tr>`,
+        (p, i) => {
+            // Check if this product's note was changed from "live"
+            const productId = p.ProductId;
+            const mapping = liveNoteMappings[productId];
+            const isNoteChanged = mapping && mapping.note === 'live' && p.Note !== 'live';
+            const rowClass = isNoteChanged ? 'product-row note-changed-warning' : 'product-row';
+            const noteWarning = isNoteChanged ? '<i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-left: 8px;" title="Ghi chú đã bị thay đổi từ \'live\'"></i>' : '';
+
+            return `
+            <tr class="${rowClass}" data-index="${i}">
+                <td>${i + 1}</td>
+                <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image">` : ""}</td>
+                <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
+                <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
+                <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
+                <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString("vi-VN")}đ</td>
+                <td><input type="text" class="note-input" value="${p.Note || ""}" onchange="updateProductNote(${i}, this.value)">${noteWarning}</td>
+                <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
+            </tr>`;
+        }
     ).join("");
 
     return `

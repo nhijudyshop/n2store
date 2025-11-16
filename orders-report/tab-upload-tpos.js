@@ -784,6 +784,37 @@
         }
     }
 
+    // Save live note mapping to Firebase (expires after 30 days)
+    async function saveLiveNoteMappingToFirebase(orderId, products) {
+        try {
+            console.log(`📤 Saving live note mapping for order ${orderId}...`);
+
+            const now = Date.now();
+            const expiresAt = now + (30 * 24 * 60 * 60 * 1000); // 30 days from now
+
+            const mappings = {};
+            products.forEach(product => {
+                if (product.note === 'live') {
+                    mappings[product.productId] = {
+                        note: 'live',
+                        productCode: product.productCode || '',
+                        productName: product.productName || '',
+                        timestamp: now,
+                        expiresAt: expiresAt
+                    };
+                }
+            });
+
+            if (Object.keys(mappings).length > 0) {
+                await database.ref(`liveNoteMappings/${orderId}`).set(mappings);
+                console.log(`✅ Saved ${Object.keys(mappings).length} live note mappings for order ${orderId}`);
+            }
+
+        } catch (error) {
+            console.error('❌ Error saving live note mapping:', error);
+        }
+    }
+
     // Confirm Upload - Proceed with Actual Upload
     window.confirmUpload = async function() {
         // Hide preview modal
@@ -897,6 +928,16 @@
                     }
 
                     console.log(`✅ Successfully uploaded order ${orderId}`);
+
+                    // Save live note mapping to Firebase
+                    const productsWithNotes = sessionData.products.map(p => ({
+                        productId: p.productId,
+                        productCode: p.productCode,
+                        productName: p.productName,
+                        note: productNotes[`${stt}-${p.productId}`] || ''
+                    }));
+                    await saveLiveNoteMappingToFirebase(orderId, productsWithNotes);
+
                     results.push({ stt, orderId, success: true });
 
                 } catch (error) {

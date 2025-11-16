@@ -1238,6 +1238,15 @@ body {
     background-color: #fef3c7 !important;
 }
 
+.product-row.note-changed-warning {
+    background-color: #fee2e2 !important;
+    border-left: 4px solid #ef4444;
+}
+
+.product-row.note-changed-warning:hover {
+    background-color: #fecaca !important;
+}
+
 .product-actions {
     display: flex;
     gap: 6px;
