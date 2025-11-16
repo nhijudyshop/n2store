@@ -49,13 +49,11 @@ class ChatDataManager {
             console.log('[CHAT] Request URL:', url);
             console.log('[CHAT] Request headers:', headers);
 
-            // Build Channels array from channelIds or use default
+            // Build Channels array from channelIds dynamically (parsed from Facebook_PostId)
+            // Don't hard-code channel IDs - always get from actual orders
             const channels = channelIds && channelIds.length > 0
                 ? channelIds.map(id => ({ Id: id, Type: 4 }))
-                : [
-                    { Id: "270136663390370", Type: 4 },
-                    { Id: "117267091364524", Type: 4 }
-                ];  // Default: both channels
+                : null;  // No hard-coded defaults - only fetch for actual orders
 
             const requestBody = {
                 Keyword: null,
@@ -63,7 +61,7 @@ class ChatDataManager {
                 Sort: null,
                 Before: null,
                 After: null,
-                Channels: channels,
+                Channels: channels,  // Will be null if no channelIds provided
                 Type: "all",  // FIX: Fetch both message AND comment conversations in 1 request
                 HasPhone: null,
                 HasAddress: null,
