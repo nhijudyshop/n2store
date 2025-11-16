@@ -932,6 +932,29 @@
         }
     }
 
+    // Load assignments from Firebase (source of truth)
+    async function loadAssignmentsFromFirebase() {
+        try {
+            console.log('[TAB3] Loading assignments from Firebase...');
+            const snapshot = await database.ref('productAssignments').once('value');
+            const data = snapshot.val();
+
+            if (data && Array.isArray(data)) {
+                console.log(`[TAB3] ✅ Loaded ${data.length} assignments from Firebase`);
+                assignments = data;
+                localStorage.setItem('productAssignments', JSON.stringify(assignments));
+                renderAssignmentTable();
+            } else {
+                console.log('[TAB3] No data in Firebase, loading from localStorage...');
+                loadAssignments(); // Fallback to localStorage
+            }
+        } catch (error) {
+            console.error('[TAB3] Error loading from Firebase:', error);
+            console.log('[TAB3] Falling back to localStorage...');
+            loadAssignments(); // Fallback to localStorage
+        }
+    }
+
     // Setup Firebase Listeners
     function setupFirebaseListeners() {
         // Listen for product assignments - sync when Tab2 removes uploaded STTs
@@ -1004,8 +1027,13 @@
         try {
             await getValidToken();
             loadOrdersData();
-            loadAssignments();
+
+            // Load assignments from Firebase first (source of truth)
+            await loadAssignmentsFromFirebase();
+
+            // Setup Firebase listener for real-time sync
             setupFirebaseListeners();
+
             await loadProductsData();
             updateOrdersCount(); // Update initial count
         } catch (error) {
