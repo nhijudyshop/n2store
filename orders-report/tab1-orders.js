@@ -445,7 +445,7 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
         console.log(`[CAMPAIGNS] Loaded ${orders.length} orders out of ${totalCount} total`);
 
-        // 🎯 GỘP CÁC CHIẾN DỊCH THEO LiveCampaignId
+        // 🎯 BƯỚC 1: GỘP CÁC CHIẾN DỊCH THEO LiveCampaignId
         const campaignsByCampaignId = new Map(); // key: LiveCampaignId, value: { name, dates: Set }
 
         orders.forEach((order) => {
@@ -473,11 +473,49 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             }
         });
 
-        // Tạo danh sách campaigns đã gộp theo LiveCampaignId
+        // 🎯 HÀM PARSE NGÀY TỪ TÊN CHIẾN DỊCH
+        function extractCampaignDate(campaignName) {
+            // Tìm pattern: DD/MM/YY hoặc DD/MM/YYYY (ví dụ: "11/11/25", "15/11/2025")
+            const match = campaignName.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+            return match ? match[1] : null;
+        }
+
+        // 🎯 BƯỚC 2: GỘP CÁC CHIẾN DỊCH THEO NGÀY TRONG TÊN
+        // Ví dụ: "HOUSE 11/11/25" + "STORE 11/11/25" → "11/11/25 - HOUSE + STORE"
+        const campaignsByDateKey = new Map(); // key: ngày từ tên (ví dụ: "11/11/25")
+
+        Array.from(campaignsByCampaignId.values()).forEach(campaign => {
+            const dateKey = extractCampaignDate(campaign.campaignName);
+
+            // Sử dụng dateKey hoặc tên gốc nếu không parse được
+            const groupKey = dateKey || campaign.campaignName;
+
+            if (!campaignsByDateKey.has(groupKey)) {
+                campaignsByDateKey.set(groupKey, {
+                    campaignIds: [],
+                    campaignNames: [],
+                    dates: new Set(),
+                    latestDate: campaign.latestDate,
+                    dateKey: dateKey
+                });
+            }
+
+            const merged = campaignsByDateKey.get(groupKey);
+            merged.campaignIds.push(campaign.campaignId);
+            merged.campaignNames.push(campaign.campaignName);
+            campaign.dates.forEach(d => merged.dates.add(d));
+
+            // Keep latest date
+            if (new Date(campaign.latestDate) > new Date(merged.latestDate)) {
+                merged.latestDate = campaign.latestDate;
+            }
+        });
+
+        // 🎯 BƯỚC 3: TẠO DANH SÁCH CAMPAIGNS ĐÃ GỘP
         const mergedCampaigns = [];
 
         // Sort by latest date descending
-        const sortedCampaigns = Array.from(campaignsByCampaignId.values())
+        const sortedCampaigns = Array.from(campaignsByDateKey.values())
             .sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
 
         sortedCampaigns.forEach(campaign => {
@@ -485,15 +523,35 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
 
             // Tạo display name
             let displayName;
-            if (dates.length === 1) {
-                displayName = `${campaign.campaignName} (${dates[0]})`;
+            const uniqueNames = [...new Set(campaign.campaignNames)];
+
+            if (campaign.dateKey) {
+                // Có ngày từ tên → hiển thị ngày + danh sách loại chiến dịch
+                const types = uniqueNames.map(name => {
+                    // Extract prefix (HOUSE, STORE, etc.) - lấy phần trước dấu cách đầu tiên
+                    const prefix = name.split(' ')[0];
+                    return prefix;
+                }).filter((v, i, a) => a.indexOf(v) === i); // unique types
+
+                const typeStr = types.join(' + ');
+
+                if (dates.length === 1) {
+                    displayName = `${campaign.dateKey} - ${typeStr} (${dates[0]})`;
+                } else {
+                    displayName = `${campaign.dateKey} - ${typeStr} (${dates.length} ngày: ${dates.join(', ')})`;
+                }
             } else {
-                displayName = `${campaign.campaignName} (${dates.length} ngày: ${dates.join(', ')})`;
+                // Không parse được ngày → giữ tên gốc
+                if (dates.length === 1) {
+                    displayName = `${uniqueNames[0]} (${dates[0]})`;
+                } else {
+                    displayName = `${uniqueNames[0]} (${dates.length} ngày: ${dates.join(', ')})`;
+                }
             }
 
             mergedCampaigns.push({
-                campaignId: campaign.campaignId,
-                campaignIds: [campaign.campaignId], // Keep as array for compatibility with search logic
+                campaignId: campaign.campaignIds[0], // For backward compatibility
+                campaignIds: campaign.campaignIds, // Array of all merged campaign IDs
                 displayName: displayName,
                 dates: dates,
                 latestDate: campaign.latestDate,
