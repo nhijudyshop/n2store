@@ -745,7 +745,7 @@
             const saved = localStorage.getItem('productAssignments');
             if (!saved) {
                 console.log('[REMOVE-STT] No assignments found in localStorage');
-                return;
+                return { success: true, removedCount: 0, removedProducts: 0 };
             }
 
             const data = JSON.parse(saved);
@@ -765,7 +765,7 @@
                 console.log('[REMOVE-STT] New format detected, timestamp:', data._timestamp);
             } else {
                 console.log('[REMOVE-STT] Invalid data format');
-                return;
+                throw new Error('Invalid productAssignments format');
             }
 
             console.log(`[REMOVE-STT] Current assignments: ${productAssignments.length} products`);
@@ -835,48 +835,121 @@
             await database.ref('productAssignments').set(dataWithTimestamp);
             console.log('[REMOVE-STT] ✅ Synced to Firebase successfully');
 
+            // Return success with stats
+            return {
+                success: true,
+                removedCount: totalRemovedSTTs,
+                removedProducts: removedProducts
+            };
+
         } catch (error) {
             console.error('[REMOVE-STT] ❌ Error removing uploaded STTs:', error);
+            // THROW to propagate error (don't swallow)
+            throw new Error(`Failed to remove STTs: ${error.message}`);
         }
     }
 
-    // Confirm Upload - Proceed with Actual Upload
+    // Confirm Upload - Proceed with Actual Upload (WITH BACKUP & RESTORE)
     window.confirmUpload = async function() {
+        console.log('[UPLOAD] 🚀 confirmUpload() called');
+
+        // Get selected STTs
+        const selectedSTTs = Array.from(selectedSessionIndexes);
+        console.log('[UPLOAD] Selected STTs:', selectedSTTs);
+
+        // Confirm with user
+        const confirmMsg = `Bạn có chắc muốn upload ${selectedSTTs.length} đơn hàng lên TPOS?\n\n` +
+                           `Sau khi upload thành công, các sản phẩm sẽ tự động bị xóa khỏi danh sách gán.`;
+
+        if (!confirm(confirmMsg)) {
+            console.log('[UPLOAD] ❌ User cancelled upload');
+            return;
+        }
+
         // Hide preview modal
         const previewModal = bootstrap.Modal.getInstance(document.getElementById('previewModal'));
         if (previewModal) {
             previewModal.hide();
         }
 
-        const selectedSTTs = Array.from(selectedSessionIndexes);
+        // Disable upload button to prevent concurrent uploads
+        const uploadBtn = document.getElementById('uploadBtn');
+        const prevBtnText = uploadBtn ? uploadBtn.textContent : '';
+        const prevBtnDisabled = uploadBtn ? uploadBtn.disabled : false;
 
-        // Show upload modal
-        const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
-        uploadModal.show();
+        if (uploadBtn) {
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ Đang upload...';
+        }
 
-        const progressBar = document.getElementById('uploadProgress');
-        const statusText = document.getElementById('uploadStatus');
+        // Variables for tracking
+        let uploadId = null;
+        let backupData = null;
+        let uploadModal = null;
 
         try {
+            // =====================================================
+            // PHASE 1: CREATE BACKUP
+            // =====================================================
+            console.log('[UPLOAD] 📦 Phase 1: Creating backup...');
+
+            try {
+                uploadId = await createBackupBeforeUpload(selectedSTTs);
+                backupData = await loadBackupData(uploadId);
+                console.log('[UPLOAD] ✅ Backup created:', uploadId);
+            } catch (error) {
+                console.error('[UPLOAD] ❌ Cannot create backup:', error);
+                showNotification('❌ Lỗi: Không thể tạo backup trước khi upload', 'error');
+                return; // STOP if backup fails
+            }
+
+            // =====================================================
+            // PHASE 2: UPLOAD TO TPOS
+            // =====================================================
+            console.log('[UPLOAD] 📤 Phase 2: Uploading to TPOS...');
+
+            // Show upload modal
+            uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+            uploadModal.show();
+
+            const progressBar = document.getElementById('uploadProgress');
+            const statusText = document.getElementById('uploadStatus');
+
+            // Reset progress
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+            progressBar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
+            progressBar.classList.add('bg-primary');
+
             let completed = 0;
             const total = selectedSTTs.length;
             const results = [];
 
+            // Upload loop
             for (const stt of selectedSTTs) {
                 const sessionData = sessionIndexData[stt];
-                if (!sessionData) continue;
+                if (!sessionData) {
+                    console.warn(`[UPLOAD] ⚠️ No sessionData for STT ${stt}`);
+                    results.push({ stt, orderId: null, success: false, error: 'No session data' });
+                    completed++;
+                    continue;
+                }
 
                 const orderId = sessionData.orderInfo?.orderId;
-                if (!orderId) continue;
+                if (!orderId) {
+                    console.warn(`[UPLOAD] ⚠️ No orderId for STT ${stt}`);
+                    results.push({ stt, orderId: null, success: false, error: 'No order ID' });
+                    completed++;
+                    continue;
+                }
 
                 statusText.textContent = `Đang upload STT ${stt} - ${sessionData.orderInfo?.customerName || 'N/A'}...`;
 
                 try {
-                    // Fetch current order data (EXACTLY like tab1-orders.js)
-                    console.log(`📡 Fetching order ${orderId} for upload...`);
+                    // Fetch current order data
+                    console.log(`[UPLOAD] 📡 Fetching order ${orderId} for STT ${stt}...`);
                     const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
 
-                    // Get auth headers from tokenManager
                     const headers = await window.tokenManager.getAuthHeader();
 
                     const response = await fetch(apiUrl, {
@@ -892,12 +965,10 @@
                     }
 
                     const orderData = await response.json();
-                    console.log(`✅ Fetched order data:`, orderData);
+                    console.log(`[UPLOAD] ✅ Fetched order data for STT ${stt}`);
 
-                    // Prepare new Details: merge existing products with assigned products
+                    // Prepare merged Details
                     const mergedDetails = await prepareUploadDetails(orderData, sessionData);
-
-                    // Update orderData with merged Details
                     orderData.Details = mergedDetails;
 
                     // Recalculate totals
@@ -910,30 +981,16 @@
                     orderData.TotalQuantity = totalQty;
                     orderData.TotalAmount = totalAmount;
 
-                    // Prepare payload for PUT request
+                    // Prepare payload
                     const payload = prepareUploadPayload(orderData);
 
-                    console.log(`📤 Uploading order ${orderId}...`);
-                    console.log(`   Details count: ${payload.Details.length}`);
-                    console.log(`   Total Quantity: ${payload.TotalQuantity}`);
-                    console.log(`   Total Amount: ${payload.TotalAmount}`);
-                    console.log(`   Payload size: ${JSON.stringify(payload).length} bytes`);
+                    console.log(`[UPLOAD] 📤 Uploading order ${orderId}...`);
+                    console.log(`[UPLOAD]   Details count: ${payload.Details.length}`);
+                    console.log(`[UPLOAD]   Total Quantity: ${payload.TotalQuantity}`);
 
-                    // Log full payload for debugging (can be removed in production)
-                    if (console.groupCollapsed) {
-                        console.groupCollapsed(`📋 Full Payload for ${payload.Code}`);
-                        console.log(JSON.stringify(payload, null, 2));
-                        console.groupEnd();
-                    }
-
-                    // =====================================================
-                    // PUT REQUEST (EXACTLY like tab1-orders.js - line 1796-1810)
-                    // =====================================================
-
-                    // Get auth headers from tokenManager
+                    // PUT request
                     const uploadHeaders = await window.tokenManager.getAuthHeader();
 
-                    // PUT request to update order
                     const uploadResponse = await fetch(
                         `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})`,
                         {
@@ -952,70 +1009,222 @@
                         throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
                     }
 
-                    console.log(`✅ Successfully uploaded order ${orderId}`);
+                    console.log(`[UPLOAD] ✅ Successfully uploaded STT ${stt}`);
                     results.push({ stt, orderId, success: true });
 
                 } catch (error) {
-                    console.error(`❌ Error uploading STT ${stt}:`, error);
+                    console.error(`[UPLOAD] ❌ Error uploading STT ${stt}:`, error);
                     results.push({ stt, orderId, success: false, error: error.message });
                 }
 
+                // Update progress
                 completed++;
                 const percentage = Math.round((completed / total) * 100);
                 progressBar.style.width = percentage + '%';
                 progressBar.textContent = percentage + '%';
             }
 
-            // Check results
+            // =====================================================
+            // PHASE 3: PROCESS RESULTS
+            // =====================================================
+            console.log('[UPLOAD] 📊 Phase 3: Processing results...');
+
             const successCount = results.filter(r => r.success).length;
             const failCount = results.filter(r => !r.success).length;
 
+            console.log(`[UPLOAD] Results: ${successCount} success, ${failCount} failed`);
+
             if (failCount === 0) {
-                // All success
-                statusText.textContent = `✅ Upload thành công ${successCount} đơn hàng!`;
-                progressBar.classList.remove('bg-primary');
-                progressBar.classList.add('bg-success');
+                // ===== ALL SUCCESS =====
+                console.log('[UPLOAD] ✅ ALL SUCCESS - Processing deletion...');
 
-                // Remove uploaded STTs from productAssignments
-                const successfulSTTs = results.filter(r => r.success).map(r => r.stt);
-                await removeUploadedSTTsFromAssignments(successfulSTTs);
+                statusText.textContent = `✅ Upload thành công ${successCount} đơn hàng! Đang xóa sản phẩm...`;
 
-                // Reload assignments and table
-                loadAssignments();
+                try {
+                    // Step 1: Delete products
+                    const successfulSTTs = results.map(r => r.stt);
+                    const deleteResult = await removeUploadedSTTsFromAssignments(successfulSTTs);
 
-                setTimeout(() => {
-                    uploadModal.hide();
-                    showNotification(`✅ Đã upload ${successCount} đơn hàng lên TPOS thành công!`);
-                    clearSelection();
-                }, 1500);
-            } else {
-                // Some failed - only remove successful STTs
-                const successfulSTTs = results.filter(r => r.success).map(r => r.stt);
-                if (successfulSTTs.length > 0) {
-                    await removeUploadedSTTsFromAssignments(successfulSTTs);
-                    loadAssignments();
+                    console.log('[UPLOAD] ✅ Deleted:', deleteResult.removedCount, 'STT entries');
+
+                    // Step 2: Read afterSnapshot (AFTER deletion completes)
+                    const afterData = localStorage.getItem('productAssignments');
+                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
+
+                    // Step 3: Save history
+                    await saveToHistory(uploadId, results, 'completed', backupData, afterSnapshot);
+
+                    // Step 4: Mark as committed
+                    await markHistoryAsCommitted(uploadId);
+
+                    // Step 5: Update UI
+                    statusText.textContent = `✅ Hoàn tất! Đã upload ${successCount} đơn hàng và xóa sản phẩm`;
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-success');
+
+                    // Reload assignments table
+                    loadAssignmentsFromLocalStorage();
+
+                    setTimeout(() => {
+                        if (uploadModal) uploadModal.hide();
+                        showNotification(`✅ Đã upload ${successCount} đơn hàng lên TPOS thành công!`);
+                        clearSelection();
+                    }, 1500);
+
+                } catch (deleteError) {
+                    // Deletion failed (CRITICAL)
+                    console.error('[UPLOAD] ❌ Deletion failed:', deleteError);
+
+                    statusText.textContent = `⚠️ Upload thành công nhưng không thể xóa sản phẩm`;
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-warning');
+
+                    // Save history with special status
+                    const afterData = localStorage.getItem('productAssignments');
+                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
+                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot);
+
+                    setTimeout(() => {
+                        if (uploadModal) uploadModal.hide();
+                        showNotification('⚠️ Upload thành công nhưng không thể xóa products. Vui lòng xóa thủ công!', 'warning');
+                    }, 2000);
                 }
 
-                statusText.textContent = `⚠️ Thành công: ${successCount}, Thất bại: ${failCount}`;
-                progressBar.classList.remove('bg-primary');
-                progressBar.classList.add('bg-warning');
+            } else if (failCount < total) {
+                // ===== PARTIAL SUCCESS =====
+                console.log('[UPLOAD] ⚠️ PARTIAL SUCCESS - Processing...');
 
-                setTimeout(() => {
-                    uploadModal.hide();
-                    showNotification(`⚠️ Upload hoàn tất: ${successCount} thành công, ${failCount} thất bại`, 'error');
-                }, 2000);
+                const successfulSTTs = results.filter(r => r.success).map(r => r.stt);
+
+                statusText.textContent = `⚠️ Thành công: ${successCount}, Thất bại: ${failCount}. Đang xóa sản phẩm thành công...`;
+
+                try {
+                    // Step 1: Delete ONLY successful STTs
+                    if (successfulSTTs.length > 0) {
+                        const deleteResult = await removeUploadedSTTsFromAssignments(successfulSTTs);
+                        console.log('[UPLOAD] ✅ Deleted successful STTs:', deleteResult.removedCount);
+                    }
+
+                    // Step 2: Read afterSnapshot
+                    const afterData = localStorage.getItem('productAssignments');
+                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
+
+                    // Step 3: Save history
+                    await saveToHistory(uploadId, results, 'partial', backupData, afterSnapshot);
+
+                    // Step 4: Mark as committed (cannot safely restore partial)
+                    await markHistoryAsCommitted(uploadId);
+
+                    // Step 5: Update UI
+                    statusText.textContent = `⚠️ Thành công: ${successCount}, Thất bại: ${failCount}`;
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-warning');
+
+                    // Reload table
+                    loadAssignmentsFromLocalStorage();
+
+                    setTimeout(() => {
+                        if (uploadModal) uploadModal.hide();
+                        showNotification(`⚠️ Upload hoàn tất: ${successCount} thành công, ${failCount} thất bại`, 'warning');
+                    }, 2000);
+
+                } catch (deleteError) {
+                    console.error('[UPLOAD] ❌ Partial deletion failed:', deleteError);
+
+                    statusText.textContent = `❌ Lỗi xử lý kết quả upload`;
+
+                    // Try to save history anyway
+                    const afterData = localStorage.getItem('productAssignments');
+                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
+                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot);
+
+                    setTimeout(() => {
+                        if (uploadModal) uploadModal.hide();
+                        showNotification('❌ Lỗi xử lý kết quả. Vui lòng kiểm tra lại dữ liệu!', 'error');
+                    }, 2000);
+                }
+
+            } else {
+                // ===== ALL FAILED =====
+                console.log('[UPLOAD] ❌ ALL FAILED - Restoring from backup...');
+
+                statusText.textContent = `❌ Upload thất bại. Đang khôi phục dữ liệu...`;
+
+                try {
+                    // Step 1: Restore from backup
+                    await restoreFromBackup(uploadId);
+
+                    // Step 2: Save history (for audit)
+                    await saveToHistory(uploadId, results, 'failed', backupData, null);
+
+                    // Step 3: Update UI
+                    statusText.textContent = `❌ Upload thất bại. Đã khôi phục dữ liệu`;
+                    progressBar.classList.remove('bg-primary');
+                    progressBar.classList.add('bg-danger');
+
+                    setTimeout(() => {
+                        if (uploadModal) uploadModal.hide();
+
+                        // Show detailed error
+                        const firstError = results.find(r => !r.success);
+                        const errorMsg = firstError ? firstError.error : 'Unknown error';
+                        showNotification(`❌ Upload thất bại: ${errorMsg}. Đã khôi phục dữ liệu.`, 'error');
+                    }, 2000);
+
+                } catch (restoreError) {
+                    console.error('[UPLOAD] ❌❌ CRITICAL: Restore failed:', restoreError);
+
+                    statusText.textContent = `❌❌ CRITICAL: Không thể khôi phục!`;
+
+                    setTimeout(() => {
+                        if (uploadModal) uploadModal.hide();
+                        alert('❌ CRITICAL ERROR:\n\n' +
+                              'Upload thất bại VÀ không thể khôi phục dữ liệu!\n\n' +
+                              'Vui lòng KHÔNG thao tác gì thêm và liên hệ IT ngay!\n\n' +
+                              `Backup ID: ${uploadId}`);
+                    }, 2000);
+                }
             }
 
         } catch (error) {
-            console.error('Upload error:', error);
-            statusText.textContent = '❌ Upload thất bại: ' + error.message;
-            progressBar.classList.remove('bg-primary');
-            progressBar.classList.add('bg-danger');
+            // UNEXPECTED ERROR during upload loop
+            console.error('[UPLOAD] ❌ Unexpected error:', error);
 
-            setTimeout(() => {
+            try {
+                // Try to restore from backup
+                if (uploadId) {
+                    console.log('[UPLOAD] 🔄 Attempting restore due to unexpected error...');
+                    await restoreFromBackup(uploadId);
+                    await saveToHistory(uploadId, [], 'failed', backupData, null);
+                    showNotification('❌ Upload thất bại: ' + error.message + '. Đã khôi phục dữ liệu.', 'error');
+                } else {
+                    showNotification('❌ Upload thất bại: ' + error.message, 'error');
+                }
+            } catch (restoreError) {
+                console.error('[UPLOAD] ❌❌ CRITICAL: Cannot restore after unexpected error:', restoreError);
+                alert('❌ CRITICAL ERROR:\n\nĐã xảy ra lỗi nghiêm trọng!\n\nVui lòng liên hệ IT ngay!');
+            }
+
+            if (uploadModal) {
                 uploadModal.hide();
-                showNotification('❌ Upload thất bại: ' + error.message, 'error');
-            }, 2000);
+            }
+
+        } finally {
+            // Always cleanup and re-enable button
+            console.log('[UPLOAD] 🧹 Cleanup...');
+
+            // Cleanup backup (if not already cleaned by saveToHistory)
+            if (uploadId) {
+                await cleanupBackup(uploadId);
+            }
+
+            // Re-enable upload button
+            if (uploadBtn) {
+                uploadBtn.disabled = prevBtnDisabled;
+                uploadBtn.textContent = prevBtnText || 'Upload lên TPOS';
+            }
+
+            console.log('[UPLOAD] ✅ Upload flow completed');
         }
     };
 
@@ -1804,6 +2013,265 @@
         });
 
         console.log('[FOCUS] ✅ Focus listener setup complete');
+    }
+
+    // =====================================================
+    // HISTORY & BACKUP SYSTEM
+    // =====================================================
+
+    /**
+     * Create backup before upload starts
+     * @param {Array<string>} uploadedSTTs - STTs to be uploaded
+     * @returns {Promise<string>} uploadId for tracking
+     */
+    async function createBackupBeforeUpload(uploadedSTTs) {
+        try {
+            console.log('[BACKUP] 📦 Creating backup before upload...');
+            console.log('[BACKUP] STTs to upload:', uploadedSTTs);
+
+            // 1. Load current productAssignments from localStorage
+            const saved = localStorage.getItem('productAssignments');
+            if (!saved) {
+                console.log('[BACKUP] ⚠️ No assignments to backup');
+                throw new Error('Không có dữ liệu để backup');
+            }
+
+            const currentData = JSON.parse(saved);
+
+            // Validate data structure
+            if (!currentData.assignments || !Array.isArray(currentData.assignments)) {
+                throw new Error('Invalid productAssignments structure');
+            }
+
+            // 2. Create unique upload ID
+            const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            console.log('[BACKUP] Upload ID:', uploadId);
+
+            // 3. Create backup snapshot
+            const backupSnapshot = {
+                uploadId: uploadId,
+                timestamp: Date.now(),
+                assignments: currentData.assignments,
+                _timestamp: currentData._timestamp || Date.now(),
+                _version: currentData._version || 1,
+                uploadedSTTs: uploadedSTTs,
+                expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes
+            };
+
+            // 4. Save to Firebase (use uploadId as key to prevent overwrites)
+            await database.ref(`productAssignments_backup/${uploadId}`).set(backupSnapshot);
+
+            console.log('[BACKUP] ✅ Backup created successfully');
+            console.log('[BACKUP] Backed up:', currentData.assignments.length, 'products');
+
+            return uploadId;
+
+        } catch (error) {
+            console.error('[BACKUP] ❌ Error creating backup:', error);
+            throw new Error(`Không thể tạo backup: ${error.message}`);
+        }
+    }
+
+    /**
+     * Load backup data from Firebase
+     * @param {string} uploadId - Upload ID
+     * @returns {Promise<Object>} Backup data
+     */
+    async function loadBackupData(uploadId) {
+        try {
+            console.log('[BACKUP] 📥 Loading backup:', uploadId);
+
+            const snapshot = await database.ref(`productAssignments_backup/${uploadId}`).once('value');
+            const backup = snapshot.val();
+
+            if (!backup) {
+                throw new Error('Backup not found');
+            }
+
+            console.log('[BACKUP] ✅ Backup loaded:', backup.assignments.length, 'products');
+            return backup;
+
+        } catch (error) {
+            console.error('[BACKUP] ❌ Error loading backup:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save upload history to Firebase
+     * @param {string} uploadId - Upload ID
+     * @param {Array} results - Upload results
+     * @param {string} status - Upload status
+     * @param {Object} beforeSnapshot - Snapshot before upload
+     * @param {Object|null} afterSnapshot - Snapshot after upload (null if failed)
+     */
+    async function saveToHistory(uploadId, results, status, beforeSnapshot, afterSnapshot) {
+        try {
+            console.log('[HISTORY] 💾 Saving upload history:', uploadId);
+            console.log('[HISTORY] Status:', status);
+
+            // Build history record
+            const historyRecord = {
+                uploadId: uploadId,
+                timestamp: Date.now(),
+
+                // Snapshots
+                beforeSnapshot: {
+                    assignments: beforeSnapshot.assignments || [],
+                    _timestamp: beforeSnapshot._timestamp,
+                    _version: beforeSnapshot._version
+                },
+                afterSnapshot: afterSnapshot ? {
+                    assignments: afterSnapshot.assignments || [],
+                    _timestamp: afterSnapshot._timestamp,
+                    _version: afterSnapshot._version
+                } : null,
+
+                // Upload details
+                uploadedSTTs: results.map(r => r.stt),
+                uploadResults: results.map(r => ({
+                    stt: r.stt,
+                    orderId: r.orderId,
+                    success: r.success,
+                    error: r.error || null
+                })),
+
+                // Statistics
+                totalSTTs: results.length,
+                successCount: results.filter(r => r.success).length,
+                failCount: results.filter(r => !r.success).length,
+
+                // Status
+                uploadStatus: status,
+                canRestore: false, // Always false (restore happens immediately if needed)
+                restoredAt: (status === 'failed') ? Date.now() : null,
+                committedAt: null, // Will be set when marked as committed
+
+                // Metadata
+                note: ""
+            };
+
+            // Batch update: Save history AND delete backup in one operation
+            const updates = {};
+            updates[`productAssignments_history/${uploadId}`] = historyRecord;
+            updates[`productAssignments_backup/${uploadId}`] = null; // Delete backup
+
+            await database.ref().update(updates);
+
+            console.log('[HISTORY] ✅ History saved and backup cleaned');
+
+        } catch (error) {
+            console.error('[HISTORY] ❌ Error saving history:', error);
+            // Don't throw - history is for audit, not critical for operation
+            showNotification('⚠️ Không thể lưu lịch sử upload (không ảnh hưởng dữ liệu)', 'warning');
+        }
+    }
+
+    /**
+     * Mark history as committed (finalized, cannot restore)
+     * @param {string} uploadId - Upload ID
+     */
+    async function markHistoryAsCommitted(uploadId) {
+        try {
+            console.log('[HISTORY] 🔒 Marking history as committed:', uploadId);
+
+            await database.ref(`productAssignments_history/${uploadId}`).update({
+                canRestore: false,
+                committedAt: Date.now()
+            });
+
+            console.log('[HISTORY] ✅ History marked as committed');
+
+        } catch (error) {
+            console.error('[HISTORY] ❌ Error marking history:', error);
+            // Not critical, just log
+        }
+    }
+
+    /**
+     * Restore from backup when upload fails
+     * @param {string} uploadId - Upload ID
+     * @returns {Promise<boolean>} Success status
+     */
+    async function restoreFromBackup(uploadId) {
+        try {
+            console.log('[RESTORE] 🔄 Restoring from backup:', uploadId);
+
+            // 1. Load backup from Firebase
+            const backup = await loadBackupData(uploadId);
+
+            // 2. Validate backup structure
+            if (!backup.assignments || !Array.isArray(backup.assignments)) {
+                throw new Error('Invalid backup structure');
+            }
+
+            // 3. Check backup age (warn if old)
+            const backupAge = Date.now() - (backup.timestamp || 0);
+            const MAX_BACKUP_AGE = 30 * 60 * 1000; // 30 minutes
+
+            if (backupAge > MAX_BACKUP_AGE) {
+                console.warn('[RESTORE] ⚠️ Backup is older than 30 minutes:', Math.floor(backupAge / 60000), 'min');
+            }
+
+            // 4. Prepare restored data
+            const restoredData = {
+                assignments: backup.assignments,
+                _timestamp: Date.now(), // New timestamp to trigger sync
+                _version: backup._version || 1
+            };
+
+            console.log('[RESTORE] 📦 Restoring:', restoredData.assignments.length, 'products');
+
+            // 5. Set flag to prevent Firebase listener from double-rendering
+            isLocalUpdate = true;
+
+            // 6. Update localStorage
+            localStorage.setItem('productAssignments', JSON.stringify(restoredData));
+            console.log('[RESTORE] ✅ Restored to localStorage');
+
+            // 7. Sync to Firebase
+            await database.ref('productAssignments').set(restoredData);
+            console.log('[RESTORE] ✅ Synced to Firebase');
+
+            // 8. Reload UI
+            loadAssignmentsFromLocalStorage();
+
+            // 9. Reset flag after Firebase listener processes
+            setTimeout(() => {
+                isLocalUpdate = false;
+                console.log('[RESTORE] 🔓 isLocalUpdate flag reset');
+            }, 2000);
+
+            // 10. Show notification
+            showNotification('🔄 Đã khôi phục dữ liệu do upload thất bại');
+
+            console.log('[RESTORE] ✅ Restore completed successfully');
+            return true;
+
+        } catch (error) {
+            console.error('[RESTORE] ❌ Error restoring from backup:', error);
+            isLocalUpdate = false; // Reset flag on error
+            showNotification('❌ Lỗi khôi phục dữ liệu: ' + error.message, 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Cleanup backup (delete from Firebase)
+     * @param {string} uploadId - Upload ID
+     */
+    async function cleanupBackup(uploadId) {
+        try {
+            if (!uploadId) return;
+
+            console.log('[CLEANUP] 🗑️ Cleaning up backup:', uploadId);
+            await database.ref(`productAssignments_backup/${uploadId}`).remove();
+            console.log('[CLEANUP] ✅ Backup cleaned up');
+
+        } catch (error) {
+            console.error('[CLEANUP] ❌ Error cleaning up backup:', error);
+            // Not critical, just log
+        }
     }
 
     // Initialize on load
