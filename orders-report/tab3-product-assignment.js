@@ -1077,18 +1077,30 @@
 
             // Only update if Firebase is newer
             if (firebaseTimestamp > localTimestamp) {
-                console.log('[SYNC] ✅ Firebase is newer, syncing to localStorage');
+                console.log('[SYNC] ✅ Firebase is newer, checking data changes...');
 
                 // Handle new format
                 if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
                     const oldCount = assignments.length;
                     const newCount = firebaseData.assignments.length;
 
+                    // OPTIMIZATION: Compare data content to skip unnecessary renders
+                    // Only render if assignments actually changed
+                    const oldAssignmentsJSON = JSON.stringify(assignments);
+                    const newAssignmentsJSON = JSON.stringify(firebaseData.assignments);
+
+                    if (oldAssignmentsJSON === newAssignmentsJSON) {
+                        console.log('[SYNC] ⏭️ Skip render: data identical (same timestamp scenario)');
+                        // Update localStorage timestamp but skip render
+                        localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
+                        return;
+                    }
+
                     assignments = firebaseData.assignments;
                     localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
                     renderAssignmentTable();
 
-                    console.log('[SYNC] 🔄 Synced:', oldCount, '→', newCount, 'assignments');
+                    console.log('[SYNC] 🔄 Synced and rendered:', oldCount, '→', newCount, 'assignments');
                 }
                 // Handle old format (backward compatibility)
                 else if (firebaseData && Array.isArray(firebaseData)) {
