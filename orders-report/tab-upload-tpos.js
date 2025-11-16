@@ -695,6 +695,70 @@
         modalBody.innerHTML = html;
     }
 
+    // Remove uploaded STTs from productAssignments
+    async function removeUploadedSTTsFromAssignments(uploadedSTTs) {
+        try {
+            console.log('🗑️ Removing uploaded STTs from productAssignments...');
+            console.log('   STTs to remove:', uploadedSTTs);
+
+            // Load current assignments from localStorage
+            const saved = localStorage.getItem('productAssignments');
+            if (!saved) {
+                console.log('   No assignments found in localStorage');
+                return;
+            }
+
+            let productAssignments = JSON.parse(saved);
+            console.log(`   Current assignments: ${productAssignments.length} products`);
+
+            // Remove uploaded STTs from each assignment
+            let totalRemovedSTTs = 0;
+            let removedProducts = 0;
+
+            productAssignments = productAssignments.filter(assignment => {
+                if (!assignment.sttList || !Array.isArray(assignment.sttList)) {
+                    return true; // Keep products without sttList
+                }
+
+                const originalLength = assignment.sttList.length;
+
+                // Remove all sttList items that match uploaded STTs
+                assignment.sttList = assignment.sttList.filter(sttItem => {
+                    return !uploadedSTTs.includes(sttItem.stt);
+                });
+
+                const removedCount = originalLength - assignment.sttList.length;
+                totalRemovedSTTs += removedCount;
+
+                if (removedCount > 0) {
+                    console.log(`   📦 ${assignment.productCode}: removed ${removedCount} STT(s)`);
+                }
+
+                // If no STTs left, remove the entire product
+                if (assignment.sttList.length === 0) {
+                    console.log(`   🗑️ Removing product ${assignment.productCode} (no STTs left)`);
+                    removedProducts++;
+                    return false;
+                }
+
+                return true; // Keep products that still have STTs
+            });
+
+            console.log(`   ✅ Removed ${totalRemovedSTTs} STT entries from ${removedProducts} products`);
+            console.log(`   📦 Remaining assignments: ${productAssignments.length} products`);
+
+            // Save updated assignments to localStorage
+            localStorage.setItem('productAssignments', JSON.stringify(productAssignments));
+
+            // Save to Firebase
+            await database.ref('productAssignments').set(productAssignments);
+            console.log('   ✅ Synced to Firebase');
+
+        } catch (error) {
+            console.error('❌ Error removing uploaded STTs:', error);
+        }
+    }
+
     // Confirm Upload - Proceed with Actual Upload
     window.confirmUpload = async function() {
         // Hide preview modal
@@ -730,10 +794,10 @@
                     // Fetch current order data (EXACTLY like tab1-orders.js)
                     console.log(`📡 Fetching order ${orderId} for upload...`);
                     const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
-                    
+
                     // Get auth headers from tokenManager
                     const headers = await window.tokenManager.getAuthHeader();
-                    
+
                     const response = await fetch(apiUrl, {
                         headers: {
                             ...headers,
@@ -784,10 +848,10 @@
                     // =====================================================
                     // PUT REQUEST (EXACTLY like tab1-orders.js - line 1796-1810)
                     // =====================================================
-                    
+
                     // Get auth headers from tokenManager
                     const uploadHeaders = await window.tokenManager.getAuthHeader();
-                    
+
                     // PUT request to update order
                     const uploadResponse = await fetch(
                         `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})`,
@@ -831,13 +895,26 @@
                 progressBar.classList.remove('bg-primary');
                 progressBar.classList.add('bg-success');
 
+                // Remove uploaded STTs from productAssignments
+                const successfulSTTs = results.filter(r => r.success).map(r => r.stt);
+                await removeUploadedSTTsFromAssignments(successfulSTTs);
+
+                // Reload assignments and table
+                loadAssignments();
+
                 setTimeout(() => {
                     uploadModal.hide();
                     showNotification(`✅ Đã upload ${successCount} đơn hàng lên TPOS thành công!`);
                     clearSelection();
                 }, 1500);
             } else {
-                // Some failed
+                // Some failed - only remove successful STTs
+                const successfulSTTs = results.filter(r => r.success).map(r => r.stt);
+                if (successfulSTTs.length > 0) {
+                    await removeUploadedSTTsFromAssignments(successfulSTTs);
+                    loadAssignments();
+                }
+
                 statusText.textContent = `⚠️ Thành công: ${successCount}, Thất bại: ${failCount}`;
                 progressBar.classList.remove('bg-primary');
                 progressBar.classList.add('bg-warning');
