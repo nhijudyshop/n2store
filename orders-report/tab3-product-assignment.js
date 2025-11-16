@@ -1819,6 +1819,7 @@
 
     /**
      * Render upload history detail HTML
+     * Shows detailed breakdown of each order (STT) with products uploaded
      */
     function renderUploadHistoryDetail(record) {
         // Status config
@@ -1836,7 +1837,7 @@
 
         // Build info section
         let html = `
-            <div class="history-detail-info">
+            <div class="history-detail-info mb-4">
                 <div class="row">
                     <div class="col-md-6">
                         <span class="history-detail-label">Upload ID:</span>
@@ -1865,56 +1866,133 @@
             </div>
         `;
 
-        // Build upload results table
-        html += `
-            <h6 class="mb-3"><i class="fas fa-list"></i> Kết Quả Upload Chi Tiết</h6>
-            <table class="upload-results-table">
-                <thead>
-                    <tr>
-                        <th style="width: 50px;">Trạng thái</th>
-                        <th style="width: 100px;">STT</th>
-                        <th style="width: 120px;">Order ID</th>
-                        <th>Kết quả / Lỗi</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
+        // Group products by STT from beforeSnapshot.assignments
+        const productsBySTT = {};
 
-        // Render upload results
-        if (record.uploadResults && record.uploadResults.length > 0) {
-            record.uploadResults.forEach(result => {
-                const isSuccess = result.success;
-                const rowClass = isSuccess ? 'result-success' : 'result-failed';
-                const icon = isSuccess ? '<i class="fas fa-check-circle result-icon-success"></i>' : '<i class="fas fa-times-circle result-icon-failed"></i>';
-                const resultText = isSuccess ? 'Thành công' : 'Thất bại';
-                const errorMsg = result.error ? `<div class="result-error-message">${result.error}</div>` : '';
-
-                html += `
-                    <tr class="${rowClass}">
-                        <td class="text-center">${icon}</td>
-                        <td><strong>${result.stt}</strong></td>
-                        <td>${result.orderId || 'N/A'}</td>
-                        <td>
-                            ${resultText}
-                            ${errorMsg}
-                        </td>
-                    </tr>
-                `;
+        if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+            record.beforeSnapshot.assignments.forEach(assignment => {
+                assignment.sttList.forEach(stt => {
+                    if (!productsBySTT[stt]) {
+                        productsBySTT[stt] = [];
+                    }
+                    productsBySTT[stt].push({
+                        productId: assignment.productId,
+                        productCode: assignment.productCode,
+                        productName: assignment.productName,
+                        imageUrl: assignment.imageUrl,
+                        note: assignment.note || ''
+                    });
+                });
             });
-        } else {
-            html += `
-                <tr>
-                    <td colspan="4" class="text-center text-muted py-3">
-                        Không có dữ liệu upload results
-                    </td>
-                </tr>
-            `;
         }
 
-        html += `
-                </tbody>
-            </table>
-        `;
+        // Create upload results map for quick lookup
+        const uploadResultsMap = {};
+        if (record.uploadResults) {
+            record.uploadResults.forEach(result => {
+                uploadResultsMap[result.stt] = result;
+            });
+        }
+
+        // Render each STT as a card (similar to preview modal)
+        html += '<h6 class="mb-3"><i class="fas fa-shopping-cart"></i> Chi Tiết Từng Giỏ Hàng</h6>';
+
+        const sortedSTTs = Object.keys(productsBySTT).sort((a, b) => Number(a) - Number(b));
+
+        if (sortedSTTs.length === 0) {
+            html += `
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Không có dữ liệu products trong beforeSnapshot
+                </div>
+            `;
+        } else {
+            sortedSTTs.forEach(stt => {
+                const products = productsBySTT[stt];
+                const uploadResult = uploadResultsMap[stt];
+
+                // Determine card border color based on result
+                let cardClass = 'border-secondary';
+                let headerClass = 'bg-secondary';
+                let resultBadge = '';
+
+                if (uploadResult) {
+                    if (uploadResult.success) {
+                        cardClass = 'border-success';
+                        headerClass = 'bg-success';
+                        resultBadge = `<span class="badge bg-success ms-2">✅ Upload thành công → Order #${uploadResult.orderId}</span>`;
+                    } else {
+                        cardClass = 'border-danger';
+                        headerClass = 'bg-danger';
+                        resultBadge = `<span class="badge bg-danger ms-2">❌ Upload thất bại</span>`;
+                    }
+                }
+
+                // Count products
+                const productCounts = {};
+                products.forEach(product => {
+                    const key = product.productId;
+                    if (!productCounts[key]) {
+                        productCounts[key] = { ...product, count: 0 };
+                    }
+                    productCounts[key].count++;
+                });
+
+                html += `
+                    <div class="card mb-3 ${cardClass}">
+                        <div class="card-header ${headerClass} text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-hashtag"></i> STT ${stt}
+                                ${resultBadge}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-box"></i> Sản phẩm đã upload (${Object.keys(productCounts).length})
+                            </h6>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50%;">Sản phẩm</th>
+                                        <th class="text-center" style="width: 15%;">Số lượng</th>
+                                        <th style="width: 35%;">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${Object.values(productCounts).map(product => `
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    ${product.imageUrl
+                                                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                                                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
+                                                    <div>
+                                                        <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
+                                                        <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-primary">${product.count}</span>
+                                            </td>
+                                            <td>
+                                                <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có ghi chú)'}</span>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+
+                            ${uploadResult && !uploadResult.success && uploadResult.error ? `
+                                <div class="alert alert-danger mt-3 mb-0" role="alert">
+                                    <strong><i class="fas fa-exclamation-circle"></i> Lỗi:</strong> ${uploadResult.error}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+        }
 
         // Note section
         if (record.note) {
