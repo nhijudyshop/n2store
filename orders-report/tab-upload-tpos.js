@@ -1669,10 +1669,18 @@
         window.addEventListener('storage', (e) => {
             if (e.key === 'productAssignments') {
                 console.log('[STORAGE-EVENT] 🔔 productAssignments changed in another tab!');
-                console.log('[STORAGE-EVENT] Old value timestamp:', e.oldValue ? JSON.parse(e.oldValue)?._timestamp : 'null');
-                console.log('[STORAGE-EVENT] New value timestamp:', e.newValue ? JSON.parse(e.newValue)?._timestamp : 'null');
 
-                // Reload from localStorage
+                // Safe logging with try-catch to prevent JSON.parse errors from crashing the listener
+                try {
+                    const oldTimestamp = e.oldValue ? JSON.parse(e.oldValue)?._timestamp : null;
+                    const newTimestamp = e.newValue ? JSON.parse(e.newValue)?._timestamp : null;
+                    console.log('[STORAGE-EVENT] Old value timestamp:', oldTimestamp || 'null');
+                    console.log('[STORAGE-EVENT] New value timestamp:', newTimestamp || 'null');
+                } catch (error) {
+                    console.log('[STORAGE-EVENT] ⚠️ Error parsing timestamp for logging:', error.message);
+                }
+
+                // Reload from localStorage (CRITICAL - must always execute even if logging fails)
                 loadAssignmentsFromLocalStorage();
             }
         });
