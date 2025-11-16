@@ -1138,6 +1138,45 @@
         });
     }
 
+    // Setup localStorage event listener (for cross-tab sync)
+    function setupLocalStorageListener() {
+        // Note: storage event only fires in OTHER tabs, not the current tab
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'productAssignments') {
+                console.log('[STORAGE-EVENT] 🔔 productAssignments changed in another tab!');
+                console.log('[STORAGE-EVENT] Old value timestamp:', e.oldValue ? JSON.parse(e.oldValue)?._timestamp : 'null');
+                console.log('[STORAGE-EVENT] New value timestamp:', e.newValue ? JSON.parse(e.newValue)?._timestamp : 'null');
+
+                // Reload from localStorage (source of truth)
+                loadAssignments();
+            }
+        });
+
+        console.log('[STORAGE-EVENT] ✅ localStorage event listener setup complete');
+    }
+
+    // Setup visibility change listener (reload when tab becomes visible)
+    function setupVisibilityListener() {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                console.log('[VISIBILITY] 👁️ Tab became visible, reloading data...');
+                loadAssignments();
+            }
+        });
+
+        console.log('[VISIBILITY] ✅ Visibility change listener setup complete');
+    }
+
+    // Setup focus listener (reload when iframe gains focus)
+    function setupFocusListener() {
+        window.addEventListener('focus', () => {
+            console.log('[FOCUS] 🎯 Tab gained focus, reloading data...');
+            loadAssignments();
+        });
+
+        console.log('[FOCUS] ✅ Focus listener setup complete');
+    }
+
     // Product Search Input Handler
     document.getElementById('productSearch').addEventListener('input', (e) => {
         const searchText = e.target.value.trim();
@@ -1167,19 +1206,28 @@
     // Initialize on load
     window.addEventListener('load', async () => {
         try {
+            console.log('[INIT] 🚀 Initializing Tab3 Product Assignment...');
+
             await getValidToken();
             loadOrdersData();
 
-            // Load assignments from Firebase first (source of truth)
+            // Load assignments from Firebase first (with timestamp-based conflict resolution)
+            console.log('[INIT] 📱 Loading from Firebase (with localStorage comparison)...');
             await loadAssignmentsFromFirebase();
 
-            // Setup Firebase listener for real-time sync
-            setupFirebaseListeners();
+            // Setup all listeners (do NOT overwrite localStorage unless Firebase is newer)
+            console.log('[INIT] 🔧 Setting up listeners...');
+            setupFirebaseListeners();       // Firebase sync (with timestamp check)
+            setupLocalStorageListener();    // Cross-tab sync via storage event
+            setupVisibilityListener();      // Reload when tab visible
+            setupFocusListener();           // Reload when iframe focused
 
             await loadProductsData();
             updateOrdersCount(); // Update initial count
+
+            console.log('[INIT] ✅ Initialization complete!');
         } catch (error) {
-            console.error('Initialization error:', error);
+            console.error('[INIT] ❌ Initialization error:', error);
             showNotification('Lỗi khởi tạo: ' + error.message, 'error');
         }
     });
