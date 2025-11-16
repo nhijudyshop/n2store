@@ -1279,28 +1279,6 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
         ">${chatInfo.commentsCount}</span>`
         : '';
 
-    // Check if message/comment is newer than order creation
-    let newBadge = '';
-    if (chatInfo.timestamp && order.DateCreated) {
-        const chatTime = new Date(chatInfo.timestamp);
-        const orderTime = new Date(order.DateCreated);
-
-        // If chat is newer than order (after order was created)
-        if (chatTime > orderTime) {
-            const labelText = columnType === 'comments' ? 'BL MỚI' : 'TN MỚI';
-            newBadge = `<span class="chat-new-badge" style="
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                color: white;
-                padding: 2px 6px;
-                border-radius: 10px;
-                font-size: 10px;
-                font-weight: 600;
-                text-transform: uppercase;
-                box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-            ">${labelText}</span>`;
-        }
-    }
-
     // Icon based on column type (messages vs comments)
     const typeIcon = columnType === 'comments'
         ? '<i class="fas fa-comment" style="color: #65676b;"></i>'
@@ -1318,13 +1296,12 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
             style="max-width: 200px; white-space: normal; cursor: pointer;"
             onclick="openChatModal('${order.Id}', '${channelId}', '${psid}', '${modalType}')"
             title="${tooltipText}">
-            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 6px;">
                 ${typeIcon}
                 ${messageIcon ? `<span style="font-size: 16px;">${messageIcon}</span>` : ''}
-                <span style="flex: 1; min-width: 80px;">${displayMessage}</span>
+                <span style="flex: 1;">${displayMessage}</span>
                 ${badge}
                 ${countBadge}
-                ${newBadge}
             </div>
         </td>`;
 }

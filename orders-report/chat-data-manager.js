@@ -419,7 +419,7 @@ class ChatDataManager {
     /**
      * Lấy tin nhắn cuối cùng cho order
      * @param {Object} order - Order object
-     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type, commentsCount, timestamp }
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type, commentsCount }
      */
     getLastMessageForOrder(order) {
         const chatInfo = this.getChatInfoForOrder(order);
@@ -432,8 +432,7 @@ class ChatDataManager {
                 unreadCount: 0,
                 attachments: null,
                 type: null,
-                commentsCount: 0,
-                timestamp: null
+                commentsCount: 0
             };
         }
 
@@ -444,7 +443,6 @@ class ChatDataManager {
         const attachments = messageObj.Attachments || null;
         const hasUnread = conv.LastActivities?.HasUnread || false;
         const unreadCount = conv.LastActivities?.UnreadCount || 0;
-        const timestamp = messageObj.CreatedTime || conv.UpdatedDate || null;
 
         return {
             message: lastMessage,
@@ -453,8 +451,7 @@ class ChatDataManager {
             unreadCount,
             attachments,
             type: 'message',
-            commentsCount: 0,
-            timestamp
+            commentsCount: 0
         };
     }
 
@@ -462,7 +459,7 @@ class ChatDataManager {
      * Lấy comment cuối cùng cho order từ comment conversation map
      * @param {string} channelId - Facebook Page ID (not used, kept for compatibility)
      * @param {string} userId - Facebook PSID
-     * @returns {Object} { message, messageType, hasUnread, unreadCount, type, commentsCount, timestamp }
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, type, commentsCount }
      */
     getLastCommentForOrder(channelId, userId) {
         if (!userId) {
@@ -472,8 +469,7 @@ class ChatDataManager {
                 hasUnread: false,
                 unreadCount: 0,
                 type: 'comment',
-                commentsCount: 0,
-                timestamp: null
+                commentsCount: 0
             };
         }
 
@@ -487,8 +483,7 @@ class ChatDataManager {
                 hasUnread: false,
                 unreadCount: 0,
                 type: 'comment',
-                commentsCount: 0,
-                timestamp: null
+                commentsCount: 0
             };
         }
 
@@ -501,8 +496,7 @@ class ChatDataManager {
                 hasUnread: false,
                 unreadCount: 0,
                 type: 'comment',
-                commentsCount: 0,
-                timestamp: null
+                commentsCount: 0
             };
         }
 
@@ -510,7 +504,6 @@ class ChatDataManager {
         const messageType = lastComment.Type === 1 ? 'text' : 'other';
         const hasUnread = commentConv.LastActivities?.HasUnread || false;
         const unreadCount = commentConv.LastActivities?.UnreadCount || 0;
-        const timestamp = lastComment.CreatedTime || commentConv.UpdatedDate || null;
 
         return {
             message,
@@ -519,8 +512,7 @@ class ChatDataManager {
             unreadCount,
             type: 'comment',
             commentsCount: 1, // We only have the last comment info
-            commentConversation: commentConv,
-            timestamp
+            commentConversation: commentConv
         };
     }
 
