@@ -692,10 +692,9 @@ async function fetchOrders() {
             )];
             console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
 
-            await Promise.all([
-                window.chatDataManager.fetchConversations(false, channelIds),
-                window.chatDataManager.fetchCommentConversations(false, channelIds)
-            ]);
+            // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
+            // No need to call both methods anymore - this reduces API calls by 50%!
+            await window.chatDataManager.fetchConversations(false, channelIds);
             renderTable(); // Re-render with chat data
         }
 
