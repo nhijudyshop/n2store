@@ -770,8 +770,9 @@
             localStorage.setItem('productAssignments', JSON.stringify(productAssignments));
 
             // Save to Firebase
+            console.log('   📤 Syncing to Firebase:', productAssignments.length, 'products');
             await database.ref('productAssignments').set(productAssignments);
-            console.log('   ✅ Synced to Firebase');
+            console.log('   ✅ Synced to Firebase successfully');
 
         } catch (error) {
             console.error('❌ Error removing uploaded STTs:', error);
