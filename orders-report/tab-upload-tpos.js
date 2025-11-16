@@ -582,6 +582,11 @@
                                     <tbody>
                                         ${Object.values(assignedProductCounts).map(product => {
                                             const noteKey = `${stt}-${product.productId}`;
+
+                                            // Tự động thêm "live" nếu chưa có note
+                                            if (!productNotes[noteKey]) {
+                                                productNotes[noteKey] = 'live';
+                                            }
                                             const existingNote = productNotes[noteKey] || '';
 
                                             // Badge to show if product is new or existing
