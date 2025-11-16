@@ -934,30 +934,30 @@
 
     // Setup Firebase Listeners
     function setupFirebaseListeners() {
-        // Listen for product assignments
-        database.ref('productAssignments').on('value', (snapshot) => {
-            // Skip if this is a local update (to prevent duplicate render)
-            if (isLocalUpdate) {
-                console.log('⏭️ Skip Firebase listener render (local update)');
-                return;
-            }
+        // DISABLED: Listen for product assignments (không cho cập nhật vào danh sách gán nữa)
+        // database.ref('productAssignments').on('value', (snapshot) => {
+        //     // Skip if this is a local update (to prevent duplicate render)
+        //     if (isLocalUpdate) {
+        //         console.log('⏭️ Skip Firebase listener render (local update)');
+        //         return;
+        //     }
 
-            const data = snapshot.val();
-            if (data && Array.isArray(data)) {
-                // Check if data actually changed to avoid unnecessary renders
-                const currentData = JSON.stringify(assignments);
-                const newData = JSON.stringify(data);
+        //     const data = snapshot.val();
+        //     if (data && Array.isArray(data)) {
+        //         // Check if data actually changed to avoid unnecessary renders
+        //         const currentData = JSON.stringify(assignments);
+        //         const newData = JSON.stringify(data);
 
-                if (currentData !== newData) {
-                    console.log('🔄 Firebase sync: updating assignments from remote');
-                    assignments = data;
-                    localStorage.setItem('productAssignments', JSON.stringify(assignments));
-                    renderAssignmentTable();
-                } else {
-                    console.log('⏭️ Skip render: data unchanged');
-                }
-            }
-        });
+        //         if (currentData !== newData) {
+        //             console.log('🔄 Firebase sync: updating assignments from remote');
+        //             assignments = data;
+        //             localStorage.setItem('productAssignments', JSON.stringify(assignments));
+        //             renderAssignmentTable();
+        //         } else {
+        //             console.log('⏭️ Skip render: data unchanged');
+        //         }
+        //     }
+        // });
 
         // Listen for saved products from product-search
         database.ref('savedProducts').on('value', (snapshot) => {
