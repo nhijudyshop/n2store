@@ -936,6 +936,8 @@
     async function loadAssignmentsFromFirebase() {
         try {
             console.log('[TAB3] Loading assignments from Firebase...');
+            console.log('[TAB3] isLocalUpdate before load:', isLocalUpdate);
+
             const snapshot = await database.ref('productAssignments').once('value');
             const data = snapshot.val();
 
@@ -944,43 +946,80 @@
                 assignments = data;
                 localStorage.setItem('productAssignments', JSON.stringify(assignments));
                 renderAssignmentTable();
+            } else if (data === null) {
+                console.log('[TAB3] Firebase is empty, initializing with empty array');
+                assignments = [];
+                renderAssignmentTable();
             } else {
                 console.log('[TAB3] No data in Firebase, loading from localStorage...');
                 loadAssignments(); // Fallback to localStorage
             }
+
+            // Ensure isLocalUpdate is false after initial load
+            isLocalUpdate = false;
+            console.log('[TAB3] Reset isLocalUpdate to false');
         } catch (error) {
             console.error('[TAB3] Error loading from Firebase:', error);
             console.log('[TAB3] Falling back to localStorage...');
             loadAssignments(); // Fallback to localStorage
+            isLocalUpdate = false;
         }
     }
 
     // Setup Firebase Listeners
     function setupFirebaseListeners() {
+        console.log('[TAB3] Setting up Firebase listeners...');
+
+        let isFirstLoad = true; // Skip first trigger (we already loaded initial data)
+
         // Listen for product assignments - sync when Tab2 removes uploaded STTs
         database.ref('productAssignments').on('value', (snapshot) => {
+            console.log('[TAB3] 🔔 Firebase listener triggered!');
+            console.log('[TAB3] isLocalUpdate:', isLocalUpdate, '| isFirstLoad:', isFirstLoad);
+
+            // Skip first trigger (already loaded in loadAssignmentsFromFirebase)
+            if (isFirstLoad) {
+                console.log('[TAB3] ⏭️ Skip first listener trigger (initial data already loaded)');
+                isFirstLoad = false;
+                return;
+            }
+
             // Skip if this is a local update (to prevent duplicate render)
             if (isLocalUpdate) {
-                console.log('⏭️ Skip Firebase listener render (local update)');
+                console.log('[TAB3] ⏭️ Skip Firebase listener render (local update)');
                 return;
             }
 
             const data = snapshot.val();
+            console.log('[TAB3] Firebase data received:', data ? `${data.length} items` : 'null/empty');
+
+            // Handle both array and null/empty cases
             if (data && Array.isArray(data)) {
                 // Check if data actually changed to avoid unnecessary renders
                 const currentData = JSON.stringify(assignments);
                 const newData = JSON.stringify(data);
 
                 if (currentData !== newData) {
-                    console.log('🔄 Firebase sync: updating assignments from remote');
+                    console.log('[TAB3] 🔄 Firebase sync: updating assignments from remote');
+                    console.log('[TAB3] Old count:', assignments.length, '→ New count:', data.length);
                     assignments = data;
                     localStorage.setItem('productAssignments', JSON.stringify(assignments));
                     renderAssignmentTable();
                 } else {
-                    console.log('⏭️ Skip render: data unchanged');
+                    console.log('[TAB3] ⏭️ Skip render: data unchanged');
                 }
+            } else if (data === null || (Array.isArray(data) && data.length === 0)) {
+                // Handle empty/null data (Tab2 deleted all assignments)
+                console.log('[TAB3] 🔄 Firebase sync: clearing all assignments');
+                assignments = [];
+                localStorage.setItem('productAssignments', JSON.stringify(assignments));
+                renderAssignmentTable();
+            } else {
+                console.log('[TAB3] ⚠️ Unexpected data format:', typeof data);
             }
         });
+
+        console.log('[TAB3] ✅ Firebase listeners setup complete');
 
         // Listen for saved products from product-search
         database.ref('savedProducts').on('value', (snapshot) => {
