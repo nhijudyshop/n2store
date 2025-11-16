@@ -2305,4 +2305,513 @@
         }
     });
 
+    // =====================================================
+    // UPLOAD HISTORY VIEWER
+    // =====================================================
+
+    // Global state for history viewer
+    let uploadHistoryRecords = [];
+    let filteredHistoryRecords = [];
+    let currentHistoryPage = 1;
+    const HISTORY_PAGE_SIZE = 20;
+
+    /**
+     * Open Upload History Modal
+     */
+    window.openUploadHistoryModal = async function() {
+        console.log('[HISTORY] 📜 Opening upload history modal...');
+
+        try {
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('uploadHistoryModal'));
+            modal.show();
+
+            // Show loading state
+            const container = document.getElementById('historyListContainer');
+            container.innerHTML = `
+                <div class="history-loading">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-3">Đang tải lịch sử upload...</p>
+                </div>
+            `;
+
+            // Load history from Firebase
+            await loadUploadHistory();
+
+            // Render history list
+            renderUploadHistoryList();
+
+        } catch (error) {
+            console.error('[HISTORY] ❌ Error opening history modal:', error);
+            showNotification('❌ Lỗi khi tải lịch sử upload', 'error');
+
+            const container = document.getElementById('historyListContainer');
+            container.innerHTML = `
+                <div class="history-empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Lỗi khi tải lịch sử upload</p>
+                    <p class="small text-danger">${error.message}</p>
+                    <button class="btn btn-sm btn-primary mt-2" onclick="openUploadHistoryModal()">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Load upload history from Firebase
+     * Only loads summary fields for performance
+     */
+    async function loadUploadHistory() {
+        try {
+            console.log('[HISTORY] 📥 Loading history from Firebase...');
+
+            // Query Firebase - orderByChild timestamp, limit to last 100 records
+            const snapshot = await database.ref('productAssignments_history')
+                .orderByChild('timestamp')
+                .limitToLast(100)
+                .once('value');
+
+            const data = snapshot.val();
+
+            if (!data) {
+                console.log('[HISTORY] ℹ️ No history records found');
+                uploadHistoryRecords = [];
+                filteredHistoryRecords = [];
+                return;
+            }
+
+            // Convert to array and extract ONLY summary fields (not beforeSnapshot/afterSnapshot)
+            uploadHistoryRecords = Object.keys(data).map(key => {
+                const record = data[key];
+                return {
+                    uploadId: record.uploadId || key,
+                    timestamp: record.timestamp || 0,
+                    uploadStatus: record.uploadStatus || 'unknown',
+                    totalSTTs: record.totalSTTs || 0,
+                    successCount: record.successCount || 0,
+                    failCount: record.failCount || 0,
+                    uploadedSTTs: record.uploadedSTTs || [],
+                    note: record.note || '',
+                    committedAt: record.committedAt || null,
+                    restoredAt: record.restoredAt || null
+                    // DO NOT load beforeSnapshot/afterSnapshot here (lazy load when needed)
+                };
+            });
+
+            // Sort by timestamp descending (newest first)
+            uploadHistoryRecords.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Initialize filtered records (no filter yet)
+            filteredHistoryRecords = [...uploadHistoryRecords];
+
+            console.log(`[HISTORY] ✅ Loaded ${uploadHistoryRecords.length} history records`);
+
+        } catch (error) {
+            console.error('[HISTORY] ❌ Error loading history:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Filter upload history based on user input
+     */
+    window.filterUploadHistory = function() {
+        const status = document.getElementById('historyStatusFilter').value;
+        const dateFrom = document.getElementById('historyDateFrom').value;
+        const dateTo = document.getElementById('historyDateTo').value;
+        const searchSTT = document.getElementById('historySearchSTT').value.trim();
+
+        console.log('[HISTORY] 🔍 Filtering history:', { status, dateFrom, dateTo, searchSTT });
+
+        // Start with all records
+        filteredHistoryRecords = [...uploadHistoryRecords];
+
+        // Filter by status
+        if (status && status !== 'all') {
+            filteredHistoryRecords = filteredHistoryRecords.filter(record => record.uploadStatus === status);
+        }
+
+        // Filter by date range
+        if (dateFrom) {
+            const fromTimestamp = new Date(dateFrom).getTime();
+            filteredHistoryRecords = filteredHistoryRecords.filter(record => record.timestamp >= fromTimestamp);
+        }
+
+        if (dateTo) {
+            const toTimestamp = new Date(dateTo).setHours(23, 59, 59, 999); // End of day
+            filteredHistoryRecords = filteredHistoryRecords.filter(record => record.timestamp <= toTimestamp);
+        }
+
+        // Filter by STT search
+        if (searchSTT) {
+            filteredHistoryRecords = filteredHistoryRecords.filter(record => {
+                return record.uploadedSTTs.some(stt => stt.toString().includes(searchSTT));
+            });
+        }
+
+        // Reset to page 1
+        currentHistoryPage = 1;
+
+        // Re-render list
+        renderUploadHistoryList();
+
+        console.log(`[HISTORY] ✅ Filtered to ${filteredHistoryRecords.length} records`);
+    };
+
+    /**
+     * Render upload history list with pagination
+     */
+    function renderUploadHistoryList() {
+        const container = document.getElementById('historyListContainer');
+
+        // Empty state
+        if (filteredHistoryRecords.length === 0) {
+            container.innerHTML = `
+                <div class="history-empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>Không tìm thấy lịch sử upload nào</p>
+                    <p class="small">Lịch sử sẽ được lưu tự động sau mỗi lần upload</p>
+                </div>
+            `;
+            document.getElementById('historyPagination').innerHTML = '';
+            return;
+        }
+
+        // Calculate pagination
+        const totalPages = Math.ceil(filteredHistoryRecords.length / HISTORY_PAGE_SIZE);
+        const startIndex = (currentHistoryPage - 1) * HISTORY_PAGE_SIZE;
+        const endIndex = Math.min(startIndex + HISTORY_PAGE_SIZE, filteredHistoryRecords.length);
+        const pageRecords = filteredHistoryRecords.slice(startIndex, endIndex);
+
+        // Render history cards
+        container.innerHTML = pageRecords.map(record => formatHistoryCard(record)).join('');
+
+        // Render pagination
+        renderHistoryPagination(totalPages);
+    }
+
+    /**
+     * Format a single history card HTML
+     */
+    function formatHistoryCard(record) {
+        // Status config
+        const statusConfig = {
+            'completed': { icon: '✅', text: 'Thành công', class: 'completed' },
+            'partial': { icon: '⚠️', text: 'Thành công một phần', class: 'partial' },
+            'failed': { icon: '❌', text: 'Thất bại', class: 'failed' },
+            'deletion_failed': { icon: '⚠️', text: 'Upload OK - Xóa failed', class: 'deletion_failed' }
+        };
+
+        const config = statusConfig[record.uploadStatus] || { icon: '❓', text: 'Unknown', class: 'unknown' };
+
+        // Format date
+        const date = new Date(record.timestamp);
+        const dateStr = date.toLocaleString('vi-VN');
+
+        // Format uploadId (show last 8 chars)
+        const shortId = record.uploadId.slice(-8);
+
+        // Format STTs list (limit to first 20, then "...")
+        const sttList = record.uploadedSTTs.slice(0, 20).join(', ');
+        const moreStt = record.uploadedSTTs.length > 20 ? ` và ${record.uploadedSTTs.length - 20} STT khác` : '';
+
+        return `
+            <div class="history-card ${config.class}">
+                <div class="history-card-header">
+                    <div>
+                        <h6 class="history-card-title">
+                            ${config.icon} Upload #${shortId}
+                            <span class="history-card-date">${dateStr}</span>
+                        </h6>
+                    </div>
+                    <span class="history-status-badge ${config.class}">${config.text}</span>
+                </div>
+
+                <div class="history-stats">
+                    <div class="history-stat-item history-stat-success">
+                        <i class="fas fa-check-circle"></i>
+                        <span><strong>${record.successCount}</strong> thành công</span>
+                    </div>
+                    <div class="history-stat-item history-stat-failed">
+                        <i class="fas fa-times-circle"></i>
+                        <span><strong>${record.failCount}</strong> thất bại</span>
+                    </div>
+                    <div class="history-stat-item history-stat-total">
+                        <i class="fas fa-list"></i>
+                        <span><strong>${record.totalSTTs}</strong> tổng STT</span>
+                    </div>
+                </div>
+
+                <div class="history-stts">
+                    <strong>STT:</strong> ${sttList}${moreStt}
+                </div>
+
+                <div class="history-actions">
+                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetail('${record.uploadId}')">
+                        <i class="fas fa-eye"></i> Xem Chi Tiết
+                    </button>
+                </div>
+
+                ${record.note ? `
+                    <div class="history-note">
+                        <i class="fas fa-sticky-note"></i>
+                        ${record.note}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Render pagination controls
+     */
+    function renderHistoryPagination(totalPages) {
+        const pagination = document.getElementById('historyPagination');
+
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+
+        // Previous button
+        html += `
+            <button class="btn btn-sm btn-outline-secondary"
+                    onclick="changeHistoryPage(${currentHistoryPage - 1})"
+                    ${currentHistoryPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        `;
+
+        // Page numbers (show max 7 pages)
+        const maxPageButtons = 7;
+        let startPage = Math.max(1, currentHistoryPage - Math.floor(maxPageButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+
+        // Adjust startPage if endPage is at max
+        if (endPage - startPage < maxPageButtons - 1) {
+            startPage = Math.max(1, endPage - maxPageButtons + 1);
+        }
+
+        // First page button
+        if (startPage > 1) {
+            html += `
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeHistoryPage(1)">1</button>
+                ${startPage > 2 ? '<span>...</span>' : ''}
+            `;
+        }
+
+        // Page buttons
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <button class="btn btn-sm ${i === currentHistoryPage ? 'btn-info active' : 'btn-outline-secondary'}"
+                        onclick="changeHistoryPage(${i})">
+                    ${i}
+                </button>
+            `;
+        }
+
+        // Last page button
+        if (endPage < totalPages) {
+            html += `
+                ${endPage < totalPages - 1 ? '<span>...</span>' : ''}
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeHistoryPage(${totalPages})">${totalPages}</button>
+            `;
+        }
+
+        // Next button
+        html += `
+            <button class="btn btn-sm btn-outline-secondary"
+                    onclick="changeHistoryPage(${currentHistoryPage + 1})"
+                    ${currentHistoryPage === totalPages ? 'disabled' : ''}>
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        `;
+
+        pagination.innerHTML = html;
+    }
+
+    /**
+     * Change history page
+     */
+    window.changeHistoryPage = function(page) {
+        currentHistoryPage = page;
+        renderUploadHistoryList();
+
+        // Scroll to top of list
+        document.getElementById('historyListContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    /**
+     * View upload history detail
+     * Lazy load uploadResults from Firebase
+     */
+    window.viewUploadHistoryDetail = async function(uploadId) {
+        console.log('[HISTORY] 👁️ Viewing detail for:', uploadId);
+
+        try {
+            // Show detail modal with loading state
+            const detailModal = new bootstrap.Modal(document.getElementById('uploadHistoryDetailModal'));
+            detailModal.show();
+
+            const titleEl = document.getElementById('historyDetailModalTitle');
+            const bodyEl = document.getElementById('historyDetailModalBody');
+
+            titleEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+            bodyEl.innerHTML = `
+                <div class="history-loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-3">Đang tải chi tiết upload...</p>
+                </div>
+            `;
+
+            // Load full record from Firebase (with uploadResults)
+            const snapshot = await database.ref(`productAssignments_history/${uploadId}`).once('value');
+            const record = snapshot.val();
+
+            if (!record) {
+                throw new Error('Không tìm thấy record');
+            }
+
+            // Update title
+            const shortId = uploadId.slice(-8);
+            const date = new Date(record.timestamp).toLocaleString('vi-VN');
+            titleEl.innerHTML = `<i class="fas fa-info-circle"></i> Chi Tiết Upload #${shortId}`;
+
+            // Render detail content
+            bodyEl.innerHTML = renderUploadHistoryDetail(record);
+
+        } catch (error) {
+            console.error('[HISTORY] ❌ Error viewing detail:', error);
+            showNotification('❌ Lỗi khi tải chi tiết upload', 'error');
+
+            const bodyEl = document.getElementById('historyDetailModalBody');
+            bodyEl.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Lỗi: ${error.message}
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Render upload history detail HTML
+     */
+    function renderUploadHistoryDetail(record) {
+        // Status config
+        const statusConfig = {
+            'completed': { icon: '✅', text: 'Thành công hoàn toàn', class: 'success' },
+            'partial': { icon: '⚠️', text: 'Thành công một phần', class: 'warning' },
+            'failed': { icon: '❌', text: 'Thất bại hoàn toàn', class: 'danger' },
+            'deletion_failed': { icon: '⚠️', text: 'Upload OK - Không xóa được', class: 'warning' }
+        };
+
+        const config = statusConfig[record.uploadStatus] || { icon: '❓', text: 'Unknown', class: 'secondary' };
+
+        // Format date
+        const date = new Date(record.timestamp).toLocaleString('vi-VN');
+
+        // Build info section
+        let html = `
+            <div class="history-detail-info">
+                <div class="row">
+                    <div class="col-md-6">
+                        <span class="history-detail-label">Upload ID:</span>
+                        <span class="history-detail-value">${record.uploadId}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="history-detail-label">Thời gian:</span>
+                        <span class="history-detail-value">${date}</span>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <span class="history-detail-label">Trạng thái:</span>
+                        <span class="history-detail-value">
+                            <span class="badge bg-${config.class}">${config.icon} ${config.text}</span>
+                        </span>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="history-detail-label">Tổng STT:</span>
+                        <span class="history-detail-value">
+                            <strong>${record.totalSTTs}</strong>
+                            (✅ ${record.successCount} | ❌ ${record.failCount})
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Build upload results table
+        html += `
+            <h6 class="mb-3"><i class="fas fa-list"></i> Kết Quả Upload Chi Tiết</h6>
+            <table class="upload-results-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">Trạng thái</th>
+                        <th style="width: 100px;">STT</th>
+                        <th style="width: 120px;">Order ID</th>
+                        <th>Kết quả / Lỗi</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        // Render upload results
+        if (record.uploadResults && record.uploadResults.length > 0) {
+            record.uploadResults.forEach(result => {
+                const isSuccess = result.success;
+                const rowClass = isSuccess ? 'result-success' : 'result-failed';
+                const icon = isSuccess ? '<i class="fas fa-check-circle result-icon-success"></i>' : '<i class="fas fa-times-circle result-icon-failed"></i>';
+                const resultText = isSuccess ? 'Thành công' : 'Thất bại';
+                const errorMsg = result.error ? `<div class="result-error-message">${result.error}</div>` : '';
+
+                html += `
+                    <tr class="${rowClass}">
+                        <td class="text-center">${icon}</td>
+                        <td><strong>${result.stt}</strong></td>
+                        <td>${result.orderId || 'N/A'}</td>
+                        <td>
+                            ${resultText}
+                            ${errorMsg}
+                        </td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += `
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-3">
+                        Không có dữ liệu upload results
+                    </td>
+                </tr>
+            `;
+        }
+
+        html += `
+                </tbody>
+            </table>
+        `;
+
+        // Note section
+        if (record.note) {
+            html += `
+                <div class="history-note mt-3">
+                    <i class="fas fa-sticky-note"></i>
+                    <strong>Ghi chú:</strong> ${record.note}
+                </div>
+            `;
+        }
+
+        return html;
+    }
+
 })();

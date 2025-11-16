@@ -625,3 +625,341 @@ body {
         opacity: 0;
     }
 }
+
+/* ============================================
+   UPLOAD HISTORY VIEWER STYLES
+   ============================================ */
+
+/* History Filters */
+.history-filters .form-select,
+.history-filters .form-control {
+    border-radius: 6px;
+    border: 1px solid var(--gray-300);
+}
+
+.history-filters .form-select:focus,
+.history-filters .form-control:focus {
+    border-color: var(--info);
+    box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.25);
+}
+
+/* History Card */
+.history-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.history-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Status Border Colors */
+.history-card.completed {
+    border-left: 4px solid var(--success);
+}
+
+.history-card.partial {
+    border-left: 4px solid var(--warning);
+}
+
+.history-card.failed {
+    border-left: 4px solid var(--danger);
+}
+
+.history-card.deletion_failed {
+    border-left: 4px solid var(--warning);
+}
+
+/* History Card Header */
+.history-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.history-card-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--gray-800);
+    margin: 0;
+}
+
+.history-card-date {
+    font-size: 13px;
+    color: var(--gray-600);
+    margin-left: 8px;
+}
+
+/* Status Badge */
+.history-status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.history-status-badge.completed {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.history-status-badge.partial {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.history-status-badge.failed {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.history-status-badge.deletion_failed {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+/* History Stats */
+.history-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.history-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.history-stat-item i {
+    font-size: 14px;
+}
+
+.history-stat-success {
+    color: var(--success);
+}
+
+.history-stat-failed {
+    color: var(--danger);
+}
+
+.history-stat-total {
+    color: var(--info);
+}
+
+/* History STTs */
+.history-stts {
+    font-size: 12px;
+    color: var(--gray-600);
+    background: var(--gray-50);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    max-height: 60px;
+    overflow-y: auto;
+    line-height: 1.6;
+}
+
+.history-stts::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.history-stts::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 4px;
+}
+
+/* History Actions */
+.history-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.history-actions .btn-sm {
+    font-size: 12px;
+    padding: 4px 12px;
+}
+
+/* History Note */
+.history-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #fef3c7;
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--gray-700);
+}
+
+.history-note i {
+    color: #f59e0b;
+    margin-right: 6px;
+}
+
+/* Empty State */
+.history-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--gray-500);
+}
+
+.history-empty-state i {
+    font-size: 48px;
+    color: var(--gray-300);
+    margin-bottom: 16px;
+    display: block;
+}
+
+.history-empty-state p {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.history-empty-state .small {
+    font-size: 12px;
+    color: var(--gray-400);
+}
+
+/* Pagination */
+#historyPagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+#historyPagination .btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#historyPagination .btn.active {
+    background-color: var(--info);
+    border-color: var(--info);
+    color: white;
+}
+
+/* History Detail Modal */
+.history-detail-info {
+    background: var(--gray-50);
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.history-detail-info .row {
+    margin-bottom: 8px;
+}
+
+.history-detail-info .row:last-child {
+    margin-bottom: 0;
+}
+
+.history-detail-label {
+    font-weight: 600;
+    color: var(--gray-700);
+    font-size: 13px;
+}
+
+.history-detail-value {
+    color: var(--gray-800);
+    font-size: 14px;
+}
+
+/* Upload Results Table */
+.upload-results-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.upload-results-table thead th {
+    background: var(--gray-100);
+    border-bottom: 2px solid var(--gray-300);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--gray-700);
+}
+
+.upload-results-table tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--gray-200);
+    font-size: 13px;
+}
+
+.upload-results-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.upload-results-table tbody tr.result-success {
+    background-color: #f0fdf4;
+}
+
+.upload-results-table tbody tr.result-failed {
+    background-color: #fef2f2;
+}
+
+.result-icon-success {
+    color: var(--success);
+    font-size: 16px;
+}
+
+.result-icon-failed {
+    color: var(--danger);
+    font-size: 16px;
+}
+
+.result-error-message {
+    font-size: 12px;
+    color: var(--danger);
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* Loading State */
+.history-loading {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.history-loading .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .history-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .history-stats {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .history-actions {
+        justify-content: stretch;
+    }
+
+    .history-actions .btn {
+        flex: 1;
+    }
+}

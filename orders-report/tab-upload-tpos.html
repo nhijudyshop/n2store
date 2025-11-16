@@ -60,6 +60,13 @@
             </div>
         </div>
 
+        <!-- History Button (Always visible) -->
+        <div class="mb-4 text-end">
+            <button class="btn btn-info" onclick="openUploadHistoryModal()">
+                <i class="fas fa-history"></i> Xem Lịch Sử Upload
+            </button>
+        </div>
+
         <!-- Products Table -->
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -163,6 +170,79 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeEditModal()">
+                            <i class="fas fa-times"></i> Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload History Modal -->
+        <div class="modal fade" id="uploadHistoryModal" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-history"></i> Lịch Sử Upload TPOS
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Filters -->
+                        <div class="history-filters mb-3">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <select class="form-select form-select-sm" id="historyStatusFilter" onchange="filterUploadHistory()">
+                                        <option value="all">Tất cả trạng thái</option>
+                                        <option value="completed">✅ Thành công</option>
+                                        <option value="partial">⚠️ Thành công một phần</option>
+                                        <option value="failed">❌ Thất bại</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="date" class="form-control form-control-sm" id="historyDateFrom" onchange="filterUploadHistory()" placeholder="Từ ngày">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="date" class="form-control form-control-sm" id="historyDateTo" onchange="filterUploadHistory()" placeholder="Đến ngày">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" class="form-control form-control-sm" id="historySearchSTT" oninput="filterUploadHistory()" placeholder="🔍 Tìm STT...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- History List Container -->
+                        <div id="historyListContainer">
+                            <div class="text-center py-5">
+                                <div class="spinner-border text-info" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="text-muted mt-2">Đang tải lịch sử...</p>
+                            </div>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div id="historyPagination" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload History Detail Modal -->
+        <div class="modal fade" id="uploadHistoryDetailModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="historyDetailModalTitle">
+                            <i class="fas fa-info-circle"></i> Chi Tiết Upload
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="historyDetailModalBody">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="fas fa-times"></i> Đóng
                         </button>
                     </div>
