@@ -700,6 +700,11 @@
         try {
             console.log('🗑️ Removing uploaded STTs from productAssignments...');
             console.log('   STTs to remove:', uploadedSTTs);
+            console.log('   STTs types:', uploadedSTTs.map(s => `${s} (${typeof s})`));
+
+            // Convert uploadedSTTs to strings for consistent comparison
+            const uploadedSTTsStr = uploadedSTTs.map(s => String(s));
+            console.log('   STTs as strings:', uploadedSTTsStr);
 
             // Load current assignments from localStorage
             const saved = localStorage.getItem('productAssignments');
@@ -710,6 +715,15 @@
 
             let productAssignments = JSON.parse(saved);
             console.log(`   Current assignments: ${productAssignments.length} products`);
+
+            // Log all current STTs in assignments before removal
+            console.log('   Current STTs in assignments:');
+            productAssignments.forEach(assignment => {
+                if (assignment.sttList && assignment.sttList.length > 0) {
+                    const sttValues = assignment.sttList.map(item => `${item.stt} (${typeof item.stt})`);
+                    console.log(`     ${assignment.productCode}: [${sttValues.join(', ')}]`);
+                }
+            });
 
             // Remove uploaded STTs from each assignment
             let totalRemovedSTTs = 0;
@@ -722,16 +736,21 @@
 
                 const originalLength = assignment.sttList.length;
 
-                // Remove all sttList items that match uploaded STTs
+                // Remove all sttList items that match uploaded STTs (convert to string for comparison)
                 assignment.sttList = assignment.sttList.filter(sttItem => {
-                    return !uploadedSTTs.includes(sttItem.stt);
+                    const sttStr = String(sttItem.stt);
+                    const shouldRemove = uploadedSTTsStr.includes(sttStr);
+                    if (shouldRemove) {
+                        console.log(`     🗑️ Removing STT ${sttStr} from ${assignment.productCode}`);
+                    }
+                    return !shouldRemove;
                 });
 
                 const removedCount = originalLength - assignment.sttList.length;
                 totalRemovedSTTs += removedCount;
 
                 if (removedCount > 0) {
-                    console.log(`   📦 ${assignment.productCode}: removed ${removedCount} STT(s)`);
+                    console.log(`   📦 ${assignment.productCode}: removed ${removedCount} STT(s), remaining: ${assignment.sttList.length}`);
                 }
 
                 // If no STTs left, remove the entire product
