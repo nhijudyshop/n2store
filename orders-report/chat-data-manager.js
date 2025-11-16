@@ -441,8 +441,12 @@ class ChatDataManager {
         const lastMessage = messageObj.Message || null;
         const messageType = messageObj.Type || 'text';
         const attachments = messageObj.Attachments || null;
-        const hasUnread = conv.LastActivities?.HasUnread || false;
-        const unreadCount = conv.LastActivities?.UnreadCount || 0;
+
+        // FIX: Chỉ hiển thị unread nếu tin nhắn cuối KHÔNG phải của owner (shop)
+        // Nếu tin nhắn cuối là của shop thì shop đã biết rồi, không cần đánh dấu unread
+        const isOwnerMessage = messageObj.IsOwner === true;
+        const hasUnread = !isOwnerMessage && (conv.LastActivities?.HasUnread || false);
+        const unreadCount = !isOwnerMessage ? (conv.LastActivities?.UnreadCount || 0) : 0;
 
         return {
             message: lastMessage,
@@ -502,8 +506,12 @@ class ChatDataManager {
 
         const message = lastComment.Message || null;
         const messageType = lastComment.Type === 1 ? 'text' : 'other';
-        const hasUnread = commentConv.LastActivities?.HasUnread || false;
-        const unreadCount = commentConv.LastActivities?.UnreadCount || 0;
+
+        // FIX: Chỉ hiển thị unread nếu comment cuối KHÔNG phải của owner (shop)
+        // Nếu comment cuối là của shop thì shop đã biết rồi, không cần đánh dấu unread
+        const isOwnerComment = lastComment.IsOwner === true;
+        const hasUnread = !isOwnerComment && (commentConv.LastActivities?.HasUnread || false);
+        const unreadCount = !isOwnerComment ? (commentConv.LastActivities?.UnreadCount || 0) : 0;
 
         return {
             message,
