@@ -52,7 +52,10 @@ class ChatDataManager {
             // Build Channels array from channelIds or use default
             const channels = channelIds && channelIds.length > 0
                 ? channelIds.map(id => ({ Id: id, Type: 4 }))
-                : [{ Id: "270136663390370", Type: 4 }];  // Default fallback
+                : [
+                    { Id: "270136663390370", Type: 4 },
+                    { Id: "117267091364524", Type: 4 }
+                ];  // Default: both channels
 
             const requestBody = {
                 Keyword: null,
@@ -61,7 +64,7 @@ class ChatDataManager {
                 Before: null,
                 After: null,
                 Channels: channels,
-                Type: "message",
+                Type: "all",  // FIX: Fetch both message AND comment conversations in 1 request
                 HasPhone: null,
                 HasAddress: null,
                 HasOrder: null,
@@ -99,11 +102,14 @@ class ChatDataManager {
 
             this.conversations = data.Data || [];
             this.lastFetchTime = Date.now();
+            this.lastCommentFetchTime = Date.now(); // Also update comment fetch time
 
-            // Build map for quick lookup
-            this.buildConversationMap();
+            // Build both message and comment maps from single response
+            this.buildConversationMaps();
 
-            console.log(`[CHAT] ✅ Fetched ${this.conversations.length} conversations`);
+            console.log(`[CHAT] ✅ Fetched ${this.conversations.length} conversations (Type: all)`);
+            console.log(`[CHAT] ✅ Message map: ${this.conversationMap.size} entries`);
+            console.log(`[CHAT] ✅ Comment map: ${this.commentConversationMap.size} entries`);
             return this.conversations;
 
         } catch (error) {
@@ -117,123 +123,70 @@ class ChatDataManager {
     }
 
     /**
-     * Xây dựng Map từ PSID -> conversation để lookup nhanh
+     * Xây dựng cả 2 Maps từ PSID -> conversation để lookup nhanh
+     * Vì fetch Type="all", 1 conversation có thể có cả message và comment
+     * Nên build cả 2 maps từ cùng 1 dataset
      */
-    buildConversationMap() {
+    buildConversationMaps() {
         this.conversationMap.clear();
+        this.commentConversationMap.clear();
+
         this.conversations.forEach(conv => {
             if (conv.User && conv.User.Id) {
-                this.conversationMap.set(conv.User.Id, conv);
+                const psid = conv.User.Id;
+
+                // Add to message map if has message activity
+                if (conv.LastActivities?.Message) {
+                    this.conversationMap.set(psid, conv);
+                }
+
+                // Add to comment map if has comment activity
+                if (conv.LastActivities?.Comment) {
+                    this.commentConversationMap.set(psid, conv);
+                }
             }
         });
-        console.log(`[CHAT] Built conversation map with ${this.conversationMap.size} entries`);
+
+        console.log(`[CHAT] Built message map: ${this.conversationMap.size} entries`);
+        console.log(`[CHAT] Built comment map: ${this.commentConversationMap.size} entries`);
     }
 
     /**
+     * @deprecated Use buildConversationMaps() instead
+     * Kept for backward compatibility
+     */
+    buildConversationMap() {
+        this.buildConversationMaps();
+    }
+
+    /**
+     * @deprecated Since fetchConversations now uses Type="all", this method is no longer needed
+     * Kept for backward compatibility - simply calls fetchConversations()
+     *
      * Lấy danh sách comment conversations từ API
      * @param {boolean} forceRefresh - Bắt buộc refresh (bỏ qua cache)
      * @param {Array<string>} channelIds - Danh sách channel IDs (lấy từ Facebook_PostId)
      * @returns {Promise<Array>}
      */
     async fetchCommentConversations(forceRefresh = false, channelIds = null) {
-        try {
-            // Check cache
-            if (!forceRefresh && this.commentConversations.length > 0 && this.lastCommentFetchTime) {
-                const cacheAge = Date.now() - this.lastCommentFetchTime;
-                if (cacheAge < this.CACHE_DURATION) {
-                    console.log('[CHAT] Using cached comment conversations, count:', this.commentConversations.length);
-                    return this.commentConversations;
-                }
-            }
+        console.log('[CHAT] ⚠️ fetchCommentConversations is deprecated. Using fetchConversations(Type="all") instead.');
 
-            if (this.isLoadingComments) {
-                console.log('[CHAT] Already loading comment conversations...');
-                return this.commentConversations;
-            }
+        // Simply delegate to fetchConversations which now fetches Type="all"
+        await this.fetchConversations(forceRefresh, channelIds);
 
-            this.isLoadingComments = true;
-            console.log('[CHAT] Fetching comment conversations from API...');
+        // Return conversations that have comment activity
+        const commentConversations = Array.from(this.commentConversationMap.values());
+        console.log(`[CHAT] Returning ${commentConversations.length} comment conversations from map`);
 
-            const headers = await window.tokenManager.getAuthHeader();
-            const url = `${this.API_BASE}/conversations/search`;
-
-            // Build Channels array from channelIds or use default
-            const channels = channelIds && channelIds.length > 0
-                ? channelIds.map(id => ({ Id: id, Type: 4 }))
-                : [{ Id: "270136663390370", Type: 4 }];  // Default fallback
-
-            const requestBody = {
-                Keyword: null,
-                Limit: 2000,
-                Sort: null,
-                Before: null,
-                After: null,
-                Channels: channels,
-                Type: "comment", // Changed to comment type
-                HasPhone: null,
-                HasAddress: null,
-                HasOrder: null,
-                IsUnread: null,
-                IsUnreplied: null,
-                TagIds: [],
-                UserIds: [],
-                Start: null,
-                End: null,
-                FromNewToOld: null
-            };
-
-            console.log('[CHAT] Request body:', JSON.stringify(requestBody, null, 2));
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    'accept': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            console.log('[CHAT] Response status:', response.status, response.statusText);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[CHAT] Error response:', errorText);
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log('[CHAT] Response data:', data);
-
-            this.commentConversations = data.Data || [];
-            this.lastCommentFetchTime = Date.now();
-
-            // Build map for quick lookup
-            this.buildCommentConversationMap();
-
-            console.log(`[CHAT] ✅ Fetched ${this.commentConversations.length} comment conversations`);
-            return this.commentConversations;
-
-        } catch (error) {
-            console.error('[CHAT] ❌ Error fetching comment conversations:', error);
-            console.error('[CHAT] Error stack:', error.stack);
-            return [];
-        } finally {
-            this.isLoadingComments = false;
-        }
+        return commentConversations;
     }
 
     /**
-     * Xây dựng Map từ PSID -> comment conversation để lookup nhanh
+     * @deprecated Use buildConversationMaps() instead
+     * Kept for backward compatibility
      */
     buildCommentConversationMap() {
-        this.commentConversationMap.clear();
-        this.commentConversations.forEach(conv => {
-            if (conv.User && conv.User.Id) {
-                this.commentConversationMap.set(conv.User.Id, conv);
-            }
-        });
-        console.log(`[CHAT] Built comment conversation map with ${this.commentConversationMap.size} entries`);
+        this.buildConversationMaps();
     }
 
     /**
