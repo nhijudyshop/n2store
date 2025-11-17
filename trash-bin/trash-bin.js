@@ -5,7 +5,9 @@
 // CONFIGURATION & INITIALIZATION
 // =====================================================
 
-const firebaseConfig = {
+// Use centralized Firebase config if available (loaded by core-loader.js)
+// Otherwise fall back to local config
+const firebaseConfig = window.FIREBASE_CONFIG || {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
     authDomain: "n2shop-69e37.firebaseapp.com",
     projectId: "n2shop-69e37",
@@ -15,9 +17,15 @@ const firebaseConfig = {
     measurementId: "G-TEJH3S2T1D",
 };
 
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// Initialize Firebase (only if not already initialized)
+let app, db;
+if (!firebase.apps.length) {
+    app = firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+} else {
+    app = firebase.app();
+    db = firebase.firestore();
+}
 
 // Global variables
 let trashManager = null;
