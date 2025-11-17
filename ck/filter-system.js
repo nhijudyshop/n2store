@@ -25,13 +25,8 @@ class FilterManager {
         this.initializeWorker();
         this.initDateSlider();
 
-        // Initialize search input using multiple approaches
-        this.initSearchInput();
-
-        // Also try again after a delay as backup
-        setTimeout(() => {
-            this.initSearchInput();
-        }, 500);
+        // NOTE: Search input is now handled by SimpleSearchManager
+        // No longer binding search events in FilterManager to avoid conflicts
 
         console.log(
             "Filter system initialized with chunk size:",
@@ -1019,12 +1014,6 @@ class FilterManager {
         if (this.isProcessing || APP_STATE.isOperationInProgress) {
             console.log("Filter already in progress, skipping");
             return;
-        }
-
-        // Clear any active search before applying filters
-        if (window.searchManager && window.searchManager.isSearching) {
-            console.log("⚠️ Clearing active search before applying filters");
-            window.searchManager.clearSearch();
         }
 
         this.isProcessing = true;
