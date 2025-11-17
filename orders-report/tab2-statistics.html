@@ -436,6 +436,7 @@
         let employeeRanges = []; // Employee STT ranges
         let kpiData = []; // Calculated KPI data
         let filteredKpiData = []; // Filtered KPI data
+        let noteEditedCache = {}; // Cache for note edited status {orderId: boolean}
 
         // KPI Configuration - Easy to modify
         const KPI_CONFIG = {
@@ -478,6 +479,44 @@
             // Split by newline and filter out empty lines
             const lines = note.split('\n').filter(line => line.trim().length > 0);
             return lines.length;
+        }
+
+        /**
+         * Check if note has been edited in audit log
+         * Returns true if note was changed after order creation
+         */
+        async function checkNoteEdited(orderId) {
+            try {
+                const headers = await window.tokenManager.getAuthHeader();
+                const apiUrl = `https://tomato.tpos.vn/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
+
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) return false;
+
+                const data = await response.json();
+                const logs = data.value || [];
+
+                // Check if any log entry has "Ghi chú" or "Note" change
+                for (const log of logs) {
+                    const details = log.Details || '';
+                    // Check for Vietnamese "Ghi chú:" or English "Note:"
+                    if (details.includes('Ghi chú:') || details.includes('Note:')) {
+                        return true;
+                    }
+                }
+
+                return false;
+            } catch (error) {
+                console.error('[KPI-STATS] Error checking note edit:', error);
+                return false;
+            }
         }
 
         // =====================================================
@@ -735,6 +774,7 @@
                     customerPhone: currentOrder.Telephone || '-',
                     customerNote: currentOrder.Note || '',
                     noteLineCount: noteLineCount, // For display/comparison only
+                    noteEdited: false, // Will be checked asynchronously
                     productsAtUpload: uploadedProductCount,
                     productsNow: currentProductCount,
                     newProductsAdded: newProductsAdded,
@@ -748,8 +788,53 @@
 
             console.log('[KPI-STATS] KPI data calculated:', kpiData.length, 'orders');
 
-            // Apply filters
+            // Apply filters first (show data immediately)
             applyFilters();
+
+            // Load note edited status in background (don't block UI)
+            loadNoteEditedStatus();
+        }
+
+        /**
+         * Load note edited status for all orders in background
+         * This runs after KPI calculation to not block UI
+         */
+        async function loadNoteEditedStatus() {
+            console.log('[KPI-STATS] Loading note edited status...');
+
+            // Check top 100 orders max to avoid too many requests
+            const ordersToCheck = kpiData.slice(0, 100);
+            let checkedCount = 0;
+
+            // Check in batches of 5 to avoid overwhelming the API
+            const batchSize = 5;
+            for (let i = 0; i < ordersToCheck.length; i += batchSize) {
+                const batch = ordersToCheck.slice(i, i + batchSize);
+
+                // Process batch in parallel
+                await Promise.all(batch.map(async (item) => {
+                    // Check cache first
+                    if (noteEditedCache[item.orderId] !== undefined) {
+                        item.noteEdited = noteEditedCache[item.orderId];
+                        return;
+                    }
+
+                    // Check via API
+                    const edited = await checkNoteEdited(item.orderId);
+                    item.noteEdited = edited;
+                    noteEditedCache[item.orderId] = edited;
+                    checkedCount++;
+
+                    // Update UI every 10 checks
+                    if (checkedCount % 10 === 0) {
+                        renderData();
+                    }
+                }));
+            }
+
+            // Final update
+            console.log('[KPI-STATS] Note edited status loaded:', checkedCount, 'orders checked');
+            renderData();
         }
 
         // =====================================================
@@ -942,10 +1027,18 @@
             data.forEach(item => {
                 const badgeClass = item.newProductsAdded > 0 ? 'positive' : 'zero';
 
-                // Format note with line count
-                const noteDisplay = item.customerNote ?
-                    `${item.customerNote}${item.noteLineCount > 0 ? `\n\n📝 ${item.noteLineCount} dòng (≈ ${item.noteLineCount} sản phẩm)` : ''}` :
-                    '';
+                // Format note with line count and edited indicator
+                let noteDisplay = '';
+                if (item.customerNote) {
+                    noteDisplay = item.customerNote;
+                    if (item.noteLineCount > 0) {
+                        noteDisplay += `\n\n📝 ${item.noteLineCount} dòng (≈ ${item.noteLineCount} sản phẩm)`;
+                    }
+                    // Add edited indicator if note was edited
+                    if (item.noteEdited) {
+                        noteDisplay += `\n\n✏️ Đã chỉnh sửa`;
+                    }
+                }
 
                 html += `
                     <tr>
