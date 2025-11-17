@@ -3305,7 +3305,10 @@ async function checkNoteEdited(orderId) {
             }
         });
 
-        if (!response.ok) return false;
+        if (!response.ok) {
+            console.warn(`[NOTE-EDIT] API returned ${response.status} for order ${orderId}`);
+            return false;
+        }
 
         const data = await response.json();
         const logs = data.value || [];
@@ -3313,14 +3316,16 @@ async function checkNoteEdited(orderId) {
         // Check if any log entry has "Ghi chú" or "Note" change
         for (const log of logs) {
             const details = log.Details || '';
+            // Check for both "Ghi chú:" and "Note:" patterns
             if (details.includes('Ghi chú:') || details.includes('Note:')) {
+                console.log(`[NOTE-EDIT] 🔍 Detected note edit in order ${orderId}:`, details.substring(0, 100) + '...');
                 return true;
             }
         }
 
         return false;
     } catch (error) {
-        console.error('[NOTE-EDIT] Error checking note edit:', error);
+        console.error('[NOTE-EDIT] Error checking note edit for order', orderId, ':', error);
         return false;
     }
 }
@@ -3330,13 +3335,17 @@ async function checkNoteEdited(orderId) {
  * Updates order.noteEdited field and re-renders table progressively
  */
 async function loadNoteEditedStatus() {
-    if (!allData || allData.length === 0) return;
+    if (!allData || allData.length === 0) {
+        console.log('[NOTE-EDIT] No data to check');
+        return;
+    }
 
-    console.log('[NOTE-EDIT] Loading note edited status...');
+    console.log('[NOTE-EDIT] Loading note edited status for', allData.length, 'orders...');
 
-    // Check top 100 orders max to avoid too many requests
-    const ordersToCheck = allData.slice(0, 100);
+    // Check ALL orders (remove limit to ensure we catch all edited notes)
+    const ordersToCheck = allData;
     let checkedCount = 0;
+    let foundEditedCount = 0;
 
     // Check in batches of 5 to avoid overwhelming the API
     const batchSize = 5;
@@ -3348,6 +3357,7 @@ async function loadNoteEditedStatus() {
             // Check cache first
             if (noteEditedCache[order.Id] !== undefined) {
                 order.noteEdited = noteEditedCache[order.Id];
+                if (order.noteEdited) foundEditedCount++;
                 return;
             }
 
@@ -3357,14 +3367,20 @@ async function loadNoteEditedStatus() {
             noteEditedCache[order.Id] = edited;
             checkedCount++;
 
-            // Update UI every 10 checks
-            if (checkedCount % 10 === 0) {
+            if (edited) {
+                foundEditedCount++;
+                console.log(`[NOTE-EDIT] ✏️ Found edited note: STT ${order.SessionIndex}, Code ${order.Code}, ID ${order.Id}`);
+            }
+
+            // Update UI every 20 checks
+            if (checkedCount % 20 === 0) {
+                console.log(`[NOTE-EDIT] Progress: ${checkedCount}/${ordersToCheck.length}, found ${foundEditedCount} edited notes`);
                 renderTable();
             }
         }));
     }
 
     // Final update
-    console.log('[NOTE-EDIT] Note edited status loaded:', checkedCount, 'orders checked');
+    console.log(`[NOTE-EDIT] ✅ Completed: ${checkedCount} orders checked, ${foundEditedCount} edited notes found`);
     renderTable();
 }
