@@ -553,21 +553,17 @@
 
         /**
          * Check if note has been edited by comparing with snapshot
+         * Tab2 ONLY reads snapshots (tab1 is responsible for saving)
          * @param {string} orderId - Order ID
          * @param {string} currentNote - Current note text
-         * @param {Object} snapshots - Firebase snapshots
+         * @param {Object} snapshots - Firebase snapshots (saved by tab1)
          * @returns {boolean} - True if note was edited
          */
         function checkNoteEdited(orderId, currentNote, snapshots) {
             const snapshot = snapshots[orderId];
 
             if (!snapshot) {
-                // No snapshot = first time seeing this order, save it
-                const newSnapshot = {
-                    note: (currentNote || '').trim(),
-                    timestamp: Date.now()
-                };
-                database.ref(`order_notes_snapshot/${orderId}`).set(newSnapshot);
+                // No snapshot yet = tab1 hasn't saved it yet, treat as not edited
                 return false;
             }
 
@@ -577,6 +573,9 @@
 
             return trimmedCurrentNote !== savedNote;
         }
+
+        // Tab2 does NOT save snapshots - tab1 is responsible for that!
+        // We only READ snapshots and compare
 
         // =====================================================
         // EMPLOYEE RANGE MANAGEMENT
@@ -856,35 +855,41 @@
 
         /**
          * Load note edited status for all orders using Firebase snapshots
-         * This runs after KPI calculation - much faster than API calls!
+         * Tab2 ONLY reads snapshots (tab1 saves them on first view)
          */
         async function loadNoteEditedStatus() {
-            console.log('[KPI-STATS] Detecting edited notes using Firebase snapshots...');
+            console.log('[KPI-STATS] Detecting edited notes using Firebase snapshots (read-only)...');
 
             if (!kpiData || kpiData.length === 0) {
                 console.log('[KPI-STATS] No data to check');
                 return;
             }
 
-            // Load all snapshots from Firebase (1 call for all orders!)
+            // Load all snapshots from Firebase (saved by tab1)
             const snapshots = await loadNoteSnapshots();
 
-            // Check all orders by comparing with snapshots (no API calls!)
+            // Check all orders by comparing with snapshots
             let editedCount = 0;
+            let notInFirebaseCount = 0;
 
             kpiData.forEach(item => {
-                // Check with snapshot (synchronous, instant!)
+                // Check with snapshot (tab2 only reads, tab1 saves)
                 const edited = checkNoteEdited(item.orderId, item.customerNote, snapshots);
                 item.noteEdited = edited;
 
                 if (edited) {
                     editedCount++;
                     console.log(`[KPI-STATS] ✏️ Edited: STT ${item.stt}, "${snapshots[item.orderId]?.note}" → "${item.customerNote}"`);
+                } else if (!snapshots[item.orderId]) {
+                    notInFirebaseCount++;
                 }
             });
 
             // Final update
-            console.log(`[KPI-STATS] ✅ Found ${editedCount} edited notes out of ${kpiData.length} orders (using Firebase, no API spam!)`);
+            console.log(`[KPI-STATS] ✅ Found ${editedCount} edited notes out of ${kpiData.length} orders`);
+            if (notInFirebaseCount > 0) {
+                console.log(`[KPI-STATS] ℹ️ ${notInFirebaseCount} orders not in Firebase yet (will be saved by tab1 on first view)`);
+            }
             renderData();
         }
 
