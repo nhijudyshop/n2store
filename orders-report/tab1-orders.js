@@ -757,6 +757,9 @@ async function fetchOrders() {
         // Load tags in background
         loadAvailableTags().catch(err => console.error('[TAGS] Error loading tags:', err));
 
+        // Load note edited status in background
+        loadNoteEditedStatus().catch(err => console.error('[NOTE-EDIT] Error loading note edited status:', err));
+
         // Hide loading overlay after first batch
         showLoading(false);
 
@@ -1178,12 +1181,16 @@ function createRowHTML(order) {
     const messagesHTML = renderMessagesColumn(order);
     const commentsHTML = renderCommentsColumn(order);
 
+    // Add watermark class for edited notes
+    const rowClass = order.noteEdited ? 'note-edited' : '';
+
     return `
-        <tr>
+        <tr class="${rowClass}">
             <td><input type="checkbox" value="${order.Id}" /></td>
             <td data-column="stt">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span>${order.SessionIndex || ""}</span>
+                    ${order.noteEdited ? '<span class="note-edited-badge">✏️ ĐÃ SỬA</span>' : ''}
                     <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
@@ -3211,4 +3218,93 @@ async function markChatAsRead() {
             window.notificationManager.error('Lỗi khi đánh dấu đã đọc: ' + error.message, 3000);
         }
     }
+}
+
+// =====================================================
+// NOTE EDITED DETECTION
+// =====================================================
+
+// Cache for note edited status to avoid redundant API calls
+const noteEditedCache = {};
+
+/**
+ * Check if order's note was edited by querying audit log
+ * @param {number} orderId - The order ID to check
+ * @returns {Promise<boolean>} - True if note was edited
+ */
+async function checkNoteEdited(orderId) {
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const apiUrl = `https://tomato.tpos.vn/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
+
+        const response = await fetch(apiUrl, {
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) return false;
+
+        const data = await response.json();
+        const logs = data.value || [];
+
+        // Check if any log entry has "Ghi chú" or "Note" change
+        for (const log of logs) {
+            const details = log.Details || '';
+            if (details.includes('Ghi chú:') || details.includes('Note:')) {
+                return true;
+            }
+        }
+
+        return false;
+    } catch (error) {
+        console.error('[NOTE-EDIT] Error checking note edit:', error);
+        return false;
+    }
+}
+
+/**
+ * Load note edited status for all orders in background
+ * Updates order.noteEdited field and re-renders table progressively
+ */
+async function loadNoteEditedStatus() {
+    if (!allData || allData.length === 0) return;
+
+    console.log('[NOTE-EDIT] Loading note edited status...');
+
+    // Check top 100 orders max to avoid too many requests
+    const ordersToCheck = allData.slice(0, 100);
+    let checkedCount = 0;
+
+    // Check in batches of 5 to avoid overwhelming the API
+    const batchSize = 5;
+    for (let i = 0; i < ordersToCheck.length; i += batchSize) {
+        const batch = ordersToCheck.slice(i, i + batchSize);
+
+        // Process batch in parallel
+        await Promise.all(batch.map(async (order) => {
+            // Check cache first
+            if (noteEditedCache[order.Id] !== undefined) {
+                order.noteEdited = noteEditedCache[order.Id];
+                return;
+            }
+
+            // Check via API
+            const edited = await checkNoteEdited(order.Id);
+            order.noteEdited = edited;
+            noteEditedCache[order.Id] = edited;
+            checkedCount++;
+
+            // Update UI every 10 checks
+            if (checkedCount % 10 === 0) {
+                renderTable();
+            }
+        }));
+    }
+
+    // Final update
+    console.log('[NOTE-EDIT] Note edited status loaded:', checkedCount, 'orders checked');
+    renderTable();
 }
