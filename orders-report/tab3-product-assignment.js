@@ -1880,7 +1880,7 @@
                         productCode: assignment.productCode,
                         productName: assignment.productName,
                         imageUrl: assignment.imageUrl,
-                        note: assignment.note || ''
+                        // Don't use assignment.note here - we'll get it from productNotes
                     });
                 });
             });
@@ -1893,6 +1893,9 @@
                 uploadResultsMap[result.stt] = result;
             });
         }
+
+        // Get productNotes (notes user entered in preview modal before upload)
+        const productNotes = record.productNotes || {};
 
         // Render each STT as a card (similar to preview modal)
         html += '<h6 class="mb-3"><i class="fas fa-shopping-cart"></i> Chi Tiết Từng Giỏ Hàng</h6>';
@@ -1976,7 +1979,7 @@
                                                 <span class="badge bg-primary">${product.count}</span>
                                             </td>
                                             <td>
-                                                <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có ghi chú)'}</span>
+                                                <span class="text-muted" style="font-size: 13px;">${productNotes[`${stt}-${product.productId}`] || '(Không có ghi chú)'}</span>
                                             </td>
                                         </tr>
                                     `).join('')}

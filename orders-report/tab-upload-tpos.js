@@ -1051,8 +1051,8 @@
                     const afterData = localStorage.getItem('productAssignments');
                     const afterSnapshot = afterData ? JSON.parse(afterData) : null;
 
-                    // Step 3: Save history
-                    await saveToHistory(uploadId, results, 'completed', backupData, afterSnapshot);
+                    // Step 3: Save history (with product notes user entered in preview modal)
+                    await saveToHistory(uploadId, results, 'completed', backupData, afterSnapshot, productNotes);
 
                     // Step 4: Mark as committed
                     await markHistoryAsCommitted(uploadId);
@@ -1082,7 +1082,7 @@
                     // Save history with special status
                     const afterData = localStorage.getItem('productAssignments');
                     const afterSnapshot = afterData ? JSON.parse(afterData) : null;
-                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot);
+                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot, productNotes);
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -1110,7 +1110,7 @@
                     const afterSnapshot = afterData ? JSON.parse(afterData) : null;
 
                     // Step 3: Save history
-                    await saveToHistory(uploadId, results, 'partial', backupData, afterSnapshot);
+                    await saveToHistory(uploadId, results, 'partial', backupData, afterSnapshot, productNotes);
 
                     // Step 4: Mark as committed (cannot safely restore partial)
                     await markHistoryAsCommitted(uploadId);
@@ -1136,7 +1136,7 @@
                     // Try to save history anyway
                     const afterData = localStorage.getItem('productAssignments');
                     const afterSnapshot = afterData ? JSON.parse(afterData) : null;
-                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot);
+                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot, productNotes);
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -2105,10 +2105,11 @@
      * @param {Object} beforeSnapshot - Snapshot before upload
      * @param {Object|null} afterSnapshot - Snapshot after upload (null if failed)
      */
-    async function saveToHistory(uploadId, results, status, beforeSnapshot, afterSnapshot) {
+    async function saveToHistory(uploadId, results, status, beforeSnapshot, afterSnapshot, productNotes = {}) {
         try {
             console.log('[HISTORY] 💾 Saving upload history:', uploadId);
             console.log('[HISTORY] Status:', status);
+            console.log('[HISTORY] ProductNotes count:', Object.keys(productNotes).length);
 
             // Build history record
             const historyRecord = {
@@ -2135,6 +2136,10 @@
                     success: r.success,
                     error: r.error || null
                 })),
+
+                // Product notes (notes user entered in preview modal before upload)
+                // Format: { "123-productId": "live", "124-productId": "preorder" }
+                productNotes: productNotes || {},
 
                 // Statistics
                 totalSTTs: results.length,
@@ -2765,7 +2770,7 @@
                         productCode: assignment.productCode,
                         productName: assignment.productName,
                         imageUrl: assignment.imageUrl,
-                        note: assignment.note || ''
+                        // Don't use assignment.note here - we'll get it from productNotes
                     });
                 });
             });
@@ -2778,6 +2783,9 @@
                 uploadResultsMap[result.stt] = result;
             });
         }
+
+        // Get productNotes (notes user entered in preview modal before upload)
+        const productNotes = record.productNotes || {};
 
         // Render each STT as a card (similar to preview modal)
         html += '<h6 class="mb-3"><i class="fas fa-shopping-cart"></i> Chi Tiết Từng Giỏ Hàng</h6>';
@@ -2861,7 +2869,7 @@
                                                 <span class="badge bg-primary">${product.count}</span>
                                             </td>
                                             <td>
-                                                <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có ghi chú)'}</span>
+                                                <span class="text-muted" style="font-size: 13px;">${productNotes[`${stt}-${product.productId}`] || '(Không có ghi chú)'}</span>
                                             </td>
                                         </tr>
                                     `).join('')}
