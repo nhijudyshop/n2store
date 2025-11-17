@@ -967,6 +967,18 @@
                     const orderData = await response.json();
                     console.log(`[UPLOAD] ✅ Fetched order data for STT ${stt}`);
 
+                    // Extract existing products BEFORE upload (for history comparison)
+                    const existingProducts = orderData.Details ? orderData.Details.map(detail => ({
+                        productId: detail.Product?.Id || detail.ProductId,
+                        nameGet: detail.Product?.NameGet || detail.ProductName || 'N/A',
+                        code: detail.Product?.DefaultCode || detail.ProductCode || '',
+                        quantity: detail.Quantity || 0,
+                        price: detail.Price || 0,
+                        imageUrl: detail.Product?.ImageUrl || '',
+                        note: detail.Note || ''
+                    })) : [];
+                    console.log(`[UPLOAD] 📦 Extracted ${existingProducts.length} existing products for STT ${stt}`);
+
                     // Prepare merged Details
                     const mergedDetails = await prepareUploadDetails(orderData, sessionData);
                     orderData.Details = mergedDetails;
@@ -1010,7 +1022,7 @@
                     }
 
                     console.log(`[UPLOAD] ✅ Successfully uploaded STT ${stt}`);
-                    results.push({ stt, orderId, success: true });
+                    results.push({ stt, orderId, success: true, existingProducts });
 
                 } catch (error) {
                     console.error(`[UPLOAD] ❌ Error uploading STT ${stt}:`, error);
@@ -2133,7 +2145,8 @@
                     stt: r.stt,
                     orderId: r.orderId,
                     success: r.success,
-                    error: r.error || null
+                    error: r.error || null,
+                    existingProducts: r.existingProducts || [] // Save existing products for comparison
                 })),
 
                 // Statistics
@@ -2551,6 +2564,9 @@
                 </div>
 
                 <div class="history-actions">
+                    <button class="btn btn-sm btn-info" onclick="compareCartHistory('${record.uploadId}')">
+                        <i class="fas fa-balance-scale"></i> So Sánh Giỏ
+                    </button>
                     <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetail('${record.uploadId}')">
                         <i class="fas fa-eye"></i> Xem Chi Tiết
                     </button>
@@ -2892,6 +2908,283 @@
                 <div class="history-note mt-3">
                     <i class="fas fa-sticky-note"></i>
                     <strong>Ghi chú:</strong> ${record.note}
+                </div>
+            `;
+        }
+
+        return html;
+    }
+
+    // =====================================================
+    // COMPARE CART HISTORY - Show comparison modal
+    // =====================================================
+
+    /**
+     * Compare Cart History - Show preview comparison modal
+     * Similar to previewModal but for history records
+     */
+    window.compareCartHistory = async function(uploadId) {
+        console.log('[HISTORY-COMPARE] 🔍 Comparing cart for uploadId:', uploadId);
+
+        try {
+            // Show comparison modal with loading state
+            const compareModal = new bootstrap.Modal(document.getElementById('compareCartHistoryModal'));
+            compareModal.show();
+
+            const modalBody = document.getElementById('compareCartHistoryModalBody');
+            modalBody.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Đang tải dữ liệu so sánh...</p>
+                </div>
+            `;
+
+            // Load full record from Firebase (with beforeSnapshot)
+            const snapshot = await database.ref(`productAssignments_history/${uploadId}`).once('value');
+            const record = snapshot.val();
+
+            if (!record || !record.beforeSnapshot) {
+                throw new Error('Không tìm thấy dữ liệu snapshot');
+            }
+
+            console.log('[HISTORY-COMPARE] ✅ Loaded record:', record);
+
+            // Render comparison content (similar to renderPreviewModal)
+            modalBody.innerHTML = renderComparisonContent(record);
+
+        } catch (error) {
+            console.error('[HISTORY-COMPARE] ❌ Error:', error);
+            showNotification('❌ Lỗi khi tải dữ liệu so sánh', 'error');
+
+            const modalBody = document.getElementById('compareCartHistoryModalBody');
+            modalBody.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Lỗi:</strong> ${error.message}
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Render comparison content for history record
+     * Format: Same as previewModal (2 columns: assigned products vs existing products)
+     */
+    function renderComparisonContent(record) {
+        const beforeSnapshot = record.beforeSnapshot;
+        const uploadResults = record.uploadResults || [];
+
+        // Create map of upload results by STT for quick lookup
+        const uploadResultsMap = {};
+        uploadResults.forEach(result => {
+            uploadResultsMap[result.stt] = result;
+        });
+
+        // Group products by STT from beforeSnapshot.assignments
+        const productsBySTT = {};
+
+        if (beforeSnapshot && beforeSnapshot.assignments) {
+            beforeSnapshot.assignments.forEach(assignment => {
+                if (!assignment.sttList || !Array.isArray(assignment.sttList)) return;
+
+                assignment.sttList.forEach(sttItem => {
+                    const stt = typeof sttItem === 'object' ? sttItem.stt : sttItem;
+
+                    if (!productsBySTT[stt]) {
+                        productsBySTT[stt] = {
+                            assignedProducts: [],
+                            orderInfo: typeof sttItem === 'object' ? sttItem.orderInfo : null
+                        };
+                    }
+
+                    productsBySTT[stt].assignedProducts.push({
+                        productId: assignment.productId,
+                        productName: assignment.productName,
+                        productCode: assignment.productCode,
+                        imageUrl: assignment.imageUrl,
+                        note: assignment.note || ''
+                    });
+                });
+            });
+        }
+
+        // Render HTML for each STT
+        let html = '';
+        const sortedSTTs = Object.keys(productsBySTT).sort((a, b) => Number(a) - Number(b));
+
+        sortedSTTs.forEach(stt => {
+            const data = productsBySTT[stt];
+            const uploadResult = uploadResultsMap[stt];
+
+            // Count assigned products
+            const assignedProductCounts = {};
+            data.assignedProducts.forEach(product => {
+                const key = product.productId;
+                if (!assignedProductCounts[key]) {
+                    assignedProductCounts[key] = { ...product, count: 0 };
+                }
+                assignedProductCounts[key].count++;
+            });
+
+            // Get existing products from upload result (if available)
+            const existingProducts = uploadResult?.existingProducts || [];
+
+            // Create map of existing products for highlighting
+            const existingProductsMap = {};
+            existingProducts.forEach(product => {
+                if (product.productId) {
+                    existingProductsMap[product.productId] = product;
+                }
+            });
+
+            // Mark assigned products as new or existing
+            Object.values(assignedProductCounts).forEach(product => {
+                product.isExisting = !!existingProductsMap[product.productId];
+            });
+
+            // Card header with status badge
+            let statusBadge = '';
+            let cardClass = '';
+            if (uploadResult) {
+                if (uploadResult.success) {
+                    statusBadge = `<span class="badge bg-success ms-2">✅ Upload thành công</span>`;
+                    cardClass = 'border-success';
+                } else {
+                    statusBadge = `<span class="badge bg-danger ms-2">❌ Upload thất bại</span>`;
+                    cardClass = 'border-danger';
+                }
+            }
+
+            html += `
+                <div class="card mb-4 ${cardClass}">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-hashtag"></i> STT ${stt}
+                            ${data.orderInfo?.customerName ? `- ${data.orderInfo.customerName}` : ''}
+                            ${data.orderInfo?.note ? `<small class="ms-2">(${data.orderInfo.note})</small>` : ''}
+                            ${statusBadge}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Assigned Products (LEFT COLUMN) -->
+                            <div class="col-md-6">
+                                <h6 class="text-success">
+                                    <i class="fas fa-plus-circle"></i> Sản phẩm đã upload (${Object.keys(assignedProductCounts).length})
+                                </h6>
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Sản phẩm</th>
+                                            <th class="text-center">SL</th>
+                                            <th>Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${Object.values(assignedProductCounts).map(product => {
+                                            const statusBadge = product.isExisting
+                                                ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, đã cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
+                                                : '<span class="badge bg-success ms-2" title="Sản phẩm mới đã được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
+
+                                            return `
+                                            <tr class="${product.isExisting ? 'table-warning' : 'table-success'}">
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        ${product.imageUrl
+                                                            ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                                                            : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                                        <div style="flex: 1;">
+                                                            <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
+                                                            <div style="font-size: 12px; color: #6b7280;">
+                                                                ${product.productCode || 'N/A'}
+                                                                ${statusBadge}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge ${product.isExisting ? 'bg-warning text-dark' : 'bg-success'}">${product.count}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có)'}</span>
+                                                </td>
+                                            </tr>
+                                        `}).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Existing Products (RIGHT COLUMN) -->
+                            <div class="col-md-6">
+                                <h6 class="text-info">
+                                    <i class="fas fa-box"></i> Sản phẩm có sẵn trong đơn (${existingProducts.length})
+                                </h6>
+                                ${existingProducts.length > 0 ? `
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Sản phẩm</th>
+                                                <th class="text-center">SL</th>
+                                                <th class="text-end">Giá</th>
+                                                <th>Note</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${existingProducts.map(product => {
+                                                // Check if this product will be updated (exists in assigned products)
+                                                const willBeUpdated = !!assignedProductCounts[product.productId];
+                                                const updateBadge = willBeUpdated
+                                                    ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này đã được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
+                                                    : '';
+
+                                                return `
+                                                <tr class="${willBeUpdated ? 'table-warning' : ''}">
+                                                    <td>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            ${product.imageUrl
+                                                                ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                                                                : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                                            <div style="flex: 1;">
+                                                                <div style="font-weight: 600; font-size: 14px;">${product.nameGet || product.name || 'N/A'}</div>
+                                                                <div style="font-size: 12px; color: #6b7280;">${product.code || 'N/A'}${updateBadge}</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span class="badge bg-info">${product.quantity}</span>
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <span style="font-weight: 600; color: #3b82f6;">${(product.price || 0).toLocaleString('vi-VN')}đ</span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có)'}</span>
+                                                    </td>
+                                                </tr>
+                                            `}).join('')}
+                                        </tbody>
+                                    </table>
+                                ` : `
+                                    <div class="text-center text-muted py-3 border rounded">
+                                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                                        <p class="mb-0">Không có sản phẩm có sẵn</p>
+                                        <small>(Tất cả sản phẩm đều là mới)</small>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (sortedSTTs.length === 0) {
+            html = `
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Không có dữ liệu để hiển thị</strong>
+                    <p class="mb-0 mt-2">Bản ghi lịch sử này không chứa thông tin sản phẩm.</p>
                 </div>
             `;
         }
