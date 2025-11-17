@@ -109,7 +109,15 @@ async function loadTrashData() {
     try {
         notificationManager.loading('Đang tải dữ liệu thùng rác...');
 
-        trashItems = await trashManager.getTrashItems();
+        // Add timeout protection (30 seconds)
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout: Quá thời gian tải dữ liệu')), 30000)
+        );
+
+        trashItems = await Promise.race([
+            trashManager.getTrashItems(),
+            timeoutPromise
+        ]);
 
         renderTable();
         updateStats();
@@ -118,6 +126,11 @@ async function loadTrashData() {
     } catch (error) {
         console.error('Error loading trash data:', error);
         notificationManager.error('Lỗi khi tải dữ liệu: ' + error.message);
+
+        // Show empty state on error
+        trashItems = [];
+        renderTable();
+        updateStats();
     }
 }
 
