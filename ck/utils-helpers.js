@@ -317,6 +317,34 @@ function sanitizeInput(input) {
         .trim();
 }
 
+// Remove Vietnamese accents for search functionality
+function removeVietnameseAccents(str) {
+    if (typeof str !== "string") return "";
+
+    // Convert to lowercase first
+    str = str.toLowerCase();
+
+    // Map of Vietnamese characters to their non-accented equivalents
+    const accentMap = {
+        'à': 'a', 'á': 'a', 'ạ': 'a', 'ả': 'a', 'ã': 'a',
+        'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẩ': 'a', 'ẫ': 'a',
+        'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ặ': 'a', 'ẳ': 'a', 'ẵ': 'a',
+        'è': 'e', 'é': 'e', 'ẹ': 'e', 'ẻ': 'e', 'ẽ': 'e',
+        'ê': 'e', 'ề': 'e', 'ế': 'e', 'ệ': 'e', 'ể': 'e', 'ễ': 'e',
+        'ì': 'i', 'í': 'i', 'ị': 'i', 'ỉ': 'i', 'ĩ': 'i',
+        'ò': 'o', 'ó': 'o', 'ọ': 'o', 'ỏ': 'o', 'õ': 'o',
+        'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ộ': 'o', 'ổ': 'o', 'ỗ': 'o',
+        'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ợ': 'o', 'ở': 'o', 'ỡ': 'o',
+        'ù': 'u', 'ú': 'u', 'ụ': 'u', 'ủ': 'u', 'ũ': 'u',
+        'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ự': 'u', 'ử': 'u', 'ữ': 'u',
+        'ỳ': 'y', 'ý': 'y', 'ỵ': 'y', 'ỷ': 'y', 'ỹ': 'y',
+        'đ': 'd'
+    };
+
+    // Replace each accented character
+    return str.split('').map(char => accentMap[char] || char).join('');
+}
+
 function numberWithCommas(x) {
     if (!x && x !== 0) return "0";
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -1412,6 +1440,7 @@ if (typeof module !== "undefined" && module.exports) {
         generateUniqueId,
         ensureUniqueId,
         sanitizeInput,
+        removeVietnameseAccents,
         numberWithCommas,
         formatDate,
         parseDisplayDate,
@@ -1441,6 +1470,7 @@ if (typeof module !== "undefined" && module.exports) {
     window.generateUniqueId = generateUniqueId;
     window.ensureUniqueId = ensureUniqueId;
     window.sanitizeInput = sanitizeInput;
+    window.removeVietnameseAccents = removeVietnameseAccents;
     window.numberWithCommas = numberWithCommas;
     window.formatDate = formatDate;
     window.parseDisplayDate = parseDisplayDate;
