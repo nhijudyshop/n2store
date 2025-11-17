@@ -885,23 +885,84 @@
                     return false;
                 }
 
-                // Search filter
+                // Search filter with priority: STT → Phone → Name → Note
                 if (searchText) {
-                    const searchableText = [
-                        String(item.stt || ''),  // Convert STT to string explicitly
-                        item.customerName,
-                        item.customerPhone,
-                        item.customerNote,
-                        item.employeeName || ''
-                    ].join(' ').toLowerCase();
+                    const stt = String(item.stt || '').toLowerCase();
+                    const phone = (item.customerPhone || '').toLowerCase();
+                    const name = (item.customerName || '').toLowerCase();
+                    const note = (item.customerNote || '').toLowerCase();
+                    const employee = (item.employeeName || '').toLowerCase();
 
-                    if (!searchableText.includes(searchText)) {
+                    // Check if search matches any field
+                    if (!stt.includes(searchText) &&
+                        !phone.includes(searchText) &&
+                        !name.includes(searchText) &&
+                        !note.includes(searchText) &&
+                        !employee.includes(searchText)) {
                         return false;
                     }
                 }
 
                 return true;
             });
+
+            // Priority sorting: STT matches first, then phone, then name
+            if (searchText) {
+                filteredKpiData.sort((a, b) => {
+                    const searchLower = searchText.toLowerCase();
+                    const aStt = String(a.stt || '').toLowerCase();
+                    const bStt = String(b.stt || '').toLowerCase();
+                    const aPhone = (a.customerPhone || '').toLowerCase();
+                    const bPhone = (b.customerPhone || '').toLowerCase();
+                    const aName = (a.customerName || '').toLowerCase();
+                    const bName = (b.customerName || '').toLowerCase();
+
+                    // Priority 1: STT exact match
+                    const aSttMatch = aStt === searchLower;
+                    const bSttMatch = bStt === searchLower;
+                    if (aSttMatch && !bSttMatch) return -1;
+                    if (!aSttMatch && bSttMatch) return 1;
+
+                    // Priority 2: STT starts with
+                    const aSttStarts = aStt.startsWith(searchLower);
+                    const bSttStarts = bStt.startsWith(searchLower);
+                    if (aSttStarts && !bSttStarts) return -1;
+                    if (!aSttStarts && bSttStarts) return 1;
+
+                    // Priority 3: STT contains
+                    const aSttContains = aStt.includes(searchLower);
+                    const bSttContains = bStt.includes(searchLower);
+                    if (aSttContains && !bSttContains) return -1;
+                    if (!aSttContains && bSttContains) return 1;
+
+                    // Priority 4: Phone starts with
+                    const aPhoneStarts = aPhone.startsWith(searchLower);
+                    const bPhoneStarts = bPhone.startsWith(searchLower);
+                    if (aPhoneStarts && !bPhoneStarts) return -1;
+                    if (!aPhoneStarts && bPhoneStarts) return 1;
+
+                    // Priority 5: Phone contains
+                    const aPhoneContains = aPhone.includes(searchLower);
+                    const bPhoneContains = bPhone.includes(searchLower);
+                    if (aPhoneContains && !bPhoneContains) return -1;
+                    if (!aPhoneContains && bPhoneContains) return 1;
+
+                    // Priority 6: Name starts with
+                    const aNameStarts = aName.startsWith(searchLower);
+                    const bNameStarts = bName.startsWith(searchLower);
+                    if (aNameStarts && !bNameStarts) return -1;
+                    if (!aNameStarts && bNameStarts) return 1;
+
+                    // Priority 7: Name contains
+                    const aNameContains = aName.includes(searchLower);
+                    const bNameContains = bName.includes(searchLower);
+                    if (aNameContains && !bNameContains) return -1;
+                    if (!aNameContains && bNameContains) return 1;
+
+                    // Default: keep original order
+                    return 0;
+                });
+            }
 
             renderData();
         }
