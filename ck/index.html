@@ -266,6 +266,7 @@
                                 type="text"
                                 id="contentSearchInput"
                                 placeholder="Tìm kiếm..."
+                                oninput="if(window.filterManager) window.filterManager.handleSearchChange()"
                             >
                         </div>
                         <button
