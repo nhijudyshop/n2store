@@ -25,10 +25,13 @@ class FilterManager {
         this.initializeWorker();
         this.initDateSlider();
 
-        // Initialize search input after a short delay to ensure DOM is ready
+        // Initialize search input using multiple approaches
+        this.initSearchInput();
+
+        // Also try again after a delay as backup
         setTimeout(() => {
             this.initSearchInput();
-        }, 100);
+        }, 500);
 
         console.log(
             "Filter system initialized with chunk size:",
@@ -37,37 +40,65 @@ class FilterManager {
     }
 
     initSearchInput() {
-        const contentSearchInput = domManager.get("#contentSearchInput");
+        // Try multiple ways to get the search input
+        let contentSearchInput =
+            document.getElementById("contentSearchInput") ||
+            document.querySelector("#contentSearchInput") ||
+            domManager.get("#contentSearchInput");
 
         if (!contentSearchInput) {
-            console.warn("Search input not found, retrying...");
-            // Retry after another delay
-            setTimeout(() => {
-                this.initSearchInput();
-            }, 200);
+            console.warn(
+                "⚠️ Search input not found, will retry later...",
+            );
             return;
         }
 
-        // Remove existing event listener if any
-        const oldListener = contentSearchInput._searchListener;
-        if (oldListener) {
-            contentSearchInput.removeEventListener("input", oldListener);
+        // Skip if already initialized
+        if (contentSearchInput._searchInitialized) {
+            console.log("ℹ️ Search input already initialized, skipping");
+            return;
         }
 
-        // Create debounced search handler
-        const debouncedSearchChange = throttleManager.debounce(
-            () => this.handleSearchChange(),
-            CONFIG.performance.FILTER_DEBOUNCE_DELAY,
-            "searchFilter",
-        );
+        console.log("🔍 Initializing search input:", contentSearchInput.id);
+
+        // Remove existing event listener if any
+        if (contentSearchInput._searchListener) {
+            contentSearchInput.removeEventListener(
+                "input",
+                contentSearchInput._searchListener,
+            );
+            contentSearchInput.removeEventListener(
+                "change",
+                contentSearchInput._searchListener,
+            );
+        }
+
+        // Create search handler without debounce for better responsiveness
+        const searchHandler = (e) => {
+            console.log(
+                "🎯 Search event fired! Value:",
+                e.target.value,
+            );
+            this.handleSearchChange();
+        };
 
         // Store reference for cleanup
-        contentSearchInput._searchListener = debouncedSearchChange;
+        contentSearchInput._searchListener = searchHandler;
+        contentSearchInput._searchInitialized = true;
 
-        // Bind event
-        contentSearchInput.addEventListener("input", debouncedSearchChange);
+        // Bind event to both input and change
+        contentSearchInput.addEventListener("input", searchHandler);
+        contentSearchInput.addEventListener("change", searchHandler);
 
         console.log("✅ Search input initialized successfully");
+        console.log("✅ Event listeners attached");
+
+        // Test removeVietnameseAccents availability
+        if (typeof removeVietnameseAccents === "function") {
+            console.log("✅ removeVietnameseAccents is available");
+        } else {
+            console.error("❌ removeVietnameseAccents NOT FOUND!");
+        }
     }
 
     initDateSlider() {
@@ -1031,123 +1062,221 @@ class FilterManager {
     }
 
     async filterDataOptimized(data) {
-        return new Promise((resolve) => {
-            const { startDate, endDate, status, searchText } = this.filters;
+        return new Promise((resolve, reject) => {
+            try {
+                const { startDate, endDate, status, searchText } = this.filters;
 
-            // Prepare search term (remove Vietnamese accents and convert to lowercase)
-            const normalizedSearchText = searchText
-                ? removeVietnameseAccents(searchText.toLowerCase())
-                : "";
-
-            let filteredResults = [];
-            let processedCount = 0;
-
-            const processChunk = (startIndex) => {
-                const endIndex = Math.min(
-                    startIndex + this.chunkSize,
-                    data.length,
-                );
-                const chunk = data.slice(startIndex, endIndex);
-
-                const chunkResults = [];
-                for (const item of chunk) {
-                    let passesDateFilter = true;
-
-                    if (startDate || endDate) {
-                        const timestamp = parseFloat(item.dateCell);
-
-                        if (startDate) {
-                            const startRange =
-                                VietnamTime.getDateRange(startDate);
-                            if (timestamp < startRange.start) {
-                                passesDateFilter = false;
-                            }
+                // Prepare search term (remove Vietnamese accents and convert to lowercase)
+                let normalizedSearchText = "";
+                if (searchText) {
+                    try {
+                        if (typeof removeVietnameseAccents === "function") {
+                            normalizedSearchText = removeVietnameseAccents(
+                                searchText.toLowerCase(),
+                            );
+                            console.log(
+                                "✅ Normalized search:",
+                                searchText,
+                                "->",
+                                normalizedSearchText,
+                            );
+                        } else {
+                            console.warn(
+                                "⚠️ removeVietnameseAccents not found, using plain text",
+                            );
+                            normalizedSearchText = searchText.toLowerCase();
                         }
-
-                        if (endDate && passesDateFilter) {
-                            const endRange = VietnamTime.getDateRange(endDate);
-                            if (timestamp > endRange.end) {
-                                passesDateFilter = false;
-                            }
-                        }
+                    } catch (err) {
+                        console.error(
+                            "❌ Error normalizing search text:",
+                            err,
+                        );
+                        normalizedSearchText = searchText.toLowerCase();
                     }
-
-                    if (!passesDateFilter) continue;
-
-                    if (status === "active" && item.completed === true)
-                        continue;
-                    if (status === "completed" && item.completed === false)
-                        continue;
-
-                    // Content search filter (search in all fields)
-                    if (normalizedSearchText) {
-                        let passesContentFilter = false;
-
-                        // Search in note
-                        if (item.noteCell) {
-                            const normalizedNote = removeVietnameseAccents(
-                                item.noteCell.toLowerCase(),
-                            );
-                            if (normalizedNote.includes(normalizedSearchText)) {
-                                passesContentFilter = true;
-                            }
-                        }
-
-                        // Search in amount
-                        if (!passesContentFilter && item.amountCell) {
-                            const amountStr = item.amountCell
-                                .toString()
-                                .replace(/[,\.]/g, "");
-                            if (amountStr.includes(normalizedSearchText)) {
-                                passesContentFilter = true;
-                            }
-                        }
-
-                        // Search in bank
-                        if (!passesContentFilter && item.bankCell) {
-                            const normalizedBank = removeVietnameseAccents(
-                                item.bankCell.toLowerCase(),
-                            );
-                            if (normalizedBank.includes(normalizedSearchText)) {
-                                passesContentFilter = true;
-                            }
-                        }
-
-                        // Search in customer info (FB + SĐT)
-                        if (!passesContentFilter && item.customerInfoCell) {
-                            const normalizedInfo = removeVietnameseAccents(
-                                item.customerInfoCell.toLowerCase(),
-                            );
-                            if (normalizedInfo.includes(normalizedSearchText)) {
-                                passesContentFilter = true;
-                            }
-                        }
-
-                        if (!passesContentFilter) continue;
-                    }
-
-                    chunkResults.push(item);
                 }
 
-                filteredResults = filteredResults.concat(chunkResults);
-                processedCount = endIndex;
+                let filteredResults = [];
+                let processedCount = 0;
 
-                const progress = Math.round(
-                    (processedCount / data.length) * 100,
-                );
-                this.updateFilterProgress(progress);
+                const processChunk = (startIndex) => {
+                    try {
+                        const endIndex = Math.min(
+                            startIndex + this.chunkSize,
+                            data.length,
+                        );
+                        const chunk = data.slice(startIndex, endIndex);
 
-                if (endIndex < data.length) {
-                    const nextTick =
-                        window.requestIdleCallback ||
-                        ((cb) => setTimeout(cb, 0));
-                    nextTick(() => processChunk(endIndex));
-                } else {
-                    resolve(filteredResults);
-                }
-            };
+                        const chunkResults = [];
+                        for (const item of chunk) {
+                            try {
+                                let passesDateFilter = true;
 
-            processChunk(0);
+                                if (startDate || endDate) {
+                                    const timestamp = parseFloat(item.dateCell);
+
+                                    if (startDate) {
+                                        const startRange =
+                                            VietnamTime.getDateRange(startDate);
+                                        if (timestamp < startRange.start) {
+                                            passesDateFilter = false;
+                                        }
+                                    }
+
+                                    if (endDate && passesDateFilter) {
+                                        const endRange =
+                                            VietnamTime.getDateRange(endDate);
+                                        if (timestamp > endRange.end) {
+                                            passesDateFilter = false;
+                                        }
+                                    }
+                                }
+
+                                if (!passesDateFilter) continue;
+
+                                if (status === "active" && item.completed === true)
+                                    continue;
+                                if (
+                                    status === "completed" &&
+                                    item.completed === false
+                                )
+                                    continue;
+
+                                // Content search filter (search in all fields)
+                                if (normalizedSearchText) {
+                                    let passesContentFilter = false;
+
+                                    // Search in note
+                                    if (item.noteCell) {
+                                        try {
+                                            const normalizedNote =
+                                                removeVietnameseAccents(
+                                                    item.noteCell.toLowerCase(),
+                                                );
+                                            if (
+                                                normalizedNote.includes(
+                                                    normalizedSearchText,
+                                                )
+                                            ) {
+                                                passesContentFilter = true;
+                                            }
+                                        } catch (e) {
+                                            // Fallback to plain text if error
+                                            if (
+                                                item.noteCell
+                                                    .toLowerCase()
+                                                    .includes(normalizedSearchText)
+                                            ) {
+                                                passesContentFilter = true;
+                                            }
+                                        }
+                                    }
+
+                                    // Search in amount
+                                    if (!passesContentFilter && item.amountCell) {
+                                        const amountStr = item.amountCell
+                                            .toString()
+                                            .replace(/[,\.]/g, "");
+                                        if (
+                                            amountStr.includes(normalizedSearchText)
+                                        ) {
+                                            passesContentFilter = true;
+                                        }
+                                    }
+
+                                    // Search in bank
+                                    if (!passesContentFilter && item.bankCell) {
+                                        try {
+                                            const normalizedBank =
+                                                removeVietnameseAccents(
+                                                    item.bankCell.toLowerCase(),
+                                                );
+                                            if (
+                                                normalizedBank.includes(
+                                                    normalizedSearchText,
+                                                )
+                                            ) {
+                                                passesContentFilter = true;
+                                            }
+                                        } catch (e) {
+                                            if (
+                                                item.bankCell
+                                                    .toLowerCase()
+                                                    .includes(normalizedSearchText)
+                                            ) {
+                                                passesContentFilter = true;
+                                            }
+                                        }
+                                    }
+
+                                    // Search in customer info (FB + SĐT)
+                                    if (
+                                        !passesContentFilter &&
+                                        item.customerInfoCell
+                                    ) {
+                                        try {
+                                            const normalizedInfo =
+                                                removeVietnameseAccents(
+                                                    item.customerInfoCell.toLowerCase(),
+                                                );
+                                            if (
+                                                normalizedInfo.includes(
+                                                    normalizedSearchText,
+                                                )
+                                            ) {
+                                                passesContentFilter = true;
+                                            }
+                                        } catch (e) {
+                                            if (
+                                                item.customerInfoCell
+                                                    .toLowerCase()
+                                                    .includes(normalizedSearchText)
+                                            ) {
+                                                passesContentFilter = true;
+                                            }
+                                        }
+                                    }
+
+                                    if (!passesContentFilter) continue;
+                                }
+
+                                chunkResults.push(item);
+                            } catch (itemError) {
+                                console.error(
+                                    "Error processing item:",
+                                    itemError,
+                                    item,
+                                );
+                                // Continue with next item
+                            }
+                        }
+
+                        filteredResults = filteredResults.concat(chunkResults);
+                        processedCount = endIndex;
+
+                        const progress = Math.round(
+                            (processedCount / data.length) * 100,
+                        );
+                        this.updateFilterProgress(progress);
+
+                        if (endIndex < data.length) {
+                            const nextTick =
+                                window.requestIdleCallback ||
+                                ((cb) => setTimeout(cb, 0));
+                            nextTick(() => processChunk(endIndex));
+                        } else {
+                            resolve(filteredResults);
+                        }
+                    } catch (chunkError) {
+                        console.error("Error processing chunk:", chunkError);
+                        reject(chunkError);
+                    }
+                };
+
+                processChunk(0);
+            } catch (error) {
+                console.error("Error in filterDataOptimized:", error);
+                reject(error);
+            }
         });
     }
 
@@ -1528,22 +1657,33 @@ class FilterManager {
     }
 
     handleSearchChange() {
-        if (this.isProcessing || APP_STATE.isOperationInProgress) {
-            console.log("Search change ignored: operation in progress");
-            return;
+        try {
+            if (this.isProcessing || APP_STATE.isOperationInProgress) {
+                console.log("⏸️ Search change ignored: operation in progress");
+                return;
+            }
+
+            // Try multiple ways to get input
+            const contentSearchInput =
+                document.getElementById("contentSearchInput") ||
+                domManager.get("#contentSearchInput");
+
+            if (!contentSearchInput) {
+                console.warn("⚠️ Search input not found in handleSearchChange");
+                return;
+            }
+
+            const searchText = contentSearchInput.value.trim();
+            console.log("🔍 Search text changed to:", searchText || "(empty)");
+
+            this.filters.searchText = searchText;
+
+            console.log("📊 Current filters:", this.filters);
+
+            this.applyFilters();
+        } catch (error) {
+            console.error("❌ Error in handleSearchChange:", error);
         }
-
-        const contentSearchInput = domManager.get("#contentSearchInput");
-        if (!contentSearchInput) {
-            console.warn("Search input not found in handleSearchChange");
-            return;
-        }
-
-        const searchText = contentSearchInput.value.trim();
-        console.log("🔍 Search text changed to:", searchText || "(empty)");
-
-        this.filters.searchText = searchText;
-        this.applyFilters();
     }
 
     updateFilterLabelsWithStatus() {
