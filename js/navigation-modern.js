@@ -87,6 +87,14 @@ const MENU_CONFIG = [
         permissionRequired: "product-search",
     },
     {
+        href: "../order-management/index.html",
+        icon: "package-check",
+        text: "Quản Lý Order",
+        shortText: "Order",
+        pageIdentifier: "order-management",
+        permissionRequired: "order-management",
+    },
+    {
         href: "../hangdat/index.html",
         icon: "bookmark",
         text: "Hàng Đặt",
