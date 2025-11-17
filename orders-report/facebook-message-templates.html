@@ -322,6 +322,7 @@
     </div>
 
     <!-- Include Token Manager for API authentication -->
+    <script src="api-config.js"></script>
     <script src="token-manager.js"></script>
     <script src="notification-system.js"></script>
 
@@ -338,7 +339,7 @@
                 if (window.tokenManager && typeof window.tokenManager.authenticatedFetch === 'function') {
                     console.log('✅ Sử dụng TokenManager.authenticatedFetch()');
                     response = await window.tokenManager.authenticatedFetch(
-                        'https://tomato.tpos.vn/odata/MailTemplate?$filter=(Active+eq+true)',
+                        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)',
                         {
                             method: 'GET',
                             headers: {
@@ -348,7 +349,7 @@
                     );
                 } else {
                     console.warn('⚠️ TokenManager không khả dụng, sử dụng fetch thông thường');
-                    response = await fetch('https://tomato.tpos.vn/odata/MailTemplate?$filter=(Active+eq+true)');
+                    response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)');
                 }
 
                 if (!response.ok) {

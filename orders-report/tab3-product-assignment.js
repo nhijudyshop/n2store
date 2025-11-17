@@ -87,7 +87,7 @@
     // Auth Functions
     async function getAuthToken() {
         try {
-            const response = await fetch('https://tomato.tpos.vn/token', {
+            const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -164,7 +164,7 @@
         loadingIndicator.style.display = 'block';
 
         try {
-            const response = await authenticatedFetch('https://tomato.tpos.vn/Product/ExportFileWithVariantPrice', {
+            const response = await authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -298,7 +298,7 @@
         try {
             // Load product details
             const response = await authenticatedFetch(
-                `https://tomato.tpos.vn/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
             );
 
             if (!response.ok) {
@@ -312,7 +312,7 @@
             if (!imageUrl && productData.ProductTmplId) {
                 try {
                     const templateResponse = await authenticatedFetch(
-                        `https://tomato.tpos.vn/odata/ProductTemplate(${productData.ProductTmplId})?$expand=Images`
+                        `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=Images`
                     );
 
                     if (templateResponse.ok) {

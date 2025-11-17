@@ -14,8 +14,8 @@ class EnhancedProductSearchManager {
         this.fullProductsKey = "product_full_details_cache";
         this.CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
         this.EXCEL_ENDPOINT =
-            "https://tomato.tpos.vn/Product/ExportFileWithVariantPrice";
-        this.PRODUCT_API_BASE = "https://tomato.tpos.vn/odata/Product";
+            "https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice";
+        this.PRODUCT_API_BASE = "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product";
 
         this.init();
     }

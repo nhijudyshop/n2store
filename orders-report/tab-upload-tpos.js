@@ -414,7 +414,7 @@
                 }
 
                 try {
-                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
+                    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
                     console.log(`📡 API Request for STT ${stt}:`);
                     console.log(`   URL: ${apiUrl}`);
 
@@ -463,7 +463,7 @@
                                 console.log(`📸 Fetching template image for ProductTmplId: ${detail.Product.ProductTmplId}`);
                                 const headers = await window.tokenManager.getAuthHeader();
                                 const templateResponse = await fetch(
-                                    `https://tomato.tpos.vn/odata/ProductTemplate(${detail.Product.ProductTmplId})`,
+                                    `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${detail.Product.ProductTmplId})`,
                                     {
                                         headers: {
                                             ...headers,
@@ -948,7 +948,7 @@
                 try {
                     // Fetch current order data
                     console.log(`[UPLOAD] 📡 Fetching order ${orderId} for STT ${stt}...`);
-                    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
+                    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
 
                     const headers = await window.tokenManager.getAuthHeader();
 
@@ -1004,7 +1004,7 @@
                     const uploadHeaders = await window.tokenManager.getAuthHeader();
 
                     const uploadResponse = await fetch(
-                        `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})`,
+                        `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})`,
                         {
                             method: "PUT",
                             headers: {
@@ -1399,7 +1399,7 @@
     // Fetch full product details from TPOS API
     async function fetchProductDetails(productId) {
         try {
-            const apiUrl = `https://tomato.tpos.vn/odata/Product(${productId})?$expand=UOM`;
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM`;
             
             // Get auth headers from tokenManager
             const headers = await window.tokenManager.getAuthHeader();
@@ -1532,7 +1532,7 @@
 
         try {
             // Fetch order data from TPOS API (EXACTLY like tab1-orders.js)
-            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
             
             // Get auth headers from tokenManager
             const headers = await window.tokenManager.getAuthHeader();
@@ -1559,7 +1559,7 @@
                             console.log(`📸 Fetching template image for ProductTmplId: ${detail.Product.ProductTmplId}`);
                             const headers = await window.tokenManager.getAuthHeader();
                             const templateResponse = await fetch(
-                                `https://tomato.tpos.vn/odata/ProductTemplate(${detail.Product.ProductTmplId})`,
+                                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${detail.Product.ProductTmplId})`,
                                 {
                                     headers: {
                                         ...headers,

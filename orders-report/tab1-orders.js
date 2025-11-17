@@ -140,7 +140,7 @@ async function loadAvailableTags() {
         const headers = await window.tokenManager.getAuthHeader();
 
         const response = await fetch(
-            "https://tomato.tpos.vn/odata/Tag?$top=320&$count=true",
+            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=320&$count=true",
             {
                 method: "GET",
                 headers: {
@@ -277,7 +277,7 @@ async function saveOrderTags() {
         };
         const headers = await window.tokenManager.getAuthHeader();
         const response = await fetch(
-            "https://tomato.tpos.vn/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
             {
                 method: "POST",
                 headers: {
@@ -507,12 +507,12 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const startDate = convertToUTC(startDateLocal);
             const endDate = convertToUTC(endDateLocal);
             const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
-            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}, autoLoad=${autoLoad}`);
         } else {
             // Fallback: không có date filter - Tải 3000 đơn hàng
-            url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter, autoLoad=${autoLoad}`);
         }
@@ -795,7 +795,7 @@ async function fetchOrders() {
 
         // ===== PHASE 1: Load first batch and show immediately =====
         console.log('[PROGRESSIVE] Loading first batch...');
-        const firstUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+        const firstUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
         const firstResponse = await fetch(firstUrl, {
             headers: { ...headers, accept: "application/json" },
         });
@@ -867,7 +867,7 @@ async function fetchOrders() {
                     let lastUpdateCount = allData.length; // Track when we last updated
 
                     while (hasMore && !loadingAborted) {
-                        const url = `https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
+                        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
                         const response = await fetch(url, {
                             headers: { ...headers, accept: "application/json" },
                         });
@@ -1100,7 +1100,7 @@ async function assignEmptyCartTagToSelected() {
                 };
 
                 const response = await fetch(
-                    "https://tomato.tpos.vn/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                    "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
                     {
                         method: "POST",
                         headers: {
@@ -1684,7 +1684,7 @@ async function openEditModal(orderId) {
 
 async function fetchOrderData(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
-    const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
     const response = await fetch(apiUrl, {
         headers: {
             ...headers,
@@ -1968,7 +1968,7 @@ async function renderHistoryTab(data) {
 
 async function fetchAndDisplayAuditLog(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
-    const apiUrl = `https://tomato.tpos.vn/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
+    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
     
     console.log('[AUDIT LOG] Fetching audit log for order:', orderId);
     
@@ -2285,7 +2285,7 @@ async function saveAllOrderChanges() {
 
         // PUT request
         const response = await fetch(
-            `https://tomato.tpos.vn/odata/SaleOnline_Order(${currentEditOrderId})`,
+            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
             {
                 method: "PUT",
                 headers: {
