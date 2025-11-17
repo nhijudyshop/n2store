@@ -177,6 +177,14 @@ class MoneyTransferApp {
             this.filterManager = new FilterManager();
             window.filterManager = this.filterManager;
 
+            // Initialize simple search system
+            if (typeof SimpleSearchManager !== "undefined") {
+                this.searchManager = new SimpleSearchManager();
+                this.searchManager.init();
+                window.searchManager = this.searchManager;
+                console.log("✅ Simple Search Manager initialized");
+            }
+
             console.log("Managers initialized successfully");
         } catch (error) {
             console.error("Manager initialization failed:", error);
