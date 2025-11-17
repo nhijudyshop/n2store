@@ -1103,6 +1103,65 @@ button {
     .form-row {
         grid-template-columns: 1fr;
     }
+
+    /* Search container responsive */
+    .search-container input {
+        width: 200px !important;
+        font-size: 13px !important;
+    }
+}
+
+/* =====================================================
+   SEARCH CONTAINER STYLES
+   ===================================================== */
+
+.search-container {
+    position: relative;
+    display: inline-block;
+}
+
+.search-container input {
+    padding: 8px 12px 8px 38px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 280px;
+    transition: all 0.3s ease;
+}
+
+.search-container input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.search-container input::placeholder {
+    color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+    .card-header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start !important;
+    }
+
+    .card-actions {
+        width: 100%;
+        justify-content: space-between !important;
+    }
+
+    .search-container input {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-container input {
+        font-size: 14px;
+        padding: 8px 10px 8px 36px;
+    }
 }
 
 /* =====================================================

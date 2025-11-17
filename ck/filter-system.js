@@ -505,22 +505,6 @@ class FilterManager {
                 Tháng Trước
             </button>
         </div>
-        
-        <div class="filter-row">
-            <div class="filter-group" style="flex: 1; min-width: 250px;">
-                <label for="contentSearchInput">
-                    <i data-lucide="search"></i>
-                    Tìm kiếm nội dung:
-                </label>
-                <input
-                    type="text"
-                    id="contentSearchInput"
-                    class="filter-input"
-                    placeholder="Tìm theo ghi chú, số tiền, ngân hàng, SĐT..."
-                    style="width: 100%;"
-                >
-            </div>
-        </div>
 
         <div class="filter-row">
             <div class="filter-group">
