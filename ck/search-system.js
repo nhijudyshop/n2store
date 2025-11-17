@@ -14,7 +14,22 @@ class SimpleSearchManager {
         // Wait for DOM to be ready
         setTimeout(() => {
             this.bindSearchInput();
+            this.bindFilterChangedEvent();
         }, 100);
+    }
+
+    bindFilterChangedEvent() {
+        // Listen for filter changes and re-apply search if active
+        document.addEventListener("filterChanged", () => {
+            if (this.isSearching && this.searchInput && this.searchInput.value.trim()) {
+                console.log("🔄 Filter changed, re-applying search:", this.searchInput.value);
+                // Re-run search on new filtered data
+                setTimeout(() => {
+                    this.handleSearch(this.searchInput.value);
+                }, 100); // Small delay to let table render
+            }
+        });
+        console.log("✅ Listening for filter changes");
     }
 
     bindSearchInput() {
