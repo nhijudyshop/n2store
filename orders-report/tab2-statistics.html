@@ -459,7 +459,6 @@
         let employeeRanges = []; // Employee STT ranges
         let kpiData = []; // Calculated KPI data
         let filteredKpiData = []; // Filtered KPI data
-        let noteEditedCache = {}; // Cache for note edited status {orderId: boolean}
 
         // KPI Configuration - Easy to modify
         const KPI_CONFIG = {
@@ -504,42 +503,78 @@
             return lines.length;
         }
 
-        /**
-         * Check if note has been edited in audit log
-         * Returns true if note was changed after order creation
-         */
-        async function checkNoteEdited(orderId) {
-            try {
-                const headers = await window.tokenManager.getAuthHeader();
-                const apiUrl = `https://tomato.tpos.vn/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
+        // =====================================================
+        // NOTE EDIT DETECTION VIA FIREBASE SNAPSHOTS
+        // =====================================================
 
-                const response = await fetch(apiUrl, {
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+        // Shared Firebase snapshots cache
+        let noteSnapshotsCache = null;
+
+        /**
+         * Load all note snapshots from Firebase (shared with tab1)
+         * @returns {Promise<Object>} - Map of orderId -> snapshot data
+         */
+        async function loadNoteSnapshots() {
+            // Return cached if available
+            if (noteSnapshotsCache) {
+                console.log('[KPI-STATS] Using cached note snapshots');
+                return noteSnapshotsCache;
+            }
+
+            try {
+                console.log('[KPI-STATS] Loading note snapshots from Firebase...');
+                const snapshot = await database.ref('order_notes_snapshot').once('value');
+                const data = snapshot.val() || {};
+
+                // Clean up expired snapshots (older than 30 days)
+                const now = Date.now();
+                const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+                const cleanedData = {};
+                let expiredCount = 0;
+
+                Object.keys(data).forEach(orderId => {
+                    const snapshot = data[orderId];
+                    if (snapshot.timestamp && snapshot.timestamp > thirtyDaysAgo) {
+                        cleanedData[orderId] = snapshot;
+                    } else {
+                        expiredCount++;
                     }
                 });
 
-                if (!response.ok) return false;
-
-                const data = await response.json();
-                const logs = data.value || [];
-
-                // Check if any log entry has "Ghi chú" or "Note" change
-                for (const log of logs) {
-                    const details = log.Details || '';
-                    // Check for Vietnamese "Ghi chú:" or English "Note:"
-                    if (details.includes('Ghi chú:') || details.includes('Note:')) {
-                        return true;
-                    }
-                }
-
-                return false;
+                noteSnapshotsCache = cleanedData;
+                console.log(`[KPI-STATS] Loaded ${Object.keys(cleanedData).length} snapshots, ${expiredCount} expired`);
+                return cleanedData;
             } catch (error) {
-                console.error('[KPI-STATS] Error checking note edit:', error);
+                console.error('[KPI-STATS] Error loading snapshots:', error);
+                return {};
+            }
+        }
+
+        /**
+         * Check if note has been edited by comparing with snapshot
+         * @param {string} orderId - Order ID
+         * @param {string} currentNote - Current note text
+         * @param {Object} snapshots - Firebase snapshots
+         * @returns {boolean} - True if note was edited
+         */
+        function checkNoteEdited(orderId, currentNote, snapshots) {
+            const snapshot = snapshots[orderId];
+
+            if (!snapshot) {
+                // No snapshot = first time seeing this order, save it
+                const newSnapshot = {
+                    note: (currentNote || '').trim(),
+                    timestamp: Date.now()
+                };
+                database.ref(`order_notes_snapshot/${orderId}`).set(newSnapshot);
                 return false;
             }
+
+            // Compare current note with saved snapshot
+            const savedNote = (snapshot.note || '').trim();
+            const trimmedCurrentNote = (currentNote || '').trim();
+
+            return trimmedCurrentNote !== savedNote;
         }
 
         // =====================================================
@@ -819,44 +854,36 @@
         }
 
         /**
-         * Load note edited status for all orders in background
-         * This runs after KPI calculation to not block UI
+         * Load note edited status for all orders using Firebase snapshots
+         * This runs after KPI calculation - much faster than API calls!
          */
         async function loadNoteEditedStatus() {
-            console.log('[KPI-STATS] Loading note edited status...');
+            console.log('[KPI-STATS] Detecting edited notes using Firebase snapshots...');
 
-            // Check top 100 orders max to avoid too many requests
-            const ordersToCheck = kpiData.slice(0, 100);
-            let checkedCount = 0;
-
-            // Check in batches of 5 to avoid overwhelming the API
-            const batchSize = 5;
-            for (let i = 0; i < ordersToCheck.length; i += batchSize) {
-                const batch = ordersToCheck.slice(i, i + batchSize);
-
-                // Process batch in parallel
-                await Promise.all(batch.map(async (item) => {
-                    // Check cache first
-                    if (noteEditedCache[item.orderId] !== undefined) {
-                        item.noteEdited = noteEditedCache[item.orderId];
-                        return;
-                    }
-
-                    // Check via API
-                    const edited = await checkNoteEdited(item.orderId);
-                    item.noteEdited = edited;
-                    noteEditedCache[item.orderId] = edited;
-                    checkedCount++;
-
-                    // Update UI every 10 checks
-                    if (checkedCount % 10 === 0) {
-                        renderData();
-                    }
-                }));
+            if (!kpiData || kpiData.length === 0) {
+                console.log('[KPI-STATS] No data to check');
+                return;
             }
 
+            // Load all snapshots from Firebase (1 call for all orders!)
+            const snapshots = await loadNoteSnapshots();
+
+            // Check all orders by comparing with snapshots (no API calls!)
+            let editedCount = 0;
+
+            kpiData.forEach(item => {
+                // Check with snapshot (synchronous, instant!)
+                const edited = checkNoteEdited(item.orderId, item.customerNote, snapshots);
+                item.noteEdited = edited;
+
+                if (edited) {
+                    editedCount++;
+                    console.log(`[KPI-STATS] ✏️ Edited: STT ${item.stt}, "${snapshots[item.orderId]?.note}" → "${item.customerNote}"`);
+                }
+            });
+
             // Final update
-            console.log('[KPI-STATS] Note edited status loaded:', checkedCount, 'orders checked');
+            console.log(`[KPI-STATS] ✅ Found ${editedCount} edited notes out of ${kpiData.length} orders (using Firebase, no API spam!)`);
             renderData();
         }
 
