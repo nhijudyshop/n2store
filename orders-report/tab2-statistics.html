@@ -180,6 +180,27 @@
             color: #6c757d;
         }
 
+        /* Row watermark for edited notes */
+        .data-table tbody tr.note-edited {
+            background: #fff3cd !important;
+            border-left: 4px solid #ffc107;
+        }
+
+        .data-table tbody tr.note-edited:hover {
+            background: #ffecb5 !important;
+        }
+
+        .note-edited-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #ffc107;
+            color: #000;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
         .loading-spinner {
             text-align: center;
             padding: 60px 20px;
@@ -242,6 +263,7 @@
             border-radius: 4px;
             font-weight: 600;
             font-size: 13px;
+            display: inline-block;
         }
     </style>
 </head>
@@ -323,6 +345,7 @@
                         <option value="all">Tất cả</option>
                         <option value="has_new">Có sản phẩm mới</option>
                         <option value="no_new">Không có sản phẩm mới</option>
+                        <option value="note_edited">✏️ Đã chỉnh sửa ghi chú</option>
                     </select>
                 </div>
                 <div class="col-md-6">
@@ -858,11 +881,14 @@
                 if (statusFilter === 'no_new' && item.newProductsAdded > 0) {
                     return false;
                 }
+                if (statusFilter === 'note_edited' && !item.noteEdited) {
+                    return false;
+                }
 
                 // Search filter
                 if (searchText) {
                     const searchableText = [
-                        item.stt,
+                        String(item.stt || ''),  // Convert STT to string explicitly
                         item.customerName,
                         item.customerPhone,
                         item.customerNote,
@@ -1040,9 +1066,15 @@
                     }
                 }
 
+                // Add watermark class for edited notes
+                const rowClass = item.noteEdited ? 'note-edited' : '';
+
                 html += `
-                    <tr>
-                        <td><span class="stt-badge">${item.stt}</span></td>
+                    <tr class="${rowClass}">
+                        <td>
+                            <span class="stt-badge">${item.stt}</span>
+                            ${item.noteEdited ? '<span class="note-edited-badge">✏️ ĐÃ SỬA</span>' : ''}
+                        </td>
                         <td>${item.customerName}</td>
                         <td>${item.customerPhone}</td>
                         <td style="max-width: 200px; white-space: pre-line; font-size: 13px; color: #495057;">${noteDisplay}</td>
