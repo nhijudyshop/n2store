@@ -3077,3 +3077,29 @@ td[data-column].hidden {
         justify-content: center;
     }
 }
+
+/* =====================================================
+   NOTE EDITED WATERMARK
+   ===================================================== */
+
+/* Row watermark for edited notes */
+.table tbody tr.note-edited {
+    background: #fff3cd !important;
+    border-left: 4px solid #ffc107;
+}
+
+.table tbody tr.note-edited:hover {
+    background: #ffecb5 !important;
+}
+
+.note-edited-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background: #ffc107;
+    color: #000;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    vertical-align: middle;
+}
