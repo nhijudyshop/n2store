@@ -747,7 +747,8 @@ async function fetchOrders() {
 
             // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
             // No need to call both methods anymore - this reduces API calls by 50%!
-            await window.chatDataManager.fetchConversations(false, channelIds);
+            // Force refresh (true) to always fetch fresh data when searching
+            await window.chatDataManager.fetchConversations(true, channelIds);
             renderTable(); // Re-render with chat data
         }
 
