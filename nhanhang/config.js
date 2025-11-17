@@ -404,6 +404,8 @@ const authManager = {
     logout: function () {
         if (confirm("Bạn có chắc muốn đăng xuất?")) {
             clearAuthState();
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }
     },

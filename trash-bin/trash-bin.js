@@ -562,6 +562,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Check authentication
         if (!authManager || !authManager.isAuthenticated()) {
             alert('Phiên đăng nhập hết hạn');
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = '../index.html';
             return;
         }

@@ -164,6 +164,8 @@ class UnifiedNavigationManager {
         // Check authentication
         if (!authManager || !authManager.isAuthenticated()) {
             console.log("[Unified Nav] User not authenticated, redirecting...");
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
             return;
         }
@@ -1947,6 +1949,8 @@ class UnifiedNavigationManager {
             console.error(
                 "[Access Denied] No accessible pages found, redirecting to login",
             );
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
             return;
         }
@@ -2033,6 +2037,8 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
             setTimeout(check, delay);
         } else {
             console.error("[Unified Nav] Dependencies failed, redirecting...");
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }
     };

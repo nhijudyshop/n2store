@@ -123,6 +123,8 @@ class MoneyTransferApp {
         const auth = this.getAuthState();
         if (!auth || auth.isLoggedIn !== "true") {
             console.log("User not authenticated, redirecting...");
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
             return false;
         }
@@ -1735,6 +1737,8 @@ class MoneyTransferApp {
             setTimeout(() => {
                 this.clearAuthState();
                 cacheManager.invalidate();
+                localStorage.clear();
+                sessionStorage.clear();
                 this.hideNotification(notificationId);
                 window.location.href = "../index.html";
             }, 1000);

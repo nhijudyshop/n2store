@@ -642,6 +642,8 @@ class ImageManagementApp {
                 "Chưa xác thực",
             );
             setTimeout(() => {
+                localStorage.clear();
+                sessionStorage.clear();
                 window.location.href = "../index.html";
             }, 1500);
             return;
