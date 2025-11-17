@@ -1573,7 +1573,7 @@
                     <button class="list-search-clear" id="listSearchClear" onclick="clearListSearch()">×</button>
                 </div>
                 <div class="list-header-actions">
-                    <a href="product-list.html#sync" class="btn-expand" id="btnExpandList" target="_blank" style="text-decoration: none; display: inline-block;">🔍 Phóng to</a>
+                    <a href="order-list.html#sync" class="btn-expand" id="btnExpandList" target="_blank" style="text-decoration: none; display: inline-block;">🔍 Phóng to</a>
                 </div>
             </div>
             <div class="product-list-preview" id="productListPreview"></div>
@@ -1633,9 +1633,9 @@
             const btnExpandList = document.getElementById('btnExpandList');
             if (btnExpandList) {
                 if (isSyncMode) {
-                    btnExpandList.href = 'product-list.html#sync';
+                    btnExpandList.href = 'order-list.html#sync';
                 } else {
-                    btnExpandList.href = 'product-list.html';
+                    btnExpandList.href = 'order-list.html';
                 }
             }
         }
