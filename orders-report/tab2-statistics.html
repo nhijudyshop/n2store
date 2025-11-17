@@ -556,18 +556,18 @@
          * @param {string} orderId - Order ID
          * @param {string} currentNote - Current note text
          * @param {Object} snapshots - Firebase snapshots
+         * @param {Object} newSnapshotsToSave - Object to collect new snapshots for batch save
          * @returns {boolean} - True if note was edited
          */
-        function checkNoteEdited(orderId, currentNote, snapshots) {
+        function checkNoteEdited(orderId, currentNote, snapshots, newSnapshotsToSave) {
             const snapshot = snapshots[orderId];
 
             if (!snapshot) {
-                // No snapshot = first time seeing this order, save it
-                const newSnapshot = {
+                // No snapshot = first time seeing this order, queue it for batch save
+                newSnapshotsToSave[orderId] = {
                     note: (currentNote || '').trim(),
                     timestamp: Date.now()
                 };
-                database.ref(`order_notes_snapshot/${orderId}`).set(newSnapshot);
                 return false;
             }
 
@@ -576,6 +576,30 @@
             const trimmedCurrentNote = (currentNote || '').trim();
 
             return trimmedCurrentNote !== savedNote;
+        }
+
+        /**
+         * Save note snapshots to Firebase (batch)
+         * @param {Object} snapshots - Map of orderId -> snapshot data
+         * @returns {Promise<void>}
+         */
+        async function saveNoteSnapshots(snapshots) {
+            if (!database) {
+                console.warn('[KPI-STATS] Firebase not initialized');
+                return;
+            }
+
+            try {
+                const updates = {};
+                Object.keys(snapshots).forEach(orderId => {
+                    updates[`order_notes_snapshot/${orderId}`] = snapshots[orderId];
+                });
+
+                await database.ref().update(updates);
+                console.log(`[KPI-STATS] ✅ Saved ${Object.keys(snapshots).length} new snapshots to Firebase`);
+            } catch (error) {
+                console.error('[KPI-STATS] Error saving snapshots:', error);
+            }
         }
 
         // =====================================================
@@ -871,10 +895,11 @@
 
             // Check all orders by comparing with snapshots (no API calls!)
             let editedCount = 0;
+            let newSnapshotsToSave = {}; // Collect new snapshots for batch save
 
             kpiData.forEach(item => {
                 // Check with snapshot (synchronous, instant!)
-                const edited = checkNoteEdited(item.orderId, item.customerNote, snapshots);
+                const edited = checkNoteEdited(item.orderId, item.customerNote, snapshots, newSnapshotsToSave);
                 item.noteEdited = edited;
 
                 if (edited) {
@@ -882,6 +907,12 @@
                     console.log(`[KPI-STATS] ✏️ Edited: STT ${item.stt}, "${snapshots[item.orderId]?.note}" → "${item.customerNote}"`);
                 }
             });
+
+            // Save new snapshots in batch (with await to ensure completion!)
+            if (Object.keys(newSnapshotsToSave).length > 0) {
+                console.log(`[KPI-STATS] 💾 Saving ${Object.keys(newSnapshotsToSave).length} new snapshots to Firebase...`);
+                await saveNoteSnapshots(newSnapshotsToSave);
+            }
 
             // Final update
             console.log(`[KPI-STATS] ✅ Found ${editedCount} edited notes out of ${kpiData.length} orders (using Firebase, no API spam!)`);
