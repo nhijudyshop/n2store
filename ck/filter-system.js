@@ -143,11 +143,17 @@ class FilterManager {
         const thisMonthRange = this.getDateRange("thisMonth");
         this.filters.startDate = thisMonthRange.start;
         this.filters.endDate = thisMonthRange.end;
+        this.filters.searchText = ""; // Initialize search text
 
         console.log(
             "Filter initialized with This Month (hidden):",
             this.filters,
         );
+
+        // Initialize Lucide icons for search icon
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
     }
 
     getFilterHTML(localISODate) {
@@ -501,16 +507,32 @@ class FilterManager {
         </div>
         
         <div class="filter-row">
+            <div class="filter-group" style="flex: 1; min-width: 250px;">
+                <label for="contentSearchInput">
+                    <i data-lucide="search"></i>
+                    Tìm kiếm nội dung:
+                </label>
+                <input
+                    type="text"
+                    id="contentSearchInput"
+                    class="filter-input"
+                    placeholder="Tìm theo ghi chú, số tiền, ngân hàng, SĐT..."
+                    style="width: 100%;"
+                >
+            </div>
+        </div>
+
+        <div class="filter-row">
             <div class="filter-group">
                 <label>Từ ngày:</label>
                 <input type="date" id="startDateFilter" class="filter-input" value="${localISODate}">
             </div>
-            
+
             <div class="filter-group">
                 <label>Đến ngày:</label>
                 <input type="date" id="endDateFilter" class="filter-input" value="${localISODate}">
             </div>
-            
+
             <div class="filter-group">
                 <label for="statusFilterDropdown">Trạng thái:</label>
                 <select id="statusFilterDropdown" class="filter-select">
@@ -519,7 +541,7 @@ class FilterManager {
                     <option value="completed">Đã đi đơn</option>
                 </select>
             </div>
-            
+
             <div class="filter-group">
                 <label>&nbsp;</label>
                 <div>
@@ -548,9 +570,16 @@ class FilterManager {
             "statusFilter",
         );
 
+        const debouncedSearchChange = throttleManager.debounce(
+            () => this.handleSearchChange(),
+            CONFIG.performance.FILTER_DEBOUNCE_DELAY,
+            "searchFilter",
+        );
+
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
         const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
+        const contentSearchInput = domManager.get("#contentSearchInput");
         const todayBtn = domManager.get(SELECTORS.todayFilterBtn);
         const allBtn = domManager.get(SELECTORS.allFilterBtn);
         const clearBtn = domManager.get(SELECTORS.clearFiltersBtn);
@@ -561,6 +590,8 @@ class FilterManager {
             endDateFilter.addEventListener("change", debouncedDateChange);
         if (statusFilter)
             statusFilter.addEventListener("change", debouncedStatusChange);
+        if (contentSearchInput)
+            contentSearchInput.addEventListener("input", debouncedSearchChange);
         if (todayBtn)
             todayBtn.addEventListener("click", () => this.setTodayFilter());
         if (allBtn) allBtn.addEventListener("click", () => this.setAllFilter());
@@ -914,6 +945,7 @@ class FilterManager {
             startDate: filters.startDate,
             endDate: filters.endDate,
             status: filters.status,
+            searchText: filters.searchText || "",
         });
     }
 
@@ -985,7 +1017,12 @@ class FilterManager {
 
     async filterDataOptimized(data) {
         return new Promise((resolve) => {
-            const { startDate, endDate, status } = this.filters;
+            const { startDate, endDate, status, searchText } = this.filters;
+
+            // Prepare search term (remove Vietnamese accents and convert to lowercase)
+            const normalizedSearchText = searchText
+                ? removeVietnameseAccents(searchText.toLowerCase())
+                : "";
 
             let filteredResults = [];
             let processedCount = 0;
@@ -1026,6 +1063,53 @@ class FilterManager {
                         continue;
                     if (status === "completed" && item.completed === false)
                         continue;
+
+                    // Content search filter (search in all fields)
+                    if (normalizedSearchText) {
+                        let passesContentFilter = false;
+
+                        // Search in note
+                        if (item.noteCell) {
+                            const normalizedNote = removeVietnameseAccents(
+                                item.noteCell.toLowerCase(),
+                            );
+                            if (normalizedNote.includes(normalizedSearchText)) {
+                                passesContentFilter = true;
+                            }
+                        }
+
+                        // Search in amount
+                        if (!passesContentFilter && item.amountCell) {
+                            const amountStr = item.amountCell
+                                .toString()
+                                .replace(/[,\.]/g, "");
+                            if (amountStr.includes(normalizedSearchText)) {
+                                passesContentFilter = true;
+                            }
+                        }
+
+                        // Search in bank
+                        if (!passesContentFilter && item.bankCell) {
+                            const normalizedBank = removeVietnameseAccents(
+                                item.bankCell.toLowerCase(),
+                            );
+                            if (normalizedBank.includes(normalizedSearchText)) {
+                                passesContentFilter = true;
+                            }
+                        }
+
+                        // Search in customer info (FB + SĐT)
+                        if (!passesContentFilter && item.customerInfoCell) {
+                            const normalizedInfo = removeVietnameseAccents(
+                                item.customerInfoCell.toLowerCase(),
+                            );
+                            if (normalizedInfo.includes(normalizedSearchText)) {
+                                passesContentFilter = true;
+                            }
+                        }
+
+                        if (!passesContentFilter) continue;
+                    }
 
                     chunkResults.push(item);
                 }
@@ -1428,6 +1512,19 @@ class FilterManager {
         }
     }
 
+    handleSearchChange() {
+        if (this.isProcessing || APP_STATE.isOperationInProgress) return;
+
+        const contentSearchInput = domManager.get("#contentSearchInput");
+        if (contentSearchInput) {
+            const searchText = contentSearchInput.value.trim();
+            console.log("Search text changed to:", searchText);
+
+            this.filters.searchText = searchText;
+            this.applyFilters();
+        }
+    }
+
     updateFilterLabelsWithStatus() {
         const currentFilterLabel =
             document.getElementById("currentFilterLabel");
@@ -1548,15 +1645,18 @@ class FilterManager {
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
         const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
+        const contentSearchInput = domManager.get("#contentSearchInput");
 
         if (startDateFilter) startDateFilter.value = "";
         if (endDateFilter) endDateFilter.value = "";
         if (statusFilter) statusFilter.value = "all";
+        if (contentSearchInput) contentSearchInput.value = "";
 
         this.filters = {
             startDate: null,
             endDate: null,
             status: "all",
+            searchText: "",
         };
 
         // FIXED: Remove active from all quick filter buttons
@@ -1689,11 +1789,14 @@ class FilterManager {
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
         const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
+        const contentSearchInput = domManager.get("#contentSearchInput");
 
         if (startDateFilter)
             startDateFilter.value = this.filters.startDate || "";
         if (endDateFilter) endDateFilter.value = this.filters.endDate || "";
         if (statusFilter) statusFilter.value = this.filters.status || "all";
+        if (contentSearchInput)
+            contentSearchInput.value = this.filters.searchText || "";
     }
 
     reset() {
@@ -1701,6 +1804,7 @@ class FilterManager {
             startDate: null,
             endDate: null,
             status: "all",
+            searchText: "",
         };
         this.filterCache.clear();
         this.lastFilterHash = null;
