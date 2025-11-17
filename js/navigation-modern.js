@@ -71,6 +71,14 @@ const MENU_CONFIG = [
         permissionRequired: "hanghoan",
     },
     {
+        href: "../trash-bin/index.html",
+        icon: "trash-2",
+        text: "Thùng Rác",
+        shortText: "Rác",
+        pageIdentifier: "trash-bin",
+        permissionRequired: "trash-bin",
+    },
+    {
         href: "../orders-report/main.html",
         icon: "shopping-cart",
         text: "Báo Cáo Sale-Online",
