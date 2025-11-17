@@ -25,10 +25,49 @@ class FilterManager {
         this.initializeWorker();
         this.initDateSlider();
 
+        // Initialize search input after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            this.initSearchInput();
+        }, 100);
+
         console.log(
             "Filter system initialized with chunk size:",
             this.chunkSize,
         );
+    }
+
+    initSearchInput() {
+        const contentSearchInput = domManager.get("#contentSearchInput");
+
+        if (!contentSearchInput) {
+            console.warn("Search input not found, retrying...");
+            // Retry after another delay
+            setTimeout(() => {
+                this.initSearchInput();
+            }, 200);
+            return;
+        }
+
+        // Remove existing event listener if any
+        const oldListener = contentSearchInput._searchListener;
+        if (oldListener) {
+            contentSearchInput.removeEventListener("input", oldListener);
+        }
+
+        // Create debounced search handler
+        const debouncedSearchChange = throttleManager.debounce(
+            () => this.handleSearchChange(),
+            CONFIG.performance.FILTER_DEBOUNCE_DELAY,
+            "searchFilter",
+        );
+
+        // Store reference for cleanup
+        contentSearchInput._searchListener = debouncedSearchChange;
+
+        // Bind event
+        contentSearchInput.addEventListener("input", debouncedSearchChange);
+
+        console.log("✅ Search input initialized successfully");
     }
 
     initDateSlider() {
@@ -554,16 +593,9 @@ class FilterManager {
             "statusFilter",
         );
 
-        const debouncedSearchChange = throttleManager.debounce(
-            () => this.handleSearchChange(),
-            CONFIG.performance.FILTER_DEBOUNCE_DELAY,
-            "searchFilter",
-        );
-
         const startDateFilter = domManager.get(SELECTORS.startDateFilter);
         const endDateFilter = domManager.get(SELECTORS.endDateFilter);
         const statusFilter = domManager.get(SELECTORS.statusFilterDropdown);
-        const contentSearchInput = domManager.get("#contentSearchInput");
         const todayBtn = domManager.get(SELECTORS.todayFilterBtn);
         const allBtn = domManager.get(SELECTORS.allFilterBtn);
         const clearBtn = domManager.get(SELECTORS.clearFiltersBtn);
@@ -574,8 +606,7 @@ class FilterManager {
             endDateFilter.addEventListener("change", debouncedDateChange);
         if (statusFilter)
             statusFilter.addEventListener("change", debouncedStatusChange);
-        if (contentSearchInput)
-            contentSearchInput.addEventListener("input", debouncedSearchChange);
+        // Note: Search input is bound separately in initSearchInput()
         if (todayBtn)
             todayBtn.addEventListener("click", () => this.setTodayFilter());
         if (allBtn) allBtn.addEventListener("click", () => this.setAllFilter());
@@ -1497,16 +1528,22 @@ class FilterManager {
     }
 
     handleSearchChange() {
-        if (this.isProcessing || APP_STATE.isOperationInProgress) return;
+        if (this.isProcessing || APP_STATE.isOperationInProgress) {
+            console.log("Search change ignored: operation in progress");
+            return;
+        }
 
         const contentSearchInput = domManager.get("#contentSearchInput");
-        if (contentSearchInput) {
-            const searchText = contentSearchInput.value.trim();
-            console.log("Search text changed to:", searchText);
-
-            this.filters.searchText = searchText;
-            this.applyFilters();
+        if (!contentSearchInput) {
+            console.warn("Search input not found in handleSearchChange");
+            return;
         }
+
+        const searchText = contentSearchInput.value.trim();
+        console.log("🔍 Search text changed to:", searchText || "(empty)");
+
+        this.filters.searchText = searchText;
+        this.applyFilters();
     }
 
     updateFilterLabelsWithStatus() {
@@ -1693,8 +1730,13 @@ class FilterManager {
         const filterInfo = domManager.get(SELECTORS.filterInfo);
         if (!filterInfo) return;
 
-        if (visibleCount !== totalCount) {
+        if (visibleCount !== totalCount || this.filters.searchText) {
             let filterText = `Hiển thị ${visibleCount.toLocaleString()} / ${totalCount.toLocaleString()} giao dịch`;
+
+            // Add search info
+            if (this.filters.searchText) {
+                filterText += ` - Tìm kiếm: "${this.filters.searchText}"`;
+            }
 
             // Add date range info
             if (this.filters.startDate || this.filters.endDate) {
@@ -1804,6 +1846,17 @@ class FilterManager {
         this.filterCache.clear();
         throttleManager.clear("dateFilter");
         throttleManager.clear("statusFilter");
+        throttleManager.clear("searchFilter");
+
+        // Cleanup search input listener
+        const contentSearchInput = domManager.get("#contentSearchInput");
+        if (contentSearchInput && contentSearchInput._searchListener) {
+            contentSearchInput.removeEventListener(
+                "input",
+                contentSearchInput._searchListener,
+            );
+            delete contentSearchInput._searchListener;
+        }
 
         const filterSystem = domManager.get(SELECTORS.filterSystem);
         if (filterSystem) {
