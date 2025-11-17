@@ -123,7 +123,16 @@ class TrashManager {
                 query = query.where('deletedAt', '<=', filters.endDate);
             }
 
-            const snapshot = await query.orderBy('deletedAt', 'desc').get();
+            let snapshot;
+            try {
+                // Try to order by deletedAt (requires Firestore index)
+                snapshot = await query.orderBy('deletedAt', 'desc').get();
+            } catch (orderError) {
+                console.warn('OrderBy failed (missing index?), fetching without ordering:', orderError);
+                // Fallback: get items without ordering
+                snapshot = await query.get();
+            }
+
             const items = [];
 
             snapshot.forEach(doc => {
@@ -131,6 +140,13 @@ class TrashManager {
                     id: doc.id,
                     ...doc.data()
                 });
+            });
+
+            // If we couldn't order in the query, sort in JavaScript
+            items.sort((a, b) => {
+                const dateA = a.deletedAt?.toDate ? a.deletedAt.toDate() : new Date(a.deletedAt);
+                const dateB = b.deletedAt?.toDate ? b.deletedAt.toDate() : new Date(b.deletedAt);
+                return dateB - dateA; // desc order
             });
 
             return items;
