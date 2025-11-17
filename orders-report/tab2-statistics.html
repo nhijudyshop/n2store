@@ -1,1101 +1,903 @@
 <!doctype html>
 <html lang="vi">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Thống Kê Đơn Hàng - N2Shop</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thống Kê KPI Bán Hàng - N2Shop</title>
 
-        <!-- Lucide Icons -->
-        <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-        <!-- XLSX Library -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-        <style>
-            :root {
-                --primary: #6366f1;
-                --primary-light: #818cf8;
-                --success: #10b981;
-                --danger: #ef4444;
-                --warning: #f59e0b;
-                --info: #3b82f6;
-                --gray-50: #f9fafb;
-                --gray-100: #f3f4f6;
-                --gray-200: #e5e7eb;
-                --gray-300: #d1d5db;
-                --gray-600: #4b5563;
-                --gray-700: #374151;
-                --gray-800: #1f2937;
-                --gray-900: #111827;
-            }
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
+    <style>
+        :root {
+            --primary: #0d6efd;
+            --success: #198754;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+        }
 
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-                background: #f5f5f5;
-                font-size: 14px;
-                color: #333;
-            }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f8f9fa;
+            font-size: 14px;
+        }
 
-            .content-wrapper {
-                padding: 24px;
-                max-width: 1400px;
-                margin: 0 auto;
-            }
+        .main-container {
+            padding: 24px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
 
-            .filter-section {
-                background: white;
-                border-radius: 12px;
-                padding: 24px;
-                margin-bottom: 24px;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            }
+        .header-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
 
-            .btn {
-                padding: 10px 20px;
-                border: none;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 500;
-                cursor: pointer;
-                transition: all 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-            }
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #212529;
+            margin-bottom: 8px;
+        }
 
-            .btn-primary {
-                background: var(--primary);
-                color: white;
-            }
+        .header-subtitle {
+            color: #6c757d;
+            font-size: 14px;
+        }
 
-            .btn-primary:hover {
-                background: var(--primary-light);
-                transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-            }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
 
-            .tables-container {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 24px;
-                margin-top: 24px;
-            }
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary) 0%, #0a58ca 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
 
-            .table-card {
-                background: white;
-                border-radius: 12px;
-                padding: 24px;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            }
+        .stat-card.success {
+            background: linear-gradient(135deg, var(--success) 0%, #146c43 100%);
+        }
 
-            .table-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 16px;
-                padding-bottom: 16px;
-                border-bottom: 2px solid var(--gray-100);
-            }
+        .stat-card.warning {
+            background: linear-gradient(135deg, var(--warning) 0%, #cc9a06 100%);
+        }
 
-            .table-title {
-                font-size: 18px;
-                font-weight: 600;
-                color: var(--gray-800);
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
 
-            .table-count {
-                font-size: 14px;
-                color: var(--gray-600);
-                background: var(--gray-100);
-                padding: 4px 12px;
-                border-radius: 20px;
-            }
+        .stat-label {
+            font-size: 13px;
+            opacity: 0.9;
+        }
 
-            .data-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
+        .filter-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
 
-            .data-table thead th {
-                text-align: left;
-                padding: 12px;
-                font-size: 13px;
-                font-weight: 600;
-                color: var(--gray-600);
-                background: var(--gray-50);
-                border-bottom: 2px solid var(--gray-200);
-            }
+        .employee-input-container {
+            margin-bottom: 16px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
 
-            .data-table tbody td {
-                padding: 12px;
-                font-size: 14px;
-                border-bottom: 1px solid var(--gray-100);
-            }
+        .employee-input-label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+        }
 
-            .data-table tbody tr:hover {
-                background: var(--gray-50);
-            }
+        .employee-input-help {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
 
-            .status-badge {
-                display: inline-block;
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 12px;
-                font-weight: 500;
-            }
+        .table-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
 
-            .loading-state {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                padding: 48px 24px;
-                color: var(--gray-600);
-            }
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-            .loading-spinner {
-                width: 40px;
-                height: 40px;
-                border: 3px solid var(--gray-200);
-                border-top-color: var(--primary);
-                border-radius: 50%;
-                animation: spin 0.8s linear infinite;
-                margin-bottom: 16px;
-            }
+        .data-table {
+            width: 100%;
+            margin-top: 16px;
+        }
 
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
+        .data-table thead th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px;
+            border-bottom: 2px solid #dee2e6;
+        }
 
-            .loading-text {
-                font-size: 14px;
-                color: var(--gray-600);
-            }
+        .data-table tbody td {
+            padding: 12px;
+            vertical-align: middle;
+            border-bottom: 1px solid #e9ecef;
+        }
 
-            .empty-state {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                padding: 48px 24px;
-                color: var(--gray-600);
-                text-align: center;
-            }
+        .data-table tbody tr:hover {
+            background: #f8f9fa;
+        }
 
-            @media (max-width: 1200px) {
-                .tables-container {
-                    grid-template-columns: 1fr;
-                }
-            }
-        </style>
-    </head>
+        .badge-kpi {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+        }
 
-    <body>
-        <div class="content-wrapper">
-            <!-- Filter Info Banner -->
-            <div class="filter-section" id="filterInfoBanner" style="display: none;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 16px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i data-lucide="info" style="width: 20px; height: 20px; color: var(--info);"></i>
-                            <span style="font-weight: 600; color: var(--gray-800);">Dữ liệu tự động đồng bộ từ Tab Quản lý đơn hàng</span>
-                        </div>
-                        <div style="display: flex; gap: 16px; align-items: center;">
-                            <div style="padding: 6px 12px; background: var(--gray-100); border-radius: 6px; font-size: 13px;">
-                                <strong>Chiến dịch:</strong> <span id="infoCampaignName">-</span>
-                            </div>
-                            <div style="padding: 6px 12px; background: var(--info); color: white; border-radius: 6px; font-size: 13px; font-weight: 600;">
-                                <span id="infoTotalRecords">0</span> đơn hàng
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">NV:</label>
-                                <select id="userFilter" style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
-                                    <option value="all">Tất cả</option>
-                                </select>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Tag:</label>
-                                <select id="tagFilter" style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
-                                    <option value="all">Tất cả</option>
-                                </select>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Tên KH:</label>
-                                <input type="text" id="nameFilter" placeholder="Tìm theo tên..." style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px; min-width: 200px;">
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 12px; color: var(--gray-600);" id="lastSyncTime">Chưa đồng bộ</span>
-                        <button class="btn btn-primary" id="exportExcelBtn" style="padding: 8px 16px;">
-                            <i data-lucide="download"></i>
-                            <span>Xuất Excel</span>
-                        </button>
-                    </div>
-                </div>
+        .badge-kpi.positive {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
 
-                <!-- Session Index Range Input -->
-                <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
-                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                        <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Khoảng STT:</label>
-                        <input type="text" id="sessionRangeInput" placeholder="Ví dụ: 1-300 Huyền, 301-500 Hạnh" style="flex: 1; padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
-                        <button class="btn btn-primary" onclick="applySessionRanges()" style="padding: 6px 16px;">
-                            <i data-lucide="check"></i>
-                            <span>Áp dụng</span>
-                        </button>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <label style="font-size: 13px; color: var(--gray-700); font-weight: 500;">Lọc theo tên:</label>
-                        <select id="sessionNameFilter" style="padding: 6px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px;">
-                            <option value="all">Tất cả</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+        .badge-kpi.zero {
+            background: #e9ecef;
+            color: #6c757d;
+        }
 
-            <!-- No Data Message -->
-            <div class="filter-section" id="noFilterMessage">
-                <div style="text-align: center; padding: 20px;">
-                    <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--warning); margin-bottom: 12px;"></i>
-                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--gray-800);">Chưa có dữ liệu</h3>
-                    <p style="font-size: 14px; color: var(--gray-600); margin-bottom: 16px;">
-                        Vui lòng chuyển sang Tab "Quản lý đơn hàng" và chọn chiến dịch, sau đó bấm Tìm kiếm
+        .loading-spinner {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading-spinner .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .total-row {
+            background: #f8f9fa !important;
+            font-weight: 700;
+            border-top: 2px solid #dee2e6 !important;
+        }
+
+        .employee-section {
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 3px solid #e9ecef;
+        }
+
+        .employee-header {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .employee-name {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .employee-total {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .stt-badge {
+            background: #e7f5ff;
+            color: #1971c2;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h1 class="header-title">
+                        <i class="fas fa-chart-line text-primary"></i>
+                        Thống Kê KPI Bán Hàng
+                    </h1>
+                    <p class="header-subtitle">
+                        Tính phí cho sản phẩm được thêm vào đơn hàng sau thời điểm upload thành công
                     </p>
-                    <button class="btn btn-primary" onclick="window.parent.postMessage({type: 'SWITCH_TO_TAB1'}, '*')">
-                        <i data-lucide="arrow-left"></i>
-                        <span>Đến Tab Quản lý đơn hàng</span>
-                    </button>
                 </div>
+                <button class="btn btn-primary" onclick="loadData()">
+                    <i class="fas fa-sync-alt"></i> Tải lại dữ liệu
+                </button>
             </div>
 
-            <!-- Tag Filter Results -->
-            <div class="table-card" id="tagFilterSection" style="display: none; margin-bottom: 24px;">
-                <div class="table-header">
-                    <h3 class="table-title">
-                        <i data-lucide="tag"></i>
-                        <span>Đơn hàng theo Tag: <span id="selectedTagName">-</span></span>
-                    </h3>
-                    <span class="table-count" id="tagOrdersCount">0 đơn</span>
+            <!-- Stats Summary -->
+            <div class="stats-grid" id="statsGrid" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotalOrders">0</div>
+                    <div class="stat-label">Tổng đơn hàng đã upload</div>
                 </div>
-
-                <!-- Summary Stats -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; background: var(--gray-50); border-radius: 8px; margin: 0 16px 16px 16px;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 24px; font-weight: 700; color: var(--primary);" id="tagTotalOrders">0</div>
-                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Tổng đơn</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 24px; font-weight: 700; color: var(--success);" id="tagTotalAmount">0đ</div>
-                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Tổng tiền</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 24px; font-weight: 700; color: var(--warning);" id="tagTotalQuantity">0</div>
-                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Tổng số lượng</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 24px; font-weight: 700; color: var(--info);" id="tagAvgAmount">0đ</div>
-                        <div style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">Trung bình/đơn</div>
-                    </div>
+                <div class="stat-card success">
+                    <div class="stat-value" id="statTotalNewProducts">0</div>
+                    <div class="stat-label">Tổng sản phẩm thêm mới</div>
                 </div>
-
-                <div class="table-wrapper" id="tagTableWrapper">
-                    <div class="empty-state">
-                        <p>Chọn tag để xem danh sách đơn hàng</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tables Container -->
-            <div class="tables-container">
-                <!-- Status Statistics -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3 class="table-title">
-                            <i data-lucide="bar-chart-3"></i>
-                            <span id="statsTableTitle">Thống Kê Theo Trạng Thái</span>
-                        </h3>
-                        <span class="table-count" id="totalOrders">0 đơn</span>
-                    </div>
-                    <div class="table-wrapper" id="statusTableWrapper">
-                        <div class="loading-state">
-                            <div class="loading-spinner"></div>
-                            <p class="loading-text">Đang chờ dữ liệu từ Tab 1...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Customer Statistics -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3 class="table-title">
-                            <i data-lucide="users"></i>
-                            <span>Thống Kê Theo Khách Hàng</span>
-                        </h3>
-                    </div>
-                    <div class="table-wrapper" id="customerTableWrapper">
-                        <div class="loading-state">
-                            <div class="loading-spinner"></div>
-                            <p class="loading-text">Đang chờ dữ liệu từ Tab 1...</p>
-                        </div>
-                    </div>
+                <div class="stat-card warning">
+                    <div class="stat-value" id="statTotalKPI">0đ</div>
+                    <div class="stat-label">Tổng KPI (5,000đ/SP)</div>
                 </div>
             </div>
         </div>
 
-        <!-- Scripts -->
-        <script src="auth.js"></script>
+        <!-- Employee Assignment Input -->
+        <div class="filter-section">
+            <div class="employee-input-container">
+                <label class="employee-input-label">
+                    <i class="fas fa-users"></i> Phân chia đơn hàng theo STT cho nhân viên:
+                </label>
+                <div class="input-group">
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="employeeRangeInput"
+                        placeholder="Ví dụ: 1-200 Huyền, 201-400 Hạnh, 401-600 Mai"
+                    />
+                    <button class="btn btn-primary" onclick="applyEmployeeRanges()">
+                        <i class="fas fa-check"></i> Áp dụng
+                    </button>
+                </div>
+                <div class="employee-input-help">
+                    <i class="fas fa-info-circle"></i>
+                    Nhập khoảng STT và tên nhân viên, cách nhau bằng dấu phẩy. Dữ liệu sẽ được lưu tự động.
+                </div>
+            </div>
 
-        <script>
-            // Initialize Lucide icons
-            lucide.createIcons();
+            <!-- Filters -->
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small">
+                        <i class="fas fa-user"></i> Lọc theo nhân viên:
+                    </label>
+                    <select class="form-select" id="employeeFilter" onchange="applyFilters()">
+                        <option value="all">Tất cả nhân viên</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">
+                        <i class="fas fa-filter"></i> Lọc theo trạng thái:
+                    </label>
+                    <select class="form-select" id="statusFilter" onchange="applyFilters()">
+                        <option value="all">Tất cả</option>
+                        <option value="has_new">Có sản phẩm mới</option>
+                        <option value="no_new">Không có sản phẩm mới</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">
+                        <i class="fas fa-search"></i> Tìm kiếm:
+                    </label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="searchInput"
+                        placeholder="Tìm theo STT, tên khách hàng, số điện thoại..."
+                        oninput="applyFilters()"
+                    />
+                </div>
+            </div>
+        </div>
 
-            let allOrdersData = [];
-            let sessionRanges = []; // Array of {start, end, name}
+        <!-- Loading State -->
+        <div id="loadingState" class="table-card">
+            <div class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Đang tải...</span>
+                </div>
+                <p class="mt-3">Đang tải dữ liệu từ Firebase...</p>
+            </div>
+        </div>
 
-            // =====================================================
-            // DEBUG & IMPROVED DATA LOADING
-            // =====================================================
-            
-            console.log('[TAB2] Initializing Tab 2 Statistics...');
+        <!-- Empty State -->
+        <div id="emptyState" class="table-card" style="display: none;">
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h5>Chưa có dữ liệu</h5>
+                <p>Vui lòng upload đơn hàng ở tab "Upload TPOS" để có dữ liệu thống kê</p>
+            </div>
+        </div>
 
-            // Listen for messages from parent (Tab 1)
-            window.addEventListener('message', function(e) {
-                console.log('[TAB2] Received message:', e.data.type);
-                
-                if (e.data.type === 'FILTER_CHANGED' || e.data.type === 'FILTER_UPDATE' || e.data.type === 'FILTER_DATA') {
-                    const filterData = e.data.filter || e.data.data;
-                    
-                    if (filterData) {
-                        console.log('[TAB2] Processing filter data:', {
-                            campaignName: filterData.campaignName,
-                            totalRecords: filterData.totalRecords,
-                            dataLength: filterData.data?.length
-                        });
-                        handleDataFromTab1(filterData);
-                    } else {
-                        console.warn('[TAB2] Message received but no filter data found');
-                    }
-                }
-            });
+        <!-- Data Container -->
+        <div id="dataContainer" style="display: none;">
+            <!-- Will be populated dynamically -->
+        </div>
+    </div>
 
-            // Monitor localStorage changes
-            window.addEventListener('storage', function(e) {
-                if (e.key === 'tab1_filter_data' && e.newValue) {
-                    console.log('[TAB2] localStorage updated, refreshing data...');
-                    try {
-                        const data = JSON.parse(e.newValue);
-                        if (data.data && data.data.length > 0) {
-                            handleDataFromTab1(data);
-                        }
-                    } catch (error) {
-                        console.error('[TAB2] Error parsing storage event:', error);
-                    }
-                }
-            });
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-            // Add manual refresh function
-            function addManualRefreshButton() {
-                const banner = document.getElementById('noFilterMessage');
-                if (!banner) return;
-                
-                // Check if button already exists
-                if (document.getElementById('manualRefreshBtn')) return;
-                
-                const refreshBtn = document.createElement('button');
-                refreshBtn.id = 'manualRefreshBtn';
-                refreshBtn.className = 'btn btn-primary';
-                refreshBtn.style.marginTop = '12px';
-                refreshBtn.innerHTML = '<i data-lucide="refresh-cw"></i><span>Tải lại dữ liệu</span>';
-                refreshBtn.onclick = () => {
-                    console.log('[TAB2] Manual refresh clicked');
-                    const storedFilter = localStorage.getItem('tab1_filter_data');
-                    if (storedFilter) {
-                        try {
-                            const data = JSON.parse(storedFilter);
-                            if (data.data && data.data.length > 0) {
-                                handleDataFromTab1(data);
-                                lucide.createIcons();
-                            } else {
-                                alert('Dữ liệu trong bộ nhớ trống. Vui lòng quay lại Tab 1 và bấm Tìm kiếm.');
-                            }
-                        } catch (error) {
-                            alert('Lỗi khi tải dữ liệu: ' + error.message);
-                        }
-                    } else {
-                        alert('Không tìm thấy dữ liệu trong bộ nhớ. Vui lòng quay lại Tab 1 và bấm Tìm kiếm.');
-                    }
-                };
-                
-                const content = banner.querySelector('div[style*="text-align: center"]');
-                if (content) {
-                    content.appendChild(refreshBtn);
-                }
+    <!-- Auth & Config -->
+    <script src="auth.js"></script>
+
+    <script>
+        // =====================================================
+        // GLOBAL STATE
+        // =====================================================
+        let database = null;
+        let uploadHistory = []; // All upload history records
+        let currentOrders = []; // Current orders from Tab 1
+        let employeeRanges = []; // Employee STT ranges
+        let kpiData = []; // Calculated KPI data
+        let filteredKpiData = []; // Filtered KPI data
+
+        // KPI Configuration - Easy to modify
+        const KPI_CONFIG = {
+            PRICE_PER_NEW_PRODUCT: 5000, // VNĐ per new product added after upload
+            DESCRIPTION: 'Phí cho sản phẩm được thêm vào đơn hàng SAU khi upload thành công lần đầu'
+        };
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('[KPI-STATS] Initializing...');
+
+            // Initialize Firebase
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
             }
+            database = firebase.database();
 
-            // Request data on load
-            window.addEventListener('DOMContentLoaded', function() {
-                console.log('[TAB2] DOM Content Loaded');
-                
-                // Request from parent
-                if (window.parent && window.parent !== window) {
-                    console.log('[TAB2] Requesting data from parent window...');
-                    window.parent.postMessage({ type: 'REQUEST_FILTER_DATA' }, '*');
-                }
-                
-                // Also check localStorage after a short delay
-                setTimeout(() => {
-                    console.log('[TAB2] Checking localStorage for data...');
-                    const storedFilter = localStorage.getItem('tab1_filter_data');
-                    
-                    if (storedFilter) {
-                        try {
-                            const filterData = JSON.parse(storedFilter);
-                            console.log('[TAB2] Found data in localStorage:', {
-                                campaignName: filterData.campaignName,
-                                totalRecords: filterData.totalRecords,
-                                dataLength: filterData.data?.length
-                            });
-                            
-                            if (filterData.data && filterData.data.length > 0) {
-                                console.log('[TAB2] Loading data from localStorage...');
-                                handleDataFromTab1(filterData);
-                            } else {
-                                console.warn('[TAB2] Data in localStorage is empty');
-                            }
-                        } catch (error) {
-                            console.error('[TAB2] Error parsing stored filter:', error);
-                        }
-                    } else {
-                        console.warn('[TAB2] No data found in localStorage');
-                        console.log('[TAB2] Please go to Tab 1 and click Search button');
-                    }
-                }, 1000);
+            // Load saved employee ranges
+            loadEmployeeRanges();
 
-                // Event listeners
-                document.getElementById('exportExcelBtn')?.addEventListener('click', exportToExcel);
-                document.getElementById('userFilter')?.addEventListener('change', () => {
-                    if (allOrdersData.length > 0) {
-                        updateDisplay();
-                    }
-                });
-                document.getElementById('tagFilter')?.addEventListener('change', () => {
-                    if (allOrdersData.length > 0) {
-                        renderTagFilteredTable();
-                    }
-                });
-                document.getElementById('nameFilter')?.addEventListener('input', () => {
-                    if (allOrdersData.length > 0) {
-                        renderTagFilteredTable();
-                    }
-                });
-                document.getElementById('sessionNameFilter')?.addEventListener('change', () => {
-                    if (allOrdersData.length > 0) {
-                        renderTagFilteredTable();
-                    }
-                });
+            // Load data
+            loadData();
+        });
 
-                // Add manual refresh button
-                addManualRefreshButton();
-
-                lucide.createIcons();
-            });
-
-            function handleDataFromTab1(filterData) {
-                console.log('[TAB2] handleDataFromTab1 called');
-                
+        // =====================================================
+        // EMPLOYEE RANGE MANAGEMENT
+        // =====================================================
+        function loadEmployeeRanges() {
+            const saved = localStorage.getItem('kpi_employee_ranges');
+            if (saved) {
                 try {
-                    // Validate input
-                    if (!filterData) {
-                        console.error('[TAB2] filterData is null or undefined');
-                        showErrorMessage('Không nhận được dữ liệu từ Tab 1');
-                        return;
-                    }
-                    
-                    if (!filterData.data) {
-                        console.error('[TAB2] filterData.data is missing');
-                        showErrorMessage('Dữ liệu không hợp lệ');
-                        return;
-                    }
-                    
-                    if (!Array.isArray(filterData.data)) {
-                        console.error('[TAB2] filterData.data is not an array:', typeof filterData.data);
-                        showErrorMessage('Định dạng dữ liệu không đúng');
-                        return;
-                    }
-                    
-                    if (filterData.data.length === 0) {
-                        console.warn('[TAB2] filterData.data is empty array');
-                        showEmptyDataMessage('Không có dữ liệu để hiển thị');
-                        return;
-                    }
-                    
-                    console.log('[TAB2] Processing data:', {
-                        campaignName: filterData.campaignName,
-                        totalRecords: filterData.totalRecords,
-                        dataLength: filterData.data.length
+                    employeeRanges = JSON.parse(saved);
+                    document.getElementById('employeeRangeInput').value = formatEmployeeRanges(employeeRanges);
+                    populateEmployeeFilter();
+                    console.log('[KPI-STATS] Loaded employee ranges:', employeeRanges);
+                } catch (e) {
+                    console.error('[KPI-STATS] Error loading employee ranges:', e);
+                }
+            }
+        }
+
+        function formatEmployeeRanges(ranges) {
+            return ranges.map(r => `${r.start}-${r.end} ${r.name}`).join(', ');
+        }
+
+        function parseEmployeeRanges(input) {
+            if (!input || !input.trim()) return [];
+
+            const ranges = [];
+            const parts = input.split(',');
+
+            parts.forEach(part => {
+                part = part.trim();
+                // Format: "1-200 Huyền" or "201-400 Hạnh"
+                const match = part.match(/(\d+)\s*-\s*(\d+)\s+(.+)/);
+                if (match) {
+                    ranges.push({
+                        start: parseInt(match[1]),
+                        end: parseInt(match[2]),
+                        name: match[3].trim()
                     });
-
-                    allOrdersData = filterData.data;
-
-                    // Update UI
-                    document.getElementById('filterInfoBanner').style.display = 'block';
-                    document.getElementById('noFilterMessage').style.display = 'none';
-
-                    document.getElementById('infoCampaignName').textContent = filterData.campaignName || '-';
-                    document.getElementById('infoTotalRecords').textContent = (filterData.totalRecords || allOrdersData.length).toLocaleString('vi-VN');
-
-                    const now = new Date();
-                    document.getElementById('lastSyncTime').textContent = 
-                        `Đồng bộ lúc ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-
-                    // Populate user filter
-                    populateUserFilter(allOrdersData);
-
-                    // Populate tag filter
-                    populateTagFilter(allOrdersData);
-
-                    // Render tables
-                    updateDisplay();
-
-                    // Reinitialize icons
-                    lucide.createIcons();
-                    
-                    console.log('[TAB2] Data processed successfully, tables rendered');
-                } catch (error) {
-                    console.error('[TAB2] Error handling data:', error);
-                    showErrorMessage('Lỗi khi xử lý dữ liệu: ' + error.message);
                 }
+            });
+
+            return ranges;
+        }
+
+        function applyEmployeeRanges() {
+            const input = document.getElementById('employeeRangeInput').value;
+            const ranges = parseEmployeeRanges(input);
+
+            if (ranges.length === 0) {
+                alert('Vui lòng nhập đúng định dạng: 1-200 Huyền, 201-400 Hạnh');
+                return;
             }
-            
-            function showErrorMessage(message) {
-                const banner = document.getElementById('filterInfoBanner');
-                const noDataMsg = document.getElementById('noFilterMessage');
-                
-                banner.style.display = 'none';
-                noDataMsg.style.display = 'block';
-                
-                const msgContent = noDataMsg.querySelector('p');
-                if (msgContent) {
-                    msgContent.textContent = message;
-                    msgContent.style.color = '#ef4444';
-                }
+
+            employeeRanges = ranges;
+            localStorage.setItem('kpi_employee_ranges', JSON.stringify(ranges));
+
+            populateEmployeeFilter();
+            calculateKPI();
+            renderData();
+
+            const names = ranges.map(r => r.name).join(', ');
+            alert(`✅ Đã lưu phân chia cho: ${names}`);
+        }
+
+        function populateEmployeeFilter() {
+            const select = document.getElementById('employeeFilter');
+            const currentValue = select.value;
+
+            select.innerHTML = '<option value="all">Tất cả nhân viên</option>';
+
+            employeeRanges.forEach(range => {
+                const option = document.createElement('option');
+                option.value = range.name;
+                option.textContent = `${range.name} (STT ${range.start}-${range.end})`;
+                select.appendChild(option);
+            });
+
+            // Restore selection
+            const names = employeeRanges.map(r => r.name);
+            if (names.includes(currentValue)) {
+                select.value = currentValue;
             }
-            
-            function showEmptyDataMessage(message) {
-                const banner = document.getElementById('filterInfoBanner');
-                const noDataMsg = document.getElementById('noFilterMessage');
-                
-                banner.style.display = 'none';
-                noDataMsg.style.display = 'block';
-                
-                const msgContent = noDataMsg.querySelector('p');
-                if (msgContent) {
-                    msgContent.textContent = message;
-                    msgContent.style.color = '#f59e0b';
+        }
+
+        function getEmployeeName(stt) {
+            if (!stt || employeeRanges.length === 0) return null;
+
+            const sttNum = parseInt(stt);
+            if (isNaN(sttNum)) return null;
+
+            for (const range of employeeRanges) {
+                if (sttNum >= range.start && sttNum <= range.end) {
+                    return range.name;
                 }
             }
 
-            function populateUserFilter(data) {
-                const userSelect = document.getElementById('userFilter');
-                const users = [...new Set(data.map(order => order.UserName))].filter(Boolean);
+            return null;
+        }
 
-                // Keep "Tất cả" and add users
-                const currentValue = userSelect.value;
-                userSelect.innerHTML = '<option value="all">Tất cả</option>';
-                users.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user;
-                    option.textContent = user;
-                    userSelect.appendChild(option);
-                });
-                
-                // Restore selection if possible
-                if (users.includes(currentValue)) {
-                    userSelect.value = currentValue;
-                }
+        // =====================================================
+        // DATA LOADING
+        // =====================================================
+        async function loadData() {
+            console.log('[KPI-STATS] Loading data...');
+
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('dataContainer').style.display = 'none';
+
+            try {
+                // Load upload history from Firebase
+                await loadUploadHistory();
+
+                // Load current orders from localStorage (from Tab 1)
+                loadCurrentOrders();
+
+                // Calculate KPI
+                calculateKPI();
+
+                // Render data
+                renderData();
+
+            } catch (error) {
+                console.error('[KPI-STATS] Error loading data:', error);
+                alert('Lỗi khi tải dữ liệu: ' + error.message);
+            }
+        }
+
+        async function loadUploadHistory() {
+            console.log('[KPI-STATS] Loading upload history from Firebase...');
+
+            const snapshot = await database.ref('productAssignments_history')
+                .orderByChild('timestamp')
+                .limitToLast(200)
+                .once('value');
+
+            const data = snapshot.val();
+
+            if (!data) {
+                uploadHistory = [];
+                console.log('[KPI-STATS] No upload history found');
+                return;
             }
 
-            function populateTagFilter(data) {
-                const tagSelect = document.getElementById('tagFilter');
-                const tagsSet = new Set();
-                
-                // Extract all unique tags from orders
-                data.forEach(order => {
-                    if (order.Tags) {
-                        try {
-                            const tags = JSON.parse(order.Tags);
-                            if (Array.isArray(tags)) {
-                                tags.forEach(tag => {
-                                    if (tag.Name) {
-                                        tagsSet.add(JSON.stringify({
-                                            name: tag.Name,
-                                            color: tag.Color || '#6b7280'
-                                        }));
-                                    }
-                                });
-                            }
-                        } catch (error) {
-                            console.error('Error parsing tags:', error);
-                        }
-                    }
-                });
+            // Convert to array and filter only successful uploads
+            uploadHistory = Object.values(data).filter(record => {
+                return record.uploadStatus === 'completed' ||
+                       record.uploadStatus === 'partial' ||
+                       record.uploadStatus === 'deletion_failed';
+            });
 
-                // Convert to array and sort with priority
-                const tags = Array.from(tagsSet).map(t => JSON.parse(t));
-                
-                // Sort: "OK" first, then "XỬ LÝ", then alphabetically
-                tags.sort((a, b) => {
-                    const aName = a.name.toUpperCase();
-                    const bName = b.name.toUpperCase();
-                    
-                    const aIsOK = aName.startsWith('OK ');
-                    const bIsOK = bName.startsWith('OK ');
-                    const aIsXuLy = aName.startsWith('XỬ LÝ ') || aName.startsWith('XU LY ');
-                    const bIsXuLy = bName.startsWith('XỬ LÝ ') || bName.startsWith('XU LY ');
-                    
-                    // OK tags first
-                    if (aIsOK && !bIsOK) return -1;
-                    if (!aIsOK && bIsOK) return 1;
-                    
-                    // Then XỬ LÝ tags
-                    if (aIsXuLy && !bIsXuLy) return -1;
-                    if (!aIsXuLy && bIsXuLy) return 1;
-                    
-                    // Otherwise alphabetically
-                    return a.name.localeCompare(b.name, 'vi');
-                });
+            console.log('[KPI-STATS] Loaded upload history:', uploadHistory.length, 'records');
+        }
 
-                // Keep "Tất cả" and add tags
-                const currentValue = tagSelect.value;
-                tagSelect.innerHTML = '<option value="all">Tất cả</option>';
-                tags.forEach(tag => {
-                    const option = document.createElement('option');
-                    option.value = tag.name;
-                    option.textContent = tag.name;
-                    option.dataset.color = tag.color;
-                    tagSelect.appendChild(option);
-                });
-                
-                // Restore selection if possible
-                const tagNames = tags.map(t => t.name);
-                if (tagNames.includes(currentValue)) {
-                    tagSelect.value = currentValue;
+        function loadCurrentOrders() {
+            console.log('[KPI-STATS] Loading current orders from localStorage...');
+
+            const stored = localStorage.getItem('tab1_filter_data');
+            if (stored) {
+                try {
+                    const filterData = JSON.parse(stored);
+                    currentOrders = filterData.data || [];
+                    console.log('[KPI-STATS] Loaded current orders:', currentOrders.length);
+                } catch (e) {
+                    console.error('[KPI-STATS] Error parsing stored orders:', e);
+                    currentOrders = [];
                 }
+            } else {
+                currentOrders = [];
+                console.log('[KPI-STATS] No current orders in localStorage');
             }
+        }
 
-            function getFilteredData() {
-                const userFilter = document.getElementById('userFilter').value;
-                if (userFilter === 'all') {
-                    return allOrdersData;
-                }
-                return allOrdersData.filter(order => order.UserName === userFilter);
-            }
+        // =====================================================
+        // KPI CALCULATION LOGIC
+        // =====================================================
+        /**
+         * Calculate KPI for each uploaded order
+         *
+         * Logic:
+         * 1. For each upload history record, get the list of uploaded STTs
+         * 2. For each STT, find the upload results (which contains products at upload time)
+         * 3. Find the current order data for that STT
+         * 4. Compare product count: current - uploaded = new products added
+         * 5. Calculate KPI: new products × 5000 VNĐ
+         *
+         * NOTE: This logic can be easily modified by changing KPI_CONFIG above
+         */
+        function calculateKPI() {
+            console.log('[KPI-STATS] Calculating KPI...');
 
-            function updateDisplay() {
-                const filteredData = getFilteredData();
-                
-                document.getElementById('totalOrders').textContent = `${filteredData.length} đơn`;
-                
-                renderStatusTable(filteredData);
-                renderCustomerTable(filteredData);
-            }
+            kpiData = [];
 
-            function renderStatusTable(data) {
-                const wrapper = document.getElementById('statusTableWrapper');
-                
-                if (data.length === 0) {
-                    wrapper.innerHTML = '<div class="empty-state"><p>Không có dữ liệu</p></div>';
-                    return;
-                }
+            // Group upload history by STT (keep only the FIRST upload for each STT)
+            const firstUploadBySTT = {};
 
-                // Count by status
-                const statusCount = {};
-                let totalAmount = 0;
+            // Sort by timestamp ascending to get first upload
+            const sortedHistory = [...uploadHistory].sort((a, b) => a.timestamp - b.timestamp);
 
-                data.forEach(order => {
-                    const status = order.StatusText || order.Status || 'Khác';
-                    if (!statusCount[status]) {
-                        statusCount[status] = { count: 0, amount: 0 };
-                    }
-                    statusCount[status].count++;
-                    statusCount[status].amount += order.TotalAmount || 0;
-                    totalAmount += order.TotalAmount || 0;
-                });
+            sortedHistory.forEach(record => {
+                if (!record.uploadResults) return;
 
-                // Sort by count
-                const sorted = Object.entries(statusCount).sort((a, b) => b[1].count - a[1].count);
+                record.uploadResults.forEach(result => {
+                    const stt = String(result.stt);
 
-                wrapper.innerHTML = `
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Trạng thái</th>
-                                <th>Số đơn</th>
-                                <th>Tổng tiền</th>
-                                <th>Tỷ lệ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sorted.map(([status, stats]) => `
-                                <tr>
-                                    <td><strong>${status}</strong></td>
-                                    <td>${stats.count}</td>
-                                    <td>${stats.amount.toLocaleString('vi-VN')}đ</td>
-                                    <td>${((stats.count / data.length) * 100).toFixed(1)}%</td>
-                                </tr>
-                            `).join('')}
-                            <tr style="background: var(--gray-50); font-weight: 600;">
-                                <td>Tổng</td>
-                                <td>${data.length}</td>
-                                <td>${totalAmount.toLocaleString('vi-VN')}đ</td>
-                                <td>100%</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                `;
-            }
-
-            function renderCustomerTable(data) {
-                const wrapper = document.getElementById('customerTableWrapper');
-                
-                if (data.length === 0) {
-                    wrapper.innerHTML = '<div class="empty-state"><p>Không có dữ liệu</p></div>';
-                    return;
-                }
-
-                // Count by customer
-                const customerCount = {};
-
-                data.forEach(order => {
-                    const phone = order.Telephone || 'Không có SĐT';
-                    if (!customerCount[phone]) {
-                        customerCount[phone] = {
-                            name: order.Name || 'Không có tên',
-                            count: 0,
-                            amount: 0
+                    // Only keep the first upload for each STT
+                    if (!firstUploadBySTT[stt]) {
+                        firstUploadBySTT[stt] = {
+                            uploadId: record.uploadId,
+                            timestamp: record.timestamp,
+                            orderId: result.orderId,
+                            productsAtUpload: (result.existingProducts || []).length,
+                            success: result.success
                         };
                     }
-                    customerCount[phone].count++;
-                    customerCount[phone].amount += order.TotalAmount || 0;
                 });
+            });
 
-                // Sort by count, take top 20
-                const sorted = Object.entries(customerCount)
-                    .sort((a, b) => b[1].count - a[1].count)
-                    .slice(0, 20);
+            console.log('[KPI-STATS] First uploads by STT:', Object.keys(firstUploadBySTT).length);
 
-                wrapper.innerHTML = `
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Khách hàng</th>
-                                <th>SĐT</th>
-                                <th>Số đơn</th>
-                                <th>Tổng tiền</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sorted.map(([phone, stats]) => `
-                                <tr>
-                                    <td>${stats.name}</td>
-                                    <td>${phone}</td>
-                                    <td>${stats.count}</td>
-                                    <td>${stats.amount.toLocaleString('vi-VN')}đ</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            }
+            // Now calculate KPI for each STT
+            Object.keys(firstUploadBySTT).forEach(stt => {
+                const uploadInfo = firstUploadBySTT[stt];
 
-            // =====================================================
-            // SESSION RANGE FUNCTIONS
-            // =====================================================
-            function parseSessionRanges(input) {
-                if (!input || !input.trim()) return [];
-                
-                const ranges = [];
-                const parts = input.split(',');
-                
-                parts.forEach(part => {
-                    part = part.trim();
-                    // Format: "1-300 Huyền" or "301-500 Hạnh"
-                    const match = part.match(/(\d+)\s*-\s*(\d+)\s+(.+)/);
-                    if (match) {
-                        ranges.push({
-                            start: parseInt(match[1]),
-                            end: parseInt(match[2]),
-                            name: match[3].trim()
-                        });
-                    }
-                });
-                
-                return ranges;
-            }
+                // Find current order
+                const currentOrder = currentOrders.find(order => String(order.SessionIndex) === stt);
 
-            function applySessionRanges() {
-                const input = document.getElementById('sessionRangeInput').value;
-                sessionRanges = parseSessionRanges(input);
-                
-                if (sessionRanges.length > 0) {
-                    console.log('Applied session ranges:', sessionRanges);
-                    
-                    // Populate session name filter
-                    populateSessionNameFilter();
-                    
-                    // Re-render if data exists
-                    if (allOrdersData.length > 0) {
-                        renderTagFilteredTable();
-                    }
-                    
-                    // Show success message
-                    const names = sessionRanges.map(r => r.name).join(', ');
-                    alert(`Đã áp dụng: ${names}`);
-                    
-                    // Reinitialize icons
-                    lucide.createIcons();
-                } else {
-                    alert('Vui lòng nhập đúng định dạng: 1-300 Huyền, 301-500 Hạnh');
-                }
-            }
-
-            // Expose to window for button onclick
-            window.applySessionRanges = applySessionRanges;
-
-            function populateSessionNameFilter() {
-                const select = document.getElementById('sessionNameFilter');
-                const currentValue = select.value;
-                
-                select.innerHTML = '<option value="all">Tất cả</option>';
-                
-                sessionRanges.forEach(range => {
-                    const option = document.createElement('option');
-                    option.value = range.name;
-                    option.textContent = range.name;
-                    select.appendChild(option);
-                });
-                
-                // Restore selection if possible
-                const names = sessionRanges.map(r => r.name);
-                if (names.includes(currentValue)) {
-                    select.value = currentValue;
-                }
-            }
-
-            function getSessionName(sessionIndex) {
-                if (!sessionIndex || sessionRanges.length === 0) return null;
-                
-                for (const range of sessionRanges) {
-                    if (sessionIndex >= range.start && sessionIndex <= range.end) {
-                        return range.name;
-                    }
-                }
-                
-                return null;
-            }
-
-            function renderTagFilteredTable() {
-                const tagFilter = document.getElementById('tagFilter').value;
-                const nameFilter = document.getElementById('nameFilter').value.trim().toLowerCase();
-                const sessionNameFilter = document.getElementById('sessionNameFilter').value;
-                const tagSection = document.getElementById('tagFilterSection');
-                const wrapper = document.getElementById('tagTableWrapper');
-                
-                // If no filter applied, hide section
-                if (tagFilter === 'all' && !nameFilter && sessionNameFilter === 'all') {
-                    tagSection.style.display = 'none';
+                if (!currentOrder) {
+                    // Order not found in current data (maybe filtered out or deleted)
                     return;
                 }
 
-                // Show section
-                tagSection.style.display = 'block';
-                
-                // Update title based on filters
-                let titleText = '';
-                const filters = [];
-                if (tagFilter !== 'all') filters.push(tagFilter);
-                if (nameFilter) filters.push(`Tên: "${nameFilter}"`);
-                if (sessionNameFilter !== 'all') filters.push(`NV: ${sessionNameFilter}`);
-                titleText = filters.join(' - ');
-                
-                document.getElementById('selectedTagName').textContent = titleText || 'Tất cả';
+                // Calculate products count
+                const currentProductCount = currentOrder.TotalQuantity || 0;
+                const uploadedProductCount = uploadInfo.productsAtUpload;
+                const newProductsAdded = Math.max(0, currentProductCount - uploadedProductCount);
 
-                // Filter orders
-                let filteredOrders = allOrdersData;
+                // Calculate KPI fee
+                const kpiFee = newProductsAdded * KPI_CONFIG.PRICE_PER_NEW_PRODUCT;
 
-                // Filter by tag
-                if (tagFilter !== 'all') {
-                    filteredOrders = filteredOrders.filter(order => {
-                        if (!order.Tags) return false;
-                        try {
-                            const tags = JSON.parse(order.Tags);
-                            if (Array.isArray(tags)) {
-                                return tags.some(tag => tag.Name === tagFilter);
-                            }
-                        } catch (error) {
-                            console.error('Error parsing tags:', error);
-                        }
+                // Get employee name
+                const employeeName = getEmployeeName(stt);
+
+                kpiData.push({
+                    stt: stt,
+                    orderId: uploadInfo.orderId,
+                    uploadId: uploadInfo.uploadId,
+                    uploadTime: uploadInfo.timestamp,
+                    uploadTimeFormatted: new Date(uploadInfo.timestamp).toLocaleString('vi-VN'),
+                    customerName: currentOrder.Name || '-',
+                    customerPhone: currentOrder.Telephone || '-',
+                    productsAtUpload: uploadedProductCount,
+                    productsNow: currentProductCount,
+                    newProductsAdded: newProductsAdded,
+                    kpiFee: kpiFee,
+                    employeeName: employeeName
+                });
+            });
+
+            // Sort by KPI fee descending
+            kpiData.sort((a, b) => b.kpiFee - a.kpiFee);
+
+            console.log('[KPI-STATS] KPI data calculated:', kpiData.length, 'orders');
+
+            // Apply filters
+            applyFilters();
+        }
+
+        // =====================================================
+        // FILTERING & SEARCH
+        // =====================================================
+        function applyFilters() {
+            const employeeFilter = document.getElementById('employeeFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const searchText = document.getElementById('searchInput').value.toLowerCase().trim();
+
+            filteredKpiData = kpiData.filter(item => {
+                // Employee filter
+                if (employeeFilter !== 'all' && item.employeeName !== employeeFilter) {
+                    return false;
+                }
+
+                // Status filter
+                if (statusFilter === 'has_new' && item.newProductsAdded === 0) {
+                    return false;
+                }
+                if (statusFilter === 'no_new' && item.newProductsAdded > 0) {
+                    return false;
+                }
+
+                // Search filter
+                if (searchText) {
+                    const searchableText = [
+                        item.stt,
+                        item.customerName,
+                        item.customerPhone,
+                        item.employeeName || ''
+                    ].join(' ').toLowerCase();
+
+                    if (!searchableText.includes(searchText)) {
                         return false;
-                    });
+                    }
                 }
 
-                // Filter by name
-                if (nameFilter) {
-                    filteredOrders = filteredOrders.filter(order => {
-                        const name = (order.Name || '').toLowerCase();
-                        return name.includes(nameFilter);
-                    });
+                return true;
+            });
+
+            renderData();
+        }
+
+        // =====================================================
+        // RENDERING
+        // =====================================================
+        function renderData() {
+            if (kpiData.length === 0) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('dataContainer').style.display = 'none';
+                document.getElementById('statsGrid').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('dataContainer').style.display = 'block';
+            document.getElementById('statsGrid').style.display = 'grid';
+
+            // Update stats
+            updateStats();
+
+            // Render tables
+            renderTables();
+        }
+
+        function updateStats() {
+            const totalOrders = filteredKpiData.length;
+            const totalNewProducts = filteredKpiData.reduce((sum, item) => sum + item.newProductsAdded, 0);
+            const totalKPI = filteredKpiData.reduce((sum, item) => sum + item.kpiFee, 0);
+
+            document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
+            document.getElementById('statTotalNewProducts').textContent = totalNewProducts.toLocaleString('vi-VN');
+            document.getElementById('statTotalKPI').textContent = totalKPI.toLocaleString('vi-VN') + 'đ';
+        }
+
+        function renderTables() {
+            const container = document.getElementById('dataContainer');
+
+            // Group by employee
+            if (employeeRanges.length > 0) {
+                renderByEmployee(container);
+            } else {
+                renderAllData(container);
+            }
+        }
+
+        function renderAllData(container) {
+            const html = `
+                <div class="table-card">
+                    <h3 class="table-title">
+                        <i class="fas fa-table"></i>
+                        Danh Sách Đơn Hàng (${filteredKpiData.length})
+                    </h3>
+                    ${renderDataTable(filteredKpiData, true)}
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function renderByEmployee(container) {
+            // Group data by employee
+            const dataByEmployee = {};
+
+            employeeRanges.forEach(range => {
+                dataByEmployee[range.name] = [];
+            });
+
+            // Add "other" category for orders without employee
+            dataByEmployee['Khác'] = [];
+
+            filteredKpiData.forEach(item => {
+                const employee = item.employeeName || 'Khác';
+                if (!dataByEmployee[employee]) {
+                    dataByEmployee[employee] = [];
                 }
+                dataByEmployee[employee].push(item);
+            });
 
-                // Filter by session name
-                if (sessionNameFilter !== 'all') {
-                    filteredOrders = filteredOrders.filter(order => {
-                        const sessionName = getSessionName(order.SessionIndex);
-                        return sessionName === sessionNameFilter;
-                    });
-                }
+            // Render each employee section
+            let html = '';
 
-                // Calculate statistics
-                const totalOrders = filteredOrders.length;
-                const totalAmount = filteredOrders.reduce((sum, order) => sum + (order.TotalAmount || 0), 0);
-                const totalQuantity = filteredOrders.reduce((sum, order) => sum + (order.TotalQuantity || 0), 0);
-                const avgAmount = totalOrders > 0 ? totalAmount / totalOrders : 0;
+            // Sort employees by order in employeeRanges
+            const orderedEmployees = employeeRanges.map(r => r.name).filter(name => dataByEmployee[name].length > 0);
 
-                // Update stats
-                document.getElementById('tagTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
-                document.getElementById('tagTotalAmount').textContent = totalAmount.toLocaleString('vi-VN') + 'đ';
-                document.getElementById('tagTotalQuantity').textContent = totalQuantity.toLocaleString('vi-VN');
-                document.getElementById('tagAvgAmount').textContent = Math.round(avgAmount).toLocaleString('vi-VN') + 'đ';
+            // Add "Khác" at the end if it has data
+            if (dataByEmployee['Khác'].length > 0) {
+                orderedEmployees.push('Khác');
+            }
 
-                // Update count
-                document.getElementById('tagOrdersCount').textContent = `${totalOrders} đơn`;
+            orderedEmployees.forEach(employeeName => {
+                const data = dataByEmployee[employeeName];
+                const totalKPI = data.reduce((sum, item) => sum + item.kpiFee, 0);
+                const totalNewProducts = data.reduce((sum, item) => sum + item.newProductsAdded, 0);
 
-                if (filteredOrders.length === 0) {
-                    wrapper.innerHTML = '<div class="empty-state"><p>Không có đơn hàng nào</p></div>';
-                    return;
-                }
+                html += `
+                    <div class="employee-section">
+                        <div class="employee-header">
+                            <div>
+                                <div class="employee-name">
+                                    <i class="fas fa-user-circle"></i> ${employeeName}
+                                </div>
+                                <div style="font-size: 13px; opacity: 0.9; margin-top: 4px;">
+                                    ${data.length} đơn hàng • ${totalNewProducts} sản phẩm thêm mới
+                                </div>
+                            </div>
+                            <div class="employee-total">
+                                ${totalKPI.toLocaleString('vi-VN')}đ
+                            </div>
+                        </div>
+                        ${renderDataTable(data, false)}
+                    </div>
+                `;
+            });
 
-                // Render table
-                wrapper.innerHTML = `
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>TAG</th>
-                                <th>Khách hàng</th>
-                                <th>SĐT</th>
-                                <th>Địa chỉ</th>
-                                <th>Ghi chú</th>
-                                <th>Tổng tiền</th>
-                                <th>SL</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${filteredOrders.map(order => {
-                                // Parse tags
-                                let tagsHTML = '';
-                                if (order.Tags) {
-                                    try {
-                                        const tags = JSON.parse(order.Tags);
-                                        if (Array.isArray(tags)) {
-                                            tagsHTML = tags.map(tag => {
-                                                const color = tag.Color || '#6b7280';
-                                                return `<span style="display: inline-block; background: ${color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin: 2px;">${tag.Name}</span>`;
-                                            }).join('');
-                                        }
-                                    } catch (e) {}
-                                }
+            container.innerHTML = html;
+        }
 
-                                // Add session name if exists (bigger and at the end)
-                                const sessionName = getSessionName(order.SessionIndex);
-                                if (sessionName) {
-                                    tagsHTML += `<span style="display: inline-block; background: #2563eb; color: white; padding: 4px 10px; border-radius: 4px; font-size: 13px; font-weight: 600; margin: 2px 2px 2px 8px;">${sessionName}</span>`;
-                                }
+        function renderDataTable(data, showTotal) {
+            if (data.length === 0) {
+                return '<div class="empty-state"><p>Không có dữ liệu</p></div>';
+            }
 
-                                // Format partner status
-                                let partnerStatusHTML = '';
-                                if (order.PartnerStatusText) {
-                                    const statusColors = {
-                                        "Bình thường": "#5cb85c",
-                                        "Bom hàng": "#d1332e",
-                                        "Cảnh báo": "#f0ad4e",
-                                        "Khách sỉ": "#5cb85c",
-                                        "Nguy hiểm": "#d9534f",
-                                        "Thân thiết": "#5bc0de",
-                                        "Vip": "#337ab7",
-                                        "VIP": "#5bc0deff"
-                                    };
-                                    const color = statusColors[order.PartnerStatusText] || '#6b7280';
-                                    partnerStatusHTML = `<span style="display: inline-block; background: ${color}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin: 2px;">${order.PartnerStatusText}</span>`;
-                                }
+            const totalKPI = data.reduce((sum, item) => sum + item.kpiFee, 0);
+            const totalNewProducts = data.reduce((sum, item) => sum + item.newProductsAdded, 0);
 
-                                return `
-                                <tr>
-                                    <td>${order.SessionIndex || ''}</td>
-                                    <td>${tagsHTML || '-'}</td>
-                                    <td>
-                                        <div>${order.Name || ''}</div>
-                                        ${partnerStatusHTML}
-                                    </td>
-                                    <td>${order.Telephone || ''}</td>
-                                    <td style="max-width: 300px;">${order.Address || ''}</td>
-                                    <td style="max-width: 200px;">${order.Note || ''}</td>
-                                    <td style="font-weight: 600;">${(order.TotalAmount || 0).toLocaleString('vi-VN')}đ</td>
-                                    <td>${order.TotalQuantity || 0}</td>
-                                </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
+            let html = `
+                <table class="table data-table table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">STT</th>
+                            <th style="width: 200px;">Khách hàng</th>
+                            <th style="width: 120px;">SĐT</th>
+                            <th style="width: 150px;">Thời gian upload</th>
+                            <th style="width: 120px; text-align: center;">SP lúc upload</th>
+                            <th style="width: 120px; text-align: center;">SP hiện tại</th>
+                            <th style="width: 120px; text-align: center;">SP thêm mới</th>
+                            <th style="width: 150px; text-align: right;">KPI (5,000đ/SP)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            data.forEach(item => {
+                const badgeClass = item.newProductsAdded > 0 ? 'positive' : 'zero';
+
+                html += `
+                    <tr>
+                        <td><span class="stt-badge">${item.stt}</span></td>
+                        <td>${item.customerName}</td>
+                        <td>${item.customerPhone}</td>
+                        <td style="font-size: 12px; color: #6c757d;">${item.uploadTimeFormatted}</td>
+                        <td style="text-align: center;">${item.productsAtUpload}</td>
+                        <td style="text-align: center;">${item.productsNow}</td>
+                        <td style="text-align: center;">
+                            <span class="badge-kpi ${badgeClass}">${item.newProductsAdded}</span>
+                        </td>
+                        <td style="text-align: right; font-weight: 600; color: ${item.kpiFee > 0 ? '#198754' : '#6c757d'};">
+                            ${item.kpiFee.toLocaleString('vi-VN')}đ
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (showTotal) {
+                html += `
+                    <tr class="total-row">
+                        <td colspan="6" style="text-align: right;">TỔNG CỘNG:</td>
+                        <td style="text-align: center;">${totalNewProducts}</td>
+                        <td style="text-align: right; color: #198754; font-size: 16px;">
+                            ${totalKPI.toLocaleString('vi-VN')}đ
+                        </td>
+                    </tr>
                 `;
             }
 
-            function exportToExcel() {
-                if (allOrdersData.length === 0) {
-                    alert('Không có dữ liệu để xuất');
-                    return;
-                }
+            html += `
+                    </tbody>
+                </table>
+            `;
 
-                try {
-                    const filteredData = getFilteredData();
-                    
-                    // Prepare data for export
-                    const exportData = filteredData.map(order => ({
-                        'Mã ĐH': order.Code || '',
-                        'Khách hàng': order.Name || '',
-                        'SĐT': order.Telephone || '',
-                        'Địa chỉ': order.Address || '',
-                        'Ghi chú': order.Note || '',
-                        'Chiến dịch': order.LiveCampaignName || '',
-                        'Tổng tiền': order.TotalAmount || 0,
-                        'Số lượng': order.TotalQuantity || 0,
-                        'Ngày tạo': order.DateCreated || '',
-                        'Trạng thái': order.StatusText || order.Status || '',
-                        'Nhân viên': order.UserName || ''
-                    }));
-
-                    // Create workbook
-                    const ws = XLSX.utils.json_to_sheet(exportData);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng');
-
-                    // Save file
-                    const fileName = `don-hang-${new Date().getTime()}.xlsx`;
-                    XLSX.writeFile(wb, fileName);
-                } catch (error) {
-                    console.error('Export error:', error);
-                    alert('Lỗi khi xuất Excel: ' + error.message);
-                }
-            }
-        </script>
-    </body>
+            return html;
+        }
+    </script>
+</body>
 </html>
