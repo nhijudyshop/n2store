@@ -663,6 +663,8 @@ function handleLogout() {
         setTimeout(() => {
             clearAuthState();
             invalidateCache();
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }, 500);
     }
@@ -678,6 +680,8 @@ async function initializeApplication() {
         console.log("User not authenticated, redirecting to login");
         notificationManager.warning("Vui lòng đăng nhập", 2000);
         setTimeout(() => {
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }, 1000);
         return;

@@ -110,6 +110,8 @@ class AuthManager {
     logout() {
         if (confirm("Bạn có chắc muốn đăng xuất?")) {
             this.clearAuth();
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }
     }

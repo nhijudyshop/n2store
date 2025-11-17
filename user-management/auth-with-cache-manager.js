@@ -432,6 +432,8 @@ class AuthManager {
     logout() {
         if (confirm("Bạn có chắc muốn đăng xuất?")) {
             this.clearAuth();
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }
     }
@@ -486,6 +488,8 @@ class AuthManager {
             console.warn(
                 "[AUTH] User not authenticated, redirecting to login...",
             );
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         } else {
             console.log("[AUTH] User authenticated successfully");

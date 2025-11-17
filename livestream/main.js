@@ -108,6 +108,8 @@ function initializeApplication() {
     // Check authentication
     const auth = getAuthState();
     if (!isAuthenticated()) {
+        localStorage.clear();
+        sessionStorage.clear();
         window.location.href = "../index.html";
         return;
     }

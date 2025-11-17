@@ -106,6 +106,8 @@ class ModernNavigationManager {
         // Check authentication
         if (!authManager || !authManager.isAuthenticated()) {
             console.log("[Navigation] User not authenticated, redirecting...");
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
             return;
         }
@@ -1345,6 +1347,8 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
             console.error(
                 "[Navigation] Dependencies failed to load, redirecting to login...",
             );
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }
     };

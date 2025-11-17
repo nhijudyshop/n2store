@@ -1127,6 +1127,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!authManager || !authManager.isAuthenticated()) {
                 showError("Phiên đăng nhập hết hạn, đang chuyển hướng...");
                 setTimeout(() => {
+                    localStorage.clear();
+                    sessionStorage.clear();
                     window.location.href = "../index.html";
                 }, 1500);
                 return;

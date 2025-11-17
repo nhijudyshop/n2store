@@ -60,6 +60,8 @@ class InboxApp {
         const auth = authManager.getAuthState();
         if (!authManager.isAuthenticated()) {
             console.log("User not authenticated, redirecting...");
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
             return false;
         }

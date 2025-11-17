@@ -115,6 +115,8 @@ class AuthManager {
     logout() {
         if (confirm("Bạn có chắc muốn đăng xuất?")) {
             this.clearAuth();
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }
     }
@@ -136,6 +138,8 @@ if (!authManager.isAuthenticated()) {
     // Allow a brief moment for any pending operations
     setTimeout(() => {
         if (!authManager.isAuthenticated()) {
+            localStorage.clear();
+            sessionStorage.clear();
             window.location.href = "../index.html";
         }
     }, 500);

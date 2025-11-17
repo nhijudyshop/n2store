@@ -33,6 +33,8 @@ const checkLogin = auth ? parseInt(auth.checkLogin) : 999;
 if (!auth || auth.isLoggedIn !== "true") {
     notify.error("Vui lòng đăng nhập để tiếp tục!");
     setTimeout(() => {
+        localStorage.clear();
+        sessionStorage.clear();
         window.location.href = "../index.html";
     }, 1500);
 }
@@ -41,6 +43,8 @@ if (!auth || auth.isLoggedIn !== "true") {
 if (checkLogin !== 0) {
     notify.error("Bạn không có quyền truy cập trang này!");
     setTimeout(() => {
+        localStorage.clear();
+        sessionStorage.clear();
         window.location.href = "../index.html";
     }, 1500);
 }
