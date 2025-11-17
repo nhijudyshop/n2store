@@ -5,6 +5,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Hệ Thống Quản Lý - N2Shop</title>
 
+        <!-- Disable caching -->
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Expires" content="0" />
+
         <!-- External CSS -->
         <link rel="stylesheet" href="modern.css" />
 
@@ -225,27 +230,27 @@
 
             <!-- Tab Content -->
             <div id="ordersTab" class="tab-content active">
-                <iframe id="ordersFrame" src="tab1-orders.html"></iframe>
+                <iframe id="ordersFrame" data-src="tab1-orders.html"></iframe>
             </div>
 
             <div id="statisticsTab" class="tab-content">
                 <iframe
                     id="statisticsFrame"
-                    src="tab2-statistics.html"
+                    data-src="tab2-statistics.html"
                 ></iframe>
             </div>
 
             <div id="uploadTab" class="tab-content">
                 <iframe
                     id="uploadFrame"
-                    src="tab-upload-tpos.html"
+                    data-src="tab-upload-tpos.html"
                 ></iframe>
             </div>
 
             <div id="productAssignmentTab" class="tab-content">
                 <iframe
                     id="productAssignmentFrame"
-                    src="tab3-product-assignment.html"
+                    data-src="tab3-product-assignment.html"
                 ></iframe>
             </div>
         </main>
@@ -265,6 +270,26 @@
         <script>
             // Initialize Lucide icons
             lucide.createIcons();
+
+            // Track which iframes have been loaded
+            const loadedIframes = new Set();
+
+            // Helper function to load iframe with cache busting (only first time)
+            function loadIframeWithCacheBusting(iframeId, forceReload = false) {
+                const iframe = document.getElementById(iframeId);
+                if (iframe) {
+                    // Only load if not already loaded, or if force reload
+                    if (forceReload || !loadedIframes.has(iframeId)) {
+                        const dataSrc = iframe.getAttribute('data-src');
+                        if (dataSrc) {
+                            const timestamp = Date.now();
+                            const separator = dataSrc.includes('?') ? '&' : '?';
+                            iframe.src = `${dataSrc}${separator}t=${timestamp}`;
+                            loadedIframes.add(iframeId);
+                        }
+                    }
+                }
+            }
 
             // Tab switching
             function switchTab(tabName) {
@@ -288,20 +313,28 @@
                     document
                         .getElementById("ordersTab")
                         .classList.add("active");
+                    // Reload iframe with cache busting
+                    loadIframeWithCacheBusting("ordersFrame");
                 } else if (tabName === "statistics") {
                     document
                         .getElementById("statisticsTab")
                         .classList.add("active");
+                    // Reload iframe with cache busting
+                    loadIframeWithCacheBusting("statisticsFrame");
                     // Trigger statistics refresh when switching to it
                     refreshStatistics();
                 } else if (tabName === "upload") {
                     document
                         .getElementById("uploadTab")
                         .classList.add("active");
+                    // Reload iframe with cache busting
+                    loadIframeWithCacheBusting("uploadFrame");
                 } else if (tabName === "product-assignment") {
                     document
                         .getElementById("productAssignmentTab")
                         .classList.add("active");
+                    // Reload iframe with cache busting
+                    loadIframeWithCacheBusting("productAssignmentFrame");
                     // Send orders data to product assignment tab
                     const ordersFrame = document.getElementById("ordersFrame");
                     if (ordersFrame && ordersFrame.contentWindow) {
