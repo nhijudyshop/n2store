@@ -373,9 +373,36 @@
 
     <script>
         // =====================================================
+        // FIREBASE CONFIGURATION
+        // =====================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
+            authDomain: "product-s-98d2c.firebaseapp.com",
+            databaseURL: "https://product-s-98d2c-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "product-s-98d2c",
+            storageBucket: "product-s-98d2c.firebasestorage.app",
+            messagingSenderId: "694055453687",
+            appId: "1:694055453687:web:1d0bc6c90d6d21088e0cbb",
+            measurementId: "G-MXT4TJK349"
+        };
+
+        // Initialize Firebase
+        let database = null;
+
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+                console.log('[KPI-STATS] Firebase initialized successfully');
+            }
+            database = firebase.database();
+            console.log('[KPI-STATS] Database reference created');
+        } catch (error) {
+            console.error('[KPI-STATS] Firebase initialization error:', error);
+        }
+
+        // =====================================================
         // GLOBAL STATE
         // =====================================================
-        let database = null;
         let uploadHistory = []; // All upload history records
         let currentOrders = []; // Current orders from Tab 1
         let employeeRanges = []; // Employee STT ranges
@@ -394,11 +421,15 @@
         window.addEventListener('DOMContentLoaded', function() {
             console.log('[KPI-STATS] Initializing...');
 
-            // Initialize Firebase
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
+            // Check if Firebase is ready
+            if (!database) {
+                console.error('[KPI-STATS] Database not initialized!');
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('emptyState').querySelector('h5').textContent = 'Lỗi kết nối Firebase';
+                document.getElementById('emptyState').querySelector('p').textContent = 'Không thể kết nối đến cơ sở dữ liệu. Vui lòng thử lại sau.';
+                return;
             }
-            database = firebase.database();
 
             // Load saved employee ranges
             loadEmployeeRanges();
