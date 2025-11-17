@@ -1021,6 +1021,12 @@ class FilterManager {
             return;
         }
 
+        // Clear any active search before applying filters
+        if (window.searchManager && window.searchManager.isSearching) {
+            console.log("⚠️ Clearing active search before applying filters");
+            window.searchManager.clearSearch();
+        }
+
         this.isProcessing = true;
         const startTime = performance.now();
 

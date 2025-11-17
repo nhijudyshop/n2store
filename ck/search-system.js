@@ -48,9 +48,13 @@ class SimpleSearchManager {
 
             // If search is empty, restore original data
             if (!trimmedSearch) {
+                this.isSearching = false;
                 this.restoreOriginalView();
                 return;
             }
+
+            // Set searching flag to prevent filter interference
+            this.isSearching = true;
 
             // Normalize search text (remove Vietnamese accents)
             const normalizedSearch = this.normalizeText(trimmedSearch);
@@ -169,6 +173,8 @@ class SimpleSearchManager {
     restoreOriginalView() {
         console.log("🔄 Restoring original view (clearing search)");
 
+        this.isSearching = false;
+
         const tableBody = document.getElementById("tableBody");
         if (!tableBody) return;
 
@@ -179,6 +185,16 @@ class SimpleSearchManager {
 
         // Clear search info
         this.updateSearchInfo(0, 0, "");
+    }
+
+    // Method to clear search when filters change
+    clearSearch() {
+        if (this.searchInput) {
+            this.searchInput.value = "";
+        }
+        this.isSearching = false;
+        this.restoreOriginalView();
+        console.log("🧹 Search cleared by filter system");
     }
 
     updateSearchInfo(visibleCount, totalCount, searchText) {
