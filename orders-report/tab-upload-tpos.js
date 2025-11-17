@@ -2765,7 +2765,8 @@
                         productCode: assignment.productCode,
                         productName: assignment.productName,
                         imageUrl: assignment.imageUrl,
-                        note: assignment.note || ''
+                        note: assignment.note || '',
+                        sessionIndexes: assignment.sttList // Array of all STTs for this product
                     });
                 });
             });
@@ -2838,9 +2839,10 @@
                             <table class="table table-sm table-bordered">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width: 50%;">Sản phẩm</th>
-                                        <th class="text-center" style="width: 15%;">Số lượng</th>
-                                        <th style="width: 35%;">Note</th>
+                                        <th style="width: 40%;">Sản phẩm</th>
+                                        <th class="text-center" style="width: 12%;">Số lượng</th>
+                                        <th class="text-center" style="width: 25%;">Mã đơn hàng</th>
+                                        <th style="width: 23%;">Note</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2859,6 +2861,11 @@
                                             </td>
                                             <td class="text-center">
                                                 <span class="badge bg-primary">${product.count}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="text-muted" style="font-size: 13px;">
+                                                    ${(product.sessionIndexes || []).map(item => typeof item === 'object' ? item.stt : item).join(', ') || 'N/A'}
+                                                </span>
                                             </td>
                                             <td>
                                                 <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có ghi chú)'}</span>
