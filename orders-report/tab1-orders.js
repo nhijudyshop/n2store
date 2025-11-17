@@ -315,6 +315,65 @@ function performTableSearch() {
     filteredData = searchQuery
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
+
+    // Priority sorting: STT → Phone → Name
+    if (searchQuery) {
+        filteredData.sort((a, b) => {
+            const searchLower = searchQuery.toLowerCase();
+            const aStt = String(a.SessionIndex || '').toLowerCase();
+            const bStt = String(b.SessionIndex || '').toLowerCase();
+            const aPhone = (a.Telephone || '').toLowerCase();
+            const bPhone = (b.Telephone || '').toLowerCase();
+            const aName = (a.Name || '').toLowerCase();
+            const bName = (b.Name || '').toLowerCase();
+
+            // Priority 1: STT exact match
+            const aSttMatch = aStt === searchLower;
+            const bSttMatch = bStt === searchLower;
+            if (aSttMatch && !bSttMatch) return -1;
+            if (!aSttMatch && bSttMatch) return 1;
+
+            // Priority 2: STT starts with
+            const aSttStarts = aStt.startsWith(searchLower);
+            const bSttStarts = bStt.startsWith(searchLower);
+            if (aSttStarts && !bSttStarts) return -1;
+            if (!aSttStarts && bSttStarts) return 1;
+
+            // Priority 3: STT contains
+            const aSttContains = aStt.includes(searchLower);
+            const bSttContains = bStt.includes(searchLower);
+            if (aSttContains && !bSttContains) return -1;
+            if (!aSttContains && bSttContains) return 1;
+
+            // Priority 4: Phone starts with
+            const aPhoneStarts = aPhone.startsWith(searchLower);
+            const bPhoneStarts = bPhone.startsWith(searchLower);
+            if (aPhoneStarts && !bPhoneStarts) return -1;
+            if (!aPhoneStarts && bPhoneStarts) return 1;
+
+            // Priority 5: Phone contains
+            const aPhoneContains = aPhone.includes(searchLower);
+            const bPhoneContains = bPhone.includes(searchLower);
+            if (aPhoneContains && !bPhoneContains) return -1;
+            if (!aPhoneContains && bPhoneContains) return 1;
+
+            // Priority 6: Name starts with
+            const aNameStarts = aName.startsWith(searchLower);
+            const bNameStarts = bName.startsWith(searchLower);
+            if (aNameStarts && !bNameStarts) return -1;
+            if (!aNameStarts && bNameStarts) return 1;
+
+            // Priority 7: Name contains
+            const aNameContains = aName.includes(searchLower);
+            const bNameContains = bName.includes(searchLower);
+            if (aNameContains && !bNameContains) return -1;
+            if (!aNameContains && bNameContains) return 1;
+
+            // Default: keep original order
+            return 0;
+        });
+    }
+
     displayedData = filteredData;
     renderTable();
     updateStats();
@@ -324,6 +383,7 @@ function performTableSearch() {
 
 function matchesSearchQuery(order, query) {
     const searchableText = [
+        String(order.SessionIndex || ''), // STT - Priority field
         order.Code,
         order.Name,
         order.Telephone,
