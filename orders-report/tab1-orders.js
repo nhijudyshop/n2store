@@ -42,9 +42,6 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("loadCampaignsBtn")
         .addEventListener("click", handleLoadCampaigns);
     document
-        .getElementById("searchBtn")
-        .addEventListener("click", handleSearch);
-    document
         .getElementById("clearCacheBtn")
         .addEventListener("click", handleClearCache);
     document
@@ -629,12 +626,17 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
     }
 }
 
-function handleCampaignChange() {
+async function handleCampaignChange() {
     const select = document.getElementById("campaignFilter");
     const selectedOption = select.options[select.selectedIndex];
     selectedCampaign = selectedOption?.dataset.campaign
         ? JSON.parse(selectedOption.dataset.campaign)
         : null;
+
+    // Tự động load dữ liệu khi chọn chiến dịch
+    if (selectedCampaign?.campaignId || selectedCampaign?.campaignIds) {
+        await handleSearch();
+    }
 }
 
 async function handleSearch() {
