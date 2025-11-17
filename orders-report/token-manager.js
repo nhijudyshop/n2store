@@ -8,7 +8,7 @@ class TokenManager {
         this.tokenExpiry = null;
         this.isRefreshing = false;
         this.storageKey = 'bearer_token_data';
-        this.API_URL = 'https://tomato.tpos.vn/token';
+        this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
         this.credentials = {
             grant_type: 'password',
             username: 'nvkt',

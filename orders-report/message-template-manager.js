@@ -8,7 +8,7 @@ class MessageTemplateManager {
         this.filteredTemplates = [];
         this.selectedTemplate = null;
         this.isLoading = false;
-        this.API_URL = 'https://tomato.tpos.vn/odata/MailTemplate?$filter=(Active+eq+true)';
+        this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)';
         this.currentOrder = null;
         this.selectedOrders = [];
         this.DEBUG_MODE = true; // Enable debug logging
@@ -641,7 +641,7 @@ class MessageTemplateManager {
 
         try {
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://tomato.tpos.vn/odata/CRMTeam(${teamId})`;
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/CRMTeam(${teamId})`;
 
             const response = await fetch(apiUrl, {
                 headers: {
@@ -712,7 +712,7 @@ class MessageTemplateManager {
 
             // POST to API
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = 'https://tomato.tpos.vn/rest/v1.0/CRMActivityCampaign/order-campaign';
+            const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/rest/v1.0/CRMActivityCampaign/order-campaign';
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -746,7 +746,7 @@ class MessageTemplateManager {
 
         try {
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://tomato.tpos.vn/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User`;
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User`;
 
             this.log('📡 API URL:', apiUrl);
 
