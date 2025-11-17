@@ -467,6 +467,20 @@
         });
 
         // =====================================================
+        // UTILITY FUNCTIONS
+        // =====================================================
+        /**
+         * Count lines in note (each line = 1 product for reference)
+         * This is for display/comparison only, NOT for KPI calculation
+         */
+        function countNoteLines(note) {
+            if (!note || !note.trim()) return 0;
+            // Split by newline and filter out empty lines
+            const lines = note.split('\n').filter(line => line.trim().length > 0);
+            return lines.length;
+        }
+
+        // =====================================================
         // EMPLOYEE RANGE MANAGEMENT
         // =====================================================
         function loadEmployeeRanges() {
@@ -708,6 +722,9 @@
                 // Get employee name
                 const employeeName = getEmployeeName(stt);
 
+                // Count note lines (for reference, NOT for KPI)
+                const noteLineCount = countNoteLines(currentOrder.Note || '');
+
                 kpiData.push({
                     stt: stt,
                     orderId: uploadInfo.orderId,
@@ -717,6 +734,7 @@
                     customerName: currentOrder.Name || '-',
                     customerPhone: currentOrder.Telephone || '-',
                     customerNote: currentOrder.Note || '',
+                    noteLineCount: noteLineCount, // For display/comparison only
                     productsAtUpload: uploadedProductCount,
                     productsNow: currentProductCount,
                     newProductsAdded: newProductsAdded,
@@ -924,12 +942,17 @@
             data.forEach(item => {
                 const badgeClass = item.newProductsAdded > 0 ? 'positive' : 'zero';
 
+                // Format note with line count
+                const noteDisplay = item.customerNote ?
+                    `${item.customerNote}${item.noteLineCount > 0 ? `\n\n📝 ${item.noteLineCount} dòng (≈ ${item.noteLineCount} sản phẩm)` : ''}` :
+                    '';
+
                 html += `
                     <tr>
                         <td><span class="stt-badge">${item.stt}</span></td>
                         <td>${item.customerName}</td>
                         <td>${item.customerPhone}</td>
-                        <td style="max-width: 200px; white-space: pre-line; font-size: 13px; color: #495057;">${item.customerNote}</td>
+                        <td style="max-width: 200px; white-space: pre-line; font-size: 13px; color: #495057;">${noteDisplay}</td>
                         <td style="font-size: 12px; color: #6c757d;">${item.uploadTimeFormatted}</td>
                         <td style="text-align: center;">${item.productsAtUpload}</td>
                         <td style="text-align: center;">${item.productsNow}</td>
@@ -1027,8 +1050,11 @@
 
                 console.log('[KPI-STATS] Current products:', currentProducts.length);
 
-                // 3. Compare products and render
-                renderProductComparison(modalBody, stt, productsAtUpload, currentProducts, uploadData.timestamp);
+                // 3. Get note line count
+                const noteLineCount = countNoteLines(orderData.Note || '');
+
+                // 4. Compare products and render
+                renderProductComparison(modalBody, stt, productsAtUpload, currentProducts, uploadData.timestamp, noteLineCount);
 
             } catch (error) {
                 console.error('[KPI-STATS] Error loading product detail:', error);
@@ -1041,7 +1067,7 @@
             }
         }
 
-        function renderProductComparison(container, stt, productsAtUpload, currentProducts, uploadTimestamp) {
+        function renderProductComparison(container, stt, productsAtUpload, currentProducts, uploadTimestamp, noteLineCount) {
             // Create a map of products at upload for quick lookup
             const uploadProductMap = new Map();
             productsAtUpload.forEach(p => {
@@ -1122,6 +1148,7 @@
                                 <h6 class="mb-2"><i class="fas fa-chart-line"></i> Thống kê</h6>
                                 <div><strong>Sản phẩm lúc upload:</strong> ${productsAtUpload.length} sản phẩm (${productsAtUpload.reduce((s, p) => s + (p.Quantity || 0), 0)} SP)</div>
                                 <div><strong>Sản phẩm hiện tại:</strong> ${currentProducts.length} dòng (${currentProducts.reduce((s, p) => s + (p.Quantity || 0), 0)} SP)</div>
+                                <div><strong>Ghi chú:</strong> <span class="badge bg-info">${noteLineCount} dòng (≈ ${noteLineCount} SP)</span> <small class="text-muted">(chỉ để tham khảo)</small></div>
                                 <div><strong>Sản phẩm thêm mới:</strong> <span class="badge bg-success">${totalNewProducts} SP</span></div>
                                 <div><strong>KPI:</strong> <span class="badge bg-warning text-dark">${kpiFee.toLocaleString('vi-VN')}đ</span></div>
                             </div>
