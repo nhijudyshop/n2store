@@ -3061,7 +3061,7 @@
 
         async function loadSettings() {
             try {
-                const snapshot = await database.ref('displaySettings').once('value');
+                const snapshot = await database.ref('orderDisplaySettings').once('value');
                 const settings = snapshot.val();
                 if (settings) {
                     // Frame Display settings
@@ -3165,7 +3165,7 @@
             };
 
             if (!isSyncingFromFirebase) {
-                database.ref('displaySettings').set(settings).catch(error => {
+                database.ref('orderDisplaySettings').set(settings).catch(error => {
                     console.error('❌ Lỗi sync settings lên Firebase:', error);
                 });
             }
@@ -3192,7 +3192,7 @@
             };
 
             if (!isSyncingFromFirebase) {
-                database.ref('displaySettings').set(settings).catch(error => {
+                database.ref('orderDisplaySettings').set(settings).catch(error => {
                     console.error('❌ Lỗi sync settings lên Firebase:', error);
                 });
             }
@@ -3201,11 +3201,11 @@
             showNotificationMessage(`🔄 Đã ${status} chế độ tự động thêm tất cả biến thể`);
         }
 
-        window.settingsChannel = new BroadcastChannel('product-settings');
+        window.settingsChannel = new BroadcastChannel('order-settings');
 
         function setupFirebaseListeners() {
             // Setup listeners for displaySettings
-            database.ref('displaySettings').on('value', (snapshot) => {
+            database.ref('orderDisplaySettings').on('value', (snapshot) => {
                 const settings = snapshot.val();
                 if (settings && !isSyncingFromFirebase) {
                     isSyncingFromFirebase = true;
