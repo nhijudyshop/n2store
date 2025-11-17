@@ -20,6 +20,32 @@ let currentEditOrderData = null;
 let currentOrderTags = [];
 
 // =====================================================
+// FIREBASE CONFIGURATION FOR NOTE TRACKING
+// =====================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
+    authDomain: "product-s-98d2c.firebaseapp.com",
+    databaseURL: "https://product-s-98d2c-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "product-s-98d2c",
+    storageBucket: "product-s-98d2c.firebasestorage.app",
+    messagingSenderId: "694055453687",
+    appId: "1:694055453687:web:1d0bc6c90d6d21088e0cbb",
+    measurementId: "G-MXT4TJK349"
+};
+
+// Initialize Firebase
+let database = null;
+try {
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+        console.log('[NOTE-TRACKER] Firebase initialized successfully');
+    }
+    database = firebase.database();
+} catch (error) {
+    console.error('[NOTE-TRACKER] Firebase initialization error:', error);
+}
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 window.addEventListener("DOMContentLoaded", async function () {
@@ -817,8 +843,12 @@ async function fetchOrders() {
         // Load tags in background
         loadAvailableTags().catch(err => console.error('[TAGS] Error loading tags:', err));
 
-        // Load note edited status in background
-        loadNoteEditedStatus().catch(err => console.error('[NOTE-EDIT] Error loading note edited status:', err));
+        // Detect edited notes using Firebase snapshots (fast, no API spam!)
+        detectEditedNotes().then(() => {
+            // Re-render table with noteEdited flags
+            renderTable();
+            console.log('[NOTE-TRACKER] Table re-rendered with edit indicators');
+        }).catch(err => console.error('[NOTE-TRACKER] Error detecting edited notes:', err));
 
         // Hide loading overlay after first batch
         showLoading(false);
@@ -3281,90 +3311,141 @@ async function markChatAsRead() {
 }
 
 // =====================================================
-// NOTE EDITED DETECTION
+// NOTE EDITED DETECTION VIA FIREBASE SNAPSHOT
 // =====================================================
 
-// Cache for note edited status to avoid redundant API calls
-const noteEditedCache = {};
-
 /**
- * Check if order's note was edited by querying audit log
- * @param {number} orderId - The order ID to check
- * @returns {Promise<boolean>} - True if note was edited
+ * Load all note snapshots from Firebase
+ * @returns {Promise<Object>} - Map of orderId -> snapshot data
  */
-async function checkNoteEdited(orderId) {
-    try {
-        const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = `https://tomato.tpos.vn/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
+async function loadNoteSnapshots() {
+    if (!database) {
+        console.warn('[NOTE-TRACKER] Firebase not initialized');
+        return {};
+    }
 
-        const response = await fetch(apiUrl, {
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
+    try {
+        console.log('[NOTE-TRACKER] Loading note snapshots from Firebase...');
+        const snapshot = await database.ref('order_notes_snapshot').once('value');
+        const data = snapshot.val() || {};
+
+        // Clean up expired snapshots (older than 30 days)
+        const now = Date.now();
+        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+        const cleanedData = {};
+        let expiredCount = 0;
+
+        Object.keys(data).forEach(orderId => {
+            const snapshot = data[orderId];
+            if (snapshot.timestamp && snapshot.timestamp > thirtyDaysAgo) {
+                cleanedData[orderId] = snapshot;
+            } else {
+                expiredCount++;
+                // Delete expired snapshot
+                database.ref(`order_notes_snapshot/${orderId}`).remove();
             }
         });
 
-        if (!response.ok) return false;
-
-        const data = await response.json();
-        const logs = data.value || [];
-
-        // Check if any log entry has "Ghi chú" or "Note" change
-        for (const log of logs) {
-            const details = log.Details || '';
-            if (details.includes('Ghi chú:') || details.includes('Note:')) {
-                return true;
-            }
-        }
-
-        return false;
+        console.log(`[NOTE-TRACKER] Loaded ${Object.keys(cleanedData).length} snapshots, cleaned ${expiredCount} expired`);
+        return cleanedData;
     } catch (error) {
-        console.error('[NOTE-EDIT] Error checking note edit:', error);
-        return false;
+        console.error('[NOTE-TRACKER] Error loading snapshots:', error);
+        return {};
     }
 }
 
 /**
- * Load note edited status for all orders in background
- * Updates order.noteEdited field and re-renders table progressively
+ * Compare current notes with snapshots and detect edits
+ * @param {Array} orders - Array of order objects
+ * @param {Object} snapshots - Map of orderId -> snapshot
+ * @returns {Promise<void>}
  */
-async function loadNoteEditedStatus() {
-    if (!allData || allData.length === 0) return;
+async function compareAndUpdateNoteStatus(orders, snapshots) {
+    if (!orders || orders.length === 0) return;
 
-    console.log('[NOTE-EDIT] Loading note edited status...');
+    console.log('[NOTE-TRACKER] Comparing notes with snapshots...');
 
-    // Check top 100 orders max to avoid too many requests
-    const ordersToCheck = allData.slice(0, 100);
-    let checkedCount = 0;
+    let editedCount = 0;
+    let newSnapshotsToSave = {};
 
-    // Check in batches of 5 to avoid overwhelming the API
-    const batchSize = 5;
-    for (let i = 0; i < ordersToCheck.length; i += batchSize) {
-        const batch = ordersToCheck.slice(i, i + batchSize);
+    orders.forEach(order => {
+        const orderId = order.Id;
+        const currentNote = (order.Note || '').trim();
+        const snapshot = snapshots[orderId];
 
-        // Process batch in parallel
-        await Promise.all(batch.map(async (order) => {
-            // Check cache first
-            if (noteEditedCache[order.Id] !== undefined) {
-                order.noteEdited = noteEditedCache[order.Id];
-                return;
+        if (snapshot) {
+            // Compare with existing snapshot
+            const savedNote = (snapshot.note || '').trim();
+
+            if (currentNote !== savedNote) {
+                // Note has been edited!
+                order.noteEdited = true;
+                editedCount++;
+                console.log(`[NOTE-TRACKER] ✏️ Edited: STT ${order.SessionIndex}, "${savedNote}" → "${currentNote}"`);
+            } else {
+                order.noteEdited = false;
             }
+        } else {
+            // No snapshot exists - save current note as baseline
+            order.noteEdited = false;
+            newSnapshotsToSave[orderId] = {
+                note: currentNote,
+                code: order.Code,
+                stt: order.SessionIndex,
+                timestamp: Date.now()
+            };
+        }
+    });
 
-            // Check via API
-            const edited = await checkNoteEdited(order.Id);
-            order.noteEdited = edited;
-            noteEditedCache[order.Id] = edited;
-            checkedCount++;
-
-            // Update UI every 10 checks
-            if (checkedCount % 10 === 0) {
-                renderTable();
-            }
-        }));
+    // Save new snapshots in batch
+    if (Object.keys(newSnapshotsToSave).length > 0) {
+        await saveNoteSnapshots(newSnapshotsToSave);
     }
 
-    // Final update
-    console.log('[NOTE-EDIT] Note edited status loaded:', checkedCount, 'orders checked');
-    renderTable();
+    console.log(`[NOTE-TRACKER] ✅ Found ${editedCount} edited notes out of ${orders.length} orders`);
+}
+
+/**
+ * Save note snapshots to Firebase
+ * @param {Object} snapshots - Map of orderId -> snapshot data
+ * @returns {Promise<void>}
+ */
+async function saveNoteSnapshots(snapshots) {
+    if (!database) {
+        console.warn('[NOTE-TRACKER] Firebase not initialized');
+        return;
+    }
+
+    try {
+        const updates = {};
+        Object.keys(snapshots).forEach(orderId => {
+            updates[`order_notes_snapshot/${orderId}`] = snapshots[orderId];
+        });
+
+        await database.ref().update(updates);
+        console.log(`[NOTE-TRACKER] Saved ${Object.keys(snapshots).length} new snapshots to Firebase`);
+    } catch (error) {
+        console.error('[NOTE-TRACKER] Error saving snapshots:', error);
+    }
+}
+
+/**
+ * Main function to detect edited notes using Firebase snapshots
+ * Call this after loading orders
+ */
+async function detectEditedNotes() {
+    if (!allData || allData.length === 0) {
+        console.log('[NOTE-TRACKER] No data to check');
+        return;
+    }
+
+    console.log('[NOTE-TRACKER] Starting note edit detection for', allData.length, 'orders...');
+
+    // Load snapshots from Firebase (1 call for all orders)
+    const snapshots = await loadNoteSnapshots();
+
+    // Compare and update note status
+    await compareAndUpdateNoteStatus(allData, snapshots);
+
+    console.log('[NOTE-TRACKER] Note edit detection completed');
 }
