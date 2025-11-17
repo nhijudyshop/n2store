@@ -1076,7 +1076,7 @@
         };
         let isSyncMode = false;
         let isMergeVariants = false; // Merge variants mode disabled by default
-        let isHideEditControls = false; // Hide edit controls mode disabled by default
+        let orderIsHideEditControls = false; // Hide edit controls mode disabled by default
 
         // Optimization: Cache normalized product names for faster search
         let normalizedProductNames = new Map(); // productId -> normalized name
@@ -1240,18 +1240,18 @@
         }
 
         function toggleHideEditControls() {
-            isHideEditControls = !isHideEditControls;
+            orderIsHideEditControls = !orderIsHideEditControls;
             // Save to localStorage only (no sync between machines)
-            localStorage.setItem('isHideEditControls', JSON.stringify(isHideEditControls));
+            localStorage.setItem('orderIsHideEditControls', JSON.stringify(orderIsHideEditControls));
 
             updateHideEditControlsUI();
-            console.log(isHideEditControls ? '👁️ Đã ẩn các nút chỉnh sửa' : '👁️ Đã hiện các nút chỉnh sửa');
+            console.log(orderIsHideEditControls ? '👁️ Đã ẩn các nút chỉnh sửa' : '👁️ Đã hiện các nút chỉnh sửa');
         }
 
         function updateHideEditControlsUI() {
             const btnToggle = document.getElementById('btnToggleEdit');
 
-            if (isHideEditControls) {
+            if (orderIsHideEditControls) {
                 document.body.classList.add('hide-edit-controls');
                 if (btnToggle) {
                     btnToggle.classList.add('active');
@@ -1297,10 +1297,10 @@
 
         function loadHideEditControlsMode() {
             // Load from localStorage only (no sync between machines)
-            const saved = localStorage.getItem('isHideEditControls');
+            const saved = localStorage.getItem('orderIsHideEditControls');
             if (saved !== null) {
-                isHideEditControls = JSON.parse(saved);
-                console.log('💾 Loaded hide edit controls mode from localStorage:', isHideEditControls);
+                orderIsHideEditControls = JSON.parse(saved);
+                console.log('💾 Loaded hide edit controls mode from localStorage:', orderIsHideEditControls);
             }
 
             updateHideEditControlsUI();
@@ -1573,7 +1573,7 @@
                         ${imageHtml}
                         <div class="grid-item-name">
                             <span class="grid-item-name-text">${product.NameGet}</span>
-                            ${!isHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
+                            ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
                         </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
