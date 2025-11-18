@@ -80,6 +80,34 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("assignEmptyCartTagBtn")
         .addEventListener("click", assignEmptyCartTagToSelected);
 
+    // Unread filter listener
+    document
+        .getElementById("unreadFilter")
+        .addEventListener("change", function() {
+            console.log('[FILTER] Unread filter changed to:', this.value);
+            performTableSearch();
+        });
+
+    // Initialize Pancake Data Manager
+    if (window.pancakeDataManager) {
+        console.log('[PANCAKE] Initializing PancakeDataManager...');
+        window.pancakeDataManager.initialize().then(success => {
+            if (success) {
+                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
+                // Re-render table with unread info if orders already loaded
+                if (allData.length > 0) {
+                    performTableSearch();
+                }
+            } else {
+                console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
+            }
+        }).catch(error => {
+            console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
+        });
+    } else {
+        console.warn('[PANCAKE] ⚠️ PancakeDataManager not available');
+    }
+
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
     const tableWrapper = document.getElementById("tableWrapper");
@@ -338,9 +366,26 @@ function handleTableSearch(query) {
 }
 
 function performTableSearch() {
-    filteredData = searchQuery
+    // Apply search filter
+    let tempData = searchQuery
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
+
+    // Apply unread filter (from Pancake)
+    const unreadFilter = document.getElementById('unreadFilter')?.value || 'all';
+    if (unreadFilter !== 'all' && window.pancakeDataManager) {
+        tempData = tempData.filter(order => {
+            const unreadInfo = window.pancakeDataManager.getUnreadInfoForOrder(order);
+            if (unreadFilter === 'unread') {
+                return unreadInfo.hasUnread;
+            } else if (unreadFilter === 'read') {
+                return !unreadInfo.hasUnread;
+            }
+            return true;
+        });
+    }
+
+    filteredData = tempData;
 
     // Priority sorting: STT → Phone → Name
     if (searchQuery) {
@@ -837,7 +882,15 @@ async function fetchOrders() {
             // No need to call both methods anymore - this reduces API calls by 50%!
             // Force refresh (true) to always fetch fresh data when searching
             await window.chatDataManager.fetchConversations(true, channelIds);
-            renderTable(); // Re-render with chat data
+
+            // Fetch Pancake conversations for unread info
+            if (window.pancakeDataManager) {
+                console.log('[PANCAKE] Fetching conversations for unread info...');
+                await window.pancakeDataManager.fetchConversations(true);
+                console.log('[PANCAKE] ✅ Conversations fetched');
+            }
+
+            renderTable(); // Re-render with chat data and unread info
         }
 
         // Load tags in background
