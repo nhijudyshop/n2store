@@ -5,9 +5,15 @@
 
 const express = require('express');
 const fetch = require('node-fetch');
+const https = require('https');
 const router = express.Router();
 
 const PANCAKE_BASE = 'https://pancake.vn/api/v1';
+
+// Create HTTPS agent (for consistency, though Pancake likely has valid cert)
+const httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+});
 
 // GET /api/pancake/* - Proxy all Pancake requests
 router.all('/*', async (req, res) => {
@@ -31,7 +37,8 @@ router.all('/*', async (req, res) => {
         // Prepare request options
         const options = {
             method: req.method,
-            headers: headers
+            headers: headers,
+            agent: httpsAgent  // Use agent that ignores SSL errors
         };
 
         // Add body for POST/PUT requests

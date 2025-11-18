@@ -5,9 +5,16 @@
 
 const express = require('express');
 const fetch = require('node-fetch');
+const https = require('https');
 const router = express.Router();
 
 const TPOS_ODATA_BASE = 'https://services.tpos.dev/api/odata';
+
+// Create HTTPS agent that ignores SSL certificate errors
+// TPOS uses self-signed certificate
+const httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+});
 
 // GET /api/odata/* - Proxy all OData requests
 router.all('/*', async (req, res) => {
@@ -35,7 +42,8 @@ router.all('/*', async (req, res) => {
         // Prepare request options
         const options = {
             method: req.method,
-            headers: headers
+            headers: headers,
+            agent: httpsAgent  // Use agent that ignores SSL errors
         };
 
         // Add body for POST/PUT requests
