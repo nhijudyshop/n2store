@@ -86,7 +86,7 @@
     // Auth Functions
     async function getAuthToken() {
         try {
-            const response = await API_CONFIG.smartFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
+            const response = await API_CONFIG.smartFetch(`${API_CONFIG.WORKER_URL}/api/token`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -159,7 +159,7 @@
         loadingIndicator.style.display = 'block';
 
         try {
-            const response = await authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice', {
+            const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Product/ExportFileWithVariantPrice`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -285,7 +285,7 @@
         try {
             // Load product details
             const response = await authenticatedFetch(
-                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+                `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
             );
 
             if (!response.ok) {
@@ -299,7 +299,7 @@
             if (!imageUrl && productData.ProductTmplId) {
                 try {
                     const templateResponse = await authenticatedFetch(
-                        `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=Images`
+                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=Images`
                     );
 
                     if (templateResponse.ok) {
