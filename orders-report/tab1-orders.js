@@ -88,9 +88,14 @@ window.addEventListener("DOMContentLoaded", async function () {
             performTableSearch();
         });
 
-    // Initialize Pancake Data Manager
-    if (window.pancakeDataManager) {
-        console.log('[PANCAKE] Initializing PancakeDataManager...');
+    // Initialize Pancake Token Manager & Data Manager
+    if (window.pancakeTokenManager && window.pancakeDataManager) {
+        console.log('[PANCAKE] Initializing Pancake managers...');
+
+        // Initialize token manager first
+        window.pancakeTokenManager.initialize();
+
+        // Then initialize data manager
         window.pancakeDataManager.initialize().then(success => {
             if (success) {
                 console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
@@ -100,12 +105,13 @@ window.addEventListener("DOMContentLoaded", async function () {
                 }
             } else {
                 console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
+                console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
             }
         }).catch(error => {
             console.error('[PANCAKE] ❌ Error initializing PancakeDataManager:', error);
         });
     } else {
-        console.warn('[PANCAKE] ⚠️ PancakeDataManager not available');
+        console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
 
     // Scroll to top button
