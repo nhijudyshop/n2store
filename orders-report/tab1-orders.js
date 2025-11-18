@@ -80,13 +80,15 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("assignEmptyCartTagBtn")
         .addEventListener("click", assignEmptyCartTagToSelected);
 
-    // Unread filter listener
-    document
-        .getElementById("unreadFilter")
-        .addEventListener("change", function() {
-            console.log('[FILTER] Unread filter changed to:', this.value);
-            performTableSearch();
-        });
+    // Initialize TPOS Token Manager Firebase connection
+    if (window.tokenManager) {
+        console.log('[TOKEN] Retrying Firebase initialization for TokenManager...');
+        if (window.tokenManager.retryFirebaseInit()) {
+            console.log('[TOKEN] ✅ Firebase connection established');
+        } else {
+            console.warn('[TOKEN] ⚠️ Firebase still not available, using localStorage only');
+        }
+    }
 
     // Initialize Pancake Token Manager & Data Manager
     if (window.pancakeTokenManager && window.pancakeDataManager) {

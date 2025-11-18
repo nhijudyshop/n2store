@@ -22,15 +22,30 @@ class TokenManager {
 
     initFirebase() {
         try {
-            if (window.database) {
-                this.firebaseRef = window.database.ref('tpos_token');
+            if (window.firebase && window.firebase.database) {
+                this.firebaseRef = window.firebase.database().ref('tpos_token');
                 console.log('[TOKEN] Firebase reference initialized');
+                return true;
             } else {
-                console.warn('[TOKEN] Firebase not available');
+                console.warn('[TOKEN] Firebase not available yet, will use localStorage only');
+                return false;
             }
         } catch (error) {
             console.error('[TOKEN] Error initializing Firebase:', error);
+            return false;
         }
+    }
+
+    /**
+     * Retry Firebase initialization (can be called after Firebase loads)
+     */
+    retryFirebaseInit() {
+        if (this.firebaseRef) {
+            console.log('[TOKEN] Firebase already initialized');
+            return true;
+        }
+        console.log('[TOKEN] Retrying Firebase initialization...');
+        return this.initFirebase();
     }
 
     async init() {
