@@ -1451,13 +1451,18 @@
                     // Multiple variants, merge them
                     const firstVariant = variants[0];
 
-                    // Extract common name (remove variant-specific parts)
+                    // Extract common name (remove variant-specific parts in parentheses)
                     let commonName = firstVariant.NameGet;
-                    // Try to get the base name by removing parts after " - " or similar delimiters
-                    const nameParts = commonName.split(' - ');
-                    if (nameParts.length > 1) {
-                        // Use first part as common name if it looks like a base name
-                        commonName = nameParts[0];
+                    // Remove content within parentheses () to get base name
+                    commonName = commonName.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+
+                    // Get price: use ListPrice or PriceVariant from first variant
+                    const price = firstVariant.ListPrice || firstVariant.PriceVariant || 0;
+
+                    // Add price to name if not zero
+                    let displayName = commonName;
+                    if (price > 0) {
+                        displayName = commonName + ' ' + (price / 1000) + 'K';
                     }
 
                     // Sum up quantities
@@ -1485,7 +1490,7 @@
                     // Create merged product
                     const mergedProduct = {
                         ...firstVariant,
-                        NameGet: commonName + ` (${variants.length} biến thể)`,
+                        NameGet: displayName,
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
                         remainingQty: 0, // Not used for merged products
@@ -1568,11 +1573,17 @@
                     hideButtonTitle = 'Ẩn sản phẩm';
                 }
 
+                // Format product name with price
+                const productPrice = product.ListPrice || 0;
+                const productNameDisplay = productPrice > 0
+                    ? `${product.NameGet} ${productPrice / 1000}K`
+                    : product.NameGet;
+
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
                         ${imageHtml}
                         <div class="grid-item-name">
-                            <span class="grid-item-name-text">${product.NameGet}</span>
+                            <span class="grid-item-name-text">${productNameDisplay}</span>
                             ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
                         </div>
                         <div class="grid-item-stats">
