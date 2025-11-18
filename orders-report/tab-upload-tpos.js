@@ -158,6 +158,115 @@
             .filter(p => p !== null);
     }
 
+    /**
+     * Check if current user is admin
+     * @returns {boolean} true if user has admin privileges
+     */
+    function isAdmin() {
+        try {
+            const auth = window.authManager?.getAuthState();
+            if (!auth) return false;
+            // Admin typically has checkLogin value of 1 or lower
+            return parseInt(auth.checkLogin) <= 1;
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Format note text to make encoded strings clickable for admin users
+     * @param {string} note - Raw note text (may contain encoded strings)
+     * @returns {string} HTML string with clickable encoded strings
+     */
+    function formatNoteWithClickableEncoded(note) {
+        if (!note || !note.trim()) return '(Không có)';
+
+        // If not admin, return as-is
+        if (!isAdmin()) {
+            return `<span class="text-muted" style="font-size: 13px;">${note}</span>`;
+        }
+
+        // Split into lines and process each
+        const lines = note.split('\n');
+        const formattedLines = lines.map(line => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return '';
+
+            // Try to decode to check if it's an encoded string
+            try {
+                const decoded = decodeProductLine(trimmedLine);
+                if (decoded) {
+                    // This is an encoded string - make it clickable
+                    return `<span class="encoded-string-clickable"
+                                  data-encoded="${escapeHtml(trimmedLine)}"
+                                  title="Click để xem nội dung đã decode"
+                                  style="cursor: pointer; color: #3b82f6; text-decoration: underline; font-family: monospace; font-size: 12px;">
+                                ${truncateString(trimmedLine, 40)}
+                            </span>`;
+                }
+            } catch (e) {
+                // Not an encoded string, return as plain text
+            }
+
+            // Return as plain text
+            return escapeHtml(trimmedLine);
+        });
+
+        return `<span class="text-muted" style="font-size: 13px;">${formattedLines.join('<br>')}</span>`;
+    }
+
+    /**
+     * Escape HTML special characters
+     */
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Truncate string with ellipsis
+     */
+    function truncateString(str, maxLength) {
+        if (str.length <= maxLength) return str;
+        return str.substring(0, maxLength) + '...';
+    }
+
+    /**
+     * Global click handler for encoded strings
+     */
+    window.handleEncodedStringClick = function(encodedString) {
+        try {
+            const decoded = decodeProductLine(encodedString);
+            if (decoded) {
+                const timestamp = decoded.timestamp
+                    ? new Date(decoded.timestamp).toLocaleString('vi-VN')
+                    : 'N/A';
+
+                const message = `
+🔓 Decoded Information:
+━━━━━━━━━━━━━━━━━━━━
+📦 Product Code: ${decoded.productCode}
+📊 Quantity: ${decoded.quantity}
+💰 Price: ${decoded.price.toLocaleString('vi-VN')}đ
+⏰ Timestamp: ${timestamp}
+━━━━━━━━━━━━━━━━━━━━
+
+🔒 Encoded String:
+${encodedString}
+                `.trim();
+
+                alert(message);
+            } else {
+                alert('❌ Không thể decode chuỗi này');
+            }
+        } catch (error) {
+            console.error('Error decoding string:', error);
+            alert('❌ Lỗi khi decode: ' + error.message);
+        }
+    };
+
     // Utility Functions
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
@@ -2824,7 +2933,7 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có ghi chú)'}</span>
+                                                ${formatNoteWithClickableEncoded(product.note)}
                                             </td>
                                         </tr>
                                     `).join('')}
@@ -3048,7 +3157,7 @@
                                                     <span class="badge ${product.isExisting ? 'bg-warning text-dark' : 'bg-success'}">${product.count}</span>
                                                 </td>
                                                 <td>
-                                                    <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có)'}</span>
+                                                    ${formatNoteWithClickableEncoded(product.note)}
                                                 </td>
                                             </tr>
                                         `}).join('')}
@@ -3099,7 +3208,7 @@
                                                         <span style="font-weight: 600; color: #3b82f6;">${(product.price || 0).toLocaleString('vi-VN')}đ</span>
                                                     </td>
                                                     <td>
-                                                        <span class="text-muted" style="font-size: 13px;">${product.note || '(Không có)'}</span>
+                                                        ${formatNoteWithClickableEncoded(product.note)}
                                                     </td>
                                                 </tr>
                                             `}).join('')}
@@ -3205,5 +3314,21 @@
     console.log('💡 Test functions available:');
     console.log('  - window.testProductEncoding() : Test encode/decode functionality');
     console.log('  - window.decodeOrderNote(note) : Decode products from order note');
+
+    // =====================================================
+    // EVENT DELEGATION FOR ENCODED STRING CLICKS
+    // =====================================================
+    document.addEventListener('click', function(event) {
+        const target = event.target.closest('.encoded-string-clickable');
+        if (target) {
+            event.preventDefault();
+            const encodedString = target.getAttribute('data-encoded');
+            if (encodedString) {
+                window.handleEncodedStringClick(encodedString);
+            }
+        }
+    });
+
+    console.log('✅ Event delegation for encoded strings initialized');
 
 })();
