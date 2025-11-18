@@ -49,12 +49,15 @@ export default {
         //   /api/odata/... → https://tomato.tpos.vn/odata/...
         //   /api/Product/... → https://tomato.tpos.vn/Product/...
         //   /api/api-ms/... → https://tomato.tpos.vn/api-ms/...
-        //   /api/tpos/... → https://tomato.tpos.vn/...
+        //   /api/token → https://tomato.tpos.vn/token
         const apiPath = pathname.replace(/^\/api\//, '');
         targetUrl = `https://tomato.tpos.vn/${apiPath}${url.search}`;
 
-        // TPOS headers
-        targetHeaders.set('Origin', 'https://tomato.tpos.vn/');
+        // TPOS headers - mimic browser requests to tomato.tpos.vn
+        targetHeaders.set('accept', 'application/json, text/plain, */*');
+        targetHeaders.set('tposappversion', '5.11.16.1');
+        targetHeaders.set('x-tpos-lang', 'vi');
+        targetHeaders.set('Origin', 'https://tomato.tpos.vn');
         targetHeaders.set('Referer', 'https://tomato.tpos.vn/');
 
       } else {
