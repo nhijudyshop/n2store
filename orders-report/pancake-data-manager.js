@@ -14,59 +14,31 @@ class PancakeDataManager {
         this.lastPageFetchTime = null;
         this.API_BASE = 'https://pancake.vn/api/v1';
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
-
-        // JWT token - cần được set từ bên ngoài
-        this.jwtToken = null;
     }
 
     /**
-     * Set JWT token từ cookie hoặc manual
-     * @param {string} token - JWT token
+     * Lấy token từ PancakeTokenManager (Firebase → Cookie)
+     * @returns {Promise<string|null>}
      */
-    setToken(token) {
-        this.jwtToken = token;
-        console.log('[PANCAKE] Token set successfully');
-    }
-
-    /**
-     * Lấy JWT token từ cookie
-     * @returns {string|null}
-     */
-    getTokenFromCookie() {
-        try {
-            const cookies = document.cookie.split(';');
-            const jwtCookie = cookies.find(c => c.trim().startsWith('jwt='));
-            if (jwtCookie) {
-                const token = jwtCookie.split('=')[1].trim();
-                this.jwtToken = token;
-                console.log('[PANCAKE] Token loaded from cookie');
-                return token;
-            }
-        } catch (error) {
-            console.error('[PANCAKE] Error reading JWT from cookie:', error);
+    async getToken() {
+        if (!window.pancakeTokenManager) {
+            console.error('[PANCAKE] PancakeTokenManager not available');
+            return null;
         }
-        return null;
-    }
 
-    /**
-     * Lấy token - ưu tiên từ cookie, fallback về manual token
-     * @returns {string|null}
-     */
-    getToken() {
-        if (!this.jwtToken) {
-            this.getTokenFromCookie();
-        }
-        return this.jwtToken;
+        // PancakeTokenManager tự động lấy từ Firebase hoặc Cookie
+        const token = await window.pancakeTokenManager.getToken();
+        return token;
     }
 
     /**
      * Build headers với referer để giống browser thật
+     * @param {string} token - JWT token
      * @returns {Object}
      */
-    getHeaders() {
-        const token = this.getToken();
+    getHeaders(token) {
         if (!token) {
-            throw new Error('JWT token not found. Please login to Pancake.vn first.');
+            throw new Error('JWT token not found. Please login to Pancake.vn or set token in settings.');
         }
 
         return {
@@ -106,12 +78,12 @@ class PancakeDataManager {
             this.isLoadingPages = true;
             console.log('[PANCAKE] Fetching pages from API...');
 
-            const token = this.getToken();
+            const token = await this.getToken();
             const url = `${this.API_BASE}/pages?access_token=${token}`;
 
             const response = await fetch(url, {
                 method: 'GET',
-                headers: this.getHeaders()
+                headers: this.getHeaders(token)
             });
 
             console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
@@ -179,7 +151,7 @@ class PancakeDataManager {
             this.isLoading = true;
             console.log('[PANCAKE] Fetching conversations from API...');
 
-            const token = this.getToken();
+            const token = await this.getToken();
 
             // Build query params - format: pages[pageId]=offset
             const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
@@ -190,7 +162,7 @@ class PancakeDataManager {
 
             const response = await fetch(url, {
                 method: 'GET',
-                headers: this.getHeaders()
+                headers: this.getHeaders(token)
             });
 
             console.log('[PANCAKE] Conversations response status:', response.status, response.statusText);
