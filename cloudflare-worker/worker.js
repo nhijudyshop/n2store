@@ -3,6 +3,63 @@
  * Bypass CORS for tomato.tpos.vn and pancake.vn API calls
  */
 
+// =====================================================
+// TPOS TOKEN CACHE (In-memory)
+// =====================================================
+const tokenCache = {
+  access_token: null,
+  expiry: null,
+  expires_in: null,
+  token_type: null
+};
+
+/**
+ * Check if cached token is still valid
+ * @returns {boolean}
+ */
+function isCachedTokenValid() {
+  if (!tokenCache.access_token || !tokenCache.expiry) {
+    return false;
+  }
+
+  // Add 5-minute buffer before expiry
+  const buffer = 5 * 60 * 1000;
+  const now = Date.now();
+
+  return now < (tokenCache.expiry - buffer);
+}
+
+/**
+ * Cache token data
+ * @param {object} tokenData - Token response from TPOS
+ */
+function cacheToken(tokenData) {
+  const expiryTimestamp = Date.now() + (tokenData.expires_in * 1000);
+
+  tokenCache.access_token = tokenData.access_token;
+  tokenCache.expiry = expiryTimestamp;
+  tokenCache.expires_in = tokenData.expires_in;
+  tokenCache.token_type = tokenData.token_type || 'Bearer';
+
+  console.log('[WORKER-TOKEN] ✅ Token cached, expires at:', new Date(expiryTimestamp).toISOString());
+}
+
+/**
+ * Get cached token if valid
+ * @returns {object|null}
+ */
+function getCachedToken() {
+  if (isCachedTokenValid()) {
+    console.log('[WORKER-TOKEN] ✅ Using cached token');
+    return {
+      access_token: tokenCache.access_token,
+      expires_in: Math.floor((tokenCache.expiry - Date.now()) / 1000),
+      token_type: tokenCache.token_type
+    };
+  }
+  return null;
+}
+
 export default {
   async fetch(request, env, ctx) {
     // Handle CORS preflight
@@ -21,6 +78,84 @@ export default {
       // Parse request URL
       const url = new URL(request.url);
       const pathname = url.pathname;
+
+      // ========== SPECIAL HANDLER: TOKEN ENDPOINT WITH CACHING ==========
+      if (pathname === '/api/token' && request.method === 'POST') {
+        // Check cache first
+        const cachedToken = getCachedToken();
+        if (cachedToken) {
+          console.log('[WORKER-TOKEN] 🚀 Returning cached token');
+          return new Response(JSON.stringify(cachedToken), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+
+        // Cache miss - fetch new token from TPOS
+        console.log('[WORKER-TOKEN] 🔄 Cache miss, fetching new token from TPOS...');
+
+        try {
+          // Parse request body to get credentials
+          const requestBody = await request.text();
+
+          // Forward to TPOS token endpoint
+          const tposResponse = await fetch('https://tomato.tpos.vn/token', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json, text/plain, */*',
+              'content-type': 'application/json;charset=UTF-8',
+              'tposappversion': '5.11.16.1',
+              'x-tpos-lang': 'vi',
+              'Referer': 'https://tomato.tpos.vn/'
+            },
+            body: requestBody,
+          });
+
+          if (!tposResponse.ok) {
+            const errorText = await tposResponse.text();
+            console.error(`[WORKER-TOKEN] ❌ TPOS error ${tposResponse.status}:`, errorText);
+            throw new Error(`TPOS API responded with ${tposResponse.status}: ${tposResponse.statusText}`);
+          }
+
+          const tokenData = await tposResponse.json();
+
+          // Validate response
+          if (!tokenData.access_token) {
+            console.error('[WORKER-TOKEN] ❌ Response missing access_token:', tokenData);
+            throw new Error('Invalid token response - missing access_token');
+          }
+
+          // Cache the token
+          cacheToken(tokenData);
+
+          console.log('[WORKER-TOKEN] ✅ New token fetched and cached');
+
+          // Return token data
+          return new Response(JSON.stringify(tokenData), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+
+        } catch (error) {
+          console.error('[WORKER-TOKEN] ❌ Error fetching token:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to fetch token',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
 
       let targetUrl;
       let targetHeaders = new Headers(request.headers);
