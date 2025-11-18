@@ -8,7 +8,7 @@ const fetch = require('node-fetch');
 const https = require('https');
 const router = express.Router();
 
-const TPOS_TOKEN_URL = 'https://services.tpos.dev/oauth/token';
+const TPOS_TOKEN_URL = 'https://tomato.tpos.vn/token';
 
 // Create HTTPS agent that ignores SSL certificate errors
 // TPOS uses self-signed certificate
@@ -32,32 +32,42 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // Create form data
-        const params = new URLSearchParams();
-        params.append('grant_type', grant_type);
-        params.append('username', username);
-        params.append('password', password);
-        params.append('client_id', client_id);
+        // Create form data (URL-encoded format)
+        const formBody = `grant_type=${encodeURIComponent(grant_type)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&client_id=${encodeURIComponent(client_id)}`;
 
         // Request token from TPOS
         const response = await fetch(TPOS_TOKEN_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'accept': 'application/json, text/plain, */*',
+                'content-type': 'application/json;charset=UTF-8',
+                'tposappversion': '5.11.16.1',
+                'x-tpos-lang': 'vi',
+                'Referer': 'https://tomato.tpos.vn/'
             },
-            body: params.toString(),
+            body: formBody,
             agent: httpsAgent  // Use agent that ignores SSL errors
         });
 
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[TOKEN] ❌ TPOS error ${response.status}:`, errorText);
             throw new Error(`TPOS API responded with ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
 
-        console.log('[TOKEN] ✅ Token obtained successfully');
+        // Validate response contains access_token
+        if (!data.access_token) {
+            console.error('[TOKEN] ❌ Response missing access_token:', data);
+            throw new Error('Invalid token response - missing access_token');
+        }
 
-        // Return token data
+        console.log('[TOKEN] ✅ Token obtained successfully');
+        console.log('[TOKEN] Token expires in:', data.expires_in, 'seconds');
+        console.log('[TOKEN] Token type:', data.token_type);
+
+        // Return token data (includes access_token, expires_in, refresh_token, etc.)
         res.json(data);
 
     } catch (error) {
