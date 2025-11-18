@@ -1456,6 +1456,9 @@
                     // Remove content within parentheses () to get base name
                     commonName = commonName.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
 
+                    // Remove existing price at the end (e.g., "190k", "150K") to avoid duplication
+                    commonName = commonName.replace(/\s*\d+\.?\d*\s*[kK]\s*$/g, '').trim();
+
                     // Get price: use ListPrice or PriceVariant from first variant
                     const price = firstVariant.ListPrice || firstVariant.PriceVariant || 0;
 
