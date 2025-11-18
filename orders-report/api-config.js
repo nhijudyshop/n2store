@@ -67,46 +67,90 @@ const API_CONFIG = {
     },
 
     /**
-     * Smart Fetch with automatic fallback
-     * Tries Cloudflare first, falls back to Render on 500 errors
+     * Smart Fetch with automatic fallback and retry mechanism
+     * Tries Cloudflare first (with retries), falls back to Render on failures (with retries)
      * @param {string} url - Full URL (should start with WORKER_URL)
      * @param {object} options - Fetch options
+     * @param {number} maxRetries - Maximum number of retries per endpoint (default: 3)
      * @returns {Promise<Response>}
      */
-    smartFetch: async function(url, options = {}) {
+    smartFetch: async function(url, options = {}, maxRetries = 3) {
         const originalUrl = url;
 
-        // Try primary (Cloudflare)
-        try {
-            console.log(`[API] 🌐 Trying Cloudflare: ${url}`);
-            const response = await fetch(url, options);
+        /**
+         * Helper function to retry fetch with exponential backoff
+         * @param {string} targetUrl - URL to fetch
+         * @param {object} fetchOptions - Fetch options
+         * @param {number} retries - Number of retries remaining
+         * @param {string} label - Label for logging (e.g., "Cloudflare", "Fallback")
+         * @returns {Promise<Response>}
+         */
+        const fetchWithRetry = async (targetUrl, fetchOptions, retries, label) => {
+            for (let attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    if (attempt === 1) {
+                        console.log(`[API] 🌐 Trying ${label}: ${targetUrl}`);
+                    } else {
+                        console.log(`[API] 🔄 Retry ${attempt}/${retries} for ${label}: ${targetUrl}`);
+                    }
 
-            // If 500 error, try fallback
-            if (response.status === 500) {
-                console.warn('[API] ⚠️ Cloudflare returned 500, trying fallback...');
-                throw new Error('Cloudflare returned 500');
+                    const response = await fetch(targetUrl, fetchOptions);
+
+                    // If 500 error on Cloudflare, don't retry - go straight to fallback
+                    if (response.status === 500 && label === 'Cloudflare') {
+                        console.warn(`[API] ⚠️ ${label} returned 500, switching to fallback...`);
+                        throw new Error(`${label} returned 500`);
+                    }
+
+                    // If response is ok, return it
+                    if (response.ok) {
+                        if (attempt > 1) {
+                            console.log(`[API] ✅ ${label} success after ${attempt} attempts`);
+                        } else {
+                            console.log(`[API] ✅ ${label} success`);
+                        }
+                        return response;
+                    }
+
+                    // If not ok but not 500, throw to retry
+                    throw new Error(`HTTP ${response.status}`);
+
+                } catch (error) {
+                    const isLastAttempt = attempt === retries;
+
+                    if (isLastAttempt) {
+                        console.error(`[API] ❌ ${label} failed after ${retries} attempts:`, error.message);
+                        throw error;
+                    }
+
+                    // Exponential backoff: 1s, 2s, 4s
+                    const delay = Math.pow(2, attempt - 1) * 1000;
+                    console.warn(`[API] ⏳ ${label} attempt ${attempt} failed, retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
             }
+        };
+
+        // Try primary (Cloudflare) with retries
+        try {
+            const response = await fetchWithRetry(url, options, maxRetries, 'Cloudflare');
 
             // Success
             if (!this._isFallbackActive && response.ok) {
-                console.log('[API] ✅ Cloudflare success');
+                // Already logged in fetchWithRetry
             }
 
             return response;
 
         } catch (error) {
-            console.error('[API] ❌ Cloudflare failed:', error.message);
-
-            // Try fallback (Render.com)
+            // Try fallback (Render.com) with retries
             const fallbackUrl = url.replace(WORKER_URL, FALLBACK_URL);
-            console.log(`[API] 🔄 Trying fallback: ${fallbackUrl}`);
+            console.log(`[API] 🔄 Switching to fallback endpoint...`);
 
             try {
-                const fallbackResponse = await fetch(fallbackUrl, options);
+                const fallbackResponse = await fetchWithRetry(fallbackUrl, options, maxRetries, 'Fallback');
 
                 if (fallbackResponse.ok) {
-                    console.log('[API] ✅ Fallback success');
-
                     // Mark fallback as active
                     if (!this._isFallbackActive) {
                         this._isFallbackActive = true;
@@ -117,8 +161,8 @@ const API_CONFIG = {
                 return fallbackResponse;
 
             } catch (fallbackError) {
-                console.error('[API] ❌ Fallback also failed:', fallbackError.message);
-                throw new Error(`Both Cloudflare and Fallback failed. Original error: ${error.message}`);
+                console.error('[API] ❌ Both Cloudflare and Fallback failed after retries');
+                throw new Error(`Both endpoints failed. Cloudflare: ${error.message}, Fallback: ${fallbackError.message}`);
             }
         }
     },
