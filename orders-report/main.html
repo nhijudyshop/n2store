@@ -257,10 +257,16 @@
         </div>
 
         <!-- Scripts -->
+        <!-- Version must be loaded first -->
+        <script src="version.js"></script>
+
         <script src="auth.js"></script>
         <script src="cache.js"></script>
         <script src="notification-system.js"></script>
         <script src="token-manager.js"></script>
+
+        <!-- Version checker (after Firebase is initialized) -->
+        <script src="version-checker.js"></script>
 
         <script>
             // Initialize Lucide icons
