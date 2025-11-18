@@ -5,14 +5,17 @@
 class PancakeDataManager {
     constructor() {
         this.conversations = [];
-        this.conversationMap = new Map(); // Map PSID -> conversation
+        this.conversationMapByPSID = new Map(); // Map PSID -> conversation (for INBOX)
+        this.conversationMapByFBID = new Map(); // Map Facebook ID -> conversation (for COMMENT)
         this.pages = [];
         this.pageIds = [];
         this.isLoading = false;
         this.isLoadingPages = false;
         this.lastFetchTime = null;
         this.lastPageFetchTime = null;
-        this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+        this.CACHE_DURATION = 30 * 1000; // 30 seconds - poll frequently for realtime updates
+        this.POLL_INTERVAL = 30 * 1000; // 30 seconds
+        this.pollingInterval = null;
     }
 
     /**
@@ -206,29 +209,47 @@ class PancakeDataManager {
     }
 
     /**
-     * Build Map từ PSID (from_psid) -> conversation để lookup nhanh
+     * Build Maps từ PSID và Facebook ID -> conversation để lookup nhanh
+     * - INBOX messages: có from_psid (dùng PSID map)
+     * - COMMENT messages: from_psid = null, chỉ có from.id (dùng FBID map)
      */
     buildConversationMap() {
-        this.conversationMap.clear();
+        this.conversationMapByPSID.clear();
+        this.conversationMapByFBID.clear();
 
         this.conversations.forEach(conv => {
-            // Pancake conversation có field from_psid
+            // Map by PSID (for INBOX messages)
             if (conv.from_psid) {
-                this.conversationMap.set(conv.from_psid, conv);
+                this.conversationMapByPSID.set(conv.from_psid, conv);
+            }
+
+            // Map by Facebook ID (for COMMENT messages or fallback)
+            if (conv.from && conv.from.id) {
+                this.conversationMapByFBID.set(conv.from.id, conv);
             }
         });
 
-        console.log(`[PANCAKE] Built conversation map: ${this.conversationMap.size} entries`);
+        console.log(`[PANCAKE] Built conversation maps - PSID: ${this.conversationMapByPSID.size}, FBID: ${this.conversationMapByFBID.size} entries`);
     }
 
     /**
-     * Lấy conversation theo Facebook PSID
-     * @param {string} psid - Facebook PSID (Facebook_ASUserId)
+     * Lấy conversation theo Facebook User ID
+     * Thử match theo PSID trước (cho INBOX), sau đó theo Facebook ID (cho COMMENT)
+     * @param {string} userId - Facebook User ID (Facebook_ASUserId)
      * @returns {Object|null}
      */
-    getConversationByPSID(psid) {
-        if (!psid) return null;
-        return this.conversationMap.get(psid) || null;
+    getConversationByUserId(userId) {
+        if (!userId) return null;
+
+        // Try PSID first (for INBOX messages)
+        let conversation = this.conversationMapByPSID.get(userId);
+
+        // Fallback to Facebook ID (for COMMENT messages)
+        if (!conversation) {
+            conversation = this.conversationMapByFBID.get(userId);
+        }
+
+        return conversation || null;
     }
 
     /**
@@ -237,16 +258,16 @@ class PancakeDataManager {
      * @returns {Object} { hasUnread, unreadCount }
      */
     getUnreadInfoForOrder(order) {
-        const psid = order.Facebook_ASUserId;
+        const userId = order.Facebook_ASUserId;
 
-        if (!psid) {
+        if (!userId) {
             return {
                 hasUnread: false,
                 unreadCount: 0
             };
         }
 
-        const conversation = this.getConversationByPSID(psid);
+        const conversation = this.getConversationByUserId(userId);
 
         if (!conversation) {
             return {
@@ -271,12 +292,47 @@ class PancakeDataManager {
      * Mark conversation as read (tương tự TPOS)
      * Note: Pancake không có API public để mark as read từ ngoài,
      * chỉ để placeholder cho tương thích
-     * @param {string} psid - Facebook PSID
+     * @param {string} userId - Facebook User ID
      * @returns {Promise<boolean>}
      */
-    async markAsSeen(psid) {
+    async markAsSeen(userId) {
         console.warn('[PANCAKE] markAsSeen is not implemented - Pancake does not have public API for this');
         return false;
+    }
+
+    /**
+     * Bắt đầu polling conversations định kỳ (30 giây)
+     */
+    startPolling() {
+        console.log('[PANCAKE] Starting polling (30s interval)...');
+
+        // Clear existing interval
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+
+        // Poll immediately
+        this.fetchConversations(true);
+
+        // Then poll every 30 seconds
+        this.pollingInterval = setInterval(async () => {
+            console.log('[PANCAKE] Polling conversations...');
+            await this.fetchConversations(true);
+
+            // Notify UI to refresh
+            window.dispatchEvent(new CustomEvent('pancake-conversations-updated'));
+        }, this.POLL_INTERVAL);
+    }
+
+    /**
+     * Dừng polling
+     */
+    stopPolling() {
+        console.log('[PANCAKE] Stopping polling...');
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+        }
     }
 
     /**
@@ -297,7 +353,10 @@ class PancakeDataManager {
             await this.fetchPages();
             await this.fetchConversations();
 
-            console.log('[PANCAKE] ✅ Initialized successfully');
+            // Start polling for realtime updates
+            this.startPolling();
+
+            console.log('[PANCAKE] ✅ Initialized successfully with polling enabled');
             return true;
 
         } catch (error) {

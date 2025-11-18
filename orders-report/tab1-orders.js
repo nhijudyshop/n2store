@@ -98,24 +98,10 @@ window.addEventListener("DOMContentLoaded", async function () {
         // Then initialize data manager
         window.pancakeDataManager.initialize().then(success => {
             if (success) {
-                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
+                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully with polling enabled');
                 // Re-render table with unread info if orders already loaded
                 if (allData.length > 0) {
                     performTableSearch();
-                }
-
-                // Initialize WebSocket for realtime updates
-                if (window.pancakeWebSocketManager) {
-                    console.log('[PANCAKE-WS] Initializing WebSocket for realtime updates...');
-                    window.pancakeWebSocketManager.initialize().then(wsSuccess => {
-                        if (wsSuccess) {
-                            console.log('[PANCAKE-WS] ✅ WebSocket connected - realtime updates enabled');
-                        } else {
-                            console.warn('[PANCAKE-WS] ⚠️ WebSocket connection failed - using polling mode');
-                        }
-                    }).catch(wsError => {
-                        console.error('[PANCAKE-WS] ❌ WebSocket error:', wsError);
-                    });
                 }
             } else {
                 console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
@@ -128,14 +114,14 @@ window.addEventListener("DOMContentLoaded", async function () {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
 
-    // Listen for realtime conversation updates from WebSocket
-    window.addEventListener('pancake-conversation-update', function(event) {
-        console.log('[PANCAKE-WS] 🔔 Realtime conversation update received:', event.detail);
+    // Listen for conversation updates from polling
+    window.addEventListener('pancake-conversations-updated', function(event) {
+        console.log('[PANCAKE] 🔔 Conversations updated from polling');
 
         // The conversation map is already updated in PancakeDataManager
         // Just refresh the UI to show the new unread status
         if (allData.length > 0) {
-            console.log('[PANCAKE-WS] 📊 Refreshing table with new unread status...');
+            console.log('[PANCAKE] 📊 Refreshing table with new unread status...');
             performTableSearch();
         }
     });
