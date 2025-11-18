@@ -37,29 +37,40 @@
      * @param {string} productCode - Product code
      * @param {number} quantity - Quantity
      * @param {number} price - Price
+     * @param {number} timestamp - Optional timestamp (defaults to current time)
      * @returns {string} Encoded string
      */
-    function encodeProductLine(productCode, quantity, price) {
-        const rawString = `${productCode}|${quantity}|${price}`;
+    function encodeProductLine(productCode, quantity, price, timestamp = null) {
+        // Generate timestamp if not provided to ensure uniqueness
+        const ts = timestamp || Date.now();
+        const rawString = `${productCode}|${quantity}|${price}|${ts}`;
         return xorEncrypt(rawString, ENCODE_KEY);
     }
 
     /**
      * Decode product line
      * @param {string} encoded - Encoded string
-     * @returns {object|null} { productCode, quantity, price } or null if invalid
+     * @returns {object|null} { productCode, quantity, price, timestamp } or null if invalid
      */
     function decodeProductLine(encoded) {
         try {
             const decoded = xorDecrypt(encoded, ENCODE_KEY);
             const parts = decoded.split('|');
-            if (parts.length !== 3) return null;
+            // Support both old format (3 parts) and new format (4 parts with timestamp)
+            if (parts.length !== 3 && parts.length !== 4) return null;
 
-            return {
+            const result = {
                 productCode: parts[0],
                 quantity: parseInt(parts[1]),
                 price: parseFloat(parts[2])
             };
+
+            // Add timestamp if present
+            if (parts.length === 4) {
+                result.timestamp = parseInt(parts[3]);
+            }
+
+            return result;
         } catch (error) {
             console.error('Decode error:', error);
             return null;
