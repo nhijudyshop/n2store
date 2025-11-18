@@ -286,6 +286,88 @@ class PancakeDataManager {
     }
 
     /**
+     * Lấy unread info cho TIN NHẮN (INBOX only)
+     * @param {Object} order - Order object (có Facebook_ASUserId)
+     * @returns {Object} { hasUnread, unreadCount }
+     */
+    getMessageUnreadInfoForOrder(order) {
+        const userId = order.Facebook_ASUserId;
+
+        if (!userId) {
+            return {
+                hasUnread: false,
+                unreadCount: 0
+            };
+        }
+
+        const conversation = this.getConversationByUserId(userId);
+
+        if (!conversation) {
+            return {
+                hasUnread: false,
+                unreadCount: 0
+            };
+        }
+
+        // Chỉ check INBOX conversations (có from_psid)
+        if (conversation.type !== 'INBOX') {
+            return {
+                hasUnread: false,
+                unreadCount: 0
+            };
+        }
+
+        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
+        const unreadCount = conversation.unread_count || 0;
+
+        return {
+            hasUnread,
+            unreadCount
+        };
+    }
+
+    /**
+     * Lấy unread info cho BÌNH LUẬN (COMMENT only)
+     * @param {Object} order - Order object (có Facebook_ASUserId)
+     * @returns {Object} { hasUnread, unreadCount }
+     */
+    getCommentUnreadInfoForOrder(order) {
+        const userId = order.Facebook_ASUserId;
+
+        if (!userId) {
+            return {
+                hasUnread: false,
+                unreadCount: 0
+            };
+        }
+
+        const conversation = this.getConversationByUserId(userId);
+
+        if (!conversation) {
+            return {
+                hasUnread: false,
+                unreadCount: 0
+            };
+        }
+
+        // Chỉ check COMMENT conversations
+        if (conversation.type !== 'COMMENT') {
+            return {
+                hasUnread: false,
+                unreadCount: 0
+            };
+        }
+
+        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
+        const unreadCount = conversation.unread_count || 0;
+
+        return {
+            hasUnread,
+            unreadCount
+        };
+    }
+
+    /**
      * Mark conversation as read (tương tự TPOS)
      * Note: Pancake không có API public để mark as read từ ngoài,
      * chỉ để placeholder cho tương thích

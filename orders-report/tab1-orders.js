@@ -377,14 +377,28 @@ function performTableSearch() {
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
 
-    // Apply unread filter (from Pancake)
-    const unreadFilter = document.getElementById('unreadFilter')?.value || 'all';
-    if (unreadFilter !== 'all' && window.pancakeDataManager) {
+    // Apply messages unread filter (INBOX only - from Pancake)
+    const messagesUnreadFilter = document.getElementById('messagesUnreadFilter')?.value || 'all';
+    if (messagesUnreadFilter !== 'all' && window.pancakeDataManager) {
         tempData = tempData.filter(order => {
-            const unreadInfo = window.pancakeDataManager.getUnreadInfoForOrder(order);
-            if (unreadFilter === 'unread') {
+            const unreadInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
+            if (messagesUnreadFilter === 'unread') {
                 return unreadInfo.hasUnread;
-            } else if (unreadFilter === 'read') {
+            } else if (messagesUnreadFilter === 'read') {
+                return !unreadInfo.hasUnread;
+            }
+            return true;
+        });
+    }
+
+    // Apply comments unread filter (COMMENT only - from Pancake)
+    const commentsUnreadFilter = document.getElementById('commentsUnreadFilter')?.value || 'all';
+    if (commentsUnreadFilter !== 'all' && window.pancakeDataManager) {
+        tempData = tempData.filter(order => {
+            const unreadInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
+            if (commentsUnreadFilter === 'unread') {
+                return unreadInfo.hasUnread;
+            } else if (commentsUnreadFilter === 'read') {
                 return !unreadInfo.hasUnread;
             }
             return true;
