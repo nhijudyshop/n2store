@@ -920,7 +920,11 @@
                 database.ref('productAssignments').set(dataWithTimestamp)
                     .then(() => {
                         console.log('[SAVE] ✅ Firebase save success');
-                        isLocalUpdate = false;
+                        // Delay resetting isLocalUpdate to prevent race condition with Firebase listener
+                        setTimeout(() => {
+                            isLocalUpdate = false;
+                            console.log('[SAVE] 🔓 isLocalUpdate reset to false');
+                        }, 500); // Wait 500ms after save to let Firebase listener settle
                     })
                     .catch(error => {
                         console.error('[SAVE] ❌ Firebase save error:', error);
