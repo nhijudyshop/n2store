@@ -13,9 +13,7 @@ class PancakeDataManager {
         this.isLoadingPages = false;
         this.lastFetchTime = null;
         this.lastPageFetchTime = null;
-        this.CACHE_DURATION = 30 * 1000; // 30 seconds - poll frequently for realtime updates
-        this.POLL_INTERVAL = 30 * 1000; // 30 seconds
-        this.pollingInterval = null;
+        this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     }
 
     /**
@@ -300,41 +298,6 @@ class PancakeDataManager {
     }
 
     /**
-     * Bắt đầu polling conversations định kỳ (30 giây)
-     */
-    startPolling() {
-        console.log('[PANCAKE] Starting polling (30s interval)...');
-
-        // Clear existing interval
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-        }
-
-        // Poll immediately
-        this.fetchConversations(true);
-
-        // Then poll every 30 seconds
-        this.pollingInterval = setInterval(async () => {
-            console.log('[PANCAKE] Polling conversations...');
-            await this.fetchConversations(true);
-
-            // Notify UI to refresh
-            window.dispatchEvent(new CustomEvent('pancake-conversations-updated'));
-        }, this.POLL_INTERVAL);
-    }
-
-    /**
-     * Dừng polling
-     */
-    stopPolling() {
-        console.log('[PANCAKE] Stopping polling...');
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-        }
-    }
-
-    /**
      * Initialize - load token và fetch data
      * @returns {Promise<boolean>}
      */
@@ -352,10 +315,7 @@ class PancakeDataManager {
             await this.fetchPages();
             await this.fetchConversations();
 
-            // Start polling for realtime updates
-            this.startPolling();
-
-            console.log('[PANCAKE] ✅ Initialized successfully with polling enabled');
+            console.log('[PANCAKE] ✅ Initialized successfully');
             return true;
 
         } catch (error) {

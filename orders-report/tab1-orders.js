@@ -98,7 +98,7 @@ window.addEventListener("DOMContentLoaded", async function () {
         // Then initialize data manager
         window.pancakeDataManager.initialize().then(success => {
             if (success) {
-                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully with polling enabled');
+                console.log('[PANCAKE] ✅ PancakeDataManager initialized successfully');
                 // Re-render table with unread info if orders already loaded
                 if (allData.length > 0) {
                     performTableSearch();
@@ -113,18 +113,6 @@ window.addEventListener("DOMContentLoaded", async function () {
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
-
-    // Listen for conversation updates from polling
-    window.addEventListener('pancake-conversations-updated', function(event) {
-        console.log('[PANCAKE] 🔔 Conversations updated from polling');
-
-        // The conversation map is already updated in PancakeDataManager
-        // Just refresh the UI to show the new unread status
-        if (allData.length > 0) {
-            console.log('[PANCAKE] 📊 Refreshing table with new unread status...');
-            performTableSearch();
-        }
-    });
 
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
@@ -1433,7 +1421,7 @@ function renderCommentsColumn(order) {
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    const commentInfo = window.chatDataManager.getLastCommentForOrder(orderChatInfo.channelId, orderChatInfo.psid);
+    const commentInfo = window.chatDataManager.getLastCommentForOrder(orderChatInfo.channelId, orderChatInfo.psid, order);
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 

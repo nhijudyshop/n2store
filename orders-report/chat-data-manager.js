@@ -423,9 +423,10 @@ class ChatDataManager {
      * Lấy comment cuối cùng cho order từ comment conversation map
      * @param {string} channelId - Facebook Page ID (not used, kept for compatibility)
      * @param {string} userId - Facebook PSID
+     * @param {Object} order - Order object (for Pancake unread lookup)
      * @returns {Object} { message, messageType, hasUnread, unreadCount, type, commentsCount }
      */
-    getLastCommentForOrder(channelId, userId) {
+    getLastCommentForOrder(channelId, userId, order = null) {
         if (!userId) {
             return {
                 message: null,
@@ -467,11 +468,17 @@ class ChatDataManager {
         const message = lastComment.Message || null;
         const messageType = lastComment.Type === 1 ? 'text' : 'other';
 
-        // FIX: Chỉ hiển thị unread nếu comment cuối KHÔNG phải của owner (shop)
-        // Nếu comment cuối là của shop thì shop đã biết rồi, không cần đánh dấu unread
-        const isOwnerComment = lastComment.IsOwner === true;
-        const hasUnread = !isOwnerComment && (commentConv.LastActivities?.HasUnread || false);
-        const unreadCount = !isOwnerComment ? (commentConv.LastActivities?.UnreadCount || 0) : 0;
+        // ====== UNREAD FROM PANCAKE ======
+        // Lấy unread info từ Pancake thay vì TPOS
+        let hasUnread = false;
+        let unreadCount = 0;
+
+        if (window.pancakeDataManager && order) {
+            const pancakeUnread = window.pancakeDataManager.getUnreadInfoForOrder(order);
+            hasUnread = pancakeUnread.hasUnread;
+            unreadCount = pancakeUnread.unreadCount;
+        }
+        // ==================================
 
         return {
             message,
