@@ -179,28 +179,20 @@
     // Use: const headers = await window.tokenManager.getAuthHeader();
     // Then: fetch(url, { method: 'PUT', headers: { ...headers, ... }, ... })
 
-    // Load Assignments Data from localStorage (SOURCE OF TRUTH)
-    function loadAssignmentsFromLocalStorage() {
+    // Load Assignments Data from Firebase (SOURCE OF TRUTH)
+    async function loadAssignmentsFromFirebase() {
         try {
-            const saved = localStorage.getItem('productAssignments');
-            if (saved) {
-                const data = JSON.parse(saved);
+            console.log('[LOAD] 🔥 Loading from Firebase...');
 
-                // Handle both old format (array) and new format (object with timestamp)
-                let rawAssignments = [];
-                if (Array.isArray(data)) {
-                    // Old format
-                    console.log('[LOAD] 📦 Old format detected');
-                    rawAssignments = data;
-                } else if (data && data.assignments) {
-                    // New format with timestamp
-                    console.log('[LOAD] ✅ New format with timestamp:', data._timestamp);
-                    rawAssignments = data.assignments;
-                } else {
-                    rawAssignments = [];
-                }
+            const snapshot = await database.ref('productAssignments').once('value');
+            const data = snapshot.val();
 
-                // Filter only products with STT assigned (DO NOT MUTATE original array)
+            if (data && data.assignments) {
+                console.log('[LOAD] ✅ Loaded from Firebase with timestamp:', data._timestamp);
+
+                const rawAssignments = data.assignments;
+
+                // Filter only products with STT assigned
                 const assignmentsWithSTT = rawAssignments.filter(a => a.sttList && a.sttList.length > 0);
 
                 // Use filtered array for display
@@ -213,14 +205,15 @@
                 renderTable();
                 updateTotalCount();
             } else {
-                console.log('[LOAD] ⚠️ No assignments data in localStorage');
+                console.log('[LOAD] ⚠️ No assignments data in Firebase');
                 assignments = [];
                 groupBySessionIndex();
                 renderTable();
                 updateTotalCount();
             }
         } catch (error) {
-            console.error('[LOAD] ❌ Error loading assignments:', error);
+            console.error('[LOAD] ❌ Error loading assignments from Firebase:', error);
+            showNotification('Lỗi tải dữ liệu: ' + error.message, 'error');
             assignments = [];
             groupBySessionIndex();
             renderTable();
@@ -228,9 +221,9 @@
         }
     }
 
-    // Backward compatibility - deprecated, use loadAssignmentsFromLocalStorage instead
-    function loadAssignments() {
-        loadAssignmentsFromLocalStorage();
+    // Backward compatibility
+    async function loadAssignments() {
+        return await loadAssignmentsFromFirebase();
     }
 
     // Group assignments by SessionIndex
@@ -850,10 +843,10 @@
         modalBody.innerHTML = html;
     }
 
-    // Remove uploaded STTs from productAssignments
-    async function removeUploadedSTTsFromAssignments(uploadedSTTs) {
+    // Remove uploaded STTs from Firebase
+    async function removeUploadedSTTsFromFirebase(uploadedSTTs) {
         try {
-            console.log('[REMOVE-STT] 🗑️ Removing uploaded STTs from productAssignments...');
+            console.log('[REMOVE-STT] 🗑️ Removing uploaded STTs from Firebase...');
             console.log('[REMOVE-STT] STTs to remove:', uploadedSTTs);
             console.log('[REMOVE-STT] STTs types:', uploadedSTTs.map(s => `${s} (${typeof s})`));
 
@@ -861,33 +854,16 @@
             const uploadedSTTsStr = uploadedSTTs.map(s => String(s));
             console.log('[REMOVE-STT] STTs as strings:', uploadedSTTsStr);
 
-            // Load current assignments from localStorage
-            const saved = localStorage.getItem('productAssignments');
-            if (!saved) {
-                console.log('[REMOVE-STT] No assignments found in localStorage');
+            // Load current assignments from Firebase
+            const snapshot = await database.ref('productAssignments').once('value');
+            const data = snapshot.val();
+
+            if (!data || !data.assignments) {
+                console.log('[REMOVE-STT] No assignments found in Firebase');
                 return { success: true, removedCount: 0, removedProducts: 0 };
             }
 
-            const data = JSON.parse(saved);
-
-            // Handle both old and new format
-            let productAssignments = [];
-            let isOldFormat = false;
-
-            if (Array.isArray(data)) {
-                // Old format
-                isOldFormat = true;
-                productAssignments = data;
-                console.log('[REMOVE-STT] Old format detected');
-            } else if (data && data.assignments) {
-                // New format
-                productAssignments = data.assignments;
-                console.log('[REMOVE-STT] New format detected, timestamp:', data._timestamp);
-            } else {
-                console.log('[REMOVE-STT] Invalid data format');
-                throw new Error('Invalid productAssignments format');
-            }
-
+            let productAssignments = data.assignments;
             console.log(`[REMOVE-STT] Current assignments: ${productAssignments.length} products`);
 
             // Log all current STTs in assignments before removal
@@ -940,20 +916,16 @@
             console.log(`[REMOVE-STT] ✅ Removed ${totalRemovedSTTs} STT entries from ${removedProducts} products`);
             console.log(`[REMOVE-STT] 📦 Remaining assignments: ${productAssignments.length} products`);
 
-            // Save updated assignments to localStorage with timestamp
+            // Save updated assignments to Firebase with timestamp
             const dataWithTimestamp = {
                 assignments: productAssignments,
                 _timestamp: Date.now(),
                 _version: 1
             };
 
-            localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
-            console.log('[REMOVE-STT] ✅ Saved to localStorage with timestamp:', dataWithTimestamp._timestamp);
-
-            // Save to Firebase
-            console.log('[REMOVE-STT] 📤 Syncing to Firebase:', productAssignments.length, 'products');
+            console.log('[REMOVE-STT] 📤 Saving to Firebase:', productAssignments.length, 'products');
             await database.ref('productAssignments').set(dataWithTimestamp);
-            console.log('[REMOVE-STT] ✅ Synced to Firebase successfully');
+            console.log('[REMOVE-STT] ✅ Saved to Firebase successfully');
 
             // Return success with stats
             return {
@@ -1183,18 +1155,18 @@
                 statusText.textContent = `✅ Upload thành công ${successCount} đơn hàng! Đang xóa sản phẩm...`;
 
                 try {
-                    // Step 1: Delete products
+                    // Step 1: Delete products from Firebase
                     const successfulSTTs = results.map(r => r.stt);
-                    const deleteResult = await removeUploadedSTTsFromAssignments(successfulSTTs);
+                    const deleteResult = await removeUploadedSTTsFromFirebase(successfulSTTs);
 
-                    console.log('[UPLOAD] ✅ Deleted:', deleteResult.removedCount, 'STT entries');
+                    console.log('[UPLOAD] ✅ Deleted:', deleteResult.removedCount, 'STT entries from Firebase');
 
-                    // Step 2: Read afterSnapshot (AFTER deletion completes)
-                    const afterData = localStorage.getItem('productAssignments');
-                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
+                    // Step 2: Read afterSnapshot from Firebase (AFTER deletion completes)
+                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const afterData = afterSnapshot.val();
 
                     // Step 3: Save history
-                    await saveToHistory(uploadId, results, 'completed', backupData, afterSnapshot);
+                    await saveToHistory(uploadId, results, 'completed', backupData, afterData);
 
                     // Step 4: Mark as committed
                     await markHistoryAsCommitted(uploadId);
@@ -1204,8 +1176,8 @@
                     progressBar.classList.remove('bg-primary');
                     progressBar.classList.add('bg-success');
 
-                    // Reload assignments table
-                    loadAssignmentsFromLocalStorage();
+                    // Firebase listener will auto-update UI, but can manually reload if needed
+                    // await loadAssignmentsFromFirebase();
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -1222,9 +1194,9 @@
                     progressBar.classList.add('bg-warning');
 
                     // Save history with special status
-                    const afterData = localStorage.getItem('productAssignments');
-                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
-                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot);
+                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const afterData = afterSnapshot.val();
+                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterData);
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -1241,18 +1213,18 @@
                 statusText.textContent = `⚠️ Thành công: ${successCount}, Thất bại: ${failCount}. Đang xóa sản phẩm thành công...`;
 
                 try {
-                    // Step 1: Delete ONLY successful STTs
+                    // Step 1: Delete ONLY successful STTs from Firebase
                     if (successfulSTTs.length > 0) {
-                        const deleteResult = await removeUploadedSTTsFromAssignments(successfulSTTs);
-                        console.log('[UPLOAD] ✅ Deleted successful STTs:', deleteResult.removedCount);
+                        const deleteResult = await removeUploadedSTTsFromFirebase(successfulSTTs);
+                        console.log('[UPLOAD] ✅ Deleted successful STTs from Firebase:', deleteResult.removedCount);
                     }
 
-                    // Step 2: Read afterSnapshot
-                    const afterData = localStorage.getItem('productAssignments');
-                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
+                    // Step 2: Read afterSnapshot from Firebase
+                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const afterData = afterSnapshot.val();
 
                     // Step 3: Save history
-                    await saveToHistory(uploadId, results, 'partial', backupData, afterSnapshot);
+                    await saveToHistory(uploadId, results, 'partial', backupData, afterData);
 
                     // Step 4: Mark as committed (cannot safely restore partial)
                     await markHistoryAsCommitted(uploadId);
@@ -1262,8 +1234,8 @@
                     progressBar.classList.remove('bg-primary');
                     progressBar.classList.add('bg-warning');
 
-                    // Reload table
-                    loadAssignmentsFromLocalStorage();
+                    // Firebase listener will auto-update UI
+                    // await loadAssignmentsFromFirebase();
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -1276,9 +1248,9 @@
                     statusText.textContent = `❌ Lỗi xử lý kết quả upload`;
 
                     // Try to save history anyway
-                    const afterData = localStorage.getItem('productAssignments');
-                    const afterSnapshot = afterData ? JSON.parse(afterData) : null;
-                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterSnapshot);
+                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const afterData = afterSnapshot.val();
+                    await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterData);
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -1925,10 +1897,11 @@
     };
 
     // Setup Firebase Listeners with timestamp-based conflict resolution
+    // Setup real-time Firebase listener for automatic updates
     function setupFirebaseListeners() {
-        console.log('[SYNC] 🔧 Setting up Firebase listeners...');
+        console.log('[SYNC] 🔧 Setting up Firebase real-time listener...');
 
-        let isFirstLoad = true; // Skip first trigger (we already loaded from localStorage)
+        let isFirstLoad = true; // Skip first trigger (we already loaded in init)
 
         database.ref('productAssignments').on('value', (snapshot) => {
             console.log('[SYNC] 🔔 Firebase listener triggered!');
@@ -1940,137 +1913,41 @@
                 return;
             }
 
-            // Read localStorage for comparison
-            const localData = localStorage.getItem('productAssignments');
-            const localParsed = localData ? JSON.parse(localData) : null;
-            const localTimestamp = localParsed?._timestamp || 0;
-
             // Read Firebase data
             const firebaseData = snapshot.val();
-            const firebaseTimestamp = firebaseData?._timestamp || 0;
 
-            console.log('[SYNC] 📊 Timestamp comparison:');
-            console.log('[SYNC]   localStorage:', localTimestamp, new Date(localTimestamp).toLocaleTimeString());
-            console.log('[SYNC]   Firebase:', firebaseTimestamp, new Date(firebaseTimestamp).toLocaleTimeString());
+            console.log('[SYNC] 🔄 Firebase data changed, updating UI...');
 
-            // Only update if Firebase is newer
-            if (firebaseTimestamp > localTimestamp) {
-                console.log('[SYNC] ✅ Firebase is newer, syncing to localStorage and updating display');
+            // Handle new format
+            if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
+                // Update display using filtered assignments
+                const assignmentsWithSTT = firebaseData.assignments.filter(a => a.sttList?.length > 0);
+                assignments = assignmentsWithSTT;
 
-                // Handle new format
-                if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
-                    // Update localStorage with Firebase data
-                    localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
+                groupBySessionIndex();
+                renderTable();
+                updateTotalCount();
 
-                    // Update display using filtered assignments
-                    const assignmentsWithSTT = firebaseData.assignments.filter(a => a.sttList?.length > 0);
-                    assignments = assignmentsWithSTT;
+                console.log('[SYNC] ✅ Updated from Firebase:', assignmentsWithSTT.length, 'products with STT');
+            }
+            // Handle empty/null data
+            else if (firebaseData === null || (firebaseData && (!firebaseData.assignments || firebaseData.assignments.length === 0))) {
+                console.log('[SYNC] 🗑️ Firebase is empty, clearing assignments');
 
-                    groupBySessionIndex();
-                    renderTable();
-                    updateTotalCount();
-
-                    console.log('[SYNC] 🔄 Synced from Firebase:', assignmentsWithSTT.length, 'products with STT');
-                }
-                // Handle old format (backward compatibility)
-                else if (firebaseData && Array.isArray(firebaseData)) {
-                    console.log('[SYNC] 📦 Old format detected, syncing...');
-
-                    // Convert to new format
-                    const dataWithTimestamp = {
-                        assignments: firebaseData,
-                        _timestamp: firebaseTimestamp || Date.now(),
-                        _version: 1
-                    };
-                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
-
-                    const assignmentsWithSTT = firebaseData.filter(a => a.sttList?.length > 0);
-                    assignments = assignmentsWithSTT;
-
-                    groupBySessionIndex();
-                    renderTable();
-                    updateTotalCount();
-
-                    console.log('[SYNC] 🔄 Synced old format:', assignmentsWithSTT.length, 'products');
-                }
-                // Handle empty/null data
-                else if (firebaseData === null) {
-                    console.log('[SYNC] 🗑️ Firebase is empty, clearing assignments');
-
-                    const dataWithTimestamp = {
-                        assignments: [],
-                        _timestamp: Date.now(),
-                        _version: 1
-                    };
-                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
-
-                    assignments = [];
-                    groupBySessionIndex();
-                    renderTable();
-                    updateTotalCount();
-                } else {
-                    console.log('[SYNC] ⚠️ Unexpected Firebase data format:', typeof firebaseData);
-                }
+                assignments = [];
+                groupBySessionIndex();
+                renderTable();
+                updateTotalCount();
             } else {
-                console.log('[SYNC] ⏭️ Skip sync: localStorage is newer or equal');
-                console.log('[SYNC]   Difference:', (localTimestamp - firebaseTimestamp) / 1000, 'seconds');
+                console.log('[SYNC] ⚠️ Unexpected Firebase data format:', typeof firebaseData);
             }
         });
 
-        console.log('[SYNC] ✅ Firebase listeners setup complete');
+        console.log('[SYNC] ✅ Firebase real-time listener setup complete');
     }
 
-    // =====================================================
-    // HELPER: Sync from Firebase if newer than localStorage
-    // =====================================================
-    // This function checks if Firebase has newer data than localStorage
-    // and syncs if needed. Used by visibility/focus listeners to prevent
-    // stale data from background tabs.
-    // Returns: true if synced, false if no sync needed
-    async function syncFromFirebaseIfNewer(eventType) {
-        try {
-            console.log(`[${eventType}] 🔍 Checking Firebase for updates...`);
-
-            // Step 1: Read localStorage timestamp
-            const localData = localStorage.getItem('productAssignments');
-            const localParsed = localData ? JSON.parse(localData) : null;
-            const localTimestamp = localParsed?._timestamp || 0;
-
-            // Step 2: Read ONLY Firebase timestamp (lightweight query)
-            const timestampSnapshot = await database.ref('productAssignments/_timestamp').once('value');
-            const firebaseTimestamp = timestampSnapshot.val() || 0;
-
-            console.log(`[${eventType}] 📊 Timestamp comparison:`);
-            console.log(`[${eventType}]   localStorage: ${localTimestamp} (${new Date(localTimestamp).toLocaleString('vi-VN')})`);
-            console.log(`[${eventType}]   Firebase: ${firebaseTimestamp} (${new Date(firebaseTimestamp).toLocaleString('vi-VN')})`);
-
-            // Step 3: Only fetch full data if Firebase is newer
-            if (firebaseTimestamp > localTimestamp) {
-                console.log(`[${eventType}] ⚠️ localStorage is STALE! Syncing from Firebase...`);
-
-                // Fetch full data from Firebase
-                const fullSnapshot = await database.ref('productAssignments').once('value');
-                const firebaseData = fullSnapshot.val();
-
-                if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
-                    // Update localStorage with newer data from Firebase
-                    localStorage.setItem('productAssignments', JSON.stringify(firebaseData));
-                    console.log(`[${eventType}] ✅ Synced from Firebase: ${firebaseData.assignments.length} products`);
-                    return true; // Data was synced
-                } else {
-                    console.warn(`[${eventType}] ⚠️ Firebase has newer timestamp but invalid data format`);
-                    return false;
-                }
-            } else {
-                console.log(`[${eventType}] ✅ localStorage is up-to-date (${(localTimestamp - firebaseTimestamp) / 1000}s newer)`);
-                return false; // No sync needed
-            }
-        } catch (error) {
-            console.error(`[${eventType}] ❌ Error checking Firebase:`, error);
-            console.log(`[${eventType}] 🔄 Falling back to localStorage (safe mode)`);
-            return false; // On error, trust localStorage (safe fallback)
-        }
-    }
+    // REMOVED: syncFromFirebaseIfNewer
+    // No longer needed - Firebase real-time listener handles all updates automatically
 
     // Load Orders Data from localStorage
     function loadOrdersData() {
@@ -2088,96 +1965,12 @@
         }
     }
 
-    // Setup localStorage event listener (for cross-tab sync)
-    function setupLocalStorageListener() {
-        // Note: storage event only fires in OTHER tabs, not the current tab
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'productAssignments') {
-                console.log('[STORAGE-EVENT] 🔔 productAssignments changed in another tab!');
-                console.log('[STORAGE-EVENT] Old value timestamp:', e.oldValue ? JSON.parse(e.oldValue)?._timestamp : 'null');
-                console.log('[STORAGE-EVENT] New value timestamp:', e.newValue ? JSON.parse(e.newValue)?._timestamp : 'null');
+    // REMOVED: No longer using localStorage sync
+    // Firebase real-time listener handles all updates automatically
 
-                // Reload from localStorage
-                loadAssignmentsFromLocalStorage();
-            }
-        });
-
-        console.log('[STORAGE-EVENT] ✅ localStorage event listener setup complete');
-    }
-
-    // Setup visibility change listener (reload when tab becomes visible)
-    function setupVisibilityListener() {
-        // Flag to prevent duplicate syncs from rapid tab switches
-        let isVisibilitySyncing = false;
-
-        document.addEventListener('visibilitychange', async () => {
-            if (!document.hidden && !isVisibilitySyncing) {
-                isVisibilitySyncing = true;
-                console.log('[VISIBILITY] 👁️ Tab became visible, checking for updates...');
-
-                try {
-                    // Check Firebase first (background tabs may have stale localStorage)
-                    const synced = await syncFromFirebaseIfNewer('VISIBILITY');
-
-                    // Reload data (from localStorage, which may have been synced above)
-                    loadAssignmentsFromLocalStorage();
-
-                    // Show notification only if data actually changed
-                    if (synced) {
-                        showNotification('🔄 Đã đồng bộ dữ liệu mới');
-                    }
-                } catch (error) {
-                    console.error('[VISIBILITY] ❌ Error during sync:', error);
-                    // Still load from localStorage as fallback
-                    loadAssignmentsFromLocalStorage();
-                } finally {
-                    // Release lock after 1 second to allow next sync
-                    setTimeout(() => {
-                        isVisibilitySyncing = false;
-                    }, 1000);
-                }
-            }
-        });
-
-        console.log('[VISIBILITY] ✅ Visibility change listener setup complete');
-    }
-
-    // Setup focus listener (reload when iframe gains focus)
-    function setupFocusListener() {
-        // Flag to prevent duplicate syncs
-        let isFocusSyncing = false;
-
-        window.addEventListener('focus', async () => {
-            if (!isFocusSyncing) {
-                isFocusSyncing = true;
-                console.log('[FOCUS] 🎯 Tab gained focus, checking for updates...');
-
-                try {
-                    // Check Firebase first (may be stale from background)
-                    const synced = await syncFromFirebaseIfNewer('FOCUS');
-
-                    // Reload data (from localStorage, which may have been synced above)
-                    loadAssignmentsFromLocalStorage();
-
-                    // Show notification only if data actually changed
-                    if (synced) {
-                        showNotification('🔄 Đã đồng bộ dữ liệu mới');
-                    }
-                } catch (error) {
-                    console.error('[FOCUS] ❌ Error during sync:', error);
-                    // Still load from localStorage as fallback
-                    loadAssignmentsFromLocalStorage();
-                } finally {
-                    // Release lock after 500ms (focus is less frequent than visibility)
-                    setTimeout(() => {
-                        isFocusSyncing = false;
-                    }, 500);
-                }
-            }
-        });
-
-        console.log('[FOCUS] ✅ Focus listener setup complete');
-    }
+    // REMOVED: setupVisibilityListener and setupFocusListener
+    // No longer needed - Firebase real-time listener handles all updates automatically
+    // Firebase will trigger the listener callback when data changes, regardless of tab visibility
 
     // =====================================================
     // HISTORY & BACKUP SYSTEM
@@ -2193,14 +1986,14 @@
             console.log('[BACKUP] 📦 Creating backup before upload...');
             console.log('[BACKUP] STTs to upload:', uploadedSTTs);
 
-            // 1. Load current productAssignments from localStorage
-            const saved = localStorage.getItem('productAssignments');
-            if (!saved) {
+            // 1. Load current productAssignments from Firebase
+            const snapshot = await database.ref('productAssignments').once('value');
+            const currentData = snapshot.val();
+
+            if (!currentData) {
                 console.log('[BACKUP] ⚠️ No assignments to backup');
                 throw new Error('Không có dữ liệu để backup');
             }
-
-            const currentData = JSON.parse(saved);
 
             // Validate data structure
             if (!currentData.assignments || !Array.isArray(currentData.assignments)) {
@@ -2387,25 +2180,12 @@
 
             console.log('[RESTORE] 📦 Restoring:', restoredData.assignments.length, 'products');
 
-            // 5. Set flag to prevent Firebase listener from double-rendering
-            isLocalUpdate = true;
-
-            // 6. Update localStorage
-            localStorage.setItem('productAssignments', JSON.stringify(restoredData));
-            console.log('[RESTORE] ✅ Restored to localStorage');
-
-            // 7. Sync to Firebase
+            // 5. Restore to Firebase (source of truth)
             await database.ref('productAssignments').set(restoredData);
-            console.log('[RESTORE] ✅ Synced to Firebase');
+            console.log('[RESTORE] ✅ Restored to Firebase');
 
-            // 8. Reload UI
-            loadAssignmentsFromLocalStorage();
-
-            // 9. Reset flag after Firebase listener processes
-            setTimeout(() => {
-                isLocalUpdate = false;
-                console.log('[RESTORE] 🔓 isLocalUpdate flag reset');
-            }, 2000);
+            // 8. UI will auto-update via Firebase listener
+            // await loadAssignmentsFromFirebase();
 
             // 10. Show notification
             showNotification('🔄 Đã khôi phục dữ liệu do upload thất bại');
@@ -2446,19 +2226,16 @@
 
             // Auth handled by tokenManager automatically when needed
 
-            // 1. Load orders data from localStorage
+            // 1. Load orders data from localStorage (backward compat)
             loadOrdersData();
 
-            // 2. Load assignments from localStorage FIRST (source of truth)
-            console.log('[INIT] 📱 Loading from localStorage (source of truth)...');
-            loadAssignmentsFromLocalStorage();
+            // 2. Load assignments from Firebase (SOURCE OF TRUTH)
+            console.log('[INIT] 🔥 Loading from Firebase (source of truth)...');
+            await loadAssignmentsFromFirebase();
 
-            // 3. Setup all listeners (do NOT overwrite localStorage unless Firebase is newer)
-            console.log('[INIT] 🔧 Setting up listeners...');
-            setupFirebaseListeners();       // Firebase sync (with timestamp check)
-            setupLocalStorageListener();    // Cross-tab sync via storage event
-            setupVisibilityListener();      // Reload when tab visible
-            setupFocusListener();           // Reload when iframe focused
+            // 3. Setup Firebase real-time listener for automatic updates
+            console.log('[INIT] 🔧 Setting up Firebase real-time listener...');
+            setupFirebaseListeners();       // Real-time Firebase sync
 
             // 4. Update UI
             updateSelectedCount();
