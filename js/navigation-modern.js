@@ -2065,8 +2065,8 @@ console.log("[Unified Nav] Script loaded successfully");
 
 window.APP_VERSION = {
     version: '1.0.0',
-    build: 6,
-    timestamp: '2025-11-18T11:45:42.780Z',
+    build: 7,
+    timestamp: '2025-11-18T12:00:57.644Z',
     branch: 'claude/remove-local-storage-tab3-0177sTRWFVomHmtjVqnzazEo'
 };
 
