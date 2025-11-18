@@ -86,7 +86,7 @@
     // Auth Functions
     async function getAuthToken() {
         try {
-            const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
+            const response = await API_CONFIG.smartFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',

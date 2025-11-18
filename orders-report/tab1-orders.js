@@ -175,7 +175,7 @@ async function loadAvailableTags() {
         console.log("[TAG] Loading tags from API...");
         const headers = await window.tokenManager.getAuthHeader();
 
-        const response = await fetch(
+        const response = await API_CONFIG.smartFetch(
             "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=320&$count=true",
             {
                 method: "GET",
@@ -312,7 +312,7 @@ async function saveOrderTags() {
             OrderId: currentEditingOrderId,
         };
         const headers = await window.tokenManager.getAuthHeader();
-        const response = await fetch(
+        const response = await API_CONFIG.smartFetch(
             "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
             {
                 method: "POST",
@@ -585,7 +585,7 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
         }
 
         const headers = await window.tokenManager.getAuthHeader();
-        const response = await fetch(url, {
+        const response = await API_CONFIG.smartFetch(url, {
             headers: { ...headers, accept: "application/json" },
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -943,7 +943,7 @@ async function fetchOrders() {
 
                     while (hasMore && !loadingAborted) {
                         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
-                        const response = await fetch(url, {
+                        const response = await API_CONFIG.smartFetch(url, {
                             headers: { ...headers, accept: "application/json" },
                         });
                         if (!response.ok) {
@@ -1174,7 +1174,7 @@ async function assignEmptyCartTagToSelected() {
                     OrderId: order.Id,
                 };
 
-                const response = await fetch(
+                const response = await API_CONFIG.smartFetch(
                     "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
                     {
                         method: "POST",
@@ -1760,7 +1760,7 @@ async function openEditModal(orderId) {
 async function fetchOrderData(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
     const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
-    const response = await fetch(apiUrl, {
+    const response = await API_CONFIG.smartFetch(apiUrl, {
         headers: {
             ...headers,
             "Content-Type": "application/json",
@@ -2047,7 +2047,7 @@ async function fetchAndDisplayAuditLog(orderId) {
     
     console.log('[AUDIT LOG] Fetching audit log for order:', orderId);
     
-    const response = await fetch(apiUrl, {
+    const response = await API_CONFIG.smartFetch(apiUrl, {
         headers: {
             ...headers,
             'Content-Type': 'application/json',
@@ -2359,7 +2359,7 @@ async function saveAllOrderChanges() {
         const headers = await window.tokenManager.getAuthHeader();
 
         // PUT request
-        const response = await fetch(
+        const response = await API_CONFIG.smartFetch(
             `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
             {
                 method: "PUT",
