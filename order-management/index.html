@@ -2040,6 +2040,8 @@
                             NameGet: productData.NameGet,
                             QtyAvailable: qtyAvailable,
                             ProductTmplId: productData.ProductTmplId,
+                            ListPrice: productData.ListPrice || 0,
+                            PriceVariant: productData.PriceVariant || 0,
                             imageUrl: imageUrl,
                             soldQty: 0,
                             remainingQty: qtyAvailable
@@ -2064,6 +2066,8 @@
                             NameGet: variant.NameGet,
                             QtyAvailable: qtyAvailable,
                             ProductTmplId: productData.ProductTmplId,
+                            ListPrice: variant.ListPrice || 0,
+                            PriceVariant: variant.PriceVariant || 0,
                             imageUrl: variantImageUrl,
                             soldQty: 0,
                             remainingQty: qtyAvailable,
@@ -2104,6 +2108,8 @@
                         NameGet: productData.NameGet,
                         QtyAvailable: qtyAvailable,
                         ProductTmplId: productData.ProductTmplId,
+                        ListPrice: productData.ListPrice || 0,
+                        PriceVariant: productData.PriceVariant || 0,
                         imageUrl: imageUrl,
                         soldQty: 0,
                         remainingQty: qtyAvailable
