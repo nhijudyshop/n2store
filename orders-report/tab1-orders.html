@@ -66,6 +66,12 @@
                 <input type="datetime-local" id="startDate" />
                 <label>Đến ngày:</label>
                 <input type="datetime-local" id="endDate" />
+                <label>Tin nhắn:</label>
+                <select id="unreadFilter" style="min-width: 150px">
+                    <option value="all" selected>Tất cả</option>
+                    <option value="unread">Chưa đọc</option>
+                    <option value="read">Đã đọc</option>
+                </select>
                 <button
                     class="btn-primary"
                     id="clearCacheBtn"
@@ -433,6 +439,7 @@
         <script src="cache.js"></script>
         <script src="auth.js"></script>
         <script src="notification-system.js"></script>
+        <script src="pancake-data-manager.js"></script>
         <script src="chat-data-manager.js"></script>
         <script src="message-template-manager.js"></script>
         <script src="product-search-manager.js"></script>

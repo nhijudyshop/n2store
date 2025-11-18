@@ -393,11 +393,20 @@ class ChatDataManager {
         const messageType = messageObj.Type || 'text';
         const attachments = messageObj.Attachments || null;
 
-        // FIX: Chỉ hiển thị unread nếu tin nhắn cuối KHÔNG phải của owner (shop)
-        // Nếu tin nhắn cuối là của shop thì shop đã biết rồi, không cần đánh dấu unread
-        const isOwnerMessage = messageObj.IsOwner === true;
-        const hasUnread = !isOwnerMessage && (conv.LastActivities?.HasUnread || false);
-        const unreadCount = !isOwnerMessage ? (conv.LastActivities?.UnreadCount || 0) : 0;
+        // ====== UNREAD FROM PANCAKE ======
+        // Lấy unread info từ Pancake thay vì TPOS
+        let hasUnread = false;
+        let unreadCount = 0;
+
+        if (window.pancakeDataManager) {
+            const pancakeUnread = window.pancakeDataManager.getUnreadInfoForOrder(order);
+            hasUnread = pancakeUnread.hasUnread;
+            unreadCount = pancakeUnread.unreadCount;
+            console.log(`[CHAT] Pancake unread for order ${order.Facebook_ASUserId}:`, pancakeUnread);
+        } else {
+            console.warn('[CHAT] PancakeDataManager not available, unread info unavailable');
+        }
+        // ==================================
 
         return {
             message: lastMessage,
