@@ -18,6 +18,9 @@ const API_CONFIG = {
     // ChatOmni API (Messages, Conversations)
     CHATOMNI: `${WORKER_URL}/api/api-ms/chatomni/v1`,
 
+    // Pancake API (Pages, Conversations)
+    PANCAKE: `${WORKER_URL}/api/pancake`,
+
     // Helper functions
     buildUrl: {
         /**
@@ -38,6 +41,17 @@ const API_CONFIG = {
          */
         chatOmni: (endpoint) => {
             return `${WORKER_URL}/api/api-ms/chatomni/v1/${endpoint}`;
+        },
+
+        /**
+         * Build Pancake API URL
+         * @param {string} endpoint - e.g., "pages", "conversations"
+         * @param {string} params - Query string (optional)
+         * @returns {string} - Full URL through worker
+         */
+        pancake: (endpoint, params = '') => {
+            const baseUrl = `${WORKER_URL}/api/pancake/${endpoint}`;
+            return params ? `${baseUrl}?${params}` : baseUrl;
         }
     }
 };
@@ -50,5 +64,6 @@ if (typeof window !== 'undefined') {
 console.log('[API-CONFIG] API configuration loaded:', {
     worker: WORKER_URL,
     tposOData: API_CONFIG.TPOS_ODATA,
-    chatOmni: API_CONFIG.CHATOMNI
+    chatOmni: API_CONFIG.CHATOMNI,
+    pancake: API_CONFIG.PANCAKE
 });
