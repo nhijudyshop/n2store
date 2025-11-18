@@ -253,31 +253,28 @@ class ChatDataManager {
      * Lấy danh sách comments của user từ API
      * @param {string} channelId - Facebook Page ID
      * @param {string} userId - Facebook PSID
-     * @returns {Promise<Array>}
+     * @param {string} after - Cursor for pagination (optional)
+     * @returns {Promise<Object>} { comments: Array, cursor: string, after: string, before: string }
      */
-    async fetchComments(channelId, userId) {
+    async fetchComments(channelId, userId, after = null) {
         try {
-            console.log(`[CHAT] Fetching comments for channelId=${channelId}, userId=${userId}`);
-
-            // Check cache first
-            const cacheKey = `${channelId}_${userId}`;
-            if (this.comments.has(cacheKey)) {
-                console.log(`[CHAT] Using cached comments for ${cacheKey}`);
-                return this.comments.get(cacheKey);
-            }
+            console.log(`[CHAT] Fetching comments for channelId=${channelId}, userId=${userId}, after=${after}`);
 
             const headers = await window.tokenManager.getAuthHeader();
 
-            const response = await fetch(
-                `${this.API_BASE}/messages/comments?type=4&channelId=${channelId}&userId=${userId}`,
-                {
-                    method: 'GET',
-                    headers: {
-                        ...headers,
-                        'accept': 'application/json'
-                    }
+            // Build URL with optional after parameter
+            let url = `${this.API_BASE}/messages/comments?type=4&channelId=${channelId}&userId=${userId}`;
+            if (after) {
+                url += `&after=${encodeURIComponent(after)}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json'
                 }
-            );
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -285,16 +282,24 @@ class ChatDataManager {
 
             const data = await response.json();
             const comments = data.Data || [];
-
-            // Cache the comments
-            this.comments.set(cacheKey, comments);
-
             console.log(`[CHAT] Fetched ${comments.length} comments`);
-            return comments;
+
+            // Return full response with pagination cursors
+            return {
+                comments: comments,
+                cursor: data.Cursor || null,
+                after: data.After || null,
+                before: data.Before || null
+            };
 
         } catch (error) {
             console.error('[CHAT] Error fetching comments:', error);
-            return [];
+            return {
+                comments: [],
+                cursor: null,
+                after: null,
+                before: null
+            };
         }
     }
 
