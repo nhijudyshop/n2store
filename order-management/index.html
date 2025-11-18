@@ -2023,8 +2023,8 @@
 
                 // Check if auto-add variants is enabled and variants exist
                 if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
-                    // Filter only active variants (Active !== false)
-                    const activeVariants = templateData.ProductVariants.filter(v => v.Active !== false);
+                    // Filter only active variants (Active === true)
+                    const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
 
                     // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
                     const sortedVariants = sortVariants(activeVariants);
