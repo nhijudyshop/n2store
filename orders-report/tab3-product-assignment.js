@@ -600,7 +600,8 @@
         const stt = assignment.sttList[index].stt;
         assignment.sttList.splice(index, 1);
 
-        saveAssignments();
+        // Save immediately for delete (no debounce) to prevent race conditions
+        saveAssignments(true);
         renderAssignmentTable();
 
         // Show remaining count if there are duplicates
@@ -678,7 +679,8 @@
     window.removeAssignment = function(assignmentId) {
         if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
             assignments = assignments.filter(a => a.id !== assignmentId);
-            saveAssignments();
+            // Save immediately for delete (no debounce) to prevent race conditions
+            saveAssignments(true);
             renderAssignmentTable();
             showNotification('Đã xóa sản phẩm');
         }
@@ -693,14 +695,16 @@
 
         if (confirm(`Bạn có chắc muốn xóa tất cả ${assignments.length} sản phẩm?`)) {
             assignments = [];
-            saveAssignments();
+            // Save immediately for delete (no debounce) to prevent race conditions
+            saveAssignments(true);
             renderAssignmentTable();
             showNotification('Đã xóa tất cả sản phẩm');
         }
     };
 
     // Save/Load Assignments
-    function saveAssignments() {
+    // @param {boolean} immediate - If true, save immediately without debounce (for delete operations)
+    function saveAssignments(immediate = false) {
         try {
             // Mark as local update to prevent duplicate render from Firebase listener
             isLocalUpdate = true;
@@ -712,15 +716,16 @@
                 _version: 1 // Version for future compatibility
             };
 
-            console.log('[SAVE] 📤 Saving to Firebase with timestamp:', dataWithTimestamp._timestamp);
+            console.log('[SAVE] 📤 Saving to Firebase with timestamp:', dataWithTimestamp._timestamp, immediate ? '(immediate)' : '(debounced)');
 
-            // Debounce Firebase save to reduce writes
+            // Clear existing debounce timer
             if (saveDebounceTimer) {
                 clearTimeout(saveDebounceTimer);
             }
 
-            saveDebounceTimer = setTimeout(() => {
-                console.log('[SAVE] 📤 Debounced Firebase save starting...');
+            // Function to perform Firebase save
+            const performSave = () => {
+                console.log('[SAVE] 📤 Firebase save starting...');
                 database.ref('productAssignments').set(dataWithTimestamp)
                     .then(() => {
                         console.log('[SAVE] ✅ Firebase save success');
@@ -734,7 +739,15 @@
                         console.error('[SAVE] ❌ Firebase save error:', error);
                         isLocalUpdate = false;
                     });
-            }, 1000); // Wait 1 second after last save
+            };
+
+            // If immediate save (e.g., delete operations), save right away
+            // Otherwise debounce to reduce writes
+            if (immediate) {
+                performSave();
+            } else {
+                saveDebounceTimer = setTimeout(performSave, 1000); // Wait 1 second after last save
+            }
         } catch (error) {
             console.error('Error saving assignments:', error);
             isLocalUpdate = false; // Reset flag on error
