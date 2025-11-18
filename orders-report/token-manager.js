@@ -15,18 +15,88 @@ class TokenManager {
             password: 'Aa@123456789',
             client_id: 'tmtWebApp'
         };
+        this.firebaseRef = null;
+        this.initFirebase();
         this.init();
     }
 
-    init() {
+    initFirebase() {
+        try {
+            if (window.database) {
+                this.firebaseRef = window.database.ref('tpos_token');
+                console.log('[TOKEN] Firebase reference initialized');
+            } else {
+                console.warn('[TOKEN] Firebase not available');
+            }
+        } catch (error) {
+            console.error('[TOKEN] Error initializing Firebase:', error);
+        }
+    }
+
+    async init() {
         console.log('[TOKEN] Initializing Token Manager...');
+
+        // Try Firebase first
+        const firebaseToken = await this.getTokenFromFirebase();
+        if (firebaseToken) {
+            this.token = firebaseToken.access_token;
+            this.tokenExpiry = firebaseToken.expires_at;
+            console.log('[TOKEN] Valid token loaded from Firebase');
+            return;
+        }
+
+        // Fallback to localStorage
         this.loadFromStorage();
-        
+
         // Check if token is valid on init
         if (!this.isTokenValid()) {
             console.log('[TOKEN] No valid token found, will fetch on first request');
         } else {
-            console.log('[TOKEN] Valid token loaded from storage');
+            console.log('[TOKEN] Valid token loaded from localStorage');
+        }
+    }
+
+    async getTokenFromFirebase() {
+        if (!this.firebaseRef) {
+            return null;
+        }
+
+        try {
+            const snapshot = await this.firebaseRef.once('value');
+            const tokenData = snapshot.val();
+
+            if (!tokenData || !tokenData.access_token) {
+                console.log('[TOKEN] No token found in Firebase');
+                return null;
+            }
+
+            // Check if token is still valid
+            const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+            if (Date.now() < (tokenData.expires_at - bufferTime)) {
+                console.log('[TOKEN] Valid token found in Firebase');
+                return tokenData;
+            } else {
+                console.log('[TOKEN] Token in Firebase is expired');
+                return null;
+            }
+
+        } catch (error) {
+            console.error('[TOKEN] Error reading token from Firebase:', error);
+            return null;
+        }
+    }
+
+    async saveTokenToFirebase(tokenData) {
+        if (!this.firebaseRef) {
+            console.warn('[TOKEN] Cannot save to Firebase - reference not available');
+            return;
+        }
+
+        try {
+            await this.firebaseRef.set(tokenData);
+            console.log('[TOKEN] Token saved to Firebase');
+        } catch (error) {
+            console.error('[TOKEN] Error saving token to Firebase:', error);
         }
     }
 
@@ -46,10 +116,10 @@ class TokenManager {
         }
     }
 
-    saveToStorage(tokenData) {
+    async saveToStorage(tokenData) {
         try {
             const expiresAt = Date.now() + (tokenData.expires_in * 1000);
-            
+
             const dataToSave = {
                 access_token: tokenData.access_token,
                 token_type: tokenData.token_type,
@@ -60,12 +130,17 @@ class TokenManager {
                 userId: tokenData.userId
             };
 
+            // Save to localStorage
             localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
-            
+
             this.token = tokenData.access_token;
             this.tokenExpiry = expiresAt;
 
-            console.log('[TOKEN] Token saved to storage, expires:', new Date(expiresAt).toLocaleString());
+            console.log('[TOKEN] Token saved to localStorage, expires:', new Date(expiresAt).toLocaleString());
+
+            // Also save to Firebase
+            await this.saveTokenToFirebase(dataToSave);
+
         } catch (error) {
             console.error('[TOKEN] Error saving token:', error);
         }
@@ -81,11 +156,22 @@ class TokenManager {
         return Date.now() < (this.tokenExpiry - bufferTime);
     }
 
-    clearToken() {
+    async clearToken() {
         this.token = null;
         this.tokenExpiry = null;
         localStorage.removeItem(this.storageKey);
-        console.log('[TOKEN] Token cleared');
+
+        // Also clear from Firebase
+        if (this.firebaseRef) {
+            try {
+                await this.firebaseRef.remove();
+                console.log('[TOKEN] Token cleared from localStorage and Firebase');
+            } catch (error) {
+                console.error('[TOKEN] Error clearing token from Firebase:', error);
+            }
+        } else {
+            console.log('[TOKEN] Token cleared from localStorage');
+        }
     }
 
     async fetchNewToken() {
@@ -141,8 +227,8 @@ class TokenManager {
                 throw new Error('Invalid token response: missing access_token');
             }
 
-            // Save the new token
-            this.saveToStorage(tokenData);
+            // Save the new token (to both localStorage and Firebase)
+            await this.saveToStorage(tokenData);
 
             // Close loading notification and show success
             if (window.notificationManager && notificationId) {
@@ -150,12 +236,12 @@ class TokenManager {
                 window.notificationManager.success('Token đã được cập nhật thành công', 2000);
             }
 
-            console.log('[TOKEN] New token obtained successfully');
+            console.log('[TOKEN] New token obtained and saved successfully');
             return this.token;
 
         } catch (error) {
             console.error('[TOKEN] Error fetching token:', error);
-            
+
             // Show error notification
             if (window.notificationManager) {
                 if (notificationId) {
@@ -168,7 +254,7 @@ class TokenManager {
                 );
             }
 
-            this.clearToken();
+            await this.clearToken();
             throw error;
 
         } finally {
@@ -226,8 +312,8 @@ class TokenManager {
             // If 401 Unauthorized, token might be invalid - try refreshing once
             if (response.status === 401) {
                 console.log('[TOKEN] Received 401, refreshing token and retrying...');
-                this.clearToken();
-                
+                await this.clearToken();
+
                 const newHeaders = await this.getAuthHeader();
                 const retryResponse = await fetch(url, {
                     ...options,
@@ -274,7 +360,7 @@ class TokenManager {
     // Manual refresh method
     async refresh() {
         console.log('[TOKEN] Manual token refresh requested');
-        this.clearToken();
+        await this.clearToken();
         return await this.fetchNewToken();
     }
 }

@@ -43,11 +43,9 @@ class ChatDataManager {
             this.isLoading = true;
             console.log('[CHAT] Fetching conversations from API...');
 
-            const headers = await window.tokenManager.getAuthHeader();
             const url = `${this.API_BASE}/conversations/search`;
 
             console.log('[CHAT] Request URL:', url);
-            console.log('[CHAT] Request headers:', headers);
 
             // Build Channels array from channelIds dynamically (parsed from Facebook_PostId)
             // Don't hard-code channel IDs - always get from actual orders
@@ -77,10 +75,10 @@ class ChatDataManager {
 
             console.log('[CHAT] Request body:', JSON.stringify(requestBody, null, 2));
 
-            const response = await fetch(url, {
+            // Use tokenManager.authenticatedFetch() for auto token refresh on 401
+            const response = await window.tokenManager.authenticatedFetch(url, {
                 method: 'POST',
                 headers: {
-                    ...headers,
                     'Content-Type': 'application/json',
                     'accept': 'application/json'
                 },

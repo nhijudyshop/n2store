@@ -67,7 +67,13 @@
                 <label>Đến ngày:</label>
                 <input type="datetime-local" id="endDate" />
                 <label>Tin nhắn:</label>
-                <select id="unreadFilter" style="min-width: 150px">
+                <select id="messagesUnreadFilter" style="min-width: 150px" onchange="performTableSearch()">
+                    <option value="all" selected>Tất cả</option>
+                    <option value="unread">Chưa đọc</option>
+                    <option value="read">Đã đọc</option>
+                </select>
+                <label>Bình luận:</label>
+                <select id="commentsUnreadFilter" style="min-width: 150px" onchange="performTableSearch()">
                     <option value="all" selected>Tất cả</option>
                     <option value="unread">Chưa đọc</option>
                     <option value="read">Đã đọc</option>
