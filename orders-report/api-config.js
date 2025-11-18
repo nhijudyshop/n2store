@@ -111,6 +111,9 @@ const API_CONFIG = {
                     if (!this._isFallbackActive) {
                         this._isFallbackActive = true;
                         console.warn('[API] 🚨 Switched to FALLBACK mode (Render.com)');
+
+                        // Show notification to user
+                        this.showFallbackNotification();
                     }
                 }
 
@@ -142,6 +145,83 @@ const API_CONFIG = {
             current: this._currentUrl,
             isFallbackActive: this._isFallbackActive
         };
+    },
+
+    /**
+     * Show notification to user when fallback is activated
+     */
+    showFallbackNotification: function() {
+        // Check if notification already exists
+        if (document.getElementById('fallback-notification-banner')) {
+            return;
+        }
+
+        // Create notification banner
+        const banner = document.createElement('div');
+        banner.id = 'fallback-notification-banner';
+        banner.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            padding: 12px 20px;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        `;
+
+        banner.innerHTML = `
+            <span style="font-size: 20px;">⚠️</span>
+            <span>
+                <strong>Cloudflare đang gặp sự cố.</strong>
+                Hệ thống đang sử dụng server dự phòng (Render.com).
+            </span>
+            <button id="fallback-notification-dismiss" style="
+                background: rgba(255,255,255,0.2);
+                border: 1px solid rgba(255,255,255,0.3);
+                color: white;
+                padding: 6px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 500;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+               onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                Đóng
+            </button>
+        `;
+
+        // Insert at top of body
+        document.body.insertBefore(banner, document.body.firstChild);
+
+        // Add padding to body to prevent content from being hidden
+        document.body.style.paddingTop = '50px';
+
+        // Dismiss button handler
+        document.getElementById('fallback-notification-dismiss').addEventListener('click', () => {
+            banner.remove();
+            document.body.style.paddingTop = '0';
+        });
+
+        // Auto-dismiss after 30 seconds
+        setTimeout(() => {
+            if (banner.parentNode) {
+                banner.remove();
+                document.body.style.paddingTop = '0';
+            }
+        }, 30000);
+
+        console.log('[API] 📢 Fallback notification displayed');
     }
 };
 
