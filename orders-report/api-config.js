@@ -98,8 +98,10 @@ const API_CONFIG = {
 
                     // If 500 error on Cloudflare, don't retry - go straight to fallback
                     if (response.status === 500 && label === 'Cloudflare') {
-                        console.warn(`[API] ⚠️ ${label} returned 500, switching to fallback...`);
-                        throw new Error(`${label} returned 500`);
+                        console.warn(`[API] ⚠️ ${label} returned 500, switching to fallback immediately...`);
+                        const skipRetryError = new Error(`${label} returned 500`);
+                        skipRetryError.skipRetry = true; // Flag to skip retries
+                        throw skipRetryError;
                     }
 
                     // If response is ok, return it
@@ -116,6 +118,12 @@ const API_CONFIG = {
                     throw new Error(`HTTP ${response.status}`);
 
                 } catch (error) {
+                    // If error has skipRetry flag, don't retry - throw immediately
+                    if (error.skipRetry) {
+                        console.error(`[API] ❌ ${label} returned 500, skipping retries`);
+                        throw error;
+                    }
+
                     const isLastAttempt = attempt === retries;
 
                     if (isLastAttempt) {
