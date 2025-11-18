@@ -379,32 +379,47 @@ function performTableSearch() {
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
 
-    // Apply messages unread filter (INBOX only - from Pancake)
+    // Apply messages and comments unread filters (Independent with OR logic when both active)
     const messagesUnreadFilter = document.getElementById('messagesUnreadFilter')?.value || 'all';
-    if (messagesUnreadFilter !== 'all' && window.pancakeDataManager) {
-        tempData = tempData.filter(order => {
-            const unreadInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
-            if (messagesUnreadFilter === 'unread') {
-                return unreadInfo.hasUnread;
-            } else if (messagesUnreadFilter === 'read') {
-                return !unreadInfo.hasUnread;
-            }
-            return true;
-        });
-    }
-
-    // Apply comments unread filter (COMMENT only - from Pancake)
     const commentsUnreadFilter = document.getElementById('commentsUnreadFilter')?.value || 'all';
-    if (commentsUnreadFilter !== 'all' && window.pancakeDataManager) {
-        tempData = tempData.filter(order => {
-            const unreadInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
-            if (commentsUnreadFilter === 'unread') {
-                return unreadInfo.hasUnread;
-            } else if (commentsUnreadFilter === 'read') {
-                return !unreadInfo.hasUnread;
-            }
-            return true;
-        });
+
+    const messagesActive = messagesUnreadFilter !== 'all';
+    const commentsActive = commentsUnreadFilter !== 'all';
+
+    if (window.pancakeDataManager && (messagesActive || commentsActive)) {
+        if (messagesActive && commentsActive) {
+            // Both filters active → OR logic (show orders matching EITHER filter)
+            tempData = tempData.filter(order => {
+                const msgUnread = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
+                const cmmUnread = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
+
+                const msgMatch = (messagesUnreadFilter === 'unread')
+                    ? msgUnread.hasUnread
+                    : !msgUnread.hasUnread;
+
+                const cmmMatch = (commentsUnreadFilter === 'unread')
+                    ? cmmUnread.hasUnread
+                    : !cmmUnread.hasUnread;
+
+                return msgMatch || cmmMatch; // OR logic
+            });
+        } else if (messagesActive) {
+            // Only messages filter active
+            tempData = tempData.filter(order => {
+                const unreadInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
+                return (messagesUnreadFilter === 'unread')
+                    ? unreadInfo.hasUnread
+                    : !unreadInfo.hasUnread;
+            });
+        } else if (commentsActive) {
+            // Only comments filter active
+            tempData = tempData.filter(order => {
+                const unreadInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
+                return (commentsUnreadFilter === 'unread')
+                    ? unreadInfo.hasUnread
+                    : !unreadInfo.hasUnread;
+            });
+        }
     }
 
     filteredData = tempData;
