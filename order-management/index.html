@@ -2021,8 +2021,33 @@
 
                 // Check if auto-add variants is enabled and variants exist
                 if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+                    // Filter only active variants (Active !== false)
+                    const activeVariants = templateData.ProductVariants.filter(v => v.Active !== false);
+
                     // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
-                    const sortedVariants = sortVariants(templateData.ProductVariants);
+                    const sortedVariants = sortVariants(activeVariants);
+
+                    // Check if there are active variants after filtering
+                    if (sortedVariants.length === 0) {
+                        // No active variants, fallback to single product
+                        const tposQty = productData.QtyAvailable || 0;
+                        const userInput = prompt(`Nhập số lượng tồn kho cho ${productData.NameGet}:`, tposQty);
+                        const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+                        const addSuccess = await addProductToList({
+                            Id: productData.Id,
+                            NameGet: productData.NameGet,
+                            QtyAvailable: qtyAvailable,
+                            ProductTmplId: productData.ProductTmplId,
+                            imageUrl: imageUrl,
+                            soldQty: 0,
+                            remainingQty: qtyAvailable
+                        }, true);
+
+                        if (addSuccess) {
+                            document.getElementById('productSearch').value = '';
+                        }
+                        return; // Exit early
+                    }
 
                     // Prepare all variants for batch add
                     const variantsToAdd = sortedVariants.map(variant => {
