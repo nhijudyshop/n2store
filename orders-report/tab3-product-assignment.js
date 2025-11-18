@@ -103,8 +103,8 @@
             bearerToken = data.access_token;
             tokenExpiry = Date.now() + (data.expires_in * 1000);
 
-            localStorage.setItem('bearerToken', bearerToken);
-            localStorage.setItem('tokenExpiry', tokenExpiry.toString());
+            // Cache in memory only, no localStorage
+            console.log('[AUTH] Token cached in memory until:', new Date(tokenExpiry).toLocaleString());
 
             return bearerToken;
         } catch (error) {
@@ -114,18 +114,14 @@
     }
 
     async function getValidToken() {
-        const storedToken = localStorage.getItem('bearerToken');
-        const storedExpiry = localStorage.getItem('tokenExpiry');
-
-        if (storedToken && storedExpiry) {
-            const expiry = parseInt(storedExpiry);
-            if (expiry > Date.now() + 300000) {
-                bearerToken = storedToken;
-                tokenExpiry = expiry;
-                return bearerToken;
-            }
+        // Check memory cache only
+        if (bearerToken && tokenExpiry && tokenExpiry > Date.now() + 300000) {
+            console.log('[AUTH] Using cached token from memory');
+            return bearerToken;
         }
 
+        // Token expired or not available, fetch new one
+        console.log('[AUTH] Token expired or not available, fetching new token...');
         return await getAuthToken();
     }
 
@@ -209,16 +205,8 @@
     // Load Orders Data from Tab1
     function loadOrdersData() {
         try {
-            // Try to get from localStorage first
-            const cachedOrders = localStorage.getItem('ordersData');
-            if (cachedOrders) {
-                ordersData = JSON.parse(cachedOrders);
-                console.log(`📦 Đã load ${ordersData.length} đơn hàng từ cache`);
-            } else {
-                console.log('⚠️ Chưa có orders data trong cache, đang request từ tab1...');
-            }
-
-            // Always request fresh data from tab1
+            // Request data from tab1 directly, no localStorage cache
+            console.log('[ORDERS] Requesting fresh orders data from tab1...');
             requestOrdersDataFromTab1();
         } catch (error) {
             console.error('Error loading orders:', error);
@@ -1206,8 +1194,8 @@
         if (event.data.type === 'ORDERS_DATA_UPDATE') {
             ordersData = event.data.orders;
             ordersDataRequestAttempts = 0; // Reset attempts counter
-            localStorage.setItem('ordersData', JSON.stringify(ordersData));
-            console.log('✅ Đã cập nhật dữ liệu đơn hàng:', ordersData.length, 'đơn');
+            // Cache in memory only, no localStorage
+            console.log('[ORDERS] ✅ Updated orders data in memory:', ordersData.length, 'orders');
 
             // Update orders count badge
             updateOrdersCount();
