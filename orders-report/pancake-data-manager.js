@@ -195,7 +195,6 @@ class PancakeDataManager {
             this.buildConversationMap();
 
             console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations`);
-            console.log(`[PANCAKE] ✅ Conversation map: ${this.conversationMap.size} entries`);
 
             return this.conversations;
 
