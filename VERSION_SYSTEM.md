@@ -4,11 +4,14 @@
 
 Auto-increment version system that forces users to logout and re-login when a new version is deployed.
 
+**✨ Centralized in navigation-modern.js** - Version checker is loaded on ALL pages automatically!
+
 ## How it works
 
-1. **Version File**: `orders-report/version.js` contains current version and build number
-2. **Version Checker**: Compares local version with Firebase version on page load
-3. **Auto-Logout**: If version mismatch detected → clear storage → redirect to login
+1. **Version in Navigation**: `js/navigation-modern.js` contains current version and build number
+2. **Auto-loaded Everywhere**: Since navigation-modern.js is loaded on all pages, version check runs everywhere
+3. **Version Checker**: Compares local version with Firebase version on page load
+4. **Auto-Logout**: If version mismatch detected → clear storage → redirect to login
 
 ## Usage
 
@@ -27,7 +30,7 @@ git commit -m "Your commit message"
 git push
 ```
 
-### Version file structure:
+### Version structure in navigation-modern.js:
 
 ```javascript
 window.APP_VERSION = {
@@ -41,11 +44,11 @@ window.APP_VERSION = {
 ## Flow Diagram
 
 ```
-User loads page
+User loads ANY page
     ↓
-Load version.js (local version)
+Load navigation-modern.js (includes APP_VERSION)
     ↓
-Load version-checker.js
+VersionChecker initializes automatically
     ↓
 Check Firebase app_version
     ↓
@@ -75,9 +78,8 @@ This will update the version in Firebase and all connected users will be logged 
 
 ## Files
 
-- `orders-report/version.js` - Version information
-- `orders-report/version-checker.js` - Version check logic
-- `scripts/increment-version.js` - Auto-increment script
+- `js/navigation-modern.js` - **Contains APP_VERSION and VersionChecker** (loaded on all pages!)
+- `scripts/increment-version.js` - Auto-increment script (updates navigation-modern.js)
 - `scripts/bump-version.sh` - Helper bash script
 
 ## Firebase Structure
@@ -90,9 +92,18 @@ This will update the version in Firebase and all connected users will be logged 
   └─ branch: "main"
 ```
 
+## Advantages of Centralized Approach
+
+✅ **No need to add version scripts to each HTML page**
+✅ **Automatic version check on ALL pages** (live, livestream, orders-report, etc.)
+✅ **Single source of truth** - version defined once in navigation-modern.js
+✅ **Easier maintenance** - update one file instead of many
+✅ **Always in sync** - no risk of forgetting to add version check to new pages
+
 ## Notes
 
-- Version is checked on every page load
+- Version is checked on every page load (navigation-modern.js loads everywhere)
 - Version listener detects changes in real-time
+- 2 second initialization delay to ensure Firebase is ready
 - 1.5 second delay before redirect to show notification
-- Version file is automatically staged on increment
+- Version file (navigation-modern.js) is automatically staged on increment

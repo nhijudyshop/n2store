@@ -7,15 +7,15 @@
 const fs = require('fs');
 const path = require('path');
 
-const versionFilePath = path.join(__dirname, '../orders-report/version.js');
+const navigationFilePath = path.join(__dirname, '../js/navigation-modern.js');
 
-// Read current version file
-const content = fs.readFileSync(versionFilePath, 'utf8');
+// Read navigation-modern.js
+const content = fs.readFileSync(navigationFilePath, 'utf8');
 
-// Extract current build number
-const buildMatch = content.match(/build:\s*(\d+)/);
+// Extract current build number from window.APP_VERSION
+const buildMatch = content.match(/window\.APP_VERSION\s*=\s*\{[^}]*build:\s*(\d+)/);
 if (!buildMatch) {
-    console.error('❌ Could not find build number in version.js');
+    console.error('❌ Could not find build number in navigation-modern.js');
     process.exit(1);
 }
 
@@ -31,32 +31,33 @@ try {
     console.warn('⚠️ Could not get git branch name');
 }
 
-// Generate new version file content
-const newContent = `// =====================================================
-// APP VERSION - Auto-incremented on each commit
-// =====================================================
+const timestamp = new Date().toISOString();
 
-window.APP_VERSION = {
+// Generate new APP_VERSION block
+const newVersionBlock = `window.APP_VERSION = {
     version: '1.0.0',
     build: ${newBuild},
-    timestamp: '${new Date().toISOString()}',
+    timestamp: '${timestamp}',
     branch: '${branch}'
-};
+};`;
 
-console.log(\`[VERSION] App version: \${window.APP_VERSION.version} (build \${window.APP_VERSION.build})\`);
-`;
+// Replace the APP_VERSION block in navigation-modern.js
+const newContent = content.replace(
+    /window\.APP_VERSION\s*=\s*\{[^}]*\};/,
+    newVersionBlock
+);
 
-// Write new version file
-fs.writeFileSync(versionFilePath, newContent, 'utf8');
+// Write updated navigation-modern.js
+fs.writeFileSync(navigationFilePath, newContent, 'utf8');
 
 console.log(`✅ Version incremented: build ${currentBuild} → ${newBuild}`);
-console.log(`📅 Timestamp: ${new Date().toISOString()}`);
+console.log(`📅 Timestamp: ${timestamp}`);
 console.log(`🌿 Branch: ${branch}`);
 
-// Stage the version file for commit
+// Stage the navigation file for commit
 try {
-    execSync('git add orders-report/version.js', { stdio: 'inherit' });
-    console.log('✅ version.js staged for commit');
+    execSync('git add js/navigation-modern.js', { stdio: 'inherit' });
+    console.log('✅ navigation-modern.js staged for commit');
 } catch (e) {
-    console.warn('⚠️ Could not stage version.js');
+    console.warn('⚠️ Could not stage navigation-modern.js');
 }
