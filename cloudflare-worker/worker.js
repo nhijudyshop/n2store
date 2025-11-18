@@ -26,16 +26,7 @@ export default {
       let targetHeaders = new Headers(request.headers);
 
       // Route based on path prefix
-      if (pathname.startsWith('/api/tpos/')) {
-        // ========== TPOS PROXY ==========
-        const apiPath = pathname.replace(/^\/api\/tpos\//, '');
-        targetUrl = `https://tomato.tpos.vn/${apiPath}${url.search}`;
-
-        // TPOS headers
-        targetHeaders.set('Origin', 'https://tomato.tpos.vn/');
-        targetHeaders.set('Referer', 'https://tomato.tpos.vn/');
-
-      } else if (pathname.startsWith('/api/pancake/')) {
+      if (pathname.startsWith('/api/pancake/')) {
         // ========== PANCAKE PROXY ==========
         const apiPath = pathname.replace(/^\/api\/pancake\//, '');
         targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
@@ -51,13 +42,30 @@ export default {
         targetHeaders.set('sec-fetch-mode', 'cors');
         targetHeaders.set('sec-fetch-site', 'same-origin');
 
+      } else if (pathname.startsWith('/api/')) {
+        // ========== TPOS PROXY (catch-all for TPOS routes) ==========
+        // Strip '/api/' prefix and forward to TPOS
+        // Examples:
+        //   /api/odata/... → https://tomato.tpos.vn/odata/...
+        //   /api/Product/... → https://tomato.tpos.vn/Product/...
+        //   /api/api-ms/... → https://tomato.tpos.vn/api-ms/...
+        //   /api/tpos/... → https://tomato.tpos.vn/...
+        const apiPath = pathname.replace(/^\/api\//, '');
+        targetUrl = `https://tomato.tpos.vn/${apiPath}${url.search}`;
+
+        // TPOS headers
+        targetHeaders.set('Origin', 'https://tomato.tpos.vn/');
+        targetHeaders.set('Referer', 'https://tomato.tpos.vn/');
+
       } else {
-        // Unknown route
+        // Unknown route (not /api/*)
         return new Response(JSON.stringify({
           error: 'Invalid API route',
-          message: 'Use /api/tpos/* or /api/pancake/*',
+          message: 'Use /api/* routes',
           examples: {
-            tpos: '/api/tpos/ChatOmni/GetList?skip=0&take=100',
+            tpos_odata: '/api/odata/SaleOnline_Order/...',
+            tpos_product: '/api/Product/...',
+            tpos_chatomni: '/api/api-ms/chatomni/v1/...',
             pancake: '/api/pancake/pages?access_token=xxx'
           }
         }), {
