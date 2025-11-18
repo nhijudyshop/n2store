@@ -1699,6 +1699,8 @@
                 remainingQty: Number(product.remainingQty) || 0,
                 imageUrl: product.imageUrl ? String(product.imageUrl) : null,
                 ProductTmplId: typeof product.ProductTmplId === 'object' ? product.ProductTmplId?.Id : product.ProductTmplId,
+                ListPrice: Number(product.ListPrice) || 0, // Price for display
+                PriceVariant: Number(product.PriceVariant) || 0, // Variant price for display
                 addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
                 isHidden: product.isHidden || false, // Hidden status
                 lastRefreshed: product.lastRefreshed || null // Timestamp for image cache-busting

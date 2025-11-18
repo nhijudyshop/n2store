@@ -2088,6 +2088,10 @@
                 product.QtyAvailable = productData.QtyAvailable || 0;
                 product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
 
+                // Update price information from API
+                product.ListPrice = productData.ListPrice || 0;
+                product.PriceVariant = productData.PriceVariant || 0;
+
                 // Update image URL from API
                 let newImageUrl = productData.ImageUrl;
 
@@ -2118,6 +2122,8 @@
                     database.ref(`orderProducts/${productKey}`).update({
                         QtyAvailable: product.QtyAvailable,
                         remainingQty: product.remainingQty,
+                        ListPrice: product.ListPrice,
+                        PriceVariant: product.PriceVariant,
                         imageUrl: product.imageUrl,
                         lastRefreshed: product.lastRefreshed
                     }).catch(error => {
