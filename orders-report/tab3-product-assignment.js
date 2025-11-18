@@ -83,9 +83,11 @@
         }, 3000);
     }
 
-    // Auth Functions - Using TposTokenManager for Firebase persistence
+    // Auth Functions - Server-side token caching (Cloudflare Worker & Render.com)
     async function getAuthToken() {
         try {
+            // Server handles token caching - just request token
+            // Server returns cached token if valid, or fetches new one if needed
             const response = await API_CONFIG.smartFetch(`${API_CONFIG.WORKER_URL}/api/token`, {
                 method: 'POST',
                 headers: {
@@ -100,16 +102,10 @@
 
             const data = await response.json();
 
-            // Save token to Firebase via TposTokenManager
-            if (window.tposTokenManager) {
-                await window.tposTokenManager.saveTokenToFirebase(data.access_token, data.expires_in);
-                console.log('[AUTH] ✅ Token saved to Firebase and memory cache');
-            } else {
-                // Fallback to memory only if manager not available
-                bearerToken = data.access_token;
-                tokenExpiry = Date.now() + (data.expires_in * 1000);
-                console.log('[AUTH] Token cached in memory only (TposTokenManager not available)');
-            }
+            // Cache token locally for quick access (optional, server already caches)
+            bearerToken = data.access_token;
+            tokenExpiry = Date.now() + (data.expires_in * 1000);
+            console.log('[AUTH] ✅ Token received (server-side cached)');
 
             return data.access_token;
         } catch (error) {
@@ -119,18 +115,9 @@
     }
 
     async function getValidToken() {
-        // Use TposTokenManager if available
-        if (window.tposTokenManager) {
-            const token = await window.tposTokenManager.getValidToken(getAuthToken);
-            if (token) {
-                return token;
-            }
-            throw new Error('Không thể lấy token hợp lệ');
-        }
-
-        // Fallback to memory cache (for backward compatibility)
+        // Check local cache first (optional optimization)
         if (bearerToken && tokenExpiry && tokenExpiry > Date.now() + 300000) {
-            console.log('[AUTH] Using cached token from memory (fallback mode)');
+            console.log('[AUTH] ✅ Using locally cached token');
             return bearerToken;
         }
 
@@ -1015,14 +1002,7 @@
     window.addEventListener('load', async () => {
         try {
             console.log('[INIT] 🚀 Initializing Tab3 Product Assignment...');
-
-            // Initialize TposTokenManager for Firebase persistence
-            if (window.tposTokenManager) {
-                window.tposTokenManager.initialize();
-                console.log('[INIT] ✅ TposTokenManager initialized');
-            } else {
-                console.warn('[INIT] ⚠️ TposTokenManager not available, using memory cache only');
-            }
+            console.log('[INIT] ✅ Using server-side token caching (Cloudflare Worker & Render.com)');
 
             await getValidToken();
             loadOrdersData();
