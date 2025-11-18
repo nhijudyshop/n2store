@@ -31,7 +31,6 @@
     // PRODUCT ENCODING/DECODING UTILITIES
     // =====================================================
     const ENCODE_KEY = 'live';
-    const PRODUCT_MARKER = '[LIVE_PRODUCTS]';
 
     /**
      * Encode product info with XOR cipher using key "live"
@@ -116,7 +115,7 @@
             encodeProductLine(p.productCode, p.quantity, p.price)
         );
 
-        const encodedBlock = `${PRODUCT_MARKER}\n${encodedLines.join('\n')}`;
+        const encodedBlock = encodedLines.join('\n');
 
         // Append to existing note
         if (currentNote && currentNote.trim() !== '') {
@@ -134,14 +133,17 @@
     function extractEncodedProducts(note) {
         if (!note) return [];
 
-        const markerIndex = note.indexOf(PRODUCT_MARKER);
-        if (markerIndex === -1) return [];
+        const lines = note.split('\n').filter(l => l.trim() !== '');
 
-        const encodedSection = note.substring(markerIndex + PRODUCT_MARKER.length);
-        const lines = encodedSection.split('\n').filter(l => l.trim() !== '');
-
+        // Try to decode each line, skip lines that fail
         return lines
-            .map(line => decodeProductLine(line.trim()))
+            .map(line => {
+                try {
+                    return decodeProductLine(line.trim());
+                } catch {
+                    return null;
+                }
+            })
             .filter(p => p !== null);
     }
 
