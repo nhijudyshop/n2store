@@ -100,7 +100,7 @@ export default {
         try {
           // Get request headers (simple approach like your working code)
           const headers = new Headers(request.headers);
-          headers.set('Origin', 'https://tomato.tpos.vn');
+          headers.set('Origin', 'https://tomato.tpos.vn/');
           headers.set('Referer', 'https://tomato.tpos.vn/');
 
           // Forward to TPOS token endpoint
@@ -180,7 +180,7 @@ export default {
 
       // Get request headers (simple approach)
       const headers = new Headers(request.headers);
-      headers.set('Origin', 'https://tomato.tpos.vn');
+      headers.set('Origin', 'https://tomato.tpos.vn/');
       headers.set('Referer', 'https://tomato.tpos.vn/');
 
       // Forward request
