@@ -8,7 +8,7 @@ class PancakeWebSocketManager {
         this.isConnected = false;
         this.shouldReconnect = true;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
+        this.maxReconnectAttempts = 3; // Reduced from 10 - WebSocket won't work from browser anyway
         this.reconnectDelay = 2000; // Start with 2 seconds
         this.heartbeatInterval = null;
         this.ref = 0; // Message reference counter
@@ -153,6 +153,8 @@ class PancakeWebSocketManager {
             }, delay);
         } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.error('[PANCAKE-WS] ❌ Max reconnection attempts reached');
+            console.warn('[PANCAKE-WS] ℹ️ WebSocket unavailable from browser due to CORS/CSP restrictions');
+            console.warn('[PANCAKE-WS] ℹ️ Falling back to REST API polling mode - unread status will update on manual refresh');
         }
     }
 

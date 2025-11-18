@@ -78,17 +78,24 @@ class PancakeTokenManager {
                 return null;
             }
 
+            // Sanitize token - remove 'jwt=' prefix if exists
+            let token = data.token;
+            if (token.startsWith('jwt=')) {
+                token = token.substring(4);
+                console.log('[PANCAKE-TOKEN] Stripped jwt= prefix from Firebase token');
+            }
+
             // Check expiry
-            const payload = this.decodeToken(data.token);
+            const payload = this.decodeToken(token);
             if (!payload || this.isTokenExpired(payload.exp)) {
                 console.log('[PANCAKE-TOKEN] Token in Firebase is expired');
                 return null;
             }
 
             console.log('[PANCAKE-TOKEN] Valid token found in Firebase');
-            this.currentToken = data.token;
+            this.currentToken = token;
             this.currentTokenExpiry = payload.exp;
-            return data.token;
+            return token;
 
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error getting token from Firebase:', error);
@@ -146,7 +153,16 @@ class PancakeTokenManager {
             const cookies = document.cookie.split(';');
             const jwtCookie = cookies.find(c => c.trim().startsWith('jwt='));
             if (jwtCookie) {
-                const token = jwtCookie.split('=')[1].trim();
+                // Split by '=' and take everything after the first '='
+                const parts = jwtCookie.split('=');
+                // Join back in case JWT contains '=' characters
+                let token = parts.slice(1).join('=').trim();
+
+                // Strip 'jwt=' prefix if exists (safety check)
+                if (token.startsWith('jwt=')) {
+                    token = token.substring(4);
+                }
+
                 console.log('[PANCAKE-TOKEN] Token found in cookie');
                 return token;
             }
