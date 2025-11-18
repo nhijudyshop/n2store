@@ -83,7 +83,7 @@
         }, 3000);
     }
 
-    // Auth Functions
+    // Auth Functions - Using TposTokenManager for Firebase persistence
     async function getAuthToken() {
         try {
             const response = await API_CONFIG.smartFetch(`${API_CONFIG.WORKER_URL}/api/token`, {
@@ -99,13 +99,19 @@
             }
 
             const data = await response.json();
-            bearerToken = data.access_token;
-            tokenExpiry = Date.now() + (data.expires_in * 1000);
 
-            // Cache in memory only, no localStorage
-            console.log('[AUTH] Token cached in memory until:', new Date(tokenExpiry).toLocaleString());
+            // Save token to Firebase via TposTokenManager
+            if (window.tposTokenManager) {
+                await window.tposTokenManager.saveTokenToFirebase(data.access_token, data.expires_in);
+                console.log('[AUTH] ✅ Token saved to Firebase and memory cache');
+            } else {
+                // Fallback to memory only if manager not available
+                bearerToken = data.access_token;
+                tokenExpiry = Date.now() + (data.expires_in * 1000);
+                console.log('[AUTH] Token cached in memory only (TposTokenManager not available)');
+            }
 
-            return bearerToken;
+            return data.access_token;
         } catch (error) {
             console.error('Lỗi xác thực:', error);
             throw error;
@@ -113,9 +119,18 @@
     }
 
     async function getValidToken() {
-        // Check memory cache only
+        // Use TposTokenManager if available
+        if (window.tposTokenManager) {
+            const token = await window.tposTokenManager.getValidToken(getAuthToken);
+            if (token) {
+                return token;
+            }
+            throw new Error('Không thể lấy token hợp lệ');
+        }
+
+        // Fallback to memory cache (for backward compatibility)
         if (bearerToken && tokenExpiry && tokenExpiry > Date.now() + 300000) {
-            console.log('[AUTH] Using cached token from memory');
+            console.log('[AUTH] Using cached token from memory (fallback mode)');
             return bearerToken;
         }
 
@@ -1000,6 +1015,14 @@
     window.addEventListener('load', async () => {
         try {
             console.log('[INIT] 🚀 Initializing Tab3 Product Assignment...');
+
+            // Initialize TposTokenManager for Firebase persistence
+            if (window.tposTokenManager) {
+                window.tposTokenManager.initialize();
+                console.log('[INIT] ✅ TposTokenManager initialized');
+            } else {
+                console.warn('[INIT] ⚠️ TposTokenManager not available, using memory cache only');
+            }
 
             await getValidToken();
             loadOrdersData();
