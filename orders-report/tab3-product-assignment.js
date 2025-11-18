@@ -785,6 +785,7 @@
         console.log('[SYNC] 🔧 Setting up Firebase listeners...');
 
         let isFirstLoad = true; // Skip first trigger (we already loaded initial data)
+        let lastDataHash = null; // Track last data to detect real changes
 
         // Listen for product assignments - sync from Firebase
         database.ref('productAssignments').on('value', (snapshot) => {
@@ -795,27 +796,45 @@
             if (isFirstLoad) {
                 console.log('[SYNC] ⏭️ Skip first listener trigger (initial data already loaded)');
                 isFirstLoad = false;
+                // Save initial data hash
+                lastDataHash = JSON.stringify(snapshot.val());
                 return;
             }
 
             // Skip if this is a local update (to prevent duplicate render)
             if (isLocalUpdate) {
                 console.log('[SYNC] ⏭️ Skip Firebase listener render (local update in progress)');
+                // Update hash even for local updates
+                lastDataHash = JSON.stringify(snapshot.val());
                 return;
             }
 
             // Read Firebase data directly
             const firebaseData = snapshot.val();
 
+            // Compare with last data to detect real changes
+            const currentDataHash = JSON.stringify(firebaseData);
+            if (currentDataHash === lastDataHash) {
+                console.log('[SYNC] ⏭️ Skip render - data unchanged (same hash)');
+                return;
+            }
+
+            console.log('[SYNC] 🔄 Data changed, updating UI...');
+            lastDataHash = currentDataHash;
+
             // Handle new format
             if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
                 const oldCount = assignments.length;
                 const newCount = firebaseData.assignments.length;
 
+                // Detect change type
+                const changeType = newCount > oldCount ? 'added' :
+                                 newCount < oldCount ? 'removed' : 'updated';
+
                 assignments = firebaseData.assignments;
                 renderAssignmentTable();
 
-                console.log('[SYNC] 🔄 Synced from Firebase:', oldCount, '→', newCount, 'assignments');
+                console.log(`[SYNC] 🔄 Synced from Firebase (${changeType}):`, oldCount, '→', newCount, 'assignments');
             }
             // Handle old format (backward compatibility)
             else if (firebaseData && Array.isArray(firebaseData)) {
