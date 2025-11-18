@@ -5,9 +5,16 @@
 
 const express = require('express');
 const fetch = require('node-fetch');
+const https = require('https');
 const router = express.Router();
 
 const TPOS_TOKEN_URL = 'https://services.tpos.dev/oauth/token';
+
+// Create HTTPS agent that ignores SSL certificate errors
+// TPOS uses self-signed certificate
+const httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+});
 
 // POST /api/token - Get OAuth token
 router.post('/', async (req, res) => {
@@ -38,7 +45,8 @@ router.post('/', async (req, res) => {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: params.toString()
+            body: params.toString(),
+            agent: httpsAgent  // Use agent that ignores SSL errors
         });
 
         if (!response.ok) {
