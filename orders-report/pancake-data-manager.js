@@ -12,7 +12,6 @@ class PancakeDataManager {
         this.isLoadingPages = false;
         this.lastFetchTime = null;
         this.lastPageFetchTime = null;
-        this.API_BASE = 'https://pancake.vn/api/v1';
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
     }
 
@@ -76,14 +75,19 @@ class PancakeDataManager {
             }
 
             this.isLoadingPages = true;
-            console.log('[PANCAKE] Fetching pages from API...');
+            console.log('[PANCAKE] Fetching pages from API via Cloudflare...');
 
             const token = await this.getToken();
-            const url = `${this.API_BASE}/pages?access_token=${token}`;
+
+            // Use Cloudflare Worker proxy
+            const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
 
             const response = await fetch(url, {
                 method: 'GET',
-                headers: this.getHeaders(token)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
             });
 
             console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
@@ -149,20 +153,25 @@ class PancakeDataManager {
             }
 
             this.isLoading = true;
-            console.log('[PANCAKE] Fetching conversations from API...');
+            console.log('[PANCAKE] Fetching conversations from API via Cloudflare...');
 
             const token = await this.getToken();
 
             // Build query params - format: pages[pageId]=offset
             const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
+            const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
 
-            const url = `${this.API_BASE}/conversations?${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
+            // Use Cloudflare Worker proxy
+            const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
 
             console.log('[PANCAKE] Conversations URL:', url);
 
             const response = await fetch(url, {
                 method: 'GET',
-                headers: this.getHeaders(token)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
             });
 
             console.log('[PANCAKE] Conversations response status:', response.status, response.statusText);
