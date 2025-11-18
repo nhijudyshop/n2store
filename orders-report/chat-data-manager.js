@@ -199,24 +199,28 @@ class ChatDataManager {
      * Lấy tin nhắn chi tiết của một conversation
      * @param {string} channelId - Facebook Page ID
      * @param {string} userId - Facebook PSID
-     * @returns {Promise<Array>}
+     * @param {string} after - Cursor for pagination (optional)
+     * @returns {Promise<Object>} { messages: Array, cursor: string, after: string, before: string }
      */
-    async fetchMessages(channelId, userId) {
+    async fetchMessages(channelId, userId, after = null) {
         try {
-            console.log(`[CHAT] Fetching messages for channelId=${channelId}, userId=${userId}`);
+            console.log(`[CHAT] Fetching messages for channelId=${channelId}, userId=${userId}, after=${after}`);
 
             const headers = await window.tokenManager.getAuthHeader();
 
-            const response = await fetch(
-                `${this.API_BASE}/messages?type=4&channelId=${channelId}&userId=${userId}`,
-                {
-                    method: 'GET',
-                    headers: {
-                        ...headers,
-                        'accept': 'application/json'
-                    }
+            // Build URL with optional after parameter
+            let url = `${this.API_BASE}/messages?type=4&channelId=${channelId}&userId=${userId}`;
+            if (after) {
+                url += `&after=${encodeURIComponent(after)}`;
+            }
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json'
                 }
-            );
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -225,11 +229,23 @@ class ChatDataManager {
             const data = await response.json();
             const messages = data.Data || [];
             console.log(`[CHAT] Fetched ${messages.length} messages`);
-            return messages;
+
+            // Return full response with pagination cursors
+            return {
+                messages: messages,
+                cursor: data.Cursor || null,
+                after: data.After || null,
+                before: data.Before || null
+            };
 
         } catch (error) {
             console.error('[CHAT] Error fetching messages:', error);
-            return [];
+            return {
+                messages: [],
+                cursor: null,
+                after: null,
+                before: null
+            };
         }
     }
 

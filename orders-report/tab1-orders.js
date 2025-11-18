@@ -3114,6 +3114,10 @@ function sendOrdersDataToTab3() {
 // =====================================================
 let currentChatChannelId = null;
 let currentChatPSID = null;
+let currentChatType = null;
+let currentChatCursor = null;
+let allChatMessages = [];
+let isLoadingMoreMessages = false;
 
 async function openChatModal(orderId, channelId, psid, type = 'message') {
     if (!channelId || !psid) {
@@ -3121,8 +3125,13 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
         return;
     }
 
+    // Reset pagination state
     currentChatChannelId = channelId;
     currentChatPSID = psid;
+    currentChatType = type;
+    currentChatCursor = null;
+    allChatMessages = [];
+    isLoadingMoreMessages = false;
 
     // Get order info
     const order = allData.find(o => o.Id === orderId);
@@ -3165,8 +3174,17 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
                 markReadBtn.style.display = 'inline-flex';
             }
 
-            const messages = await window.chatDataManager.fetchMessages(channelId, psid);
-            renderChatMessages(messages);
+            // Fetch initial messages with pagination support
+            const response = await window.chatDataManager.fetchMessages(channelId, psid);
+            allChatMessages = response.messages || [];
+            currentChatCursor = response.after; // Store cursor for next page
+
+            console.log(`[CHAT] Initial load: ${allChatMessages.length} messages, cursor: ${currentChatCursor}`);
+
+            renderChatMessages(allChatMessages, true);
+
+            // Setup infinite scroll for messages
+            setupChatInfiniteScroll();
         }
     } catch (error) {
         console.error(`[CHAT] Error loading ${type}:`, error);
@@ -3182,11 +3200,23 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
 
 function closeChatModal() {
     document.getElementById('chatModal').classList.remove('show');
+
+    // Clean up scroll listener
+    const modalBody = document.getElementById('chatModalBody');
+    if (modalBody) {
+        modalBody.removeEventListener('scroll', handleChatScroll);
+    }
+
+    // Reset pagination state
     currentChatChannelId = null;
     currentChatPSID = null;
+    currentChatType = null;
+    currentChatCursor = null;
+    allChatMessages = [];
+    isLoadingMoreMessages = false;
 }
 
-function renderChatMessages(messages) {
+function renderChatMessages(messages, scrollToBottom = false) {
     const modalBody = document.getElementById('chatModalBody');
 
     if (!messages || messages.length === 0) {
@@ -3245,12 +3275,21 @@ function renderChatMessages(messages) {
             </div>`;
     }).join('');
 
-    modalBody.innerHTML = `<div class="chat-messages-container">${messagesHTML}</div>`;
+    // Add loading indicator at top if more messages available
+    const loadingIndicator = currentChatCursor ? `
+        <div id="chatLoadMoreIndicator" style="text-align: center; padding: 12px; color: #9ca3af; font-size: 12px;">
+            <i class="fas fa-arrow-up" style="margin-right: 4px;"></i>
+            Cuộn lên để tải thêm tin nhắn
+        </div>` : '';
 
-    // Auto scroll to bottom
-    setTimeout(() => {
-        modalBody.scrollTop = modalBody.scrollHeight;
-    }, 100);
+    modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${messagesHTML}</div>`;
+
+    // Auto scroll to bottom or preserve scroll position
+    if (scrollToBottom) {
+        setTimeout(() => {
+            modalBody.scrollTop = modalBody.scrollHeight;
+        }, 100);
+    }
 }
 
 function renderComments(comments) {
@@ -3354,6 +3393,97 @@ function renderComments(comments) {
     setTimeout(() => {
         modalBody.scrollTop = modalBody.scrollHeight;
     }, 100);
+}
+
+// =====================================================
+// INFINITE SCROLL FOR MESSAGES
+// =====================================================
+
+function setupChatInfiniteScroll() {
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) return;
+
+    // Remove existing listener to avoid duplicates
+    modalBody.removeEventListener('scroll', handleChatScroll);
+
+    // Add scroll listener
+    modalBody.addEventListener('scroll', handleChatScroll);
+}
+
+async function handleChatScroll(event) {
+    const modalBody = event.target;
+
+    // Check if scrolled to top (or near top)
+    const isNearTop = modalBody.scrollTop < 100;
+
+    // Only load more if:
+    // 1. Near the top of the scroll
+    // 2. Not already loading
+    // 3. Have a cursor for more messages
+    // 4. Currently viewing messages (not comments)
+    if (isNearTop && !isLoadingMoreMessages && currentChatCursor && currentChatType === 'message') {
+        await loadMoreMessages();
+    }
+}
+
+async function loadMoreMessages() {
+    if (!currentChatChannelId || !currentChatPSID || !currentChatCursor) {
+        return;
+    }
+
+    isLoadingMoreMessages = true;
+
+    try {
+        const modalBody = document.getElementById('chatModalBody');
+        const loadMoreIndicator = document.getElementById('chatLoadMoreIndicator');
+
+        // Show loading state
+        if (loadMoreIndicator) {
+            loadMoreIndicator.innerHTML = `
+                <i class="fas fa-spinner fa-spin" style="margin-right: 4px;"></i>
+                Đang tải thêm tin nhắn...
+            `;
+        }
+
+        console.log(`[CHAT] Loading more messages with cursor: ${currentChatCursor}`);
+
+        // Fetch more messages using the cursor
+        const response = await window.chatDataManager.fetchMessages(
+            currentChatChannelId,
+            currentChatPSID,
+            currentChatCursor
+        );
+
+        // Get scroll height before updating
+        const scrollHeightBefore = modalBody.scrollHeight;
+        const scrollTopBefore = modalBody.scrollTop;
+
+        // Append older messages to the beginning of the array
+        const newMessages = response.messages || [];
+        if (newMessages.length > 0) {
+            allChatMessages = [...allChatMessages, ...newMessages];
+            console.log(`[CHAT] Loaded ${newMessages.length} more messages. Total: ${allChatMessages.length}`);
+        }
+
+        // Update cursor for next page
+        currentChatCursor = response.after;
+        console.log(`[CHAT] Next cursor: ${currentChatCursor}`);
+
+        // Re-render with all messages, don't scroll to bottom
+        renderChatMessages(allChatMessages, false);
+
+        // Restore scroll position (adjust for new content height)
+        setTimeout(() => {
+            const scrollHeightAfter = modalBody.scrollHeight;
+            const heightDifference = scrollHeightAfter - scrollHeightBefore;
+            modalBody.scrollTop = scrollTopBefore + heightDifference;
+        }, 50);
+
+    } catch (error) {
+        console.error('[CHAT] Error loading more messages:', error);
+    } finally {
+        isLoadingMoreMessages = false;
+    }
 }
 
 async function markChatAsRead() {
