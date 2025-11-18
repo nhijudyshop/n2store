@@ -3275,12 +3275,39 @@ function renderChatMessages(messages, scrollToBottom = false) {
             </div>`;
     }).join('');
 
-    // Add loading indicator at top if more messages available
-    const loadingIndicator = currentChatCursor ? `
-        <div id="chatLoadMoreIndicator" style="text-align: center; padding: 12px; color: #9ca3af; font-size: 12px;">
-            <i class="fas fa-arrow-up" style="margin-right: 4px;"></i>
-            Cuộn lên để tải thêm tin nhắn
-        </div>` : '';
+    // Add loading indicator at top based on pagination state
+    let loadingIndicator = '';
+    if (currentChatCursor) {
+        // Still have more messages to load
+        loadingIndicator = `
+            <div id="chatLoadMoreIndicator" style="
+                text-align: center;
+                padding: 16px 12px;
+                color: #6b7280;
+                font-size: 13px;
+                background: linear-gradient(to bottom, #f9fafb 0%, transparent 100%);
+                border-bottom: 1px solid #e5e7eb;
+                margin-bottom: 8px;
+            ">
+                <i class="fas fa-arrow-up" style="margin-right: 6px; color: #3b82f6;"></i>
+                <span style="font-weight: 500;">Cuộn lên để tải thêm tin nhắn</span>
+            </div>`;
+    } else if (allChatMessages.length > 0 && !currentChatCursor) {
+        // No more messages (reached the beginning)
+        loadingIndicator = `
+            <div style="
+                text-align: center;
+                padding: 16px 12px;
+                color: #9ca3af;
+                font-size: 12px;
+                background: #f9fafb;
+                border-bottom: 1px solid #e5e7eb;
+                margin-bottom: 8px;
+            ">
+                <i class="fas fa-check-circle" style="margin-right: 6px; color: #10b981;"></i>
+                Đã tải hết tin nhắn cũ
+            </div>`;
+    }
 
     modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${messagesHTML}</div>`;
 
@@ -3437,12 +3464,13 @@ async function loadMoreMessages() {
         const modalBody = document.getElementById('chatModalBody');
         const loadMoreIndicator = document.getElementById('chatLoadMoreIndicator');
 
-        // Show loading state
+        // Show loading state with better visual feedback
         if (loadMoreIndicator) {
             loadMoreIndicator.innerHTML = `
-                <i class="fas fa-spinner fa-spin" style="margin-right: 4px;"></i>
-                Đang tải thêm tin nhắn...
+                <i class="fas fa-spinner fa-spin" style="margin-right: 8px; color: #3b82f6;"></i>
+                <span style="font-weight: 500; color: #3b82f6;">Đang tải thêm tin nhắn...</span>
             `;
+            loadMoreIndicator.style.background = 'linear-gradient(to bottom, #eff6ff 0%, transparent 100%)';
         }
 
         console.log(`[CHAT] Loading more messages with cursor: ${currentChatCursor}`);
@@ -3462,12 +3490,18 @@ async function loadMoreMessages() {
         const newMessages = response.messages || [];
         if (newMessages.length > 0) {
             allChatMessages = [...allChatMessages, ...newMessages];
-            console.log(`[CHAT] Loaded ${newMessages.length} more messages. Total: ${allChatMessages.length}`);
+            console.log(`[CHAT] ✅ Loaded ${newMessages.length} more messages. Total: ${allChatMessages.length}`);
+        } else {
+            console.log(`[CHAT] ⚠️ No new messages loaded. Reached end or empty batch.`);
         }
 
-        // Update cursor for next page
+        // Update cursor for next page (null = no more messages)
         currentChatCursor = response.after;
-        console.log(`[CHAT] Next cursor: ${currentChatCursor}`);
+        if (currentChatCursor) {
+            console.log(`[CHAT] 📄 Next cursor available: ${currentChatCursor.substring(0, 20)}...`);
+        } else {
+            console.log(`[CHAT] 🏁 No more messages. Reached the beginning of conversation.`);
+        }
 
         // Re-render with all messages, don't scroll to bottom
         renderChatMessages(allChatMessages, false);
