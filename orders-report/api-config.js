@@ -9,7 +9,7 @@
 const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 // Fallback: Render.com URL (deploy this first!)
-const FALLBACK_URL = 'https://n2store-api-fallback.onrender.com';
+const FALLBACK_URL = 'https://n2store-fallback.onrender.com';
 
 // API Configuration
 const API_CONFIG = {
