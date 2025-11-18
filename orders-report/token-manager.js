@@ -16,18 +16,55 @@ class TokenManager {
             client_id: 'tmtWebApp'
         };
         this.firebaseRef = null;
+        this.firebaseReady = false;
+        this.waitForFirebaseAndInit();
+    }
+
+    /**
+     * Wait for Firebase to be ready, then initialize
+     */
+    async waitForFirebaseAndInit() {
+        // Wait for Firebase SDK to load
+        await this.waitForFirebase();
+
+        // Initialize Firebase reference
         this.initFirebase();
-        this.init();
+
+        // Initialize token
+        await this.init();
+    }
+
+    /**
+     * Wait for Firebase SDK to be available
+     * @returns {Promise<void>}
+     */
+    async waitForFirebase() {
+        const maxRetries = 50; // 5 seconds max (50 * 100ms)
+        let retries = 0;
+
+        while (retries < maxRetries) {
+            if (window.firebase && window.firebase.database && typeof window.firebase.database === 'function') {
+                console.log('[TOKEN] Firebase SDK is ready');
+                this.firebaseReady = true;
+                return;
+            }
+
+            // Wait 100ms before checking again
+            await new Promise(resolve => setTimeout(resolve, 100));
+            retries++;
+        }
+
+        console.warn('[TOKEN] Firebase SDK not available after 5 seconds, will use localStorage only');
     }
 
     initFirebase() {
         try {
-            if (window.firebase && window.firebase.database) {
+            if (window.firebase && window.firebase.database && this.firebaseReady) {
                 this.firebaseRef = window.firebase.database().ref('tpos_token');
-                console.log('[TOKEN] Firebase reference initialized');
+                console.log('[TOKEN] ✅ Firebase reference initialized successfully');
                 return true;
             } else {
-                console.warn('[TOKEN] Firebase not available yet, will use localStorage only');
+                console.warn('[TOKEN] Firebase not available, will use localStorage only');
                 return false;
             }
         } catch (error) {
