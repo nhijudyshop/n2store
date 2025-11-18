@@ -2069,28 +2069,9 @@
                         });
                     });
 
-                    // Add main product to hidden list
-                    const tposMainQty = templateData.QtyAvailable || 0;
-                    // Prompt user to input inventory quantity for main product
-                    const mainUserInput = prompt(`Nhập số lượng tồn kho cho ${templateData.NameGet}:`, tposMainQty);
-                    const mainProductQty = mainUserInput !== null ? parseInt(mainUserInput) || 0 : tposMainQty;
-                    const mainProduct = cleanProductForFirebase({
-                        Id: templateData.Id,
-                        NameGet: templateData.NameGet,
-                        QtyAvailable: mainProductQty,
-                        ProductTmplId: templateData.Id,
-                        imageUrl: imageUrl,
-                        soldQty: 0,
-                        remainingQty: mainProductQty,
-                        isHidden: true // Main product is hidden
-                    });
-
-                    // Add main product to the batch
-                    const allProducts = [...variantsToAdd, mainProduct];
-
-                    // Use batch add helper
+                    // Use batch add helper (only variants, no main product)
                     try {
-                        const result = await addProductsToFirebase(database, allProducts, orderProducts);
+                        const result = await addProductsToFirebase(database, variantsToAdd, orderProducts);
 
                         updateProductListPreview();
 
