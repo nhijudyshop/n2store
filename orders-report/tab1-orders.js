@@ -103,6 +103,20 @@ window.addEventListener("DOMContentLoaded", async function () {
                 if (allData.length > 0) {
                     performTableSearch();
                 }
+
+                // Initialize WebSocket for realtime updates
+                if (window.pancakeWebSocketManager) {
+                    console.log('[PANCAKE-WS] Initializing WebSocket for realtime updates...');
+                    window.pancakeWebSocketManager.initialize().then(wsSuccess => {
+                        if (wsSuccess) {
+                            console.log('[PANCAKE-WS] ✅ WebSocket connected - realtime updates enabled');
+                        } else {
+                            console.warn('[PANCAKE-WS] ⚠️ WebSocket connection failed - using polling mode');
+                        }
+                    }).catch(wsError => {
+                        console.error('[PANCAKE-WS] ❌ WebSocket error:', wsError);
+                    });
+                }
             } else {
                 console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
                 console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
@@ -113,6 +127,18 @@ window.addEventListener("DOMContentLoaded", async function () {
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
+
+    // Listen for realtime conversation updates from WebSocket
+    window.addEventListener('pancake-conversation-update', function(event) {
+        console.log('[PANCAKE-WS] 🔔 Realtime conversation update received:', event.detail);
+
+        // The conversation map is already updated in PancakeDataManager
+        // Just refresh the UI to show the new unread status
+        if (allData.length > 0) {
+            console.log('[PANCAKE-WS] 📊 Refreshing table with new unread status...');
+            performTableSearch();
+        }
+    });
 
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
