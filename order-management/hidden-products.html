@@ -1341,17 +1341,19 @@
         }
 
         async function loadSettings() {
-            try {
-                const snapshot = await database.ref('orderDisplaySettings').once('value');
-                const settings = snapshot.val();
-                if (settings) {
-                    displaySettings = settings;
-                    itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
-                }
-            } catch (error) {
-                console.error('❌ Error loading settings from Firebase:', error);
-            }
+            // FIXED: Always use 4 columns x 2 rows, DO NOT load from Firebase
+            // This page is hardcoded to 4x2 grid and is NOT affected by any settings from other pages
+            displaySettings = {
+                columns: 4,
+                rows: 2,
+                gap: 15,
+                itemHeight: 500,
+                nameMargin: 3,
+                itemsPerPage: 8
+            };
+            itemsPerPage = 8; // Always 4 columns x 2 rows = 8 items
             applySettings();
+            console.log('🔒 Settings FIXED to 4 columns x 2 rows (unchangeable)');
         }
 
         function applySettings() {
@@ -2038,18 +2040,8 @@
         });
 
         function setupFirebaseListeners() {
-            database.ref('orderDisplaySettings').on('value', (snapshot) => {
-                const settings = snapshot.val();
-                if (settings && !isSyncingFromFirebase) {
-                    isSyncingFromFirebase = true;
-                    displaySettings = settings;
-                    itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
-                    applySettings();
-                    updateProductGrid();
-                    console.log('🔥 Settings synced from Firebase');
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
-                }
-            });
+            // REMOVED: orderDisplaySettings listener
+            // This page is FIXED to 4x2 grid and does NOT sync display settings from Firebase
 
             // Listen for merge variants mode changes
             database.ref('orderIsMergeVariants').on('value', (snapshot) => {
@@ -2176,23 +2168,15 @@
             });
         }
 
-        const settingsChannel = new BroadcastChannel('order-settings');
-
-        settingsChannel.onmessage = (event) => {
-            if (event.data.type === 'settingsChanged') {
-                console.log('⚙️ Settings updated from same device!');
-                loadSettings();
-                updateProductGrid();
-            }
-        };
+        // REMOVED: BroadcastChannel for settings
+        // This page is FIXED to 4x2 grid and does NOT listen to settings changes
 
         window.addEventListener('storage', (e) => {
+            // Only listen for products changes, NOT settings
             if (e.key === 'orderProducts') {
                 loadProducts();
-            } else if (e.key === 'orderDisplaySettings') {
-                loadSettings();
-                loadProducts();
             }
+            // REMOVED: orderDisplaySettings listener - this page uses fixed 4x2 grid
         });
 
         window.addEventListener('hashchange', () => {
