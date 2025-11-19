@@ -4135,6 +4135,15 @@
                     autoAddVariants = settings.autoAddVariants !== undefined ? settings.autoAddVariants : true;
                     document.getElementById('toggleAutoVariants').checked = autoAddVariants;
                 }
+
+                // Load Hidden Products Display Settings
+                const hiddenSnapshot = await database.ref('hiddenProductsDisplaySettings').once('value');
+                const hiddenSettings = hiddenSnapshot.val();
+                if (hiddenSettings) {
+                    document.getElementById('settingHiddenColumns').value = hiddenSettings.columns || 4;
+                    document.getElementById('settingHiddenRows').value = hiddenSettings.rows || 2;
+                    document.getElementById('settingHiddenGap').value = hiddenSettings.gap || 15;
+                }
             } catch (error) {
                 console.error('❌ Error loading settings from Firebase:', error);
             }
@@ -4206,6 +4215,22 @@
             if (!isSyncingFromFirebase) {
                 database.ref('orderDisplaySettings').set(settings).catch(error => {
                     console.error('❌ Lỗi sync settings lên Firebase:', error);
+                });
+
+                // Save Hidden Products Display Settings
+                const hiddenColumns = parseInt(document.getElementById('settingHiddenColumns').value) || 4;
+                const hiddenRows = parseInt(document.getElementById('settingHiddenRows').value) || 2;
+                const hiddenGap = parseInt(document.getElementById('settingHiddenGap').value) || 15;
+
+                const hiddenSettings = {
+                    columns: hiddenColumns,
+                    rows: hiddenRows,
+                    gap: hiddenGap,
+                    itemsPerPage: hiddenColumns * hiddenRows
+                };
+
+                database.ref('hiddenProductsDisplaySettings').set(hiddenSettings).catch(error => {
+                    console.error('❌ Lỗi sync hidden products settings lên Firebase:', error);
                 });
             }
 
@@ -4550,6 +4575,28 @@
                         <label class="setting-label">📐 Chiều Cao Cột (px)</label>
                         <input type="number" class="setting-input" id="settingItemHeight" value="500" min="200" max="1000">
                         <div class="setting-description">Chiều cao của mỗi ô sản phẩm</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden Products Layout Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #ff9800; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #ff9800; padding-bottom: 8px;">📐 Cài đặt Bố cục Danh Sách Ẩn</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">📊 Số Cột</label>
+                        <input type="number" class="setting-input" id="settingHiddenColumns" value="4" min="1" max="8">
+                        <div class="setting-description">Số cột hiển thị trong trang Danh Sách Ẩn</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📋 Số Hàng</label>
+                        <input type="number" class="setting-input" id="settingHiddenRows" value="2" min="1" max="6">
+                        <div class="setting-description">Số hàng hiển thị trong trang Danh Sách Ẩn</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📏 Khoảng Cách (px)</label>
+                        <input type="number" class="setting-input" id="settingHiddenGap" value="15" min="5" max="50">
+                        <div class="setting-description">Khoảng cách giữa các sản phẩm (Danh Sách Ẩn)</div>
                     </div>
                 </div>
             </div>
