@@ -748,22 +748,25 @@ function handleDeleteButton(e) {
                     throw new Error("Không tìm thấy đơn hàng cần xóa");
                 }
 
+                // Return both the update promise and the updated array
                 return collectionRef
                     .doc("hanghoan")
-                    .update({ data: updatedArray });
+                    .update({ data: updatedArray })
+                    .then(() => updatedArray);
             })
-            .then(() => {
+            .then((updatedArray) => {
                 logAction(
                     "delete",
                     `Xóa đơn hàng hoàn: ${deleteData.customerInfoValue}`,
                     deleteData,
                     null,
                 );
-                invalidateCache();
-                row.remove();
-                showSuccess("Đã xóa đơn hàng thành công!");
 
-                setTimeout(() => updateTable(), 500);
+                // Update cache with new data and re-render immediately
+                setCachedData(updatedArray);
+                row.remove();
+                updateStats(updatedArray);
+                showSuccess("Đã xóa đơn hàng thành công!");
             })
             .catch((error) => {
                 console.error("Error deleting:", error);
@@ -829,18 +832,19 @@ function handleCheckboxClick(e) {
 
                 return collectionRef
                     .doc("hanghoan")
-                    .update({ data: dataArray });
+                    .update({ data: dataArray })
+                    .then(() => dataArray);
             })
-            .then(() => {
+            .then((dataArray) => {
                 const actionDesc = isChecked
                     ? "Đánh dấu đã nhận hàng hoàn"
                     : "Hủy đánh dấu đã nhận hàng hoàn";
                 logAction("update", `${actionDesc}: ${row.cells[4]?.innerText || ""}`);
 
-                invalidateCache();
+                // Update cache with modified data and update stats immediately
+                setCachedData(dataArray);
+                updateStats(dataArray);
                 showSuccess("Đã cập nhật trạng thái thành công!");
-
-                setTimeout(() => updateTable(), 500);
             })
             .catch((error) => {
                 console.error("Error updating status:", error);
