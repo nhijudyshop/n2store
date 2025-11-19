@@ -1456,6 +1456,16 @@
             max-height: 400px;
             overflow-y: auto;
             padding-right: 5px;
+            margin-top: 15px;
+            transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+            opacity: 1;
+        }
+
+        .cart-history-list.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            overflow: hidden;
         }
 
         .cart-history-list::-webkit-scrollbar {
@@ -1474,6 +1484,26 @@
 
         .cart-history-list::-webkit-scrollbar-thumb:hover {
             background: #555;
+        }
+
+        /* Toggle Icon */
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+            font-size: 12px;
+            color: #667eea;
+        }
+
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .cart-history-header:hover h3 {
+            color: #5568d3;
+        }
+
+        .cart-history-header:hover .toggle-icon {
+            color: #5568d3;
         }
 
         .no-history {
@@ -2577,6 +2607,53 @@
             } catch (error) {
                 console.error('Error deleting snapshot:', error);
                 showNotificationMessage('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        /**
+         * Toggle cart history section collapse/expand
+         */
+        function toggleCartHistory() {
+            const list = document.getElementById('cartHistoryList');
+            const icon = document.getElementById('cartHistoryToggleIcon');
+
+            if (!list || !icon) return;
+
+            const isCollapsed = list.classList.contains('collapsed');
+
+            if (isCollapsed) {
+                // Expand
+                list.classList.remove('collapsed');
+                icon.classList.add('expanded');
+                // Save state to localStorage
+                localStorage.setItem('cartHistoryExpanded', 'true');
+            } else {
+                // Collapse
+                list.classList.add('collapsed');
+                icon.classList.remove('expanded');
+                // Save state to localStorage
+                localStorage.setItem('cartHistoryExpanded', 'false');
+            }
+        }
+
+        /**
+         * Initialize cart history collapse state from localStorage
+         */
+        function initCartHistoryState() {
+            const list = document.getElementById('cartHistoryList');
+            const icon = document.getElementById('cartHistoryToggleIcon');
+
+            if (!list || !icon) return;
+
+            // Check saved state (default is collapsed)
+            const isExpanded = localStorage.getItem('cartHistoryExpanded') === 'true';
+
+            if (isExpanded) {
+                list.classList.remove('collapsed');
+                icon.classList.add('expanded');
+            } else {
+                list.classList.add('collapsed');
+                icon.classList.remove('expanded');
             }
         }
 
@@ -4132,6 +4209,9 @@
                 // Load cart history
                 refreshCartHistory();
 
+                // Initialize cart history collapse state
+                initCartHistoryState();
+
                 // Setup list search event listener
                 const listSearchInput = document.getElementById('listSearchInput');
                 const listSearchClear = document.getElementById('listSearchClear');
@@ -4283,14 +4363,17 @@
 
             <!-- Cart History Section -->
             <div class="cart-history-section" style="margin-bottom: 20px;">
-                <div class="cart-history-header">
-                    <h3 style="color: #667eea; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                        <span>📚 Lịch Sử Giỏ Hàng</span>
-                        <button class="btn-refresh-history" onclick="refreshCartHistory()" title="Làm mới" style="background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px;">🔄</button>
+                <div class="cart-history-header" onclick="toggleCartHistory()" style="cursor: pointer;">
+                    <h3 style="color: #667eea; margin-bottom: 0; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span id="cartHistoryToggleIcon" class="toggle-icon">▶</span>
+                            📚 Lịch Sử Giỏ Hàng
+                        </span>
+                        <button class="btn-refresh-history" onclick="event.stopPropagation(); refreshCartHistory()" title="Làm mới" style="background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px;">🔄</button>
                     </h3>
                 </div>
 
-                <div id="cartHistoryList" class="cart-history-list">
+                <div id="cartHistoryList" class="cart-history-list collapsed">
                     <div class="no-history">Đang tải...</div>
                 </div>
             </div>
