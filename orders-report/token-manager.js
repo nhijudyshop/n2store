@@ -172,22 +172,15 @@ class TokenManager {
         try {
             const expiresAt = Date.now() + (tokenData.expires_in * 1000);
 
-            // Build data object, excluding undefined values (Firebase doesn't allow undefined)
             const dataToSave = {
                 access_token: tokenData.access_token,
                 token_type: tokenData.token_type,
                 expires_in: tokenData.expires_in,
                 expires_at: expiresAt,
-                issued_at: Date.now()
+                issued_at: Date.now(),
+                userName: tokenData.userName,
+                userId: tokenData.userId
             };
-
-            // Only add userName and userId if they exist
-            if (tokenData.userName !== undefined && tokenData.userName !== null) {
-                dataToSave.userName = tokenData.userName;
-            }
-            if (tokenData.userId !== undefined && tokenData.userId !== null) {
-                dataToSave.userId = tokenData.userId;
-            }
 
             // Save to localStorage
             localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
