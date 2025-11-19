@@ -414,3 +414,135 @@ function getProductsArray(productsObject, sortedIds = null) {
         return (b.addedAt || 0) - (a.addedAt || 0);
     });
 }
+
+/**
+ * ============================================================================
+ * CART HISTORY / SNAPSHOT FUNCTIONS
+ * ============================================================================
+ */
+
+/**
+ * Save cart snapshot to Firebase
+ * @param {Object} database - Firebase database reference
+ * @param {Object} snapshot - Snapshot object with metadata and products
+ * @returns {Promise<string>} Returns snapshot ID
+ */
+async function saveCartSnapshot(database, snapshot) {
+    const snapshotId = `snapshot_${snapshot.metadata.savedAt}`;
+
+    // Save snapshot data
+    await database.ref(`cartHistory/${snapshotId}`).set(snapshot);
+
+    // Update metadata
+    const metaRef = database.ref('cartHistoryMeta');
+    const metaSnapshot = await metaRef.once('value');
+    const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
+
+    // Add to beginning of array (newest first)
+    const newSortedIds = [snapshotId, ...currentMeta.sortedIds];
+
+    await metaRef.set({
+        sortedIds: newSortedIds,
+        count: newSortedIds.length,
+        lastUpdated: Date.now()
+    });
+
+    return snapshotId;
+}
+
+/**
+ * Get single cart snapshot
+ * @param {Object} database - Firebase database reference
+ * @param {string} snapshotId - Snapshot ID to retrieve
+ * @returns {Promise<Object|null>} Snapshot object or null if not found
+ */
+async function getCartSnapshot(database, snapshotId) {
+    const snapshot = await database.ref(`cartHistory/${snapshotId}`).once('value');
+    const data = snapshot.val();
+
+    if (!data) return null;
+
+    return {
+        id: snapshotId,
+        ...data
+    };
+}
+
+/**
+ * Get all cart snapshots (sorted by date, newest first)
+ * @param {Object} database - Firebase database reference
+ * @returns {Promise<Array>} Array of snapshot objects
+ */
+async function getAllCartSnapshots(database) {
+    const metaSnapshot = await database.ref('cartHistoryMeta').once('value');
+    const meta = metaSnapshot.val();
+
+    if (!meta || !meta.sortedIds || meta.sortedIds.length === 0) {
+        return [];
+    }
+
+    const snapshots = [];
+
+    for (const snapshotId of meta.sortedIds) {
+        const snapshot = await getCartSnapshot(database, snapshotId);
+        if (snapshot) {
+            snapshots.push(snapshot);
+        }
+    }
+
+    return snapshots;
+}
+
+/**
+ * Restore products from snapshot
+ * @param {Object} database - Firebase database reference
+ * @param {Object} snapshotProducts - Products object from snapshot
+ * @param {Object} localProductsObject - Local products object reference
+ * @returns {Promise}
+ */
+async function restoreProductsFromSnapshot(database, snapshotProducts, localProductsObject) {
+    // Batch write all products
+    const updates = {};
+    const productIds = [];
+
+    Object.entries(snapshotProducts).forEach(([key, product]) => {
+        updates[`orderProducts/${key}`] = product;
+        productIds.push(product.Id);
+
+        // Update local object
+        localProductsObject[key] = product;
+    });
+
+    // Update metadata
+    updates['orderProductsMeta'] = {
+        sortedIds: productIds,
+        count: productIds.length,
+        lastUpdated: Date.now()
+    };
+
+    await database.ref().update(updates);
+}
+
+/**
+ * Delete cart snapshot
+ * @param {Object} database - Firebase database reference
+ * @param {string} snapshotId - Snapshot ID to delete
+ * @returns {Promise}
+ */
+async function deleteCartSnapshot(database, snapshotId) {
+    // Remove snapshot data
+    await database.ref(`cartHistory/${snapshotId}`).remove();
+
+    // Update metadata
+    const metaRef = database.ref('cartHistoryMeta');
+    const metaSnapshot = await metaRef.once('value');
+    const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
+
+    const newSortedIds = currentMeta.sortedIds.filter(id => id !== snapshotId);
+
+    await metaRef.set({
+        sortedIds: newSortedIds,
+        count: newSortedIds.length,
+        lastUpdated: Date.now()
+    });
+}
