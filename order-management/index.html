@@ -2061,6 +2061,7 @@
                     <button class="list-search-clear" id="hiddenListSearchClear" onclick="clearHiddenListSearch()">×</button>
                 </div>
                 <div class="list-header-actions">
+                    <button class="btn-expand" onclick="openHiddenProductsSettings()" style="background: #ff9800; border-color: #ff9800;" title="Cài đặt bố cục Danh Sách Ẩn">⚙️</button>
                     <a href="hidden-products.html" class="btn-expand" style="text-decoration: none;">👁️ Xem</a>
                 </div>
             </div>
@@ -4216,22 +4217,6 @@
                 database.ref('orderDisplaySettings').set(settings).catch(error => {
                     console.error('❌ Lỗi sync settings lên Firebase:', error);
                 });
-
-                // Save Hidden Products Display Settings
-                const hiddenColumns = parseInt(document.getElementById('settingHiddenColumns').value) || 4;
-                const hiddenRows = parseInt(document.getElementById('settingHiddenRows').value) || 2;
-                const hiddenGap = parseInt(document.getElementById('settingHiddenGap').value) || 15;
-
-                const hiddenSettings = {
-                    columns: hiddenColumns,
-                    rows: hiddenRows,
-                    gap: hiddenGap,
-                    itemsPerPage: hiddenColumns * hiddenRows
-                };
-
-                database.ref('hiddenProductsDisplaySettings').set(hiddenSettings).catch(error => {
-                    console.error('❌ Lỗi sync hidden products settings lên Firebase:', error);
-                });
             }
 
             if (window.settingsChannel) {
@@ -4457,11 +4442,56 @@
             }
         }
 
+        function toggleHiddenProductsSettings() {
+            const sidebar = document.getElementById('hiddenSettingsSidebar');
+            const overlay = document.getElementById('hiddenSettingsSidebarOverlay');
+
+            if (sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+            } else {
+                sidebar.classList.add('open');
+                overlay.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function openHiddenProductsSettings() {
+            toggleHiddenProductsSettings();
+        }
+
+        function applyHiddenProductsSettings() {
+            const hiddenColumns = parseInt(document.getElementById('settingHiddenColumns').value) || 4;
+            const hiddenRows = parseInt(document.getElementById('settingHiddenRows').value) || 2;
+            const hiddenGap = parseInt(document.getElementById('settingHiddenGap').value) || 15;
+
+            const hiddenSettings = {
+                columns: hiddenColumns,
+                rows: hiddenRows,
+                gap: hiddenGap,
+                itemsPerPage: hiddenColumns * hiddenRows
+            };
+
+            if (!isSyncingFromFirebase) {
+                database.ref('hiddenProductsDisplaySettings').set(hiddenSettings).catch(error => {
+                    console.error('❌ Lỗi sync hidden products settings lên Firebase:', error);
+                });
+            }
+
+            showNotificationMessage('💾 Đã lưu cài đặt Danh Sách Ẩn thành công!');
+        }
+
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const sidebar = document.getElementById('settingsSidebar');
+                const hiddenSidebar = document.getElementById('hiddenSettingsSidebar');
+
                 if (sidebar.classList.contains('open')) {
                     toggleSettingsSidebar();
+                }
+                if (hiddenSidebar && hiddenSidebar.classList.contains('open')) {
+                    toggleHiddenProductsSettings();
                 }
             }
         });
@@ -4579,28 +4609,6 @@
                 </div>
             </div>
 
-            <!-- Hidden Products Layout Settings -->
-            <div style="margin-bottom: 20px;">
-                <h3 style="color: #ff9800; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #ff9800; padding-bottom: 8px;">📐 Cài đặt Bố cục Danh Sách Ẩn</h3>
-                <div class="settings-grid">
-                    <div class="setting-item">
-                        <label class="setting-label">📊 Số Cột</label>
-                        <input type="number" class="setting-input" id="settingHiddenColumns" value="4" min="1" max="8">
-                        <div class="setting-description">Số cột hiển thị trong trang Danh Sách Ẩn</div>
-                    </div>
-                    <div class="setting-item">
-                        <label class="setting-label">📋 Số Hàng</label>
-                        <input type="number" class="setting-input" id="settingHiddenRows" value="2" min="1" max="6">
-                        <div class="setting-description">Số hàng hiển thị trong trang Danh Sách Ẩn</div>
-                    </div>
-                    <div class="setting-item">
-                        <label class="setting-label">📏 Khoảng Cách (px)</label>
-                        <input type="number" class="setting-input" id="settingHiddenGap" value="15" min="5" max="50">
-                        <div class="setting-description">Khoảng cách giữa các sản phẩm (Danh Sách Ẩn)</div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Image Settings -->
             <div style="margin-bottom: 20px;">
                 <h3 style="color: #667eea; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px;">🖼️ Cài đặt Hình ảnh</h3>
@@ -4693,6 +4701,46 @@
                     💾 Lưu Tất Cả Cài Đặt
                 </button>
                 <div class="setting-description" style="text-align: center; margin-top: 10px;">Áp dụng cho trang danh sách và lưu vào Firebase</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Products Settings Sidebar -->
+    <div class="settings-sidebar-overlay" id="hiddenSettingsSidebarOverlay" onclick="toggleHiddenProductsSettings()"></div>
+    <div class="settings-sidebar" id="hiddenSettingsSidebar">
+        <div class="settings-sidebar-header">
+            <h2>⚙️ Cài đặt Danh Sách Ẩn</h2>
+            <button class="btn-close-sidebar" onclick="toggleHiddenProductsSettings()">×</button>
+        </div>
+        <div class="settings-sidebar-content">
+            <!-- Hidden Products Layout Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #ff9800; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #ff9800; padding-bottom: 8px;">📐 Cài đặt Bố cục</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">📊 Số Cột</label>
+                        <input type="number" class="setting-input" id="settingHiddenColumns" value="4" min="1" max="8">
+                        <div class="setting-description">Số cột hiển thị trong trang Danh Sách Ẩn</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📋 Số Hàng</label>
+                        <input type="number" class="setting-input" id="settingHiddenRows" value="2" min="1" max="6">
+                        <div class="setting-description">Số hàng hiển thị trong trang Danh Sách Ẩn</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📏 Khoảng Cách (px)</label>
+                        <input type="number" class="setting-input" id="settingHiddenGap" value="15" min="5" max="50">
+                        <div class="setting-description">Khoảng cách giữa các sản phẩm</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="setting-item" style="grid-column: 1 / -1;">
+                <button class="btn-apply-settings" onclick="applyHiddenProductsSettings(); toggleHiddenProductsSettings();" style="background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%); border-color: #ff9800;">
+                    💾 Lưu Cài Đặt
+                </button>
+                <div class="setting-description" style="text-align: center; margin-top: 10px;">Áp dụng cho trang Danh Sách Ẩn và lưu vào Firebase</div>
             </div>
         </div>
     </div>
