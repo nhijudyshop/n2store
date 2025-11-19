@@ -1456,15 +1456,6 @@
                     // Remove content within parentheses () to get base name
                     commonName = commonName.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
 
-                    // Get price: use ListPrice or PriceVariant from first variant
-                    const price = firstVariant.ListPrice || firstVariant.PriceVariant || 0;
-
-                    // Add price to name if not zero
-                    let displayName = commonName;
-                    if (price > 0) {
-                        displayName = commonName + ' ' + (price / 1000) + 'K';
-                    }
-
                     // Sum up quantities
                     const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
                     const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
@@ -1490,7 +1481,7 @@
                     // Create merged product
                     const mergedProduct = {
                         ...firstVariant,
-                        NameGet: displayName,
+                        NameGet: commonName,
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
                         remainingQty: 0, // Not used for merged products
