@@ -1341,19 +1341,48 @@
         }
 
         async function loadSettings() {
-            // FIXED: Always use 4 columns x 2 rows, DO NOT load from Firebase
-            // This page is hardcoded to 4x2 grid and is NOT affected by any settings from other pages
-            displaySettings = {
-                columns: 4,
-                rows: 2,
-                gap: 15,
-                itemHeight: 500,
-                nameMargin: 3,
-                itemsPerPage: 8
-            };
-            itemsPerPage = 8; // Always 4 columns x 2 rows = 8 items
+            // Load settings from hiddenProductsDisplaySettings (separate from main order-list settings)
+            try {
+                const snapshot = await database.ref('hiddenProductsDisplaySettings').once('value');
+                const settings = snapshot.val();
+                if (settings) {
+                    displaySettings = {
+                        columns: settings.columns || 4,
+                        rows: settings.rows || 2,
+                        gap: settings.gap || 15,
+                        itemHeight: 500,
+                        nameMargin: 3,
+                        itemsPerPage: settings.itemsPerPage || ((settings.columns || 4) * (settings.rows || 2))
+                    };
+                    itemsPerPage = displaySettings.itemsPerPage;
+                    console.log('🔥 Loaded hidden products display settings from Firebase:', displaySettings);
+                } else {
+                    // Default settings if not found
+                    displaySettings = {
+                        columns: 4,
+                        rows: 2,
+                        gap: 15,
+                        itemHeight: 500,
+                        nameMargin: 3,
+                        itemsPerPage: 8
+                    };
+                    itemsPerPage = 8;
+                    console.log('💾 Using default hidden products display settings');
+                }
+            } catch (error) {
+                console.error('❌ Error loading hidden products settings from Firebase:', error);
+                // Fallback to default
+                displaySettings = {
+                    columns: 4,
+                    rows: 2,
+                    gap: 15,
+                    itemHeight: 500,
+                    nameMargin: 3,
+                    itemsPerPage: 8
+                };
+                itemsPerPage = 8;
+            }
             applySettings();
-            console.log('🔒 Settings FIXED to 4 columns x 2 rows (unchangeable)');
         }
 
         function applySettings() {
@@ -2040,8 +2069,26 @@
         });
 
         function setupFirebaseListeners() {
-            // REMOVED: orderDisplaySettings listener
-            // This page is FIXED to 4x2 grid and does NOT sync display settings from Firebase
+            // Listen for hidden products display settings changes
+            database.ref('hiddenProductsDisplaySettings').on('value', (snapshot) => {
+                const settings = snapshot.val();
+                if (settings && !isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+                    displaySettings = {
+                        columns: settings.columns || 4,
+                        rows: settings.rows || 2,
+                        gap: settings.gap || 15,
+                        itemHeight: 500,
+                        nameMargin: 3,
+                        itemsPerPage: settings.itemsPerPage || ((settings.columns || 4) * (settings.rows || 2))
+                    };
+                    itemsPerPage = displaySettings.itemsPerPage;
+                    applySettings();
+                    updateProductGrid();
+                    console.log('🔥 Hidden products display settings synced from Firebase');
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
 
             // Listen for merge variants mode changes
             database.ref('orderIsMergeVariants').on('value', (snapshot) => {
