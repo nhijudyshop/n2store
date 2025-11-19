@@ -1446,6 +1446,479 @@
             font-size: 48px;
             color: #17a2b8;
         }
+
+        /* ============================================================================
+         * CART HISTORY / SNAPSHOT STYLES
+         * ============================================================================ */
+
+        /* Cart History List */
+        .cart-history-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px;
+            margin-top: 15px;
+            transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+            opacity: 1;
+        }
+
+        .cart-history-list.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            overflow: hidden;
+        }
+
+        .cart-history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .cart-history-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .cart-history-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        .cart-history-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Toggle Icon */
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+            font-size: 12px;
+            color: #667eea;
+        }
+
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .cart-history-header:hover h3 {
+            color: #5568d3;
+        }
+
+        .cart-history-header:hover .toggle-icon {
+            color: #5568d3;
+        }
+
+        .no-history {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-style: italic;
+            font-size: 14px;
+        }
+
+        /* Snapshot Card */
+        .snapshot-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+
+        .snapshot-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .snapshot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+
+        .snapshot-name {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+            flex: 1;
+            line-height: 1.3;
+        }
+
+        .snapshot-date {
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .snapshot-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .snapshot-stats span {
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .snapshot-desc {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+            margin-bottom: 8px;
+            padding: 6px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            line-height: 1.4;
+        }
+
+        .snapshot-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .snapshot-actions button {
+            flex: 1;
+            padding: 6px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-view {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-view:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn-restore {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-restore:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 20000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-small {
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-fullscreen {
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+        }
+
+        .modal-header-custom {
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header-custom h2,
+        .modal-header-custom h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .btn-close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px 10px;
+            color: #666;
+            transition: color 0.2s;
+        }
+
+        .btn-close-modal:hover {
+            color: #dc3545;
+        }
+
+        .modal-body-custom {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer-custom {
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+            background: #f8f9fa;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-footer-custom button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            color: white;
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-secondary-custom {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary-custom:hover {
+            background: #5a6268;
+        }
+
+        /* Restore Confirmation Modal */
+        .warning-message {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+            color: #856404;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .warning-message strong {
+            color: #d39e00;
+            font-size: 16px;
+        }
+
+        .auto-save-option {
+            margin-bottom: 15px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .checkbox-label:hover {
+            background: #e9ecef;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-label span {
+            font-size: 14px;
+            font-weight: 500;
+            color: #28a745;
+        }
+
+        .auto-save-name-input {
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .auto-save-name-input label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .auto-save-name-input input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .auto-save-name-input input[type="text"]:focus {
+            outline: none;
+            border-color: #28a745;
+            box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.1);
+        }
+
+        .info-message {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 10px;
+            color: #0c5460;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        /* Snapshot View Modal */
+        .snapshot-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .snapshot-info-grid > div {
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .snapshot-products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 10px;
+        }
+
+        .snapshot-product-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .snapshot-product-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .snapshot-product-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+
+        .product-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 8px 0;
+            color: #333;
+            line-height: 1.3;
+        }
+
+        .product-stats {
+            display: flex;
+            justify-content: space-around;
+            font-size: 12px;
+            color: #555;
+            background: #f8f9fa;
+            padding: 6px;
+            border-radius: 4px;
+        }
+
+        .product-stats span {
+            font-weight: 500;
+        }
+
+        .hidden-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .modal-small {
+                width: 95%;
+            }
+
+            .modal-fullscreen {
+                width: 95%;
+                height: 95vh;
+            }
+
+            .snapshot-products-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 10px;
+            }
+
+            .snapshot-info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1587,6 +2060,9 @@
                     <input type="text" class="list-search-input" id="hiddenListSearchInput" placeholder="🔍 Tìm kiếm trong danh sách đã ẩn..." autocomplete="off">
                     <button class="list-search-clear" id="hiddenListSearchClear" onclick="clearHiddenListSearch()">×</button>
                 </div>
+                <div class="list-header-actions">
+                    <a href="hidden-products.html" class="btn-expand" style="text-decoration: none;">👁️ Xem</a>
+                </div>
             </div>
             <div class="product-list-preview" id="hiddenProductListPreview"></div>
         </div>
@@ -1699,6 +2175,8 @@
                 remainingQty: Number(product.remainingQty) || 0,
                 imageUrl: product.imageUrl ? String(product.imageUrl) : null,
                 ProductTmplId: typeof product.ProductTmplId === 'object' ? product.ProductTmplId?.Id : product.ProductTmplId,
+                ListPrice: Number(product.ListPrice) || 0, // Price for display
+                PriceVariant: Number(product.PriceVariant) || 0, // Variant price for display
                 addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
                 isHidden: product.isHidden || false, // Hidden status
                 lastRefreshed: product.lastRefreshed || null // Timestamp for image cache-busting
@@ -1744,6 +2222,555 @@
                     console.error('❌ Lỗi xóa tất cả:', error);
                     showNotificationMessage('❌ Lỗi: ' + error.message);
                 }
+            }
+        }
+
+        // ============================================================================
+        // CART HISTORY / SNAPSHOT FUNCTIONS
+        // ============================================================================
+
+        // Global variables for cart history
+        let cartHistorySnapshots = [];
+        let pendingRestoreSnapshotId = null;
+
+        /**
+         * Calculate cart statistics
+         */
+        function calculateCartStats(products) {
+            const productArray = Object.values(products);
+
+            return {
+                productCount: productArray.length,
+                totalItems: productArray.reduce((sum, p) => sum + (p.QtyAvailable || 0), 0),
+                visibleCount: productArray.filter(p => !p.isHidden).length,
+                hiddenCount: productArray.filter(p => p.isHidden).length,
+                soldItemsCount: productArray.reduce((sum, p) => sum + (p.soldQty || 0), 0),
+                remainingItemsCount: productArray.reduce((sum, p) => sum + (p.remainingQty || p.QtyAvailable || 0), 0)
+            };
+        }
+
+        /**
+         * Format date time for display
+         */
+        function formatDateTime(date) {
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            return `${day}/${month}/${year} - ${hours}:${minutes}`;
+        }
+
+        /**
+         * Save current cart and refresh
+         */
+        async function saveCartAndRefresh() {
+            const productCount = Object.keys(orderProducts).length;
+
+            if (productCount === 0) {
+                showNotificationMessage('⚠️ Giỏ hàng đang trống, không có gì để lưu');
+                return;
+            }
+
+            const defaultName = `Giỏ hàng ${formatDateTime(new Date())}`;
+            const customName = prompt('Đặt tên cho giỏ hàng này:', defaultName);
+
+            if (customName === null) return; // User cancelled
+
+            const snapshotName = customName.trim() || defaultName;
+            const description = prompt('Mô tả (tùy chọn):', '') || '';
+
+            if (!confirm(`Lưu giỏ hàng với ${productCount} sản phẩm và làm mới?`)) {
+                return;
+            }
+
+            try {
+                const stats = calculateCartStats(orderProducts);
+                const snapshot = {
+                    metadata: {
+                        savedAt: Date.now(),
+                        name: snapshotName,
+                        description: description,
+                        productCount: stats.productCount,
+                        totalItems: stats.totalItems,
+                        visibleCount: stats.visibleCount,
+                        hiddenCount: stats.hiddenCount,
+                        soldItemsCount: stats.soldItemsCount,
+                        remainingItemsCount: stats.remainingItemsCount
+                    },
+                    products: { ...orderProducts }
+                };
+
+                await saveCartSnapshot(database, snapshot);
+                await clearAllProducts(database, orderProducts);
+
+                updateProductListPreview();
+                await refreshCartHistory();
+
+                showNotificationMessage('✅ Đã lưu giỏ hàng và làm mới thành công!');
+
+            } catch (error) {
+                console.error('Error saving cart:', error);
+                showNotificationMessage('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        /**
+         * Refresh cart history list
+         */
+        async function refreshCartHistory() {
+            try {
+                const snapshots = await getAllCartSnapshots(database);
+                cartHistorySnapshots = snapshots;
+                renderCartHistoryList(snapshots); // Show all snapshots
+            } catch (error) {
+                console.error('Error loading cart history:', error);
+            }
+        }
+
+        /**
+         * Filter cart history by selected date
+         */
+        function filterCartHistoryByDate() {
+            const dateInput = document.getElementById('snapshotDateFilter');
+            if (!dateInput || !dateInput.value) {
+                renderCartHistoryList(cartHistorySnapshots);
+                return;
+            }
+
+            const selectedDate = new Date(dateInput.value);
+            selectedDate.setHours(0, 0, 0, 0);
+
+            const filtered = cartHistorySnapshots.filter(snapshot => {
+                const snapshotDate = new Date(snapshot.metadata.savedAt);
+                snapshotDate.setHours(0, 0, 0, 0);
+                return snapshotDate.getTime() === selectedDate.getTime();
+            });
+
+            renderCartHistoryList(filtered);
+
+            if (filtered.length === 0) {
+                const container = document.getElementById('cartHistoryList');
+                if (container) {
+                    container.innerHTML = '<div class="no-history">Không tìm thấy snapshot nào trong ngày này</div>';
+                }
+            }
+        }
+
+        /**
+         * Clear date filter and show all snapshots
+         */
+        function clearDateFilter() {
+            const dateInput = document.getElementById('snapshotDateFilter');
+            if (dateInput) {
+                dateInput.value = '';
+            }
+            renderCartHistoryList(cartHistorySnapshots);
+        }
+
+        /**
+         * Render cart history list
+         */
+        function renderCartHistoryList(snapshots) {
+            const container = document.getElementById('cartHistoryList');
+
+            if (!container) return;
+
+            if (snapshots.length === 0) {
+                container.innerHTML = '<div class="no-history">Chưa có lịch sử giỏ hàng</div>';
+                return;
+            }
+
+            container.innerHTML = snapshots.map(snapshot => {
+                const snapshotId = snapshot.id;
+                const meta = snapshot.metadata;
+
+                return `
+                    <div class="snapshot-card" data-snapshot-id="${snapshotId}">
+                        <div class="snapshot-header">
+                            <div class="snapshot-name">${meta.name}</div>
+                            <div class="snapshot-date">${formatDateTime(meta.savedAt)}</div>
+                        </div>
+
+                        <div class="snapshot-stats">
+                            <span>📦 ${meta.productCount}</span>
+                            <span>🛒 ${meta.soldItemsCount}</span>
+                            <span>📊 ${meta.remainingItemsCount}</span>
+                        </div>
+
+                        ${meta.description ? `<div class="snapshot-desc">${meta.description}</div>` : ''}
+
+                        <div class="snapshot-actions">
+                            <button onclick="viewSnapshot('${snapshotId}')" class="btn-view" title="Xem chi tiết">👁️</button>
+                            <button onclick="restoreSnapshot('${snapshotId}')" class="btn-restore" title="Khôi phục">♻️</button>
+                            <button onclick="deleteSnapshot('${snapshotId}')" class="btn-delete" title="Xóa">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * View snapshot details
+         */
+        async function viewSnapshot(snapshotId) {
+            try {
+                const snapshot = await getCartSnapshot(database, snapshotId);
+
+                if (!snapshot) {
+                    showNotificationMessage('❌ Không tìm thấy giỏ hàng này');
+                    return;
+                }
+
+                // Populate modal
+                document.getElementById('snapshotModalTitle').textContent = snapshot.metadata.name;
+                document.getElementById('snapshotModalInfo').innerHTML = `
+                    <div>📅 Lưu lúc: ${formatDateTime(snapshot.metadata.savedAt)}</div>
+                    <div>📦 Tổng sản phẩm: ${snapshot.metadata.productCount}</div>
+                    <div>🛒 Đã bán: ${snapshot.metadata.soldItemsCount}</div>
+                    <div>📊 Còn lại: ${snapshot.metadata.remainingItemsCount}</div>
+                    ${snapshot.metadata.description ? `<div>📝 Mô tả: ${snapshot.metadata.description}</div>` : ''}
+                `;
+
+                // Render products
+                renderSnapshotProducts(snapshot.products);
+
+                // Show modal
+                const modal = document.getElementById('snapshotViewModal');
+                modal.style.display = 'flex';
+                modal.dataset.snapshotId = snapshotId;
+
+            } catch (error) {
+                console.error('Error viewing snapshot:', error);
+                showNotificationMessage('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        /**
+         * Render snapshot products in modal
+         */
+        function renderSnapshotProducts(products) {
+            const grid = document.getElementById('snapshotProductsGrid');
+            if (!grid) return;
+
+            const productArray = Object.values(products);
+
+            grid.innerHTML = productArray.map(product => {
+                const price = Math.round((product.PriceVariant || product.ListPrice || 0) / 1000);
+                const imageUrl = product.imageUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
+
+                return `
+                    <div class="snapshot-product-card">
+                        <img src="${imageUrl}" alt="${product.NameGet}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23ddd%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22%3ENo Image%3C/text%3E%3C/svg%3E'">
+                        <div class="product-name">${product.NameGet} ${price}K</div>
+                        <div class="product-stats">
+                            <span>📦 ${product.QtyAvailable}</span>
+                            <span>🛒 ${product.soldQty || 0}</span>
+                            <span>📊 ${product.remainingQty || product.QtyAvailable}</span>
+                        </div>
+                        ${product.isHidden ? '<div class="hidden-badge">Đã ẩn</div>' : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Close snapshot view modal
+         */
+        function closeSnapshotModal() {
+            const modal = document.getElementById('snapshotViewModal');
+            if (modal) {
+                modal.style.display = 'none';
+                delete modal.dataset.snapshotId;
+            }
+        }
+
+        /**
+         * Restore snapshot from modal (safer wrapper)
+         */
+        async function restoreSnapshotFromModal() {
+            const modal = document.getElementById('snapshotViewModal');
+            const snapshotId = modal?.dataset?.snapshotId;
+
+            console.log('DEBUG: Restore from modal, snapshotId:', snapshotId);
+
+            if (!snapshotId) {
+                console.error('DEBUG: No snapshotId found in modal dataset');
+                showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng');
+                return;
+            }
+
+            await restoreSnapshot(snapshotId);
+        }
+
+        /**
+         * Restore snapshot with auto-save protection
+         */
+        async function restoreSnapshot(snapshotId) {
+            console.log('DEBUG: restoreSnapshot() called with snapshotId:', snapshotId);
+
+            const currentProductCount = Object.keys(orderProducts).length;
+            console.log('DEBUG: Current cart has', currentProductCount, 'products');
+
+            // Validate snapshotId
+            if (!snapshotId) {
+                console.error('DEBUG: snapshotId is null/undefined in restoreSnapshot()!');
+                showNotificationMessage('❌ Lỗi: ID giỏ hàng không hợp lệ');
+                return;
+            }
+
+            // Store snapshot ID for later use
+            pendingRestoreSnapshotId = snapshotId;
+            console.log('DEBUG: Set pendingRestoreSnapshotId to:', pendingRestoreSnapshotId);
+
+            // If current cart is empty, restore directly
+            if (currentProductCount === 0) {
+                console.log('DEBUG: Cart is empty, restore directly');
+                if (confirm('Khôi phục giỏ hàng này?')) {
+                    await performRestore(snapshotId, false, null);
+                }
+                return;
+            }
+
+            // Show smart restore dialog
+            console.log('DEBUG: Cart has products, showing restore dialog');
+            showRestoreConfirmDialog(snapshotId, currentProductCount);
+        }
+
+        /**
+         * Show restore confirmation dialog
+         */
+        function showRestoreConfirmDialog(snapshotId, currentProductCount) {
+            // Update current cart count
+            document.getElementById('currentCartCount').textContent = currentProductCount;
+
+            // Generate default auto-save name
+            const defaultName = `Giỏ hàng trước khi khôi phục - ${formatDateTime(new Date())}`;
+            document.getElementById('autoSaveName').value = defaultName;
+
+            // Reset checkbox to checked (default behavior)
+            const checkbox = document.getElementById('autoSaveBeforeRestore');
+            checkbox.checked = true;
+
+            // Show name input
+            document.getElementById('autoSaveNameInput').style.display = 'block';
+
+            // Show modal
+            document.getElementById('restoreConfirmModal').style.display = 'flex';
+        }
+
+        /**
+         * Toggle auto-save name input visibility
+         */
+        function toggleAutoSaveInput() {
+            const checkbox = document.getElementById('autoSaveBeforeRestore');
+            const nameInput = document.getElementById('autoSaveNameInput');
+            nameInput.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        /**
+         * Confirm and execute restore
+         */
+        async function confirmRestore() {
+            const shouldAutoSave = document.getElementById('autoSaveBeforeRestore').checked;
+            const autoSaveName = shouldAutoSave ? document.getElementById('autoSaveName').value.trim() : null;
+
+            console.log('DEBUG: confirmRestore() called');
+            console.log('DEBUG: pendingRestoreSnapshotId:', pendingRestoreSnapshotId);
+            console.log('DEBUG: shouldAutoSave:', shouldAutoSave);
+            console.log('DEBUG: autoSaveName:', autoSaveName);
+
+            // Validate pendingRestoreSnapshotId exists
+            if (!pendingRestoreSnapshotId) {
+                console.error('DEBUG: pendingRestoreSnapshotId is null/undefined!');
+                showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng cần khôi phục');
+                closeRestoreConfirmModal();
+                return;
+            }
+
+            // Validate auto-save name if needed
+            if (shouldAutoSave && !autoSaveName) {
+                showNotificationMessage('⚠️ Vui lòng nhập tên cho giỏ hàng sẽ lưu');
+                return;
+            }
+
+            // IMPORTANT: Save snapshotId to local variable BEFORE closing modal
+            // Because closeRestoreConfirmModal() sets pendingRestoreSnapshotId = null
+            const snapshotIdToRestore = pendingRestoreSnapshotId;
+            console.log('DEBUG: Saved snapshotIdToRestore:', snapshotIdToRestore);
+
+            // Close modal
+            closeRestoreConfirmModal();
+
+            // Perform restore with auto-save (use local variable)
+            await performRestore(snapshotIdToRestore, shouldAutoSave, autoSaveName);
+        }
+
+        /**
+         * Close restore confirm modal
+         */
+        function closeRestoreConfirmModal() {
+            document.getElementById('restoreConfirmModal').style.display = 'none';
+            pendingRestoreSnapshotId = null;
+        }
+
+        /**
+         * Perform the actual restore operation
+         */
+        async function performRestore(snapshotId, shouldAutoSave, autoSaveName) {
+            try {
+                // Step 1: Auto-save current cart if needed
+                if (shouldAutoSave && Object.keys(orderProducts).length > 0) {
+                    showNotificationMessage('💾 Đang lưu giỏ hàng hiện tại...');
+
+                    const stats = calculateCartStats(orderProducts);
+                    const currentSnapshot = {
+                        metadata: {
+                            savedAt: Date.now(),
+                            name: autoSaveName,
+                            description: '(Tự động lưu trước khi khôi phục)',
+                            productCount: stats.productCount,
+                            totalItems: stats.totalItems,
+                            visibleCount: stats.visibleCount,
+                            hiddenCount: stats.hiddenCount,
+                            soldItemsCount: stats.soldItemsCount,
+                            remainingItemsCount: stats.remainingItemsCount
+                        },
+                        products: { ...orderProducts }
+                    };
+
+                    await saveCartSnapshot(database, currentSnapshot);
+                    showNotificationMessage('✅ Đã lưu giỏ hàng hiện tại');
+
+                    // Refresh history to show the new snapshot
+                    await refreshCartHistory();
+                }
+
+                // Step 2: Load snapshot to restore
+                showNotificationMessage('🔄 Đang tải giỏ hàng...');
+
+                console.log('DEBUG: Restoring snapshot ID:', snapshotId);
+                const snapshot = await getCartSnapshot(database, snapshotId);
+                console.log('DEBUG: Snapshot loaded:', snapshot);
+
+                if (!snapshot) {
+                    console.error('DEBUG: Snapshot is null or undefined');
+                    showNotificationMessage('❌ Không tìm thấy giỏ hàng');
+                    return;
+                }
+
+                if (!snapshot.products) {
+                    console.error('DEBUG: Snapshot.products is missing. Snapshot structure:', snapshot);
+                    showNotificationMessage('❌ Dữ liệu giỏ hàng không hợp lệ (thiếu products)');
+                    return;
+                }
+
+                const productCount = Object.keys(snapshot.products).length;
+                if (productCount === 0) {
+                    console.error('DEBUG: Snapshot.products is empty');
+                    showNotificationMessage('❌ Giỏ hàng không có sản phẩm');
+                    return;
+                }
+
+                console.log('DEBUG: Snapshot has', productCount, 'products');
+
+                // Step 3: Clear current products
+                showNotificationMessage('🗑️ Đang xóa giỏ hàng hiện tại...');
+                await clearAllProducts(database, orderProducts);
+
+                // Step 4: Restore products from snapshot
+                showNotificationMessage('♻️ Đang khôi phục sản phẩm...');
+                await restoreProductsFromSnapshot(database, snapshot.products, orderProducts);
+
+                // Step 5: Update UI
+                updateProductListPreview();
+
+                // Close any open modals
+                closeSnapshotModal();
+
+                // Show success message
+                const successMsg = shouldAutoSave
+                    ? `✅ Đã lưu giỏ cũ và khôi phục ${snapshot.metadata.productCount} sản phẩm`
+                    : `✅ Đã khôi phục ${snapshot.metadata.productCount} sản phẩm`;
+
+                showNotificationMessage(successMsg);
+
+            } catch (error) {
+                console.error('Error restoring snapshot:', error);
+                showNotificationMessage('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        /**
+         * Delete snapshot
+         */
+        async function deleteSnapshot(snapshotId) {
+            if (!confirm('⚠️ Xóa giỏ hàng đã lưu này?\n\nHành động này không thể hoàn tác.')) {
+                return;
+            }
+
+            try {
+                await deleteCartSnapshot(database, snapshotId);
+                await refreshCartHistory();
+                showNotificationMessage('🗑️ Đã xóa giỏ hàng đã lưu');
+
+            } catch (error) {
+                console.error('Error deleting snapshot:', error);
+                showNotificationMessage('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        /**
+         * Toggle cart history section collapse/expand
+         */
+        function toggleCartHistory() {
+            const list = document.getElementById('cartHistoryList');
+            const icon = document.getElementById('cartHistoryToggleIcon');
+            const dateFilter = document.getElementById('dateFilterContainer');
+
+            if (!list || !icon) return;
+
+            const isCollapsed = list.classList.contains('collapsed');
+
+            if (isCollapsed) {
+                // Expand
+                list.classList.remove('collapsed');
+                icon.classList.add('expanded');
+                if (dateFilter) dateFilter.style.display = 'block';
+                // Save state to localStorage
+                localStorage.setItem('cartHistoryExpanded', 'true');
+            } else {
+                // Collapse
+                list.classList.add('collapsed');
+                icon.classList.remove('expanded');
+                if (dateFilter) dateFilter.style.display = 'none';
+                // Save state to localStorage
+                localStorage.setItem('cartHistoryExpanded', 'false');
+            }
+        }
+
+        /**
+         * Initialize cart history collapse state from localStorage
+         */
+        function initCartHistoryState() {
+            const list = document.getElementById('cartHistoryList');
+            const icon = document.getElementById('cartHistoryToggleIcon');
+            const dateFilter = document.getElementById('dateFilterContainer');
+
+            if (!list || !icon) return;
+
+            // Check saved state (default is collapsed)
+            const isExpanded = localStorage.getItem('cartHistoryExpanded') === 'true';
+
+            if (isExpanded) {
+                list.classList.remove('collapsed');
+                icon.classList.add('expanded');
+                if (dateFilter) dateFilter.style.display = 'block';
+            } else {
+                list.classList.add('collapsed');
+                icon.classList.remove('expanded');
+                if (dateFilter) dateFilter.style.display = 'none';
             }
         }
 
@@ -2021,8 +3048,8 @@
 
                 // Check if auto-add variants is enabled and variants exist
                 if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
-                    // Filter only active variants (Active !== false)
-                    const activeVariants = templateData.ProductVariants.filter(v => v.Active !== false);
+                    // Filter only active variants (Active === true)
+                    const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
 
                     // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
                     const sortedVariants = sortVariants(activeVariants);
@@ -2038,6 +3065,8 @@
                             NameGet: productData.NameGet,
                             QtyAvailable: qtyAvailable,
                             ProductTmplId: productData.ProductTmplId,
+                            ListPrice: productData.ListPrice || 0,
+                            PriceVariant: productData.PriceVariant || 0,
                             imageUrl: imageUrl,
                             soldQty: 0,
                             remainingQty: qtyAvailable
@@ -2062,6 +3091,8 @@
                             NameGet: variant.NameGet,
                             QtyAvailable: qtyAvailable,
                             ProductTmplId: productData.ProductTmplId,
+                            ListPrice: variant.ListPrice || 0,
+                            PriceVariant: variant.PriceVariant || 0,
                             imageUrl: variantImageUrl,
                             soldQty: 0,
                             remainingQty: qtyAvailable,
@@ -2102,6 +3133,8 @@
                         NameGet: productData.NameGet,
                         QtyAvailable: qtyAvailable,
                         ProductTmplId: productData.ProductTmplId,
+                        ListPrice: productData.ListPrice || 0,
+                        PriceVariant: productData.PriceVariant || 0,
                         imageUrl: imageUrl,
                         soldQty: 0,
                         remainingQty: qtyAvailable
@@ -3290,6 +4323,12 @@
 
                 loadSettings();
 
+                // Load cart history
+                refreshCartHistory();
+
+                // Initialize cart history collapse state
+                initCartHistoryState();
+
                 // Setup list search event listener
                 const listSearchInput = document.getElementById('listSearchInput');
                 const listSearchClear = document.getElementById('listSearchClear');
@@ -3429,6 +4468,40 @@
                     🗑️ Xóa Tất Cả Sản Phẩm
                 </button>
                 <div class="setting-description" style="text-align: center; margin-top: 10px;">Xóa toàn bộ danh sách sản phẩm đã thêm</div>
+            </div>
+
+            <!-- Save Cart & Refresh Button -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn-apply-settings" onclick="saveCartAndRefresh(); toggleSettingsSidebar();" style="background: linear-gradient(135deg, #28a745 0%, #218838 100%);">
+                    💾 Lưu Giỏ Hàng và Làm mới
+                </button>
+                <div class="setting-description" style="text-align: center; margin-top: 10px;">Lưu snapshot giỏ hàng hiện tại và xóa sạch để làm giỏ mới</div>
+            </div>
+
+            <!-- Cart History Section -->
+            <div class="cart-history-section" style="margin-bottom: 20px;">
+                <div class="cart-history-header" onclick="toggleCartHistory()" style="cursor: pointer;">
+                    <h3 style="color: #667eea; margin-bottom: 0; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span id="cartHistoryToggleIcon" class="toggle-icon">▶</span>
+                            📚 Lịch Sử Giỏ Hàng
+                        </span>
+                        <button class="btn-refresh-history" onclick="event.stopPropagation(); refreshCartHistory()" title="Làm mới" style="background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px;">🔄</button>
+                    </h3>
+                </div>
+
+                <!-- Date Filter -->
+                <div class="date-filter-container" style="padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px; display: none;" id="dateFilterContainer">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label style="font-weight: 500; color: #495057;">📅 Lọc theo ngày:</label>
+                        <input type="date" id="snapshotDateFilter" onchange="filterCartHistoryByDate()" style="padding: 6px 10px; border: 1px solid #ced4da; border-radius: 4px; flex: 1;">
+                        <button onclick="clearDateFilter()" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">✖️ Xóa lọc</button>
+                    </div>
+                </div>
+
+                <div id="cartHistoryList" class="cart-history-list collapsed">
+                    <div class="no-history">Đang tải...</div>
+                </div>
             </div>
 
             <!-- Logout Button -->
@@ -3573,6 +4646,80 @@
                     💾 Lưu Tất Cả Cài Đặt
                 </button>
                 <div class="setting-description" style="text-align: center; margin-top: 10px;">Áp dụng cho trang danh sách và lưu vào Firebase</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div id="restoreConfirmModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-small">
+            <div class="modal-header-custom">
+                <h3>⚠️ Khôi phục giỏ hàng</h3>
+            </div>
+
+            <div class="modal-body-custom">
+                <div class="warning-message">
+                    Giỏ hàng hiện tại có <strong id="currentCartCount">0</strong> sản phẩm
+                </div>
+
+                <div class="auto-save-option">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoSaveBeforeRestore" checked onchange="toggleAutoSaveInput()">
+                        <span>✅ Tự động lưu giỏ hàng hiện tại trước khi khôi phục</span>
+                    </label>
+                </div>
+
+                <div id="autoSaveNameInput" class="auto-save-name-input">
+                    <label>Tên giỏ hàng sẽ lưu:</label>
+                    <input type="text"
+                           id="autoSaveName"
+                           placeholder="Giỏ hàng trước khi khôi phục..."
+                           value="">
+                </div>
+
+                <div class="info-message">
+                    ℹ️ Bỏ tick nếu bạn không muốn lưu giỏ hiện tại (dữ liệu sẽ bị mất)
+                </div>
+            </div>
+
+            <div class="modal-footer-custom">
+                <button onclick="confirmRestore()" class="btn-primary-custom">
+                    ♻️ Khôi phục
+                </button>
+                <button onclick="closeRestoreConfirmModal()" class="btn-secondary-custom">
+                    Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Snapshot View Modal -->
+    <div id="snapshotViewModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container modal-fullscreen">
+            <div class="modal-header-custom">
+                <h2 id="snapshotModalTitle">Chi tiết giỏ hàng</h2>
+                <button onclick="closeSnapshotModal()" class="btn-close-modal">✖️</button>
+            </div>
+
+            <div class="modal-body-custom">
+                <!-- Snapshot Info -->
+                <div id="snapshotModalInfo" class="snapshot-info-grid">
+                    <!-- Dynamic content -->
+                </div>
+
+                <!-- Product Grid -->
+                <div class="snapshot-products-grid" id="snapshotProductsGrid">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+
+            <div class="modal-footer-custom">
+                <button onclick="restoreSnapshotFromModal()" class="btn-primary-custom">
+                    ♻️ Khôi phục giỏ hàng này
+                </button>
+                <button onclick="closeSnapshotModal()" class="btn-secondary-custom">
+                    Đóng
+                </button>
             </div>
         </div>
     </div>

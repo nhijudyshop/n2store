@@ -79,7 +79,7 @@ const MENU_CONFIG = [
         permissionRequired: "trash-bin",
     },
     {
-        href: "../orders-report/tab1-orders.html",
+        href: "../orders-report/main.html",
         icon: "shopping-cart",
         text: "Báo Cáo Sale-Online",
         shortText: "SaleOnline",
@@ -2065,8 +2065,8 @@ console.log("[Unified Nav] Script loaded successfully");
 
 window.APP_VERSION = {
     version: '1.0.0',
-    build: 3,
-    timestamp: '2025-11-18T11:10:59.766Z',
+    build: 8,
+    timestamp: '2025-11-18T12:09:20.187Z',
     branch: 'claude/remove-local-storage-tab3-0177sTRWFVomHmtjVqnzazEo'
 };
 
@@ -2151,16 +2151,21 @@ class VersionChecker {
                 return;
             }
 
-            // Compare versions
-            if (firebaseVersion.build !== this.localVersion.build) {
+            // Compare versions by timestamp (newer timestamp = force logout)
+            const localTimestamp = new Date(this.localVersion.timestamp).getTime();
+            const firebaseTimestamp = new Date(firebaseVersion.timestamp).getTime();
+
+            if (firebaseTimestamp > localTimestamp) {
                 console.warn('[VERSION] ⚠️ Version mismatch detected!');
+                console.warn('[VERSION] Local timestamp:', this.localVersion.timestamp);
+                console.warn('[VERSION] Firebase timestamp:', firebaseVersion.timestamp);
                 console.warn('[VERSION] Local build:', this.localVersion.build);
                 console.warn('[VERSION] Firebase build:', firebaseVersion.build);
 
                 // Force logout and reload
                 this.forceLogout();
             } else {
-                console.log('[VERSION] ✅ Version OK (build', this.localVersion.build + ')');
+                console.log('[VERSION] ✅ Version OK (build', this.localVersion.build, 'at', this.localVersion.timestamp + ')');
             }
 
         } catch (error) {
@@ -2208,9 +2213,14 @@ class VersionChecker {
                 return;
             }
 
-            // Check if version changed
-            if (firebaseVersion.build !== this.localVersion.build) {
+            // Check if version changed by timestamp
+            const localTimestamp = new Date(this.localVersion.timestamp).getTime();
+            const firebaseTimestamp = new Date(firebaseVersion.timestamp).getTime();
+
+            if (firebaseTimestamp > localTimestamp) {
                 console.warn('[VERSION] ⚠️ Version changed in Firebase!');
+                console.warn('[VERSION] Local timestamp:', this.localVersion.timestamp);
+                console.warn('[VERSION] Firebase timestamp:', firebaseVersion.timestamp);
                 console.warn('[VERSION] Local build:', this.localVersion.build);
                 console.warn('[VERSION] Firebase build:', firebaseVersion.build);
 

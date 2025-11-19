@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danh sách Order - N2Shop</title>
+    <title>Danh sách Sản phẩm đã ẩn - N2Shop</title>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -149,10 +149,10 @@
             to { transform: rotate(360deg); }
         }
 
-        .btn-hide {
+        .btn-unhide {
             background: rgba(255, 255, 255, 0.95);
-            color: #ff9800;
-            border: 2px solid #ff9800;
+            color: #4caf50;
+            border: 2px solid #4caf50;
             padding: 2px 6px;
             border-radius: 4px;
             cursor: pointer;
@@ -168,18 +168,18 @@
             flex-shrink: 0;
         }
 
-        .btn-hide:hover {
-            background: #ff9800;
+        .btn-unhide:hover {
+            background: #4caf50;
             color: white;
             transform: scale(1.15);
-            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
         }
 
-        .btn-hide:active {
+        .btn-unhide:active {
             transform: scale(0.95);
         }
 
-        .btn-hide:disabled {
+        .btn-unhide:disabled {
             opacity: 0.3;
             cursor: not-allowed;
         }
@@ -1404,8 +1404,8 @@
             const mainContent = document.getElementById('mainContent');
             mainContent.innerHTML = `
                 <div class="empty-state">
-                    <h2>📦 Chưa có sản phẩm nào</h2>
-                    <p>Vui lòng quay lại trang tìm kiếm để thêm sản phẩm</p>
+                    <h2>📦 Chưa có sản phẩm nào đã ẩn</h2>
+                    <p>Vui lòng quay lại trang tìm kiếm để ẩn sản phẩm</p>
                     <a href="index.html" class="btn-back" style="font-size: 1.1em; padding: 12px 24px;">
                         ← Quay lại trang tìm kiếm
                     </a>
@@ -1515,12 +1515,11 @@
             btnNext.style.display = 'block';
             pageInfo.style.display = 'block';
 
-            // Filter out hidden products first
-            const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
+            // ONLY show hidden products (isHidden = true)
+            const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden === true);
 
-            // Use filtered products if searching, otherwise use all visible products
-            // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts.filter(p => !p.isHidden) : visibleProducts;
+            // Use filtered products if searching, otherwise use all hidden products
+            let baseProducts = searchKeyword ? filteredProducts.filter(p => p.isHidden === true) : hiddenProducts;
 
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
@@ -1532,7 +1531,6 @@
 
             productGrid.innerHTML = currentProducts.map(product => {
                 // Add cache-busting version to image URL (only for HTTP URLs, not base64)
-                // Use lastRefreshed (if exists) or addedAt (fallback) or Id (final fallback)
                 const cacheVersion = product.lastRefreshed || product.addedAt || product.Id;
                 let imageUrlWithVersion = product.imageUrl;
 
@@ -1549,17 +1547,17 @@
                 const isMerged = product.isMerged || false;
                 const disableEdit = isMerged ? 'disabled title="Tắt chế độ gộp để chỉnh sửa"' : '';
 
-                // For hide button, create proper onclick handler
-                let hideButtonOnclick;
-                let hideButtonTitle;
+                // For unhide button, create proper onclick handler
+                let unhideButtonOnclick;
+                let unhideButtonTitle;
 
                 if (isMerged && product.variants && product.variants.length > 0) {
                     const variantIds = product.variants.map(v => v.Id).join(',');
-                    hideButtonOnclick = `hideProducts([${variantIds}])`;
-                    hideButtonTitle = 'Ẩn tất cả biến thể';
+                    unhideButtonOnclick = `unhideProducts([${variantIds}])`;
+                    unhideButtonTitle = 'Hiện tất cả biến thể';
                 } else {
-                    hideButtonOnclick = `hideProduct(${product.Id})`;
-                    hideButtonTitle = 'Ẩn sản phẩm';
+                    unhideButtonOnclick = `unhideProduct(${product.Id})`;
+                    unhideButtonTitle = 'Hiện sản phẩm';
                 }
 
                 // Format product name with price
@@ -1573,7 +1571,7 @@
                         ${imageHtml}
                         <div class="grid-item-name">
                             <span class="grid-item-name-text">${productNameDisplay}</span>
-                            ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
+                            ${!orderIsHideEditControls ? `<button class="btn-unhide" onclick="${unhideButtonOnclick}" title="${unhideButtonTitle}">Hiện</button>` : ''}
                         </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
@@ -1641,15 +1639,15 @@
             }).join('');
 
             const searchInfo = searchKeyword ? ` - 🔍 "${searchKeyword}"` : '';
-            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})${searchInfo}`;
+            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm đã ẩn${isMergeVariants ? ' đã gộp' : ''})${searchInfo}`;
             btnPrev.disabled = currentPage === 1;
             btnNext.disabled = currentPage >= totalPages;
         }
 
         function changePage(direction) {
-            // Use filtered products if searching, otherwise use all products
-            // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts : Object.values(orderProducts);
+            // Use filtered products if searching, otherwise use all hidden products
+            const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden === true);
+            let baseProducts = searchKeyword ? filteredProducts.filter(p => p.isHidden === true) : hiddenProducts;
 
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
@@ -1735,11 +1733,11 @@
             const searchLower = searchKeyword.toLowerCase();
             const searchNoSign = removeVietnameseTones(searchKeyword);
 
-            // Filter out hidden products first
-            const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
+            // Filter hidden products only
+            const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden === true);
 
             // Apply merge first if enabled, then search on merged products
-            const productsToSearch = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
+            const productsToSearch = isMergeVariants ? mergeProductsByTemplate(hiddenProducts) : hiddenProducts;
 
             // Optimization: Build cache if needed (only once per search)
             if (normalizedProductNames.size === 0) {
@@ -1865,7 +1863,6 @@
             if (newSoldQty === currentSoldQty) return;
 
             // Let helper function update both local and Firebase
-            // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
                 updateProductQtyInFirebase(database, productId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
@@ -1891,7 +1888,6 @@
             if (newSoldQty === currentSoldQty) return;
 
             // Let helper function update both local and Firebase
-            // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
                 updateProductQtyInFirebase(database, variantId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
@@ -1906,66 +1902,9 @@
             }
         }
 
-        function hideProduct(productId) {
-            if (!confirm('Bạn có chắc muốn ẩn sản phẩm này?')) return;
-
-            const productKey = `product_${productId}`;
-            const product = orderProducts[productKey];
-            if (!product) return;
-
-            product.isHidden = true;
-
-            if (!isSyncingFromFirebase) {
-                updateProductVisibility(database, productId, true, orderProducts).catch(error => {
-                    console.error('❌ Lỗi sync products:', error);
-                });
-            }
-
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
-            console.log(`👁️ Đã ẩn sản phẩm: ${product.NameGet}`);
-        }
-
-        function hideProducts(productIds) {
-            const count = productIds.length;
-            if (!confirm(`Bạn có chắc muốn ẩn tất cả ${count} biến thể?`)) return;
-
-            let hiddenCount = 0;
-            productIds.forEach(productId => {
-                const productKey = `product_${productId}`;
-                const product = orderProducts[productKey];
-                if (product) {
-                    product.isHidden = true;
-                    hiddenCount++;
-                }
-            });
-
-            if (hiddenCount > 0 && !isSyncingFromFirebase) {
-                // Batch update for all products
-                const updates = {};
-                productIds.forEach(productId => {
-                    const productKey = `product_${productId}`;
-                    if (orderProducts[productKey]) {
-                        updates[`orderProducts/${productKey}/isHidden`] = true;
-                    }
-                });
-                database.ref().update(updates).catch(error => {
-                    console.error('❌ Lỗi sync products:', error);
-                });
-            }
-
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
-            console.log(`👁️ Đã ẩn ${hiddenCount} biến thể`);
-        }
-
         function unhideProduct(productId) {
+            if (!confirm('Bạn có chắc muốn hiện sản phẩm này?')) return;
+
             const productKey = `product_${productId}`;
             const product = orderProducts[productKey];
             if (!product) return;
@@ -1986,29 +1925,30 @@
             console.log(`👁️ Đã hiện sản phẩm: ${product.NameGet}`);
         }
 
-        function updateProductTotal(productId, change) {
-            const productKey = `product_${productId}`;
-            const product = orderProducts[productKey];
-            if (!product) return;
+        function unhideProducts(productIds) {
+            const count = productIds.length;
+            if (!confirm(`Bạn có chắc muốn hiện tất cả ${count} biến thể?`)) return;
 
-            const newQtyAvailable = Math.max(0, product.QtyAvailable + change);
-            if (newQtyAvailable === product.QtyAvailable) return;
+            let unhiddenCount = 0;
+            productIds.forEach(productId => {
+                const productKey = `product_${productId}`;
+                const product = orderProducts[productKey];
+                if (product) {
+                    product.isHidden = false;
+                    unhiddenCount++;
+                }
+            });
 
-            product.QtyAvailable = newQtyAvailable;
-
-            // Ensure soldQty doesn't exceed new total
-            if (product.soldQty > product.QtyAvailable) {
-                product.soldQty = product.QtyAvailable;
-            }
-
-            product.remainingQty = product.QtyAvailable - product.soldQty;
-
-            if (!isSyncingFromFirebase) {
-                database.ref(`orderProducts/${productKey}`).update({
-                    QtyAvailable: product.QtyAvailable,
-                    soldQty: product.soldQty,
-                    remainingQty: product.remainingQty
-                }).catch(error => {
+            if (unhiddenCount > 0 && !isSyncingFromFirebase) {
+                // Batch update for all products
+                const updates = {};
+                productIds.forEach(productId => {
+                    const productKey = `product_${productId}`;
+                    if (orderProducts[productKey]) {
+                        updates[`orderProducts/${productKey}/isHidden`] = false;
+                    }
+                });
+                database.ref().update(updates).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -2018,140 +1958,7 @@
             } else {
                 updateProductGrid();
             }
-        }
-
-        async function cleanupOldProductsLocal() {
-            if (!isSyncingFromFirebase) {
-                const result = await cleanupOldProducts(database, orderProducts);
-                if (result.removed > 0) {
-                    console.log(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
-
-                    if (Object.keys(orderProducts).length === 0) {
-                        showEmptyState();
-                    } else {
-                        updateProductGrid();
-                    }
-                }
-            }
-        }
-
-        async function clearAllProductsLocal() {
-            const productCount = Object.keys(orderProducts).length;
-            if (productCount === 0) {
-                alert('⚠️ Danh sách đã trống');
-                return;
-            }
-
-            if (confirm(`Bạn có chắc muốn xóa tất cả ${productCount} sản phẩm không?`)) {
-                if (!isSyncingFromFirebase) {
-                    await clearAllProducts(database, orderProducts);
-                }
-                showEmptyState();
-            }
-        }
-
-        async function refreshProduct(productId) {
-            const btnRefresh = event.target;
-            const statTotal = btnRefresh.closest('.grid-stat-total');
-
-            btnRefresh.classList.add('loading');
-            btnRefresh.disabled = true;
-
-            try {
-                const response = await authenticatedFetch(
-                    `https://tomato.tpos.vn/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
-                );
-
-                if (!response.ok) {
-                    throw new Error('Không thể tải thông tin sản phẩm từ TPOS');
-                }
-
-                const productData = await response.json();
-                const productKey = `product_${productId}`;
-                const product = orderProducts[productKey];
-                if (!product) {
-                    throw new Error('Không tìm thấy sản phẩm trong danh sách');
-                }
-
-                const oldQtyAvailable = product.QtyAvailable;
-                product.QtyAvailable = productData.QtyAvailable || 0;
-                product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
-
-                // Update price information from API
-                product.ListPrice = productData.ListPrice || 0;
-                product.PriceVariant = productData.PriceVariant || 0;
-
-                // Update image URL from API
-                let newImageUrl = productData.ImageUrl;
-
-                // If no image, try to get from template
-                if (!newImageUrl && productData.ProductTmplId) {
-                    try {
-                        const templateResponse = await authenticatedFetch(
-                            `https://tomato.tpos.vn/odata/ProductTemplate(${productData.ProductTmplId})?$select=ImageUrl`
-                        );
-                        if (templateResponse.ok) {
-                            const templateData = await templateResponse.json();
-                            newImageUrl = templateData.ImageUrl;
-                        }
-                    } catch (err) {
-                        console.warn('Could not load template image:', err);
-                    }
-                }
-
-                // Update image if we got a new one
-                if (newImageUrl) {
-                    product.imageUrl = newImageUrl;
-                }
-
-                // Add timestamp to track last refresh (for cache-busting)
-                product.lastRefreshed = Date.now();
-
-                if (!isSyncingFromFirebase) {
-                    database.ref(`orderProducts/${productKey}`).update({
-                        QtyAvailable: product.QtyAvailable,
-                        remainingQty: product.remainingQty,
-                        ListPrice: product.ListPrice,
-                        PriceVariant: product.PriceVariant,
-                        imageUrl: product.imageUrl,
-                        lastRefreshed: product.lastRefreshed
-                    }).catch(error => {
-                        console.error('❌ Lỗi sync products:', error);
-                    });
-                }
-
-                // Fix: If searching, re-run search to update filteredProducts
-                if (searchKeyword) {
-                    performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
-                } else {
-                    updateProductGrid();
-                }
-
-                console.log(`✅ Đã cập nhật sản phẩm ${product.NameGet}:`, {
-                    oldTotal: oldQtyAvailable,
-                    newTotal: product.QtyAvailable,
-                    sold: product.soldQty,
-                    remaining: product.remainingQty,
-                    imageUpdated: !!newImageUrl
-                });
-
-                statTotal.style.background = 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)';
-                setTimeout(() => {
-                    statTotal.style.background = '';
-                }, 500);
-
-            } catch (error) {
-                console.error('❌ Lỗi refresh product:', error);
-                alert('Lỗi khi cập nhật sản phẩm: ' + error.message);
-
-                statTotal.style.background = 'linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%)';
-                setTimeout(() => {
-                    statTotal.style.background = '';
-                }, 500);
-            } finally {
-                btnRefresh.classList.remove('loading');
-                btnRefresh.disabled = false;
-            }
+            console.log(`👁️ Đã hiện ${unhiddenCount} biến thể`);
         }
 
         document.getElementById('btnPrev').addEventListener('click', () => changePage('prev'));
@@ -2442,9 +2249,6 @@
 
             // THEN setup Firebase listeners
             setupFirebaseListeners();
-
-            // Cleanup products older than 7 days
-            await cleanupOldProductsLocal();
 
             const params = parseHashParams();
 
