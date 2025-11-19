@@ -7,6 +7,8 @@ class TokenManager {
         this.token = null;
         this.tokenExpiry = null;
         this.isRefreshing = false;
+        this.isInitialized = false;
+        this.initPromise = null;
         this.storageKey = 'bearer_token_data';
         this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
         this.credentials = {
@@ -24,14 +26,25 @@ class TokenManager {
      * Wait for Firebase to be ready, then initialize
      */
     async waitForFirebaseAndInit() {
-        // Wait for Firebase SDK to load
-        await this.waitForFirebase();
+        if (this.initPromise) {
+            return this.initPromise;
+        }
 
-        // Initialize Firebase reference
-        this.initFirebase();
+        this.initPromise = (async () => {
+            // Wait for Firebase SDK to load
+            await this.waitForFirebase();
 
-        // Initialize token
-        await this.init();
+            // Initialize Firebase reference
+            this.initFirebase();
+
+            // Initialize token
+            await this.init();
+
+            this.isInitialized = true;
+            console.log('[TOKEN] ✅ Token Manager fully initialized');
+        })();
+
+        return this.initPromise;
     }
 
     /**
@@ -100,9 +113,13 @@ class TokenManager {
         if (firebaseToken) {
             this.token = firebaseToken.access_token;
             this.tokenExpiry = firebaseToken.expires_at;
-            // Save to localStorage for faster access next time
-            await this.saveToStorage(firebaseToken);
-            console.log('[TOKEN] ✅ Valid token loaded from Firebase');
+            // Sync to localStorage for faster access next time (but don't save back to Firebase)
+            try {
+                localStorage.setItem(this.storageKey, JSON.stringify(firebaseToken));
+                console.log('[TOKEN] ✅ Valid token loaded from Firebase and synced to localStorage');
+            } catch (error) {
+                console.error('[TOKEN] Error syncing Firebase token to localStorage:', error);
+            }
             return;
         }
 
@@ -172,14 +189,25 @@ class TokenManager {
 
     async saveToStorage(tokenData) {
         try {
-            const expiresAt = Date.now() + (tokenData.expires_in * 1000);
+            // Handle both new tokens (with expires_in) and existing tokens (with expires_at)
+            let expiresAt;
+            if (tokenData.expires_at) {
+                // Token from Firebase or localStorage already has expires_at
+                expiresAt = tokenData.expires_at;
+            } else if (tokenData.expires_in) {
+                // New token from API, calculate expires_at
+                expiresAt = Date.now() + (tokenData.expires_in * 1000);
+            } else {
+                console.error('[TOKEN] Invalid token data: missing both expires_at and expires_in');
+                return;
+            }
 
             const dataToSave = {
                 access_token: tokenData.access_token,
-                token_type: tokenData.token_type,
-                expires_in: tokenData.expires_in,
+                token_type: tokenData.token_type || 'Bearer',
+                expires_in: tokenData.expires_in || Math.floor((expiresAt - Date.now()) / 1000),
                 expires_at: expiresAt,
-                issued_at: Date.now(),
+                issued_at: tokenData.issued_at || Date.now(),
                 userName: tokenData.userName,
                 userId: tokenData.userId
             };
@@ -192,8 +220,11 @@ class TokenManager {
 
             console.log('[TOKEN] Token saved to localStorage, expires:', new Date(expiresAt).toLocaleString());
 
-            // Also save to Firebase
-            await this.saveTokenToFirebase(dataToSave);
+            // Also save to Firebase (only for NEW tokens from API, not from Firebase)
+            // New tokens have expires_in but no expires_at
+            if (tokenData.expires_in && !tokenData.issued_at) {
+                await this.saveTokenToFirebase(dataToSave);
+            }
 
         } catch (error) {
             console.error('[TOKEN] Error saving token:', error);
@@ -333,6 +364,12 @@ class TokenManager {
     }
 
     async getToken() {
+        // Wait for initialization to complete first
+        if (!this.isInitialized && this.initPromise) {
+            console.log('[TOKEN] Waiting for initialization to complete...');
+            await this.initPromise;
+        }
+
         // If token is valid, return it
         if (this.isTokenValid()) {
             return this.token;
