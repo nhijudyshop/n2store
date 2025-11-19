@@ -30,8 +30,11 @@
                     <p class="text-muted mb-0">Chọn sản phẩm và upload lên hệ thống TPOS</p>
                 </div>
                 <div>
-                    <button class="btn btn-sm btn-outline-primary" onclick="window.location.reload()">
-                        <i class="fas fa-sync"></i> Reload
+                    <button class="btn btn-sm btn-warning me-2" onclick="hardRefreshFromFirebase()" title="Load lại dữ liệu từ Firebase">
+                        <i class="fas fa-sync-alt"></i> Hard Refresh
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()" title="Reload toàn bộ trang">
+                        <i class="fas fa-redo"></i> Reload Page
                     </button>
                     <span class="badge bg-info ms-2" id="totalProductsBadge">
                         <i class="fas fa-box"></i> <span id="totalProducts">0</span> sản phẩm

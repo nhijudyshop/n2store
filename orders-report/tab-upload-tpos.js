@@ -356,6 +356,43 @@ ${encodedString}
         return await loadAssignmentsFromFirebase();
     }
 
+    /**
+     * Hard refresh - Force reload data from Firebase
+     * Called from UI button
+     */
+    window.hardRefreshFromFirebase = async function() {
+        try {
+            console.log('[HARD-REFRESH] 🔄 Hard refresh requested...');
+
+            // Show loading indicator
+            const btn = event.target.closest('button');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+
+            // Force reload from Firebase
+            await loadAssignmentsFromFirebase();
+
+            // Restore button
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+
+            console.log('[HARD-REFRESH] ✅ Hard refresh completed');
+            showNotification('✅ Đã tải lại dữ liệu từ Firebase!');
+
+        } catch (error) {
+            console.error('[HARD-REFRESH] ❌ Error:', error);
+            showNotification('❌ Lỗi khi tải dữ liệu: ' + error.message, 'error');
+
+            // Restore button
+            if (event && event.target) {
+                const btn = event.target.closest('button');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Hard Refresh';
+            }
+        }
+    };
+
     // Group assignments by SessionIndex
     function groupBySessionIndex() {
         sessionIndexData = {};
