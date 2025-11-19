@@ -13,10 +13,6 @@ body {
     background-color: #f5f5f5;
 }
 
-.main-content {
-    padding: 16px 24px;
-}
-
 .content-header {
     display: flex;
     justify-content: space-between;
