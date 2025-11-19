@@ -220,6 +220,14 @@
                         <i data-lucide="link" class="tab-icon"></i>
                         Gán Sản Phẩm - STT
                     </button>
+                    <button
+                        class="tab-button"
+                        onclick="switchTab('report-online')"
+                        data-tab="report-online"
+                    >
+                        <i data-lucide="file-text" class="tab-icon"></i>
+                        Báo Cáo Online
+                    </button>
                 </div>
             </div>
 
@@ -246,6 +254,13 @@
                 <iframe
                     id="productAssignmentFrame"
                     src="tab3-product-assignment.html"
+                ></iframe>
+            </div>
+
+            <div id="reportOnlineTab" class="tab-content">
+                <iframe
+                    id="reportOnlineFrame"
+                    src="https://nhijudyshop.github.io/n2store/orders-report/main.html"
                 ></iframe>
             </div>
         </main>
@@ -312,6 +327,10 @@
                             "*"
                         );
                     }
+                } else if (tabName === "report-online") {
+                    document
+                        .getElementById("reportOnlineTab")
+                        .classList.add("active");
                 }
 
                 // Reinitialize icons after DOM change
@@ -429,7 +448,7 @@
 
                 // Restore last active tab or default to orders
                 const savedTab = localStorage.getItem("currentTab");
-                if (savedTab && ["orders", "statistics", "upload", "product-assignment"].includes(savedTab)) {
+                if (savedTab && ["orders", "statistics", "upload", "product-assignment", "report-online"].includes(savedTab)) {
                     switchTab(savedTab);
                 } else {
                     switchTab("orders");
