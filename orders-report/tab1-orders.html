@@ -27,9 +27,22 @@
         <!-- N2Store Optimization: Core Utilities Loader -->
         <script src="../js/core-loader.js"></script>
 
-        <!-- Navigation Manager -->
-        <script src="../js/navigation-modern.js"></script>
-        <script src="../js/common-utils.js"></script>
+        <!-- Load Navigation Manager AFTER core utilities are ready -->
+        <script>
+            document.addEventListener('coreUtilitiesLoaded', function() {
+                console.log('[TAB1] Core utilities loaded, loading navigation...');
+                const navScript = document.createElement('script');
+                navScript.src = '../js/navigation-modern.js';
+                navScript.onload = function() {
+                    console.log('[TAB1] Navigation manager loaded');
+                };
+                document.head.appendChild(navScript);
+
+                const utilsScript = document.createElement('script');
+                utilsScript.src = '../js/common-utils.js';
+                document.head.appendChild(utilsScript);
+            });
+        </script>
 
         <style>
             /* Tab Navigation */
