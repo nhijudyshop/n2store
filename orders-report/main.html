@@ -265,15 +265,35 @@
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-        <!-- Firebase Configuration -->
-        <script src="../js/firebase-config.js"></script>
+        <!-- Firebase Configuration (loaded by core-loader.js) -->
+        <!-- Initialize Firebase after core utilities are loaded -->
         <script>
-            // Initialize Firebase
-            if (!firebase.apps.length) {
-                firebase.initializeApp(window.FIREBASE_CONFIG);
-                console.log('[FIREBASE] Firebase initialized successfully');
+            // Wait for core-loader to finish loading firebase-config.js
+            function initFirebase() {
+                if (window.FIREBASE_CONFIG) {
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(window.FIREBASE_CONFIG);
+                        console.log('[FIREBASE] Firebase initialized successfully');
+                    } else {
+                        console.log('[FIREBASE] Firebase already initialized');
+                    }
+                } else {
+                    console.warn('[FIREBASE] FIREBASE_CONFIG not available yet, waiting for core-loader...');
+                    // Retry after a short delay
+                    setTimeout(initFirebase, 100);
+                }
+            }
+
+            // Initialize Firebase when ready
+            if (window.CORE_UTILITIES_LOADED) {
+                // Core utilities already loaded
+                initFirebase();
             } else {
-                console.log('[FIREBASE] Firebase already initialized');
+                // Wait for core utilities to load
+                document.addEventListener('coreUtilitiesLoaded', function() {
+                    console.log('[FIREBASE] Core utilities loaded, initializing Firebase...');
+                    initFirebase();
+                });
             }
         </script>
 
