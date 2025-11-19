@@ -663,17 +663,18 @@ function handleEditButton(e) {
         const button = e.target.closest("button");
         const row = button.closest("tr");
 
-        if (!row || row.cells.length < 8) {
+        if (!row || row.cells.length !== 10) {
             showError("Không thể lấy thông tin hàng");
             return;
         }
 
-        document.getElementById("editDelivery").value = row.cells[1].innerText;
-        document.getElementById("eidtScenario").value = row.cells[2].innerText;
-        document.getElementById("editInfo").value = row.cells[3].innerText;
-        document.getElementById("editAmount").value = row.cells[4].innerText;
-        document.getElementById("editNote").value = row.cells[5].innerText;
-        document.getElementById("editDate").value = row.cells[7].innerText;
+        // Cell mapping: 0-STT, 1-Kênh, 2-Trường hợp, 3-FB+SĐT, 4-Số tiền, 5-Lý do, 6-Checkbox, 7-Ngày, 8-Sửa, 9-Xóa
+        document.getElementById("editDelivery").value = row.cells[1]?.innerText || "";
+        document.getElementById("eidtScenario").value = row.cells[2]?.innerText || "";
+        document.getElementById("editInfo").value = row.cells[3]?.innerText || "";
+        document.getElementById("editAmount").value = row.cells[4]?.innerText || "";
+        document.getElementById("editNote").value = row.cells[5]?.innerText || "";
+        document.getElementById("editDate").value = row.cells[7]?.innerText || "";
 
         editingRow = row;
 
@@ -704,8 +705,8 @@ function handleDeleteButton(e) {
             return;
         }
 
-        // Validate row has enough cells
-        if (!row.cells || row.cells.length < 6) {
+        // Validate row has correct number of cells (10 columns total)
+        if (!row.cells || row.cells.length !== 10) {
             showError("Dữ liệu hàng không hợp lệ");
             return;
         }
@@ -713,6 +714,9 @@ function handleDeleteButton(e) {
         showLoading("Đang xóa đơn hàng...");
 
         // Safely extract cell data with null checks
+        // Cell 0: STT, Cell 1: Kênh, Cell 2: Trường hợp, Cell 3: Tên FB+SĐT
+        // Cell 4: Số tiền, Cell 5: Lý do, Cell 6: Checkbox, Cell 7: Ngày duyệt
+        // Cell 8: Nút Sửa, Cell 9: Nút Xóa
         const deleteData = {
             shipValue: row.cells[1]?.innerText || "",
             scenarioValue: row.cells[2]?.innerText || "",
@@ -777,6 +781,12 @@ function handleCheckboxClick(e) {
         const isChecked = e.target.checked;
         const row = e.target.closest("tr");
 
+        if (!row || row.cells.length !== 10) {
+            showError("Dữ liệu hàng không hợp lệ");
+            e.target.checked = !isChecked;
+            return;
+        }
+
         const confirmMsg = isChecked
             ? "Bạn có chắc đơn này đã được nhận hàng hoàn?"
             : "Đã hủy xác nhận nhận hàng hoàn";
@@ -802,7 +812,7 @@ function handleCheckboxClick(e) {
             .doc("hanghoan")
             .get()
             .then((doc) => {
-                if (!doc.exists) throw new Error("Document does not exist");
+                if (!doc.exists) throw new Error("Không tìm thấy document");
 
                 const data = doc.data();
                 const dataArray = data["data"] || [];
@@ -810,7 +820,7 @@ function handleCheckboxClick(e) {
                     (item) => item.duyetHoanValue === tdRow.id,
                 );
 
-                if (itemIndex === -1) throw new Error("Item not found");
+                if (itemIndex === -1) throw new Error("Không tìm thấy đơn hàng");
 
                 dataArray[itemIndex].muted = isChecked;
 
@@ -822,7 +832,7 @@ function handleCheckboxClick(e) {
                 const actionDesc = isChecked
                     ? "Đánh dấu đã nhận hàng hoàn"
                     : "Hủy đánh dấu đã nhận hàng hoàn";
-                logAction("update", `${actionDesc}: ${row.cells[3].innerText}`);
+                logAction("update", `${actionDesc}: ${row.cells[3]?.innerText || ""}`);
 
                 invalidateCache();
                 showSuccess("Đã cập nhật trạng thái thành công!");
@@ -899,6 +909,12 @@ function saveChanges() {
             return;
         }
 
+        // Validate row has correct number of cells
+        if (!editingRow.cells || editingRow.cells.length !== 10) {
+            showError("Dữ liệu hàng không hợp lệ");
+            return;
+        }
+
         const tdRow = editingRow.querySelector("td");
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng cần chỉnh sửa");
@@ -910,11 +926,11 @@ function saveChanges() {
         const editDateTimestamp = convertToTimestamp(dateValue);
 
         const oldData = {
-            shipValue: editingRow.cells[1].innerText,
-            scenarioValue: editingRow.cells[2].innerText,
-            customerInfoValue: editingRow.cells[3].innerText,
-            totalAmountValue: editingRow.cells[4].innerText,
-            causeValue: editingRow.cells[5].innerText,
+            shipValue: editingRow.cells[1]?.innerText || "",
+            scenarioValue: editingRow.cells[2]?.innerText || "",
+            customerInfoValue: editingRow.cells[3]?.innerText || "",
+            totalAmountValue: editingRow.cells[4]?.innerText || "",
+            causeValue: editingRow.cells[5]?.innerText || "",
             duyetHoanValue: tdRow.id,
         };
 
@@ -931,7 +947,7 @@ function saveChanges() {
             .doc("hanghoan")
             .get()
             .then((doc) => {
-                if (!doc.exists) throw new Error("Document does not exist");
+                if (!doc.exists) throw new Error("Không tìm thấy document");
 
                 const data = doc.data();
                 const dataArray = data["data"] || [];
@@ -939,7 +955,7 @@ function saveChanges() {
                     (item) => item.duyetHoanValue === tdRow.id,
                 );
 
-                if (itemIndex === -1) throw new Error("Transaction not found");
+                if (itemIndex === -1) throw new Error("Không tìm thấy giao dịch cần sửa");
 
                 const auth = authManager ? authManager.getAuthState() : null;
 
@@ -958,12 +974,13 @@ function saveChanges() {
                     .update({ data: dataArray });
             })
             .then(() => {
-                editingRow.cells[1].innerText = deliveryValue;
-                editingRow.cells[2].innerText = scenarioValue;
-                editingRow.cells[3].innerText = infoValue;
-                editingRow.cells[4].innerText = amountValue;
-                editingRow.cells[5].innerText = noteValue;
-                editingRow.cells[7].innerText = dateValue;
+                // Safely update cells
+                if (editingRow.cells[1]) editingRow.cells[1].innerText = deliveryValue;
+                if (editingRow.cells[2]) editingRow.cells[2].innerText = scenarioValue;
+                if (editingRow.cells[3]) editingRow.cells[3].innerText = infoValue;
+                if (editingRow.cells[4]) editingRow.cells[4].innerText = amountValue;
+                if (editingRow.cells[5]) editingRow.cells[5].innerText = noteValue;
+                if (editingRow.cells[7]) editingRow.cells[7].innerText = dateValue;
 
                 logAction(
                     "edit",
@@ -979,12 +996,12 @@ function saveChanges() {
                 console.error("Error updating:", error);
                 showError(
                     "Lỗi khi cập nhật dữ liệu: " +
-                        (error.message || "Unknown error"),
+                        (error.message || "Lỗi không xác định"),
                 );
             });
     } catch (error) {
         console.error("Error in saveChanges:", error);
-        showError("Lỗi: " + (error.message || "Unknown error"));
+        showError("Lỗi: " + (error.message || "Lỗi không xác định"));
     }
 }
 
