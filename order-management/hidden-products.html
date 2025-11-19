@@ -65,14 +65,14 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(2, 1fr);
+            grid-template-columns: repeat(4, 1fr) !important;
+            grid-template-rows: repeat(2, 1fr) !important;
             gap: 15px;
             width: 100%;
             max-width: 1900px;
             touch-action: pan-y pinch-zoom;
             user-select: none;
-            aspect-ratio: 4/2;
+            /* REMOVED aspect-ratio to ensure proper 4x2 grid display */
         }
 
         .grid-item {
@@ -1358,9 +1358,10 @@
 
         function applySettings() {
             const productGrid = document.getElementById('productGrid');
-            productGrid.style.gridTemplateColumns = `repeat(${displaySettings.columns}, 1fr)`;
-            productGrid.style.gridTemplateRows = `repeat(${displaySettings.rows}, 1fr)`;
-            productGrid.style.gap = `${displaySettings.gap}px`;
+            // CRITICAL: Force 4x2 grid with !important to prevent any override
+            productGrid.style.setProperty('grid-template-columns', 'repeat(4, 1fr)', 'important');
+            productGrid.style.setProperty('grid-template-rows', 'repeat(2, 1fr)', 'important');
+            productGrid.style.setProperty('gap', '15px', 'important');
 
             // Apply Frame Layout CSS Variables
             document.documentElement.style.setProperty('--name-line-clamp', displaySettings.nameLineClamp || 1);
@@ -2332,6 +2333,29 @@
                     }
                 });
             }
+
+            // CRITICAL: Force apply 4x2 grid one final time after everything loads
+            // This ensures grid is always 4 columns x 2 rows, no matter what
+            setTimeout(() => {
+                applySettings();
+                console.log('🔒 FINAL: Grid locked to 4x2 layout');
+            }, 100);
+
+            // ULTIMATE PROTECTION: Monitor grid and force 4x2 if changed
+            // This interval runs every 500ms to ensure grid stays 4x2
+            setInterval(() => {
+                const productGrid = document.getElementById('productGrid');
+                if (productGrid) {
+                    const currentCols = productGrid.style.gridTemplateColumns;
+                    const currentRows = productGrid.style.gridTemplateRows;
+
+                    // Check if grid has been modified from 4x2
+                    if (currentCols !== 'repeat(4, 1fr)' || currentRows !== 'repeat(2, 1fr)') {
+                        console.warn('⚠️ Grid layout was changed! Forcing back to 4x2...');
+                        applySettings();
+                    }
+                }
+            }, 500);
         });
     </script>
 </body>
