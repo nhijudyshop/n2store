@@ -12,7 +12,10 @@
 
     <style>
         :root {
-            /* Frame Layout CSS Variables */
+            /* Frame Layout CSS Variables - will be set dynamically */
+            --grid-columns: 4;
+            --grid-rows: 2;
+            --grid-gap: 15px;
             --name-line-clamp: 2;
 
             /* Image CSS Variables */
@@ -65,14 +68,13 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr) !important;
-            grid-template-rows: repeat(2, 1fr) !important;
-            gap: 15px;
+            grid-template-columns: repeat(var(--grid-columns), 1fr);
+            grid-template-rows: repeat(var(--grid-rows), 1fr);
+            gap: var(--grid-gap);
             width: 100%;
             max-width: 1900px;
             touch-action: pan-y pinch-zoom;
             user-select: none;
-            /* REMOVED aspect-ratio to ensure proper 4x2 grid display */
         }
 
         .grid-item {
@@ -282,7 +284,6 @@
             position: relative;
         }
 
-        /* For TỔNG column when not merged - match BÁN column size */
         .grid-stat-total .grid-stat-value {
             font-size: 36px;
             display: flex;
@@ -298,7 +299,6 @@
             background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
         }
 
-        /* For CÒN column when not merged - larger than other columns */
         .grid-stat-remaining .grid-stat-value {
             font-size: 48px;
             display: flex;
@@ -333,7 +333,6 @@
             overflow: hidden;
         }
 
-        /* For TỔNG column - simple value only */
         .grid-stat-total .remaining-qty-item {
             justify-content: center;
         }
@@ -344,7 +343,6 @@
             color: #333;
         }
 
-        /* For CÒN column - name and value side by side */
         .grid-stat-remaining .remaining-qty-item {
             flex-direction: row;
             justify-content: center;
@@ -375,7 +373,6 @@
             flex-shrink: 0;
         }
 
-        /* For BÁN column items */
         .remaining-qty-item-value {
             font-weight: bold;
             font-size: 14px;
@@ -650,7 +647,6 @@
             transition: all 0.3s ease;
         }
 
-        /* Hide search when edit controls are hidden */
         body.hide-edit-controls .search-hover-area,
         body.hide-edit-controls .search-hint,
         body.hide-edit-controls .search-container {
@@ -765,7 +761,6 @@
             box-shadow: 0 5px 15px rgba(255,255,255,0.3);
         }
 
-
         @media (min-width: 1025px) and (max-width: 1366px) {
             .grid-item-name {
                 font-size: 13px;
@@ -781,16 +776,10 @@
 
             .grid-stat-total .grid-stat-value {
                 font-size: 32px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .grid-stat-value {
                 font-size: 42px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .remaining-qty-item-value {
@@ -832,16 +821,10 @@
 
             .grid-stat-total .grid-stat-value {
                 font-size: 34px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .grid-stat-value {
                 font-size: 44px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .remaining-qty-item-value {
@@ -873,16 +856,10 @@
 
             .grid-stat-total .grid-stat-value {
                 font-size: 38px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .grid-stat-value {
                 font-size: 50px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .remaining-qty-item-value {
@@ -913,7 +890,6 @@
             }
         }
 
-        /* TV and very large screens (1920px+) */
         @media (min-width: 1920px) {
             .grid-item-name {
                 font-size: 16px;
@@ -925,16 +901,10 @@
 
             .grid-stat-total .grid-stat-value {
                 font-size: 42px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .grid-stat-value {
                 font-size: 56px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .remaining-qty-item-value {
@@ -965,7 +935,6 @@
             }
         }
 
-        /* 4K and ultra-wide screens (2560px+) */
         @media (min-width: 2560px) {
             .grid-item-name {
                 font-size: 18px;
@@ -977,16 +946,10 @@
 
             .grid-stat-total .grid-stat-value {
                 font-size: 48px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .grid-stat-value {
                 font-size: 64px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .grid-stat-remaining .remaining-qty-item-value {
@@ -1017,7 +980,6 @@
             }
         }
 
-        /* Hide edit controls when toggle is active */
         body.hide-edit-controls .qty-btn,
         body.hide-edit-controls .variant-qty-btn {
             display: none !important;
@@ -1059,10 +1021,10 @@
     <script src="../js/shared-auth-manager.js"></script>
     <script src="../js/shared-cache-manager.js"></script>
     <script>
-        let orderProducts = {}; // Object-based structure
-        let filteredProducts = []; // For search results
-        let searchKeyword = ''; // Current search keyword
-        let pageBeforeSearch = 1; // Save page before searching
+        let orderProducts = {};
+        let filteredProducts = [];
+        let searchKeyword = '';
+        let pageBeforeSearch = 1;
         let currentPage = 1;
         let itemsPerPage = 8;
         let displaySettings = {
@@ -1073,17 +1035,15 @@
             nameMargin: 3
         };
         let isSyncMode = false;
-        let isMergeVariants = false; // Merge variants mode disabled by default
-        let orderIsHideEditControls = false; // Hide edit controls mode disabled by default
+        let isMergeVariants = false;
+        let orderIsHideEditControls = false;
 
-        // Optimization: Cache normalized product names for faster search
-        let normalizedProductNames = new Map(); // productId -> normalized name
+        let normalizedProductNames = new Map();
 
-        // Optimization: Debounce timers for search input and Firebase sync
         let searchInputDebounceTimer = null;
         let firebaseSyncDebounceTimer = null;
-        const SEARCH_INPUT_DEBOUNCE_MS = 300; // Wait 300ms after user stops typing
-        const FIREBASE_SYNC_DEBOUNCE_MS = 500; // Wait 500ms before syncing to Firebase
+        const SEARCH_INPUT_DEBOUNCE_MS = 300;
+        const FIREBASE_SYNC_DEBOUNCE_MS = 500;
 
         const firebaseConfig = {
             apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
@@ -1184,7 +1144,6 @@
                     console.error('❌ Lỗi sync page:', error);
                 });
 
-                // Sync current search data when enabling sync mode
                 syncSearchKeywordToFirebase(searchKeyword);
             }
 
@@ -1206,10 +1165,8 @@
 
         function toggleMergeVariants() {
             isMergeVariants = !isMergeVariants;
-            // Save to localStorage for backward compatibility
             localStorage.setItem('orderIsMergeVariants', JSON.stringify(isMergeVariants));
 
-            // Sync to Firebase to sync between machines
             if (!isSyncingFromFirebase) {
                 database.ref('orderIsMergeVariants').set(isMergeVariants).catch(error => {
                     console.error('❌ Lỗi sync merge variants:', error);
@@ -1239,7 +1196,6 @@
 
         function toggleHideEditControls() {
             orderIsHideEditControls = !orderIsHideEditControls;
-            // Save to localStorage only (no sync between machines)
             localStorage.setItem('orderIsHideEditControls', JSON.stringify(orderIsHideEditControls));
 
             updateHideEditControlsUI();
@@ -1265,7 +1221,6 @@
         }
 
         async function loadMergeVariantsMode() {
-            // Try to load from Firebase first, fallback to localStorage
             try {
                 const snapshot = await database.ref('orderIsMergeVariants').once('value');
                 const firebaseValue = snapshot.val();
@@ -1274,7 +1229,6 @@
                     isMergeVariants = firebaseValue;
                     console.log('🔥 Loaded merge variants mode from Firebase:', isMergeVariants);
                 } else {
-                    // Fallback to localStorage
                     const saved = localStorage.getItem('orderIsMergeVariants');
                     if (saved !== null) {
                         isMergeVariants = JSON.parse(saved);
@@ -1283,7 +1237,6 @@
                 }
             } catch (error) {
                 console.error('❌ Error loading merge variants mode from Firebase:', error);
-                // Fallback to localStorage
                 const saved = localStorage.getItem('orderIsMergeVariants');
                 if (saved !== null) {
                     isMergeVariants = JSON.parse(saved);
@@ -1294,7 +1247,6 @@
         }
 
         function loadHideEditControlsMode() {
-            // Load from localStorage only (no sync between machines)
             const saved = localStorage.getItem('orderIsHideEditControls');
             if (saved !== null) {
                 orderIsHideEditControls = JSON.parse(saved);
@@ -1341,7 +1293,7 @@
         }
 
         async function loadSettings() {
-            // Load settings from hiddenProductsDisplaySettings (separate from main order-list settings)
+            // Load settings from hiddenProductsDisplaySettings
             try {
                 const snapshot = await database.ref('hiddenProductsDisplaySettings').once('value');
                 const settings = snapshot.val();
@@ -1357,7 +1309,6 @@
                     itemsPerPage = displaySettings.itemsPerPage;
                     console.log('🔥 Loaded hidden products display settings from Firebase:', displaySettings);
                 } else {
-                    // Default settings if not found
                     displaySettings = {
                         columns: 4,
                         rows: 2,
@@ -1371,7 +1322,6 @@
                 }
             } catch (error) {
                 console.error('❌ Error loading hidden products settings from Firebase:', error);
-                // Fallback to default
                 displaySettings = {
                     columns: 4,
                     rows: 2,
@@ -1386,33 +1336,28 @@
         }
 
         function applySettings() {
-            const productGrid = document.getElementById('productGrid');
-            // CRITICAL: Force 4x2 grid with !important to prevent any override
-            productGrid.style.setProperty('grid-template-columns', 'repeat(4, 1fr)', 'important');
-            productGrid.style.setProperty('grid-template-rows', 'repeat(2, 1fr)', 'important');
-            productGrid.style.setProperty('gap', '15px', 'important');
+            // Apply grid layout settings from displaySettings
+            document.documentElement.style.setProperty('--grid-columns', displaySettings.columns);
+            document.documentElement.style.setProperty('--grid-rows', displaySettings.rows);
+            document.documentElement.style.setProperty('--grid-gap', `${displaySettings.gap}px`);
 
-            // Apply Frame Layout CSS Variables
+            // Apply other CSS variables
             document.documentElement.style.setProperty('--name-line-clamp', displaySettings.nameLineClamp || 1);
-
-            // Apply Image CSS Variables
             document.documentElement.style.setProperty('--image-border-radius', `${displaySettings.imageBorderRadius || 8}px`);
             document.documentElement.style.setProperty('--image-border-width', `${displaySettings.imageBorderWidth || 2}px`);
             document.documentElement.style.setProperty('--image-margin-bottom', `${displaySettings.imageMarginBottom || 4}px`);
-
-            // Apply Name CSS Variables
             document.documentElement.style.setProperty('--name-font-size', `${displaySettings.nameFontSize || 13}px`);
             document.documentElement.style.setProperty('--name-font-weight', displaySettings.nameFontWeight || 700);
             document.documentElement.style.setProperty('--name-margin', `${displaySettings.nameMargin || 3}px`);
             document.documentElement.style.setProperty('--name-line-height', displaySettings.nameLineHeight || 1.2);
-
-            // Apply Stats CSS Variables
             document.documentElement.style.setProperty('--stats-value-size', `${displaySettings.statsValueSize || 16}px`);
             document.documentElement.style.setProperty('--stats-label-size', `${displaySettings.statsLabelSize || 9}px`);
             document.documentElement.style.setProperty('--stats-padding', `${displaySettings.statsPadding || 3}px`);
             document.documentElement.style.setProperty('--stats-gap', `${displaySettings.statsGap || 4}px`);
             document.documentElement.style.setProperty('--stats-border-radius', `${displaySettings.statsBorderRadius || 6}px`);
             document.documentElement.style.setProperty('--stats-margin-top', `${displaySettings.statsMarginTop || 4}px`);
+
+            console.log(`✅ Applied settings: ${displaySettings.columns} columns x ${displaySettings.rows} rows, gap: ${displaySettings.gap}px`);
         }
 
         async function loadProducts() {
@@ -1450,15 +1395,12 @@
         }
 
         function mergeProductsByTemplate(products) {
-            // Group products by ProductTmplId
             const groupedProducts = {};
 
             products.forEach(product => {
                 const tmplId = product.ProductTmplId;
 
-                // If product doesn't have ProductTmplId, treat it as individual product
                 if (!tmplId) {
-                    // Use a unique key for products without template
                     const uniqueKey = `no-template-${product.Id}`;
                     groupedProducts[uniqueKey] = [product];
                     return;
@@ -1470,27 +1412,20 @@
                 groupedProducts[tmplId].push(product);
             });
 
-            // Merge each group into a single product
             const mergedProducts = [];
 
             Object.entries(groupedProducts).forEach(([tmplId, variants]) => {
                 if (variants.length === 1) {
-                    // Only one variant, keep as is
                     mergedProducts.push(variants[0]);
                 } else {
-                    // Multiple variants, merge them
                     const firstVariant = variants[0];
 
-                    // Extract common name (remove variant-specific parts in parentheses)
                     let commonName = firstVariant.NameGet;
-                    // Remove content within parentheses () to get base name
                     commonName = commonName.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
 
-                    // Sum up quantities
                     const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
                     const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
 
-                    // Create list of sold quantities for each variant
                     const soldQtyList = variants.map(v => ({
                         id: v.Id,
                         name: v.NameGet,
@@ -1498,40 +1433,36 @@
                         maxQty: v.QtyAvailable || 0
                     }));
 
-                    // Create list of remaining quantities for each variant
                     const remainingQtyList = variants.map(v => ({
                         id: v.Id,
                         name: v.NameGet,
                         qty: v.remainingQty || 0
                     }));
 
-                    // Get the most recent addedAt timestamp from all variants
                     const mostRecentAddedAt = Math.max(...variants.map(v => v.addedAt || 0));
 
-                    // Create merged product
                     const mergedProduct = {
                         ...firstVariant,
                         NameGet: commonName,
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
-                        remainingQty: 0, // Not used for merged products
-                        soldQtyList: soldQtyList, // List of sold qty for each variant
-                        remainingQtyList: remainingQtyList, // List of remaining qty for each variant
-                        addedAt: mostRecentAddedAt, // Use most recent timestamp for sorting
+                        remainingQty: 0,
+                        soldQtyList: soldQtyList,
+                        remainingQtyList: remainingQtyList,
+                        addedAt: mostRecentAddedAt,
                         isMerged: true,
                         variantCount: variants.length,
-                        variants: variants // Keep reference to original variants for future use
+                        variants: variants
                     };
 
                     mergedProducts.push(mergedProduct);
                 }
             });
 
-            // Sort merged products by addedAt (newest first) to maintain sort order
             mergedProducts.sort((a, b) => {
                 const timeA = a.addedAt || 0;
                 const timeB = b.addedAt || 0;
-                return timeB - timeA; // Descending order (newest first)
+                return timeB - timeA;
             });
 
             return mergedProducts;
@@ -1547,13 +1478,10 @@
             btnNext.style.display = 'block';
             pageInfo.style.display = 'block';
 
-            // ONLY show hidden products (isHidden = true)
             const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden === true);
 
-            // Use filtered products if searching, otherwise use all hidden products
             let baseProducts = searchKeyword ? filteredProducts.filter(p => p.isHidden === true) : hiddenProducts;
 
-            // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
 
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
@@ -1562,11 +1490,9 @@
             const currentProducts = displayProducts.slice(startIndex, endIndex);
 
             productGrid.innerHTML = currentProducts.map(product => {
-                // Add cache-busting version to image URL (only for HTTP URLs, not base64)
                 const cacheVersion = product.lastRefreshed || product.addedAt || product.Id;
                 let imageUrlWithVersion = product.imageUrl;
 
-                // Only add cache-busting parameter for HTTP URLs, not base64 data URIs
                 if (imageUrlWithVersion && !imageUrlWithVersion.startsWith('data:')) {
                     imageUrlWithVersion = `${imageUrlWithVersion}${imageUrlWithVersion.includes('?') ? '&' : '?'}v=${cacheVersion}`;
                 }
@@ -1575,11 +1501,9 @@
                     ? `<img src="${imageUrlWithVersion}" class="grid-item-image" alt="${product.NameGet}">`
                     : `<div class="grid-item-image no-image"><span class="icon-emoji">📦</span></div>`;
 
-                // Disable edit buttons for merged products
                 const isMerged = product.isMerged || false;
                 const disableEdit = isMerged ? 'disabled title="Tắt chế độ gộp để chỉnh sửa"' : '';
 
-                // For unhide button, create proper onclick handler
                 let unhideButtonOnclick;
                 let unhideButtonTitle;
 
@@ -1592,7 +1516,6 @@
                     unhideButtonTitle = 'Hiện sản phẩm';
                 }
 
-                // Format product name with price
                 const productPrice = product.ListPrice || 0;
                 const productNameDisplay = productPrice > 0
                     ? `${product.NameGet} ${productPrice / 1000}K`
@@ -1650,7 +1573,6 @@
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.remainingQtyList.map(item => {
-                                            // Extract only the part in parentheses () at the end
                                             const lastParenMatch = item.name.match(/\(([^)]+)\)[^(]*$/);
                                             const variantName = lastParenMatch ? '(' + lastParenMatch[1] + ')' : item.name;
                                             return `
@@ -1677,11 +1599,9 @@
         }
 
         function changePage(direction) {
-            // Use filtered products if searching, otherwise use all hidden products
             const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden === true);
             let baseProducts = searchKeyword ? filteredProducts.filter(p => p.isHidden === true) : hiddenProducts;
 
-            // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
 
@@ -1716,7 +1636,6 @@
             return str;
         }
 
-        // Optimization: Build cache of normalized product names
         function buildNormalizedCache(products) {
             normalizedProductNames.clear();
             products.forEach(product => {
@@ -1726,16 +1645,13 @@
             });
         }
 
-        // Optimization: Get normalized name from cache (or compute if not cached)
         function getNormalizedName(product) {
             if (!product || !product.Id) return '';
 
-            // Check cache first
             if (normalizedProductNames.has(product.Id)) {
                 return normalizedProductNames.get(product.Id);
             }
 
-            // Compute and cache
             const normalized = removeVietnameseTones(product.NameGet || '');
             normalizedProductNames.set(product.Id, normalized);
             return normalized;
@@ -1745,19 +1661,16 @@
             searchKeyword = keyword.trim();
 
             if (!searchKeyword) {
-                // Clear search - restore to page before search
                 filteredProducts = [];
                 currentPage = pageBeforeSearch;
                 updateProductGrid();
 
-                // Sync empty search to Firebase if in sync mode (with debounce)
                 if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
                     syncSearchKeywordToFirebase('');
                 }
                 return;
             }
 
-            // Save current page before searching (only on first search)
             if (!filteredProducts.length) {
                 pageBeforeSearch = currentPage;
             }
@@ -1765,32 +1678,24 @@
             const searchLower = searchKeyword.toLowerCase();
             const searchNoSign = removeVietnameseTones(searchKeyword);
 
-            // Filter hidden products only
             const hiddenProducts = Object.values(orderProducts).filter(p => p.isHidden === true);
 
-            // Apply merge first if enabled, then search on merged products
             const productsToSearch = isMergeVariants ? mergeProductsByTemplate(hiddenProducts) : hiddenProducts;
 
-            // Optimization: Build cache if needed (only once per search)
             if (normalizedProductNames.size === 0) {
                 buildNormalizedCache(productsToSearch);
             }
 
-            // Filter products that match
             const matchedProducts = productsToSearch.filter(product => {
-                // Optimization: Use cached normalized name
                 const nameNoSign = getNormalizedName(product);
                 const matchName = nameNoSign.includes(searchNoSign);
 
-                // Match in original name (lowercase, for special chars like [Q5X1])
                 const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
 
                 return matchName || matchNameOriginal;
             });
 
-            // Sort by priority: match in [] first, then by name alphabetically
             matchedProducts.sort((a, b) => {
-                // Extract text within [] brackets
                 const extractBracket = (name) => {
                     const match = name?.match(/\[([^\]]+)\]/);
                     return match ? match[1].toLowerCase().trim() : '';
@@ -1799,38 +1704,30 @@
                 const aBracket = extractBracket(a.NameGet);
                 const bBracket = extractBracket(b.NameGet);
 
-                // Check if search term matches in brackets
                 const aMatchInBracket = aBracket && aBracket.includes(searchLower);
                 const bMatchInBracket = bBracket && bBracket.includes(searchLower);
 
-                // Priority 1: Match in brackets
                 if (aMatchInBracket && !bMatchInBracket) return -1;
                 if (!aMatchInBracket && bMatchInBracket) return 1;
 
-                // Priority 2: When both match in brackets,
-                // prioritize exact match in bracket code (e.g., [Q5] before [Q5X1])
                 if (aMatchInBracket && bMatchInBracket) {
                     const aExactMatch = aBracket === searchLower;
                     const bExactMatch = bBracket === searchLower;
                     if (aExactMatch && !bExactMatch) return -1;
                     if (!aExactMatch && bExactMatch) return 1;
 
-                    // If both exact or both not exact, sort by bracket content length (shorter first)
                     if (aBracket.length !== bBracket.length) {
                         return aBracket.length - bBracket.length;
                     }
 
-                    // If same length, sort alphabetically
                     return aBracket.localeCompare(bBracket);
                 }
 
-                // Priority 3: Sort alphabetically by product name
                 return a.NameGet.localeCompare(b.NameGet);
             });
 
             filteredProducts = matchedProducts;
 
-            // Adjust current page if it exceeds total pages of search results
             const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
             if (currentPage > totalPages && totalPages > 0) {
                 currentPage = totalPages;
@@ -1838,22 +1735,17 @@
 
             updateProductGrid();
 
-            // Sync search keyword to Firebase if in sync mode (with debounce)
             if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
                 syncSearchKeywordToFirebase(searchKeyword);
             }
         }
 
-        // Optimization: Debounced Firebase sync for search keyword
         function syncSearchKeywordToFirebase(keyword) {
-            // Clear existing timer
             if (firebaseSyncDebounceTimer) {
                 clearTimeout(firebaseSyncDebounceTimer);
             }
 
-            // Set new timer to sync after delay
             firebaseSyncDebounceTimer = setTimeout(() => {
-                // Add timestamp to detect which search is most recent (avoid race conditions)
                 const syncData = {
                     keyword: keyword || '',
                     timestamp: Date.now()
@@ -1873,12 +1765,10 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('searchClear').classList.remove('show');
 
-            // Restore to page before search
             currentPage = pageBeforeSearch;
 
             updateProductGrid();
 
-            // Sync empty search to Firebase if in sync mode (with debounce)
             if (isSyncMode && !isSyncingFromFirebase) {
                 syncSearchKeywordToFirebase('');
             }
@@ -1889,19 +1779,16 @@
             const product = orderProducts[productKey];
             if (!product) return;
 
-            // Check if update is valid before calling helper
             const currentSoldQty = product.soldQty || 0;
             const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, currentSoldQty + change));
             if (newSoldQty === currentSoldQty) return;
 
-            // Let helper function update both local and Firebase
             if (!isSyncingFromFirebase) {
                 updateProductQtyInFirebase(database, productId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Update UI after helper updates local (helper updates synchronously)
             if (searchKeyword) {
                 performSearch(searchKeyword, false);
             } else {
@@ -1914,19 +1801,16 @@
             const variant = orderProducts[variantKey];
             if (!variant) return;
 
-            // Check if update is valid before calling helper
             const currentSoldQty = variant.soldQty || 0;
             const newSoldQty = Math.max(0, Math.min(variant.QtyAvailable, currentSoldQty + change));
             if (newSoldQty === currentSoldQty) return;
 
-            // Let helper function update both local and Firebase
             if (!isSyncingFromFirebase) {
                 updateProductQtyInFirebase(database, variantId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
 
-            // Update UI after helper updates local (helper updates synchronously)
             if (searchKeyword) {
                 performSearch(searchKeyword, false);
             } else {
@@ -1972,7 +1856,6 @@
             });
 
             if (unhiddenCount > 0 && !isSyncingFromFirebase) {
-                // Batch update for all products
                 const updates = {};
                 productIds.forEach(productId => {
                     const productKey = `product_${productId}`;
@@ -2110,7 +1993,6 @@
                 onProductAdded: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product added from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
                         buildNormalizedCache(Object.values(orderProducts));
                         if (searchKeyword) {
                             performSearch(searchKeyword, false);
@@ -2122,7 +2004,6 @@
                 onProductChanged: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product updated from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
                         buildNormalizedCache(Object.values(orderProducts));
                         if (searchKeyword) {
                             performSearch(searchKeyword, false);
@@ -2134,7 +2015,6 @@
                 onProductRemoved: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product removed from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
                         buildNormalizedCache(Object.values(orderProducts));
                         if (searchKeyword) {
                             performSearch(searchKeyword, false);
@@ -2168,21 +2048,17 @@
                 }
             });
 
-            // Optimization: Listen for search data changes (with timestamp for race condition handling)
             let lastSyncedSearchTimestamp = 0;
             database.ref('orderSyncSearchData').on('value', (snapshot) => {
                 const searchData = snapshot.val();
 
-                // Only sync if in sync mode and not already syncing
                 if (isSyncMode && !isSyncingFromFirebase && searchData) {
                     const keyword = searchData.keyword || '';
                     const timestamp = searchData.timestamp || 0;
 
-                    // Optimization: Only apply if this is a newer search (prevent race conditions)
                     if (timestamp > lastSyncedSearchTimestamp) {
                         const currentKeyword = document.getElementById('searchInput')?.value || '';
 
-                        // Only update if keyword is different
                         if (keyword !== currentKeyword) {
                             isSyncingFromFirebase = true;
                             lastSyncedSearchTimestamp = timestamp;
@@ -2194,7 +2070,6 @@
                             if (searchInput) {
                                 searchInput.value = keyword;
 
-                                // Show/hide clear button
                                 if (keyword) {
                                     searchClear.classList.add('show');
                                     searchContainer.classList.add('active');
@@ -2204,7 +2079,6 @@
                                 }
                             }
 
-                            // Perform search without syncing back to Firebase (prevent loop)
                             performSearch(keyword, false);
 
                             console.log('🔥 Search synced from Firebase:', keyword, '@', new Date(timestamp).toLocaleTimeString());
@@ -2216,15 +2090,10 @@
             });
         }
 
-        // REMOVED: BroadcastChannel for settings
-        // This page is FIXED to 4x2 grid and does NOT listen to settings changes
-
         window.addEventListener('storage', (e) => {
-            // Only listen for products changes, NOT settings
             if (e.key === 'orderProducts') {
                 loadProducts();
             }
-            // REMOVED: orderDisplaySettings listener - this page uses fixed 4x2 grid
         });
 
         window.addEventListener('hashchange', () => {
@@ -2273,18 +2142,15 @@
 
         window.addEventListener('load', async () => {
             loadSettings();
-            loadMergeVariantsMode(); // Load merge variants mode from localStorage
-            loadHideEditControlsMode(); // Load hide edit controls mode from localStorage
+            loadMergeVariantsMode();
+            loadHideEditControlsMode();
 
-            // Load products FIRST (before listeners)
             await loadProducts();
 
-            // THEN setup Firebase listeners
             setupFirebaseListeners();
 
             const params = parseHashParams();
 
-            // Auto-enable sync mode by default
             isSyncMode = true;
 
             if (params.page && params.page > 1) {
@@ -2300,7 +2166,6 @@
                     console.error('❌ Lỗi sync initial page lên Firebase:', error);
                 });
 
-                // Load current search data from Firebase when in sync mode
                 try {
                     const snapshot = await database.ref('orderSyncSearchData').once('value');
                     const searchData = snapshot.val();
@@ -2317,7 +2182,6 @@
                             searchContainer.classList.add('active');
                         }
 
-                        // Perform initial search without syncing back
                         performSearch(keyword, false);
                         console.log('🔥 Loaded search from Firebase:', keyword);
                     }
@@ -2326,83 +2190,50 @@
                 }
             }
 
-            // Setup search input event listener
             const searchInput = document.getElementById('searchInput');
             const searchClear = document.getElementById('searchClear');
             const searchContainer = document.getElementById('searchContainer');
 
             if (searchInput) {
-                // Focus on click anywhere on search container
                 searchContainer.addEventListener('click', () => {
                     searchInput.focus();
                 });
 
-                // Optimization: Debounced search input to reduce Firebase calls
                 searchInput.addEventListener('input', (e) => {
                     const value = e.target.value;
 
-                    // Show/hide clear button (immediate visual feedback)
                     if (value) {
                         searchClear.classList.add('show');
-                        searchContainer.classList.add('active'); // Keep visible while typing
+                        searchContainer.classList.add('active');
                     } else {
                         searchClear.classList.remove('show');
                         searchContainer.classList.remove('active');
                     }
 
-                    // Clear existing debounce timer
                     if (searchInputDebounceTimer) {
                         clearTimeout(searchInputDebounceTimer);
                     }
 
-                    // Perform search after user stops typing (debounced)
                     searchInputDebounceTimer = setTimeout(() => {
                         performSearch(value);
                     }, SEARCH_INPUT_DEBOUNCE_MS);
                 });
 
-                // Handle Enter key - perform search immediately (bypass debounce)
                 searchInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        // Clear debounce timer
                         if (searchInputDebounceTimer) {
                             clearTimeout(searchInputDebounceTimer);
                         }
-                        // Perform search immediately
                         performSearch(e.target.value);
                     }
                 });
 
-                // Handle Escape key to clear search
                 searchInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape') {
                         clearSearch();
                     }
                 });
             }
-
-            // CRITICAL: Force apply 4x2 grid one final time after everything loads
-            // This ensures grid is always 4 columns x 2 rows, no matter what
-            setTimeout(() => {
-                applySettings();
-                console.log('🔒 FINAL: Grid locked to 4x2 layout');
-            }, 100);
-
-            // ULTIMATE PROTECTION: Monitor grid and force 4x2 if changed
-            // This interval runs every 500ms to ensure grid stays 4x2
-            setInterval(() => {
-                const productGrid = document.getElementById('productGrid');
-                if (productGrid) {
-                    const currentCols = productGrid.style.gridTemplateColumns;
-                    const currentRows = productGrid.style.gridTemplateRows;
-
-                    // Check if grid has been modified from 4x2
-                    if (currentCols !== 'repeat(4, 1fr)' || currentRows !== 'repeat(2, 1fr)') {
-                        console.warn('⚠️ Grid layout was changed! Forcing back to 4x2...');
-                        applySettings();
-                    }
-                }
-            }, 500);
         });
     </script>
 </body>
