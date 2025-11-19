@@ -277,11 +277,27 @@
                     } else {
                         console.log('[FIREBASE] Firebase already initialized');
                     }
+
+                    // Load token-manager.js after Firebase is initialized
+                    loadTokenManager();
                 } else {
                     console.warn('[FIREBASE] FIREBASE_CONFIG not available yet, waiting for core-loader...');
                     // Retry after a short delay
                     setTimeout(initFirebase, 100);
                 }
+            }
+
+            // Load token-manager.js dynamically after Firebase is ready
+            function loadTokenManager() {
+                const script = document.createElement('script');
+                script.src = 'token-manager.js';
+                script.onload = function() {
+                    console.log('[TOKEN] Token Manager loaded successfully');
+                };
+                script.onerror = function() {
+                    console.error('[TOKEN] Failed to load token-manager.js');
+                };
+                document.head.appendChild(script);
             }
 
             // Initialize Firebase when ready
@@ -296,8 +312,6 @@
                 });
             }
         </script>
-
-        <script src="token-manager.js"></script>
         <!-- Version checker is now in navigation-modern.js -->
 
         <script>
