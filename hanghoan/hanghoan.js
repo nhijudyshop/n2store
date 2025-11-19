@@ -704,14 +704,21 @@ function handleDeleteButton(e) {
             return;
         }
 
+        // Validate row has enough cells
+        if (!row.cells || row.cells.length < 6) {
+            showError("Dữ liệu hàng không hợp lệ");
+            return;
+        }
+
         showLoading("Đang xóa đơn hàng...");
 
+        // Safely extract cell data with null checks
         const deleteData = {
-            shipValue: row.cells[1].innerText,
-            scenarioValue: row.cells[2].innerText,
-            customerInfoValue: row.cells[3].innerText,
-            totalAmountValue: row.cells[4].innerText,
-            causeValue: row.cells[5].innerText,
+            shipValue: row.cells[1]?.innerText || "",
+            scenarioValue: row.cells[2]?.innerText || "",
+            customerInfoValue: row.cells[3]?.innerText || "",
+            totalAmountValue: row.cells[4]?.innerText || "",
+            causeValue: row.cells[5]?.innerText || "",
             duyetHoanValue: tdRow.id,
         };
 
@@ -719,13 +726,21 @@ function handleDeleteButton(e) {
             .doc("hanghoan")
             .get()
             .then((doc) => {
-                if (!doc.exists) throw new Error("Document does not exist");
+                if (!doc.exists) throw new Error("Không tìm thấy document");
 
                 const data = doc.data();
-                const dataArray = data["data"] || [];
+                if (!data || !Array.isArray(data["data"])) {
+                    throw new Error("Dữ liệu không hợp lệ");
+                }
+
+                const dataArray = data["data"];
                 const updatedArray = dataArray.filter(
                     (item) => item.duyetHoanValue !== tdRow.id,
                 );
+
+                if (updatedArray.length === dataArray.length) {
+                    throw new Error("Không tìm thấy đơn hàng cần xóa");
+                }
 
                 return collectionRef
                     .doc("hanghoan")
@@ -748,12 +763,12 @@ function handleDeleteButton(e) {
                 console.error("Error deleting:", error);
                 showError(
                     "Lỗi khi xóa đơn hàng: " +
-                        (error.message || "Unknown error"),
+                        (error.message || "Lỗi không xác định"),
                 );
             });
     } catch (error) {
         console.error("Error in handleDeleteButton:", error);
-        showError("Lỗi xử lý xóa đơn hàng");
+        showError("Lỗi xử lý xóa đơn hàng: " + (error.message || "Lỗi không xác định"));
     }
 }
 
