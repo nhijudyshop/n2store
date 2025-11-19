@@ -1456,6 +1456,10 @@
                     // Remove content within parentheses () to get base name
                     commonName = commonName.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
 
+                    // Remove existing price at the end (e.g., "190k", "150K") to avoid duplication
+                    // This is necessary because API may include price in product name
+                    commonName = commonName.replace(/\s*\d+\.?\d*\s*[kK]\s*$/g, '').trim();
+
                     // Sum up quantities
                     const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
                     const totalSoldQty = variants.reduce((sum, v) => sum + (v.soldQty || 0), 0);
