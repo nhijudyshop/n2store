@@ -2465,13 +2465,25 @@
          * Restore snapshot with auto-save protection
          */
         async function restoreSnapshot(snapshotId) {
+            console.log('DEBUG: restoreSnapshot() called with snapshotId:', snapshotId);
+
             const currentProductCount = Object.keys(orderProducts).length;
+            console.log('DEBUG: Current cart has', currentProductCount, 'products');
+
+            // Validate snapshotId
+            if (!snapshotId) {
+                console.error('DEBUG: snapshotId is null/undefined in restoreSnapshot()!');
+                showNotificationMessage('❌ Lỗi: ID giỏ hàng không hợp lệ');
+                return;
+            }
 
             // Store snapshot ID for later use
             pendingRestoreSnapshotId = snapshotId;
+            console.log('DEBUG: Set pendingRestoreSnapshotId to:', pendingRestoreSnapshotId);
 
             // If current cart is empty, restore directly
             if (currentProductCount === 0) {
+                console.log('DEBUG: Cart is empty, restore directly');
                 if (confirm('Khôi phục giỏ hàng này?')) {
                     await performRestore(snapshotId, false, null);
                 }
@@ -2479,6 +2491,7 @@
             }
 
             // Show smart restore dialog
+            console.log('DEBUG: Cart has products, showing restore dialog');
             showRestoreConfirmDialog(snapshotId, currentProductCount);
         }
 
@@ -2520,17 +2533,35 @@
             const shouldAutoSave = document.getElementById('autoSaveBeforeRestore').checked;
             const autoSaveName = shouldAutoSave ? document.getElementById('autoSaveName').value.trim() : null;
 
+            console.log('DEBUG: confirmRestore() called');
+            console.log('DEBUG: pendingRestoreSnapshotId:', pendingRestoreSnapshotId);
+            console.log('DEBUG: shouldAutoSave:', shouldAutoSave);
+            console.log('DEBUG: autoSaveName:', autoSaveName);
+
+            // Validate pendingRestoreSnapshotId exists
+            if (!pendingRestoreSnapshotId) {
+                console.error('DEBUG: pendingRestoreSnapshotId is null/undefined!');
+                showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng cần khôi phục');
+                closeRestoreConfirmModal();
+                return;
+            }
+
             // Validate auto-save name if needed
             if (shouldAutoSave && !autoSaveName) {
                 showNotificationMessage('⚠️ Vui lòng nhập tên cho giỏ hàng sẽ lưu');
                 return;
             }
 
+            // IMPORTANT: Save snapshotId to local variable BEFORE closing modal
+            // Because closeRestoreConfirmModal() sets pendingRestoreSnapshotId = null
+            const snapshotIdToRestore = pendingRestoreSnapshotId;
+            console.log('DEBUG: Saved snapshotIdToRestore:', snapshotIdToRestore);
+
             // Close modal
             closeRestoreConfirmModal();
 
-            // Perform restore with auto-save
-            await performRestore(pendingRestoreSnapshotId, shouldAutoSave, autoSaveName);
+            // Perform restore with auto-save (use local variable)
+            await performRestore(snapshotIdToRestore, shouldAutoSave, autoSaveName);
         }
 
         /**
