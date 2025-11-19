@@ -8,6 +8,7 @@
     let selectedSessionIndexes = new Set();
     let ordersData = []; // Orders data from tab1
     let productNotes = {}; // Store notes for each product: { "stt-productId": "note text" }
+    let userStorageManager = null; // User-specific storage manager
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -26,6 +27,14 @@
         firebase.initializeApp(firebaseConfig);
     }
     const database = firebase.database();
+
+    // Get Firebase path for current user
+    function getUserFirebasePath(basePath = 'productAssignments') {
+        if (!userStorageManager) {
+            userStorageManager = window.userStorageManager;
+        }
+        return userStorageManager ? userStorageManager.getUserFirebasePath(basePath) : `${basePath}/guest`;
+    }
 
     // =====================================================
     // PRODUCT ENCODING/DECODING UTILITIES
@@ -302,9 +311,10 @@ ${encodedString}
     // Load Assignments Data from Firebase (SOURCE OF TRUTH)
     async function loadAssignmentsFromFirebase() {
         try {
-            console.log('[LOAD] 🔥 Loading from Firebase...');
+            const firebasePath = getUserFirebasePath('productAssignments');
+            console.log('[LOAD] 🔥 Loading from Firebase path:', firebasePath);
 
-            const snapshot = await database.ref('productAssignments').once('value');
+            const snapshot = await database.ref(firebasePath).once('value');
             const data = snapshot.val();
 
             if (data && data.assignments) {
@@ -975,7 +985,8 @@ ${encodedString}
             console.log('[REMOVE-STT] STTs as strings:', uploadedSTTsStr);
 
             // Load current assignments from Firebase
-            const snapshot = await database.ref('productAssignments').once('value');
+            const firebasePath = getUserFirebasePath('productAssignments');
+            const snapshot = await database.ref(firebasePath).once('value');
             const data = snapshot.val();
 
             if (!data || !data.assignments) {
@@ -1044,7 +1055,8 @@ ${encodedString}
             };
 
             console.log('[REMOVE-STT] 📤 Saving to Firebase:', productAssignments.length, 'products');
-            await database.ref('productAssignments').set(dataWithTimestamp);
+            const firebasePath = getUserFirebasePath('productAssignments');
+            await database.ref(firebasePath).set(dataWithTimestamp);
             console.log('[REMOVE-STT] ✅ Saved to Firebase successfully');
 
             // Return success with stats
@@ -1282,7 +1294,8 @@ ${encodedString}
                     console.log('[UPLOAD] ✅ Deleted:', deleteResult.removedCount, 'STT entries from Firebase');
 
                     // Step 2: Read afterSnapshot from Firebase (AFTER deletion completes)
-                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const firebasePath = getUserFirebasePath('productAssignments');
+                    const afterSnapshot = await database.ref(firebasePath).once('value');
                     const afterData = afterSnapshot.val();
 
                     // Step 3: Save history
@@ -1314,7 +1327,8 @@ ${encodedString}
                     progressBar.classList.add('bg-warning');
 
                     // Save history with special status
-                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const firebasePath = getUserFirebasePath('productAssignments');
+                    const afterSnapshot = await database.ref(firebasePath).once('value');
                     const afterData = afterSnapshot.val();
                     await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterData);
 
@@ -1340,7 +1354,8 @@ ${encodedString}
                     }
 
                     // Step 2: Read afterSnapshot from Firebase
-                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const firebasePath = getUserFirebasePath('productAssignments');
+                    const afterSnapshot = await database.ref(firebasePath).once('value');
                     const afterData = afterSnapshot.val();
 
                     // Step 3: Save history
@@ -1368,7 +1383,8 @@ ${encodedString}
                     statusText.textContent = `❌ Lỗi xử lý kết quả upload`;
 
                     // Try to save history anyway
-                    const afterSnapshot = await database.ref('productAssignments').once('value');
+                    const firebasePath = getUserFirebasePath('productAssignments');
+                    const afterSnapshot = await database.ref(firebasePath).once('value');
                     const afterData = afterSnapshot.val();
                     await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterData);
 
@@ -2019,11 +2035,12 @@ ${encodedString}
     // Setup Firebase Listeners with timestamp-based conflict resolution
     // Setup real-time Firebase listener for automatic updates
     function setupFirebaseListeners() {
-        console.log('[SYNC] 🔧 Setting up Firebase real-time listener...');
+        const firebasePath = getUserFirebasePath('productAssignments');
+        console.log('[SYNC] 🔧 Setting up Firebase real-time listener for path:', firebasePath);
 
         let isFirstLoad = true; // Skip first trigger (we already loaded in init)
 
-        database.ref('productAssignments').on('value', (snapshot) => {
+        database.ref(firebasePath).on('value', (snapshot) => {
             console.log('[SYNC] 🔔 Firebase listener triggered!');
 
             // Skip first trigger (already loaded in init)
@@ -2069,18 +2086,22 @@ ${encodedString}
     // REMOVED: syncFromFirebaseIfNewer
     // No longer needed - Firebase real-time listener handles all updates automatically
 
-    // Load Orders Data from localStorage
+    // Load Orders Data from localStorage (user-specific)
     function loadOrdersData() {
         try {
-            const cachedOrders = localStorage.getItem('ordersData');
+            // Use user-specific localStorage key
+            const localStorageKey = userStorageManager ? userStorageManager.getUserLocalStorageKey('ordersData') : 'ordersData_guest';
+            console.log('[ORDERS] Loading from localStorage key:', localStorageKey);
+
+            const cachedOrders = localStorage.getItem(localStorageKey);
             if (cachedOrders) {
                 ordersData = JSON.parse(cachedOrders);
-                console.log(`📦 Đã load ${ordersData.length} đơn hàng từ localStorage`);
+                console.log(`[ORDERS] 📦 Đã load ${ordersData.length} đơn hàng từ localStorage`);
             } else {
-                console.log('⚠️ Chưa có orders data trong localStorage');
+                console.log('[ORDERS] ⚠️ Chưa có orders data trong localStorage');
             }
         } catch (error) {
-            console.error('Error loading orders data:', error);
+            console.error('[ORDERS] Error loading orders data:', error);
             ordersData = [];
         }
     }
@@ -2107,7 +2128,8 @@ ${encodedString}
             console.log('[BACKUP] STTs to upload:', uploadedSTTs);
 
             // 1. Load current productAssignments from Firebase
-            const snapshot = await database.ref('productAssignments').once('value');
+            const firebasePath = getUserFirebasePath('productAssignments');
+            const snapshot = await database.ref(firebasePath).once('value');
             const currentData = snapshot.val();
 
             if (!currentData) {
@@ -2136,7 +2158,8 @@ ${encodedString}
             };
 
             // 4. Save to Firebase (use uploadId as key to prevent overwrites)
-            await database.ref(`productAssignments_backup/${uploadId}`).set(backupSnapshot);
+            const backupPath = getUserFirebasePath('productAssignments_backup');
+            await database.ref(`${backupPath}/${uploadId}`).set(backupSnapshot);
 
             console.log('[BACKUP] ✅ Backup created successfully');
             console.log('[BACKUP] Backed up:', currentData.assignments.length, 'products');
@@ -2158,7 +2181,8 @@ ${encodedString}
         try {
             console.log('[BACKUP] 📥 Loading backup:', uploadId);
 
-            const snapshot = await database.ref(`productAssignments_backup/${uploadId}`).once('value');
+            const backupPath = getUserFirebasePath('productAssignments_backup');
+            const snapshot = await database.ref(`${backupPath}/${uploadId}`).once('value');
             const backup = snapshot.val();
 
             if (!backup) {
@@ -2230,9 +2254,11 @@ ${encodedString}
             };
 
             // Batch update: Save history AND delete backup in one operation
+            const historyPath = getUserFirebasePath('productAssignments_history');
+            const backupPath = getUserFirebasePath('productAssignments_backup');
             const updates = {};
-            updates[`productAssignments_history/${uploadId}`] = historyRecord;
-            updates[`productAssignments_backup/${uploadId}`] = null; // Delete backup
+            updates[`${historyPath}/${uploadId}`] = historyRecord;
+            updates[`${backupPath}/${uploadId}`] = null; // Delete backup
 
             await database.ref().update(updates);
 
@@ -2253,7 +2279,8 @@ ${encodedString}
         try {
             console.log('[HISTORY] 🔒 Marking history as committed:', uploadId);
 
-            await database.ref(`productAssignments_history/${uploadId}`).update({
+            const historyPath = getUserFirebasePath('productAssignments_history');
+            await database.ref(`${historyPath}/${uploadId}`).update({
                 canRestore: false,
                 committedAt: Date.now()
             });
@@ -2301,7 +2328,8 @@ ${encodedString}
             console.log('[RESTORE] 📦 Restoring:', restoredData.assignments.length, 'products');
 
             // 5. Restore to Firebase (source of truth)
-            await database.ref('productAssignments').set(restoredData);
+            const firebasePath = getUserFirebasePath('productAssignments');
+            await database.ref(firebasePath).set(restoredData);
             console.log('[RESTORE] ✅ Restored to Firebase');
 
             // 8. UI will auto-update via Firebase listener
@@ -2330,7 +2358,8 @@ ${encodedString}
             if (!uploadId) return;
 
             console.log('[CLEANUP] 🗑️ Cleaning up backup:', uploadId);
-            await database.ref(`productAssignments_backup/${uploadId}`).remove();
+            const backupPath = getUserFirebasePath('productAssignments_backup');
+            await database.ref(`${backupPath}/${uploadId}`).remove();
             console.log('[CLEANUP] ✅ Backup cleaned up');
 
         } catch (error) {
@@ -2343,6 +2372,17 @@ ${encodedString}
     window.addEventListener('load', async () => {
         try {
             console.log('[INIT] 🚀 Initializing Tab Upload TPOS...');
+
+            // Initialize userStorageManager
+            userStorageManager = window.userStorageManager;
+            if (!userStorageManager) {
+                console.warn('[INIT] ⚠️ UserStorageManager not available, creating fallback');
+                userStorageManager = {
+                    getUserFirebasePath: (path) => `${path}/guest`,
+                    getUserLocalStorageKey: (key) => `${key}_guest`
+                };
+            }
+            console.log('[INIT] 📱 User identifier:', userStorageManager.getUserIdentifier ? userStorageManager.getUserIdentifier() : 'guest');
 
             // Auth handled by tokenManager automatically when needed
 
@@ -2432,7 +2472,9 @@ ${encodedString}
             console.log('[HISTORY] 📥 Loading history from Firebase...');
 
             // Query Firebase - orderByChild timestamp, limit to last 100 records
-            const snapshot = await database.ref('productAssignments_history')
+            const historyPath = getUserFirebasePath('productAssignments_history');
+            console.log('[HISTORY] Loading from path:', historyPath);
+            const snapshot = await database.ref(historyPath)
                 .orderByChild('timestamp')
                 .limitToLast(100)
                 .once('value');
@@ -2738,7 +2780,8 @@ ${encodedString}
             `;
 
             // Load full record from Firebase (with uploadResults)
-            const snapshot = await database.ref(`productAssignments_history/${uploadId}`).once('value');
+            const historyPath = getUserFirebasePath('productAssignments_history');
+            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 
             if (!record) {
@@ -2991,7 +3034,8 @@ ${encodedString}
             `;
 
             // Load full record from Firebase (with beforeSnapshot)
-            const snapshot = await database.ref(`productAssignments_history/${uploadId}`).once('value');
+            const historyPath = getUserFirebasePath('productAssignments_history');
+            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 
             if (!record || !record.beforeSnapshot) {
