@@ -5,8 +5,11 @@
 class PancakeDataManager {
     constructor() {
         this.conversations = [];
-        this.conversationMapByPSID = new Map(); // Map PSID -> conversation (for INBOX)
-        this.conversationMapByFBID = new Map(); // Map Facebook ID -> conversation (for COMMENT)
+        // Separate maps for INBOX and COMMENT based on type field
+        this.inboxMapByPSID = new Map();   // INBOX conversations by PSID
+        this.inboxMapByFBID = new Map();   // INBOX conversations by Facebook ID
+        this.commentMapByPSID = new Map(); // COMMENT conversations by PSID
+        this.commentMapByFBID = new Map(); // COMMENT conversations by Facebook ID
         this.pages = [];
         this.pageIds = [];
         this.isLoading = false;
@@ -207,43 +210,67 @@ class PancakeDataManager {
 
     /**
      * Build Maps từ PSID và Facebook ID -> conversation để lookup nhanh
-     * - INBOX messages: có from_psid (dùng PSID map)
-     * - COMMENT messages: from_psid = null, chỉ có from.id (dùng FBID map)
+     * Phân loại dựa trên field "type": "INBOX" hoặc "COMMENT"
+     * - INBOX messages: thường có from_psid
+     * - COMMENT messages: thường from_psid = null, chỉ có from.id
      */
     buildConversationMap() {
-        this.conversationMapByPSID.clear();
-        this.conversationMapByFBID.clear();
+        this.inboxMapByPSID.clear();
+        this.inboxMapByFBID.clear();
+        this.commentMapByPSID.clear();
+        this.commentMapByFBID.clear();
 
         this.conversations.forEach(conv => {
-            // Map by PSID (for INBOX messages)
-            if (conv.from_psid) {
-                this.conversationMapByPSID.set(conv.from_psid, conv);
-            }
+            const convType = conv.type; // "INBOX" or "COMMENT"
 
-            // Map by Facebook ID (for COMMENT messages or fallback)
-            if (conv.from && conv.from.id) {
-                this.conversationMapByFBID.set(conv.from.id, conv);
+            if (convType === 'INBOX') {
+                // INBOX conversations
+                if (conv.from_psid) {
+                    this.inboxMapByPSID.set(conv.from_psid, conv);
+                }
+                if (conv.from && conv.from.id) {
+                    this.inboxMapByFBID.set(conv.from.id, conv);
+                }
+            } else if (convType === 'COMMENT') {
+                // COMMENT conversations
+                if (conv.from_psid) {
+                    this.commentMapByPSID.set(conv.from_psid, conv);
+                }
+                if (conv.from && conv.from.id) {
+                    this.commentMapByFBID.set(conv.from.id, conv);
+                }
             }
         });
 
-        console.log(`[PANCAKE] Built conversation maps - PSID: ${this.conversationMapByPSID.size}, FBID: ${this.conversationMapByFBID.size} entries`);
+        console.log(`[PANCAKE] Built conversation maps:`);
+        console.log(`  - INBOX by PSID: ${this.inboxMapByPSID.size} entries`);
+        console.log(`  - INBOX by FBID: ${this.inboxMapByFBID.size} entries`);
+        console.log(`  - COMMENT by PSID: ${this.commentMapByPSID.size} entries`);
+        console.log(`  - COMMENT by FBID: ${this.commentMapByFBID.size} entries`);
     }
 
     /**
-     * Lấy conversation theo Facebook User ID
-     * Thử match theo PSID trước (cho INBOX), sau đó theo Facebook ID (cho COMMENT)
+     * Lấy conversation theo Facebook User ID (bất kỳ type nào)
+     * Tìm trong cả INBOX và COMMENT maps
+     * Ưu tiên: INBOX by PSID → INBOX by FBID → COMMENT by FBID → COMMENT by PSID
      * @param {string} userId - Facebook User ID (Facebook_ASUserId)
      * @returns {Object|null}
      */
     getConversationByUserId(userId) {
         if (!userId) return null;
 
-        // Try PSID first (for INBOX messages)
-        let conversation = this.conversationMapByPSID.get(userId);
-
-        // Fallback to Facebook ID (for COMMENT messages)
+        // Try INBOX maps first (most common)
+        let conversation = this.inboxMapByPSID.get(userId);
         if (!conversation) {
-            conversation = this.conversationMapByFBID.get(userId);
+            conversation = this.inboxMapByFBID.get(userId);
+        }
+
+        // Fallback to COMMENT maps
+        if (!conversation) {
+            conversation = this.commentMapByFBID.get(userId);
+        }
+        if (!conversation) {
+            conversation = this.commentMapByPSID.get(userId);
         }
 
         return conversation || null;
@@ -300,17 +327,13 @@ class PancakeDataManager {
             };
         }
 
-        const conversation = this.getConversationByUserId(userId);
-
+        // Chỉ tìm trong INBOX maps
+        let conversation = this.inboxMapByPSID.get(userId);
         if (!conversation) {
-            return {
-                hasUnread: false,
-                unreadCount: 0
-            };
+            conversation = this.inboxMapByFBID.get(userId);
         }
 
-        // Chỉ check INBOX conversations (có from_psid)
-        if (conversation.type !== 'INBOX') {
+        if (!conversation) {
             return {
                 hasUnread: false,
                 unreadCount: 0
@@ -341,17 +364,13 @@ class PancakeDataManager {
             };
         }
 
-        const conversation = this.getConversationByUserId(userId);
-
+        // Chỉ tìm trong COMMENT maps
+        let conversation = this.commentMapByFBID.get(userId);
         if (!conversation) {
-            return {
-                hasUnread: false,
-                unreadCount: 0
-            };
+            conversation = this.commentMapByPSID.get(userId);
         }
 
-        // Chỉ check COMMENT conversations
-        if (conversation.type !== 'COMMENT') {
+        if (!conversation) {
             return {
                 hasUnread: false,
                 unreadCount: 0
@@ -425,6 +444,7 @@ class PancakeDataManager {
 
     /**
      * Lấy tin nhắn cuối cùng cho order từ Pancake conversation
+     * CHỈ LẤY INBOX conversations (type === "INBOX")
      * @param {Object} order - Order object
      * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type }
      */
@@ -442,10 +462,26 @@ class PancakeDataManager {
             };
         }
 
-        // Get conversation from Pancake
-        const conversation = this.getConversationByUserId(userId);
+        // Get INBOX conversation only (check type === "INBOX")
+        let conversation = this.inboxMapByPSID.get(userId);
+        if (!conversation) {
+            conversation = this.inboxMapByFBID.get(userId);
+        }
 
         if (!conversation) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                attachments: null,
+                type: null
+            };
+        }
+
+        // Verify it's actually INBOX type (should always be true due to separate maps)
+        if (conversation.type !== 'INBOX') {
+            console.warn(`[PANCAKE] Found conversation but type is ${conversation.type}, expected INBOX`);
             return {
                 message: null,
                 messageType: null,
@@ -480,14 +516,15 @@ class PancakeDataManager {
             hasUnread,
             unreadCount,
             attachments,
-            type: conversation.type || 'INBOX',
-            conversationId: conversation.conversation_id,
+            type: 'message',  // Return 'message' for consistency with UI
+            conversationId: conversation.id,
             pageId: conversation.page_id
         };
     }
 
     /**
-     * Lấy comment cuối cùng cho order từ Pancake conversation (COMMENT type)
+     * Lấy comment cuối cùng cho order từ Pancake conversation
+     * CHỈ LẤY COMMENT conversations (type === "COMMENT")
      * @param {Object} order - Order object
      * @returns {Object} { message, messageType, hasUnread, unreadCount, type }
      */
@@ -504,8 +541,12 @@ class PancakeDataManager {
             };
         }
 
-        // Get conversation from Pancake
-        const conversation = this.getConversationByUserId(userId);
+        // Get COMMENT conversation only (check type === "COMMENT")
+        // Try FBID first as COMMENT usually doesn't have from_psid
+        let conversation = this.commentMapByFBID.get(userId);
+        if (!conversation) {
+            conversation = this.commentMapByPSID.get(userId);
+        }
 
         if (!conversation) {
             return {
@@ -517,8 +558,9 @@ class PancakeDataManager {
             };
         }
 
-        // Only return if it's a COMMENT type conversation
+        // Verify it's actually COMMENT type (should always be true due to separate maps)
         if (conversation.type !== 'COMMENT') {
+            console.warn(`[PANCAKE] Found conversation but type is ${conversation.type}, expected COMMENT`);
             return {
                 message: null,
                 messageType: null,
@@ -542,7 +584,7 @@ class PancakeDataManager {
             hasUnread,
             unreadCount,
             type: 'comment',
-            conversationId: conversation.conversation_id,
+            conversationId: conversation.id,
             pageId: conversation.page_id
         };
     }
