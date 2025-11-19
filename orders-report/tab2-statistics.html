@@ -31,6 +31,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
+    <!-- Firebase Initialization (MUST be after Firebase SDK, before token-manager.js) -->
+    <script src="firebase-init.js"></script>
+
     <style>
         :root {
             --primary: #0d6efd;
@@ -454,15 +457,21 @@
             measurementId: "G-MXT4TJK349"
         };
 
-        // Initialize Firebase
+        // Initialize Firebase as a named app (KPI_STATS) since default app is used by token-manager
         let database = null;
+        let kpiStatsApp = null;
 
         try {
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-                console.log('[KPI-STATS] Firebase initialized successfully');
+            // Check if KPI_STATS app already exists
+            const existingApp = firebase.apps.find(app => app.name === 'KPI_STATS');
+            if (existingApp) {
+                kpiStatsApp = existingApp;
+                console.log('[KPI-STATS] Using existing Firebase app');
+            } else {
+                kpiStatsApp = firebase.initializeApp(firebaseConfig, 'KPI_STATS');
+                console.log('[KPI-STATS] Firebase app initialized successfully');
             }
-            database = firebase.database();
+            database = kpiStatsApp.database();
             console.log('[KPI-STATS] Database reference created');
         } catch (error) {
             console.error('[KPI-STATS] Firebase initialization error:', error);
