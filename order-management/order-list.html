@@ -222,12 +222,10 @@
         }
 
         .grid-item-name-text {
-            overflow: hidden;
-            text-overflow: ellipsis;
             width: 100%;
-            display: -webkit-box;
-            -webkit-line-clamp: var(--name-line-clamp, 1);
-            -webkit-box-orient: vertical;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
 
         .grid-item-stats {
