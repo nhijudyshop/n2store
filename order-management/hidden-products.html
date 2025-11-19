@@ -65,14 +65,14 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(2, 1fr);
+            /* grid-template-columns and rows are set dynamically via JavaScript */
+            /* Default gap, will be overridden by JavaScript settings */
             gap: 15px;
             width: 100%;
             max-width: 1900px;
             touch-action: pan-y pinch-zoom;
             user-select: none;
-            aspect-ratio: 4/2;
+            /* aspect-ratio removed to allow dynamic grid sizing */
         }
 
         .grid-item {
@@ -1387,9 +1387,10 @@
 
         function applySettings() {
             const productGrid = document.getElementById('productGrid');
-            productGrid.style.gridTemplateColumns = `repeat(${displaySettings.columns}, 1fr)`;
-            productGrid.style.gridTemplateRows = `repeat(${displaySettings.rows}, 1fr)`;
-            productGrid.style.gap = `${displaySettings.gap}px`;
+            // Use setProperty with 'important' to ensure settings are applied
+            productGrid.style.setProperty('grid-template-columns', `repeat(${displaySettings.columns}, 1fr)`, 'important');
+            productGrid.style.setProperty('grid-template-rows', `repeat(${displaySettings.rows}, 1fr)`, 'important');
+            productGrid.style.setProperty('gap', `${displaySettings.gap}px`, 'important');
 
             // Apply Frame Layout CSS Variables
             document.documentElement.style.setProperty('--name-line-clamp', displaySettings.nameLineClamp || 1);
@@ -2215,15 +2216,15 @@
             });
         }
 
-        // REMOVED: BroadcastChannel for settings
-        // This page is FIXED to 4x2 grid and does NOT listen to settings changes
+        // Note: This page DOES listen to hiddenProductsDisplaySettings from Firebase (via setupFirebaseListeners)
+        // but does NOT listen to orderDisplaySettings (which is for order-list.html)
 
         window.addEventListener('storage', (e) => {
-            // Only listen for products changes, NOT settings
+            // Only listen for products changes from localStorage
+            // Settings changes are synced via Firebase listener, not localStorage
             if (e.key === 'orderProducts') {
                 loadProducts();
             }
-            // REMOVED: orderDisplaySettings listener - this page uses fixed 4x2 grid
         });
 
         window.addEventListener('hashchange', () => {
