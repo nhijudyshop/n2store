@@ -83,12 +83,10 @@
         }, 3000);
     }
 
-    // Auth Functions - Server-side token caching (Cloudflare Worker & Render.com)
+    // Auth Functions
     async function getAuthToken() {
         try {
-            // Server handles token caching - just request token
-            // Server returns cached token if valid, or fetches new one if needed
-            const response = await API_CONFIG.smartFetch(`${API_CONFIG.WORKER_URL}/api/token`, {
+            const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -101,13 +99,13 @@
             }
 
             const data = await response.json();
-
-            // Cache token locally for quick access (optional, server already caches)
             bearerToken = data.access_token;
             tokenExpiry = Date.now() + (data.expires_in * 1000);
-            console.log('[AUTH] ✅ Token received (server-side cached)');
 
-            return data.access_token;
+            // Cache in memory only, no localStorage
+            console.log('[AUTH] Token cached in memory until:', new Date(tokenExpiry).toLocaleString());
+
+            return bearerToken;
         } catch (error) {
             console.error('Lỗi xác thực:', error);
             throw error;
@@ -115,9 +113,9 @@
     }
 
     async function getValidToken() {
-        // Check local cache first (optional optimization)
+        // Check memory cache only
         if (bearerToken && tokenExpiry && tokenExpiry > Date.now() + 300000) {
-            console.log('[AUTH] ✅ Using locally cached token');
+            console.log('[AUTH] Using cached token from memory');
             return bearerToken;
         }
 
@@ -161,7 +159,7 @@
         loadingIndicator.style.display = 'block';
 
         try {
-            const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Product/ExportFileWithVariantPrice`, {
+            const response = await authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -287,7 +285,7 @@
         try {
             // Load product details
             const response = await authenticatedFetch(
-                `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
             );
 
             if (!response.ok) {
@@ -301,7 +299,7 @@
             if (!imageUrl && productData.ProductTmplId) {
                 try {
                     const templateResponse = await authenticatedFetch(
-                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=Images`
+                        `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=Images`
                     );
 
                     if (templateResponse.ok) {
@@ -602,8 +600,7 @@
         const stt = assignment.sttList[index].stt;
         assignment.sttList.splice(index, 1);
 
-        // Save immediately for delete (no debounce) to prevent race conditions
-        saveAssignments(true);
+        saveAssignments();
         renderAssignmentTable();
 
         // Show remaining count if there are duplicates
@@ -681,8 +678,7 @@
     window.removeAssignment = function(assignmentId) {
         if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
             assignments = assignments.filter(a => a.id !== assignmentId);
-            // Save immediately for delete (no debounce) to prevent race conditions
-            saveAssignments(true);
+            saveAssignments();
             renderAssignmentTable();
             showNotification('Đã xóa sản phẩm');
         }
@@ -697,16 +693,14 @@
 
         if (confirm(`Bạn có chắc muốn xóa tất cả ${assignments.length} sản phẩm?`)) {
             assignments = [];
-            // Save immediately for delete (no debounce) to prevent race conditions
-            saveAssignments(true);
+            saveAssignments();
             renderAssignmentTable();
             showNotification('Đã xóa tất cả sản phẩm');
         }
     };
 
     // Save/Load Assignments
-    // @param {boolean} immediate - If true, save immediately without debounce (for delete operations)
-    function saveAssignments(immediate = false) {
+    function saveAssignments() {
         try {
             // Mark as local update to prevent duplicate render from Firebase listener
             isLocalUpdate = true;
@@ -718,16 +712,15 @@
                 _version: 1 // Version for future compatibility
             };
 
-            console.log('[SAVE] 📤 Saving to Firebase with timestamp:', dataWithTimestamp._timestamp, immediate ? '(immediate)' : '(debounced)');
+            console.log('[SAVE] 📤 Saving to Firebase with timestamp:', dataWithTimestamp._timestamp);
 
-            // Clear existing debounce timer
+            // Debounce Firebase save to reduce writes
             if (saveDebounceTimer) {
                 clearTimeout(saveDebounceTimer);
             }
 
-            // Function to perform Firebase save
-            const performSave = () => {
-                console.log('[SAVE] 📤 Firebase save starting...');
+            saveDebounceTimer = setTimeout(() => {
+                console.log('[SAVE] 📤 Debounced Firebase save starting...');
                 database.ref('productAssignments').set(dataWithTimestamp)
                     .then(() => {
                         console.log('[SAVE] ✅ Firebase save success');
@@ -741,15 +734,7 @@
                         console.error('[SAVE] ❌ Firebase save error:', error);
                         isLocalUpdate = false;
                     });
-            };
-
-            // If immediate save (e.g., delete operations), save right away
-            // Otherwise debounce to reduce writes
-            if (immediate) {
-                performSave();
-            } else {
-                saveDebounceTimer = setTimeout(performSave, 1000); // Wait 1 second after last save
-            }
+            }, 1000); // Wait 1 second after last save
         } catch (error) {
             console.error('Error saving assignments:', error);
             isLocalUpdate = false; // Reset flag on error
@@ -1002,7 +987,6 @@
     window.addEventListener('load', async () => {
         try {
             console.log('[INIT] 🚀 Initializing Tab3 Product Assignment...');
-            console.log('[INIT] ✅ Using server-side token caching (Cloudflare Worker & Render.com)');
 
             await getValidToken();
             loadOrdersData();

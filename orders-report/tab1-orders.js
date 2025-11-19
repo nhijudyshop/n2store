@@ -175,7 +175,7 @@ async function loadAvailableTags() {
         console.log("[TAG] Loading tags from API...");
         const headers = await window.tokenManager.getAuthHeader();
 
-        const response = await API_CONFIG.smartFetch(
+        const response = await fetch(
             "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$top=320&$count=true",
             {
                 method: "GET",
@@ -312,7 +312,7 @@ async function saveOrderTags() {
             OrderId: currentEditingOrderId,
         };
         const headers = await window.tokenManager.getAuthHeader();
-        const response = await API_CONFIG.smartFetch(
+        const response = await fetch(
             "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
             {
                 method: "POST",
@@ -379,47 +379,32 @@ function performTableSearch() {
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
 
-    // Apply messages and comments unread filters (Independent with OR logic when both active)
+    // Apply messages unread filter (INBOX only - from Pancake)
     const messagesUnreadFilter = document.getElementById('messagesUnreadFilter')?.value || 'all';
+    if (messagesUnreadFilter !== 'all' && window.pancakeDataManager) {
+        tempData = tempData.filter(order => {
+            const unreadInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
+            if (messagesUnreadFilter === 'unread') {
+                return unreadInfo.hasUnread;
+            } else if (messagesUnreadFilter === 'read') {
+                return !unreadInfo.hasUnread;
+            }
+            return true;
+        });
+    }
+
+    // Apply comments unread filter (COMMENT only - from Pancake)
     const commentsUnreadFilter = document.getElementById('commentsUnreadFilter')?.value || 'all';
-
-    const messagesActive = messagesUnreadFilter !== 'all';
-    const commentsActive = commentsUnreadFilter !== 'all';
-
-    if (window.pancakeDataManager && (messagesActive || commentsActive)) {
-        if (messagesActive && commentsActive) {
-            // Both filters active → OR logic (show orders matching EITHER filter)
-            tempData = tempData.filter(order => {
-                const msgUnread = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
-                const cmmUnread = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
-
-                const msgMatch = (messagesUnreadFilter === 'unread')
-                    ? msgUnread.hasUnread
-                    : !msgUnread.hasUnread;
-
-                const cmmMatch = (commentsUnreadFilter === 'unread')
-                    ? cmmUnread.hasUnread
-                    : !cmmUnread.hasUnread;
-
-                return msgMatch || cmmMatch; // OR logic
-            });
-        } else if (messagesActive) {
-            // Only messages filter active
-            tempData = tempData.filter(order => {
-                const unreadInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
-                return (messagesUnreadFilter === 'unread')
-                    ? unreadInfo.hasUnread
-                    : !unreadInfo.hasUnread;
-            });
-        } else if (commentsActive) {
-            // Only comments filter active
-            tempData = tempData.filter(order => {
-                const unreadInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
-                return (commentsUnreadFilter === 'unread')
-                    ? unreadInfo.hasUnread
-                    : !unreadInfo.hasUnread;
-            });
-        }
+    if (commentsUnreadFilter !== 'all' && window.pancakeDataManager) {
+        tempData = tempData.filter(order => {
+            const unreadInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
+            if (commentsUnreadFilter === 'unread') {
+                return unreadInfo.hasUnread;
+            } else if (commentsUnreadFilter === 'read') {
+                return !unreadInfo.hasUnread;
+            }
+            return true;
+        });
     }
 
     filteredData = tempData;
@@ -589,18 +574,18 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const startDate = convertToUTC(startDateLocal);
             const endDate = convertToUTC(endDateLocal);
             const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
-            url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}, autoLoad=${autoLoad}`);
         } else {
             // Fallback: không có date filter - Tải 3000 đơn hàng
-            url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter, autoLoad=${autoLoad}`);
         }
 
         const headers = await window.tokenManager.getAuthHeader();
-        const response = await API_CONFIG.smartFetch(url, {
+        const response = await fetch(url, {
             headers: { ...headers, accept: "application/json" },
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -958,7 +943,7 @@ async function fetchOrders() {
 
                     while (hasMore && !loadingAborted) {
                         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
-                        const response = await API_CONFIG.smartFetch(url, {
+                        const response = await fetch(url, {
                             headers: { ...headers, accept: "application/json" },
                         });
                         if (!response.ok) {
@@ -1189,7 +1174,7 @@ async function assignEmptyCartTagToSelected() {
                     OrderId: order.Id,
                 };
 
-                const response = await API_CONFIG.smartFetch(
+                const response = await fetch(
                     "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
                     {
                         method: "POST",
@@ -1775,7 +1760,7 @@ async function openEditModal(orderId) {
 async function fetchOrderData(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
     const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
-    const response = await API_CONFIG.smartFetch(apiUrl, {
+    const response = await fetch(apiUrl, {
         headers: {
             ...headers,
             "Content-Type": "application/json",
@@ -2062,7 +2047,7 @@ async function fetchAndDisplayAuditLog(orderId) {
     
     console.log('[AUDIT LOG] Fetching audit log for order:', orderId);
     
-    const response = await API_CONFIG.smartFetch(apiUrl, {
+    const response = await fetch(apiUrl, {
         headers: {
             ...headers,
             'Content-Type': 'application/json',
@@ -2374,7 +2359,7 @@ async function saveAllOrderChanges() {
         const headers = await window.tokenManager.getAuthHeader();
 
         // PUT request
-        const response = await API_CONFIG.smartFetch(
+        const response = await fetch(
             `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${currentEditOrderId})`,
             {
                 method: "PUT",

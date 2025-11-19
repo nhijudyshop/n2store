@@ -663,18 +663,17 @@ function handleEditButton(e) {
         const button = e.target.closest("button");
         const row = button.closest("tr");
 
-        if (!row || row.cells.length !== 11) {
+        if (!row || row.cells.length < 8) {
             showError("Không thể lấy thông tin hàng");
             return;
         }
 
-        // Cell mapping: 0-Checkbox, 1-STT, 2-Kênh, 3-Trường hợp, 4-FB+SĐT, 5-Số tiền, 6-Lý do, 7-Đã nhận, 8-Ngày, 9-Sửa, 10-Xóa
-        document.getElementById("editDelivery").value = row.cells[2]?.innerText || "";
-        document.getElementById("eidtScenario").value = row.cells[3]?.innerText || "";
-        document.getElementById("editInfo").value = row.cells[4]?.innerText || "";
-        document.getElementById("editAmount").value = row.cells[5]?.innerText || "";
-        document.getElementById("editNote").value = row.cells[6]?.innerText || "";
-        document.getElementById("editDate").value = row.cells[8]?.innerText || "";
+        document.getElementById("editDelivery").value = row.cells[1].innerText;
+        document.getElementById("eidtScenario").value = row.cells[2].innerText;
+        document.getElementById("editInfo").value = row.cells[3].innerText;
+        document.getElementById("editAmount").value = row.cells[4].innerText;
+        document.getElementById("editNote").value = row.cells[5].innerText;
+        document.getElementById("editDate").value = row.cells[7].innerText;
 
         editingRow = row;
 
@@ -698,15 +697,7 @@ function handleDeleteButton(e) {
 
         const button = e.target.closest("button");
         const row = button.closest("tr");
-
-        // Validate row has correct number of cells (11 columns total)
-        if (!row.cells || row.cells.length !== 11) {
-            showError("Dữ liệu hàng không hợp lệ");
-            return;
-        }
-
-        // Get STT cell (Cell 1) which contains the id
-        const tdRow = row.cells[1];
+        const tdRow = row.querySelector("td");
 
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng cần xóa");
@@ -715,16 +706,12 @@ function handleDeleteButton(e) {
 
         showLoading("Đang xóa đơn hàng...");
 
-        // Safely extract cell data with null checks
-        // Cell 0: Checkbox, Cell 1: STT, Cell 2: Kênh, Cell 3: Trường hợp, Cell 4: Tên FB+SĐT
-        // Cell 5: Số tiền, Cell 6: Lý do, Cell 7: Đã nhận, Cell 8: Ngày duyệt
-        // Cell 9: Nút Sửa, Cell 10: Nút Xóa
         const deleteData = {
-            shipValue: row.cells[2]?.innerText || "",
-            scenarioValue: row.cells[3]?.innerText || "",
-            customerInfoValue: row.cells[4]?.innerText || "",
-            totalAmountValue: row.cells[5]?.innerText || "",
-            causeValue: row.cells[6]?.innerText || "",
+            shipValue: row.cells[1].innerText,
+            scenarioValue: row.cells[2].innerText,
+            customerInfoValue: row.cells[3].innerText,
+            totalAmountValue: row.cells[4].innerText,
+            causeValue: row.cells[5].innerText,
             duyetHoanValue: tdRow.id,
         };
 
@@ -732,52 +719,41 @@ function handleDeleteButton(e) {
             .doc("hanghoan")
             .get()
             .then((doc) => {
-                if (!doc.exists) throw new Error("Không tìm thấy document");
+                if (!doc.exists) throw new Error("Document does not exist");
 
                 const data = doc.data();
-                if (!data || !Array.isArray(data["data"])) {
-                    throw new Error("Dữ liệu không hợp lệ");
-                }
-
-                const dataArray = data["data"];
+                const dataArray = data["data"] || [];
                 const updatedArray = dataArray.filter(
                     (item) => item.duyetHoanValue !== tdRow.id,
                 );
 
-                if (updatedArray.length === dataArray.length) {
-                    throw new Error("Không tìm thấy đơn hàng cần xóa");
-                }
-
-                // Return both the update promise and the updated array
                 return collectionRef
                     .doc("hanghoan")
-                    .update({ data: updatedArray })
-                    .then(() => updatedArray);
+                    .update({ data: updatedArray });
             })
-            .then((updatedArray) => {
+            .then(() => {
                 logAction(
                     "delete",
                     `Xóa đơn hàng hoàn: ${deleteData.customerInfoValue}`,
                     deleteData,
                     null,
                 );
-
-                // Update cache with new data and re-render immediately
-                setCachedData(updatedArray);
+                invalidateCache();
                 row.remove();
-                updateStats(updatedArray);
                 showSuccess("Đã xóa đơn hàng thành công!");
+
+                setTimeout(() => updateTable(), 500);
             })
             .catch((error) => {
                 console.error("Error deleting:", error);
                 showError(
                     "Lỗi khi xóa đơn hàng: " +
-                        (error.message || "Lỗi không xác định"),
+                        (error.message || "Unknown error"),
                 );
             });
     } catch (error) {
         console.error("Error in handleDeleteButton:", error);
-        showError("Lỗi xử lý xóa đơn hàng: " + (error.message || "Lỗi không xác định"));
+        showError("Lỗi xử lý xóa đơn hàng");
     }
 }
 
@@ -785,12 +761,6 @@ function handleCheckboxClick(e) {
     try {
         const isChecked = e.target.checked;
         const row = e.target.closest("tr");
-
-        if (!row || row.cells.length !== 11) {
-            showError("Dữ liệu hàng không hợp lệ");
-            e.target.checked = !isChecked;
-            return;
-        }
 
         const confirmMsg = isChecked
             ? "Bạn có chắc đơn này đã được nhận hàng hoàn?"
@@ -804,8 +774,7 @@ function handleCheckboxClick(e) {
         showLoading("Đang cập nhật trạng thái...");
         row.style.opacity = isChecked ? "0.5" : "1.0";
 
-        // Get STT cell (Cell 1) which contains the id
-        const tdRow = row.cells[1];
+        const tdRow = row.querySelector("td");
 
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng");
@@ -818,7 +787,7 @@ function handleCheckboxClick(e) {
             .doc("hanghoan")
             .get()
             .then((doc) => {
-                if (!doc.exists) throw new Error("Không tìm thấy document");
+                if (!doc.exists) throw new Error("Document does not exist");
 
                 const data = doc.data();
                 const dataArray = data["data"] || [];
@@ -826,25 +795,24 @@ function handleCheckboxClick(e) {
                     (item) => item.duyetHoanValue === tdRow.id,
                 );
 
-                if (itemIndex === -1) throw new Error("Không tìm thấy đơn hàng");
+                if (itemIndex === -1) throw new Error("Item not found");
 
                 dataArray[itemIndex].muted = isChecked;
 
                 return collectionRef
                     .doc("hanghoan")
-                    .update({ data: dataArray })
-                    .then(() => dataArray);
+                    .update({ data: dataArray });
             })
-            .then((dataArray) => {
+            .then(() => {
                 const actionDesc = isChecked
                     ? "Đánh dấu đã nhận hàng hoàn"
                     : "Hủy đánh dấu đã nhận hàng hoàn";
-                logAction("update", `${actionDesc}: ${row.cells[4]?.innerText || ""}`);
+                logAction("update", `${actionDesc}: ${row.cells[3].innerText}`);
 
-                // Update cache with modified data and update stats immediately
-                setCachedData(dataArray);
-                updateStats(dataArray);
+                invalidateCache();
                 showSuccess("Đã cập nhật trạng thái thành công!");
+
+                setTimeout(() => updateTable(), 500);
             })
             .catch((error) => {
                 console.error("Error updating status:", error);
@@ -916,14 +884,7 @@ function saveChanges() {
             return;
         }
 
-        // Validate row has correct number of cells
-        if (!editingRow.cells || editingRow.cells.length !== 11) {
-            showError("Dữ liệu hàng không hợp lệ");
-            return;
-        }
-
-        // Get STT cell (Cell 1) which contains the id
-        const tdRow = editingRow.cells[1];
+        const tdRow = editingRow.querySelector("td");
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng cần chỉnh sửa");
             return;
@@ -934,11 +895,11 @@ function saveChanges() {
         const editDateTimestamp = convertToTimestamp(dateValue);
 
         const oldData = {
-            shipValue: editingRow.cells[2]?.innerText || "",
-            scenarioValue: editingRow.cells[3]?.innerText || "",
-            customerInfoValue: editingRow.cells[4]?.innerText || "",
-            totalAmountValue: editingRow.cells[5]?.innerText || "",
-            causeValue: editingRow.cells[6]?.innerText || "",
+            shipValue: editingRow.cells[1].innerText,
+            scenarioValue: editingRow.cells[2].innerText,
+            customerInfoValue: editingRow.cells[3].innerText,
+            totalAmountValue: editingRow.cells[4].innerText,
+            causeValue: editingRow.cells[5].innerText,
             duyetHoanValue: tdRow.id,
         };
 
@@ -955,7 +916,7 @@ function saveChanges() {
             .doc("hanghoan")
             .get()
             .then((doc) => {
-                if (!doc.exists) throw new Error("Không tìm thấy document");
+                if (!doc.exists) throw new Error("Document does not exist");
 
                 const data = doc.data();
                 const dataArray = data["data"] || [];
@@ -963,7 +924,7 @@ function saveChanges() {
                     (item) => item.duyetHoanValue === tdRow.id,
                 );
 
-                if (itemIndex === -1) throw new Error("Không tìm thấy giao dịch cần sửa");
+                if (itemIndex === -1) throw new Error("Transaction not found");
 
                 const auth = authManager ? authManager.getAuthState() : null;
 
@@ -982,13 +943,12 @@ function saveChanges() {
                     .update({ data: dataArray });
             })
             .then(() => {
-                // Safely update cells
-                if (editingRow.cells[2]) editingRow.cells[2].innerText = deliveryValue;
-                if (editingRow.cells[3]) editingRow.cells[3].innerText = scenarioValue;
-                if (editingRow.cells[4]) editingRow.cells[4].innerText = infoValue;
-                if (editingRow.cells[5]) editingRow.cells[5].innerText = amountValue;
-                if (editingRow.cells[6]) editingRow.cells[6].innerText = noteValue;
-                if (editingRow.cells[8]) editingRow.cells[8].innerText = dateValue;
+                editingRow.cells[1].innerText = deliveryValue;
+                editingRow.cells[2].innerText = scenarioValue;
+                editingRow.cells[3].innerText = infoValue;
+                editingRow.cells[4].innerText = amountValue;
+                editingRow.cells[5].innerText = noteValue;
+                editingRow.cells[7].innerText = dateValue;
 
                 logAction(
                     "edit",
@@ -1004,12 +964,12 @@ function saveChanges() {
                 console.error("Error updating:", error);
                 showError(
                     "Lỗi khi cập nhật dữ liệu: " +
-                        (error.message || "Lỗi không xác định"),
+                        (error.message || "Unknown error"),
                 );
             });
     } catch (error) {
         console.error("Error in saveChanges:", error);
-        showError("Lỗi: " + (error.message || "Lỗi không xác định"));
+        showError("Lỗi: " + (error.message || "Unknown error"));
     }
 }
 

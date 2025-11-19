@@ -13,7 +13,7 @@
     <style>
         :root {
             /* Frame Layout CSS Variables */
-            --name-line-clamp: 2;
+            --name-line-clamp: 1;
 
             /* Image CSS Variables */
             --image-border-radius: 8px;
@@ -222,10 +222,12 @@
         }
 
         .grid-item-name-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
             width: 100%;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            hyphens: auto;
+            display: -webkit-box;
+            -webkit-line-clamp: var(--name-line-clamp, 1);
+            -webkit-box-orient: vertical;
         }
 
         .grid-item-stats {
@@ -1449,10 +1451,14 @@
                     // Multiple variants, merge them
                     const firstVariant = variants[0];
 
-                    // Extract common name (remove variant-specific parts in parentheses)
+                    // Extract common name (remove variant-specific parts)
                     let commonName = firstVariant.NameGet;
-                    // Remove content within parentheses () to get base name
-                    commonName = commonName.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+                    // Try to get the base name by removing parts after " - " or similar delimiters
+                    const nameParts = commonName.split(' - ');
+                    if (nameParts.length > 1) {
+                        // Use first part as common name if it looks like a base name
+                        commonName = nameParts[0];
+                    }
 
                     // Sum up quantities
                     const totalQtyAvailable = variants.reduce((sum, v) => sum + (v.QtyAvailable || 0), 0);
@@ -1479,7 +1485,7 @@
                     // Create merged product
                     const mergedProduct = {
                         ...firstVariant,
-                        NameGet: commonName,
+                        NameGet: commonName + ` (${variants.length} biến thể)`,
                         QtyAvailable: totalQtyAvailable,
                         soldQty: totalSoldQty,
                         remainingQty: 0, // Not used for merged products
@@ -1562,17 +1568,11 @@
                     hideButtonTitle = 'Ẩn sản phẩm';
                 }
 
-                // Format product name with price
-                const productPrice = product.ListPrice || 0;
-                const productNameDisplay = productPrice > 0
-                    ? `${product.NameGet} ${productPrice / 1000}K`
-                    : product.NameGet;
-
                 return `
                     <div class="grid-item" data-product-id="${product.Id}">
                         ${imageHtml}
                         <div class="grid-item-name">
-                            <span class="grid-item-name-text">${productNameDisplay}</span>
+                            <span class="grid-item-name-text">${product.NameGet}</span>
                             ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
                         </div>
                         <div class="grid-item-stats">
@@ -2077,10 +2077,6 @@
                 product.QtyAvailable = productData.QtyAvailable || 0;
                 product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
 
-                // Update price information from API
-                product.ListPrice = productData.ListPrice || 0;
-                product.PriceVariant = productData.PriceVariant || 0;
-
                 // Update image URL from API
                 let newImageUrl = productData.ImageUrl;
 
@@ -2111,8 +2107,6 @@
                     database.ref(`orderProducts/${productKey}`).update({
                         QtyAvailable: product.QtyAvailable,
                         remainingQty: product.remainingQty,
-                        ListPrice: product.ListPrice,
-                        PriceVariant: product.PriceVariant,
                         imageUrl: product.imageUrl,
                         lastRefreshed: product.lastRefreshed
                     }).catch(error => {

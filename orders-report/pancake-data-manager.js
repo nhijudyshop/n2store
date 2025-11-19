@@ -83,7 +83,7 @@ class PancakeDataManager {
             // Use Cloudflare Worker proxy
             const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
 
-            const response = await API_CONFIG.smartFetch(url, {
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -167,7 +167,7 @@ class PancakeDataManager {
 
             console.log('[PANCAKE] Conversations URL:', url);
 
-            const response = await API_CONFIG.smartFetch(url, {
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
