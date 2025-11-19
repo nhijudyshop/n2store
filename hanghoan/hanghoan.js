@@ -698,16 +698,18 @@ function handleDeleteButton(e) {
 
         const button = e.target.closest("button");
         const row = button.closest("tr");
-        const tdRow = row.querySelector("td");
-
-        if (!tdRow || !tdRow.id) {
-            showError("Không thể xác định đơn hàng cần xóa");
-            return;
-        }
 
         // Validate row has correct number of cells (11 columns total)
         if (!row.cells || row.cells.length !== 11) {
             showError("Dữ liệu hàng không hợp lệ");
+            return;
+        }
+
+        // Get STT cell (Cell 1) which contains the id
+        const tdRow = row.cells[1];
+
+        if (!tdRow || !tdRow.id) {
+            showError("Không thể xác định đơn hàng cần xóa");
             return;
         }
 
@@ -799,7 +801,8 @@ function handleCheckboxClick(e) {
         showLoading("Đang cập nhật trạng thái...");
         row.style.opacity = isChecked ? "0.5" : "1.0";
 
-        const tdRow = row.querySelector("td");
+        // Get STT cell (Cell 1) which contains the id
+        const tdRow = row.cells[1];
 
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng");
@@ -915,7 +918,8 @@ function saveChanges() {
             return;
         }
 
-        const tdRow = editingRow.querySelector("td");
+        // Get STT cell (Cell 1) which contains the id
+        const tdRow = editingRow.cells[1];
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng cần chỉnh sửa");
             return;
