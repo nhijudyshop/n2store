@@ -95,6 +95,16 @@
                     <i class="fas fa-cog"></i>
                     Cài đặt Pancake
                 </button>
+                <button
+                    class="btn-primary"
+                    id="chatApiToggleBtn"
+                    onclick="toggleChatAPISource()"
+                    style="background: #3b82f6"
+                    title="Chọn nguồn API để hiển thị tin nhắn/bình luận"
+                >
+                    <i class="fas fa-exchange-alt"></i>
+                    <span id="chatApiSourceLabel">Pancake API</span>
+                </button>
             </div>
 
             <!-- Action Buttons Section (New) -->
@@ -456,6 +466,7 @@
         <script src="notification-system.js"></script>
         <script src="pancake-token-manager.js"></script>
         <script src="pancake-data-manager.js"></script>
+        <script src="chat-api-settings.js"></script>
         <script src="chat-data-manager.js"></script>
         <script src="message-template-manager.js"></script>
         <script src="product-search-manager.js"></script>
@@ -721,6 +732,65 @@
                     }
                 }
             }
+
+            // ====== CHAT API SOURCE TOGGLE ======
+            /**
+             * Toggle giữa Pancake API và ChatOmni API
+             */
+            function toggleChatAPISource() {
+                if (!window.chatAPISettings) {
+                    console.error('[CHAT-API-TOGGLE] chatAPISettings not available');
+                    alert('❌ Lỗi: chatAPISettings không khả dụng');
+                    return;
+                }
+
+                // Toggle source
+                const newSource = window.chatAPISettings.toggle();
+                const displayName = window.chatAPISettings.getDisplayName(newSource);
+
+                console.log(`[CHAT-API-TOGGLE] Switched to: ${displayName}`);
+
+                // Update UI label
+                updateChatAPISourceLabel();
+
+                // Show notification
+                if (window.notificationManager) {
+                    window.notificationManager.show(`✅ Đã chuyển sang ${displayName}`, 'success');
+                } else {
+                    alert(`✅ Đã chuyển sang ${displayName}`);
+                }
+
+                // Reload table để hiển thị dữ liệu mới
+                if (typeof performSearch === 'function') {
+                    console.log('[CHAT-API-TOGGLE] Reloading table...');
+                    performSearch();
+                } else {
+                    console.warn('[CHAT-API-TOGGLE] performSearch function not found, please reload manually');
+                }
+            }
+
+            /**
+             * Update UI label cho button
+             */
+            function updateChatAPISourceLabel() {
+                const label = document.getElementById('chatApiSourceLabel');
+                if (!label || !window.chatAPISettings) return;
+
+                const displayName = window.chatAPISettings.getDisplayName();
+                label.textContent = displayName;
+            }
+
+            // Update label khi page load
+            document.addEventListener('DOMContentLoaded', function() {
+                updateChatAPISourceLabel();
+
+                // Listen for API source changes from other sources
+                window.addEventListener('chatApiSourceChanged', function(e) {
+                    console.log('[CHAT-API-TOGGLE] API source changed:', e.detail.source);
+                    updateChatAPISourceLabel();
+                });
+            });
+            // ====================================
         </script>
     </body>
 </html>
