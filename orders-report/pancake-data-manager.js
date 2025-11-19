@@ -368,6 +368,186 @@ class PancakeDataManager {
     }
 
     /**
+     * Lấy messages chi tiết của một conversation từ Pancake API
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} conversationId - Pancake Conversation ID
+     * @param {number} currentCount - Vị trí message (optional, for pagination)
+     * @returns {Promise<Object>} { messages: Array, conversation: Object }
+     */
+    async fetchMessagesForConversation(pageId, conversationId, currentCount = null) {
+        try {
+            console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}`);
+
+            const token = await this.getToken();
+            if (!token) {
+                throw new Error('No Pancake token available');
+            }
+
+            // Build URL: GET /api/v1/pages/{pageId}/conversations/{conversationId}/messages
+            let queryString = `access_token=${token}`;
+            if (currentCount !== null) {
+                queryString += `&current_count=${currentCount}`;
+            }
+
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/conversations/${conversationId}/messages`,
+                queryString
+            );
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] Fetched ${data.messages?.length || 0} messages`);
+
+            return {
+                messages: data.messages || [],
+                conversation: data.conversation || null
+            };
+
+        } catch (error) {
+            console.error('[PANCAKE] Error fetching messages:', error);
+            return {
+                messages: [],
+                conversation: null
+            };
+        }
+    }
+
+    /**
+     * Lấy tin nhắn cuối cùng cho order từ Pancake conversation
+     * @param {Object} order - Order object
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type }
+     */
+    getLastMessageForOrder(order) {
+        const userId = order.Facebook_ASUserId;
+
+        if (!userId) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                attachments: null,
+                type: null
+            };
+        }
+
+        // Get conversation from Pancake
+        const conversation = this.getConversationByUserId(userId);
+
+        if (!conversation) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                attachments: null,
+                type: null
+            };
+        }
+
+        // Extract last message from Pancake conversation
+        const lastMessage = conversation.snippet || null;
+
+        // Determine message type based on attachments
+        let messageType = 'text';
+        let attachments = null;
+
+        if (conversation.last_message) {
+            if (conversation.last_message.attachments && conversation.last_message.attachments.length > 0) {
+                attachments = conversation.last_message.attachments;
+                messageType = 'attachment';
+            }
+        }
+
+        // Get unread info
+        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
+        const unreadCount = conversation.unread_count || 0;
+
+        return {
+            message: lastMessage,
+            messageType,
+            hasUnread,
+            unreadCount,
+            attachments,
+            type: conversation.type || 'INBOX',
+            conversationId: conversation.conversation_id,
+            pageId: conversation.page_id
+        };
+    }
+
+    /**
+     * Lấy comment cuối cùng cho order từ Pancake conversation (COMMENT type)
+     * @param {Object} order - Order object
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, type }
+     */
+    getLastCommentForOrder(order) {
+        const userId = order.Facebook_ASUserId;
+
+        if (!userId) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                type: 'comment'
+            };
+        }
+
+        // Get conversation from Pancake
+        const conversation = this.getConversationByUserId(userId);
+
+        if (!conversation) {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                type: 'comment'
+            };
+        }
+
+        // Only return if it's a COMMENT type conversation
+        if (conversation.type !== 'COMMENT') {
+            return {
+                message: null,
+                messageType: null,
+                hasUnread: false,
+                unreadCount: 0,
+                type: 'comment'
+            };
+        }
+
+        // Extract last comment
+        const lastMessage = conversation.snippet || null;
+        const messageType = 'text';
+
+        // Get unread info
+        const hasUnread = conversation.seen === false && conversation.unread_count > 0;
+        const unreadCount = conversation.unread_count || 0;
+
+        return {
+            message: lastMessage,
+            messageType,
+            hasUnread,
+            unreadCount,
+            type: 'comment',
+            conversationId: conversation.conversation_id,
+            pageId: conversation.page_id
+        };
+    }
+
+    /**
      * Mark conversation as read (tương tự TPOS)
      * Note: Pancake không có API public để mark as read từ ngoài,
      * chỉ để placeholder cho tương thích

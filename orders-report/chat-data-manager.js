@@ -388,10 +388,24 @@ class ChatDataManager {
 
     /**
      * Lấy tin nhắn cuối cùng cho order
+     * Supports API source switching: Pancake hoặc ChatOmni
      * @param {Object} order - Order object
      * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type, commentsCount }
      */
     getLastMessageForOrder(order) {
+        // ====== API SOURCE SWITCHING ======
+        // Check settings để quyết định dùng API nào cho CONTENT
+        const apiSource = window.chatAPISettings ? window.chatAPISettings.getSource() : 'pancake';
+
+        if (apiSource === 'pancake' && window.pancakeDataManager) {
+            console.log('[CHAT] Using Pancake API for message content');
+            return window.pancakeDataManager.getLastMessageForOrder(order);
+        }
+        // ==================================
+
+        // ChatOmni API (default behavior)
+        console.log('[CHAT] Using ChatOmni API for message content');
+
         const chatInfo = this.getChatInfoForOrder(order);
 
         if (!chatInfo.hasChat || !chatInfo.conversation) {
@@ -413,7 +427,7 @@ class ChatDataManager {
         const attachments = messageObj.Attachments || null;
 
         // ====== UNREAD FROM PANCAKE ======
-        // Lấy unread info từ Pancake thay vì TPOS
+        // Lấy unread info từ Pancake thay vì TPOS (LUÔN LUÔN dùng Pancake)
         let hasUnread = false;
         let unreadCount = 0;
 
@@ -421,7 +435,6 @@ class ChatDataManager {
             const pancakeUnread = window.pancakeDataManager.getUnreadInfoForOrder(order);
             hasUnread = pancakeUnread.hasUnread;
             unreadCount = pancakeUnread.unreadCount;
-            console.log(`[CHAT] Pancake unread for order ${order.Facebook_ASUserId}:`, pancakeUnread);
         } else {
             console.warn('[CHAT] PancakeDataManager not available, unread info unavailable');
         }
@@ -440,12 +453,26 @@ class ChatDataManager {
 
     /**
      * Lấy comment cuối cùng cho order từ comment conversation map
+     * Supports API source switching: Pancake hoặc ChatOmni
      * @param {string} channelId - Facebook Page ID (not used, kept for compatibility)
      * @param {string} userId - Facebook PSID
      * @param {Object} order - Order object (for Pancake unread lookup)
      * @returns {Object} { message, messageType, hasUnread, unreadCount, type, commentsCount }
      */
     getLastCommentForOrder(channelId, userId, order = null) {
+        // ====== API SOURCE SWITCHING ======
+        // Check settings để quyết định dùng API nào cho CONTENT
+        const apiSource = window.chatAPISettings ? window.chatAPISettings.getSource() : 'pancake';
+
+        if (apiSource === 'pancake' && window.pancakeDataManager && order) {
+            console.log('[CHAT] Using Pancake API for comment content');
+            return window.pancakeDataManager.getLastCommentForOrder(order);
+        }
+        // ==================================
+
+        // ChatOmni API (default behavior)
+        console.log('[CHAT] Using ChatOmni API for comment content');
+
         if (!userId) {
             return {
                 message: null,
@@ -488,7 +515,7 @@ class ChatDataManager {
         const messageType = lastComment.Type === 1 ? 'text' : 'other';
 
         // ====== UNREAD FROM PANCAKE ======
-        // Lấy unread info từ Pancake thay vì TPOS
+        // Lấy unread info từ Pancake thay vì TPOS (LUÔN LUÔN dùng Pancake)
         let hasUnread = false;
         let unreadCount = 0;
 
