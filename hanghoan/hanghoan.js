@@ -663,18 +663,18 @@ function handleEditButton(e) {
         const button = e.target.closest("button");
         const row = button.closest("tr");
 
-        if (!row || row.cells.length !== 10) {
+        if (!row || row.cells.length !== 11) {
             showError("Không thể lấy thông tin hàng");
             return;
         }
 
-        // Cell mapping: 0-STT, 1-Kênh, 2-Trường hợp, 3-FB+SĐT, 4-Số tiền, 5-Lý do, 6-Checkbox, 7-Ngày, 8-Sửa, 9-Xóa
-        document.getElementById("editDelivery").value = row.cells[1]?.innerText || "";
-        document.getElementById("eidtScenario").value = row.cells[2]?.innerText || "";
-        document.getElementById("editInfo").value = row.cells[3]?.innerText || "";
-        document.getElementById("editAmount").value = row.cells[4]?.innerText || "";
-        document.getElementById("editNote").value = row.cells[5]?.innerText || "";
-        document.getElementById("editDate").value = row.cells[7]?.innerText || "";
+        // Cell mapping: 0-Checkbox, 1-STT, 2-Kênh, 3-Trường hợp, 4-FB+SĐT, 5-Số tiền, 6-Lý do, 7-Đã nhận, 8-Ngày, 9-Sửa, 10-Xóa
+        document.getElementById("editDelivery").value = row.cells[2]?.innerText || "";
+        document.getElementById("eidtScenario").value = row.cells[3]?.innerText || "";
+        document.getElementById("editInfo").value = row.cells[4]?.innerText || "";
+        document.getElementById("editAmount").value = row.cells[5]?.innerText || "";
+        document.getElementById("editNote").value = row.cells[6]?.innerText || "";
+        document.getElementById("editDate").value = row.cells[8]?.innerText || "";
 
         editingRow = row;
 
@@ -705,8 +705,8 @@ function handleDeleteButton(e) {
             return;
         }
 
-        // Validate row has correct number of cells (10 columns total)
-        if (!row.cells || row.cells.length !== 10) {
+        // Validate row has correct number of cells (11 columns total)
+        if (!row.cells || row.cells.length !== 11) {
             showError("Dữ liệu hàng không hợp lệ");
             return;
         }
@@ -714,15 +714,15 @@ function handleDeleteButton(e) {
         showLoading("Đang xóa đơn hàng...");
 
         // Safely extract cell data with null checks
-        // Cell 0: STT, Cell 1: Kênh, Cell 2: Trường hợp, Cell 3: Tên FB+SĐT
-        // Cell 4: Số tiền, Cell 5: Lý do, Cell 6: Checkbox, Cell 7: Ngày duyệt
-        // Cell 8: Nút Sửa, Cell 9: Nút Xóa
+        // Cell 0: Checkbox, Cell 1: STT, Cell 2: Kênh, Cell 3: Trường hợp, Cell 4: Tên FB+SĐT
+        // Cell 5: Số tiền, Cell 6: Lý do, Cell 7: Đã nhận, Cell 8: Ngày duyệt
+        // Cell 9: Nút Sửa, Cell 10: Nút Xóa
         const deleteData = {
-            shipValue: row.cells[1]?.innerText || "",
-            scenarioValue: row.cells[2]?.innerText || "",
-            customerInfoValue: row.cells[3]?.innerText || "",
-            totalAmountValue: row.cells[4]?.innerText || "",
-            causeValue: row.cells[5]?.innerText || "",
+            shipValue: row.cells[2]?.innerText || "",
+            scenarioValue: row.cells[3]?.innerText || "",
+            customerInfoValue: row.cells[4]?.innerText || "",
+            totalAmountValue: row.cells[5]?.innerText || "",
+            causeValue: row.cells[6]?.innerText || "",
             duyetHoanValue: tdRow.id,
         };
 
@@ -781,7 +781,7 @@ function handleCheckboxClick(e) {
         const isChecked = e.target.checked;
         const row = e.target.closest("tr");
 
-        if (!row || row.cells.length !== 10) {
+        if (!row || row.cells.length !== 11) {
             showError("Dữ liệu hàng không hợp lệ");
             e.target.checked = !isChecked;
             return;
@@ -832,7 +832,7 @@ function handleCheckboxClick(e) {
                 const actionDesc = isChecked
                     ? "Đánh dấu đã nhận hàng hoàn"
                     : "Hủy đánh dấu đã nhận hàng hoàn";
-                logAction("update", `${actionDesc}: ${row.cells[3]?.innerText || ""}`);
+                logAction("update", `${actionDesc}: ${row.cells[4]?.innerText || ""}`);
 
                 invalidateCache();
                 showSuccess("Đã cập nhật trạng thái thành công!");
@@ -910,7 +910,7 @@ function saveChanges() {
         }
 
         // Validate row has correct number of cells
-        if (!editingRow.cells || editingRow.cells.length !== 10) {
+        if (!editingRow.cells || editingRow.cells.length !== 11) {
             showError("Dữ liệu hàng không hợp lệ");
             return;
         }
@@ -926,11 +926,11 @@ function saveChanges() {
         const editDateTimestamp = convertToTimestamp(dateValue);
 
         const oldData = {
-            shipValue: editingRow.cells[1]?.innerText || "",
-            scenarioValue: editingRow.cells[2]?.innerText || "",
-            customerInfoValue: editingRow.cells[3]?.innerText || "",
-            totalAmountValue: editingRow.cells[4]?.innerText || "",
-            causeValue: editingRow.cells[5]?.innerText || "",
+            shipValue: editingRow.cells[2]?.innerText || "",
+            scenarioValue: editingRow.cells[3]?.innerText || "",
+            customerInfoValue: editingRow.cells[4]?.innerText || "",
+            totalAmountValue: editingRow.cells[5]?.innerText || "",
+            causeValue: editingRow.cells[6]?.innerText || "",
             duyetHoanValue: tdRow.id,
         };
 
@@ -975,12 +975,12 @@ function saveChanges() {
             })
             .then(() => {
                 // Safely update cells
-                if (editingRow.cells[1]) editingRow.cells[1].innerText = deliveryValue;
-                if (editingRow.cells[2]) editingRow.cells[2].innerText = scenarioValue;
-                if (editingRow.cells[3]) editingRow.cells[3].innerText = infoValue;
-                if (editingRow.cells[4]) editingRow.cells[4].innerText = amountValue;
-                if (editingRow.cells[5]) editingRow.cells[5].innerText = noteValue;
-                if (editingRow.cells[7]) editingRow.cells[7].innerText = dateValue;
+                if (editingRow.cells[2]) editingRow.cells[2].innerText = deliveryValue;
+                if (editingRow.cells[3]) editingRow.cells[3].innerText = scenarioValue;
+                if (editingRow.cells[4]) editingRow.cells[4].innerText = infoValue;
+                if (editingRow.cells[5]) editingRow.cells[5].innerText = amountValue;
+                if (editingRow.cells[6]) editingRow.cells[6].innerText = noteValue;
+                if (editingRow.cells[8]) editingRow.cells[8].innerText = dateValue;
 
                 logAction(
                     "edit",
