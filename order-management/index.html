@@ -2444,6 +2444,24 @@
         }
 
         /**
+         * Restore snapshot from modal (safer wrapper)
+         */
+        async function restoreSnapshotFromModal() {
+            const modal = document.getElementById('snapshotViewModal');
+            const snapshotId = modal?.dataset?.snapshotId;
+
+            console.log('DEBUG: Restore from modal, snapshotId:', snapshotId);
+
+            if (!snapshotId) {
+                console.error('DEBUG: No snapshotId found in modal dataset');
+                showNotificationMessage('❌ Lỗi: Không xác định được ID giỏ hàng');
+                return;
+            }
+
+            await restoreSnapshot(snapshotId);
+        }
+
+        /**
          * Restore snapshot with auto-save protection
          */
         async function restoreSnapshot(snapshotId) {
@@ -2557,12 +2575,31 @@
 
                 // Step 2: Load snapshot to restore
                 showNotificationMessage('🔄 Đang tải giỏ hàng...');
-                const snapshot = await getCartSnapshot(database, snapshotId);
 
-                if (!snapshot || !snapshot.products) {
-                    showNotificationMessage('❌ Không tìm thấy dữ liệu giỏ hàng');
+                console.log('DEBUG: Restoring snapshot ID:', snapshotId);
+                const snapshot = await getCartSnapshot(database, snapshotId);
+                console.log('DEBUG: Snapshot loaded:', snapshot);
+
+                if (!snapshot) {
+                    console.error('DEBUG: Snapshot is null or undefined');
+                    showNotificationMessage('❌ Không tìm thấy giỏ hàng');
                     return;
                 }
+
+                if (!snapshot.products) {
+                    console.error('DEBUG: Snapshot.products is missing. Snapshot structure:', snapshot);
+                    showNotificationMessage('❌ Dữ liệu giỏ hàng không hợp lệ (thiếu products)');
+                    return;
+                }
+
+                const productCount = Object.keys(snapshot.products).length;
+                if (productCount === 0) {
+                    console.error('DEBUG: Snapshot.products is empty');
+                    showNotificationMessage('❌ Giỏ hàng không có sản phẩm');
+                    return;
+                }
+
+                console.log('DEBUG: Snapshot has', productCount, 'products');
 
                 // Step 3: Clear current products
                 showNotificationMessage('🗑️ Đang xóa giỏ hàng hiện tại...');
@@ -4588,7 +4625,7 @@
             </div>
 
             <div class="modal-footer-custom">
-                <button onclick="restoreSnapshot(document.getElementById('snapshotViewModal').dataset.snapshotId)" class="btn-primary-custom">
+                <button onclick="restoreSnapshotFromModal()" class="btn-primary-custom">
                     ♻️ Khôi phục giỏ hàng này
                 </button>
                 <button onclick="closeSnapshotModal()" class="btn-secondary-custom">
