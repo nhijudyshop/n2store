@@ -1055,7 +1055,7 @@ ${encodedString}
             };
 
             console.log('[REMOVE-STT] 📤 Saving to Firebase:', productAssignments.length, 'products');
-            const firebasePath = getUserFirebasePath('productAssignments');
+            // Reuse firebasePath variable from line 988
             await database.ref(firebasePath).set(dataWithTimestamp);
             console.log('[REMOVE-STT] ✅ Saved to Firebase successfully');
 
