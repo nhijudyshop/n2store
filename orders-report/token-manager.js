@@ -88,24 +88,26 @@ class TokenManager {
     async init() {
         console.log('[TOKEN] Initializing Token Manager...');
 
-        // Try Firebase first
+        // Try localStorage FIRST (faster than Firebase)
+        this.loadFromStorage();
+        if (this.isTokenValid()) {
+            console.log('[TOKEN] ✅ Valid token loaded from localStorage');
+            return;
+        }
+
+        // Fallback to Firebase if localStorage token is invalid
         const firebaseToken = await this.getTokenFromFirebase();
         if (firebaseToken) {
             this.token = firebaseToken.access_token;
             this.tokenExpiry = firebaseToken.expires_at;
-            console.log('[TOKEN] Valid token loaded from Firebase');
+            // Save to localStorage for faster access next time
+            await this.saveToStorage(firebaseToken);
+            console.log('[TOKEN] ✅ Valid token loaded from Firebase');
             return;
         }
 
-        // Fallback to localStorage
-        this.loadFromStorage();
-
-        // Check if token is valid on init
-        if (!this.isTokenValid()) {
-            console.log('[TOKEN] No valid token found, will fetch on first request');
-        } else {
-            console.log('[TOKEN] Valid token loaded from localStorage');
-        }
+        // No valid token found - will fetch on first API request
+        console.log('[TOKEN] ⚠️ No valid token found, will fetch on first API request');
     }
 
     async getTokenFromFirebase() {

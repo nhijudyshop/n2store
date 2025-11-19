@@ -102,16 +102,17 @@ class AuthManager {
 
     clearAuth() {
         this.currentUser = null;
-        // Clear ALL localStorage and sessionStorage data
-        sessionStorage.clear();
-        localStorage.clear();
+        // Clear ONLY auth-related data, preserve tokens and other data
+        sessionStorage.removeItem('loginindex_auth');
+        localStorage.removeItem('loginindex_auth');
+        console.log('[AUTH] Cleared auth data (preserved other localStorage data)');
     }
 
     logout() {
         if (confirm("Bạn có chắc muốn đăng xuất?")) {
             this.clearAuth();
-            localStorage.clear();
-            sessionStorage.clear();
+            // Preserve bearer token and other important data when logging out
+            // Only clear if user explicitly wants to clear everything
             window.location.href = "../index.html";
         }
     }
@@ -130,9 +131,8 @@ console.log("[AUTH] AuthManager initialized:", authManager.isAuthenticated());
 // Redirect to login if not authenticated (production mode)
 if (!authManager.isAuthenticated()) {
     console.warn("[AUTH] User not authenticated, redirecting to login...");
-    // Clear ALL storage before redirecting
-    sessionStorage.clear();
-    localStorage.clear();
+    // Clear ONLY auth data, preserve tokens and other data
+    authManager.clearAuth();
     // Allow a brief moment for any pending operations
     setTimeout(() => {
         if (!authManager.isAuthenticated()) {
@@ -172,9 +172,9 @@ function setAuthState(isLoggedIn, userType, checkLogin) {
 function clearAuthState() {
     authState = null;
     try {
-        // Clear ALL localStorage and sessionStorage data
-        sessionStorage.clear();
-        localStorage.clear();
+        // Clear ONLY auth-related data, preserve tokens
+        sessionStorage.removeItem('loginindex_auth');
+        localStorage.removeItem('loginindex_auth');
     } catch (error) {
         console.error("Error clearing auth state:", error);
     }
@@ -182,9 +182,9 @@ function clearAuthState() {
 
 function clearLegacyAuth() {
     try {
-        // Clear ALL localStorage and sessionStorage data
-        sessionStorage.clear();
-        localStorage.clear();
+        // Clear ONLY auth-related data, preserve tokens
+        sessionStorage.removeItem('loginindex_auth');
+        localStorage.removeItem('loginindex_auth');
     } catch (error) {
         console.error("Error clearing legacy auth:", error);
     }
@@ -206,9 +206,11 @@ function getUserName() {
 function handleLogout() {
     const confirmLogout = confirm("Bạn có chắc muốn đăng xuất?");
     if (confirmLogout) {
-        localStorage.clear();
-        sessionStorage.clear();
-        invalidateCache();
+        // Clear ONLY auth data, preserve tokens and other data
+        clearAuthState();
+        if (typeof invalidateCache === 'function') {
+            invalidateCache();
+        }
         window.location.href = "../index.html";
     }
 }

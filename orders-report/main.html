@@ -415,8 +415,9 @@
                 .getElementById("btnLogout")
                 .addEventListener("click", function () {
                     if (confirm("Bạn có chắc muốn đăng xuất?")) {
-                        localStorage.clear();
-                        sessionStorage.clear();
+                        // Clear ONLY auth data, preserve tokens and other data
+                        sessionStorage.removeItem('loginindex_auth');
+                        localStorage.removeItem('loginindex_auth');
                         window.location.href = "../index.html";
                     }
                 });
