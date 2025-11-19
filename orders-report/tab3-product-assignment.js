@@ -11,6 +11,7 @@
     let tokenExpiry = null;
     let saveDebounceTimer = null;
     let isLocalUpdate = false; // Flag to prevent duplicate renders from Firebase listener
+    let userStorageManager = null; // User-specific storage manager
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -29,6 +30,14 @@
         firebase.initializeApp(firebaseConfig);
     }
     const database = firebase.database();
+
+    // Get Firebase path for current user
+    function getUserFirebasePath() {
+        if (!userStorageManager) {
+            userStorageManager = window.userStorageManager;
+        }
+        return userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments') : 'productAssignments/guest';
+    }
 
     // Utility Functions
     function removeVietnameseTones(str) {
@@ -727,8 +736,9 @@
 
             // Function to perform Firebase save
             const performSave = () => {
-                console.log('[SAVE] 📤 Firebase save starting...');
-                database.ref('productAssignments').set(dataWithTimestamp)
+                const firebasePath = getUserFirebasePath();
+                console.log('[SAVE] 📤 Firebase save starting to path:', firebasePath);
+                database.ref(firebasePath).set(dataWithTimestamp)
                     .then(() => {
                         console.log('[SAVE] ✅ Firebase save success');
                         // Delay resetting isLocalUpdate to prevent race condition with Firebase listener
@@ -761,10 +771,11 @@
     // Load assignments from Firebase only (no localStorage)
     async function loadAssignmentsFromFirebase() {
         try {
-            console.log('[INIT] 🔄 Loading assignments from Firebase...');
+            const firebasePath = getUserFirebasePath();
+            console.log('[INIT] 🔄 Loading assignments from Firebase path:', firebasePath);
 
             // Read Firebase
-            const snapshot = await database.ref('productAssignments').once('value');
+            const snapshot = await database.ref(firebasePath).once('value');
             const firebaseData = snapshot.val();
 
             if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
@@ -797,13 +808,14 @@
 
     // Setup Firebase Listeners (Firebase as single source of truth)
     function setupFirebaseListeners() {
-        console.log('[SYNC] 🔧 Setting up Firebase listeners...');
+        const firebasePath = getUserFirebasePath();
+        console.log('[SYNC] 🔧 Setting up Firebase listeners for path:', firebasePath);
 
         let isFirstLoad = true; // Skip first trigger (we already loaded initial data)
         let lastDataHash = null; // Track last data to detect real changes
 
         // Listen for product assignments - sync from Firebase
-        database.ref('productAssignments').on('value', (snapshot) => {
+        database.ref(firebasePath).on('value', (snapshot) => {
             console.log('[SYNC] 🔔 Firebase listener triggered!');
             console.log('[SYNC] isLocalUpdate:', isLocalUpdate, '| isFirstLoad:', isFirstLoad);
 
@@ -879,10 +891,11 @@
     // Returns: true if data was loaded successfully
     async function syncFromFirebase(eventType) {
         try {
-            console.log(`[${eventType}] 🔍 Loading fresh data from Firebase...`);
+            const firebasePath = getUserFirebasePath();
+            console.log(`[${eventType}] 🔍 Loading fresh data from Firebase path:`, firebasePath);
 
             // Fetch data from Firebase
-            const snapshot = await database.ref('productAssignments').once('value');
+            const snapshot = await database.ref(firebasePath).once('value');
             const firebaseData = snapshot.val();
 
             if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
@@ -1003,6 +1016,14 @@
         try {
             console.log('[INIT] 🚀 Initializing Tab3 Product Assignment...');
             console.log('[INIT] ✅ Using server-side token caching (Cloudflare Worker & Render.com)');
+
+            // Initialize userStorageManager
+            userStorageManager = window.userStorageManager;
+            if (!userStorageManager) {
+                console.warn('[INIT] ⚠️ UserStorageManager not available, creating fallback');
+                userStorageManager = { getUserFirebasePath: (path) => `${path}/guest` };
+            }
+            console.log('[INIT] 📱 User identifier:', userStorageManager.getUserIdentifier ? userStorageManager.getUserIdentifier() : 'guest');
 
             await getValidToken();
             loadOrdersData();
@@ -1176,7 +1197,9 @@
             console.log('[HISTORY] 📥 Loading history from Firebase...');
 
             // Query Firebase - orderByChild timestamp, limit to last 100 records
-            const snapshot = await database.ref('productAssignments_history')
+            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_history') : 'productAssignments_history/guest';
+            console.log('[HISTORY] Loading from path:', historyPath);
+            const snapshot = await database.ref(historyPath)
                 .orderByChild('timestamp')
                 .limitToLast(100)
                 .once('value');
@@ -1482,7 +1505,8 @@
             `;
 
             // Load full record from Firebase (with uploadResults)
-            const snapshot = await database.ref(`productAssignments_history/${uploadId}`).once('value');
+            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_history') : 'productAssignments_history/guest';
+            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 
             if (!record) {
@@ -1735,7 +1759,8 @@
             `;
 
             // Load full record from Firebase (with beforeSnapshot)
-            const snapshot = await database.ref(`productAssignments_history/${uploadId}`).once('value');
+            const historyPath = userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments_history') : 'productAssignments_history/guest';
+            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 
             if (!record || !record.beforeSnapshot) {
