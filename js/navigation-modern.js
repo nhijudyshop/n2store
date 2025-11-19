@@ -79,7 +79,7 @@ const MENU_CONFIG = [
         permissionRequired: "trash-bin",
     },
     {
-        href: "../orders-report/tab1-orders.html",
+        href: "../orders-report/main.html",
         icon: "shopping-cart",
         text: "Báo Cáo Sale-Online",
         shortText: "SaleOnline",
