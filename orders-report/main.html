@@ -260,6 +260,23 @@
         <script src="auth.js"></script>
         <script src="cache.js"></script>
         <script src="notification-system.js"></script>
+
+        <!-- Firebase SDK -->
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+        <!-- Firebase Configuration -->
+        <script src="../js/firebase-config.js"></script>
+        <script>
+            // Initialize Firebase
+            if (!firebase.apps.length) {
+                firebase.initializeApp(window.FIREBASE_CONFIG);
+                console.log('[FIREBASE] Firebase initialized successfully');
+            } else {
+                console.log('[FIREBASE] Firebase already initialized');
+            }
+        </script>
+
         <script src="token-manager.js"></script>
         <!-- Version checker is now in navigation-modern.js -->
 
