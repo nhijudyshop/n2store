@@ -438,8 +438,11 @@ async function saveCartSnapshot(database, snapshot) {
     const metaSnapshot = await metaRef.once('value');
     const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
 
+    // Ensure sortedIds is always an array
+    const currentIds = Array.isArray(currentMeta.sortedIds) ? currentMeta.sortedIds : [];
+
     // Add to beginning of array (newest first)
-    const newSortedIds = [snapshotId, ...currentMeta.sortedIds];
+    const newSortedIds = [snapshotId, ...currentIds];
 
     await metaRef.set({
         sortedIds: newSortedIds,
@@ -477,13 +480,20 @@ async function getAllCartSnapshots(database) {
     const metaSnapshot = await database.ref('cartHistoryMeta').once('value');
     const meta = metaSnapshot.val();
 
-    if (!meta || !meta.sortedIds || meta.sortedIds.length === 0) {
+    if (!meta) {
+        return [];
+    }
+
+    // Ensure sortedIds is always an array
+    const sortedIds = Array.isArray(meta.sortedIds) ? meta.sortedIds : [];
+
+    if (sortedIds.length === 0) {
         return [];
     }
 
     const snapshots = [];
 
-    for (const snapshotId of meta.sortedIds) {
+    for (const snapshotId of sortedIds) {
         const snapshot = await getCartSnapshot(database, snapshotId);
         if (snapshot) {
             snapshots.push(snapshot);
@@ -538,7 +548,10 @@ async function deleteCartSnapshot(database, snapshotId) {
     const metaSnapshot = await metaRef.once('value');
     const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
 
-    const newSortedIds = currentMeta.sortedIds.filter(id => id !== snapshotId);
+    // Ensure sortedIds is always an array
+    const currentIds = Array.isArray(currentMeta.sortedIds) ? currentMeta.sortedIds : [];
+
+    const newSortedIds = currentIds.filter(id => id !== snapshotId);
 
     await metaRef.set({
         sortedIds: newSortedIds,
