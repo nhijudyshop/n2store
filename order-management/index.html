@@ -2320,10 +2320,50 @@
             try {
                 const snapshots = await getAllCartSnapshots(database);
                 cartHistorySnapshots = snapshots;
-                renderCartHistoryList(snapshots.slice(0, 5)); // Show latest 5
+                renderCartHistoryList(snapshots); // Show all snapshots
             } catch (error) {
                 console.error('Error loading cart history:', error);
             }
+        }
+
+        /**
+         * Filter cart history by selected date
+         */
+        function filterCartHistoryByDate() {
+            const dateInput = document.getElementById('snapshotDateFilter');
+            if (!dateInput || !dateInput.value) {
+                renderCartHistoryList(cartHistorySnapshots);
+                return;
+            }
+
+            const selectedDate = new Date(dateInput.value);
+            selectedDate.setHours(0, 0, 0, 0);
+
+            const filtered = cartHistorySnapshots.filter(snapshot => {
+                const snapshotDate = new Date(snapshot.metadata.savedAt);
+                snapshotDate.setHours(0, 0, 0, 0);
+                return snapshotDate.getTime() === selectedDate.getTime();
+            });
+
+            renderCartHistoryList(filtered);
+
+            if (filtered.length === 0) {
+                const container = document.getElementById('cartHistoryList');
+                if (container) {
+                    container.innerHTML = '<div class="no-history">Không tìm thấy snapshot nào trong ngày này</div>';
+                }
+            }
+        }
+
+        /**
+         * Clear date filter and show all snapshots
+         */
+        function clearDateFilter() {
+            const dateInput = document.getElementById('snapshotDateFilter');
+            if (dateInput) {
+                dateInput.value = '';
+            }
+            renderCartHistoryList(cartHistorySnapshots);
         }
 
         /**
@@ -2684,6 +2724,7 @@
         function toggleCartHistory() {
             const list = document.getElementById('cartHistoryList');
             const icon = document.getElementById('cartHistoryToggleIcon');
+            const dateFilter = document.getElementById('dateFilterContainer');
 
             if (!list || !icon) return;
 
@@ -2693,12 +2734,14 @@
                 // Expand
                 list.classList.remove('collapsed');
                 icon.classList.add('expanded');
+                if (dateFilter) dateFilter.style.display = 'block';
                 // Save state to localStorage
                 localStorage.setItem('cartHistoryExpanded', 'true');
             } else {
                 // Collapse
                 list.classList.add('collapsed');
                 icon.classList.remove('expanded');
+                if (dateFilter) dateFilter.style.display = 'none';
                 // Save state to localStorage
                 localStorage.setItem('cartHistoryExpanded', 'false');
             }
@@ -2710,6 +2753,7 @@
         function initCartHistoryState() {
             const list = document.getElementById('cartHistoryList');
             const icon = document.getElementById('cartHistoryToggleIcon');
+            const dateFilter = document.getElementById('dateFilterContainer');
 
             if (!list || !icon) return;
 
@@ -2719,9 +2763,11 @@
             if (isExpanded) {
                 list.classList.remove('collapsed');
                 icon.classList.add('expanded');
+                if (dateFilter) dateFilter.style.display = 'block';
             } else {
                 list.classList.add('collapsed');
                 icon.classList.remove('expanded');
+                if (dateFilter) dateFilter.style.display = 'none';
             }
         }
 
@@ -4439,6 +4485,15 @@
                         </span>
                         <button class="btn-refresh-history" onclick="event.stopPropagation(); refreshCartHistory()" title="Làm mới" style="background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px;">🔄</button>
                     </h3>
+                </div>
+
+                <!-- Date Filter -->
+                <div class="date-filter-container" style="padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 10px; display: none;" id="dateFilterContainer">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label style="font-weight: 500; color: #495057;">📅 Lọc theo ngày:</label>
+                        <input type="date" id="snapshotDateFilter" onchange="filterCartHistoryByDate()" style="padding: 6px 10px; border: 1px solid #ced4da; border-radius: 4px; flex: 1;">
+                        <button onclick="clearDateFilter()" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">✖️ Xóa lọc</button>
+                    </div>
                 </div>
 
                 <div id="cartHistoryList" class="cart-history-list collapsed">
