@@ -147,12 +147,12 @@ window.forceReloadData = function() {
     }
 };
 
-// 2. Clear all data
+// 2. Clear all data (WARNING: This will also clear bearer tokens!)
 window.clearAllData = function() {
-    if (confirm('Clear all localStorage data?')) {
+    if (confirm('⚠️ This will clear ALL data including bearer tokens. Continue?')) {
         localStorage.clear();
         sessionStorage.clear();
-        console.log('✅ All data cleared. Please reload page.');
+        console.log('✅ All data cleared (including tokens). Please reload page.');
     }
 };
 
