@@ -385,6 +385,28 @@
                     <p>Đang tải tin nhắn...</p>
                 </div>
             </div>
+            <!-- Reply Input (chỉ hiển thị cho comments) -->
+            <div class="chat-reply-container" id="chatReplyContainer" style="display: none;">
+                <div style="display: flex; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+                    <input
+                        type="text"
+                        id="chatReplyInput"
+                        placeholder="Nhập tin nhắn trả lời..."
+                        style="flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;"
+                        onkeypress="if(event.key==='Enter') sendReplyComment();"
+                    />
+                    <button
+                        class="chat-btn-send"
+                        id="chatSendBtn"
+                        onclick="sendReplyComment()"
+                        style="padding: 10px 20px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.3)';"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                        <i class="fas fa-paper-plane"></i>
+                        Gửi
+                    </button>
+                </div>
+            </div>
             <div class="chat-modal-footer">
                 <button class="chat-btn-close" onclick="closeChatModal()">
                     <i class="fas fa-times"></i> Đóng
