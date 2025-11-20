@@ -3059,8 +3059,8 @@
                     if (sortedVariants.length === 0) {
                         // No active variants, fallback to single product
                         const tposQty = productData.QtyAvailable || 0;
-                        const userInput = prompt(`Nhập số lượng tồn kho cho ${productData.NameGet}:`, tposQty);
-                        const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+                        // Auto-use TPOS quantity without prompting
+                        const qtyAvailable = tposQty;
                         const addSuccess = await addProductToList({
                             Id: productData.Id,
                             NameGet: productData.NameGet,
@@ -3082,9 +3082,8 @@
                     // Prepare all variants for batch add
                     const variantsToAdd = sortedVariants.map(variant => {
                         const tposQty = variant.QtyAvailable || 0;
-                        // Prompt user to input inventory quantity
-                        const userInput = prompt(`Nhập số lượng tồn kho cho ${variant.NameGet}:`, tposQty);
-                        const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+                        // Auto-use TPOS quantity without prompting
+                        const qtyAvailable = tposQty;
                         const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
 
                         return cleanProductForFirebase({
@@ -3126,9 +3125,8 @@
                 } else {
                     // Add single product (original behavior)
                     const tposQty = productData.QtyAvailable || 0;
-                    // Prompt user to input inventory quantity
-                    const userInput = prompt(`Nhập số lượng tồn kho cho ${productData.NameGet}:`, tposQty);
-                    const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+                    // Auto-use TPOS quantity without prompting
+                    const qtyAvailable = tposQty;
                     const addSuccess = addProductToList({
                         Id: productData.Id,
                         NameGet: productData.NameGet,
