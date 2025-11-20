@@ -1653,7 +1653,7 @@
                                             const totalQty = (product.soldQtyList.find(s => s.id === item.id)?.maxQty) || 0;
                                             return `
                                                 <div class="remaining-qty-item">
-                                                    <input type="number" class="remaining-qty-item-value" value="${totalQty}" onchange="updateProductTotalInput(${item.id}, this.value)" ${disableEdit} min="0">
+                                                    <input type="number" class="remaining-qty-item-value" value="${totalQty}" onchange="updateProductTotalInput(${item.id}, this.value)" min="0">
                                                 </div>
                                             `;
                                         }).join('')}
@@ -1695,7 +1695,7 @@
                                             return `
                                                 <div class="remaining-qty-item">
                                                     <div class="remaining-qty-item-name">${variantName}</div>
-                                                    <input type="number" class="remaining-qty-item-value" value="${item.qty}" onchange="updateProductOrderedInput(${item.id}, this.value)" ${disableEdit} min="0">
+                                                    <input type="number" class="remaining-qty-item-value" value="${item.qty}" onchange="updateProductOrderedInput(${item.id}, this.value)" min="0">
                                                 </div>
                                             `;
                                         }).join('')}
