@@ -70,6 +70,7 @@ app.get('/', (req, res) => {
         version: '1.0.0',
         endpoints: [
             'POST /api/token',
+            'POST /api/realtime/start',
             'GET /api/odata/*',
             'GET /api/api-ms/chatomni/*',
             'GET /api/pancake/*',
