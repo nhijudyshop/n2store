@@ -415,3 +415,196 @@ function getProductsArray(productsObject, sortedIds = null) {
         return (b.addedAt || 0) - (a.addedAt || 0);
     });
 }
+
+/**
+ * ============================================================================
+ * CART HISTORY / SNAPSHOT FUNCTIONS
+ * ============================================================================
+ */
+
+/**
+ * Save cart snapshot to Firebase
+ * @param {Object} database - Firebase database reference
+ * @param {Object} snapshot - Snapshot object with metadata and products
+ * @returns {Promise<string>} Returns snapshot ID
+ */
+async function saveCartSnapshot(database, snapshot) {
+    const snapshotId = `snapshot_${snapshot.metadata.savedAt}`;
+
+    console.log('🔵 [saveCartSnapshot] Saving snapshot:', snapshotId);
+    console.log('🔵 [saveCartSnapshot] Metadata:', snapshot.metadata);
+    console.log('🔵 [saveCartSnapshot] Product count:', Object.keys(snapshot.products).length);
+
+    // Save snapshot data
+    await database.ref(`soluongCartHistory/${snapshotId}`).set(snapshot);
+    console.log('✅ [saveCartSnapshot] Snapshot data saved to Firebase');
+
+    // Update metadata
+    const metaRef = database.ref('soluongCartHistoryMeta');
+    const metaSnapshot = await metaRef.once('value');
+    const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
+
+    console.log('🔵 [saveCartSnapshot] Current meta:', currentMeta);
+
+    // Ensure sortedIds is always an array
+    const currentIds = Array.isArray(currentMeta.sortedIds) ? currentMeta.sortedIds : [];
+
+    // Add to beginning of array (newest first)
+    const newSortedIds = [snapshotId, ...currentIds];
+
+    console.log('🔵 [saveCartSnapshot] New sortedIds:', newSortedIds);
+
+    await metaRef.set({
+        sortedIds: newSortedIds,
+        count: newSortedIds.length,
+        lastUpdated: Date.now()
+    });
+
+    console.log('✅ [saveCartSnapshot] Metadata saved to Firebase');
+    console.log('✅ [saveCartSnapshot] Total snapshots now:', newSortedIds.length);
+
+    return snapshotId;
+}
+
+/**
+ * Get single cart snapshot
+ * @param {Object} database - Firebase database reference
+ * @param {string} snapshotId - Snapshot ID to retrieve
+ * @returns {Promise<Object|null>} Snapshot object or null if not found
+ */
+async function getCartSnapshot(database, snapshotId) {
+    console.log(`🔵 [getCartSnapshot] Loading snapshot: ${snapshotId}`);
+
+    const snapshot = await database.ref(`soluongCartHistory/${snapshotId}`).once('value');
+    const data = snapshot.val();
+
+    if (!data) {
+        console.error(`❌ [getCartSnapshot] Snapshot not found in Firebase: ${snapshotId}`);
+        return null;
+    }
+
+    console.log(`✅ [getCartSnapshot] Snapshot found: ${data.metadata?.name || 'Unknown'}`);
+    console.log(`🔵 [getCartSnapshot] Products in snapshot: ${Object.keys(data.products || {}).length}`);
+
+    return {
+        id: snapshotId,
+        ...data
+    };
+}
+
+/**
+ * Get all cart snapshots (sorted by date, newest first)
+ * @param {Object} database - Firebase database reference
+ * @returns {Promise<Array>} Array of snapshot objects
+ */
+async function getAllCartSnapshots(database) {
+    console.log('🔵 [getAllCartSnapshots] Loading all snapshots...');
+
+    const metaSnapshot = await database.ref('soluongCartHistoryMeta').once('value');
+    const meta = metaSnapshot.val();
+
+    console.log('🔵 [getAllCartSnapshots] Meta from Firebase:', meta);
+
+    if (!meta) {
+        console.log('⚠️ [getAllCartSnapshots] No metadata found, returning empty array');
+        return [];
+    }
+
+    // Ensure sortedIds is always an array
+    const sortedIds = Array.isArray(meta.sortedIds) ? meta.sortedIds : [];
+
+    console.log('🔵 [getAllCartSnapshots] Total snapshot IDs:', sortedIds.length);
+    console.log('🔵 [getAllCartSnapshots] Snapshot IDs:', sortedIds);
+
+    if (sortedIds.length === 0) {
+        console.log('⚠️ [getAllCartSnapshots] No snapshots in metadata');
+        return [];
+    }
+
+    const snapshots = [];
+    let loadedCount = 0;
+    let failedCount = 0;
+
+    for (const snapshotId of sortedIds) {
+        console.log(`🔵 [getAllCartSnapshots] Loading snapshot ${loadedCount + 1}/${sortedIds.length}: ${snapshotId}`);
+        const snapshot = await getCartSnapshot(database, snapshotId);
+        if (snapshot) {
+            snapshots.push(snapshot);
+            loadedCount++;
+            console.log(`✅ [getAllCartSnapshots] Loaded: ${snapshot.metadata.name} (${Object.keys(snapshot.products || {}).length} products)`);
+        } else {
+            failedCount++;
+            console.error(`❌ [getAllCartSnapshots] Failed to load snapshot: ${snapshotId}`);
+        }
+    }
+
+    console.log(`✅ [getAllCartSnapshots] Summary: ${loadedCount} loaded, ${failedCount} failed`);
+
+    return snapshots;
+}
+
+/**
+ * Restore products from snapshot
+ * @param {Object} database - Firebase database reference
+ * @param {Object} snapshotProducts - Products object from snapshot
+ * @param {Object} localProductsObject - Local products object reference
+ * @returns {Promise}
+ */
+async function restoreProductsFromSnapshot(database, snapshotProducts, localProductsObject) {
+    // Batch write all products
+    const updates = {};
+    const productIds = [];
+
+    Object.entries(snapshotProducts).forEach(([key, product]) => {
+        updates[`soluongProducts/${key}`] = product;
+        productIds.push(product.Id);
+
+        // Update local object
+        localProductsObject[key] = product;
+    });
+
+    // Update metadata
+    updates['soluongProductsMeta'] = {
+        sortedIds: productIds,
+        count: productIds.length,
+        lastUpdated: Date.now()
+    };
+
+    await database.ref().update(updates);
+}
+
+/**
+ * Delete cart snapshot
+ * @param {Object} database - Firebase database reference
+ * @param {string} snapshotId - Snapshot ID to delete
+ * @returns {Promise}
+ */
+async function deleteCartSnapshot(database, snapshotId) {
+    console.log(`🔵 [deleteCartSnapshot] Deleting snapshot: ${snapshotId}`);
+
+    // Remove snapshot data
+    await database.ref(`soluongCartHistory/${snapshotId}`).remove();
+    console.log(`✅ [deleteCartSnapshot] Snapshot data removed from Firebase`);
+
+    // Update metadata
+    const metaRef = database.ref('soluongCartHistoryMeta');
+    const metaSnapshot = await metaRef.once('value');
+    const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
+
+    console.log(`🔵 [deleteCartSnapshot] Current meta before delete:`, currentMeta);
+
+    // Ensure sortedIds is always an array
+    const currentIds = Array.isArray(currentMeta.sortedIds) ? currentMeta.sortedIds : [];
+
+    const newSortedIds = currentIds.filter(id => id !== snapshotId);
+
+    console.log(`🔵 [deleteCartSnapshot] Snapshots before: ${currentIds.length}, after: ${newSortedIds.length}`);
+
+    await metaRef.set({
+        sortedIds: newSortedIds,
+        count: newSortedIds.length,
+        lastUpdated: Date.now()
+    });
+
+    console.log(`✅ [deleteCartSnapshot] Metadata updated. Total snapshots now: ${newSortedIds.length}`);
+}
