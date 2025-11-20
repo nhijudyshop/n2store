@@ -13,7 +13,7 @@
     <style>
         :root {
             /* Frame Layout CSS Variables */
-            --name-line-clamp: 2;
+            --name-line-clamp: 1;
 
             /* Image CSS Variables */
             --image-border-radius: 8px;
@@ -222,10 +222,12 @@
         }
 
         .grid-item-name-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
             width: 100%;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            hyphens: auto;
+            display: -webkit-box;
+            -webkit-line-clamp: var(--name-line-clamp, 1);
+            -webkit-box-orient: vertical;
         }
 
         .grid-item-stats {
