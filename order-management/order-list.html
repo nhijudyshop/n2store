@@ -337,12 +337,36 @@
         /* For TỔNG column - simple value only */
         .grid-stat-total .remaining-qty-item {
             justify-content: center;
+            padding: 2px;
         }
 
         .grid-stat-total .remaining-qty-item-value {
             font-weight: bold;
             font-size: 18.2px;
             color: #333;
+        }
+
+        /* Special styling for input in TỔNG column - make it easier to click */
+        .grid-stat-total input.remaining-qty-item-value {
+            width: 100%;
+            padding: 8px 6px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 6px;
+            font-size: 18.2px;
+            min-height: 36px;
+        }
+
+        .grid-stat-total input.remaining-qty-item-value:hover {
+            border-color: rgba(102, 126, 234, 0.5);
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .grid-stat-total input.remaining-qty-item-value:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
         }
 
         /* For ĐÃ ĐẶT column - name and value side by side */
