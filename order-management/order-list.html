@@ -468,6 +468,40 @@
             opacity: 0.5;
         }
 
+        /* Editable Input Styles */
+        .editable-input {
+            border: 2px solid transparent;
+            text-align: center;
+            background: transparent;
+            outline: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .editable-input:hover {
+            border-color: rgba(102, 126, 234, 0.3);
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .editable-input:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            cursor: text;
+        }
+
+        /* Remove spinner for number inputs */
+        .editable-input::-webkit-outer-spin-button,
+        .editable-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .editable-input[type=number] {
+            -moz-appearance: textfield;
+        }
+
         .btn-nav {
             position: fixed;
             top: 50%;
@@ -1590,7 +1624,7 @@
                                         }).join('')}
                                     </div>
                                 ` : `
-                                    <div class="grid-stat-value">${product.QtyAvailable || 0}</div>
+                                    <input type="number" class="grid-stat-value editable-input" value="${product.QtyAvailable || 0}" onchange="updateProductTotalInput(${product.Id}, this.value)" ${disableEdit} min="0">
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-sold">
@@ -1632,7 +1666,7 @@
                                         }).join('')}
                                     </div>
                                 ` : `
-                                    <div class="grid-stat-value">${product.remainingQty || 0}</div>
+                                    <input type="number" class="grid-stat-value editable-input" value="${product.remainingQty || 0}" onchange="updateProductRemainingInput(${product.Id}, this.value)" ${disableEdit} min="0">
                                 `}
                             </div>
                         </div>
@@ -2006,6 +2040,72 @@
             if (!isSyncingFromFirebase) {
                 database.ref(`orderProducts/${productKey}`).update({
                     QtyAvailable: product.QtyAvailable,
+                    soldQty: product.soldQty,
+                    remainingQty: product.remainingQty
+                }).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
+                });
+            }
+
+            if (searchKeyword) {
+                performSearch(searchKeyword, false);
+            } else {
+                updateProductGrid();
+            }
+        }
+
+        function updateProductTotalInput(productId, newValue) {
+            const productKey = `product_${productId}`;
+            const product = orderProducts[productKey];
+            if (!product) return;
+
+            const newQtyAvailable = Math.max(0, parseInt(newValue) || 0);
+            if (newQtyAvailable === product.QtyAvailable) return;
+
+            product.QtyAvailable = newQtyAvailable;
+
+            // Ensure soldQty doesn't exceed new total
+            if (product.soldQty > product.QtyAvailable) {
+                product.soldQty = product.QtyAvailable;
+            }
+
+            product.remainingQty = product.QtyAvailable - product.soldQty;
+
+            if (!isSyncingFromFirebase) {
+                database.ref(`orderProducts/${productKey}`).update({
+                    QtyAvailable: product.QtyAvailable,
+                    soldQty: product.soldQty,
+                    remainingQty: product.remainingQty
+                }).catch(error => {
+                    console.error('❌ Lỗi sync products:', error);
+                });
+            }
+
+            if (searchKeyword) {
+                performSearch(searchKeyword, false);
+            } else {
+                updateProductGrid();
+            }
+        }
+
+        function updateProductRemainingInput(productId, newValue) {
+            const productKey = `product_${productId}`;
+            const product = orderProducts[productKey];
+            if (!product) return;
+
+            const newRemainingQty = Math.max(0, parseInt(newValue) || 0);
+
+            // Calculate new soldQty based on remaining = total - sold
+            // So: sold = total - remaining
+            const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.QtyAvailable - newRemainingQty));
+
+            if (newSoldQty === product.soldQty) return;
+
+            product.soldQty = newSoldQty;
+            product.remainingQty = product.QtyAvailable - product.soldQty;
+
+            if (!isSyncingFromFirebase) {
+                database.ref(`orderProducts/${productKey}`).update({
                     soldQty: product.soldQty,
                     remainingQty: product.remainingQty
                 }).catch(error => {
