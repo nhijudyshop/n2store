@@ -298,7 +298,7 @@
             background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
         }
 
-        /* For CÒN column when not merged - larger than other columns */
+        /* For ĐÃ ĐẶT column when not merged - larger than other columns */
         .grid-stat-remaining .grid-stat-value {
             font-size: 48px;
             display: flex;
@@ -344,7 +344,7 @@
             color: #333;
         }
 
-        /* For CÒN column - name and value side by side */
+        /* For ĐÃ ĐẶT column - name and value side by side */
         .grid-stat-remaining .remaining-qty-item {
             flex-direction: row;
             justify-content: center;
@@ -1618,7 +1618,7 @@
                                             const totalQty = (product.soldQtyList.find(s => s.id === item.id)?.maxQty) || 0;
                                             return `
                                                 <div class="remaining-qty-item">
-                                                    <div class="remaining-qty-item-value">${totalQty}</div>
+                                                    <input type="number" class="remaining-qty-item-value editable-input" value="${totalQty}" onchange="updateProductTotalInput(${item.id}, this.value)" ${disableEdit} min="0" style="width: 50px; font-size: var(--stats-value-size, 16px);">
                                                 </div>
                                             `;
                                         }).join('')}
@@ -1650,7 +1650,7 @@
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-remaining">
-                                <div class="grid-stat-label">✅ CÒN</div>
+                                <div class="grid-stat-label">📝 ĐÃ ĐẶT</div>
                                 ${isMerged && product.remainingQtyList ? `
                                     <div class="remaining-qty-list">
                                         ${product.remainingQtyList.map(item => {
@@ -1660,13 +1660,13 @@
                                             return `
                                                 <div class="remaining-qty-item">
                                                     <div class="remaining-qty-item-name">${variantName}</div>
-                                                    <div class="remaining-qty-item-value">${item.qty}</div>
+                                                    <input type="number" class="remaining-qty-item-value editable-input" value="${item.qty}" onchange="updateProductOrderedInput(${item.id}, this.value)" ${disableEdit} min="0" style="width: 40px; font-size: var(--stats-value-size, 16px);">
                                                 </div>
                                             `;
                                         }).join('')}
                                     </div>
                                 ` : `
-                                    <input type="number" class="grid-stat-value editable-input" value="${product.remainingQty || 0}" onchange="updateProductRemainingInput(${product.Id}, this.value)" ${disableEdit} min="0">
+                                    <input type="number" class="grid-stat-value editable-input" value="${product.remainingQty || 0}" onchange="updateProductOrderedInput(${product.Id}, this.value)" ${disableEdit} min="0">
                                 `}
                             </div>
                         </div>
@@ -2035,13 +2035,10 @@
                 product.soldQty = product.QtyAvailable;
             }
 
-            product.remainingQty = product.QtyAvailable - product.soldQty;
-
             if (!isSyncingFromFirebase) {
                 database.ref(`orderProducts/${productKey}`).update({
                     QtyAvailable: product.QtyAvailable,
-                    soldQty: product.soldQty,
-                    remainingQty: product.remainingQty
+                    soldQty: product.soldQty
                 }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
@@ -2069,13 +2066,10 @@
                 product.soldQty = product.QtyAvailable;
             }
 
-            product.remainingQty = product.QtyAvailable - product.soldQty;
-
             if (!isSyncingFromFirebase) {
                 database.ref(`orderProducts/${productKey}`).update({
                     QtyAvailable: product.QtyAvailable,
-                    soldQty: product.soldQty,
-                    remainingQty: product.remainingQty
+                    soldQty: product.soldQty
                 }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
@@ -2088,25 +2082,20 @@
             }
         }
 
-        function updateProductRemainingInput(productId, newValue) {
+        function updateProductOrderedInput(productId, newValue) {
             const productKey = `product_${productId}`;
             const product = orderProducts[productKey];
             if (!product) return;
 
-            const newRemainingQty = Math.max(0, parseInt(newValue) || 0);
+            const newOrderedQty = Math.max(0, parseInt(newValue) || 0);
 
-            // Calculate new soldQty based on remaining = total - sold
-            // So: sold = total - remaining
-            const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.QtyAvailable - newRemainingQty));
+            if (newOrderedQty === product.remainingQty) return;
 
-            if (newSoldQty === product.soldQty) return;
-
-            product.soldQty = newSoldQty;
-            product.remainingQty = product.QtyAvailable - product.soldQty;
+            // Update remainingQty independently (now represents "Đã đặt" - ordered quantity)
+            product.remainingQty = newOrderedQty;
 
             if (!isSyncingFromFirebase) {
                 database.ref(`orderProducts/${productKey}`).update({
-                    soldQty: product.soldQty,
                     remainingQty: product.remainingQty
                 }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
@@ -2175,7 +2164,6 @@
 
                 const oldQtyAvailable = product.QtyAvailable;
                 product.QtyAvailable = productData.QtyAvailable || 0;
-                product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
 
                 // Update price information from API
                 product.ListPrice = productData.ListPrice || 0;
@@ -2210,7 +2198,6 @@
                 if (!isSyncingFromFirebase) {
                     database.ref(`orderProducts/${productKey}`).update({
                         QtyAvailable: product.QtyAvailable,
-                        remainingQty: product.remainingQty,
                         ListPrice: product.ListPrice,
                         PriceVariant: product.PriceVariant,
                         imageUrl: product.imageUrl,

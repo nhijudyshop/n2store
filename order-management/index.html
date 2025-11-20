@@ -3108,7 +3108,7 @@
                             PriceVariant: productData.PriceVariant || 0,
                             imageUrl: imageUrl,
                             soldQty: 0,
-                            remainingQty: qtyAvailable
+                            remainingQty: 0
                         }, true);
 
                         if (addSuccess) {
@@ -3134,7 +3134,7 @@
                             PriceVariant: variant.PriceVariant || 0,
                             imageUrl: variantImageUrl,
                             soldQty: 0,
-                            remainingQty: qtyAvailable,
+                            remainingQty: 0,
                             isHidden: false // Variants are visible
                         });
                     });
@@ -3212,7 +3212,7 @@
                         orderProducts[productKey] = {
                             ...cleanProduct,
                             soldQty: existingProduct.soldQty || 0,
-                            remainingQty: cleanProduct.QtyAvailable - (existingProduct.soldQty || 0),
+                            remainingQty: existingProduct.remainingQty || cleanProduct.remainingQty || 0,
                             addedAt: existingProduct.addedAt || cleanProduct.addedAt,
                             lastRefreshed: Date.now()
                         };
@@ -3298,7 +3298,7 @@
                                     <span class="qty-value">${product.soldQty}</span>
                                     <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)">+</button>
                                 </div>
-                                <span>✅ Còn: <input type="number" class="editable-qty-input" value="${product.remainingQty}" onchange="updateProductRemainingInput(${product.Id}, this.value)" min="0"></span>
+                                <span>📝 Đã đặt: <input type="number" class="editable-qty-input" value="${product.remainingQty || 0}" onchange="updateProductOrderedInput(${product.Id}, this.value)" min="0"></span>
                             </div>
                         </div>
                         <div class="preview-actions">
@@ -3354,7 +3354,7 @@
                                     <span class="qty-value">${product.soldQty}</span>
                                     <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)">+</button>
                                 </div>
-                                <span>✅ Còn: <input type="number" class="editable-qty-input" value="${product.remainingQty}" onchange="updateProductRemainingInput(${product.Id}, this.value)" min="0"></span>
+                                <span>📝 Đã đặt: <input type="number" class="editable-qty-input" value="${product.remainingQty || 0}" onchange="updateProductOrderedInput(${product.Id}, this.value)" min="0"></span>
                             </div>
                         </div>
                         <div class="preview-actions">
@@ -3409,12 +3409,9 @@
                         product.soldQty = product.QtyAvailable;
                     }
 
-                    product.remainingQty = product.QtyAvailable - product.soldQty;
-
                     await database.ref(`orderProducts/${productKey}`).update({
                         QtyAvailable: product.QtyAvailable,
-                        soldQty: product.soldQty,
-                        remainingQty: product.remainingQty
+                        soldQty: product.soldQty
                     });
 
                     updateProductListPreview();
@@ -3425,33 +3422,28 @@
             }
         }
 
-        async function updateProductRemainingInput(productId, newValue) {
+        async function updateProductOrderedInput(productId, newValue) {
             if (!isSyncingFromFirebase) {
                 try {
                     const productKey = `product_${productId}`;
                     const product = orderProducts[productKey];
                     if (!product) return;
 
-                    const newRemainingQty = Math.max(0, parseInt(newValue) || 0);
+                    const newOrderedQty = Math.max(0, parseInt(newValue) || 0);
 
-                    // Calculate new soldQty based on remaining = total - sold
-                    // So: sold = total - remaining
-                    const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.QtyAvailable - newRemainingQty));
+                    if (newOrderedQty === product.remainingQty) return;
 
-                    if (newSoldQty === product.soldQty) return;
-
-                    product.soldQty = newSoldQty;
-                    product.remainingQty = product.QtyAvailable - product.soldQty;
+                    // Update remainingQty independently (now represents "Đã đặt" - ordered quantity)
+                    product.remainingQty = newOrderedQty;
 
                     await database.ref(`orderProducts/${productKey}`).update({
-                        soldQty: product.soldQty,
                         remainingQty: product.remainingQty
                     });
 
                     updateProductListPreview();
                     updateHiddenProductListPreview();
                 } catch (error) {
-                    console.error('❌ Lỗi cập nhật số lượng còn lại:', error);
+                    console.error('❌ Lỗi cập nhật số lượng đã đặt:', error);
                 }
             }
         }
