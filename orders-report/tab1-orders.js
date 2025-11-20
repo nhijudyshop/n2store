@@ -893,6 +893,12 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
             // Trigger search explicitly
             await handleSearch();
+
+            // 🎯 AUTO-CONNECT REALTIME SERVER
+            if (window.realtimeManager) {
+                console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
+                window.realtimeManager.connectServerMode();
+            }
         } else {
             console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên (chờ người dùng bấm Tải):', campaigns[0].displayName);
         }
@@ -909,6 +915,12 @@ async function handleCampaignChange() {
     // Tự động load dữ liệu khi chọn chiến dịch
     if (selectedCampaign?.campaignId || selectedCampaign?.campaignIds) {
         await handleSearch();
+
+        // 🎯 AUTO-CONNECT REALTIME SERVER
+        if (window.realtimeManager) {
+            console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
+            window.realtimeManager.connectServerMode();
+        }
     }
 }
 
@@ -1577,6 +1589,7 @@ function renderCommentsColumn(order) {
 }
 
 // Helper function to render chat column with data (for both messages and comments)
+// Helper function to render chat column with data (for both messages and comments)
 function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType = 'messages') {
     // Format message based on type
     let displayMessage = 'Emoji hoặc ảnh';
@@ -1598,63 +1611,44 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
             displayMessage = 'Đã gửi audio';
             messageIcon = '🎵';
         } else {
-            displayMessage = 'Đã gửi tệp đính kèm';
+            displayMessage = 'Đã gửi tệp';
             messageIcon = '📎';
         }
-    } else if (chatInfo.messageType === 'sticker') {
-        displayMessage = 'Đã gửi sticker';
-        messageIcon = '😊';
     } else if (chatInfo.message) {
-        // Regular text message - truncate if too long
-        const maxLength = 30;
-        displayMessage = chatInfo.message.length > maxLength
-            ? chatInfo.message.substring(0, maxLength) + '...'
-            : chatInfo.message;
+        // Text message
+        displayMessage = chatInfo.message;
     }
 
-    // Highlight class
-    const highlightClass = chatInfo.hasUnread ? 'chat-has-unread' : '';
+    // Truncate message
+    if (displayMessage.length > 30) {
+        displayMessage = displayMessage.substring(0, 30) + '...';
+    }
 
-    // Badge
-    const badge = chatInfo.hasUnread && chatInfo.unreadCount > 0
-        ? `<span class="chat-unread-badge">${chatInfo.unreadCount}</span>`
-        : '';
+    // Styling based on unread status
+    const isUnread = chatInfo.hasUnread;
+    const fontWeight = isUnread ? '700' : '400';
+    const color = isUnread ? '#111827' : '#6b7280';
+    const unreadBadge = isUnread ? `<span class="unread-badge"></span>` : '';
 
-    // Count badge for comments
-    const countBadge = columnType === 'comments' && chatInfo.commentsCount > 1
-        ? `<span class="chat-count-badge" style="
-            background: #f3f4f6;
-            color: #6b7280;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 500;
-        ">${chatInfo.commentsCount}</span>`
-        : '';
-
-    // Icon based on column type (messages vs comments)
-    const typeIcon = columnType === 'comments'
-        ? '<i class="fas fa-comment" style="color: #65676b;"></i>'
-        : '<i class="fab fa-facebook-messenger" style="color: #0084ff;"></i>';
+    // Click handler
+    const clickHandler = columnType === 'messages'
+        ? `openChatModal('${order.Id}', '${channelId}', '${psid}')`
+        : `openChatModal('${order.Id}', '${channelId}', '${psid}', 'comment')`;
 
     const tooltipText = columnType === 'comments'
         ? 'Click để xem bình luận'
         : 'Click để xem toàn bộ tin nhắn';
 
-    // Modal type for opening chat
-    const modalType = columnType === 'comments' ? 'comment' : 'message';
-
     return `
-        <td data-column="${columnType}" class="chat-column ${highlightClass}"
-            style="max-width: 200px; white-space: normal; cursor: pointer;"
-            onclick="openChatModal('${order.Id}', '${channelId}', '${psid}', '${modalType}')"
-            title="${tooltipText}">
+        <td data-column="${columnType}" onclick="${clickHandler}" style="cursor: pointer;" title="${tooltipText}">
             <div style="display: flex; align-items: center; gap: 6px;">
-                ${typeIcon}
-                ${messageIcon ? `<span style="font-size: 16px;">${messageIcon}</span>` : ''}
-                <span style="flex: 1;">${displayMessage}</span>
-                ${badge}
-                ${countBadge}
+                ${unreadBadge}
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-size: 13px; font-weight: ${fontWeight}; color: ${color};">
+                        ${messageIcon} ${displayMessage}
+                    </span>
+                    ${chatInfo.unreadCount > 0 ? `<span style="font-size: 11px; color: #ef4444; font-weight: 600;">${chatInfo.unreadCount} tin mới</span>` : ''}
+                </div>
             </div>
         </td>`;
 }
@@ -4266,185 +4260,82 @@ function getFacebookCommentId(comment) {
 // =====================================================
 // REALTIME UI UPDATES
 // =====================================================
-window.addEventListener('realtimeConversationUpdate', function (e) {
-    const conversation = e.detail;
+window.addEventListener('realtimeConversationUpdate', function (event) {
+    const conversation = event.detail;
     if (!conversation) return;
 
-    console.log('[REALTIME-UI] Received update for conversation:', conversation.id, conversation.type);
+    // console.log('[TAB1] Handling realtime update:', conversation);
 
-    // 1. Determine User ID (PSID)
-    let userId = null;
-    if (conversation.customers && conversation.customers.length > 0) {
-        userId = conversation.customers[0].fb_id;
-    } else if (conversation.from_psid) {
-        userId = conversation.from_psid;
-    }
+    let psid = conversation.from_psid || (conversation.customers && conversation.customers[0]?.fb_id);
+    let pageId = conversation.page_id;
 
-    if (!userId) {
-        console.warn('[REALTIME-UI] Could not determine User ID from conversation update');
-        return;
-    }
-
-    // 2. Update Pancake Data Manager Cache
-    if (window.pancakeDataManager) {
-        const type = conversation.type; // "INBOX" or "COMMENT"
-        if (type === 'INBOX') {
-            window.pancakeDataManager.inboxMapByPSID.set(userId, conversation);
-        } else if (type === 'COMMENT') {
-            window.pancakeDataManager.commentMapByPSID.set(userId, conversation);
+    // Fallback: Extract from conversation.id (format: pageId_psid)
+    if ((!psid || !pageId) && conversation.id && conversation.id.includes('_')) {
+        const parts = conversation.id.split('_');
+        if (parts.length === 2) {
+            if (!pageId) pageId = parts[0];
+            if (!psid) psid = parts[1];
         }
     }
 
-    // 3. Update Orders Table
-    // Ensure loose comparison or string conversion for IDs
-    // Also check FacebookUserId as fallback
-    const ordersToUpdate = allData.filter(o =>
-        String(o.Facebook_ASUserId) === String(userId) ||
-        String(o.FacebookUserId) === String(userId)
-    );
+    if (!psid) return;
 
-    if (ordersToUpdate.length > 0) {
-        console.log(`[REALTIME-UI] Updating ${ordersToUpdate.length} orders for user ${userId}`);
+    const message = conversation.snippet || '';
+    const unreadCount = conversation.unread_count || 0;
+    const isUnread = unreadCount > 0 || !conversation.seen;
+    const type = conversation.type || 'INBOX'; // INBOX or COMMENT
 
-        ordersToUpdate.forEach(order => {
-            const row = document.querySelector(`tr[data-order-id="${order.Id}"]`);
-            if (row) {
-                const type = conversation.type;
+    // Find matching orders in displayedData
+    // Match both PSID and PageID (via Facebook_PostId which starts with PageID)
+    const matchingOrders = displayedData.filter(o => {
+        const matchesPsid = o.Facebook_ASUserId === psid;
+        // If we have a pageId, check if Facebook_PostId starts with it
+        const matchesPage = pageId ? (o.Facebook_PostId && o.Facebook_PostId.startsWith(pageId)) : true;
+        return matchesPsid && matchesPage;
+    });
 
-                // Update "Messages" Column (if INBOX)
-                if (type === 'INBOX') {
-                    const messageCell = row.querySelector('td[data-column="messages"]');
-                    if (messageCell) {
-                        console.log(`[DEBUG-UI] Found message cell for order ${order.Code}`);
+    if (matchingOrders.length === 0) return;
 
-                        const msgInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
-                        const lastMsg = window.pancakeDataManager.getLastMessageForOrder(order);
+    console.log(`[TAB1] Updating ${matchingOrders.length} rows for PSID ${psid} on Page ${pageId}`);
 
-                        console.log(`[DEBUG-UI] Data for order ${order.Code}:`, { msgInfo, lastMsg });
+    matchingOrders.forEach(order => {
+        // Find row
+        const checkbox = document.querySelector(`input[value="${order.Id}"]`);
+        if (!checkbox) return;
+        const row = checkbox.closest('tr');
+        if (!row) return;
 
-                        let html = '';
-                        if (lastMsg.message) {
-                            const isUnread = msgInfo.hasUnread;
-                            const unreadClass = isUnread ? "unread-message" : "";
-                            const unreadBadge = isUnread ? `<span class="unread-badge">${msgInfo.unreadCount}</span>` : "";
+        // Determine column based on type
+        const colType = type === 'INBOX' ? 'messages' : 'comments';
+        const cell = row.querySelector(`td[data-column="${colType}"]`);
 
-                            let content = lastMsg.message;
-                            if (lastMsg.messageType === 'attachment') {
-                                content = '<i class="fas fa-image"></i> [Hình ảnh]';
-                            }
-                            if (content.length > 50) content = content.substring(0, 50) + '...';
+        if (cell) {
+            // Construct HTML directly
+            const fontWeight = isUnread ? '700' : '400';
+            const color = isUnread ? '#111827' : '#6b7280';
+            const unreadBadge = isUnread ? `<span class="unread-badge"></span>` : '';
+            const unreadText = unreadCount > 0 ? `<span style="font-size: 11px; color: #ef4444; font-weight: 600;">${unreadCount} tin mới</span>` : '';
 
-                            console.log(`[DEBUG-UI] New content for order ${order.Code}: "${content}"`);
+            // Truncate message
+            let displayMessage = message;
+            if (displayMessage.length > 30) displayMessage = displayMessage.substring(0, 30) + '...';
 
-                            html = `
-                                <div class="message-cell ${unreadClass}" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}')">
-                                    <div class="message-content">
-                                        ${unreadBadge}
-                                        <span class="message-text">${content}</span>
-                                    </div>
-                                    <div class="message-time">Vừa xong</div>
-                                </div>
-                            `;
-                        } else {
-                            console.log(`[DEBUG-UI] No message content found for order ${order.Code}`);
-                            html = `
-                                <button class="btn-chat" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}')">
-                                    <i class="fab fa-facebook-messenger"></i> Chat
-                                </button>
-                            `;
-                        }
-                        messageCell.innerHTML = html;
-                        console.log(`[DEBUG-UI] Updated innerHTML for order ${order.Code}`);
-                    } else {
-                        console.warn(`[DEBUG-UI] Message cell NOT found for order ${order.Code}`);
-                    }
-                }
+            // Update innerHTML
+            cell.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    ${unreadBadge}
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 13px; font-weight: ${fontWeight}; color: ${color};">
+                            ${displayMessage}
+                        </span>
+                        ${unreadText}
+                    </div>
+                </div>
+            `;
 
-                // Update "Comments" Column (if COMMENT)
-                if (type === 'COMMENT') {
-                    const commentCell = row.querySelector('td[data-column="comments"]');
-                    if (commentCell) {
-                        const commentInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
-                        const lastComment = window.pancakeDataManager.getLastCommentForOrder(order);
-
-                        let html = '';
-                        if (lastComment.message) {
-                            const isUnread = commentInfo.hasUnread;
-                            const unreadClass = isUnread ? "unread-message" : "";
-                            const unreadBadge = isUnread ? `<span class="unread-badge">${commentInfo.unreadCount}</span>` : "";
-
-                            let content = lastComment.message;
-                            if (lastComment.messageType === 'attachment') {
-                                content = '<i class="fas fa-image"></i> [Hình ảnh]';
-                            }
-                            if (content.length > 50) content = content.substring(0, 50) + '...';
-
-                            html = `
-                                <div class="message-cell ${unreadClass}" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}', 'comment')">
-                                    <div class="message-content">
-                                        ${unreadBadge}
-                                        <span class="message-text">${content}</span>
-                                    </div>
-                                    <div class="message-time">Vừa xong</div>
-                                </div>
-                            `;
-                        } else {
-                            html = '<span style="color: #9ca3af; font-style: italic;">Không có bình luận</span>';
-                        }
-                        commentCell.innerHTML = html;
-                    }
-                }
-
-                // Flash row
-                row.style.backgroundColor = '#f0f9ff';
-                setTimeout(() => { row.style.backgroundColor = ''; }, 1000);
-            }
-        });
-    }
-
-    // 4. Update Chat Modal (if open)
-    const chatModal = document.getElementById('chatModal');
-    if (chatModal && chatModal.style.display !== 'none') {
-        // Check if we are viewing this user
-        // We need to store currentChatUserId globally when opening modal
-        if (window.currentChatUserId === userId) {
-            console.log('[REALTIME-UI] Updating open chat modal');
-
-            // Determine if we should append based on current tab (messages vs comments)
-            // If conversation.type matches the current view mode, append
-            // Note: openChatModal sets window.currentChatType ('message' or 'comment')
-
-            const currentType = window.currentChatType || 'message';
-            const incomingType = conversation.type === 'INBOX' ? 'message' : 'comment';
-
-            if (currentType === incomingType) {
-                // Append the new message/comment to the chat body
-                const chatBody = document.getElementById('chatModalBody');
-                if (chatBody) {
-                    const msg = conversation.snippet || '';
-                    const isSelf = false; // Incoming message is from customer
-
-                    // Determine content type
-                    let contentHtml = msg;
-
-                    // Handle attachments if present in the update payload
-                    // Note: The payload from 'pages:update_conversation' might be limited.
-                    // Ideally we should fetch the full message details, but for speed we use what we have.
-
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = `chat-message ${isSelf ? 'sent' : 'received'}`;
-                    msgDiv.innerHTML = `
-                        <div class="message-bubble">
-                            ${contentHtml}
-                        </div>
-                        <div class="message-time">Vừa xong</div>
-                    `;
-                    chatBody.appendChild(msgDiv);
-
-                    // Scroll to bottom
-                    chatBody.scrollTop = chatBody.scrollHeight;
-                }
-            }
+            // Highlight
+            row.classList.add('product-row-highlight');
+            setTimeout(() => row.classList.remove('product-row-highlight'), 2000);
         }
-    }
+    });
 });
