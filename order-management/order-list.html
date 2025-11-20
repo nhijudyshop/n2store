@@ -502,6 +502,41 @@
             -moz-appearance: textfield;
         }
 
+        /* Override for input elements in merged products */
+        input.remaining-qty-item-value {
+            border: 2px solid transparent;
+            border-radius: 4px;
+            padding: 2px 4px;
+            background: transparent;
+            text-align: center;
+            outline: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        input.remaining-qty-item-value:hover {
+            border-color: rgba(102, 126, 234, 0.3);
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        input.remaining-qty-item-value:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+            cursor: text;
+        }
+
+        /* Remove spinner for merged product inputs */
+        input.remaining-qty-item-value::-webkit-outer-spin-button,
+        input.remaining-qty-item-value::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input.remaining-qty-item-value[type=number] {
+            -moz-appearance: textfield;
+        }
+
         .btn-nav {
             position: fixed;
             top: 50%;
@@ -1618,7 +1653,7 @@
                                             const totalQty = (product.soldQtyList.find(s => s.id === item.id)?.maxQty) || 0;
                                             return `
                                                 <div class="remaining-qty-item">
-                                                    <input type="number" class="remaining-qty-item-value editable-input" value="${totalQty}" onchange="updateProductTotalInput(${item.id}, this.value)" ${disableEdit} min="0" style="width: 50px; font-size: var(--stats-value-size, 16px);">
+                                                    <input type="number" class="remaining-qty-item-value" value="${totalQty}" onchange="updateProductTotalInput(${item.id}, this.value)" ${disableEdit} min="0">
                                                 </div>
                                             `;
                                         }).join('')}
@@ -1660,7 +1695,7 @@
                                             return `
                                                 <div class="remaining-qty-item">
                                                     <div class="remaining-qty-item-name">${variantName}</div>
-                                                    <input type="number" class="remaining-qty-item-value editable-input" value="${item.qty}" onchange="updateProductOrderedInput(${item.id}, this.value)" ${disableEdit} min="0" style="width: 40px; font-size: var(--stats-value-size, 16px);">
+                                                    <input type="number" class="remaining-qty-item-value" value="${item.qty}" onchange="updateProductOrderedInput(${item.id}, this.value)" ${disableEdit} min="0">
                                                 </div>
                                             `;
                                         }).join('')}
