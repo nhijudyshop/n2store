@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Quản lý Hàng Hoàn</title>
+        <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <!-- External CSS -->
+        <link rel="stylesheet" href="modern.css" />
+        <link rel="stylesheet" href="hanghoan.css" />
+
+        <!-- Navigation Manager -->
+        <!-- N2Store Optimization: Core Utilities Loader -->
+        <script src="../js/core-loader.js"></script>
+
+        <script src="../js/navigation-modern.js"></script>
+        <script src="../js/common-utils.js"></script>
+
+        <!-- Lucide Icons CDN -->
+        <script src="https://unpkg.com/lucide@latest"></script>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    </head>
+
+    <body>
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i data-lucide="zap"></i>
+                    <span>N2Shop</span>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i data-lucide="panel-left-close"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNav">
+                <!-- Menu items auto-generated -->
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i data-lucide="user-circle"></i>
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">Admin</div>
+                        <div class="user-role">Quản trị viên</div>
+                    </div>
+                </div>
+                <button class="btn-permissions" id="btnPermissions">
+                    <i data-lucide="shield-check"></i>
+                    <span>Xem Quyền Của Tôi</span>
+                </button>
+                <button class="btn-logout" id="btnLogout">
+                    <i data-lucide="log-out"></i>
+                    <span>Đăng xuất</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="btn-icon" id="menuToggle">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <div class="breadcrumb">
+                        <i data-lucide="home"></i>
+                        <span>Quản lý Hàng Hoàn</span>
+                    </div>
+                </div>
+                <div class="top-bar-right">
+                    <button class="btn btn-primary" id="toggleFormButton">
+                        <i data-lucide="plus-circle"></i>
+                        <span>Thêm Đơn</span>
+                    </button>
+                    <button
+                        class="btn-icon"
+                        id="btnRefresh"
+                        title="Làm mới dữ liệu"
+                    >
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                    <div class="search-box">
+                        <i data-lucide="search"></i>
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm..."
+                            id="searchInput"
+                        />
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Cards -->
+            <section class="stats-section">
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i data-lucide="package"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">Tổng Đơn</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i data-lucide="clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statPending">0</div>
+                        <div class="stat-label">Chờ Nhận</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i data-lucide="check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statCompleted">0</div>
+                        <div class="stat-label">Đã Nhận</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <i data-lucide="trending-up"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statThisMonth">0</div>
+                        <div class="stat-label">Tháng Này</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Add Form Section -->
+            <section class="upload-section card" id="dataForm">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i data-lucide="file-plus"></i>
+                        <h2>Thêm Thông Tin Hàng Hoàn</h2>
+                    </div>
+                    <button class="btn-icon" id="closeForm">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <form id="return-product">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="truck"></i>
+                                    Kênh
+                                </label>
+                                <select id="ship" required>
+                                    <option value="J&T">J&T</option>
+                                    <option value="TP">TP</option>
+                                    <option value="BM">BM</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="list"></i>
+                                    Trường hợp
+                                </label>
+                                <select id="scenario" required>
+                                    <option value="BOOM">BOOM</option>
+                                    <option value="Sửa COD">Sửa COD</option>
+                                    <option value="Thu về">Thu về</option>
+                                    <option value="Khách gửi">Khách gửi</option>
+                                    <option value="Thay đổi thông tin">
+                                        Thay đổi thông tin
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="user"></i>
+                                    Tên FB + SĐT
+                                </label>
+                                <input
+                                    type="text"
+                                    id="customerInfo"
+                                    list="suggestionsInfo"
+                                    required
+                                />
+                                <datalist id="suggestionsInfo"></datalist>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="dollar-sign"></i>
+                                    Giá tiền
+                                </label>
+                                <input type="text" id="totalAmount" required />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="message-square"></i>
+                                Lý do
+                            </label>
+                            <input
+                                type="text"
+                                id="cause"
+                                list="suggestionsCause"
+                                required
+                            />
+                            <datalist id="suggestionsCause"></datalist>
+                        </div>
+
+                        <div class="form-actions">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                id="clearDataButton"
+                            >
+                                <i data-lucide="rotate-ccw"></i>
+                                Reset
+                            </button>
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                                id="addButton"
+                            >
+                                <i data-lucide="check"></i>
+                                Thêm Đơn
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Filter & Table Section -->
+            <section class="gallery-section card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i data-lucide="table"></i>
+                        <h2>Danh Sách Hàng Hoàn</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button
+                            class="btn-icon"
+                            id="btnExport"
+                            title="Xuất Excel"
+                        >
+                            <i data-lucide="download"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Filters -->
+                    <div class="filter-section">
+                        <div class="filter-group">
+                            <i data-lucide="filter"></i>
+                            <select id="channelFilter">
+                                <option value="all">Tất cả kênh</option>
+                                <option value="J&T">J&T</option>
+                                <option value="TP">TP</option>
+                                <option value="BM">BM</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <i data-lucide="list"></i>
+                            <select id="scenarioFilter">
+                                <option value="all">Tất cả trường hợp</option>
+                                <option value="BOOM">BOOM</option>
+                                <option value="Sửa COD">Sửa COD</option>
+                                <option value="Thu về">Thu về</option>
+                                <option value="Khách gửi">Khách gửi</option>
+                                <option value="Thay đổi thông tin">
+                                    Thay đổi thông tin
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <i data-lucide="check-circle"></i>
+                            <select id="statusFilter">
+                                <option value="all">Tất cả trạng thái</option>
+                                <option value="active">Chưa nhận</option>
+                                <option value="completed">Đã nhận</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group date-filter">
+                            <i data-lucide="calendar"></i>
+                            <input type="date" id="startDate" />
+                            <span>đến</span>
+                            <input type="date" id="endDate" />
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Kênh</th>
+                                    <th>Trường hợp</th>
+                                    <th>Tên FB + SĐT</th>
+                                    <th>Số tiền</th>
+                                    <th>Lý do</th>
+                                    <th>Đã nhận</th>
+                                    <th>Ngày duyệt</th>
+                                    <th>Sửa</th>
+                                    <th>Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <!-- Data rows here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="empty-state" id="emptyState">
+                        <i data-lucide="inbox"></i>
+                        <h3>Chưa có dữ liệu</h3>
+                        <p>Thêm đơn hàng hoàn đầu tiên của bạn</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Edit Modal -->
+        <div id="editModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h2>
+                        <i data-lucide="edit-3"></i>
+                        Chỉnh Sửa Đơn Hàng
+                    </h2>
+                    <button class="btn-icon modal-close" onclick="closeModal()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="truck"></i>
+                                Kênh
+                            </label>
+                            <select id="editDelivery" required>
+                                <option value="J&T">J&T</option>
+                                <option value="TP">TP</option>
+                                <option value="BM">BM</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="list"></i>
+                                Trường hợp
+                            </label>
+                            <select id="eidtScenario" required>
+                                <option value="BOOM">BOOM</option>
+                                <option value="Sửa COD">Sửa COD</option>
+                                <option value="Thu về">Thu về</option>
+                                <option value="Khách gửi">Khách gửi</option>
+                                <option value="Thay đổi thông tin">
+                                    Thay đổi thông tin
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <i data-lucide="user"></i>
+                            FB + SĐT
+                        </label>
+                        <input type="text" id="editInfo" />
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="dollar-sign"></i>
+                                Số tiền
+                            </label>
+                            <input type="text" id="editAmount" />
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="calendar"></i>
+                                Ngày đi đơn
+                            </label>
+                            <input
+                                type="text"
+                                id="editDate"
+                                placeholder="DD-MM-YY"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <i data-lucide="message-square"></i>
+                            Lý do
+                        </label>
+                        <input type="text" id="editNote" />
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">
+                        <i data-lucide="x"></i>
+                        Hủy
+                    </button>
+                    <button class="btn btn-primary" id="saveButton">
+                        <i data-lucide="save"></i>
+                        Lưu Thay Đổi
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script src="auth.js"></script>
+        <script src="../js/trash-manager.js"></script>
+        <script src="../js/trash-integration.js"></script>
+        <script src="notification-system.js"></script>
+        <script src="hanghoan.js"></script>
+    </body>
+</html>
