@@ -3233,6 +3233,9 @@ let currentChatCursor = null;
 let allChatMessages = [];
 let allChatComments = [];
 let isLoadingMoreMessages = false;
+let currentOrder = null;  // Lưu order hiện tại để gửi reply
+let currentConversationId = null;  // Lưu conversation ID cho reply
+let currentParentCommentId = null;  // Lưu parent comment ID
 
 async function openChatModal(orderId, channelId, psid, type = 'message') {
     if (!channelId || !psid) {
@@ -3248,6 +3251,9 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
     allChatMessages = [];
     allChatComments = [];
     isLoadingMoreMessages = false;
+    currentOrder = null;
+    currentConversationId = null;
+    currentParentCommentId = null;
 
     // Get order info
     const order = allData.find(o => o.Id === orderId);
@@ -3255,6 +3261,9 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
         alert('Không tìm thấy đơn hàng');
         return;
     }
+
+    // Lưu order hiện tại
+    currentOrder = order;
 
     // Update modal title based on type
     const titleText = type === 'comment' ? 'Bình luận' : 'Tin nhắn';
@@ -3273,17 +3282,45 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
             <p>${loadingText}</p>
         </div>`;
 
-    // Hide mark as read button for comments (not applicable)
+    // Show/hide reply container and mark as read button
+    const replyContainer = document.getElementById('chatReplyContainer');
     const markReadBtn = document.getElementById('chatMarkReadBtn');
-    markReadBtn.style.display = 'none';
+    if (type === 'comment') {
+        replyContainer.style.display = 'block';
+        markReadBtn.style.display = 'none';
+        // Clear previous input
+        document.getElementById('chatReplyInput').value = '';
+    } else {
+        replyContainer.style.display = 'none';
+        markReadBtn.style.display = 'none';
+    }
 
     // Fetch messages or comments based on type
     try {
         if (type === 'comment') {
+            // Lấy conversationId từ Pancake để dùng cho reply
+            if (window.pancakeDataManager) {
+                const pancakeCommentInfo = window.pancakeDataManager.getLastCommentForOrder(order);
+                if (pancakeCommentInfo.conversationId) {
+                    currentConversationId = pancakeCommentInfo.conversationId;
+                    console.log(`[CHAT] Got conversationId from Pancake: ${currentConversationId}`);
+                }
+            }
+
             // Fetch initial comments with pagination support
             const response = await window.chatDataManager.fetchComments(channelId, psid);
             allChatComments = response.comments || [];
             currentChatCursor = response.after; // Store cursor for next page
+
+            // Lấy parent comment ID từ comment đầu tiên (comment gốc)
+            if (allChatComments.length > 0) {
+                // Tìm comment gốc (parent comment) - thường là comment không có ParentId hoặc comment đầu tiên
+                const rootComment = allChatComments.find(c => !c.ParentId) || allChatComments[0];
+                if (rootComment && rootComment.Id) {
+                    currentParentCommentId = rootComment.Id;
+                    console.log(`[CHAT] Got parent comment ID: ${currentParentCommentId}`);
+                }
+            }
 
             console.log(`[CHAT] Initial load: ${allChatComments.length} comments, cursor: ${currentChatCursor}`);
 
@@ -3339,6 +3376,148 @@ function closeChatModal() {
     allChatMessages = [];
     allChatComments = [];
     isLoadingMoreMessages = false;
+    currentOrder = null;
+    currentConversationId = null;
+    currentParentCommentId = null;
+}
+
+/**
+ * Gửi reply comment theo Pancake API
+ * Flow: POST /conversations/{conversationId}/messages -> POST /sync_comments -> Refresh
+ */
+async function sendReplyComment() {
+    const messageInput = document.getElementById('chatReplyInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+    const message = messageInput.value.trim();
+
+    // Validate
+    if (!message) {
+        alert('Vui lòng nhập tin nhắn');
+        return;
+    }
+
+    if (!currentOrder || !currentConversationId || !currentParentCommentId || !currentChatChannelId) {
+        alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
+        console.error('[SEND-REPLY] Missing required info:', {
+            currentOrder: !!currentOrder,
+            currentConversationId: !!currentConversationId,
+            currentParentCommentId: !!currentParentCommentId,
+            currentChatChannelId: !!currentChatChannelId
+        });
+        return;
+    }
+
+    // Disable button và hiển thị loading
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+
+    try {
+        // Get Pancake token
+        const token = await window.pancakeTokenManager.getToken();
+        if (!token) {
+            throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
+        }
+
+        const pageId = currentChatChannelId;
+        const conversationId = currentConversationId;
+        const postId = currentOrder.Facebook_PostId; // Format: "pageId_postId"
+
+        console.log('[SEND-REPLY] Sending reply comment...', {
+            pageId,
+            conversationId,
+            postId,
+            parentCommentId: currentParentCommentId,
+            message
+        });
+
+        // Step 1: POST reply comment (fetch1.txt)
+        const replyUrl = window.API_CONFIG.buildUrl.pancake(
+            `pages/${pageId}/conversations/${conversationId}/messages`,
+            `access_token=${token}`
+        );
+
+        const replyBody = {
+            action: "reply_comment",
+            message_id: currentParentCommentId,
+            parent_id: currentParentCommentId,
+            user_selected_reply_to: null,
+            post_id: postId,
+            message: message,
+            send_by_platform: "web"
+        };
+
+        console.log('[SEND-REPLY] POST URL:', replyUrl);
+        console.log('[SEND-REPLY] Request body:', replyBody);
+
+        const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(replyBody)
+        });
+
+        if (!replyResponse.ok) {
+            const errorText = await replyResponse.text();
+            console.error('[SEND-REPLY] Reply failed:', errorText);
+            throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+        }
+
+        const replyData = await replyResponse.json();
+        console.log('[SEND-REPLY] Reply response:', replyData);
+
+        if (!replyData.success) {
+            throw new Error('Gửi tin nhắn thất bại: ' + (replyData.error || 'Unknown error'));
+        }
+
+        // Step 2: Sync comments (fetch3.txt)
+        console.log('[SEND-REPLY] Syncing comments...');
+        const syncUrl = window.API_CONFIG.buildUrl.pancake(
+            `pages/${pageId}/sync_comments`,
+            `access_token=${token}`
+        );
+
+        // Build multipart/form-data body
+        const formData = new FormData();
+        formData.append('post_id', postId);
+
+        const syncResponse = await API_CONFIG.smartFetch(syncUrl, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!syncResponse.ok) {
+            console.warn('[SEND-REPLY] Sync comments failed, but message was sent');
+        } else {
+            const syncData = await syncResponse.json();
+            console.log('[SEND-REPLY] Sync response:', syncData);
+        }
+
+        // Step 3: Refresh comments
+        console.log('[SEND-REPLY] Refreshing comments...');
+        const response = await window.chatDataManager.fetchComments(currentChatChannelId, currentChatPSID);
+        allChatComments = response.comments || [];
+        renderComments(allChatComments, true);
+
+        // Clear input
+        messageInput.value = '';
+
+        // Show success notification
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã gửi tin nhắn thành công!', 'success');
+        }
+
+        console.log('[SEND-REPLY] ✅ Reply sent successfully');
+
+    } catch (error) {
+        console.error('[SEND-REPLY] ❌ Error:', error);
+        alert('❌ Lỗi khi gửi tin nhắn: ' + error.message);
+    } finally {
+        // Re-enable button
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi';
+    }
 }
 
 function renderChatMessages(messages, scrollToBottom = false) {
