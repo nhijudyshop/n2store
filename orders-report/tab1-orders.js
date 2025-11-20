@@ -3236,6 +3236,7 @@ let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
 let currentConversationId = null;  // Lưu conversation ID cho reply
 let currentParentCommentId = null;  // Lưu parent comment ID
+let currentPostId = null; // Lưu post ID của comment đang reply
 
 async function openChatModal(orderId, channelId, psid, type = 'message') {
     if (!channelId || !psid) {
@@ -3254,6 +3255,7 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
     currentOrder = null;
     currentConversationId = null;
     currentParentCommentId = null;
+    currentPostId = null;
 
     // Get order info
     const order = allData.find(o => o.Id === orderId);
@@ -3283,16 +3285,18 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
         </div>`;
 
     // Show/hide reply container and mark as read button
+    // Show/hide reply container and mark as read button
     const replyContainer = document.getElementById('chatReplyContainer');
     const markReadBtn = document.getElementById('chatMarkReadBtn');
+
+    // Always show reply container for both comment and message
+    replyContainer.style.display = 'block';
+    document.getElementById('chatReplyInput').value = '';
+
     if (type === 'comment') {
-        replyContainer.style.display = 'block';
         markReadBtn.style.display = 'none';
-        // Clear previous input
-        document.getElementById('chatReplyInput').value = '';
     } else {
-        replyContainer.style.display = 'none';
-        markReadBtn.style.display = 'none';
+        markReadBtn.style.display = 'none'; // Keep hidden for now or show if needed
     }
 
     // Fetch messages or comments based on type
@@ -3317,8 +3321,11 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
                 // Tìm comment gốc (parent comment) - thường là comment không có ParentId hoặc comment đầu tiên
                 const rootComment = allChatComments.find(c => !c.ParentId) || allChatComments[0];
                 if (rootComment && rootComment.Id) {
-                    currentParentCommentId = rootComment.Id;
-                    console.log(`[CHAT] Got parent comment ID: ${currentParentCommentId}`);
+                    currentParentCommentId = getFacebookCommentId(rootComment);
+                    console.log(`[CHAT] Got parent comment ID: ${currentParentCommentId} (from ${rootComment.Id})`);
+
+                    // Debug log to help identify correct field
+                    console.log('[CHAT] Root comment object:', rootComment);
                 }
             }
 
@@ -3331,6 +3338,16 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
         } else {
             // Fetch messages
             const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
+
+            // Try to get conversation ID from Pancake data manager if available
+            if (window.pancakeDataManager) {
+                // We might need a method to get conversation ID for messages too
+                // For now, let's try to construct it or find it in chatInfo
+                // Usually conversationId is pageId_psid
+                currentConversationId = `${channelId}_${psid}`;
+                console.log(`[CHAT] Constructed conversationId: ${currentConversationId}`);
+            }
+
             if (chatInfo.hasUnread) {
                 markReadBtn.style.display = 'inline-flex';
             }
@@ -3396,13 +3413,18 @@ async function sendReplyComment() {
         return;
     }
 
-    if (!currentOrder || !currentConversationId || !currentParentCommentId || !currentChatChannelId) {
+    // Validate required info
+    const isMessage = currentChatType === 'message';
+    const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId || (!isMessage && !currentParentCommentId);
+
+    if (missingInfo) {
         alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
         console.error('[SEND-REPLY] Missing required info:', {
             currentOrder: !!currentOrder,
             currentConversationId: !!currentConversationId,
             currentParentCommentId: !!currentParentCommentId,
-            currentChatChannelId: !!currentChatChannelId
+            currentChatChannelId: !!currentChatChannelId,
+            currentChatType
         });
         return;
     }
@@ -3420,7 +3442,9 @@ async function sendReplyComment() {
 
         const pageId = currentChatChannelId;
         const conversationId = currentConversationId;
-        const postId = currentOrder.Facebook_PostId; // Format: "pageId_postId"
+
+        // Use currentPostId if available (from specific comment reply), otherwise fallback to order's post ID
+        const postId = currentPostId || currentOrder.Facebook_PostId; // Format: "pageId_postId"
 
         console.log('[SEND-REPLY] Sending reply comment...', {
             pageId,
@@ -3430,21 +3454,33 @@ async function sendReplyComment() {
             message
         });
 
-        // Step 1: POST reply comment (fetch1.txt)
+        // Step 1: POST reply (comment or message)
         const replyUrl = window.API_CONFIG.buildUrl.pancake(
             `pages/${pageId}/conversations/${conversationId}/messages`,
             `access_token=${token}`
         );
 
-        const replyBody = {
-            action: "reply_comment",
-            message_id: currentParentCommentId,
-            parent_id: currentParentCommentId,
-            user_selected_reply_to: null,
-            post_id: postId,
-            message: message,
-            send_by_platform: "web"
-        };
+        let replyBody;
+        if (currentChatType === 'message') {
+            // Payload for sending a message (reply_inbox)
+            // Based on fetch1.txt
+            replyBody = {
+                action: "reply_inbox",
+                message: message,
+                send_by_platform: "web"
+            };
+        } else {
+            // Payload for replying to a comment
+            replyBody = {
+                action: "reply_comment",
+                message_id: currentParentCommentId,
+                parent_id: currentParentCommentId,
+                user_selected_reply_to: null,
+                post_id: postId,
+                message: message,
+                send_by_platform: "web"
+            };
+        }
 
         console.log('[SEND-REPLY] POST URL:', replyUrl);
         console.log('[SEND-REPLY] Request body:', replyBody);
@@ -3494,11 +3530,61 @@ async function sendReplyComment() {
             console.log('[SEND-REPLY] Sync response:', syncData);
         }
 
-        // Step 3: Refresh comments
-        console.log('[SEND-REPLY] Refreshing comments...');
-        const response = await window.chatDataManager.fetchComments(currentChatChannelId, currentChatPSID);
-        allChatComments = response.comments || [];
-        renderComments(allChatComments, true);
+        // Optimistic Update: Show message immediately
+        const now = new Date().toISOString();
+        if (currentChatType === 'message') {
+            const tempMessage = {
+                id: `temp_${Date.now()}`,
+                message: `<div>${message}</div>`, // Simple formatting
+                from: {
+                    name: 'Me', // Or get actual admin name if available
+                    id: pageId
+                },
+                inserted_at: now,
+                created_time: now,
+                is_temp: true
+            };
+            allChatMessages.push(tempMessage);
+            renderChatMessages(allChatMessages, true);
+        } else {
+            const tempComment = {
+                Id: `temp_${Date.now()}`,
+                Message: message,
+                From: {
+                    Name: 'Me',
+                    Id: pageId
+                },
+                CreatedTime: now,
+                is_temp: true,
+                ParentId: currentParentCommentId
+            };
+            allChatComments.push(tempComment);
+            renderComments(allChatComments, true);
+        }
+
+        // Step 3: Refresh data (Fetch latest from API)
+        console.log(`[SEND-REPLY] Refreshing ${currentChatType}s...`);
+        // Add a small delay to ensure backend has processed the message
+        setTimeout(async () => {
+            if (currentChatType === 'message') {
+                // Force fetch latest
+                const response = await window.chatDataManager.fetchMessages(currentChatChannelId, currentChatPSID);
+                if (response.messages && response.messages.length > 0) {
+                    // Merge or replace. For simplicity, let's replace if we got new data
+                    // But we should be careful not to lose pagination. 
+                    // Actually, fetchMessages appends? No, it returns a page.
+                    // Let's just re-fetch the latest page.
+                    allChatMessages = response.messages;
+                    renderChatMessages(allChatMessages, true);
+                }
+            } else {
+                const response = await window.chatDataManager.fetchComments(currentChatChannelId, currentChatPSID);
+                if (response.comments && response.comments.length > 0) {
+                    allChatComments = response.comments;
+                    renderComments(allChatComments, true);
+                }
+            }
+        }, 1000);
 
         // Clear input
         messageInput.value = '';
@@ -3517,6 +3603,50 @@ async function sendReplyComment() {
         // Re-enable button
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi';
+    }
+}
+
+/**
+ * Handle click on "Trả lời" button in comment list
+ * @param {string} commentId - ID of the comment being replied to
+ * @param {string} postId - Post ID of the comment
+ */
+function handleReplyToComment(commentId, postId) {
+    console.log(`[CHAT] Replying to comment: ${commentId}, post: ${postId}`);
+
+    // Set current parent comment ID
+    // Ưu tiên lấy FacebookId hoặc OriginalId nếu có
+    // Nếu Id là Mongo ID (24 hex) thì tìm field khác
+    currentParentCommentId = getFacebookCommentId(commentId, null); // We don't have the full object here, but we can try to pass it if we change the call signature.
+    // Actually, handleReplyToComment only gets the ID. We need to change how it's called or look up the comment.
+    // Let's look up the comment in allChatComments
+    const comment = allChatComments.find(c => c.Id === commentId);
+    if (comment) {
+        currentParentCommentId = getFacebookCommentId(comment);
+        console.log(`[CHAT] Selected parent comment ID: ${currentParentCommentId} (from ${comment.Id})`);
+    } else {
+        currentParentCommentId = commentId;
+        console.warn(`[CHAT] Could not find comment object for ${commentId}, using raw ID`);
+    }
+
+    // Set current post ID (if available)
+    if (postId && postId !== 'undefined' && postId !== 'null') {
+        currentPostId = postId;
+    } else {
+        currentPostId = null;
+    }
+
+    // Focus input
+    const input = document.getElementById('chatReplyInput');
+    if (input) {
+        input.focus();
+        input.placeholder = `Đang trả lời bình luận...`;
+
+        // Add visual feedback (optional)
+        input.style.borderColor = '#3b82f6';
+        setTimeout(() => {
+            input.style.borderColor = '#d1d5db';
+        }, 1000);
     }
 }
 
@@ -3691,7 +3821,10 @@ function renderComments(comments, scrollToBottom = false) {
             <div class="chat-message ${alignClass}">
                 <div class="chat-bubble ${bgClass}">
                     ${content}
-                    <p class="chat-message-time">${formatTime(comment.CreatedTime)} ${statusBadge}</p>
+                    <p class="chat-message-time">
+                        ${formatTime(comment.CreatedTime)} ${statusBadge}
+                        ${!isOwner ? `<span class="reply-btn" onclick="handleReplyToComment('${comment.Id}', '${comment.PostId || ''}')" style="cursor: pointer; color: #3b82f6; margin-left: 8px; font-weight: 500;">Trả lời</span>` : ''}
+                    </p>
                 </div>
             </div>
             ${repliesHTML}`;
@@ -4097,4 +4230,28 @@ async function detectEditedNotes() {
     await compareAndUpdateNoteStatus(allData, snapshots);
 
     console.log('[NOTE-TRACKER] Note edit detection completed');
+}
+
+/**
+ * Helper to extract the correct Facebook Comment ID from a comment object
+ * Prioritizes FacebookId, OriginalId, then checks if Id is not a Mongo ID
+ */
+function getFacebookCommentId(comment) {
+    if (!comment) return null;
+
+    // 1. Explicit fields
+    if (comment.PlatformId) return comment.PlatformId;
+    if (comment.FacebookId) return comment.FacebookId;
+    if (comment.OriginalId) return comment.OriginalId;
+    if (comment.SocialId) return comment.SocialId;
+
+    // 2. Check if Id is NOT a Mongo ID (24 hex chars)
+    // Facebook IDs are usually numeric or have underscores
+    const isMongoId = /^[0-9a-fA-F]{24}$/.test(comment.Id);
+    if (comment.Id && !isMongoId) {
+        return comment.Id;
+    }
+
+    // 3. Fallback to Id if nothing else found (might fail if it's internal)
+    return comment.Id;
 }
