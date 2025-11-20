@@ -264,11 +264,13 @@
         </div>
 
         <!-- Scripts -->
+        <!-- ONLY load minimal scripts for main.html -->
+        <!-- Auth check only - business logic handled by tabs -->
         <script src="auth.js"></script>
-        <script src="cache.js"></script>
-        <script src="notification-system.js"></script>
-        <script src="token-manager.js"></script>
-        <!-- Version checker is now in navigation-modern.js -->
+
+        <!-- Main.html only needs auth and tab navigation -->
+        <!-- DO NOT load: token-manager, cache, notification-system, pancake, chat managers -->
+        <!-- These are loaded in individual tabs to avoid duplicates -->
 
         <script>
             // Initialize Lucide icons
