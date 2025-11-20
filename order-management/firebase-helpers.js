@@ -145,12 +145,10 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
 
     // Update local first (optimistic update)
     product.soldQty = newSoldQty;
-    product.remainingQty = product.QtyAvailable - newSoldQty;
 
-    // Sync to Firebase (just the fields that changed)
+    // Sync to Firebase (just soldQty, remainingQty is now independent)
     await database.ref(`orderProducts/${productKey}`).update({
-        soldQty: newSoldQty,
-        remainingQty: product.remainingQty
+        soldQty: newSoldQty
     });
 }
 
