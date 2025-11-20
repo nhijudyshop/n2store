@@ -115,6 +115,14 @@ window.addEventListener("DOMContentLoaded", async function () {
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
+    // Initialize Realtime Manager
+    if (window.RealtimeManager) {
+        console.log('[REALTIME] Initializing RealtimeManager...');
+        window.realtimeManager = new RealtimeManager();
+        window.realtimeManager.initialize();
+    } else {
+        console.warn('[REALTIME] ⚠️ RealtimeManager class not found');
+    }
 
     // Scroll to top button
     const scrollBtn = document.getElementById("scrollToTopBtn");
