@@ -103,6 +103,14 @@ const MENU_CONFIG = [
         permissionRequired: "order-management",
     },
     {
+        href: "../soluong-live/index.html",
+        icon: "bar-chart",
+        text: "Quản Lý Số Lượng",
+        shortText: "Số Lượng",
+        pageIdentifier: "soluong-live",
+        permissionRequired: "soluong-live",
+    },
+    {
         href: "../hangdat/index.html",
         icon: "bookmark",
         text: "Hàng Đặt",
