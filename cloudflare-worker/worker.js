@@ -160,6 +160,9 @@ export default {
         // Pancake API
         const apiPath = pathname.replace(/^\/api\/pancake\//, '');
         targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
+      } else if (pathname === '/api/realtime/start') {
+        // Realtime Server (Render)
+        targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all)
         const apiPath = pathname.replace(/^\/api\//, '');

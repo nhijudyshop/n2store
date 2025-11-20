@@ -15,16 +15,12 @@ const PORT = process.env.PORT || 3000;
 // =====================================================
 
 // CORS - Allow requests from GitHub Pages
+// CORS - Allow all origins for testing
 app.use(cors({
-    origin: [
-        'https://nhijudyshop.github.io',
-        'http://localhost:5500',
-        'http://localhost:3000',
-        'http://127.0.0.1:5500'
-    ],
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    credentials: false // credentials cannot be true when origin is *
 }));
 
 // Body parsing
@@ -62,65 +58,9 @@ app.use('/api/token', tokenRoutes);
 app.use('/api/odata', odataRoutes);
 app.use('/api/api-ms/chatomni', chatomniRoutes);
 app.use('/api/pancake', pancakeRoutes);
-
-// Root route
-app.get('/', (req, res) => {
-    res.json({
-        name: 'N2Store API Fallback Server',
-        version: '1.0.0',
-        endpoints: [
-            'POST /api/token',
-            'POST /api/realtime/start',
-            'GET /api/odata/*',
-            'GET /api/api-ms/chatomni/*',
-            'GET /api/pancake/*',
-            'GET /health'
-        ]
-    });
-});
-
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({
-        error: 'Not Found',
-        path: req.url
-    });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-    console.error('[ERROR]', err);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: err.message
-    });
-});
-
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
-const WebSocket = require('ws');
-const http = require('http');
-
-// Create HTTP server from Express app
-const server = http.createServer(app);
-
-// Create WebSocket Server for Frontend Clients
-const wss = new WebSocket.Server({ server });
-
-wss.on('connection', (ws) => {
-    console.log('[WSS] Client connected');
-    ws.on('close', () => console.log('[WSS] Client disconnected'));
-});
-
-// Broadcast function
-const broadcastToClients = (data) => {
-    wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data));
-        }
-    });
-};
 
 class RealtimeClient {
     constructor() {
@@ -292,6 +232,86 @@ app.post('/api/realtime/start', (req, res) => {
     realtimeClient.start(token, userId, pageIds, cookie);
     res.json({ success: true, message: 'Realtime client started on server' });
 });
+
+// Root route
+app.get('/', (req, res) => {
+    res.json({
+        name: 'N2Store API Fallback Server',
+        version: '1.0.0',
+        endpoints: [
+            'POST /api/token',
+            'POST /api/realtime/start',
+            'GET /api/odata/*',
+            'GET /api/api-ms/chatomni/*',
+            'GET /api/pancake/*',
+            'GET /health'
+        ]
+    });
+});
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Not Found',
+        path: req.url
+    });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+    console.error('[ERROR]', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message
+    });
+});
+
+// =====================================================
+// WEBSOCKET SERVER & CLIENT (REALTIME)
+// =====================================================
+const WebSocket = require('ws');
+const http = require('http');
+
+// Create HTTP server from Express app
+const server = http.createServer(app);
+
+// Create WebSocket Server for Frontend Clients
+const wss = new WebSocket.Server({ server });
+
+// Broadcast function
+const broadcastToClients = (data) => {
+    wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(data));
+        }
+    });
+};
+
+// Heartbeat for Frontend Clients (Keep-Alive)
+const interval = setInterval(function ping() {
+    wss.clients.forEach(function each(ws) {
+        // if (ws.isAlive === false) return ws.terminate(); // Disable for stability
+
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+wss.on('connection', (ws) => {
+    console.log('[WSS] Client connected');
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
+
+    ws.on('close', () => console.log('[WSS] Client disconnected'));
+
+    ws.on('error', (err) => console.error('[WSS] Client error:', err));
+});
+
+wss.on('close', function close() {
+    clearInterval(interval);
+});
+
+
 
 // =====================================================
 // START SERVER

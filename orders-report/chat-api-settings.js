@@ -26,7 +26,7 @@ class ChatAPISettings {
      * @param {string} mode 'browser' or 'server'
      */
     setRealtimeMode(mode) {
-        if (mode !== 'browser' && mode !== 'server') return;
+        if (mode !== 'browser' && mode !== 'server' && mode !== 'localhost') return;
         localStorage.setItem(this.REALTIME_MODE_KEY, mode);
         console.log(`[CHAT-SETTINGS] Realtime mode set to: ${mode}`);
 

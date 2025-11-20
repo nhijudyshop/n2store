@@ -25,15 +25,15 @@ class RealtimeManager {
             const source = e.detail.source;
             const mode = e.detail.realtimeMode || 'browser';
 
+            // Always disconnect existing connections first to prevent duplicates
+            this.disconnect();
+
             if (isRealtime && source === 'pancake') {
                 if (mode === 'browser') {
                     this.connect();
                 } else {
-                    this.disconnect(); // Disconnect browser WS if switching to server mode
-                    this.connectServerMode(); // Placeholder for server mode logic
+                    this.connectServerMode();
                 }
-            } else {
-                this.disconnect();
             }
         });
 
@@ -48,6 +48,27 @@ class RealtimeManager {
             } else {
                 this.connectServerMode();
             }
+        }
+    }
+
+    /**
+     * Manual Connect Trigger
+     */
+    async manualConnect() {
+        const mode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'browser';
+        console.log(`[REALTIME] Manual connect triggered for mode: ${mode}`);
+
+        if (window.notificationManager) {
+            window.notificationManager.show('🔄 Đang kết nối lại...', 'info');
+        }
+
+        if (mode === 'browser') {
+            this.disconnect();
+            await this.connect();
+        } else {
+            // Server modes
+            this.disconnect();
+            await this.connectServerMode();
         }
     }
 
@@ -84,8 +105,16 @@ class RealtimeManager {
         const cookie = `jwt=${token}`;
 
         // Call Render Server API
-        // Assuming the server is running at the configured endpoint or fallback
-        const serverBaseUrl = 'https://n2store-fallback.onrender.com';
+        // Determine URL based on mode
+        // Default to Cloudflare Worker to avoid CORS
+        let serverBaseUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        // Check if localhost mode is selected
+        const mode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'server';
+        if (mode === 'localhost') {
+            serverBaseUrl = 'http://localhost:3000';
+        }
+
         const serverUrl = `${serverBaseUrl}/api/realtime/start`;
 
         try {
@@ -111,7 +140,13 @@ class RealtimeManager {
                 }
 
                 // Connect to Proxy WebSocket to receive updates
-                const wsUrl = serverBaseUrl.replace('https', 'wss').replace('http', 'ws');
+                // If using Cloudflare, we still need to connect WS to Render directly or via a WS-compatible proxy
+                // Cloudflare Workers don't easily proxy WebSockets without specific setup.
+                // For now, let's connect WS directly to Render (since WS doesn't have same CORS issues as fetch)
+                const wsUrl = mode === 'localhost'
+                    ? 'ws://localhost:3000'
+                    : 'wss://n2store-fallback.onrender.com';
+
                 this.connectToProxyServer(wsUrl);
 
             } else {
@@ -147,7 +182,19 @@ class RealtimeManager {
         this.proxyWs.onclose = () => {
             console.log('[REALTIME] Disconnected from Proxy Server');
             this.isConnected = false;
-            // Auto reconnect logic could go here
+
+            // Auto reconnect logic
+            if (window.chatAPISettings &&
+                window.chatAPISettings.isRealtimeEnabled() &&
+                window.chatAPISettings.getRealtimeMode() !== 'browser') {
+
+                console.log('[REALTIME] Reconnecting to Server Mode in 3s...');
+                setTimeout(() => {
+                    // Call connectServerMode instead of just connectToProxyServer
+                    // This ensures we re-send the POST /start command in case the server restarted
+                    this.connectServerMode();
+                }, 3000);
+            }
         };
 
         this.proxyWs.onmessage = (event) => {
@@ -287,8 +334,8 @@ class RealtimeManager {
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 const ref = this.makeRef();
-                // Phoenix heartbeat: ["ref", "ref", "phoenix", "heartbeat", {}]
-                this.ws.send(JSON.stringify([ref, ref, "phoenix", "heartbeat", {}]));
+                // Phoenix heartbeat: [null, ref, "phoenix", "heartbeat", {}]
+                this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
             }
         }, 30000); // 30s
     }
@@ -335,12 +382,21 @@ class RealtimeManager {
                 accessToken: this.token,
                 userId: this.userId,
                 clientSession: this.generateClientSession(),
-                pageIds: this.pageIds,
+                pageIds: this.pageIds.map(id => String(id)), // Ensure strings
                 platform: "web"
             }
         ];
         this.ws.send(JSON.stringify(pagesJoinMsg));
         console.log('[REALTIME] Joining multiple_pages channel...');
+
+        // 3. Get Online Status (Mimic browser)
+        setTimeout(() => {
+            const statusRef = this.makeRef();
+            const statusMsg = [
+                pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
+            ];
+            this.ws.send(JSON.stringify(statusMsg));
+        }, 1000);
     }
 
     /**

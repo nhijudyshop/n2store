@@ -100,7 +100,13 @@
                         style="padding: 2px 6px; border-radius: 4px; border: 1px solid #d1d5db; font-size: 12px; background: white; cursor: pointer;">
                         <option value="browser">Browser (Direct)</option>
                         <option value="server">Server (24/7)</option>
+                        <option value="localhost">Server (Localhost)</option>
                     </select>
+                    <button onclick="window.realtimeManager.manualConnect()"
+                        style="margin-left: 6px; padding: 2px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 12px; color: #4b5563;"
+                        title="Kết nối lại thủ công">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                 </div>
             </div>
         </div>
