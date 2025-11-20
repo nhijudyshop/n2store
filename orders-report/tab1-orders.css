@@ -3120,3 +3120,20 @@ td[data-column].hidden {
     margin-left: 4px;
     font-size: 12px;
 }
+
+/* Highlight animation for realtime updates */
+.product-row-highlight {
+    animation: highlightRow 2s ease-out;
+}
+
+@keyframes highlightRow {
+    0% {
+        background-color: #dbeafe; /* Light blue */
+    }
+    50% {
+        background-color: #eff6ff;
+    }
+    100% {
+        background-color: transparent;
+    }
+}

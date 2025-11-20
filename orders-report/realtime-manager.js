@@ -13,6 +13,7 @@ class RealtimeManager {
         this.userId = null;
         this.token = null;
         this.pageIds = [];
+        this.isConnecting = false;
     }
 
     /**
@@ -76,7 +77,13 @@ class RealtimeManager {
      * Connect via Server Mode
      */
     async connectServerMode() {
+        if (this.isConnected || this.isConnecting) {
+            console.log('[REALTIME] Already connected or connecting to Server Mode.');
+            return;
+        }
+
         console.log('[REALTIME] Server Mode Active. Requesting backend to start WebSocket...');
+        this.isConnecting = true;
 
         // Get dependencies
         if (!window.pancakeTokenManager || !window.pancakeDataManager) {
@@ -160,6 +167,8 @@ class RealtimeManager {
             if (window.notificationManager) {
                 window.notificationManager.show('❌ Không thể kết nối tới Server', 'error');
             }
+        } finally {
+            this.isConnecting = false;
         }
     }
 

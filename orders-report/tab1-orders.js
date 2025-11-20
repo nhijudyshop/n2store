@@ -4338,4 +4338,60 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
             setTimeout(() => row.classList.remove('product-row-highlight'), 2000);
         }
     });
+
+    // 🔄 REALTIME CHAT MODAL UPDATE
+    const chatModal = document.getElementById('chatModal');
+    const isChatModalOpen = chatModal && chatModal.style.display !== 'none';
+
+    if (isChatModalOpen) {
+        // Check if current chat matches the incoming update
+        // We need to match PSID and PageID (channelId)
+        // currentChatPSID and currentChatChannelId are global variables set when opening modal
+
+        // Normalize IDs for comparison (handle string/number differences)
+        const isMatchingPsid = String(currentChatPSID) === String(psid);
+        const isMatchingChannel = String(currentChatChannelId) === String(pageId);
+
+        // Also check if the type matches (INBOX vs COMMENT)
+        // currentChatType is 'message' or 'comment'
+        // incoming type is 'INBOX' or 'COMMENT'
+        const incomingType = type === 'INBOX' ? 'message' : 'comment';
+        const isMatchingType = currentChatType === incomingType;
+
+        if (isMatchingPsid && isMatchingChannel && isMatchingType) {
+            console.log('[CHAT MODAL] Realtime update matches open chat. Fetching new message...');
+
+            // Fetch latest messages to get the full message object
+            // We use the existing fetchMessages function which handles API calls
+            window.chatDataManager.fetchMessages(pageId, psid).then(response => {
+                if (response && response.messages && response.messages.length > 0) {
+                    const newestMessage = response.messages[0];
+
+                    // Check if we already have this message to avoid duplicates
+                    const exists = allChatMessages.some(m => m.Id === newestMessage.Id);
+
+                    if (!exists) {
+                        console.log('[CHAT MODAL] Appending new message:', newestMessage);
+
+                        // Add to beginning of array (since renderChatMessages reverses it)
+                        // Wait, renderChatMessages reverses the array passed to it.
+                        // allChatMessages usually stores newest first (index 0).
+                        // So we unshift it to the front.
+                        allChatMessages.unshift(newestMessage);
+
+                        // Re-render the chat
+                        // Pass true to scrollToBottom
+                        renderChatMessages(allChatMessages, true);
+
+                        // Mark as read if needed (optional, but good UX)
+                        // markAsRead(pageId, psid); 
+                    } else {
+                        console.log('[CHAT MODAL] Message already exists in view.');
+                    }
+                }
+            }).catch(err => {
+                console.error('[CHAT MODAL] Error fetching new message:', err);
+            });
+        }
+    }
 });
