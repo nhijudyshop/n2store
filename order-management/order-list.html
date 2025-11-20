@@ -362,8 +362,8 @@
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1;
-            flex-shrink: 1;
-            min-width: 0;
+            flex-shrink: 0;
+            min-width: 50px;
         }
 
         .grid-stat-remaining .remaining-qty-item-value {
@@ -512,6 +512,8 @@
             outline: none;
             transition: all 0.3s;
             cursor: pointer;
+            width: 100%;
+            max-width: 60px;
         }
 
         input.remaining-qty-item-value:hover {
