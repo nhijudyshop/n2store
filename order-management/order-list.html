@@ -296,6 +296,7 @@
 
         .grid-stat-remaining {
             background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
+            flex: 1.5;
         }
 
         /* For ĐÃ ĐẶT column when not merged - larger than other columns */
@@ -512,8 +513,8 @@
             outline: none;
             transition: all 0.3s;
             cursor: pointer;
-            width: 100%;
-            max-width: 60px;
+            width: 50px;
+            flex-shrink: 0;
         }
 
         input.remaining-qty-item-value:hover {
