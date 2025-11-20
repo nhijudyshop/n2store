@@ -513,6 +513,7 @@
             bottom: 0;
             width: 80px;
             z-index: 999;
+            pointer-events: none;
         }
 
         .nav-hover-area.left {
@@ -1923,25 +1924,33 @@
             }
         }
 
-        const hoverAreas = document.querySelectorAll('.nav-hover-area');
         const btnPrev = document.getElementById('btnPrev');
         const btnNext = document.getElementById('btnNext');
 
-        hoverAreas.forEach(area => {
-            area.addEventListener('mouseenter', () => {
-                if (area.classList.contains('left') && !btnPrev.disabled) {
-                    btnPrev.classList.add('active');
-                } else if (area.classList.contains('right') && !btnNext.disabled) {
-                    btnNext.classList.add('active');
-                }
-            });
+        // Use mouse position tracking instead of hover areas to avoid blocking input clicks
+        let mouseX = 0;
+        const edgeThreshold = 80; // Distance from edge to show buttons
 
-            area.addEventListener('mouseleave', () => {
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            const windowWidth = window.innerWidth;
+
+            // Check if mouse is near left edge
+            if (mouseX < edgeThreshold && !btnPrev.disabled) {
+                btnPrev.classList.add('active');
+            } else {
                 btnPrev.classList.remove('active');
+            }
+
+            // Check if mouse is near right edge
+            if (mouseX > windowWidth - edgeThreshold && !btnNext.disabled) {
+                btnNext.classList.add('active');
+            } else {
                 btnNext.classList.remove('active');
-            });
+            }
         });
 
+        // Keep buttons visible when hovering over them
         [btnPrev, btnNext].forEach(btn => {
             btn.addEventListener('mouseenter', () => {
                 if (!btn.disabled) {
@@ -1950,7 +1959,13 @@
             });
 
             btn.addEventListener('mouseleave', () => {
-                btn.classList.remove('active');
+                // Recheck mouse position after leaving button
+                const windowWidth = window.innerWidth;
+                if (btn === btnPrev && mouseX >= edgeThreshold) {
+                    btn.classList.remove('active');
+                } else if (btn === btnNext && mouseX <= windowWidth - edgeThreshold) {
+                    btn.classList.remove('active');
+                }
             });
         });
 
