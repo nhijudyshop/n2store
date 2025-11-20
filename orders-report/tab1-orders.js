@@ -4255,3 +4255,172 @@ function getFacebookCommentId(comment) {
     // 3. Fallback to Id if nothing else found (might fail if it's internal)
     return comment.Id;
 }
+// =====================================================
+// REALTIME UI UPDATES
+// =====================================================
+window.addEventListener('realtimeConversationUpdate', function (e) {
+    const conversation = e.detail;
+    if (!conversation) return;
+
+    console.log('[REALTIME-UI] Received update for conversation:', conversation.id, conversation.type);
+
+    // 1. Determine User ID (PSID)
+    let userId = null;
+    if (conversation.customers && conversation.customers.length > 0) {
+        userId = conversation.customers[0].fb_id;
+    } else if (conversation.from_psid) {
+        userId = conversation.from_psid;
+    }
+
+    if (!userId) {
+        console.warn('[REALTIME-UI] Could not determine User ID from conversation update');
+        return;
+    }
+
+    // 2. Update Pancake Data Manager Cache
+    if (window.pancakeDataManager) {
+        const type = conversation.type; // "INBOX" or "COMMENT"
+        if (type === 'INBOX') {
+            window.pancakeDataManager.inboxMapByPSID.set(userId, conversation);
+        } else if (type === 'COMMENT') {
+            window.pancakeDataManager.commentMapByPSID.set(userId, conversation);
+        }
+    }
+
+    // 3. Update Orders Table
+    const ordersToUpdate = allData.filter(o => o.Facebook_ASUserId === userId);
+    if (ordersToUpdate.length > 0) {
+        console.log(`[REALTIME-UI] Updating ${ordersToUpdate.length} orders for user ${userId}`);
+
+        ordersToUpdate.forEach(order => {
+            const row = document.querySelector(`tr[data-order-id="${order.Id}"]`);
+            if (row) {
+                const type = conversation.type;
+
+                // Update "Messages" Column (if INBOX)
+                if (type === 'INBOX') {
+                    const messageCell = row.querySelector('td[data-column="messages"]');
+                    if (messageCell) {
+                        const msgInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
+                        const lastMsg = window.pancakeDataManager.getLastMessageForOrder(order);
+
+                        let html = '';
+                        if (lastMsg.message) {
+                            const isUnread = msgInfo.hasUnread;
+                            const unreadClass = isUnread ? "unread-message" : "";
+                            const unreadBadge = isUnread ? `<span class="unread-badge">${msgInfo.unreadCount}</span>` : "";
+
+                            let content = lastMsg.message;
+                            if (lastMsg.messageType === 'attachment') {
+                                content = '<i class="fas fa-image"></i> [Hình ảnh]';
+                            }
+                            if (content.length > 50) content = content.substring(0, 50) + '...';
+
+                            html = `
+                                <div class="message-cell ${unreadClass}" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}')">
+                                    <div class="message-content">
+                                        ${unreadBadge}
+                                        <span class="message-text">${content}</span>
+                                    </div>
+                                    <div class="message-time">Vừa xong</div>
+                                </div>
+                            `;
+                        } else {
+                            html = `
+                                <button class="btn-chat" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}')">
+                                    <i class="fab fa-facebook-messenger"></i> Chat
+                                </button>
+                            `;
+                        }
+                        messageCell.innerHTML = html;
+                    }
+                }
+
+                // Update "Comments" Column (if COMMENT)
+                if (type === 'COMMENT') {
+                    const commentCell = row.querySelector('td[data-column="comments"]');
+                    if (commentCell) {
+                        const commentInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
+                        const lastComment = window.pancakeDataManager.getLastCommentForOrder(order);
+
+                        let html = '';
+                        if (lastComment.message) {
+                            const isUnread = commentInfo.hasUnread;
+                            const unreadClass = isUnread ? "unread-message" : "";
+                            const unreadBadge = isUnread ? `<span class="unread-badge">${commentInfo.unreadCount}</span>` : "";
+
+                            let content = lastComment.message;
+                            if (lastComment.messageType === 'attachment') {
+                                content = '<i class="fas fa-image"></i> [Hình ảnh]';
+                            }
+                            if (content.length > 50) content = content.substring(0, 50) + '...';
+
+                            html = `
+                                <div class="message-cell ${unreadClass}" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}', 'comment')">
+                                    <div class="message-content">
+                                        ${unreadBadge}
+                                        <span class="message-text">${content}</span>
+                                    </div>
+                                    <div class="message-time">Vừa xong</div>
+                                </div>
+                            `;
+                        } else {
+                            html = '<span style="color: #9ca3af; font-style: italic;">Không có bình luận</span>';
+                        }
+                        commentCell.innerHTML = html;
+                    }
+                }
+
+                // Flash row
+                row.style.backgroundColor = '#f0f9ff';
+                setTimeout(() => { row.style.backgroundColor = ''; }, 1000);
+            }
+        });
+    }
+
+    // 4. Update Chat Modal (if open)
+    const chatModal = document.getElementById('chatModal');
+    if (chatModal && chatModal.style.display !== 'none') {
+        // Check if we are viewing this user
+        // We need to store currentChatUserId globally when opening modal
+        if (window.currentChatUserId === userId) {
+            console.log('[REALTIME-UI] Updating open chat modal');
+
+            // Determine if we should append based on current tab (messages vs comments)
+            // If conversation.type matches the current view mode, append
+            // Note: openChatModal sets window.currentChatType ('message' or 'comment')
+
+            const currentType = window.currentChatType || 'message';
+            const incomingType = conversation.type === 'INBOX' ? 'message' : 'comment';
+
+            if (currentType === incomingType) {
+                // Append the new message/comment to the chat body
+                const chatBody = document.getElementById('chatModalBody');
+                if (chatBody) {
+                    const msg = conversation.snippet;
+                    const isSelf = false; // Incoming message is from customer
+
+                    // Determine content type
+                    let contentHtml = msg;
+                    if (conversation.attachments && conversation.attachments.length > 0) {
+                        // Handle attachments (simplified)
+                        contentHtml = `<i>[Đã gửi ${conversation.attachments.length} tệp đính kèm]</i><br>${msg}`;
+                    }
+
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = `chat-message ${isSelf ? 'sent' : 'received'}`;
+                    msgDiv.innerHTML = `
+                        <div class="message-bubble">
+                            ${contentHtml}
+                        </div>
+                        <div class="message-time">Vừa xong</div>
+                    `;
+                    chatBody.appendChild(msgDiv);
+
+                    // Scroll to bottom
+                    chatBody.scrollTop = chatBody.scrollHeight;
+                }
+            }
+        }
+    }
+});

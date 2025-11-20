@@ -96,6 +96,151 @@ app.use((err, req, res, next) => {
 });
 
 // =====================================================
+// WEBSOCKET CLIENT (REALTIME)
+// =====================================================
+const WebSocket = require('ws');
+
+class RealtimeClient {
+    constructor() {
+        this.ws = null;
+        this.url = "wss://pancake.vn/socket/websocket?vsn=2.0.0";
+        this.isConnected = false;
+        this.refCounter = 1;
+        this.heartbeatInterval = null;
+        this.reconnectTimer = null;
+
+        // User specific data (Hardcoded for now based on logs/request, 
+        // in production this should be dynamic per user)
+        this.token = null;
+        this.userId = null;
+        this.pageIds = [];
+    }
+
+    makeRef() {
+        return String(this.refCounter++);
+    }
+
+    generateClientSession() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    start(token, userId, pageIds) {
+        this.token = token;
+        this.userId = userId;
+        this.pageIds = pageIds;
+        this.connect();
+    }
+
+    connect() {
+        if (this.isConnected || !this.token) return;
+
+        console.log('[SERVER-WS] Connecting to Pancake...');
+        this.ws = new WebSocket(this.url);
+
+        this.ws.on('open', () => {
+            console.log('[SERVER-WS] Connected');
+            this.isConnected = true;
+            this.startHeartbeat();
+            this.joinChannels();
+        });
+
+        this.ws.on('close', (code, reason) => {
+            console.log('[SERVER-WS] Closed', code, reason);
+            this.isConnected = false;
+            this.stopHeartbeat();
+
+            // Reconnect
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+        });
+
+        this.ws.on('error', (err) => {
+            console.error('[SERVER-WS] Error:', err.message);
+        });
+
+        this.ws.on('message', (data) => {
+            try {
+                const msg = JSON.parse(data);
+                this.handleMessage(msg);
+            } catch (e) {
+                console.error('[SERVER-WS] Parse error:', e);
+            }
+        });
+    }
+
+    startHeartbeat() {
+        this.stopHeartbeat();
+        this.heartbeatInterval = setInterval(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                const ref = this.makeRef();
+                this.ws.send(JSON.stringify([ref, ref, "phoenix", "heartbeat", {}]));
+            }
+        }, 30000);
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
+    joinChannels() {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+        // 1. Join User Channel
+        const userRef = this.makeRef();
+        const userJoinMsg = [
+            userRef, userRef, `users:${this.userId}`, "phx_join",
+            { accessToken: this.token, userId: this.userId, platform: "web" }
+        ];
+        this.ws.send(JSON.stringify(userJoinMsg));
+
+        // 2. Join Multiple Pages Channel
+        const pagesRef = this.makeRef();
+        const pagesJoinMsg = [
+            pagesRef, pagesRef, `multiple_pages:${this.userId}`, "phx_join",
+            {
+                accessToken: this.token,
+                userId: this.userId,
+                clientSession: this.generateClientSession(),
+                pageIds: this.pageIds,
+                platform: "web"
+            }
+        ];
+        this.ws.send(JSON.stringify(pagesJoinMsg));
+    }
+
+    handleMessage(msg) {
+        const [joinRef, ref, topic, event, payload] = msg;
+
+        if (event === 'pages:update_conversation') {
+            console.log('[SERVER-WS] New Message/Comment:', payload.conversation.id);
+            // TODO: Save to DB or Push to Client
+            // For now, we just log it. In a real app, you would use Socket.IO 
+            // or similar to push this down to the connected browser client.
+        }
+    }
+}
+
+// Initialize Global Client
+const realtimeClient = new RealtimeClient();
+
+// API to start the client from the browser
+app.post('/api/realtime/start', (req, res) => {
+    const { token, userId, pageIds } = req.body;
+    if (!token || !userId || !pageIds) {
+        return res.status(400).json({ error: 'Missing parameters' });
+    }
+
+    realtimeClient.start(token, userId, pageIds);
+    res.json({ success: true, message: 'Realtime client started on server' });
+});
+
+// =====================================================
 // START SERVER
 // =====================================================
 

@@ -82,6 +82,27 @@
                 <i class="fas fa-exchange-alt"></i>
                 <span id="chatApiSourceLabel">Pancake API</span>
             </button>
+            <div
+                style="display: flex; align-items: center; gap: 8px; margin-left: 12px; background: #f3f4f6; padding: 4px 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <input type="checkbox" id="realtimeToggleCheckbox" onchange="toggleRealtimeMode(this.checked)"
+                        style="cursor: pointer; width: 16px; height: 16px;">
+                    <label for="realtimeToggleCheckbox"
+                        style="cursor: pointer; font-size: 14px; font-weight: 500; color: #374151; user-select: none;">
+                        <i class="fas fa-bolt" style="color: #f59e0b; margin-right: 4px;"></i> Realtime
+                    </label>
+                </div>
+
+                <!-- Mode Switcher (Hidden by default, shown when Realtime is checked) -->
+                <div id="realtimeModeContainer"
+                    style="display: none; margin-left: 8px; padding-left: 8px; border-left: 1px solid #d1d5db;">
+                    <select id="realtimeModeSelect" onchange="changeRealtimeMode(this.value)"
+                        style="padding: 2px 6px; border-radius: 4px; border: 1px solid #d1d5db; font-size: 12px; background: white; cursor: pointer;">
+                        <option value="browser">Browser (Direct)</option>
+                        <option value="server">Server (24/7)</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
         <!-- Action Buttons Section (New) -->
@@ -387,18 +408,12 @@
             </div>
             <!-- Reply Input (chỉ hiển thị cho comments) -->
             <div class="chat-reply-container" id="chatReplyContainer" style="display: none;">
-                <div style="display: flex; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
-                    <input
-                        type="text"
-                        id="chatReplyInput"
-                        placeholder="Nhập tin nhắn trả lời..."
+                <div
+                    style="display: flex; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+                    <input type="text" id="chatReplyInput" placeholder="Nhập tin nhắn trả lời..."
                         style="flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;"
-                        onkeypress="if(event.key==='Enter') sendReplyComment();"
-                    />
-                    <button
-                        class="chat-btn-send"
-                        id="chatSendBtn"
-                        onclick="sendReplyComment()"
+                        onkeypress="if(event.key==='Enter') sendReplyComment();" />
+                    <button class="chat-btn-send" id="chatSendBtn" onclick="sendReplyComment()"
                         style="padding: 10px 20px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
                         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.3)';"
                         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
@@ -439,6 +454,7 @@
     <script src="product-search-manager.js"></script>
     <script src="search-functions.js"></script>
     <script src="column-visibility-manager.js"></script>
+    <script src="realtime-manager.js"></script>
     <script src="tab1-orders.js"></script>
 
     <!-- Additional Script for Checkbox Handling -->
@@ -743,14 +759,63 @@
             label.textContent = displayName;
         }
 
+        // ====== REALTIME TOGGLE ======
+        function toggleRealtimeMode(enabled) {
+            if (!window.chatAPISettings) {
+                console.error('[REALTIME-TOGGLE] chatAPISettings not available');
+                return;
+            }
+
+            window.chatAPISettings.setRealtimeEnabled(enabled);
+            updateRealtimeCheckbox(); // Update UI visibility
+
+            if (window.notificationManager) {
+                const status = enabled ? 'BẬT' : 'TẮT';
+                window.notificationManager.show(`✅ Realtime: ${status}`, 'success');
+            }
+        }
+
+        function changeRealtimeMode(mode) {
+            if (!window.chatAPISettings) return;
+            window.chatAPISettings.setRealtimeMode(mode);
+
+            if (window.notificationManager) {
+                const label = mode === 'browser' ? 'Browser (Trực tiếp)' : 'Server (24/7)';
+                window.notificationManager.show(`✅ Chế độ Realtime: ${label}`, 'success');
+            }
+        }
+
+        function updateRealtimeCheckbox() {
+            const checkbox = document.getElementById('realtimeToggleCheckbox');
+            const modeContainer = document.getElementById('realtimeModeContainer');
+            const modeSelect = document.getElementById('realtimeModeSelect');
+
+            if (!checkbox || !window.chatAPISettings) return;
+
+            const isEnabled = window.chatAPISettings.isRealtimeEnabled();
+            checkbox.checked = isEnabled;
+
+            // Show/Hide mode selector
+            if (modeContainer) {
+                modeContainer.style.display = isEnabled ? 'block' : 'none';
+            }
+
+            // Set current mode
+            if (modeSelect) {
+                modeSelect.value = window.chatAPISettings.getRealtimeMode();
+            }
+        }
+
         // Update label khi page load
         document.addEventListener('DOMContentLoaded', function () {
             updateChatAPISourceLabel();
+            updateRealtimeCheckbox();
 
             // Listen for API source changes from other sources
             window.addEventListener('chatApiSourceChanged', function (e) {
                 console.log('[CHAT-API-TOGGLE] API source changed:', e.detail.source);
                 updateChatAPISourceLabel();
+                updateRealtimeCheckbox();
             });
         });
         // ====================================
