@@ -7,7 +7,7 @@
  * <script src="/js/core-loader.js"></script>
  */
 
-(function() {
+(function () {
     'use strict';
 
     // Detect base path
@@ -15,7 +15,7 @@
     const currentScript = scripts[scripts.length - 1];
     const basePath = currentScript.src.substring(0, currentScript.src.lastIndexOf('/')) + '/';
 
-    console.log('🚀 Loading N2Store Core Utilities...');
+    // console.log('🚀 Loading N2Store Core Utilities...');
 
     // List of core utilities to load in order
     const coreUtilities = [
@@ -42,13 +42,13 @@
         const script = document.createElement('script');
         script.src = scriptUrl;
 
-        script.onload = function() {
+        script.onload = function () {
             loadedCount++;
-            console.log(`✅ Loaded: ${coreUtilities[index]} (${loadedCount}/${totalCount})`);
+            // console.log(`✅ Loaded: ${coreUtilities[index]} (${loadedCount}/${totalCount})`);
             loadScript(index + 1);
         };
 
-        script.onerror = function() {
+        script.onerror = function () {
             console.error(`❌ Failed to load: ${coreUtilities[index]}`);
             // Continue loading next script even if one fails
             loadScript(index + 1);
@@ -59,7 +59,7 @@
 
     // Called when all scripts are loaded
     function onAllLoaded() {
-        console.log('✅ All core utilities loaded successfully!');
+        // console.log('✅ All core utilities loaded successfully!');
 
         // Trigger custom event
         const event = new CustomEvent('coreUtilitiesLoaded', {

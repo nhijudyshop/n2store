@@ -593,16 +593,16 @@ class UnifiedNavigationManager {
             </div>
             <div class="mobile-menu-content">
                 ${accessiblePages
-                    .map(
-                        (item) => `
+                .map(
+                    (item) => `
                     <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
                         <i data-lucide="${item.icon}"></i>
                         <span>${item.text}</span>
                         ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
                     </a>
                 `,
-                    )
-                    .join("")}
+                )
+                .join("")}
             </div>
             <div class="mobile-menu-footer">
                 <button class="mobile-menu-action" id="mobileSettingsBtn">
@@ -2065,7 +2065,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 window.UnifiedNavigationManager = UnifiedNavigationManager;
-console.log("[Unified Nav] Script loaded successfully");
+// console.log("[Unified Nav] Script loaded successfully");
 
 // =====================================================
 // APP VERSION SYSTEM - Auto-incremented on each commit
@@ -2078,7 +2078,7 @@ window.APP_VERSION = {
     branch: 'claude/remove-local-storage-tab3-0177sTRWFVomHmtjVqnzazEo'
 };
 
-console.log(`[VERSION] App version: ${window.APP_VERSION.version} (build ${window.APP_VERSION.build})`);
+// console.log(`[VERSION] App version: ${window.APP_VERSION.version} (build ${window.APP_VERSION.build})`);
 
 // =====================================================
 // VERSION CHECKER - Force logout on version mismatch

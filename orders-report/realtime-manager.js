@@ -78,11 +78,18 @@ class RealtimeManager {
             return;
         }
 
+        // Construct cookie string from token
+        // Note: Pancake might require other cookies like _fbp, but jwt is the most critical.
+        // If the user provided a full cookie string in settings, we should use that, but currently we only store the token.
+        const cookie = `jwt=${token}`;
+
         // Call Render Server API
         // Assuming the server is running at the configured endpoint or fallback
-        const serverUrl = 'https://n2store-fallback.onrender.com/api/realtime/start'; // Replace with actual URL if different
+        const serverBaseUrl = 'https://n2store-fallback.onrender.com';
+        const serverUrl = `${serverBaseUrl}/api/realtime/start`;
 
         try {
+            console.log('[REALTIME] Sending start request to server:', serverUrl);
             const response = await fetch(serverUrl, {
                 method: 'POST',
                 headers: {
@@ -91,7 +98,8 @@ class RealtimeManager {
                 body: JSON.stringify({
                     token,
                     userId,
-                    pageIds
+                    pageIds,
+                    cookie // Pass cookie to server
                 })
             });
 
@@ -101,8 +109,16 @@ class RealtimeManager {
                 if (window.notificationManager) {
                     window.notificationManager.show('✅ Server đã bắt đầu nhận tin nhắn 24/7', 'success');
                 }
+
+                // Connect to Proxy WebSocket to receive updates
+                const wsUrl = serverBaseUrl.replace('https', 'wss').replace('http', 'ws');
+                this.connectToProxyServer(wsUrl);
+
             } else {
                 console.error('[REALTIME] Server failed to start:', data.error);
+                if (window.notificationManager) {
+                    window.notificationManager.show('❌ Server khởi động thất bại: ' + data.error, 'error');
+                }
             }
         } catch (error) {
             console.error('[REALTIME] Error calling server:', error);
@@ -110,6 +126,41 @@ class RealtimeManager {
                 window.notificationManager.show('❌ Không thể kết nối tới Server', 'error');
             }
         }
+    }
+
+    /**
+     * Connect to Proxy Server WebSocket
+     */
+    connectToProxyServer(url) {
+        if (this.proxyWs) {
+            this.proxyWs.close();
+        }
+
+        console.log('[REALTIME] Connecting to Proxy Server:', url);
+        this.proxyWs = new WebSocket(url);
+
+        this.proxyWs.onopen = () => {
+            console.log('[REALTIME] Connected to Proxy Server');
+            this.isConnected = true; // Mark as connected for UI
+        };
+
+        this.proxyWs.onclose = () => {
+            console.log('[REALTIME] Disconnected from Proxy Server');
+            this.isConnected = false;
+            // Auto reconnect logic could go here
+        };
+
+        this.proxyWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'pages:update_conversation') {
+                    console.log('[REALTIME] Received update from Proxy:', data.payload);
+                    this.handleUpdateConversation(data.payload);
+                }
+            } catch (e) {
+                console.error('[REALTIME] Error parsing proxy message:', e);
+            }
+        };
     }
 
     /**
@@ -213,12 +264,19 @@ class RealtimeManager {
      */
     disconnect() {
         if (this.ws) {
-            console.log('[REALTIME] Disconnecting...');
+            console.log('[REALTIME] Disconnecting Browser WS...');
             this.ws.close();
             this.ws = null;
-            this.isConnected = false;
             this.stopHeartbeat();
         }
+
+        if (this.proxyWs) {
+            console.log('[REALTIME] Disconnecting Proxy WS...');
+            this.proxyWs.close();
+            this.proxyWs = null;
+        }
+
+        this.isConnected = false;
     }
 
     /**

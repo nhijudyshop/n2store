@@ -398,13 +398,13 @@ class ChatDataManager {
         const apiSource = window.chatAPISettings ? window.chatAPISettings.getSource() : 'pancake';
 
         if (apiSource === 'pancake' && window.pancakeDataManager) {
-            console.log('[CHAT] Using Pancake API for message content');
+            // console.log('[CHAT] Using Pancake API for message content');
             return window.pancakeDataManager.getLastMessageForOrder(order);
         }
         // ==================================
 
         // ChatOmni API (default behavior)
-        console.log('[CHAT] Using ChatOmni API for message content');
+        // console.log('[CHAT] Using ChatOmni API for message content');
 
         const chatInfo = this.getChatInfoForOrder(order);
 
@@ -465,13 +465,13 @@ class ChatDataManager {
         const apiSource = window.chatAPISettings ? window.chatAPISettings.getSource() : 'pancake';
 
         if (apiSource === 'pancake' && window.pancakeDataManager && order) {
-            console.log('[CHAT] Using Pancake API for comment content');
+            // console.log('[CHAT] Using Pancake API for comment content');
             return window.pancakeDataManager.getLastCommentForOrder(order);
         }
         // ==================================
 
         // ChatOmni API (default behavior)
-        console.log('[CHAT] Using ChatOmni API for comment content');
+        // console.log('[CHAT] Using ChatOmni API for comment content');
 
         if (!userId) {
             return {

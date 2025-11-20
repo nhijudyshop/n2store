@@ -97,9 +97,30 @@ app.use((err, req, res, next) => {
 });
 
 // =====================================================
-// WEBSOCKET CLIENT (REALTIME)
+// WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
 const WebSocket = require('ws');
+const http = require('http');
+
+// Create HTTP server from Express app
+const server = http.createServer(app);
+
+// Create WebSocket Server for Frontend Clients
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('[WSS] Client connected');
+    ws.on('close', () => console.log('[WSS] Client disconnected'));
+});
+
+// Broadcast function
+const broadcastToClients = (data) => {
+    wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(data));
+        }
+    });
+};
 
 class RealtimeClient {
     constructor() {
@@ -110,8 +131,7 @@ class RealtimeClient {
         this.heartbeatInterval = null;
         this.reconnectTimer = null;
 
-        // User specific data (Hardcoded for now based on logs/request, 
-        // in production this should be dynamic per user)
+        // User specific data
         this.token = null;
         this.userId = null;
         this.pageIds = [];
@@ -122,16 +142,21 @@ class RealtimeClient {
     }
 
     generateClientSession() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+        // Generate 64-char random string to match browser behavior
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 64; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
     }
 
-    start(token, userId, pageIds) {
+    start(token, userId, pageIds, cookie = null) {
         this.token = token;
         this.userId = userId;
-        this.pageIds = pageIds;
+        // Ensure pageIds are strings
+        this.pageIds = pageIds.map(id => String(id));
+        this.cookie = cookie;
         this.connect();
     }
 
@@ -139,7 +164,22 @@ class RealtimeClient {
         if (this.isConnected || !this.token) return;
 
         console.log('[SERVER-WS] Connecting to Pancake...');
-        this.ws = new WebSocket(this.url);
+        const headers = {
+            'Origin': 'https://pancake.vn',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        };
+
+        // Add cookie if available (critical for Cloudflare/Auth)
+        if (this.cookie) {
+            headers['Cookie'] = this.cookie;
+        }
+
+        this.ws = new WebSocket(this.url, {
+            headers: headers
+        });
 
         this.ws.on('open', () => {
             console.log('[SERVER-WS] Connected');
@@ -177,7 +217,7 @@ class RealtimeClient {
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 const ref = this.makeRef();
-                this.ws.send(JSON.stringify([ref, ref, "phoenix", "heartbeat", {}]));
+                this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
             }
         }, 30000);
     }
@@ -213,6 +253,15 @@ class RealtimeClient {
             }
         ];
         this.ws.send(JSON.stringify(pagesJoinMsg));
+
+        // 3. Get Online Status (Mimic browser)
+        setTimeout(() => {
+            const statusRef = this.makeRef();
+            const statusMsg = [
+                pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
+            ];
+            this.ws.send(JSON.stringify(statusMsg));
+        }, 1000);
     }
 
     handleMessage(msg) {
@@ -220,9 +269,12 @@ class RealtimeClient {
 
         if (event === 'pages:update_conversation') {
             console.log('[SERVER-WS] New Message/Comment:', payload.conversation.id);
-            // TODO: Save to DB or Push to Client
-            // For now, we just log it. In a real app, you would use Socket.IO 
-            // or similar to push this down to the connected browser client.
+
+            // Broadcast to connected frontend clients
+            broadcastToClients({
+                type: 'pages:update_conversation',
+                payload: payload
+            });
         }
     }
 }
@@ -232,12 +284,12 @@ const realtimeClient = new RealtimeClient();
 
 // API to start the client from the browser
 app.post('/api/realtime/start', (req, res) => {
-    const { token, userId, pageIds } = req.body;
+    const { token, userId, pageIds, cookie } = req.body;
     if (!token || !userId || !pageIds) {
         return res.status(400).json({ error: 'Missing parameters' });
     }
 
-    realtimeClient.start(token, userId, pageIds);
+    realtimeClient.start(token, userId, pageIds, cookie);
     res.json({ success: true, message: 'Realtime client started on server' });
 });
 
@@ -245,7 +297,7 @@ app.post('/api/realtime/start', (req, res) => {
 // START SERVER
 // =====================================================
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log('='.repeat(50));
     console.log('🚀 N2Store API Fallback Server');
     console.log('='.repeat(50));
