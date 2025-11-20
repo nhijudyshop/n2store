@@ -1027,6 +1027,44 @@
             text-align: center;
         }
 
+        /* Editable Quantity Input Styles */
+        .editable-qty-input {
+            width: 50px;
+            border: 1px solid transparent;
+            text-align: center;
+            background: transparent;
+            outline: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 2px;
+            border-radius: 4px;
+        }
+
+        .editable-qty-input:hover {
+            border-color: rgba(102, 126, 234, 0.3);
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .editable-qty-input:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+            cursor: text;
+        }
+
+        /* Remove spinner for number inputs */
+        .editable-qty-input::-webkit-outer-spin-button,
+        .editable-qty-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .editable-qty-input[type=number] {
+            -moz-appearance: textfield;
+        }
+
         .preview-actions {
             display: flex;
             gap: 10px;
@@ -3254,13 +3292,13 @@
                         <div class="preview-info">
                             <div class="preview-name">${product.NameGet}</div>
                             <div class="preview-stats">
-                                <span>📦 Tổng: ${product.QtyAvailable}</span>
+                                <span>📦 Tổng: <input type="number" class="editable-qty-input" value="${product.QtyAvailable}" onchange="updateProductTotalInput(${product.Id}, this.value)" min="0"></span>
                                 <div class="qty-control">
                                     <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)">−</button>
                                     <span class="qty-value">${product.soldQty}</span>
                                     <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)">+</button>
                                 </div>
-                                <span>✅ Còn: ${product.remainingQty}</span>
+                                <span>✅ Còn: <input type="number" class="editable-qty-input" value="${product.remainingQty}" onchange="updateProductRemainingInput(${product.Id}, this.value)" min="0"></span>
                             </div>
                         </div>
                         <div class="preview-actions">
@@ -3310,13 +3348,13 @@
                         <div class="preview-info">
                             <div class="preview-name">${product.NameGet}</div>
                             <div class="preview-stats">
-                                <span>📦 Tổng: ${product.QtyAvailable}</span>
+                                <span>📦 Tổng: <input type="number" class="editable-qty-input" value="${product.QtyAvailable}" onchange="updateProductTotalInput(${product.Id}, this.value)" min="0"></span>
                                 <div class="qty-control">
                                     <button class="qty-btn" onclick="updateProductQty(${product.Id}, -1)">−</button>
                                     <span class="qty-value">${product.soldQty}</span>
                                     <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)">+</button>
                                 </div>
-                                <span>✅ Còn: ${product.remainingQty}</span>
+                                <span>✅ Còn: <input type="number" class="editable-qty-input" value="${product.remainingQty}" onchange="updateProductRemainingInput(${product.Id}, this.value)" min="0"></span>
                             </div>
                         </div>
                         <div class="preview-actions">
@@ -3350,6 +3388,70 @@
                     updateHiddenProductListPreview();
                 } catch (error) {
                     console.error('❌ Lỗi cập nhật số lượng:', error);
+                }
+            }
+        }
+
+        async function updateProductTotalInput(productId, newValue) {
+            if (!isSyncingFromFirebase) {
+                try {
+                    const productKey = `product_${productId}`;
+                    const product = orderProducts[productKey];
+                    if (!product) return;
+
+                    const newQtyAvailable = Math.max(0, parseInt(newValue) || 0);
+                    if (newQtyAvailable === product.QtyAvailable) return;
+
+                    product.QtyAvailable = newQtyAvailable;
+
+                    // Ensure soldQty doesn't exceed new total
+                    if (product.soldQty > product.QtyAvailable) {
+                        product.soldQty = product.QtyAvailable;
+                    }
+
+                    product.remainingQty = product.QtyAvailable - product.soldQty;
+
+                    await database.ref(`orderProducts/${productKey}`).update({
+                        QtyAvailable: product.QtyAvailable,
+                        soldQty: product.soldQty,
+                        remainingQty: product.remainingQty
+                    });
+
+                    updateProductListPreview();
+                    updateHiddenProductListPreview();
+                } catch (error) {
+                    console.error('❌ Lỗi cập nhật tổng số lượng:', error);
+                }
+            }
+        }
+
+        async function updateProductRemainingInput(productId, newValue) {
+            if (!isSyncingFromFirebase) {
+                try {
+                    const productKey = `product_${productId}`;
+                    const product = orderProducts[productKey];
+                    if (!product) return;
+
+                    const newRemainingQty = Math.max(0, parseInt(newValue) || 0);
+
+                    // Calculate new soldQty based on remaining = total - sold
+                    // So: sold = total - remaining
+                    const newSoldQty = Math.max(0, Math.min(product.QtyAvailable, product.QtyAvailable - newRemainingQty));
+
+                    if (newSoldQty === product.soldQty) return;
+
+                    product.soldQty = newSoldQty;
+                    product.remainingQty = product.QtyAvailable - product.soldQty;
+
+                    await database.ref(`orderProducts/${productKey}`).update({
+                        soldQty: product.soldQty,
+                        remainingQty: product.remainingQty
+                    });
+
+                    updateProductListPreview();
+                    updateHiddenProductListPreview();
+                } catch (error) {
+                    console.error('❌ Lỗi cập nhật số lượng còn lại:', error);
                 }
             }
         }
