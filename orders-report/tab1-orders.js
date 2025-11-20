@@ -4315,8 +4315,12 @@ window.addEventListener('realtimeConversationUpdate', function (e) {
                 if (type === 'INBOX') {
                     const messageCell = row.querySelector('td[data-column="messages"]');
                     if (messageCell) {
+                        console.log(`[DEBUG-UI] Found message cell for order ${order.Code}`);
+
                         const msgInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
                         const lastMsg = window.pancakeDataManager.getLastMessageForOrder(order);
+
+                        console.log(`[DEBUG-UI] Data for order ${order.Code}:`, { msgInfo, lastMsg });
 
                         let html = '';
                         if (lastMsg.message) {
@@ -4330,6 +4334,8 @@ window.addEventListener('realtimeConversationUpdate', function (e) {
                             }
                             if (content.length > 50) content = content.substring(0, 50) + '...';
 
+                            console.log(`[DEBUG-UI] New content for order ${order.Code}: "${content}"`);
+
                             html = `
                                 <div class="message-cell ${unreadClass}" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}')">
                                     <div class="message-content">
@@ -4340,6 +4346,7 @@ window.addEventListener('realtimeConversationUpdate', function (e) {
                                 </div>
                             `;
                         } else {
+                            console.log(`[DEBUG-UI] No message content found for order ${order.Code}`);
                             html = `
                                 <button class="btn-chat" onclick="openChatModal('${order.Id}', '${order.Code}', '${order.Facebook_ASUserId}', '${order.LiveCampaignId}')">
                                     <i class="fab fa-facebook-messenger"></i> Chat
@@ -4347,6 +4354,9 @@ window.addEventListener('realtimeConversationUpdate', function (e) {
                             `;
                         }
                         messageCell.innerHTML = html;
+                        console.log(`[DEBUG-UI] Updated innerHTML for order ${order.Code}`);
+                    } else {
+                        console.warn(`[DEBUG-UI] Message cell NOT found for order ${order.Code}`);
                     }
                 }
 

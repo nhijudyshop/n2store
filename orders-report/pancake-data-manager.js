@@ -328,9 +328,31 @@ class PancakeDataManager {
         }
 
         // Chỉ tìm trong INBOX maps
-        let conversation = this.inboxMapByPSID.get(userId);
+        // Ensure string conversion for lookup
+        const userIdStr = String(userId);
+        let conversation = this.inboxMapByPSID.get(userIdStr);
+
         if (!conversation) {
-            conversation = this.inboxMapByFBID.get(userId);
+            // Try iterating if direct lookup fails (handle number/string mismatch in map keys)
+            for (const [key, value] of this.inboxMapByPSID) {
+                if (String(key) === userIdStr) {
+                    conversation = value;
+                    break;
+                }
+            }
+        }
+
+        if (!conversation) {
+            conversation = this.inboxMapByFBID.get(userIdStr);
+            if (!conversation) {
+                // Try iterating for FBID map too
+                for (const [key, value] of this.inboxMapByFBID) {
+                    if (String(key) === userIdStr) {
+                        conversation = value;
+                        break;
+                    }
+                }
+            }
         }
 
         if (!conversation) {
@@ -463,9 +485,30 @@ class PancakeDataManager {
         }
 
         // Get INBOX conversation only (check type === "INBOX")
-        let conversation = this.inboxMapByPSID.get(userId);
+        const userIdStr = String(userId);
+        let conversation = this.inboxMapByPSID.get(userIdStr);
+
         if (!conversation) {
-            conversation = this.inboxMapByFBID.get(userId);
+            // Try iterating if direct lookup fails
+            for (const [key, value] of this.inboxMapByPSID) {
+                if (String(key) === userIdStr) {
+                    conversation = value;
+                    break;
+                }
+            }
+        }
+
+        if (!conversation) {
+            conversation = this.inboxMapByFBID.get(userIdStr);
+            if (!conversation) {
+                // Try iterating for FBID map too
+                for (const [key, value] of this.inboxMapByFBID) {
+                    if (String(key) === userIdStr) {
+                        conversation = value;
+                        break;
+                    }
+                }
+            }
         }
 
         if (!conversation) {
@@ -494,6 +537,9 @@ class PancakeDataManager {
 
         // Extract last message from Pancake conversation
         const lastMessage = conversation.snippet || null;
+
+        console.log(`[DEBUG-DATA] getLastMessageForOrder: Found conversation ${conversation.id} for user ${userIdStr}`);
+        console.log(`[DEBUG-DATA] Snippet: "${lastMessage}", Unread: ${conversation.unread_count}`);
 
         // Determine message type based on attachments
         let messageType = 'text';
@@ -543,9 +589,30 @@ class PancakeDataManager {
 
         // Get COMMENT conversation only (check type === "COMMENT")
         // Try FBID first as COMMENT usually doesn't have from_psid
-        let conversation = this.commentMapByFBID.get(userId);
+        const userIdStr = String(userId);
+        let conversation = this.commentMapByFBID.get(userIdStr);
+
         if (!conversation) {
-            conversation = this.commentMapByPSID.get(userId);
+            // Try iterating if direct lookup fails
+            for (const [key, value] of this.commentMapByFBID) {
+                if (String(key) === userIdStr) {
+                    conversation = value;
+                    break;
+                }
+            }
+        }
+
+        if (!conversation) {
+            conversation = this.commentMapByPSID.get(userIdStr);
+            if (!conversation) {
+                // Try iterating for PSID map too
+                for (const [key, value] of this.commentMapByPSID) {
+                    if (String(key) === userIdStr) {
+                        conversation = value;
+                        break;
+                    }
+                }
+            }
         }
 
         if (!conversation) {
