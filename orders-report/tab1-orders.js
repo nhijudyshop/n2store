@@ -4405,15 +4405,15 @@ window.addEventListener('realtimeConversationUpdate', function (e) {
                 // Append the new message/comment to the chat body
                 const chatBody = document.getElementById('chatModalBody');
                 if (chatBody) {
-                    const msg = conversation.snippet;
+                    const msg = conversation.snippet || '';
                     const isSelf = false; // Incoming message is from customer
 
                     // Determine content type
                     let contentHtml = msg;
-                    if (conversation.attachments && conversation.attachments.length > 0) {
-                        // Handle attachments (simplified)
-                        contentHtml = `<i>[Đã gửi ${conversation.attachments.length} tệp đính kèm]</i><br>${msg}`;
-                    }
+
+                    // Handle attachments if present in the update payload
+                    // Note: The payload from 'pages:update_conversation' might be limited.
+                    // Ideally we should fetch the full message details, but for speed we use what we have.
 
                     const msgDiv = document.createElement('div');
                     msgDiv.className = `chat-message ${isSelf ? 'sent' : 'received'}`;

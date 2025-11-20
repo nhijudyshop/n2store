@@ -80,7 +80,7 @@ class RealtimeManager {
 
         // Call Render Server API
         // Assuming the server is running at the configured endpoint or fallback
-        const serverUrl = 'https://n2store-api.onrender.com/api/realtime/start'; // Replace with actual URL if different
+        const serverUrl = 'https://n2store-fallback.onrender.com/api/realtime/start'; // Replace with actual URL if different
 
         try {
             const response = await fetch(serverUrl, {
