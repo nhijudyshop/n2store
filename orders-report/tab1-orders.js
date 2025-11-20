@@ -332,11 +332,11 @@ async function saveOrderTags() {
         // 🔄 Cập nhật tags trong data
         const updatedData = { Tags: JSON.stringify(currentOrderTags) };
         updateOrderInTable(currentEditingOrderId, updatedData);
-        
+
         window.cacheManager.clear("orders");
         showLoading(false);
         closeTagModal();
-        
+
         if (window.notificationManager) {
             window.notificationManager.success(
                 `Đã gán ${currentOrderTags.length} tag cho đơn hàng thành công!`,
@@ -350,7 +350,7 @@ async function saveOrderTags() {
     } catch (error) {
         console.error("[TAG] Error saving tags:", error);
         showLoading(false);
-        
+
         if (window.notificationManager) {
             window.notificationManager.error(`Lỗi khi lưu tag: ${error.message}`, 4000);
         } else {
@@ -643,14 +643,14 @@ function convertToUTC(dateTimeLocal) {
         console.error("[DATE] Empty date value provided to convertToUTC");
         throw new Error("Date value is required");
     }
-    
+
     const date = new Date(dateTimeLocal);
-    
+
     if (isNaN(date.getTime())) {
         console.error("[DATE] Invalid date value:", dateTimeLocal);
         throw new Error(`Invalid date value: ${dateTimeLocal}`);
     }
-    
+
     return date.toISOString();
 }
 
@@ -863,7 +863,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
     if (campaigns.length > 0) {
         // Select first campaign by default
         select.value = 0;
-        
+
         // Manually update selectedCampaign state without triggering search
         const selectedOption = select.options[select.selectedIndex];
         selectedCampaign = selectedOption?.dataset.campaign
@@ -1410,10 +1410,10 @@ function highlightUpdatedRow(orderId) {
             if (checkbox && checkbox.value === orderId) {
                 // Thêm class highlight
                 row.classList.add('product-row-highlight');
-                
+
                 // Scroll vào view (nếu cần)
                 row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
+
                 // Remove highlight sau 2 giây
                 setTimeout(() => {
                     row.classList.remove('product-row-highlight');
@@ -1449,7 +1449,7 @@ function createRowHTML(order) {
                 tagsCount = tags.length;
                 tagsHTML = parseOrderTags(order.Tags);
             }
-        } catch (e) {}
+        } catch (e) { }
     }
     const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
@@ -1461,12 +1461,18 @@ function createRowHTML(order) {
     // Add watermark class for edited notes
     const rowClass = order.noteEdited ? 'note-edited' : '';
 
+    // Check for merged orders
+    const isMerged = order.MergedCount && order.MergedCount > 1;
+    const mergedClass = isMerged ? 'merged-order-row' : '';
+    const mergedIcon = isMerged ? '<i class="fas fa-link merged-icon" title="Đơn gộp"></i>' : '';
+
     return `
-        <tr class="${rowClass}">
+        <tr class="${rowClass} ${mergedClass}">
             <td><input type="checkbox" value="${order.Id}" /></td>
             <td data-column="stt">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span>${order.SessionIndex || ""}</span>
+                    ${mergedIcon}
                     ${order.noteEdited ? '<span class="note-edited-badge">✏️ ĐÃ SỬA</span>' : ''}
                     <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng"><i class="fas fa-edit"></i></button>
                 </div>
@@ -1893,7 +1899,7 @@ function updateModalWithData(data) {
     document.getElementById("productCount").textContent =
         data.Details?.length || 0;
     switchEditTab("info");
-    
+
     // 🔄 Refresh inline search UI after data is loaded
     // Use setTimeout to ensure DOM is ready
     setTimeout(() => {
@@ -1999,7 +2005,7 @@ function renderLiveTab(data) {
     // Display live stream information if available
     const liveInfo = data.CRMTeam || {};
     const hasLiveInfo = liveInfo && liveInfo.Name;
-    
+
     if (!hasLiveInfo) {
         return `
             <div class="empty-state">
@@ -2009,7 +2015,7 @@ function renderLiveTab(data) {
             </div>
         `;
     }
-    
+
     return `
         <div class="info-card">
             <h4><i class="fas fa-video"></i> Thông tin Livestream</h4>
@@ -2048,7 +2054,7 @@ function renderLiveTab(data) {
 function renderInvoicesTab(data) {
     // Display invoice/payment information
     const hasInvoice = data.InvoiceNumber || data.InvoiceDate;
-    
+
     return `
         <div class="info-card">
             <h4><i class="fas fa-file-invoice-dollar"></i> Thông tin hóa đơn & thanh toán</h4>
@@ -2082,14 +2088,12 @@ function renderInvoicesTab(data) {
                 <div class="info-field">
                     <div class="info-label">Trạng thái thanh toán</div>
                     <div class="info-value">
-                        <span class="status-badge-large ${
-                            data.PaidAmount >= data.TotalAmount ? 'status-badge-paid' : 
-                            data.PaidAmount > 0 ? 'status-badge-partial' : 'status-badge-unpaid'
-                        }">
-                            ${
-                                data.PaidAmount >= data.TotalAmount ? 'Đã thanh toán' : 
-                                data.PaidAmount > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán'
-                            }
+                        <span class="status-badge-large ${data.PaidAmount >= data.TotalAmount ? 'status-badge-paid' :
+            data.PaidAmount > 0 ? 'status-badge-partial' : 'status-badge-unpaid'
+        }">
+                            ${data.PaidAmount >= data.TotalAmount ? 'Đã thanh toán' :
+            data.PaidAmount > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán'
+        }
                         </span>
                     </div>
                 </div>
@@ -2130,7 +2134,7 @@ async function renderHistoryTab(data) {
             <div class="loading-text">Đang tải lịch sử chỉnh sửa...</div>
         </div>
     `;
-    
+
     // Return loading first, then fetch data
     setTimeout(async () => {
         try {
@@ -2149,16 +2153,16 @@ async function renderHistoryTab(data) {
             `;
         }
     }, 100);
-    
+
     return loadingHTML;
 }
 
 async function fetchAndDisplayAuditLog(orderId) {
     const headers = await window.tokenManager.getAuthHeader();
     const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/AuditLog/ODataService.GetAuditLogEntity?entityName=SaleOnline_Order&entityId=${orderId}&skip=0&take=50`;
-    
+
     console.log('[AUDIT LOG] Fetching audit log for order:', orderId);
-    
+
     const response = await API_CONFIG.smartFetch(apiUrl, {
         headers: {
             ...headers,
@@ -2166,14 +2170,14 @@ async function fetchAndDisplayAuditLog(orderId) {
             'Accept': 'application/json'
         }
     });
-    
+
     if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     const auditData = await response.json();
     console.log('[AUDIT LOG] Received audit log:', auditData);
-    
+
     // Display the audit log
     document.getElementById('editModalBody').innerHTML = renderAuditLogTimeline(auditData.value || []);
 }
@@ -2188,7 +2192,7 @@ function renderAuditLogTimeline(auditLogs) {
             </div>
         `;
     }
-    
+
     // Map action to icon and color
     const actionConfig = {
         'CREATE': { icon: 'plus-circle', color: '#3b82f6', label: 'Tạo mới' },
@@ -2197,7 +2201,7 @@ function renderAuditLogTimeline(auditLogs) {
         'APPROVE': { icon: 'check-circle', color: '#10b981', label: 'Phê duyệt' },
         'REJECT': { icon: 'x-circle', color: '#ef4444', label: 'Từ chối' }
     };
-    
+
     return `
         <div class="history-timeline">
             <div class="timeline-header">
@@ -2206,11 +2210,11 @@ function renderAuditLogTimeline(auditLogs) {
             </div>
             <div class="timeline-content">
                 ${auditLogs.map((log, index) => {
-                    const config = actionConfig[log.Action] || { icon: 'circle', color: '#6b7280', label: log.Action };
-                    const date = new Date(log.DateCreated);
-                    const description = formatAuditDescription(log.Description);
-                    
-                    return `
+        const config = actionConfig[log.Action] || { icon: 'circle', color: '#6b7280', label: log.Action };
+        const date = new Date(log.DateCreated);
+        const description = formatAuditDescription(log.Description);
+
+        return `
                         <div class="timeline-item ${index === 0 ? 'timeline-item-latest' : ''}">
                             <div class="timeline-marker" style="background: ${config.color};">
                                 <i class="fas fa-${config.icon}"></i>
@@ -2228,13 +2232,13 @@ function renderAuditLogTimeline(auditLogs) {
                                     </div>
                                     <div class="timeline-date">
                                         <i class="fas fa-clock"></i>
-                                        ${date.toLocaleString('vi-VN', { 
-                                            day: '2-digit', 
-                                            month: '2-digit', 
-                                            year: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })}
+                                        ${date.toLocaleString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })}
                                     </div>
                                 </div>
                                 ${description ? `
@@ -2253,7 +2257,7 @@ function renderAuditLogTimeline(auditLogs) {
                             </div>
                         </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
         
@@ -2281,28 +2285,28 @@ function renderAuditLogTimeline(auditLogs) {
 
 function formatAuditDescription(description) {
     if (!description) return '';
-    
+
     // Replace \r\n with <br> and format the text
     let formatted = description
         .replace(/\r\n/g, '<br>')
         .replace(/\n/g, '<br>');
-    
+
     // Highlight changes with arrows (=>)
-    formatted = formatted.replace(/(\d+(?:,\d+)*(?:\.\d+)?)\s*=>\s*(\d+(?:,\d+)*(?:\.\d+)?)/g, 
+    formatted = formatted.replace(/(\d+(?:,\d+)*(?:\.\d+)?)\s*=>\s*(\d+(?:,\d+)*(?:\.\d+)?)/g,
         '<span class="change-from">$1</span> <i class="fas fa-arrow-right" style="color: #6b7280; font-size: 10px;"></i> <span class="change-to">$2</span>');
-    
+
     // Highlight product codes and names (e.g., "0610 A3 ÁO TN HT")
-    formatted = formatted.replace(/(\d{4}\s+[A-Z0-9]+\s+[^:]+):/g, 
+    formatted = formatted.replace(/(\d{4}\s+[A-Z0-9]+\s+[^:]+):/g,
         '<strong style="color: #3b82f6;">$1</strong>:');
-    
+
     // Highlight "Thêm chi tiết"
-    formatted = formatted.replace(/Thêm chi tiết/g, 
+    formatted = formatted.replace(/Thêm chi tiết/g,
         '<span style="color: #10b981; font-weight: 600;"><i class="fas fa-plus-circle"></i> Thêm chi tiết</span>');
-    
+
     // Highlight "Xóa chi tiết"  
-    formatted = formatted.replace(/Xóa chi tiết/g, 
+    formatted = formatted.replace(/Xóa chi tiết/g,
         '<span style="color: #ef4444; font-weight: 600;"><i class="fas fa-minus-circle"></i> Xóa chi tiết</span>');
-    
+
     return formatted;
 }
 
@@ -2341,7 +2345,7 @@ function updateProductQuantity(index, change, value = null) {
     }
     recalculateTotals();
     showSaveIndicator("success", "Số lượng đã cập nhật");
-    
+
     // 🔄 Refresh inline search UI to reflect quantity change
     refreshInlineSearchUI();
 }
@@ -2512,7 +2516,7 @@ async function saveAllOrderChanges() {
 
         // 🔄 CẬP NHẬT BẢNG CHÍNH VỚI DỮ LIỆU MỚI
         updateOrderInTable(currentEditOrderId, currentEditOrderData);
-        
+
         // 🔄 Refresh inline search UI after save and reload
         refreshInlineSearchUI();
 
@@ -2638,7 +2642,7 @@ function initInlineSearchAfterRender() {
         if (searchInput && typeof initInlineProductSearch === "function") {
             initInlineProductSearch();
         }
-        
+
         // 🔄 Refresh inline search UI when switching to products tab
         refreshInlineSearchUI();
     }, 100);
@@ -2685,7 +2689,7 @@ function displayInlineResults(results) {
         return;
     }
     resultsDiv.className = "inline-search-results show";
-    
+
     // Check which products are already in the order
     const productsInOrder = new Map();
     if (currentEditOrderData && currentEditOrderData.Details) {
@@ -2693,7 +2697,7 @@ function displayInlineResults(results) {
             productsInOrder.set(detail.ProductId, detail.Quantity || 0);
         });
     }
-    
+
     resultsDiv.innerHTML = results
         .map((p) => {
             const isInOrder = productsInOrder.has(p.Id);
@@ -2701,7 +2705,7 @@ function displayInlineResults(results) {
             const itemClass = isInOrder ? 'inline-result-item in-order' : 'inline-result-item';
             const buttonIcon = isInOrder ? 'fa-check' : 'fa-plus';
             const buttonText = isInOrder ? 'Thêm nữa' : 'Thêm';
-            
+
             return `
         <div class="${itemClass}" onclick="addProductToOrderFromInline(${p.Id})" data-product-id="${p.Id}">
             ${isInOrder ? `<div class="inline-result-quantity-badge"><i class="fas fa-shopping-cart"></i> SL: ${currentQty}</div>` : ''}
@@ -2756,17 +2760,17 @@ function updateProductItemUI(productId) {
     const productItem = document.querySelector(
         `.inline-result-item[data-product-id="${productId}"]`
     );
-    
+
     if (!productItem) return;
-    
+
     // Add animation
     productItem.classList.add("just-added");
-    
+
     // Remove animation class after it completes
     setTimeout(() => {
         productItem.classList.remove("just-added");
     }, 500);
-    
+
     // Get updated quantity from order
     let updatedQty = 0;
     if (currentEditOrderData && currentEditOrderData.Details) {
@@ -2775,12 +2779,12 @@ function updateProductItemUI(productId) {
         );
         updatedQty = product ? (product.Quantity || 0) : 0;
     }
-    
+
     // Update the item to show it's in order
     if (!productItem.classList.contains("in-order")) {
         productItem.classList.add("in-order");
     }
-    
+
     // Update or add quantity badge
     let badge = productItem.querySelector(".inline-result-quantity-badge");
     if (!badge) {
@@ -2788,9 +2792,9 @@ function updateProductItemUI(productId) {
         badge.className = "inline-result-quantity-badge";
         productItem.insertBefore(badge, productItem.firstChild);
     }
-    
+
     badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${updatedQty}`;
-    
+
     // Update button
     const button = productItem.querySelector(".inline-result-add");
     if (button) {
@@ -2806,7 +2810,7 @@ function updateProductItemUI(productId) {
             textNode.textContent = " Thêm nữa";
         }
     }
-    
+
     console.log(`[UI UPDATE] Product ${productId} UI updated with quantity: ${updatedQty}`);
 }
 
@@ -2816,14 +2820,14 @@ function updateProductItemUI(productId) {
 function refreshInlineSearchUI() {
     // Get all product items currently displayed in search results
     const productItems = document.querySelectorAll('.inline-result-item');
-    
+
     if (productItems.length === 0) {
         console.log('[REFRESH UI] No search results to refresh');
         return;
     }
-    
+
     console.log(`[REFRESH UI] Refreshing ${productItems.length} items in search results`);
-    
+
     // Create a map of current quantities
     const productsInOrder = new Map();
     if (currentEditOrderData && currentEditOrderData.Details) {
@@ -2831,15 +2835,15 @@ function refreshInlineSearchUI() {
             productsInOrder.set(detail.ProductId, detail.Quantity || 0);
         });
     }
-    
+
     // Update each product item
     productItems.forEach(item => {
         const productId = parseInt(item.getAttribute('data-product-id'));
         if (!productId) return;
-        
+
         const isInOrder = productsInOrder.has(productId);
         const currentQty = productsInOrder.get(productId) || 0;
-        
+
         // Update classes
         if (isInOrder) {
             if (!item.classList.contains('in-order')) {
@@ -2848,10 +2852,10 @@ function refreshInlineSearchUI() {
         } else {
             item.classList.remove('in-order');
         }
-        
+
         // Update or remove badge
         let badge = item.querySelector('.inline-result-quantity-badge');
-        
+
         if (isInOrder && currentQty > 0) {
             // Product is in order - show/update badge
             if (!badge) {
@@ -2864,7 +2868,7 @@ function refreshInlineSearchUI() {
             // Product removed from order - remove badge
             badge.remove();
         }
-        
+
         // Update button
         const button = item.querySelector('.inline-result-add');
         if (button) {
@@ -2872,7 +2876,7 @@ function refreshInlineSearchUI() {
             if (icon) {
                 icon.className = isInOrder ? 'fas fa-check' : 'fas fa-plus';
             }
-            
+
             // Update button text
             const textNode = Array.from(button.childNodes).find(
                 node => node.nodeType === Node.TEXT_NODE
@@ -2882,7 +2886,7 @@ function refreshInlineSearchUI() {
             }
         }
     });
-    
+
     console.log('[REFRESH UI] UI refresh completed');
 }
 
@@ -3008,10 +3012,10 @@ async function addProductToOrderFromInline(productId) {
         // Điều này cho phép user tiếp tục thêm sản phẩm khác từ cùng danh sách gợi ý
         // document.getElementById("inlineProductSearch").value = "";
         // hideInlineResults();
-        
+
         // Update UI to show product was added
         updateProductItemUI(productId);
-        
+
         // Chỉ focus lại vào input để tiện thao tác
         const searchInput = document.getElementById("inlineProductSearch");
         if (searchInput) {
@@ -3156,7 +3160,7 @@ function debugPayloadBeforeSend(payload) {
 // =====================================================
 // MESSAGE HANDLER FOR CROSS-TAB COMMUNICATION
 // =====================================================
-window.addEventListener("message", function(event) {
+window.addEventListener("message", function (event) {
     // Handle request for orders data from product assignment tab
     if (event.data.type === "REQUEST_ORDERS_DATA") {
         console.log('📨 Nhận request orders data, allData length:', allData.length);

@@ -1,0 +1,346 @@
+fetch("https://pancake.vn/api/v1/pages/117267091364524/conversations/1382798016618291_1152497366991620/messages?customer_id=cdb9c6af-3c83-4c01-b6d3-9aed5d7db50d&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3MTQwODE1NiwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI5ZGJjZDRhYS02YTkxLTQyNmYtODg0Yy00NmVhOGU3NDZkNTgiLCJpYXQiOjE3NjM2MzIxNTYsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.1G-RxwhxhCneTMpqetLqfunCskHuwziSXAFTCsyPuco", {
+  "headers": {
+    "accept": "application/json",
+    "accept-language": "en-US,en;q=0.9,vi;q=0.8",
+    "sec-ch-ua": "\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "cookie": "locale=vi; country=VN; _gid=GA1.2.1295197789.1763631656; _fbp=fb.1.1763632135101.332718626139109354; error=; jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3MTQwODE1NiwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI5ZGJjZDRhYS02YTkxLTQyNmYtODg0Yy00NmVhOGU3NDZkNTgiLCJpYXQiOjE3NjM2MzIxNTYsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.1G-RxwhxhCneTMpqetLqfunCskHuwziSXAFTCsyPuco; pages_reload=; _ga=GA1.1.2056562400.1763631656; _ga_VG3LFY1C9R=GS2.1.s1763631655$o1$g1$t1763632301$j28$l0$h0",
+    "Referer": "https://pancake.vn/multi_pages"
+  },
+  "body": null,
+  "method": "GET"
+});
+
+response:
+{
+    "conv_from": {
+        "id": "25524019323851919",
+        "name": "Nguyễn Tâm"
+    },
+    "available_for_report_phone_numbers": [],
+    "is_banned": false,
+    "last_commented_at": "2025-11-16T03:35:07",
+    "global_id": null,
+    "banned_count": 0,
+    "ad_clicks": {},
+    "recent_phone_numbers": [],
+    "allow_use_data_for_training_ai": false,
+    "customers": [
+        {
+            "ad_clicks": [],
+            "address_source": [],
+            "can_inbox": false,
+            "customer_id": "69003e69-3035-4799-9740-2a35d69e3a0b",
+            "fb_id": "25524019323851919",
+            "global_id": null,
+            "id": "cdb9c6af-3c83-4c01-b6d3-9aed5d7db50d",
+            "is_followed": null,
+            "name": "Nguyễn Tâm",
+            "personal_info": {},
+            "recent_phone_numbers": [],
+            "web_sources": []
+        }
+    ],
+    "lives_in": null,
+    "gender": null,
+    "comment_count": 5,
+    "app": "37",
+    "can_inbox": false,
+    "conv_customers": [
+        {
+            "fb_id": "25524019323851919",
+            "id": "cdb9c6af-3c83-4c01-b6d3-9aed5d7db50d",
+            "name": "Nguyễn Tâm"
+        }
+    ],
+    "success": true,
+    "recent_orders": [],
+    "profile_updated_at": null,
+    "extra_info": {},
+    "messages": [
+        {
+            "attachments": [],
+            "can_comment": true,
+            "can_hide": true,
+            "can_like": true,
+            "can_remove": true,
+            "can_reply_privately": true,
+            "comment_count": null,
+            "conversation_id": "1382798016618291_1152497366991620",
+            "edit_history": null,
+            "from": {
+                "id": "25524019323851919",
+                "name": "Nguyễn Tâm"
+            },
+            "has_phone": false,
+            "id": "1382798016618291_1152497366991620",
+            "inserted_at": "2025-11-16T03:25:33.000000",
+            "is_hidden": true,
+            "is_livestream_order": null,
+            "is_parent": true,
+            "is_parent_hidden": true,
+            "is_removed": false,
+            "like_count": 0,
+            "message": "<div>.</div>",
+            "message_tags": [],
+            "original_message": ".",
+            "page_id": "117267091364524",
+            "parent_id": "1382798016618291_1152497366991620",
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": false,
+            "type": "COMMENT",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": true,
+            "can_hide": true,
+            "can_like": true,
+            "can_remove": true,
+            "can_reply_privately": true,
+            "comment_count": null,
+            "conversation_id": "1382798016618291_1152497366991620",
+            "edit_history": null,
+            "from": {
+                "id": "25524019323851919",
+                "name": "Nguyễn Tâm"
+            },
+            "has_phone": false,
+            "id": "1382798016618291_835960119369713",
+            "inserted_at": "2025-11-16T03:26:29.000000",
+            "is_hidden": true,
+            "is_livestream_order": null,
+            "is_parent": true,
+            "is_parent_hidden": true,
+            "is_removed": false,
+            "like_count": 0,
+            "message": "<div>Xuất sắc xịn xò vô cùng 😍</div>",
+            "message_tags": [],
+            "original_message": "Xuất sắc xịn xò vô cùng 😍",
+            "page_id": "117267091364524",
+            "parent_id": "1382798016618291_835960119369713",
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": false,
+            "type": "COMMENT",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": true,
+            "can_hide": true,
+            "can_like": true,
+            "can_remove": true,
+            "can_reply_privately": true,
+            "comment_count": null,
+            "conversation_id": "1382798016618291_1152497366991620",
+            "edit_history": null,
+            "from": {
+                "id": "25524019323851919",
+                "name": "Nguyễn Tâm"
+            },
+            "has_phone": false,
+            "id": "1382798016618291_1520059182385259",
+            "inserted_at": "2025-11-16T03:35:07.000000",
+            "is_hidden": true,
+            "is_livestream_order": null,
+            "is_parent": true,
+            "is_parent_hidden": true,
+            "is_removed": false,
+            "like_count": 0,
+            "message": "<div>Hi</div>",
+            "message_tags": [],
+            "original_message": "Hi",
+            "page_id": "117267091364524",
+            "parent_id": "1382798016618291_1520059182385259",
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "COMMENT",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": true,
+            "can_remove": true,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "1382798016618291_1152497366991620",
+            "edit_history": null,
+            "from": {
+                "admin_name": "Kỹ Thuật NJD",
+                "id": "117267091364524",
+                "name": "Nhi Judy House",
+                "uid": "c42ef91d-1a1d-43aa-b8af-8ac014d83d6c"
+            },
+            "has_phone": false,
+            "id": "1382798016618291_1924151778538577",
+            "inserted_at": "2025-11-20T10:01:13.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": true,
+            "is_removed": false,
+            "like_count": 0,
+            "message": "<div>.</div>",
+            "message_tags": [],
+            "original_message": ".",
+            "page_id": "117267091364524",
+            "parent_id": "1382798016618291_1520059182385259",
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": true,
+            "type": "COMMENT",
+            "user_likes": false
+        }
+    ],
+    "activities": [
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2509/2025/9/27/db5f86ec17ebcdaba57e7171c77be8d58f6e9198.jpg"
+                    }
+                ],
+                "ids": [
+                    "1084575503661416"
+                ],
+                "target": {
+                    "id": "1084575503661416",
+                    "url": "https://www.facebook.com/122120965376072382/videos/1084575503661416"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2025-09-27T03:44:12.000000",
+            "message": "ĐỒ NGỦ LÔ ĐẸP NHẤT ĐÃ VỀ..HÀNG MỚI MÃ TẶNG SẬP SÀN SÁNG NAYYYY !!!",
+            "post_id": "117267091364524_1084575503661416",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2511/2025/11/16/1045caf5da6aeb6fe4a9fb45740aca806d5fef67.jpg"
+                    }
+                ],
+                "ids": [
+                    "1382798016618291"
+                ],
+                "target": {
+                    "id": "1382798016618291",
+                    "url": "https://www.facebook.com/122120965376072382/videos/1382798016618291"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2025-11-16T03:25:33.000000",
+            "message": "CƠ HỘI SĂN NGAY ÁO QC - ÁO HIỆU ĐẦU 1XX..QUẦN JEAN LÊN SÓNGGGGG !!!",
+            "post_id": "117267091364524_1382798016618291",
+            "source": "POST"
+        }
+    ],
+    "birthday": null,
+    "matched_wa_fb_customers": null,
+    "conv_recent_phone_numbers": [],
+    "suggested_posts": null,
+    "reported_count": 0,
+    "reports_by_phone": {},
+    "conversation_id": "1382798016618291_1152497366991620",
+    "conv_phone_numbers": [],
+    "read_watermarks": null,
+    "banned_by": null,
+    "post": {
+        "admin_creator": {
+            "category": "Entertainment",
+            "id": "1957507177907502",
+            "link": "https://prismlive.com/",
+            "name": "PRISM Live Studio"
+        },
+        "attachments": {
+            "data": [
+                {
+                    "description": null,
+                    "image_data": {
+                        "height": 720,
+                        "width": 405
+                    },
+                    "title": null,
+                    "type": "video_direct_response",
+                    "url": "https://content.pancake.vn/2-2511/2025/11/16/3b89319516c43748f9d631b3ecb84625d8abb2fe.jpg"
+                }
+            ],
+            "ids": [
+                "1382798016618291"
+            ],
+            "target": {
+                "id": "1382798016618291",
+                "url": "https://www.facebook.com/122120965376072382/videos/1382798016618291"
+            },
+            "title": null,
+            "type": "video_direct_response"
+        },
+        "comments_mirroring_domain": null,
+        "from": {
+            "id": "117267091364524",
+            "name": "Nhi Judy House"
+        },
+        "id": "117267091364524_1382798016618291",
+        "inserted_at": "2025-11-16T02:32:21",
+        "is_mention": false,
+        "is_visitor_post": false,
+        "link": null,
+        "message": "CƠ HỘI SĂN NGAY ÁO QC - ÁO HIỆU ĐẦU 1XX..QUẦN JEAN LÊN SÓNGGGGG !!!",
+        "message_tags": null,
+        "privacy": "EVERYONE",
+        "product_id": null,
+        "rating_point": null,
+        "recommendation_type": null,
+        "status_type": "added_video",
+        "story": "Nhi Judy House is live now.",
+        "story_tags": [
+            {
+                "id": "117267091364524",
+                "length": 14,
+                "name": "Nhi Judy House",
+                "offset": 0,
+                "type": "page"
+            }
+        ],
+        "type": "livestream"
+    },
+    "notes": null
+}

@@ -3103,3 +3103,20 @@ td[data-column].hidden {
     margin-left: 8px;
     vertical-align: middle;
 }
+
+/* ====================================== */
+/* MERGED ORDER STYLES */
+/* ====================================== */
+.merged-order-row {
+    background-color: #eff6ff !important; /* Light blue background */
+}
+
+.merged-order-row td:first-child {
+    border-left: 4px solid #3b82f6; /* Blue indicator on the left */
+}
+
+.merged-icon {
+    color: #3b82f6;
+    margin-left: 4px;
+    font-size: 12px;
+}
