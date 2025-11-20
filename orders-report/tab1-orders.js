@@ -4296,7 +4296,13 @@ window.addEventListener('realtimeConversationUpdate', function (e) {
     }
 
     // 3. Update Orders Table
-    const ordersToUpdate = allData.filter(o => o.Facebook_ASUserId === userId);
+    // Ensure loose comparison or string conversion for IDs
+    // Also check FacebookUserId as fallback
+    const ordersToUpdate = allData.filter(o =>
+        String(o.Facebook_ASUserId) === String(userId) ||
+        String(o.FacebookUserId) === String(userId)
+    );
+
     if (ordersToUpdate.length > 0) {
         console.log(`[REALTIME-UI] Updating ${ordersToUpdate.length} orders for user ${userId}`);
 
