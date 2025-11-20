@@ -373,6 +373,96 @@ function handleTableSearch(query) {
     }, 300);
 }
 
+// =====================================================
+// MERGE ORDERS BY PHONE NUMBER
+// =====================================================
+function mergeOrdersByPhone(orders) {
+    if (!orders || orders.length === 0) return orders;
+
+    // Normalize phone numbers (remove spaces, dots, dashes)
+    const normalizePhone = (phone) => {
+        if (!phone) return '';
+        return phone.replace(/[\s\.\-]/g, '').trim();
+    };
+
+    // Group orders by normalized phone number
+    const phoneGroups = new Map();
+
+    orders.forEach(order => {
+        const normalizedPhone = normalizePhone(order.Telephone);
+        if (!normalizedPhone) {
+            // If no phone number, treat as individual order
+            if (!phoneGroups.has(`no_phone_${order.Id}`)) {
+                phoneGroups.set(`no_phone_${order.Id}`, []);
+            }
+            phoneGroups.get(`no_phone_${order.Id}`).push(order);
+        } else {
+            if (!phoneGroups.has(normalizedPhone)) {
+                phoneGroups.set(normalizedPhone, []);
+            }
+            phoneGroups.get(normalizedPhone).push(order);
+        }
+    });
+
+    // Merge orders in each group
+    const mergedOrders = [];
+
+    phoneGroups.forEach((groupOrders, phone) => {
+        if (groupOrders.length === 1) {
+            // Only one order with this phone, no merging needed
+            mergedOrders.push(groupOrders[0]);
+        } else {
+            // Multiple orders with same phone number - merge them
+            const baseOrder = { ...groupOrders[0] };
+
+            // Collect all unique values
+            const allCodes = [];
+            const allNames = new Set();
+            const allAddresses = new Set();
+            const allNotes = [];
+            let totalAmount = 0;
+            let totalQuantity = 0;
+            const allIds = [];
+            let earliestDate = baseOrder.DateCreated;
+
+            groupOrders.forEach(order => {
+                allCodes.push(order.Code);
+                if (order.Name && order.Name.trim()) allNames.add(order.Name.trim());
+                if (order.Address && order.Address.trim()) allAddresses.add(order.Address.trim());
+                if (order.Note && order.Note.trim()) allNotes.push(order.Note.trim());
+                totalAmount += (order.TotalAmount || 0);
+                totalQuantity += (order.TotalQuantity || 0);
+                allIds.push(order.Id);
+
+                // Keep earliest date
+                if (new Date(order.DateCreated) < new Date(earliestDate)) {
+                    earliestDate = order.DateCreated;
+                }
+            });
+
+            // Create merged order
+            const mergedOrder = {
+                ...baseOrder,
+                Code: allCodes.join(' + '),
+                Name: Array.from(allNames).join(' / '),
+                Address: Array.from(allAddresses).join(' | '),
+                Note: allNotes.length > 0 ? allNotes.join(' | ') : baseOrder.Note,
+                TotalAmount: totalAmount,
+                TotalQuantity: totalQuantity,
+                DateCreated: earliestDate,
+                Id: allIds.join('_'), // Combine IDs for checkbox handling
+                OriginalIds: allIds, // Store original IDs for reference
+                MergedCount: groupOrders.length, // Track how many orders were merged
+                SessionIndex: `${groupOrders[0].SessionIndex || ''}` + (groupOrders.length > 1 ? ` (${groupOrders.length})` : '')
+            };
+
+            mergedOrders.push(mergedOrder);
+        }
+    });
+
+    return mergedOrders;
+}
+
 function performTableSearch() {
     // Apply search filter
     let tempData = searchQuery
@@ -481,6 +571,9 @@ function performTableSearch() {
             return 0;
         });
     }
+
+    // Merge orders with duplicate phone numbers
+    filteredData = mergeOrdersByPhone(filteredData);
 
     displayedData = filteredData;
     renderTable();
