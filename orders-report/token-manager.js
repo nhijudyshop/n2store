@@ -19,6 +19,19 @@ class TokenManager {
         };
         this.firebaseRef = null;
         this.firebaseReady = false;
+
+        // Listen for storage changes from other tabs
+        window.addEventListener('storage', (e) => {
+            if (e.key === this.storageKey) {
+                console.log('[TOKEN] Token updated in another tab, reloading...');
+                this.loadFromStorage();
+            }
+        });
+
+        // Initialize immediate check for local token
+        this.loadFromStorage();
+        
+        // Start async init process for Firebase
         this.waitForFirebaseAndInit();
     }
 
@@ -174,13 +187,17 @@ class TokenManager {
     loadFromStorage() {
         try {
             const stored = localStorage.getItem(this.storageKey);
-            if (!stored) return;
+            if (!stored) {
+                console.log('[TOKEN] No token found in localStorage');
+                return;
+            }
 
             const data = JSON.parse(stored);
             this.token = data.access_token;
-            this.tokenExpiry = data.expires_at;
+            // Ensure expires_at is a number
+            this.tokenExpiry = data.expires_at ? Number(data.expires_at) : null;
 
-            console.log('[TOKEN] Loaded token from storage');
+            // console.log(`[TOKEN] Loaded from storage. Expires: ${new Date(this.tokenExpiry).toLocaleString()}`);
         } catch (error) {
             console.error('[TOKEN] Error loading token:', error);
             this.clearToken();
@@ -232,13 +249,32 @@ class TokenManager {
     }
 
     isTokenValid() {
-        if (!this.token || !this.tokenExpiry) {
+        if (!this.token) {
+            // Try reloading from storage one last time before declaring invalid
+            // This handles cases where token exists in storage but wasn't loaded into memory yet
+            this.loadFromStorage();
+            
+            if (!this.token) {
+                console.log('[TOKEN] Validation failed: No token in memory or storage');
+                return false;
+            }
+        }
+
+        if (!this.tokenExpiry) {
+            console.log('[TOKEN] Validation failed: No expiry date');
             return false;
         }
 
         // Check if token expires in less than 5 minutes (buffer time)
         const bufferTime = 5 * 60 * 1000; // 5 minutes
-        return Date.now() < (this.tokenExpiry - bufferTime);
+        const now = Date.now();
+        const isValid = now < (this.tokenExpiry - bufferTime);
+        
+        if (!isValid) {
+             console.log(`[TOKEN] Validation failed: Expired. Now: ${now}, Exp: ${this.tokenExpiry}, Remaining: ${(this.tokenExpiry - now)/1000}s`);
+        }
+
+        return isValid;
     }
 
     async clearToken() {

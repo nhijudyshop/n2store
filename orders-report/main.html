@@ -384,6 +384,12 @@
                             "*"
                         );
                     }
+                } else if (e.data.type === "ORDERS_DATA_RESPONSE") {
+                    // Forward orders data from Tab 1 to Tab 3
+                    const productAssignmentFrame = document.getElementById("productAssignmentFrame");
+                    if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
+                        productAssignmentFrame.contentWindow.postMessage(e.data, "*");
+                    }
                 }
             });
 

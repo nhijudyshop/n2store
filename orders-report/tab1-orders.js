@@ -767,30 +767,34 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
         select.appendChild(option);
     });
 
-    if (campaigns.length > 0 && autoLoad) {
-        // Tự động chọn chiến dịch đầu tiên
+    if (campaigns.length > 0) {
+        // Select first campaign by default
         select.value = 0;
-        handleCampaignChange();
+        
+        // Manually update selectedCampaign state without triggering search
+        const selectedOption = select.options[select.selectedIndex];
+        selectedCampaign = selectedOption?.dataset.campaign
+            ? JSON.parse(selectedOption.dataset.campaign)
+            : null;
 
-        // 🎯 TỰ ĐỘNG TẢI DỮ LIỆU NGAY LẬP TỨC
-        console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
+        if (autoLoad) {
+            // 🎯 TỰ ĐỘNG TẢI DỮ LIỆU NGAY LẬP TỨC
+            console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
 
-        // Hiển thị thông báo đang tải
-        if (window.notificationManager) {
-            window.notificationManager.info(
-                `Đang tải dữ liệu chiến dịch: ${campaigns[0].displayName}`,
-                2000,
-                'Tự động tải'
-            );
+            // Hiển thị thông báo đang tải
+            if (window.notificationManager) {
+                window.notificationManager.info(
+                    `Đang tải dữ liệu chiến dịch: ${campaigns[0].displayName}`,
+                    2000,
+                    'Tự động tải'
+                );
+            }
+
+            // Trigger search explicitly
+            await handleSearch();
+        } else {
+            console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên (chờ người dùng bấm Tải):', campaigns[0].displayName);
         }
-
-        // Tự động gọi handleSearch để load dữ liệu
-        await handleSearch();
-    } else if (campaigns.length > 0) {
-        // Chỉ chọn campaign đầu tiên, không auto-load
-        select.value = 0;
-        handleCampaignChange();
-        console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên:', campaigns[0].displayName);
     }
 }
 
@@ -3111,16 +3115,14 @@ function sendOrdersDataToTab3() {
     // Save to localStorage for persistence
     localStorage.setItem('ordersData', JSON.stringify(ordersDataToSend));
 
-    // Send to product assignment tab via parent window
+    // Send to product assignment tab via parent window forwarding
+    // Updated to avoid "SecurityError: Blocked a frame with origin 'null'"
     if (window.parent) {
-        const productAssignmentFrame = window.parent.document.getElementById('productAssignmentFrame');
-        if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
-            productAssignmentFrame.contentWindow.postMessage({
-                type: 'ORDERS_DATA_UPDATE',
-                orders: ordersDataToSend
-            }, '*');
-            console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng sang tab gán sản phẩm`);
-        }
+        window.parent.postMessage({
+            type: 'ORDERS_DATA_RESPONSE', // Changed to match main.html handler
+            orders: ordersDataToSend
+        }, '*');
+        console.log(`📤 Đã gửi ${ordersDataToSend.length} đơn hàng về parent để forward sang tab 3`);
     }
 }
 
