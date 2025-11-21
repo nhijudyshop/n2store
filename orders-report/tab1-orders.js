@@ -390,10 +390,16 @@ function handleTableSearch(query) {
 function mergeOrdersByPhone(orders) {
     if (!orders || orders.length === 0) return orders;
 
-    // Normalize phone numbers (remove spaces, dots, dashes)
+    // Normalize phone numbers (remove spaces, dots, dashes, country code)
     const normalizePhone = (phone) => {
         if (!phone) return '';
-        return phone.replace(/[\s\.\-]/g, '').trim();
+        // Remove all non-digit characters
+        let cleaned = phone.replace(/\D/g, '');
+        // Handle Vietnam country code: replace leading 84 with 0
+        if (cleaned.startsWith('84')) {
+            cleaned = '0' + cleaned.substring(2);
+        }
+        return cleaned;
     };
 
     // Group orders by normalized phone number
@@ -990,17 +996,12 @@ async function fetchOrders() {
         totalCount = firstData["@odata.count"] || 0;
 
         allData = firstOrders;
-        filteredData = allData.filter((order) => order && order.Id);
-        displayedData = filteredData;
-
         // Show UI immediately with first batch
         document.getElementById("statsBar").style.display = "flex";
         document.getElementById("tableContainer").style.display = "block";
         document.getElementById("searchSection").classList.add("active");
 
-        renderTable();
-        updatePageInfo();
-        updateStats();
+        performTableSearch(); // Apply merging and filters immediately
         updateSearchResultCount();
         showInfoBanner(
             `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
@@ -1030,7 +1031,7 @@ async function fetchOrders() {
                 console.log('[PANCAKE] ✅ Conversations fetched');
             }
 
-            renderTable(); // Re-render with chat data and unread info
+            performTableSearch(); // Re-apply filters and merge with new chat data
         }
 
         // Load tags in background
@@ -1038,8 +1039,8 @@ async function fetchOrders() {
 
         // Detect edited notes using Firebase snapshots (fast, no API spam!)
         detectEditedNotes().then(() => {
-            // Re-render table with noteEdited flags
-            renderTable();
+            // Re-apply filters and merge with noteEdited flags
+            performTableSearch();
             console.log('[NOTE-TRACKER] Table re-rendered with edit indicators');
         }).catch(err => console.error('[NOTE-TRACKER] Error detecting edited notes:', err));
 
@@ -1084,9 +1085,7 @@ async function fetchOrders() {
 
                             if (shouldUpdate) {
                                 console.log(`[PROGRESSIVE] Updating table: ${allData.length}/${totalCount} orders`);
-                                renderTable();
-                                updatePageInfo();
-                                updateStats();
+                                performTableSearch(); // Apply merging and filters
                                 updateSearchResultCount();
                                 showInfoBanner(
                                     `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
@@ -1108,9 +1107,7 @@ async function fetchOrders() {
                     // Final update
                     if (!loadingAborted) {
                         console.log('[PROGRESSIVE] Background loading completed');
-                        renderTable();
-                        updatePageInfo();
-                        updateStats();
+                        performTableSearch(); // Final merge and render
                         updateSearchResultCount();
                         showInfoBanner(
                             `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
