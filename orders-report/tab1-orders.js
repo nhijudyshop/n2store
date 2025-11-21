@@ -3356,22 +3356,22 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
         // Initialize Chat Product State
         initChatProductSearch();
 
-        // Firebase Sync Logic
-        if (database && orderId) {
-            currentChatProductsRef = database.ref('order_products/' + orderId);
+        // Firebase Sync Logic - Shared products across all orders
+        if (database) {
+            currentChatProductsRef = database.ref('order_products/shared');
             currentChatProductsRef.on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
-                    console.log('[CHAT-FIREBASE] Loaded products from Firebase:', data);
+                    console.log('[CHAT-FIREBASE] Loaded shared products from Firebase:', data);
                     currentChatOrderDetails = data;
                     renderChatProductsPanel();
                 } else {
-                    console.log('[CHAT-FIREBASE] No data in Firebase, initializing from order details');
-                    // If no data in Firebase, initialize from order and save
+                    console.log('[CHAT-FIREBASE] No shared data in Firebase, initializing from order details');
+                    // If no data in Firebase, initialize from order and save to shared
                     currentChatOrderDetails = order.Details ? JSON.parse(JSON.stringify(order.Details)) : [];
                     renderChatProductsPanel();
-                    // Save initial state to Firebase so it persists
-                    saveChatProductsToFirebase(orderId, currentChatOrderDetails);
+                    // Save initial state to shared Firebase path
+                    saveChatProductsToFirebase('shared', currentChatOrderDetails);
                 }
             });
         } else {
@@ -5269,7 +5269,7 @@ async function addChatProductFromSearch(productId) {
         }
 
         renderChatProductsPanel();
-        saveChatProductsToFirebase(currentChatOrderId, currentChatOrderDetails);
+        saveChatProductsToFirebase('shared', currentChatOrderDetails);
 
         // Update UI for the added item
         updateChatProductItemUI(productId);
@@ -5305,14 +5305,14 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
     }
 
     renderChatProductsPanel();
-    saveChatProductsToFirebase(currentChatOrderId, currentChatOrderDetails);
+    saveChatProductsToFirebase('shared', currentChatOrderDetails);
 }
 
 function removeChatProduct(index) {
     if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
         currentChatOrderDetails.splice(index, 1);
         renderChatProductsPanel();
-        saveChatProductsToFirebase(currentChatOrderId, currentChatOrderDetails);
+        saveChatProductsToFirebase('shared', currentChatOrderDetails);
     }
 }
 
