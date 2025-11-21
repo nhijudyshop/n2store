@@ -435,7 +435,7 @@
 
             <!-- Right Panel: Products -->
             <div class="chat-right-panel"
-                style="width: 380px; display: flex; flex-direction: column; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%); overflow: visible;">
+                style="width: 380px; display: flex; flex-direction: column; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);">
 
                 <!-- Modern Header with Tabs -->
                 <div class="chat-modal-header" style="
@@ -517,9 +517,9 @@
                     </div>
                 </div>
 
-                <!-- Search Section -->
-                <div style="padding: 16px; background: white; border-bottom: 1px solid #e5e7eb; position: relative; overflow: visible; z-index: 100;">
-                    <div style="position: relative; overflow: visible; z-index: 100;">
+                <!-- Search Section with Dropdown -->
+                <div style="padding: 16px; background: white; border-bottom: 1px solid #e5e7eb;">
+                    <div style="position: relative;">
                         <i class="fas fa-search" style="
                             position: absolute;
                             left: 14px;
@@ -527,9 +527,10 @@
                             transform: translateY(-50%);
                             color: #9ca3af;
                             font-size: 14px;
-                            z-index: 101;
+                            pointer-events: none;
+                            z-index: 2;
                         "></i>
-                        <input type="text" id="chatProductSearch" placeholder="Tìm kiếm sản phẩm..." style="
+                        <input type="text" id="chatProductSearch" placeholder="Tìm sản phẩm theo tên hoặc mã..." style="
                             width: 100%;
                             padding: 12px 12px 12px 40px;
                             border: 2px solid #e5e7eb;
@@ -538,11 +539,26 @@
                             transition: all 0.3s;
                             background: #f9fafb;
                             position: relative;
-                            z-index: 101;
+                            z-index: 1;
                         " onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
-                           onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';">
-                        <div id="chatProductSuggestions" class="product-suggestions" style="display: none;">
-                            <!-- Suggestions -->
+                           onblur="setTimeout(() => { this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb'; }, 200);">
+
+                        <!-- Suggestions Dropdown -->
+                        <div id="chatProductSuggestions" class="product-suggestions" style="
+                            display: none;
+                            position: absolute;
+                            top: calc(100% + 4px);
+                            left: 0;
+                            right: 0;
+                            background: white;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                            max-height: 300px;
+                            overflow-y: auto;
+                            z-index: 1000;
+                            border: 1px solid #e5e7eb;
+                        ">
+                            <!-- Suggestions will be rendered here -->
                         </div>
                     </div>
                 </div>
@@ -553,10 +569,7 @@
                     overflow-y: auto;
                     padding: 16px;
                     background: #f9fafb;
-                    position: relative;
-                    z-index: 1;
                 " id="chatProductListContainer">
-                    <!-- Products will be dynamically inserted here -->
                     <div id="chatProductTableBody" style="display: flex; flex-direction: column; gap: 12px;">
                         <!-- Empty State -->
                         <div class="empty-products-state" style="
@@ -566,7 +579,7 @@
                         ">
                             <i class="fas fa-shopping-cart" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
                             <p style="font-size: 15px; font-weight: 500; margin: 0;">Chưa có sản phẩm nào</p>
-                            <p style="font-size: 13px; margin: 8px 0 0 0;">Thêm sản phẩm vào giỏ hàng</p>
+                            <p style="font-size: 13px; margin: 8px 0 0 0;">Nhập mã sản phẩm để thêm vào giỏ</p>
                         </div>
                     </div>
                 </div>
@@ -778,11 +791,29 @@
                     right: 0;
                     background: white;
                     border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                     max-height: 300px;
                     overflow-y: auto;
-                    z-index: 99999 !important;
+                    z-index: 1000;
                     border: 1px solid #e5e7eb;
+                }
+
+                .suggestion-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 10px 14px;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                    border-bottom: 1px solid #f3f4f6;
+                }
+
+                .suggestion-item:hover {
+                    background: #f9fafb;
+                }
+
+                .suggestion-item:last-child {
+                    border-bottom: none;
                 }
 
                 .product-suggestions::-webkit-scrollbar {
