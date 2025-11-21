@@ -1525,7 +1525,7 @@ function createRowHTML(order) {
                     <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
-            <td data-column="tag" style="max-width: 200px; white-space: normal;">
+            <td data-column="tag">
                 <div class="tag-btn-container" style="display: inline-block; position: relative; margin-bottom: 4px;">
                     <button class="tag-icon-btn" onclick="quickTagManager.openDropdown('${order.Id}', '${order.Code}', this); event.stopPropagation();" title="Chọn nhanh tag" style="padding: 2px 6px;">
                         <i class="fas fa-tags"></i>
@@ -1534,15 +1534,15 @@ function createRowHTML(order) {
                 </div>
                 ${tagsHTML}
             </td>
-            <td data-column="order-code" style="max-width: 120px; white-space: normal;">
+            <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>
             <td data-column="customer"><div>${highlight(order.Name)}</div>${partnerStatusHTML}</td>
             ${messagesHTML}
             ${commentsHTML}
-            <td data-column="phone" style="max-width: 100px; white-space: normal;">${highlight(order.Telephone)}</td>
-            <td data-column="address" style="max-width: 500px; white-space: normal;">${highlight(order.Address)}</td>
-            <td data-column="notes" style="max-width: 200px; white-space: normal;">${highlight(order.Note)}</td>
+            <td data-column="phone">${highlight(order.Telephone)}</td>
+            <td data-column="address">${highlight(order.Address)}</td>
+            <td data-column="notes">${highlight(order.Note)}</td>
             <td data-column="total">${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
             <td data-column="quantity">${order.TotalQuantity || 0}</td>
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>

@@ -120,39 +120,84 @@ body {
     background: #f9fafb;
 }
 
-/* Column width control */
-.table th:nth-child(3),
-.table td:nth-child(3) {
+/* Column width control - Using data-column to avoid nth-child issues when hiding columns */
+.table th[data-column="tag"],
+.table td[data-column="tag"] {
     max-width: 120px;
     width: 120px;
 }
 
+/* Customer column */
+.table th[data-column="customer"],
+.table td[data-column="customer"] {
+    max-width: 200px;
+    width: 200px;
+    white-space: normal;
+    word-break: break-word;
+}
+
 /* Messages & Comments columns */
-.table th:nth-child(5),
-.table td:nth-child(5),
-.table th:nth-child(6),
-.table td:nth-child(6) {
+.table th[data-column="messages"],
+.table td[data-column="messages"],
+.table th[data-column="comments"],
+.table td[data-column="comments"] {
     max-width: 180px;
     width: 180px;
     white-space: normal;
-    /* Allow wrapping */
     word-break: break-word;
-    /* Break long words */
 }
 
 /* Phone number column */
-.table th:nth-child(7),
-.table td:nth-child(7) {
+.table th[data-column="phone"],
+.table td[data-column="phone"] {
     max-width: 120px;
     width: 120px;
 }
 
 /* Address column */
-.table th:nth-child(8),
-.table td:nth-child(8) {
+.table th[data-column="address"],
+.table td[data-column="address"] {
     max-width: 300px;
     width: 300px;
     white-space: normal;
+}
+
+/* Notes column */
+.table th[data-column="notes"],
+.table td[data-column="notes"] {
+    max-width: 250px;
+    width: 250px;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Total column */
+.table th[data-column="total"],
+.table td[data-column="total"] {
+    max-width: 100px;
+    width: 100px;
+}
+
+/* Quantity column */
+.table th[data-column="quantity"],
+.table td[data-column="quantity"] {
+    max-width: 60px;
+    width: 60px;
+    text-align: center;
+}
+
+/* Created date column */
+.table th[data-column="created-date"],
+.table td[data-column="created-date"] {
+    max-width: 150px;
+    width: 150px;
+}
+
+/* Status column */
+.table th[data-column="status"],
+.table td[data-column="status"] {
+    max-width: 120px;
+    width: 120px;
 }
 
 .status-badge {
