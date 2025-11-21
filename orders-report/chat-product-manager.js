@@ -121,6 +121,17 @@ class ChatProductManager {
         }
     }
 
+    async removeHistoryEntry(entryId) {
+        if (!this.historyRef) return;
+
+        try {
+            await this.historyRef.child(entryId).remove();
+            console.log('[CHAT-PRODUCT-HISTORY] Removed entry:', entryId);
+        } catch (error) {
+            console.error('[CHAT-PRODUCT-HISTORY] Error removing entry:', error);
+        }
+    }
+
     async clearHistory() {
         if (!confirm('Bạn có chắc muốn xóa toàn bộ lịch sử? Hành động này không thể hoàn tác.')) {
             return;
@@ -645,8 +656,9 @@ class ChatProductManager {
                     align-items: flex-start;
                     gap: 12px;
                     transition: all 0.2s;
-                " onmouseover="this.style.background='#f9fafb'; this.style.borderLeftColor='${actionColor}'; this.style.borderLeftWidth='3px'; this.style.paddingLeft='11px';"
-                   onmouseout="this.style.background='white'; this.style.borderLeftWidth='0'; this.style.paddingLeft='14px';">
+                    position: relative;
+                " onmouseover="this.style.background='#f9fafb'; this.style.borderLeftColor='${actionColor}'; this.style.borderLeftWidth='3px'; this.style.paddingLeft='11px'; this.querySelector('.delete-history-btn').style.opacity='1';"
+                   onmouseout="this.style.background='white'; this.style.borderLeftWidth='0'; this.style.paddingLeft='14px'; this.querySelector('.delete-history-btn').style.opacity='0';">
                     <div style="
                         width: 32px;
                         height: 32px;
@@ -683,6 +695,26 @@ class ChatProductManager {
                         </div>
                         ${detailsHtml}
                     </div>
+                    <button class="delete-history-btn" onclick="window.chatProductManager.removeHistoryEntry('${entry.id}')" style="
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        width: 24px;
+                        height: 24px;
+                        border: none;
+                        background: #fee2e2;
+                        color: #ef4444;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        opacity: 0;
+                        transition: all 0.2s;
+                        font-size: 11px;
+                    " onmouseover="this.style.background='#ef4444'; this.style.color='white';" onmouseout="this.style.background='#fee2e2'; this.style.color='#ef4444';" title="Xóa">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             `;
         }).join('');
@@ -707,6 +739,36 @@ class ChatProductManager {
                     suggestions.style.display = 'none';
                 }
             });
+        }
+
+        // Prevent scroll propagation for product list and history
+        const productList = document.getElementById('chatProductTableBody');
+        const historyList = document.getElementById('chatProductHistoryBody');
+
+        if (productList) {
+            productList.addEventListener('wheel', (e) => {
+                // Check if scrolled to top or bottom
+                const isAtTop = productList.scrollTop === 0;
+                const isAtBottom = productList.scrollHeight - productList.scrollTop === productList.clientHeight;
+
+                // Prevent scroll propagation if not at boundaries
+                if ((e.deltaY < 0 && !isAtTop) || (e.deltaY > 0 && !isAtBottom)) {
+                    e.stopPropagation();
+                }
+            }, { passive: false });
+        }
+
+        if (historyList) {
+            historyList.addEventListener('wheel', (e) => {
+                // Check if scrolled to top or bottom
+                const isAtTop = historyList.scrollTop === 0;
+                const isAtBottom = historyList.scrollHeight - historyList.scrollTop === historyList.clientHeight;
+
+                // Prevent scroll propagation if not at boundaries
+                if ((e.deltaY < 0 && !isAtTop) || (e.deltaY > 0 && !isAtBottom)) {
+                    e.stopPropagation();
+                }
+            }, { passive: false });
         }
 
         // Setup tab switching
