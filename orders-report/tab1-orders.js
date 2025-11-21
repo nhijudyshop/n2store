@@ -1695,9 +1695,9 @@ function parseOrderTags(tagsJson) {
         return tags
             .map(
                 (tag) =>
-                    `<span class="order-tag" style="background-color: ${tag.Color || "#6b7280"};">${tag.Name || ""}</span>`,
+                    `<div style="margin-bottom: 2px;"><span class="order-tag" style="background-color: ${tag.Color || "#6b7280"};">${tag.Name || ""}</span></div>`,
             )
-            .join(" ");
+            .join("");
     } catch (e) {
         return "";
     }
