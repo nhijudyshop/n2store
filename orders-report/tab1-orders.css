@@ -3384,3 +3384,146 @@ td[data-column].hidden {
     color: #059669;
     font-weight: 600;
 }
+/* Quick Tag Dropdown */
+.quick-tag-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+    min-width: 220px;
+    display: none;
+    animation: slideDown 0.2s ease-out;
+}
+
+.quick-tag-dropdown.show {
+    display: block;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.quick-tag-dropdown-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 8px 8px 0 0;
+}
+
+.quick-tag-dropdown-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.quick-tag-list {
+    padding: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.quick-tag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.quick-tag-item:hover {
+    background: #f3f4f6;
+}
+
+.quick-tag-item-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.quick-tag-item-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.quick-tag-item-name {
+    flex: 1;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.quick-tag-dropdown-footer {
+    padding: 8px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 0 0 8px 8px;
+}
+
+.quick-tag-open-modal-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.quick-tag-open-modal-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Tag container positioning for dropdown */
+.tag-btn-container {
+    position: relative;
+}
+
+/* Quick access star in modal */
+.tag-item-quick-access {
+    margin-left: auto;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #d1d5db;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.tag-item-quick-access:hover {
+    color: #fbbf24;
+    transform: scale(1.1);
+}
+
+.tag-item-quick-access.active {
+    color: #fbbf24;
+}
+
+.tag-item-quick-access i {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}

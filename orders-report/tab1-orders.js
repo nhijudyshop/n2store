@@ -256,11 +256,15 @@ function renderTagList(searchQuery = "") {
     tagList.innerHTML = filteredTags
         .map((tag) => {
             const isSelected = currentOrderTags.some((t) => t.Id === tag.Id);
+            const isQuickTag = window.quickTagManager ? window.quickTagManager.isQuickTag(tag.Name) : false;
             return `
             <div class="tag-item ${isSelected ? "selected" : ""}" onclick="toggleTag(${tag.Id})" data-tag-id="${tag.Id}">
                 <input type="checkbox" class="tag-item-checkbox" ${isSelected ? "checked" : ""} onclick="event.stopPropagation(); toggleTag(${tag.Id})">
                 <div class="tag-item-color" style="background-color: ${tag.Color}"></div>
                 <div class="tag-item-name">${tag.Name}</div>
+                <button class="tag-item-quick-access ${isQuickTag ? 'active' : ''}" onclick="event.stopPropagation(); toggleQuickAccess('${tag.Name.replace(/'/g, "\\'")}', this)" title="${isQuickTag ? 'Bỏ khỏi chọn nhanh' : 'Thêm vào chọn nhanh'}">
+                    <i class="fas fa-star"></i>
+                </button>
             </div>`;
         })
         .join("");
@@ -308,6 +312,32 @@ function updateSelectedTagsDisplay() {
 
 function filterTags() {
     renderTagList(document.getElementById("tagSearchInput").value);
+}
+
+function toggleQuickAccess(tagName, buttonElement) {
+    if (!window.quickTagManager) {
+        console.error('[TAG] Quick tag manager not available');
+        return;
+    }
+
+    const isActive = window.quickTagManager.toggleQuickTag(tagName);
+
+    // Update button state
+    if (isActive) {
+        buttonElement.classList.add('active');
+        buttonElement.title = 'Bỏ khỏi chọn nhanh';
+        if (window.notificationManager) {
+            window.notificationManager.show(`⭐ Đã thêm "${tagName}" vào chọn nhanh`, 'success');
+        }
+    } else {
+        buttonElement.classList.remove('active');
+        buttonElement.title = 'Thêm vào chọn nhanh';
+        if (window.notificationManager) {
+            window.notificationManager.show(`Đã bỏ "${tagName}" khỏi chọn nhanh`, 'info');
+        }
+    }
+
+    console.log(`[TAG] Quick access toggled for "${tagName}": ${isActive ? 'ADDED' : 'REMOVED'}`);
 }
 
 async function saveOrderTags() {
@@ -1495,8 +1525,8 @@ function createRowHTML(order) {
                 </div>
             </td>
             <td data-column="tag" style="max-width: 200px; white-space: normal;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                    <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
+                <div class="tag-btn-container" style="display: inline-block; position: relative; margin-bottom: 4px;">
+                    <button class="tag-icon-btn" onclick="quickTagManager.openDropdown('${order.Id}', '${order.Code}', this); event.stopPropagation();" title="Chọn nhanh tag" style="padding: 2px 6px;">
                         <i class="fas fa-tags"></i>
                         ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ""}
                     </button>
