@@ -60,11 +60,11 @@ class ChatProductManager {
         this.productHistory = [];
 
         // Clear search input
-        const searchInput = document.getElementById('chatProductSearch');
+        const searchInput = document.getElementById('chatProductSearchInput');
         if (searchInput) searchInput.value = '';
 
         // Hide suggestions
-        const suggestions = document.getElementById('chatProductSuggestions');
+        const suggestions = document.getElementById('chatProductSearchResults');
         if (suggestions) suggestions.style.display = 'none';
     }
 
@@ -338,7 +338,7 @@ class ChatProductManager {
     }
 
     handleSearch(query) {
-        const suggestionsEl = document.getElementById('chatProductSuggestions');
+        const suggestionsEl = document.getElementById('chatProductSearchResults');
         if (!query || query.trim().length < 2) {
             suggestionsEl.style.display = 'none';
             return;
@@ -351,7 +351,7 @@ class ChatProductManager {
     }
 
     renderSuggestions() {
-        const suggestionsEl = document.getElementById('chatProductSuggestions');
+        const suggestionsEl = document.getElementById('chatProductSearchResults');
         if (!suggestionsEl) return;
 
         if (this.searchResults.length === 0) {
@@ -399,12 +399,12 @@ class ChatProductManager {
             this.addProduct(product);
 
             // Clear search
-            const searchInput = document.getElementById('chatProductSearch');
+            const searchInput = document.getElementById('chatProductSearchInput');
             if (searchInput) {
                 searchInput.value = '';
                 searchInput.focus();
             }
-            document.getElementById('chatProductSuggestions').style.display = 'none';
+            document.getElementById('chatProductSearchResults').style.display = 'none';
         }
     }
 
@@ -640,7 +640,7 @@ class ChatProductManager {
     }
 
     setupEventListeners() {
-        const searchInput = document.getElementById('chatProductSearch');
+        const searchInput = document.getElementById('chatProductSearchInput');
         if (searchInput) {
             // Debounce search
             let timeout;
@@ -653,7 +653,7 @@ class ChatProductManager {
 
             // Hide suggestions when clicking outside
             document.addEventListener('click', (e) => {
-                const suggestions = document.getElementById('chatProductSuggestions');
+                const suggestions = document.getElementById('chatProductSearchResults');
                 if (suggestions && e.target !== searchInput && !suggestions.contains(e.target)) {
                     suggestions.style.display = 'none';
                 }
