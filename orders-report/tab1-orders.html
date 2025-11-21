@@ -434,117 +434,61 @@
             </div>
 
             <!-- Right Panel: Products -->
+            <!-- Right Panel: Products -->
             <div class="chat-right-panel"
-                style="width: 380px; display: flex; flex-direction: column; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);">
+                style="width: 400px; display: flex; flex-direction: column; background: #f8fafc; border-left: 1px solid #e2e8f0;">
 
-                <!-- Modern Header with Tabs -->
-                <div class="chat-modal-header" style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-bottom: none;
-                    padding: 20px 20px 0 20px;
-                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+                <!-- Header -->
+                <div class="chat-panel-header" style="
+                    padding: 16px 20px;
+                    background: white;
+                    border-bottom: 1px solid #e2e8f0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
                 ">
-                    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <h3 style="font-size: 18px; font-weight: 700; color: white; margin: 0; display: flex; align-items: center; gap: 10px;">
-                                <i class="fas fa-shopping-bag" style="font-size: 20px;"></i>
-                                Giỏ hàng
-                            </h3>
-                            <div class="product-total-badge" id="chatProductTotal" style="
-                                background: rgba(255, 255, 255, 0.25);
-                                backdrop-filter: blur(10px);
-                                color: white;
-                                padding: 6px 14px;
-                                border-radius: 20px;
-                                font-size: 13px;
-                                font-weight: 700;
-                                border: 1px solid rgba(255, 255, 255, 0.3);
-                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-                            ">
-                                0đ
-                            </div>
-                        </div>
-                        <div id="productCountBadge" style="
-                            color: rgba(255, 255, 255, 0.9);
-                            font-size: 13px;
-                            font-weight: 500;
-                        ">
-                            <i class="fas fa-box-open" style="margin-right: 6px;"></i>
-                            <span id="productCount">0</span> sản phẩm
-                        </div>
-
-                        <!-- Tabs -->
-                        <div style="display: flex; gap: 4px; margin-top: 12px;">
-                            <button id="productsTabBtn" class="product-tab-btn active" style="
-                                flex: 1;
-                                padding: 10px 16px;
-                                border: none;
-                                background: white;
-                                color: #667eea;
-                                border-radius: 8px 8px 0 0;
-                                font-size: 13px;
-                                font-weight: 600;
-                                cursor: pointer;
-                                transition: all 0.2s;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                gap: 6px;
-                            ">
-                                <i class="fas fa-shopping-cart"></i>
-                                Sản phẩm
-                            </button>
-                            <button id="historyTabBtn" class="product-tab-btn" style="
-                                flex: 1;
-                                padding: 10px 16px;
-                                border: none;
-                                background: transparent;
-                                color: rgba(255, 255, 255, 0.8);
-                                border-radius: 8px 8px 0 0;
-                                font-size: 13px;
-                                font-weight: 600;
-                                cursor: pointer;
-                                transition: all 0.2s;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                gap: 6px;
-                            ">
-                                <i class="fas fa-history"></i>
-                                Lịch sử
-                            </button>
-                        </div>
+                    <h3
+                        style="font-size: 16px; font-weight: 600; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-shopping-bag" style="color: #3b82f6;"></i>
+                        Sản phẩm đơn hàng
+                    </h3>
+                    <div class="chat-product-count" id="chatProductCountBadge" style="
+                        background: #eff6ff;
+                        color: #3b82f6;
+                        padding: 4px 10px;
+                        border-radius: 20px;
+                        font-size: 12px;
+                        font-weight: 600;
+                    ">
+                        0 sản phẩm
                     </div>
                 </div>
 
-                <!-- Search Section with Dropdown -->
-                <div style="padding: 16px; background: white; border-bottom: 1px solid #e5e7eb;">
+                <!-- Search -->
+                <div class="chat-panel-search"
+                    style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
                     <div style="position: relative;">
                         <i class="fas fa-search" style="
                             position: absolute;
-                            left: 14px;
+                            left: 12px;
                             top: 50%;
                             transform: translateY(-50%);
-                            color: #9ca3af;
+                            color: #94a3b8;
                             font-size: 14px;
-                            pointer-events: none;
-                            z-index: 2;
                         "></i>
-                        <input type="text" id="chatProductSearch" placeholder="Tìm sản phẩm theo tên hoặc mã..." style="
+                        <input type="text" id="chatProductSearchInput" placeholder="Tìm sản phẩm (Tên, Mã)..." style="
                             width: 100%;
-                            padding: 12px 12px 12px 40px;
-                            border: 2px solid #e5e7eb;
-                            border-radius: 12px;
+                            padding: 10px 12px 10px 36px;
+                            border: 1px solid #cbd5e1;
+                            border-radius: 8px;
                             font-size: 14px;
-                            transition: all 0.3s;
-                            background: #f9fafb;
-                            position: relative;
-                            z-index: 1;
-                        " onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
-                           onblur="setTimeout(() => { this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb'; }, 200);">
+                            transition: all 0.2s;
+                            background: #f8fafc;
+                        " onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
+                            onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
 
-                        <!-- Suggestions Dropdown -->
-                        <div id="chatProductSuggestions" class="product-suggestions" style="
+                        <!-- Search Results Dropdown -->
+                        <div id="chatProductSearchResults" class="chat-search-results" style="
                             display: none;
                             position: absolute;
                             top: calc(100% + 4px);
@@ -552,288 +496,276 @@
                             right: 0;
                             background: white;
                             border-radius: 8px;
-                            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                            border: 1px solid #e2e8f0;
                             max-height: 300px;
                             overflow-y: auto;
-                            z-index: 1000;
-                            border: 1px solid #e5e7eb;
-                        ">
-                            <!-- Suggestions will be rendered here -->
-                        </div>
+                            z-index: 50;
+                        "></div>
                     </div>
                 </div>
 
-                <!-- Products List -->
-                <div class="chat-product-body" style="
+                <!-- Product List -->
+                <div class="chat-product-list" id="chatProductList" style="
                     flex: 1;
                     overflow-y: auto;
                     padding: 16px;
-                    background: #f9fafb;
-                " id="chatProductListContainer">
-                    <div id="chatProductTableBody" style="display: flex; flex-direction: column; gap: 12px;">
-                        <!-- Empty State -->
-                        <div class="empty-products-state" style="
-                            text-align: center;
-                            padding: 60px 20px;
-                            color: #9ca3af;
-                        ">
-                            <i class="fas fa-shopping-cart" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
-                            <p style="font-size: 15px; font-weight: 500; margin: 0;">Chưa có sản phẩm nào</p>
-                            <p style="font-size: 13px; margin: 8px 0 0 0;">Nhập mã sản phẩm để thêm vào giỏ</p>
-                        </div>
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                ">
+                    <!-- Empty State -->
+                    <div class="chat-empty-cart" style="
+                        text-align: center;
+                        padding: 40px 20px;
+                        color: #94a3b8;
+                    ">
+                        <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                        <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm nào</p>
+                        <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
                     </div>
                 </div>
 
-                <!-- History List -->
-                <div class="chat-product-body" style="
-                    flex: 1;
-                    overflow-y: auto;
-                    background: white;
-                    display: none;
-                " id="chatProductHistoryContainer">
-                    <div id="chatProductHistoryBody">
-                        <!-- History will be dynamically inserted here -->
-                    </div>
-                </div>
-
-                <!-- Footer Actions -->
-                <div style="
+                <!-- Footer -->
+                <div class="chat-panel-footer" style="
                     padding: 16px;
                     background: white;
-                    border-top: 2px solid #e5e7eb;
-                    box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.02);
+                    border-top: 1px solid #e2e8f0;
+                    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
                 ">
                     <div style="
                         display: flex;
-                        align-items: center;
                         justify-content: space-between;
-                        padding: 12px 16px;
-                        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-                        border-radius: 12px;
-                        margin-bottom: 12px;
+                        align-items: center;
+                        margin-bottom: 16px;
                     ">
-                        <span style="font-size: 14px; font-weight: 600; color: #374151;">
-                            Tổng cộng:
-                        </span>
-                        <span id="chatProductTotalFooter" style="
-                            font-size: 18px;
-                            font-weight: 700;
-                            color: #667eea;
-                        ">0đ</span>
+                        <span style="font-size: 14px; color: #64748b;">Tổng tiền:</span>
+                        <span id="chatOrderTotal" style="font-size: 18px; font-weight: 700; color: #3b82f6;">0đ</span>
                     </div>
+
                 </div>
             </div>
 
-            <style>
-                /* Tab Buttons */
-                .product-tab-btn:hover {
-                    background: rgba(255, 255, 255, 0.1) !important;
-                }
-                .product-tab-btn.active:hover {
-                    background: white !important;
-                }
 
-                /* Custom Scrollbar for Products */
-                .chat-product-body::-webkit-scrollbar {
-                    width: 6px;
-                }
-                .chat-product-body::-webkit-scrollbar-track {
-                    background: #f1f1f1;
-                    border-radius: 10px;
-                }
-                .chat-product-body::-webkit-scrollbar-thumb {
-                    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-                    border-radius: 10px;
-                }
-                .chat-product-body::-webkit-scrollbar-thumb:hover {
-                    background: linear-gradient(180deg, #764ba2 0%, #667eea 100%);
-                }
-
-                /* Product Card Styles */
-                .product-card {
-                    background: white;
-                    border-radius: 12px;
-                    padding: 14px;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    border: 1px solid #e5e7eb;
-                    position: relative;
-                    overflow: hidden;
-                }
-                .product-card::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 4px;
-                    height: 100%;
-                    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-                    opacity: 0;
-                    transition: opacity 0.3s;
-                }
-                .product-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.15);
-                    border-color: #667eea;
-                }
-                .product-card:hover::before {
-                    opacity: 1;
-                }
-
-                .product-card-content {
-                    display: flex;
-                    gap: 12px;
-                    align-items: flex-start;
-                }
-
-                .product-image {
-                    width: 60px;
-                    height: 60px;
-                    border-radius: 10px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
-                }
-
-                .product-image i {
-                    font-size: 24px;
-                    color: white;
-                }
-
-                .product-details {
-                    flex: 1;
-                    min-width: 0;
-                }
-
-                .product-name {
-                    font-size: 14px;
-                    font-weight: 600;
-                    color: #1f2937;
-                    margin-bottom: 6px;
-                    line-height: 1.4;
-                    display: -webkit-box;
-                    -webkit-line-clamp: 2;
-                    -webkit-box-orient: vertical;
-                    overflow: hidden;
-                }
-
-                .product-meta {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                }
-
-                .product-quantity {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    background: #f3f4f6;
-                    padding: 4px 10px;
-                    border-radius: 8px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: #6b7280;
-                }
-
-                .product-price {
-                    font-size: 15px;
-                    font-weight: 700;
-                    color: #667eea;
-                    white-space: nowrap;
-                }
-
-                .product-actions {
-                    margin-top: 10px;
-                    padding-top: 10px;
-                    border-top: 1px solid #f3f4f6;
-                    display: flex;
-                    gap: 8px;
-                }
-
-                .product-action-btn {
-                    flex: 1;
-                    padding: 6px 12px;
-                    border: 1px solid #e5e7eb;
-                    background: white;
-                    border-radius: 8px;
-                    font-size: 12px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 6px;
-                }
-
-                .product-action-btn:hover {
-                    background: #f9fafb;
-                    border-color: #667eea;
-                    color: #667eea;
-                }
-
-                .product-action-btn.delete:hover {
-                    background: #fef2f2;
-                    border-color: #ef4444;
-                    color: #ef4444;
-                }
-
-                /* Product Suggestions Dropdown */
-                .product-suggestions {
-                    position: absolute;
-                    top: calc(100% + 4px);
-                    left: 0;
-                    right: 0;
-                    background: white;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    max-height: 300px;
-                    overflow-y: auto;
-                    z-index: 1000;
-                    border: 1px solid #e5e7eb;
-                }
-
-                .suggestion-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    padding: 10px 14px;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                    border-bottom: 1px solid #f3f4f6;
-                }
-
-                .suggestion-item:hover {
-                    background: #f9fafb;
-                }
-
-                .suggestion-item:last-child {
-                    border-bottom: none;
-                }
-
-                .product-suggestions::-webkit-scrollbar {
-                    width: 6px;
-                }
-
-                .product-suggestions::-webkit-scrollbar-track {
-                    background: #f9fafb;
-                }
-
-                .product-suggestions::-webkit-scrollbar-thumb {
-                    background: #d1d5db;
-                    border-radius: 3px;
-                }
-
-                .product-suggestions::-webkit-scrollbar-thumb:hover {
-                    background: #9ca3af;
-                }
-            </style>
         </div>
+
+        <style>
+            /* Tab Buttons */
+            .product-tab-btn:hover {
+                background: rgba(255, 255, 255, 0.1) !important;
+            }
+
+            .product-tab-btn.active:hover {
+                background: white !important;
+            }
+
+            /* Custom Scrollbar for Products */
+            .chat-product-body::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .chat-product-body::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+
+            .chat-product-body::-webkit-scrollbar-thumb {
+                background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+                border-radius: 10px;
+            }
+
+            .chat-product-body::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(180deg, #764ba2 0%, #667eea 100%);
+            }
+
+            /* Product Card Styles */
+            .product-card {
+                background: white;
+                border-radius: 12px;
+                padding: 14px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                border: 1px solid #e5e7eb;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .product-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 4px;
+                height: 100%;
+                background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+
+            .product-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 16px rgba(102, 126, 234, 0.15);
+                border-color: #667eea;
+            }
+
+            .product-card:hover::before {
+                opacity: 1;
+            }
+
+            .product-card-content {
+                display: flex;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .product-image {
+                width: 60px;
+                height: 60px;
+                border-radius: 10px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+            }
+
+            .product-image i {
+                font-size: 24px;
+                color: white;
+            }
+
+            .product-details {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .product-name {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1f2937;
+                margin-bottom: 6px;
+                line-height: 1.4;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .product-meta {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .product-quantity {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: #f3f4f6;
+                padding: 4px 10px;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #6b7280;
+            }
+
+            .product-price {
+                font-size: 15px;
+                font-weight: 700;
+                color: #667eea;
+                white-space: nowrap;
+            }
+
+            .product-actions {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #f3f4f6;
+                display: flex;
+                gap: 8px;
+            }
+
+            .product-action-btn {
+                flex: 1;
+                padding: 6px 12px;
+                border: 1px solid #e5e7eb;
+                background: white;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+            }
+
+            .product-action-btn:hover {
+                background: #f9fafb;
+                border-color: #667eea;
+                color: #667eea;
+            }
+
+            .product-action-btn.delete:hover {
+                background: #fef2f2;
+                border-color: #ef4444;
+                color: #ef4444;
+            }
+
+            /* Product Suggestions Dropdown */
+            .product-suggestions {
+                position: absolute;
+                top: calc(100% + 4px);
+                left: 0;
+                right: 0;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                max-height: 300px;
+                overflow-y: auto;
+                z-index: 1000;
+                border: 1px solid #e5e7eb;
+            }
+
+            .suggestion-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 14px;
+                cursor: pointer;
+                transition: background 0.2s;
+                border-bottom: 1px solid #f3f4f6;
+            }
+
+            .suggestion-item:hover {
+                background: #f9fafb;
+            }
+
+            .suggestion-item:last-child {
+                border-bottom: none;
+            }
+
+            .product-suggestions::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .product-suggestions::-webkit-scrollbar-track {
+                background: #f9fafb;
+            }
+
+            .product-suggestions::-webkit-scrollbar-thumb {
+                background: #d1d5db;
+                border-radius: 3px;
+            }
+
+            .product-suggestions::-webkit-scrollbar-thumb:hover {
+                background: #9ca3af;
+            }
+        </style>
+    </div>
     </div>
 
     <!-- Scripts -->

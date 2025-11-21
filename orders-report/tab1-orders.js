@@ -17,6 +17,9 @@ let currentEditingOrderId = null;
 
 // Edit Modal State
 let currentEditOrderData = null;
+let currentChatOrderDetails = [];
+let currentChatOrderId = null;
+let currentChatProductsRef = null;
 let currentOrderTags = [];
 
 // =====================================================
@@ -3347,10 +3350,35 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
             setupChatInfiniteScroll();
         }
 
-        // Initialize Chat Product Manager
-        if (window.chatProductManager) {
-            window.chatProductManager.init(order.Id);
+        // Initialize Chat Product State
+        // Initialize Chat Product State
+        initChatProductSearch();
+
+        // Firebase Sync Logic
+        if (database && orderId) {
+            currentChatProductsRef = database.ref('order_products/' + orderId);
+            currentChatProductsRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    console.log('[CHAT-FIREBASE] Loaded products from Firebase:', data);
+                    currentChatOrderDetails = data;
+                    renderChatProductsPanel();
+                } else {
+                    console.log('[CHAT-FIREBASE] No data in Firebase, initializing from order details');
+                    // If no data in Firebase, initialize from order and save
+                    currentChatOrderDetails = order.Details ? JSON.parse(JSON.stringify(order.Details)) : [];
+                    renderChatProductsPanel();
+                    // Save initial state to Firebase so it persists
+                    saveChatProductsToFirebase(orderId, currentChatOrderDetails);
+                }
+            });
+        } else {
+            // Fallback if no firebase
+            currentChatOrderDetails = order.Details ? JSON.parse(JSON.stringify(order.Details)) : [];
+            renderChatProductsPanel();
         }
+
+
 
     } catch (error) {
         console.error(`[CHAT] Error loading ${type}:`, error);
@@ -3383,7 +3411,14 @@ function closeChatModal() {
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentConversationId = null;
+    currentConversationId = null;
     currentParentCommentId = null;
+
+    // Detach Firebase listener
+    if (currentChatProductsRef) {
+        currentChatProductsRef.off();
+        currentChatProductsRef = null;
+    }
 }
 
 /**
@@ -3403,14 +3438,14 @@ async function sendReplyComment() {
 
     // Validate required info
     const isMessage = currentChatType === 'message';
-    const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId || (!isMessage && !currentParentCommentId);
+    // Allow missing parentCommentId for top-level comments
+    const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId;
 
     if (missingInfo) {
         alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
         console.error('[SEND-REPLY] Missing required info:', {
             currentOrder: !!currentOrder,
             currentConversationId: !!currentConversationId,
-            currentParentCommentId: !!currentParentCommentId,
             currentChatChannelId: !!currentChatChannelId,
             currentChatType
         });
@@ -3458,16 +3493,32 @@ async function sendReplyComment() {
                 send_by_platform: "web"
             };
         } else {
-            // Payload for replying to a comment
-            replyBody = {
-                action: "reply_comment",
-                message_id: currentParentCommentId,
-                parent_id: currentParentCommentId,
-                user_selected_reply_to: null,
-                post_id: postId,
-                message: message,
-                send_by_platform: "web"
-            };
+            // Payload for replying to a comment OR creating a new top-level comment
+            if (currentParentCommentId) {
+                // Reply to specific comment
+                replyBody = {
+                    action: "reply_comment",
+                    message_id: currentParentCommentId,
+                    parent_id: currentParentCommentId,
+                    user_selected_reply_to: null,
+                    post_id: postId,
+                    message: message,
+                    send_by_platform: "web"
+                };
+            } else {
+                // Top-level comment (no parent)
+                // Based on typical Pancake/Facebook API behavior for new comments on a post
+                replyBody = {
+                    action: "reply_comment", // Still use reply_comment action? Or maybe just "comment"? 
+                    // Usually for top level, we just need post_id. 
+                    // If Pancake requires "reply_comment" action even for new comments, we might need to omit parent_id.
+                    // Let's assume we omit parent_id/message_id.
+                    post_id: postId,
+                    message: message,
+                    send_by_platform: "web"
+                };
+                console.log('[SEND-REPLY] Sending top-level comment (no parent_id)');
+            }
         }
 
         console.log('[SEND-REPLY] POST URL:', replyUrl);
@@ -3603,16 +3654,15 @@ function handleReplyToComment(commentId, postId) {
     console.log(`[CHAT] Replying to comment: ${commentId}, post: ${postId}`);
 
     // Set current parent comment ID
-    // Ưu tiên lấy FacebookId hoặc OriginalId nếu có
-    // Nếu Id là Mongo ID (24 hex) thì tìm field khác
-    currentParentCommentId = getFacebookCommentId(commentId, null); // We don't have the full object here, but we can try to pass it if we change the call signature.
-    // Actually, handleReplyToComment only gets the ID. We need to change how it's called or look up the comment.
-    // Let's look up the comment in allChatComments
+    // Look up the comment in allChatComments to get the full object
     const comment = allChatComments.find(c => c.Id === commentId);
+
     if (comment) {
+        // Use helper to get the correct ID (FacebookId, OriginalId, etc.)
         currentParentCommentId = getFacebookCommentId(comment);
         console.log(`[CHAT] Selected parent comment ID: ${currentParentCommentId} (from ${comment.Id})`);
     } else {
+        // Fallback if comment not found in local list (shouldn't happen often)
         currentParentCommentId = commentId;
         console.warn(`[CHAT] Could not find comment object for ${commentId}, using raw ID`);
     }
@@ -4750,3 +4800,518 @@ async function saveSelectedProductsToOrders() {
         }
     }
 }
+// =====================================================
+// CHAT SHOPPING CART LOGIC
+// =====================================================
+
+function renderChatProductsPanel() {
+    const listContainer = document.getElementById("chatProductList");
+    const countBadge = document.getElementById("chatProductCountBadge");
+    const totalEl = document.getElementById("chatOrderTotal");
+
+    if (!listContainer) return;
+
+    // Update Count & Total
+    const totalQty = currentChatOrderDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+    const totalAmount = currentChatOrderDetails.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+    if (countBadge) countBadge.textContent = `${totalQty} sản phẩm`;
+    if (totalEl) totalEl.textContent = `${totalAmount.toLocaleString("vi-VN")}đ`;
+
+    // Empty State
+    if (currentChatOrderDetails.length === 0) {
+        listContainer.innerHTML = `
+            <div class="chat-empty-cart" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm nào</p>
+                <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
+            </div>`;
+        return;
+    }
+
+    // Render List
+    listContainer.innerHTML = currentChatOrderDetails.map((p, index) => `
+        <div class="chat-product-card" style="
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            gap: 12px;
+            transition: all 0.2s;
+        ">
+            <!-- Image -->
+            <div style="
+                width: 48px;
+                height: 48px;
+                border-radius: 6px;
+                background: #f1f5f9;
+                overflow: hidden;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            ">
+                ${p.ImageUrl
+            ? `<img src="${p.ImageUrl}" style="width: 100%; height: 100%; object-fit: cover;">`
+            : `<i class="fas fa-image" style="color: #cbd5e1;"></i>`}
+            </div>
+
+            <!-- Content -->
+            <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                    <div style="font-size: 13px; font-weight: 600; color: #1e293b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                        ${p.ProductName || p.Name || 'Sản phẩm'}
+                    </div>
+                    <button onclick="removeChatProduct(${index})" style="
+                        background: none;
+                        border: none;
+                        color: #ef4444;
+                        cursor: pointer;
+                        padding: 4px;
+                        margin-top: -4px;
+                        margin-right: -4px;
+                        opacity: 0.6;
+                        transition: opacity 0.2s;
+                    " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+                    Mã: ${p.ProductCode || p.Code || 'N/A'}
+                </div>
+
+                <!-- Controls -->
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="font-size: 13px; font-weight: 700; color: #3b82f6;">
+                        ${(p.Price || 0).toLocaleString("vi-VN")}đ
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                        <button onclick="updateChatProductQuantity(${index}, -1)" style="
+                            width: 24px;
+                            height: 24px;
+                            border: none;
+                            background: #f8fafc;
+                            color: #64748b;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 10px;
+                        "><i class="fas fa-minus"></i></button>
+                        <input type="number" value="${p.Quantity || 1}" onchange="updateChatProductQuantity(${index}, 0, this.value)" style="
+                            width: 32px;
+                            height: 24px;
+                            border: none;
+                            border-left: 1px solid #e2e8f0;
+                            border-right: 1px solid #e2e8f0;
+                            text-align: center;
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #1e293b;
+                            -moz-appearance: textfield;
+                        ">
+                        <button onclick="updateChatProductQuantity(${index}, 1)" style="
+                            width: 24px;
+                            height: 24px;
+                            border: none;
+                            background: #f8fafc;
+                            color: #64748b;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 10px;
+                        "><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join("");
+}
+
+// --- Search Logic ---
+var chatSearchTimeout = null;
+
+function initChatProductSearch() {
+    const input = document.getElementById("chatProductSearchInput");
+    console.log("[CHAT-SEARCH] Initializing search. Input found:", !!input);
+
+    if (!input) {
+        console.error("[CHAT-SEARCH] Search input not found!");
+        return;
+    }
+
+    // Prevent duplicate listeners using a custom flag
+    if (input.dataset.searchInitialized === "true") {
+        console.log("[CHAT-SEARCH] Search already initialized for this input");
+        return;
+    }
+
+    input.dataset.searchInitialized = "true";
+
+    input.addEventListener("input", (e) => {
+        const query = e.target.value.trim();
+        console.log("[CHAT-SEARCH] Input event:", query);
+
+        if (chatSearchTimeout) clearTimeout(chatSearchTimeout);
+
+        if (query.length < 2) {
+            const resultsDiv = document.getElementById("chatProductSearchResults");
+            if (resultsDiv) resultsDiv.style.display = "none";
+            return;
+        }
+
+        chatSearchTimeout = setTimeout(() => performChatProductSearch(query), 300);
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+        const dropdown = document.getElementById("chatProductSearchResults");
+        const searchContainer = input.closest('.chat-panel-search');
+        if (dropdown && searchContainer && !searchContainer.contains(e.target)) {
+            dropdown.style.display = "none";
+        }
+    });
+}
+
+async function performChatProductSearch(query) {
+    console.log("[CHAT-SEARCH] Performing search for:", query);
+    const resultsDiv = document.getElementById("chatProductSearchResults");
+    if (!resultsDiv) {
+        console.error("[CHAT-SEARCH] Results div not found!");
+        return;
+    }
+
+    // Force styles to ensure visibility
+    resultsDiv.style.display = "block";
+    resultsDiv.style.zIndex = "1000";
+    resultsDiv.innerHTML = `<div style="padding: 12px; text-align: center; color: #64748b; font-size: 13px;"><i class="fas fa-spinner fa-spin"></i> Đang tìm kiếm...</div>`;
+
+    try {
+        if (!window.productSearchManager) {
+            throw new Error("ProductSearchManager not available");
+        }
+
+        if (!window.productSearchManager.isLoaded) {
+            console.log("[CHAT-SEARCH] Loading products...");
+            await window.productSearchManager.fetchExcelProducts();
+        }
+
+        const results = window.productSearchManager.search(query, 10);
+        console.log("[CHAT-SEARCH] Results found:", results.length);
+        displayChatSearchResults(results);
+    } catch (error) {
+        console.error("[CHAT-SEARCH] Error:", error);
+        resultsDiv.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 13px;">Lỗi: ${error.message}</div>`;
+    }
+}
+
+function displayChatSearchResults(results) {
+    const resultsDiv = document.getElementById("chatProductSearchResults");
+    if (!resultsDiv) return;
+
+    // Ensure visibility and styling
+    resultsDiv.style.display = "block";
+    resultsDiv.style.zIndex = "1000";
+    resultsDiv.style.maxHeight = "400px";
+    resultsDiv.style.overflowY = "auto";
+    resultsDiv.style.width = "600px"; // Make it wider like the screenshot
+    resultsDiv.style.left = "-16px"; // Align with container padding
+    resultsDiv.style.boxShadow = "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)";
+
+    if (!results || results.length === 0) {
+        resultsDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: #64748b; font-size: 14px;">Không tìm thấy sản phẩm phù hợp</div>`;
+        return;
+    }
+
+    // Check existing products
+    const productsInOrder = new Map();
+    currentChatOrderDetails.forEach(d => {
+        productsInOrder.set(d.ProductId, d.Quantity || 0);
+    });
+
+    resultsDiv.innerHTML = results.map(p => {
+        const isInOrder = productsInOrder.has(p.Id);
+        const currentQty = productsInOrder.get(p.Id) || 0;
+
+        return `
+        <div class="chat-search-item ${isInOrder ? 'in-order' : ''}" data-product-id="${p.Id}" onclick="addChatProductFromSearch(${p.Id})" style="
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: white;
+            transition: background 0.2s;
+            cursor: pointer;
+            position: relative; /* For badge positioning */
+        " onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+            
+            ${isInOrder ? `
+            <div class="chat-search-qty-badge" style="
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                background: #10b981;
+                color: white;
+                font-size: 10px;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-weight: 600;
+                z-index: 10;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            "><i class="fas fa-shopping-cart"></i> SL: ${currentQty}</div>
+            ` : ''}
+
+            <!-- Image -->
+            <div style="
+                width: 48px; 
+                height: 48px; 
+                border-radius: 6px; 
+                background: #f1f5f9; 
+                overflow: hidden; 
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #e2e8f0;
+            ">
+                ${(p.ImageUrl || (p.Thumbnails && p.Thumbnails[0]) || p.Parent?.ImageUrl)
+                ? `<img src="${p.ImageUrl || (p.Thumbnails && p.Thumbnails[0]) || p.Parent?.ImageUrl}" style="width: 100%; height: 100%; object-fit: cover;">`
+                : `<i class="fas fa-image" style="color: #cbd5e1; font-size: 20px;"></i>`}
+            </div>
+
+            <!-- Info -->
+            <div style="flex: 1; min-width: 0;">
+                <div style="
+                    font-size: 14px; 
+                    font-weight: 600; 
+                    color: #1e293b; 
+                    margin-bottom: 4px;
+                    white-space: nowrap; 
+                    overflow: hidden; 
+                    text-overflow: ellipsis;
+                ">${p.Name}</div>
+                <div style="font-size: 12px; color: #64748b;">
+                    Mã: <span style="font-family: monospace; color: #475569;">${p.Code || 'N/A'}</span>
+                </div>
+            </div>
+
+            <!-- Price -->
+            <div style="
+                font-size: 14px; 
+                font-weight: 700; 
+                color: #10b981; 
+                text-align: right;
+                min-width: 80px;
+            ">
+                ${(p.Price || 0).toLocaleString("vi-VN")}đ
+            </div>
+
+            <!-- Add Button -->
+            <button style="
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: none;
+                background: ${isInOrder ? '#dcfce7' : '#f1f5f9'};
+                color: ${isInOrder ? '#10b981' : '#64748b'};
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='${isInOrder ? '#dcfce7' : '#e2e8f0'}'" onmouseout="this.style.background='${isInOrder ? '#dcfce7' : '#f1f5f9'}'">
+                <i class="fas ${isInOrder ? 'fa-check' : 'fa-plus'}"></i>
+            </button>
+        </div>`;
+    }).join("");
+}
+
+function updateChatProductItemUI(productId) {
+    const item = document.querySelector(`.chat-search-item[data-product-id="${productId}"]`);
+    if (!item) return;
+
+    // Add animation class (assuming CSS exists or we add inline style for animation)
+    item.style.transition = "background 0.3s";
+    item.style.background = "#dcfce7";
+    setTimeout(() => {
+        item.style.background = "white";
+    }, 500);
+
+    // Update quantity badge
+    const existing = currentChatOrderDetails.find(d => d.ProductId == productId);
+    const qty = existing ? existing.Quantity : 0;
+
+    let badge = item.querySelector('.chat-search-qty-badge');
+    if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'chat-search-qty-badge';
+        badge.style.cssText = `
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: #10b981;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
+        item.appendChild(badge);
+    }
+    badge.innerHTML = `<i class="fas fa-shopping-cart"></i> SL: ${qty}`;
+
+    // Update button
+    const btn = item.querySelector('button');
+    if (btn) {
+        btn.style.background = '#dcfce7';
+        btn.style.color = '#10b981';
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+    }
+
+    if (!item.classList.contains('in-order')) {
+        item.classList.add('in-order');
+    }
+}
+
+// =====================================================
+// FIREBASE SYNC HELPER
+// =====================================================
+function saveChatProductsToFirebase(orderId, products) {
+    if (!database || !orderId) return;
+    const ref = database.ref('order_products/' + orderId);
+    ref.set(products).catch(err => console.error("[CHAT-FIREBASE] Save error:", err));
+}
+
+async function addChatProductFromSearch(productId) {
+    // Show loading state on the clicked item
+    const searchItem = document.querySelector(`.chat-search-item[onclick*="${productId}"]`);
+    const originalContent = searchItem ? searchItem.innerHTML : '';
+    if (searchItem) {
+        searchItem.innerHTML = `<div style="text-align: center; width: 100%; color: #6366f1;"><i class="fas fa-spinner fa-spin"></i> Đang tải thông tin...</div>`;
+        searchItem.style.pointerEvents = 'none';
+    }
+
+    try {
+        // 1. Fetch full details from TPOS (Required)
+        const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
+        if (!fullProduct) throw new Error("Không tìm thấy thông tin sản phẩm");
+
+        // Logic to inherit image from Product Template if missing (Variant logic)
+        if ((!fullProduct.ImageUrl || fullProduct.ImageUrl === "") && (!fullProduct.Thumbnails || fullProduct.Thumbnails.length === 0)) {
+            if (fullProduct.ProductTmplId) {
+                try {
+                    console.log(`[CHAT-ADD] Fetching product template ${fullProduct.ProductTmplId} for image fallback`);
+                    // Construct Template URL
+                    const templateApiUrl = window.productSearchManager.PRODUCT_API_BASE.replace('/Product', '/ProductTemplate');
+                    const url = `${templateApiUrl}(${fullProduct.ProductTmplId})?$expand=Images`;
+
+                    const headers = await window.tokenManager.getAuthHeader();
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: headers,
+                    });
+
+                    if (response.ok) {
+                        const templateData = await response.json();
+                        if (templateData.ImageUrl) fullProduct.ImageUrl = templateData.ImageUrl;
+                    }
+                } catch (e) {
+                    console.warn(`[CHAT-ADD] Failed to fetch product template ${fullProduct.ProductTmplId}`, e);
+                }
+            }
+        }
+
+        // 2. Check if already exists
+        const existingIndex = currentChatOrderDetails.findIndex(p => p.ProductId === productId);
+
+        if (existingIndex >= 0) {
+            // Increase quantity
+            currentChatOrderDetails[existingIndex].Quantity = (currentChatOrderDetails[existingIndex].Quantity || 0) + 1;
+        } else {
+            // 3. Create new product object using EXACT logic from addProductToOrderFromInline
+            const newProduct = {
+                ProductId: fullProduct.Id,
+                Quantity: 1,
+                Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
+                Note: null,
+                UOMId: fullProduct.UOM?.Id || 1,
+                Factor: 1,
+                Priority: 0,
+                OrderId: currentChatOrderId, // Use current chat order ID
+                LiveCampaign_DetailId: null,
+                ProductWeight: 0,
+
+                // COMPUTED FIELDS
+                ProductName: fullProduct.Name || fullProduct.NameTemplate,
+                ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
+                UOMName: fullProduct.UOM?.Name || "Cái",
+                ImageUrl: fullProduct.ImageUrl || (fullProduct.Thumbnails && fullProduct.Thumbnails[0]) || fullProduct.Parent?.ImageUrl || '',
+                IsOrderPriority: null,
+                QuantityRegex: null,
+                IsDisabledLiveCampaignDetail: false,
+
+                // Additional fields for chat UI compatibility if needed
+                Name: fullProduct.Name,
+                Code: fullProduct.DefaultCode || fullProduct.Barcode
+            };
+
+            currentChatOrderDetails.push(newProduct);
+        }
+
+        renderChatProductsPanel();
+        saveChatProductsToFirebase(currentChatOrderId, currentChatOrderDetails);
+
+        // Update UI for the added item
+        updateChatProductItemUI(productId);
+
+        // Clear search input and keep focus
+        const searchInput = document.getElementById("chatProductSearchInput");
+        if (searchInput) {
+            searchInput.value = ''; // Clear input
+            searchInput.focus();
+        }
+
+    } catch (error) {
+        console.error("Error adding product:", error);
+        if (searchItem) {
+            searchItem.innerHTML = originalContent;
+            searchItem.style.pointerEvents = 'auto';
+        }
+        alert("Lỗi khi thêm sản phẩm: " + error.message);
+    }
+}
+
+// --- Action Logic ---
+
+function updateChatProductQuantity(index, delta, specificValue = null) {
+    if (index < 0 || index >= currentChatOrderDetails.length) return;
+
+    if (specificValue !== null) {
+        const val = parseInt(specificValue);
+        if (val > 0) currentChatOrderDetails[index].Quantity = val;
+    } else {
+        const newQty = (currentChatOrderDetails[index].Quantity || 0) + delta;
+        if (newQty > 0) currentChatOrderDetails[index].Quantity = newQty;
+    }
+
+    renderChatProductsPanel();
+    saveChatProductsToFirebase(currentChatOrderId, currentChatOrderDetails);
+}
+
+function removeChatProduct(index) {
+    if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
+        currentChatOrderDetails.splice(index, 1);
+        renderChatProductsPanel();
+        saveChatProductsToFirebase(currentChatOrderId, currentChatOrderDetails);
+    }
+}
+
+
