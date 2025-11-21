@@ -278,20 +278,21 @@ const quickTagManager = {
                 orderTags.splice(tagIndex, 1);
             }
 
-            // Save to API
+            // Save to API using AssignTag endpoint
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `${API_CONFIG.TPOS_ODATA}/Order(${this.currentOrderId})`;
+            const apiUrl = `${API_CONFIG.TPOS_ODATA}/TagSaleOnlineOrder/ODataService.AssignTag`;
             const response = await API_CONFIG.smartFetch(
                 apiUrl,
                 {
-                    method: 'PATCH',
+                    method: 'POST',
                     headers: {
                         ...headers,
                         'accept': 'application/json',
                         'content-type': 'application/json',
                     },
                     body: JSON.stringify({
-                        Tags: JSON.stringify(orderTags)
+                        Tags: orderTags,
+                        OrderId: this.currentOrderId
                     })
                 }
             );
