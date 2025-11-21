@@ -1445,7 +1445,7 @@ function renderTable() {
     const tbody = document.getElementById("tableBody");
     if (displayedData.length === 0) {
         tbody.innerHTML =
-            '<tr><td colspan="13" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="15" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
     tbody.innerHTML = displayedData.map(createRowHTML).join("");
@@ -1495,15 +1495,17 @@ function createRowHTML(order) {
                     <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
-            <td data-column="order-code" style="max-width: 120px; white-space: normal;">
+            <td data-column="tag" style="max-width: 200px; white-space: normal;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                    <span>${highlight(order.Code)}</span>
                     <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}')" title="Quản lý tag" style="padding: 2px 6px;">
                         <i class="fas fa-tags"></i>
                         ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ""}
                     </button>
                 </div>
                 ${tagsHTML}
+            </td>
+            <td data-column="order-code" style="max-width: 120px; white-space: normal;">
+                <span>${highlight(order.Code)}</span>
             </td>
             <td data-column="customer"><div>${highlight(order.Name)}</div>${partnerStatusHTML}</td>
             ${messagesHTML}

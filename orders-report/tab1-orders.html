@@ -236,6 +236,7 @@
                                 <input type="checkbox" id="selectAll" />
                             </th>
                             <th data-column="stt">STT</th>
+                            <th data-column="tag">TAG</th>
                             <th data-column="order-code">Mã ĐH</th>
                             <th data-column="customer">Khách hàng</th>
                             <th data-column="messages">Tin nhắn</th>
@@ -252,7 +253,7 @@
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="14" style="text-align: center; padding: 40px">
+                            <td colspan="15" style="text-align: center; padding: 40px">
                                 Vui lòng chọn chiến dịch và bấm Tìm kiếm
                             </td>
                         </tr>
@@ -330,7 +331,11 @@
                         <span>STT</span>
                     </label>
                     <label class="column-setting-item">
-                        <input type="checkbox" data-column="order-code" checked />
+                        <input type="checkbox" data-column="tag" checked />
+                        <span>TAG</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="order-code" />
                         <span>Mã đơn hàng</span>
                     </label>
                     <label class="column-setting-item">
@@ -350,11 +355,11 @@
                         <span>Số điện thoại</span>
                     </label>
                     <label class="column-setting-item">
-                        <input type="checkbox" data-column="address" checked />
+                        <input type="checkbox" data-column="address" />
                         <span>Địa chỉ</span>
                     </label>
                     <label class="column-setting-item">
-                        <input type="checkbox" data-column="notes" checked />
+                        <input type="checkbox" data-column="notes" />
                         <span>Ghi chú</span>
                     </label>
                     <label class="column-setting-item">

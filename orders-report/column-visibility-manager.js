@@ -8,13 +8,14 @@ const COLUMN_VISIBILITY_KEY = 'orderTableColumnVisibility';
 // Default column visibility settings
 const DEFAULT_COLUMN_VISIBILITY = {
     'stt': true,
-    'order-code': true,
+    'tag': true,
+    'order-code': false,
     'customer': true,
     'messages': true,
     'comments': true,
     'phone': true,
-    'address': true,
-    'notes': true,
+    'address': false,
+    'notes': false,
     'total': true,
     'quantity': true,
     'created-date': true,
@@ -168,7 +169,7 @@ function initializeColumnVisibility() {
  */
 function addColumnAttributesToRow(row) {
     const cells = row.querySelectorAll('td');
-    const columns = ['', 'stt', 'order-code', 'customer', 'messages', 'comments', 'phone', 'address', 'notes', 'total', 'quantity', 'created-date', 'status', ''];
+    const columns = ['', 'stt', 'tag', 'order-code', 'customer', 'messages', 'comments', 'phone', 'address', 'notes', 'total', 'quantity', 'created-date', 'status', ''];
 
     cells.forEach((cell, index) => {
         if (columns[index] && columns[index] !== '') {
