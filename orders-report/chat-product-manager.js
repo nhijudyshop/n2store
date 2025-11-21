@@ -71,12 +71,18 @@ class ChatProductManager {
     startHistoryListening() {
         if (!this.historyRef) return;
 
-        console.log(`[CHAT-PRODUCT-HISTORY] Listening for changes on chat_products_history/${this.orderId}`);
+        console.log(`[CHAT-PRODUCT-HISTORY] Listening for changes on chat_products_history/shared`);
 
         this.historyRef.orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                this.productHistory = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
+                this.productHistory = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key]
+                })).sort((a, b) => b.timestamp - a.timestamp);
+
+                // Auto-delete entries older than 30 days
+                this.cleanupOldHistory();
             } else {
                 this.productHistory = [];
             }
@@ -84,6 +90,54 @@ class ChatProductManager {
         }, (error) => {
             console.error('[CHAT-PRODUCT-HISTORY] Firebase listener error:', error);
         });
+    }
+
+    async cleanupOldHistory() {
+        if (!this.historyRef) return;
+
+        try {
+            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+            const snapshot = await this.historyRef.orderByChild('timestamp').endAt(thirtyDaysAgo).once('value');
+
+            if (snapshot.exists()) {
+                const updates = {};
+                snapshot.forEach(child => {
+                    updates[child.key] = null; // Mark for deletion
+                });
+
+                if (Object.keys(updates).length > 0) {
+                    await this.historyRef.update(updates);
+                    console.log(`[CHAT-PRODUCT-HISTORY] Cleaned up ${Object.keys(updates).length} old entries`);
+                }
+            }
+        } catch (error) {
+            console.error('[CHAT-PRODUCT-HISTORY] Error cleaning up old history:', error);
+        }
+    }
+
+    async clearHistory() {
+        if (!confirm('Bạn có chắc muốn xóa toàn bộ lịch sử? Hành động này không thể hoàn tác.')) {
+            return;
+        }
+
+        try {
+            await this.historyRef.remove();
+
+            if (window.notificationManager) {
+                window.notificationManager.show('✅ Đã xóa toàn bộ lịch sử', 'success');
+            } else {
+                alert('✅ Đã xóa toàn bộ lịch sử');
+            }
+
+            console.log('[CHAT-PRODUCT-HISTORY] History cleared by admin');
+        } catch (error) {
+            console.error('[CHAT-PRODUCT-HISTORY] Error clearing history:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Lỗi khi xóa lịch sử: ' + error.message, 'error');
+            } else {
+                alert('❌ Lỗi khi xóa lịch sử: ' + error.message);
+            }
+        }
     }
 
     async logHistory(action, productName, details = {}) {
@@ -457,60 +511,126 @@ class ChatProductManager {
 
         historyContainer.innerHTML = this.productHistory.map(entry => {
             const date = new Date(entry.timestamp);
-            const timeStr = date.toLocaleString('vi-VN');
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            let timeStr;
+            if (diffMins < 1) {
+                timeStr = 'Vừa xong';
+            } else if (diffMins < 60) {
+                timeStr = `${diffMins} phút trước`;
+            } else if (diffHours < 24) {
+                timeStr = `${diffHours} giờ trước`;
+            } else if (diffDays < 7) {
+                timeStr = `${diffDays} ngày trước`;
+            } else {
+                timeStr = date.toLocaleDateString('vi-VN', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
 
             let actionIcon = '';
             let actionText = '';
             let actionColor = '';
+            let actionBgColor = '';
 
             switch (entry.action) {
                 case 'add':
                     actionIcon = '<i class="fas fa-plus-circle"></i>';
                     actionText = 'Thêm';
                     actionColor = '#10b981';
+                    actionBgColor = '#d1fae5';
                     break;
                 case 'remove':
                     actionIcon = '<i class="fas fa-trash-alt"></i>';
                     actionText = 'Xóa';
                     actionColor = '#ef4444';
+                    actionBgColor = '#fee2e2';
                     break;
                 case 'update_quantity':
                     actionIcon = '<i class="fas fa-edit"></i>';
-                    actionText = 'Cập nhật SL';
+                    actionText = 'Cập nhật';
                     actionColor = '#3b82f6';
+                    actionBgColor = '#dbeafe';
                     break;
             }
 
             let detailsHtml = '';
-            if (entry.action === 'update_quantity') {
-                detailsHtml = `<span style="color: #6b7280; font-size: 11px;">${entry.details.oldQuantity} → ${entry.details.newQuantity}</span>`;
-            } else if (entry.action === 'add') {
-                detailsHtml = `<span style="color: #6b7280; font-size: 11px;">SL: ${entry.details.quantity}</span>`;
+            if (entry.action === 'update_quantity' && entry.details) {
+                detailsHtml = `
+                    <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: #6b7280; margin-top: 4px;">
+                        <span style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${entry.details.oldQuantity || 0}</span>
+                        <i class="fas fa-arrow-right" style="font-size: 8px;"></i>
+                        <span style="background: ${actionBgColor}; color: ${actionColor}; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${entry.details.newQuantity || 0}</span>
+                    </div>
+                `;
+            } else if (entry.action === 'add' && entry.details) {
+                detailsHtml = `
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
+                        <span style="background: ${actionBgColor}; color: ${actionColor}; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
+                            SL: ${entry.details.quantity || 1}
+                        </span>
+                        ${entry.details.price ? `<span style="margin-left: 6px;">${(entry.details.price || 0).toLocaleString('vi-VN')}đ</span>` : ''}
+                    </div>
+                `;
+            } else if (entry.action === 'remove' && entry.details) {
+                detailsHtml = `
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
+                        SL: ${entry.details.quantity || 0}
+                    </div>
+                `;
             }
 
             return `
                 <div class="history-item" style="
-                    padding: 10px 12px;
+                    padding: 12px 14px;
                     border-bottom: 1px solid #f3f4f6;
                     display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    transition: background 0.2s;
-                " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                    <div style="color: ${actionColor}; font-size: 16px; flex-shrink: 0;">
+                    align-items: flex-start;
+                    gap: 12px;
+                    transition: all 0.2s;
+                " onmouseover="this.style.background='#f9fafb'; this.style.borderLeftColor='${actionColor}'; this.style.borderLeftWidth='3px'; this.style.paddingLeft='11px';"
+                   onmouseout="this.style.background='white'; this.style.borderLeftWidth='0'; this.style.paddingLeft='14px';">
+                    <div style="
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 8px;
+                        background: ${actionBgColor};
+                        color: ${actionColor};
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 14px;
+                        flex-shrink: 0;
+                    ">
                         ${actionIcon}
                     </div>
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 13px; font-weight: 500; color: #1f2937; margin-bottom: 2px;">
-                            ${entry.productName}
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span style="
+                                display: inline-block;
+                                padding: 2px 8px;
+                                background: ${actionBgColor};
+                                color: ${actionColor};
+                                border-radius: 4px;
+                                font-size: 10px;
+                                font-weight: 700;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            ">${actionText}</span>
+                            <span style="font-size: 10px; color: #9ca3af;">
+                                <i class="far fa-clock"></i> ${timeStr}
+                            </span>
                         </div>
-                        <div style="font-size: 11px; color: #9ca3af;">
-                            ${timeStr}
-                        </div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="color: ${actionColor}; font-size: 11px; font-weight: 600; margin-bottom: 2px;">
-                            ${actionText}
+                        <div style="font-size: 13px; font-weight: 600; color: #1f2937; line-height: 1.4; margin-bottom: 2px;">
+                            ${entry.productName || 'Sản phẩm'}
                         </div>
                         ${detailsHtml}
                     </div>

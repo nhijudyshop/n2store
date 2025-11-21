@@ -464,65 +464,149 @@
                     </div>
                 </div>
 
-                <!-- Search -->
-                <div class="chat-panel-search"
-                    style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
-                    <div style="position: relative;">
-                        <i class="fas fa-search" style="
-                            position: absolute;
-                            left: 12px;
-                            top: 50%;
-                            transform: translateY(-50%);
-                            color: #94a3b8;
-                            font-size: 14px;
-                        "></i>
-                        <input type="text" id="chatProductSearchInput" placeholder="Tìm sản phẩm (Tên, Mã)..." style="
-                            width: 100%;
-                            padding: 10px 12px 10px 36px;
-                            border: 1px solid #cbd5e1;
-                            border-radius: 8px;
-                            font-size: 14px;
-                            transition: all 0.2s;
-                            background: #f8fafc;
-                        " onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
-                            onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
+                <!-- Tab Switcher -->
+                <div class="chat-panel-tabs" style="
+                    padding: 12px 16px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    gap: 8px;
+                    border-bottom: 1px solid #e2e8f0;
+                ">
+                    <button id="productsTabBtn" class="product-tab-btn active" onclick="window.chatProductManager?.switchTab('products')" style="
+                        flex: 1;
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        background: white;
+                        color: #667eea;
+                    ">
+                        <i class="fas fa-shopping-bag"></i> Sản phẩm
+                    </button>
+                    <button id="historyTabBtn" class="product-tab-btn" onclick="window.chatProductManager?.switchTab('history')" style="
+                        flex: 1;
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        background: transparent;
+                        color: rgba(255, 255, 255, 0.8);
+                    ">
+                        <i class="fas fa-history"></i> Lịch sử
+                    </button>
+                </div>
 
-                        <!-- Search Results Dropdown -->
-                        <div id="chatProductSearchResults" class="chat-search-results" style="
-                            display: none;
-                            position: absolute;
-                            top: calc(100% + 4px);
-                            left: 0;
-                            right: 0;
-                            background: white;
-                            border-radius: 8px;
-                            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-                            border: 1px solid #e2e8f0;
-                            max-height: 300px;
-                            overflow-y: auto;
-                            z-index: 50;
-                        "></div>
+                <!-- Products Container (Tab 1) -->
+                <div id="chatProductListContainer" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                    <!-- Search -->
+                    <div class="chat-panel-search"
+                        style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
+                        <div style="position: relative;">
+                            <i class="fas fa-search" style="
+                                position: absolute;
+                                left: 12px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                color: #94a3b8;
+                                font-size: 14px;
+                            "></i>
+                            <input type="text" id="chatProductSearch" placeholder="Tìm sản phẩm (Tên, Mã)..." style="
+                                width: 100%;
+                                padding: 10px 12px 10px 36px;
+                                border: 1px solid #cbd5e1;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                transition: all 0.2s;
+                                background: #f8fafc;
+                            " onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
+                                onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
+
+                            <!-- Search Results Dropdown -->
+                            <div id="chatProductSuggestions" class="chat-search-results" style="
+                                display: none;
+                                position: absolute;
+                                top: calc(100% + 4px);
+                                left: 0;
+                                right: 0;
+                                background: white;
+                                border-radius: 8px;
+                                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                                border: 1px solid #e2e8f0;
+                                max-height: 300px;
+                                overflow-y: auto;
+                                z-index: 50;
+                            "></div>
+                        </div>
+                    </div>
+
+                    <!-- Product List -->
+                    <div class="chat-product-list" id="chatProductTableBody" style="
+                        flex: 1;
+                        overflow-y: auto;
+                        padding: 16px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                    ">
+                        <!-- Empty State -->
+                        <div class="chat-empty-cart" style="
+                            text-align: center;
+                            padding: 40px 20px;
+                            color: #94a3b8;
+                        ">
+                            <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                            <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm nào</p>
+                            <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Product List -->
-                <div class="chat-product-list" id="chatProductList" style="
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 16px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                ">
-                    <!-- Empty State -->
-                    <div class="chat-empty-cart" style="
-                        text-align: center;
-                        padding: 40px 20px;
-                        color: #94a3b8;
+                <!-- History Container (Tab 2) -->
+                <div id="chatProductHistoryContainer" style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
+                    <!-- History Header with Clear Button -->
+                    <div style="padding: 12px 16px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; color: #64748b; font-weight: 500;">
+                            <i class="fas fa-history"></i> 50 thao tác gần nhất
+                        </span>
+                        <button onclick="window.chatProductManager?.clearHistory()" style="
+                            padding: 6px 12px;
+                            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            font-size: 12px;
+                            font-weight: 500;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            transition: all 0.2s;
+                        " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(239, 68, 68, 0.3)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';" title="Xóa toàn bộ lịch sử (Admin)">
+                            <i class="fas fa-trash-alt"></i> Xóa lịch sử
+                        </button>
+                    </div>
+
+                    <!-- History List -->
+                    <div class="chat-product-history" id="chatProductHistoryBody" style="
+                        flex: 1;
+                        overflow-y: auto;
+                        background: white;
                     ">
-                        <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                        <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm nào</p>
-                        <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
+                        <!-- Will be populated by JavaScript -->
+                        <div class="empty-history-state" style="
+                            text-align: center;
+                            padding: 40px 20px;
+                            color: #9ca3af;
+                        ">
+                            <i class="fas fa-history" style="font-size: 36px; opacity: 0.3; margin-bottom: 12px;"></i>
+                            <p style="font-size: 14px; font-weight: 500; margin: 0;">Chưa có lịch sử</p>
+                        </div>
                     </div>
                 </div>
 
@@ -540,9 +624,11 @@
                         margin-bottom: 16px;
                     ">
                         <span style="font-size: 14px; color: #64748b;">Tổng tiền:</span>
-                        <span id="chatOrderTotal" style="font-size: 18px; font-weight: 700; color: #3b82f6;">0đ</span>
+                        <span id="chatProductTotal" style="font-size: 18px; font-weight: 700; color: #3b82f6;">0đ</span>
                     </div>
-
+                    <div style="font-size: 12px; color: #94a3b8; text-align: center;">
+                        <span id="productCount">0</span> sản phẩm
+                    </div>
                 </div>
             </div>
 
