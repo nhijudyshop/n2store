@@ -217,12 +217,12 @@ const quickTagManager = {
             `;
         } else {
             listContainer.innerHTML = quickTags.map(tag => {
-                const isChecked = currentTagIds.includes(tag.Id);
+                const isSelected = currentTagIds.includes(tag.Id);
                 return `
-                    <div class="quick-tag-item" onclick="quickTagManager.toggleTag('${tag.Id}', '${tag.Name.replace(/'/g, "\\'")}', this)">
-                        <input type="checkbox" class="quick-tag-item-checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation();">
+                    <div class="quick-tag-item ${isSelected ? 'selected' : ''}" data-tag-id="${tag.Id}" onclick="quickTagManager.toggleTag('${tag.Id}', '${tag.Name.replace(/'/g, "\\'")}', this)">
                         <div class="quick-tag-item-color" style="background-color: ${tag.Color || '#6b7280'}"></div>
                         <span class="quick-tag-item-name">${tag.Name}</span>
+                        ${isSelected ? '<i class="fas fa-check-circle" style="margin-left: auto; color: #10b981;"></i>' : ''}
                     </div>
                 `;
             }).join('');
@@ -241,40 +241,39 @@ const quickTagManager = {
      * Toggle tag for current order
      */
     async toggleTag(tagId, tagName, element) {
-        const checkbox = element.querySelector('.quick-tag-item-checkbox');
-        const isChecked = !checkbox.checked;
-        checkbox.checked = isChecked;
+        // Get current order
+        const order = allData.find(o => o.Id === this.currentOrderId);
+        if (!order) {
+            console.error('[QUICK-TAG] Order not found:', this.currentOrderId);
+            return;
+        }
 
-        console.log(`[QUICK-TAG] Toggling tag "${tagName}" for order ${this.currentOrderId}: ${isChecked ? 'ADD' : 'REMOVE'}`);
+        // Parse current tags
+        let orderTags = [];
+        if (order.Tags) {
+            try {
+                orderTags = JSON.parse(order.Tags);
+            } catch (e) {
+                console.error('[QUICK-TAG] Error parsing tags:', e);
+                orderTags = [];
+            }
+        }
+
+        // Check if tag is currently selected
+        const tagIndex = orderTags.findIndex(t => t.Id === tagId);
+        const isCurrentlySelected = tagIndex > -1;
+
+        console.log(`[QUICK-TAG] Toggling tag "${tagName}" for order ${this.currentOrderId}: ${!isCurrentlySelected ? 'ADD' : 'REMOVE'}`);
 
         try {
-            // Get current order
-            const order = allData.find(o => o.Id === this.currentOrderId);
-            if (!order) {
-                console.error('[QUICK-TAG] Order not found:', this.currentOrderId);
-                return;
-            }
-
-            // Parse current tags
-            let orderTags = [];
-            if (order.Tags) {
-                try {
-                    orderTags = JSON.parse(order.Tags);
-                } catch (e) {
-                    console.error('[QUICK-TAG] Error parsing tags:', e);
-                    orderTags = [];
-                }
-            }
-
             // Toggle tag
-            const tagIndex = orderTags.findIndex(t => t.Id === tagId);
-            if (isChecked && tagIndex === -1) {
+            if (!isCurrentlySelected) {
                 // Add tag
                 const tag = availableTags.find(t => t.Id === tagId);
                 if (tag) {
                     orderTags.push({ Id: tag.Id, Name: tag.Name, Color: tag.Color });
                 }
-            } else if (!isChecked && tagIndex > -1) {
+            } else {
                 // Remove tag
                 orderTags.splice(tagIndex, 1);
             }
@@ -300,16 +299,32 @@ const quickTagManager = {
                 // Update local data
                 order.Tags = JSON.stringify(orderTags);
 
-                // Re-render table
+                // Update UI - toggle selected class and check icon
+                element.classList.toggle('selected');
+                const checkIcon = element.querySelector('.fa-check-circle');
+                if (checkIcon) {
+                    checkIcon.remove();
+                } else {
+                    element.insertAdjacentHTML('beforeend', '<i class="fas fa-check-circle" style="margin-left: auto; color: #10b981;"></i>');
+                }
+
+                // Re-render table to update tag display
                 renderTable();
 
-                console.log(`[QUICK-TAG] Tag "${tagName}" ${isChecked ? 'added' : 'removed'} successfully`);
+                console.log(`[QUICK-TAG] Tag "${tagName}" ${!isCurrentlySelected ? 'added' : 'removed'} successfully`);
+
+                // Show notification
+                if (window.notificationManager) {
+                    window.notificationManager.show(
+                        `${!isCurrentlySelected ? '✅ Đã thêm' : '🗑️ Đã bỏ'} tag "${tagName}"`,
+                        !isCurrentlySelected ? 'success' : 'info'
+                    );
+                }
             } else {
                 throw new Error('Failed to update tags');
             }
         } catch (error) {
             console.error('[QUICK-TAG] Error toggling tag:', error);
-            checkbox.checked = !isChecked; // Revert checkbox
             if (window.notificationManager) {
                 window.notificationManager.show('❌ Lỗi khi cập nhật tag', 'error');
             } else {
