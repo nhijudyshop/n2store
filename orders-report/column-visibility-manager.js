@@ -19,7 +19,8 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'total': true,
     'quantity': true,
     'created-date': true,
-    'status': true
+    'status': true,
+    'actions': false
 };
 
 // =====================================================
@@ -169,7 +170,7 @@ function initializeColumnVisibility() {
  */
 function addColumnAttributesToRow(row) {
     const cells = row.querySelectorAll('td');
-    const columns = ['', 'stt', 'tag', 'order-code', 'customer', 'messages', 'comments', 'phone', 'address', 'notes', 'total', 'quantity', 'created-date', 'status', ''];
+    const columns = ['', 'stt', 'tag', 'order-code', 'customer', 'messages', 'comments', 'phone', 'address', 'notes', 'total', 'quantity', 'created-date', 'status', 'actions'];
 
     cells.forEach((cell, index) => {
         if (columns[index] && columns[index] !== '') {

@@ -1518,11 +1518,9 @@ function createRowHTML(order) {
         <tr class="${rowClass} ${mergedClass}">
             <td><input type="checkbox" value="${order.Id}" /></td>
             <td data-column="stt">
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
-                    ${order.noteEdited ? '<span class="note-edited-badge">✏️ ĐÃ SỬA</span>' : ''}
-                    <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
             <td data-column="tag">
@@ -1547,7 +1545,12 @@ function createRowHTML(order) {
             <td data-column="quantity">${order.TotalQuantity || 0}</td>
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
             <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">${highlight(order.StatusText || order.Status)}</span></td>
-            <td></td>
+            <td data-column="actions">
+                <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                ${order.noteEdited ? '<span class="note-edited-badge" style="margin-left: 4px;" title="Ghi chú đã được sửa">✏️</span>' : ''}
+            </td>
         </tr>`;
 }
 
