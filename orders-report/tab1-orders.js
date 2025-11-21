@@ -3177,7 +3177,7 @@ function sendOrdersDataToTab3() {
         customerName: order.PartnerName || order.Name,
         phone: order.PartnerPhone || order.Telephone,
         address: order.PartnerAddress || order.Address,
-        totalAmount: order.TotalAmount || order.AmountTotal,
+        totalAmount: order.TotalAmount || order.AmountTotal || 0,
         quantity: order.TotalQuantity || order.Details?.reduce((sum, d) => sum + (d.Quantity || d.ProductUOMQty || 0), 0) || 0,
         note: order.Note,
         state: order.Status || order.State,

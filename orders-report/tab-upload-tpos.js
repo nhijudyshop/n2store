@@ -1,5 +1,5 @@
 // Upload TPOS Tab JavaScript
-(function() {
+(function () {
     'use strict';
 
     // State
@@ -245,7 +245,7 @@
     /**
      * Global click handler for encoded strings
      */
-    window.handleEncodedStringClick = function(encodedString) {
+    window.handleEncodedStringClick = function (encodedString) {
         try {
             const decoded = decodeProductLine(encodedString);
             if (decoded) {
@@ -308,41 +308,25 @@ ${encodedString}
     // Use: const headers = await window.tokenManager.getAuthHeader();
     // Then: fetch(url, { method: 'PUT', headers: { ...headers, ... }, ... })
 
-    // Load Assignments Data from Firebase (SOURCE OF TRUTH)
-    async function loadAssignmentsFromFirebase() {
+    // Load Assignments Data from LocalStorage
+    function loadAssignmentsFromLocalStorage() {
         try {
-            const firebasePath = getUserFirebasePath('productAssignments');
-            console.log('[LOAD] 🔥 Loading from Firebase path:', firebasePath);
+            console.log('[LOAD] 💾 Loading from LocalStorage...');
 
-            const snapshot = await database.ref(firebasePath).once('value');
-            const data = snapshot.val();
+            const storedData = localStorage.getItem('productAssignments');
 
-            if (data && data.assignments) {
-                console.log('[LOAD] ✅ Loaded from Firebase with timestamp:', data._timestamp);
-
-                const rawAssignments = data.assignments;
-
-                // Filter only products with STT assigned
-                const assignmentsWithSTT = rawAssignments.filter(a => a.sttList && a.sttList.length > 0);
-
-                // Use filtered array for display
-                assignments = assignmentsWithSTT;
-
-                console.log(`[LOAD] 📦 Loaded ${rawAssignments.length} products, ${assignments.length} with STT`);
-
-                // Group by SessionIndex
-                groupBySessionIndex();
-                renderTable();
-                updateTotalCount();
+            if (storedData) {
+                const parsedData = JSON.parse(storedData);
+                processLocalStorageData(parsedData);
             } else {
-                console.log('[LOAD] ⚠️ No assignments data in Firebase');
+                console.log('[LOAD] 📭 LocalStorage is empty');
                 assignments = [];
                 groupBySessionIndex();
                 renderTable();
                 updateTotalCount();
             }
         } catch (error) {
-            console.error('[LOAD] ❌ Error loading assignments from Firebase:', error);
+            console.error('[LOAD] ❌ Error loading assignments from LocalStorage:', error);
             showNotification('Lỗi tải dữ liệu: ' + error.message, 'error');
             assignments = [];
             groupBySessionIndex();
@@ -351,16 +335,75 @@ ${encodedString}
         }
     }
 
+    // Process LocalStorage Data
+    function processLocalStorageData(data) {
+        if (data && data.assignments) {
+            console.log('[DATA] ✅ Received data with timestamp:', data._timestamp);
+            const rawAssignments = data.assignments;
+            processAssignments(rawAssignments);
+        } else if (Array.isArray(data)) {
+            // Old format (direct array)
+            console.log('[DATA] 📦 Old format detected');
+            processAssignments(data);
+        } else {
+            console.log('[DATA] ⚠️ Invalid data format');
+            assignments = [];
+            groupBySessionIndex();
+            renderTable();
+            updateTotalCount();
+        }
+    }
+
+    // Process Assignments Array (Filter & Migrate)
+    function processAssignments(rawAssignments) {
+        // Migrate and Filter
+        const validAssignments = rawAssignments.map(a => {
+            // Migration: Ensure sttList exists
+            if (!a.sttList) {
+                if (a.sttNumber) {
+                    a.sttList = [{ stt: a.sttNumber, orderInfo: a.orderInfo }];
+                } else {
+                    a.sttList = [];
+                }
+            }
+            return a;
+        }).filter(a => a.sttList && a.sttList.length > 0);
+
+        assignments = validAssignments;
+        console.log(`[DATA] 📦 Processed ${rawAssignments.length} raw -> ${assignments.length} valid assignments`);
+
+        groupBySessionIndex();
+        renderTable();
+        updateTotalCount();
+    }
+
+    // Setup LocalStorage Listeners
+    function setupLocalStorageListeners() {
+        console.log('[SYNC] 🔧 Setting up LocalStorage listeners');
+
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'productAssignments') {
+                console.log('[SYNC] 🔔 LocalStorage changed (from another tab)');
+                loadAssignmentsFromLocalStorage();
+                showNotification('🔄 Dữ liệu đã được cập nhật từ tab khác');
+            }
+        });
+    }
+
     // Backward compatibility
     async function loadAssignments() {
-        return await loadAssignmentsFromFirebase();
+        loadAssignmentsFromLocalStorage();
     }
 
     /**
      * Hard refresh - Force reload data from Firebase
      * Called from UI button
      */
-    window.hardRefreshFromFirebase = async function() {
+    /**
+     * Hard refresh - Force reload data from LocalStorage
+     * Called from UI button
+     */
+    window.hardRefreshFromFirebase = async function () {
         try {
             console.log('[HARD-REFRESH] 🔄 Hard refresh requested...');
 
@@ -370,15 +413,16 @@ ${encodedString}
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
-            // Force reload from Firebase
-            await loadAssignmentsFromFirebase();
+            // Force reload from LocalStorage
+            loadAssignmentsFromLocalStorage();
 
             // Restore button
-            btn.disabled = false;
-            btn.innerHTML = originalHTML;
-
-            console.log('[HARD-REFRESH] ✅ Hard refresh completed');
-            showNotification('✅ Đã tải lại dữ liệu từ Firebase!');
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                console.log('[HARD-REFRESH] ✅ Hard refresh completed');
+                showNotification('✅ Đã tải lại dữ liệu từ LocalStorage!');
+            }, 500);
 
         } catch (error) {
             console.error('[HARD-REFRESH] ❌ Error:', error);
@@ -558,7 +602,7 @@ ${encodedString}
     }
 
     // Handle STT Checkbox
-    window.handleSTTCheckbox = function(stt, checked) {
+    window.handleSTTCheckbox = function (stt, checked) {
         if (checked) {
             selectedSessionIndexes.add(stt);
         } else {
@@ -582,7 +626,7 @@ ${encodedString}
     };
 
     // Toggle Select All
-    window.toggleSelectAll = function() {
+    window.toggleSelectAll = function () {
         const selectAllCheckbox = document.getElementById('selectAll');
         const isChecked = selectAllCheckbox.checked;
 
@@ -616,7 +660,7 @@ ${encodedString}
     };
 
     // Clear Selection
-    window.clearSelection = function() {
+    window.clearSelection = function () {
         selectedSessionIndexes.clear();
         document.getElementById('selectAll').checked = false;
         document.getElementById('selectAll').indeterminate = false;
@@ -636,7 +680,7 @@ ${encodedString}
     };
 
     // Upload to TPOS - Show Preview Modal First
-    window.uploadToTPOS = async function() {
+    window.uploadToTPOS = async function () {
         console.log('🚀 uploadToTPOS called');
         console.log('📊 selectedSessionIndexes:', selectedSessionIndexes);
 
@@ -700,7 +744,7 @@ ${encodedString}
 
                     // Get auth headers from tokenManager
                     const headers = await window.tokenManager.getAuthHeader();
-                    
+
                     const response = await fetch(apiUrl, {
                         headers: {
                             ...headers,
@@ -708,7 +752,7 @@ ${encodedString}
                             Accept: "application/json",
                         },
                     });
-                    
+
                     console.log(`📬 Response status for STT ${stt}:`, response.status);
 
                     if (!response.ok) {
@@ -824,7 +868,7 @@ ${encodedString}
     }
 
     // Update Product Note
-    window.updateProductNote = function(noteKey, value) {
+    window.updateProductNote = function (noteKey, value) {
         productNotes[noteKey] = value;
         console.log(`📝 Updated note for ${noteKey}:`, value);
     };
@@ -891,20 +935,20 @@ ${encodedString}
                                     </thead>
                                     <tbody>
                                         ${Object.values(assignedProductCounts).map(product => {
-                                            const noteKey = `${stt}-${product.productId}`;
+                const noteKey = `${stt}-${product.productId}`;
 
-                                            // Tự động thêm "live" nếu chưa có note
-                                            if (!productNotes[noteKey]) {
-                                                productNotes[noteKey] = 'live';
-                                            }
-                                            const existingNote = productNotes[noteKey] || '';
+                // Tự động thêm "live" nếu chưa có note
+                if (!productNotes[noteKey]) {
+                    productNotes[noteKey] = 'live';
+                }
+                const existingNote = productNotes[noteKey] || '';
 
-                                            // Badge to show if product is new or existing
-                                            const statusBadge = product.isExisting
-                                                ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, sẽ cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
-                                                : '<span class="badge bg-success ms-2" title="Sản phẩm mới sẽ được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
+                // Badge to show if product is new or existing
+                const statusBadge = product.isExisting
+                    ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, sẽ cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
+                    : '<span class="badge bg-success ms-2" title="Sản phẩm mới sẽ được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
 
-                                            return `
+                return `
                                             <tr class="${product.isExisting ? 'table-warning' : 'table-success'}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
@@ -954,16 +998,16 @@ ${encodedString}
                                         </thead>
                                         <tbody>
                                             ${orderProducts.map(product => {
-                                                const noteKey = `${stt}-${product.productId}`;
-                                                const existingNote = productNotes[noteKey] || product.note || '';
+                    const noteKey = `${stt}-${product.productId}`;
+                    const existingNote = productNotes[noteKey] || product.note || '';
 
-                                                // Check if this product will be updated (exists in assigned products)
-                                                const willBeUpdated = !!assignedProductCounts[product.productId];
-                                                const updateBadge = willBeUpdated
-                                                    ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này sẽ được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
-                                                    : '';
+                    // Check if this product will be updated (exists in assigned products)
+                    const willBeUpdated = !!assignedProductCounts[product.productId];
+                    const updateBadge = willBeUpdated
+                        ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này sẽ được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
+                        : '';
 
-                                                return `
+                    return `
                                                 <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                     <td>
                                                         <div class="d-flex align-items-center gap-2">
@@ -1010,38 +1054,35 @@ ${encodedString}
         modalBody.innerHTML = html;
     }
 
-    // Remove uploaded STTs from Firebase
-    async function removeUploadedSTTsFromFirebase(uploadedSTTs) {
+    // Remove uploaded STTs from LocalStorage
+    async function removeUploadedSTTsFromLocalStorage(uploadedSTTs) {
         try {
-            console.log('[REMOVE-STT] 🗑️ Removing uploaded STTs from Firebase...');
+            console.log('[REMOVE-STT] 🗑️ Removing uploaded STTs from LocalStorage...');
             console.log('[REMOVE-STT] STTs to remove:', uploadedSTTs);
-            console.log('[REMOVE-STT] STTs types:', uploadedSTTs.map(s => `${s} (${typeof s})`));
 
             // Convert uploadedSTTs to strings for consistent comparison
             const uploadedSTTsStr = uploadedSTTs.map(s => String(s));
-            console.log('[REMOVE-STT] STTs as strings:', uploadedSTTsStr);
 
-            // Load current assignments from Firebase
-            const firebasePath = getUserFirebasePath('productAssignments');
-            const snapshot = await database.ref(firebasePath).once('value');
-            const data = snapshot.val();
+            // Load current assignments from LocalStorage
+            const storedData = localStorage.getItem('productAssignments');
+            let productAssignments = [];
+            let timestamp = Date.now();
 
-            if (!data || !data.assignments) {
-                console.log('[REMOVE-STT] No assignments found in Firebase');
+            if (storedData) {
+                const parsedData = JSON.parse(storedData);
+                if (parsedData && parsedData.assignments) {
+                    productAssignments = parsedData.assignments;
+                } else if (Array.isArray(parsedData)) {
+                    productAssignments = parsedData;
+                }
+            }
+
+            if (productAssignments.length === 0) {
+                console.log('[REMOVE-STT] No assignments found in LocalStorage');
                 return { success: true, removedCount: 0, removedProducts: 0 };
             }
 
-            let productAssignments = data.assignments;
             console.log(`[REMOVE-STT] Current assignments: ${productAssignments.length} products`);
-
-            // Log all current STTs in assignments before removal
-            console.log('   Current STTs in assignments:');
-            productAssignments.forEach(assignment => {
-                if (assignment.sttList && assignment.sttList.length > 0) {
-                    const sttValues = assignment.sttList.map(item => `${item.stt} (${typeof item.stt})`);
-                    console.log(`     ${assignment.productCode}: [${sttValues.join(', ')}]`);
-                }
-            });
 
             // Remove uploaded STTs from each assignment
             let totalRemovedSTTs = 0;
@@ -1058,22 +1099,14 @@ ${encodedString}
                 assignment.sttList = assignment.sttList.filter(sttItem => {
                     const sttStr = String(sttItem.stt);
                     const shouldRemove = uploadedSTTsStr.includes(sttStr);
-                    if (shouldRemove) {
-                        console.log(`     🗑️ Removing STT ${sttStr} from ${assignment.productCode}`);
-                    }
                     return !shouldRemove;
                 });
 
                 const removedCount = originalLength - assignment.sttList.length;
                 totalRemovedSTTs += removedCount;
 
-                if (removedCount > 0) {
-                    console.log(`   📦 ${assignment.productCode}: removed ${removedCount} STT(s), remaining: ${assignment.sttList.length}`);
-                }
-
                 // If no STTs left, remove the entire product
                 if (assignment.sttList.length === 0) {
-                    console.log(`   🗑️ Removing product ${assignment.productCode} (no STTs left)`);
                     removedProducts++;
                     return false;
                 }
@@ -1082,19 +1115,19 @@ ${encodedString}
             });
 
             console.log(`[REMOVE-STT] ✅ Removed ${totalRemovedSTTs} STT entries from ${removedProducts} products`);
-            console.log(`[REMOVE-STT] 📦 Remaining assignments: ${productAssignments.length} products`);
 
-            // Save updated assignments to Firebase with timestamp
+            // Save updated assignments to LocalStorage with timestamp
             const dataWithTimestamp = {
                 assignments: productAssignments,
                 _timestamp: Date.now(),
                 _version: 1
             };
 
-            console.log('[REMOVE-STT] 📤 Saving to Firebase:', productAssignments.length, 'products');
-            // Reuse firebasePath variable from line 988
-            await database.ref(firebasePath).set(dataWithTimestamp);
-            console.log('[REMOVE-STT] ✅ Saved to Firebase successfully');
+            localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+            console.log('[REMOVE-STT] ✅ Saved to LocalStorage successfully');
+
+            // Dispatch storage event manually
+            window.dispatchEvent(new Event('storage'));
 
             // Return success with stats
             return {
@@ -1105,13 +1138,12 @@ ${encodedString}
 
         } catch (error) {
             console.error('[REMOVE-STT] ❌ Error removing uploaded STTs:', error);
-            // THROW to propagate error (don't swallow)
             throw new Error(`Failed to remove STTs: ${error.message}`);
         }
     }
 
     // Confirm Upload - Proceed with Actual Upload (WITH BACKUP & RESTORE)
-    window.confirmUpload = async function() {
+    window.confirmUpload = async function () {
         console.log('[UPLOAD] 🚀 confirmUpload() called');
 
         // Get selected STTs
@@ -1120,7 +1152,7 @@ ${encodedString}
 
         // Confirm with user
         const confirmMsg = `Bạn có chắc muốn upload ${selectedSTTs.length} đơn hàng lên TPOS?\n\n` +
-                           `Sau khi upload thành công, các sản phẩm sẽ tự động bị xóa khỏi danh sách gán.`;
+            `Sau khi upload thành công, các sản phẩm sẽ tự động bị xóa khỏi danh sách gán.`;
 
         if (!confirm(confirmMsg)) {
             console.log('[UPLOAD] ❌ User cancelled upload');
@@ -1324,16 +1356,18 @@ ${encodedString}
                 statusText.textContent = `✅ Upload thành công ${successCount} đơn hàng! Đang xóa sản phẩm...`;
 
                 try {
-                    // Step 1: Delete products from Firebase
+                    // Step 1: Delete products from LocalStorage
                     const successfulSTTs = results.map(r => r.stt);
-                    const deleteResult = await removeUploadedSTTsFromFirebase(successfulSTTs);
+                    const deleteResult = await removeUploadedSTTsFromLocalStorage(successfulSTTs);
 
-                    console.log('[UPLOAD] ✅ Deleted:', deleteResult.removedCount, 'STT entries from Firebase');
+                    console.log('[UPLOAD] ✅ Deleted:', deleteResult.removedCount, 'STT entries from LocalStorage');
 
-                    // Step 2: Read afterSnapshot from Firebase (AFTER deletion completes)
-                    const firebasePath = getUserFirebasePath('productAssignments');
-                    const afterSnapshot = await database.ref(firebasePath).once('value');
-                    const afterData = afterSnapshot.val();
+                    // Step 2: Read afterSnapshot from LocalStorage (AFTER deletion completes)
+                    const storedData = localStorage.getItem('productAssignments');
+                    let afterData = null;
+                    if (storedData) {
+                        afterData = JSON.parse(storedData);
+                    }
 
                     // Step 3: Save history
                     await saveToHistory(uploadId, results, 'completed', backupData, afterData);
@@ -1346,8 +1380,8 @@ ${encodedString}
                     progressBar.classList.remove('bg-primary');
                     progressBar.classList.add('bg-success');
 
-                    // Firebase listener will auto-update UI, but can manually reload if needed
-                    // await loadAssignmentsFromFirebase();
+                    // Reload from LocalStorage to update UI
+                    loadAssignmentsFromLocalStorage();
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -1364,9 +1398,11 @@ ${encodedString}
                     progressBar.classList.add('bg-warning');
 
                     // Save history with special status
-                    const firebasePath = getUserFirebasePath('productAssignments');
-                    const afterSnapshot = await database.ref(firebasePath).once('value');
-                    const afterData = afterSnapshot.val();
+                    const storedData = localStorage.getItem('productAssignments');
+                    let afterData = null;
+                    if (storedData) {
+                        afterData = JSON.parse(storedData);
+                    }
                     await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterData);
 
                     setTimeout(() => {
@@ -1384,16 +1420,18 @@ ${encodedString}
                 statusText.textContent = `⚠️ Thành công: ${successCount}, Thất bại: ${failCount}. Đang xóa sản phẩm thành công...`;
 
                 try {
-                    // Step 1: Delete ONLY successful STTs from Firebase
+                    // Step 1: Delete ONLY successful STTs from LocalStorage
                     if (successfulSTTs.length > 0) {
-                        const deleteResult = await removeUploadedSTTsFromFirebase(successfulSTTs);
-                        console.log('[UPLOAD] ✅ Deleted successful STTs from Firebase:', deleteResult.removedCount);
+                        const deleteResult = await removeUploadedSTTsFromLocalStorage(successfulSTTs);
+                        console.log('[UPLOAD] ✅ Deleted successful STTs from LocalStorage:', deleteResult.removedCount);
                     }
 
-                    // Step 2: Read afterSnapshot from Firebase
-                    const firebasePath = getUserFirebasePath('productAssignments');
-                    const afterSnapshot = await database.ref(firebasePath).once('value');
-                    const afterData = afterSnapshot.val();
+                    // Step 2: Read afterSnapshot from LocalStorage
+                    const storedData = localStorage.getItem('productAssignments');
+                    let afterData = null;
+                    if (storedData) {
+                        afterData = JSON.parse(storedData);
+                    }
 
                     // Step 3: Save history
                     await saveToHistory(uploadId, results, 'partial', backupData, afterData);
@@ -1406,8 +1444,8 @@ ${encodedString}
                     progressBar.classList.remove('bg-primary');
                     progressBar.classList.add('bg-warning');
 
-                    // Firebase listener will auto-update UI
-                    // await loadAssignmentsFromFirebase();
+                    // Reload from LocalStorage to update UI
+                    loadAssignmentsFromLocalStorage();
 
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
@@ -1420,9 +1458,11 @@ ${encodedString}
                     statusText.textContent = `❌ Lỗi xử lý kết quả upload`;
 
                     // Try to save history anyway
-                    const firebasePath = getUserFirebasePath('productAssignments');
-                    const afterSnapshot = await database.ref(firebasePath).once('value');
-                    const afterData = afterSnapshot.val();
+                    const storedData = localStorage.getItem('productAssignments');
+                    let afterData = null;
+                    if (storedData) {
+                        afterData = JSON.parse(storedData);
+                    }
                     await saveToHistory(uploadId, results, 'deletion_failed', backupData, afterData);
 
                     setTimeout(() => {
@@ -1466,9 +1506,9 @@ ${encodedString}
                     setTimeout(() => {
                         if (uploadModal) uploadModal.hide();
                         alert('❌ CRITICAL ERROR:\n\n' +
-                              'Upload thất bại VÀ không thể khôi phục dữ liệu!\n\n' +
-                              'Vui lòng KHÔNG thao tác gì thêm và liên hệ IT ngay!\n\n' +
-                              `Backup ID: ${uploadId}`);
+                            'Upload thất bại VÀ không thể khôi phục dữ liệu!\n\n' +
+                            'Vui lòng KHÔNG thao tác gì thêm và liên hệ IT ngay!\n\n' +
+                            `Backup ID: ${uploadId}`);
                     }, 2000);
                 }
             }
@@ -1589,11 +1629,11 @@ ${encodedString}
                 // NEW PRODUCT - Fetch full info and add (EXACTLY like tab1-orders.js)
                 // ============================================
                 console.log(`   ➕ Adding new product: ${assignedData.productCode} x${assignedData.count}`);
-                
+
                 try {
                     // Fetch full product details from API
                     const fullProduct = await fetchProductDetails(productId);
-                    
+
                     if (!fullProduct) {
                         console.error(`   ❌ Cannot fetch product ${productId}, skipping...`);
                         continue;
@@ -1697,10 +1737,10 @@ ${encodedString}
     async function fetchProductDetails(productId) {
         try {
             const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM`;
-            
+
             // Get auth headers from tokenManager
             const headers = await window.tokenManager.getAuthHeader();
-            
+
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
@@ -1717,7 +1757,7 @@ ${encodedString}
             const product = await response.json();
             console.log(`   📦 Fetched product details for ${productId}:`, product);
             return product;
-            
+
         } catch (error) {
             console.error(`Error fetching product ${productId}:`, error);
             return null;
@@ -1810,7 +1850,7 @@ ${encodedString}
     let currentEditSTT = null;
 
     // Open Edit Modal - Fetch Order Data from TPOS
-    window.openEditModal = async function(stt, orderId) {
+    window.openEditModal = async function (stt, orderId) {
         currentEditSTT = stt;
 
         // Show modal
@@ -1830,10 +1870,10 @@ ${encodedString}
         try {
             // Fetch order data from TPOS API (EXACTLY like tab1-orders.js)
             const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
-            
+
             // Get auth headers from tokenManager
             const headers = await window.tokenManager.getAuthHeader();
-            
+
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
@@ -2004,7 +2044,7 @@ ${encodedString}
         Object.values(mergedProducts).forEach((product, index) => {
             const rowClass = product.hasMatch ? 'table-warning' : (product.source === 'new' ? 'table-success' : '');
             const badge = product.hasMatch ? '<span class="badge bg-warning text-dark ms-2">Trùng mã</span>' :
-                         (product.source === 'new' ? '<span class="badge bg-success ms-2">Mới</span>' : '');
+                (product.source === 'new' ? '<span class="badge bg-success ms-2">Mới</span>' : '');
 
             html += `
                 <tr class="${rowClass}">
@@ -2012,9 +2052,9 @@ ${encodedString}
                     <td>
                         <div class="d-flex align-items-center gap-2">
                             ${product.imageUrl ?
-                                `<img src="${product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` :
-                                '<div style="width: 50px; height: 50px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-box"></i></div>'
-                            }
+                    `<img src="${product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` :
+                    '<div style="width: 50px; height: 50px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-box"></i></div>'
+                }
                             <div>
                                 <div style="font-weight: 600;">${product.name}</div>
                                 <div style="font-size: 12px; color: #6b7280;">
@@ -2060,7 +2100,7 @@ ${encodedString}
     }
 
     // Close Edit Modal
-    window.closeEditModal = function() {
+    window.closeEditModal = function () {
         const editModal = bootstrap.Modal.getInstance(document.getElementById('editOrderModal'));
         if (editModal) {
             editModal.hide();
@@ -2155,21 +2195,24 @@ ${encodedString}
     // =====================================================
 
     /**
-     * Create backup before upload starts
-     * @param {Array<string>} uploadedSTTs - STTs to be uploaded
-     * @returns {Promise<string>} uploadId for tracking
+     * Create a backup snapshot before upload
+     * @param {Array} uploadedSTTs - List of STTs being uploaded
+     * @returns {Promise<string>} Upload ID (Backup ID)
      */
     async function createBackupBeforeUpload(uploadedSTTs) {
         try {
             console.log('[BACKUP] 📦 Creating backup before upload...');
             console.log('[BACKUP] STTs to upload:', uploadedSTTs);
 
-            // 1. Load current productAssignments from Firebase
-            const firebasePath = getUserFirebasePath('productAssignments');
-            const snapshot = await database.ref(firebasePath).once('value');
-            const currentData = snapshot.val();
+            // 1. Get current data from LocalStorage
+            const storedData = localStorage.getItem('productAssignments');
+            let currentData = null;
 
-            if (!currentData) {
+            if (storedData) {
+                currentData = JSON.parse(storedData);
+            }
+
+            if (!currentData || !currentData.assignments || currentData.assignments.length === 0) {
                 console.log('[BACKUP] ⚠️ No assignments to backup');
                 throw new Error('Không có dữ liệu để backup');
             }
@@ -2194,11 +2237,10 @@ ${encodedString}
                 expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes
             };
 
-            // 4. Save to Firebase (use uploadId as key to prevent overwrites)
-            const backupPath = getUserFirebasePath('productAssignments_backup');
-            await database.ref(`${backupPath}/${uploadId}`).set(backupSnapshot);
+            // 4. Save to LocalStorage (use uploadId as key)
+            localStorage.setItem(`backup_${uploadId}`, JSON.stringify(backupSnapshot));
 
-            console.log('[BACKUP] ✅ Backup created successfully');
+            console.log('[BACKUP] ✅ Backup created successfully in LocalStorage');
             console.log('[BACKUP] Backed up:', currentData.assignments.length, 'products');
 
             return uploadId;
@@ -2210,7 +2252,7 @@ ${encodedString}
     }
 
     /**
-     * Load backup data from Firebase
+     * Load backup data from LocalStorage
      * @param {string} uploadId - Upload ID
      * @returns {Promise<Object>} Backup data
      */
@@ -2218,13 +2260,13 @@ ${encodedString}
         try {
             console.log('[BACKUP] 📥 Loading backup:', uploadId);
 
-            const backupPath = getUserFirebasePath('productAssignments_backup');
-            const snapshot = await database.ref(`${backupPath}/${uploadId}`).once('value');
-            const backup = snapshot.val();
+            const backupData = localStorage.getItem(`backup_${uploadId}`);
 
-            if (!backup) {
-                throw new Error('Backup not found');
+            if (!backupData) {
+                throw new Error('Backup not found in LocalStorage');
             }
+
+            const backup = JSON.parse(backupData);
 
             console.log('[BACKUP] ✅ Backup loaded:', backup.assignments.length, 'products');
             return backup;
@@ -2290,14 +2332,12 @@ ${encodedString}
                 note: ""
             };
 
-            // Batch update: Save history AND delete backup in one operation
+            // Save history to Firebase
             const historyPath = getUserFirebasePath('productAssignments_history');
-            const backupPath = getUserFirebasePath('productAssignments_backup');
-            const updates = {};
-            updates[`${historyPath}/${uploadId}`] = historyRecord;
-            updates[`${backupPath}/${uploadId}`] = null; // Delete backup
+            await database.ref(`${historyPath}/${uploadId}`).set(historyRecord);
 
-            await database.ref().update(updates);
+            // Delete backup from LocalStorage
+            localStorage.removeItem(`backup_${uploadId}`);
 
             console.log('[HISTORY] ✅ History saved and backup cleaned');
 
@@ -2339,7 +2379,7 @@ ${encodedString}
         try {
             console.log('[RESTORE] 🔄 Restoring from backup:', uploadId);
 
-            // 1. Load backup from Firebase
+            // 1. Load backup from LocalStorage
             const backup = await loadBackupData(uploadId);
 
             // 2. Validate backup structure
@@ -2347,15 +2387,7 @@ ${encodedString}
                 throw new Error('Invalid backup structure');
             }
 
-            // 3. Check backup age (warn if old)
-            const backupAge = Date.now() - (backup.timestamp || 0);
-            const MAX_BACKUP_AGE = 30 * 60 * 1000; // 30 minutes
-
-            if (backupAge > MAX_BACKUP_AGE) {
-                console.warn('[RESTORE] ⚠️ Backup is older than 30 minutes:', Math.floor(backupAge / 60000), 'min');
-            }
-
-            // 4. Prepare restored data
+            // 3. Prepare restored data
             const restoredData = {
                 assignments: backup.assignments,
                 _timestamp: Date.now(), // New timestamp to trigger sync
@@ -2364,23 +2396,21 @@ ${encodedString}
 
             console.log('[RESTORE] 📦 Restoring:', restoredData.assignments.length, 'products');
 
-            // 5. Restore to Firebase (source of truth)
-            const firebasePath = getUserFirebasePath('productAssignments');
-            await database.ref(firebasePath).set(restoredData);
-            console.log('[RESTORE] ✅ Restored to Firebase');
+            // 4. Restore to LocalStorage
+            localStorage.setItem('productAssignments', JSON.stringify(restoredData));
+            console.log('[RESTORE] ✅ Restored to LocalStorage');
 
-            // 8. UI will auto-update via Firebase listener
-            // await loadAssignmentsFromFirebase();
+            // Dispatch storage event manually
+            window.dispatchEvent(new Event('storage'));
 
-            // 10. Show notification
-            showNotification('🔄 Đã khôi phục dữ liệu do upload thất bại');
+            // Reload UI
+            loadAssignmentsFromLocalStorage();
 
             console.log('[RESTORE] ✅ Restore completed successfully');
             return true;
 
         } catch (error) {
             console.error('[RESTORE] ❌ Error restoring from backup:', error);
-            isLocalUpdate = false; // Reset flag on error
             showNotification('❌ Lỗi khôi phục dữ liệu: ' + error.message, 'error');
             return false;
         }
@@ -2426,13 +2456,13 @@ ${encodedString}
             // 1. Load orders data from localStorage (backward compat)
             loadOrdersData();
 
-            // 2. Load assignments from Firebase (SOURCE OF TRUTH)
-            console.log('[INIT] 🔥 Loading from Firebase (source of truth)...');
-            await loadAssignmentsFromFirebase();
+            // 2. Load assignments from LocalStorage (SOURCE OF TRUTH)
+            console.log('[INIT] 💾 Loading from LocalStorage (source of truth)...');
+            loadAssignmentsFromLocalStorage();
 
-            // 3. Setup Firebase real-time listener for automatic updates
-            console.log('[INIT] 🔧 Setting up Firebase real-time listener...');
-            setupFirebaseListeners();       // Real-time Firebase sync
+            // 3. Setup LocalStorage listener for automatic updates
+            console.log('[INIT] 🔧 Setting up LocalStorage listener...');
+            setupLocalStorageListeners();       // Real-time LocalStorage sync
 
             // 4. Update UI
             updateSelectedCount();
@@ -2457,7 +2487,7 @@ ${encodedString}
     /**
      * Open Upload History Modal
      */
-    window.openUploadHistoryModal = async function() {
+    window.openUploadHistoryModal = async function () {
         console.log('[HISTORY] 📜 Opening upload history modal...');
 
         try {
@@ -2560,7 +2590,7 @@ ${encodedString}
     /**
      * Filter upload history based on user input
      */
-    window.filterUploadHistory = function() {
+    window.filterUploadHistory = function () {
         const status = document.getElementById('historyStatusFilter').value;
         const dateFrom = document.getElementById('historyDateFrom').value;
         const dateTo = document.getElementById('historyDateTo').value;
@@ -2783,7 +2813,7 @@ ${encodedString}
     /**
      * Change history page
      */
-    window.changeHistoryPage = function(page) {
+    window.changeHistoryPage = function (page) {
         currentHistoryPage = page;
         renderUploadHistoryList();
 
@@ -2795,7 +2825,7 @@ ${encodedString}
      * View upload history detail
      * Lazy load uploadResults from Firebase
      */
-    window.viewUploadHistoryDetail = async function(uploadId) {
+    window.viewUploadHistoryDetail = async function (uploadId) {
         console.log('[HISTORY] 👁️ Viewing detail for:', uploadId);
 
         try {
@@ -2996,8 +3026,8 @@ ${encodedString}
                                             <td>
                                                 <div class="d-flex align-items-center gap-2">
                                                     ${product.imageUrl
-                                                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                                                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
+                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
                                                     <div>
                                                         <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
                                                         <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
@@ -3052,7 +3082,7 @@ ${encodedString}
      * Compare Cart History - Show preview comparison modal
      * Similar to previewModal but for history records
      */
-    window.compareCartHistory = async function(uploadId) {
+    window.compareCartHistory = async function (uploadId) {
         console.log('[HISTORY-COMPARE] 🔍 Comparing cart for uploadId:', uploadId);
 
         try {
@@ -3214,17 +3244,17 @@ ${encodedString}
                                     </thead>
                                     <tbody>
                                         ${Object.values(assignedProductCounts).map(product => {
-                                            const statusBadge = product.isExisting
-                                                ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, đã cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
-                                                : '<span class="badge bg-success ms-2" title="Sản phẩm mới đã được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
+                const statusBadge = product.isExisting
+                    ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, đã cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
+                    : '<span class="badge bg-success ms-2" title="Sản phẩm mới đã được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
 
-                                            return `
+                return `
                                             <tr class="${product.isExisting ? 'table-warning' : 'table-success'}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
                                                         ${product.imageUrl
-                                                            ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                                                            : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                         <div style="flex: 1;">
                                                             <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
                                                             <div style="font-size: 12px; color: #6b7280;">
@@ -3263,19 +3293,19 @@ ${encodedString}
                                         </thead>
                                         <tbody>
                                             ${existingProducts.map(product => {
-                                                // Check if this product will be updated (exists in assigned products)
-                                                const willBeUpdated = !!assignedProductCounts[product.productId];
-                                                const updateBadge = willBeUpdated
-                                                    ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này đã được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
-                                                    : '';
+                            // Check if this product will be updated (exists in assigned products)
+                            const willBeUpdated = !!assignedProductCounts[product.productId];
+                            const updateBadge = willBeUpdated
+                                ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này đã được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
+                                : '';
 
-                                                return `
+                            return `
                                                 <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                     <td>
                                                         <div class="d-flex align-items-center gap-2">
                                                             ${product.imageUrl
-                                                                ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                                                                : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                    ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                                    : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                             <div style="flex: 1;">
                                                                 <div style="font-weight: 600; font-size: 14px;">${product.nameGet || product.name || 'N/A'}</div>
                                                                 <div style="font-size: 12px; color: #6b7280;">${product.code || 'N/A'}${updateBadge}</div>
@@ -3325,7 +3355,7 @@ ${encodedString}
     // =====================================================
     // DEBUG/TEST FUNCTIONS (Exposed to window for testing)
     // =====================================================
-    window.testProductEncoding = function() {
+    window.testProductEncoding = function () {
         console.log('=== Testing Product Encoding ===\n');
 
         // Test 1: Single product
@@ -3352,8 +3382,8 @@ ${encodedString}
             console.log(`  ${encoded} → `, decoded);
             const original = products[i];
             const match = decoded.productCode === original.productCode &&
-                         decoded.quantity === original.quantity &&
-                         decoded.price === original.price;
+                decoded.quantity === original.quantity &&
+                decoded.price === original.price;
             console.log(`  Match: ${match ? '✅' : '❌'}`);
         });
 
@@ -3373,7 +3403,7 @@ ${encodedString}
         console.log('\n=== Test Complete ===');
     };
 
-    window.decodeOrderNote = function(note) {
+    window.decodeOrderNote = function (note) {
         console.log('=== Decoding Order Note ===\n');
         console.log('Note:', note);
 
@@ -3399,7 +3429,7 @@ ${encodedString}
     // =====================================================
     // EVENT DELEGATION FOR ENCODED STRING CLICKS
     // =====================================================
-    document.addEventListener('click', function(event) {
+    document.addEventListener('click', function (event) {
         const target = event.target.closest('.encoded-string-clickable');
         if (target) {
             event.preventDefault();

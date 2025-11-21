@@ -1,5 +1,5 @@
 // Product Assignment Tab JavaScript
-(function() {
+(function () {
     'use strict';
 
     // State
@@ -10,7 +10,6 @@
     let bearerToken = null;
     let tokenExpiry = null;
     let saveDebounceTimer = null;
-    let isLocalUpdate = false; // Flag to prevent duplicate renders from Firebase listener
     let userStorageManager = null; // User-specific storage manager
 
     // Firebase Configuration
@@ -381,7 +380,7 @@
 
             // Ensure backward compatibility
             if (!assignment.sttList) {
-                assignment.sttList = assignment.sttNumber ? [{stt: assignment.sttNumber, orderInfo: assignment.orderInfo}] : [];
+                assignment.sttList = assignment.sttNumber ? [{ stt: assignment.sttNumber, orderInfo: assignment.orderInfo }] : [];
             }
 
             // Render STT chips (with index for duplicate STT)
@@ -446,7 +445,7 @@
     }
 
     // STT Input Handlers
-    window.handleSTTInput = function(event) {
+    window.handleSTTInput = function (event) {
         const input = event.target;
         const assignmentId = parseInt(input.dataset.assignmentId);
         const value = input.value.trim();
@@ -459,7 +458,7 @@
         }
     };
 
-    window.handleSTTFocus = function(event) {
+    window.handleSTTFocus = function (event) {
         const input = event.target;
         const assignmentId = parseInt(input.dataset.assignmentId);
         const value = input.value.trim();
@@ -469,7 +468,7 @@
         }
     };
 
-    window.handleSTTBlur = function(event) {
+    window.handleSTTBlur = function (event) {
         const assignmentId = parseInt(event.target.dataset.assignmentId);
         // Delay to allow click on suggestion
         setTimeout(() => {
@@ -477,7 +476,7 @@
         }, 200);
     };
 
-    window.handleSTTKeyPress = function(event) {
+    window.handleSTTKeyPress = function (event) {
         if (event.key === 'Enter') {
             event.preventDefault();
             const input = event.target;
@@ -604,7 +603,7 @@
     }
 
     // Remove STT by index (to support duplicate STT)
-    window.removeSTTByIndex = function(assignmentId, index) {
+    window.removeSTTByIndex = function (assignmentId, index) {
         const assignment = assignments.find(a => a.id === assignmentId);
         if (!assignment || !assignment.sttList) return;
 
@@ -622,7 +621,7 @@
     };
 
     // Show tooltip for STT chip (by index)
-    window.showSTTChipTooltip = function(event, assignmentId, index) {
+    window.showSTTChipTooltip = function (event, assignmentId, index) {
         const assignment = assignments.find(a => a.id === assignmentId);
         if (!assignment || !assignment.sttList) return;
 
@@ -687,7 +686,7 @@
     }
 
     // Remove Assignment
-    window.removeAssignment = function(assignmentId) {
+    window.removeAssignment = function (assignmentId) {
         if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
             assignments = assignments.filter(a => a.id !== assignmentId);
             // Save immediately for delete (no debounce) to prevent race conditions
@@ -698,7 +697,7 @@
     };
 
     // Clear All Assignments
-    window.clearAllAssignments = function() {
+    window.clearAllAssignments = function () {
         if (assignments.length === 0) {
             showNotification('Danh sách đã trống', 'error');
             return;
@@ -715,42 +714,55 @@
 
     // Save/Load Assignments
     // @param {boolean} immediate - If true, save immediately without debounce (for delete operations)
+    // Save/Load Assignments
+    // @param {boolean} immediate - If true, save immediately without debounce (for delete operations)
+    // Save/Load Assignments
+    // @param {boolean} immediate - If true, save immediately without debounce (for delete operations)
     function saveAssignments(immediate = false) {
         try {
-            // Mark as local update to prevent duplicate render from Firebase listener
-            isLocalUpdate = true;
+            // Sanitize assignments to remove undefined values
+            const sanitizedAssignments = assignments.map(a => {
+                // Create a clean copy of the assignment
+                const cleanAssignment = { ...a };
+
+                // Sanitize sttList if it exists
+                if (cleanAssignment.sttList && Array.isArray(cleanAssignment.sttList)) {
+                    cleanAssignment.sttList = cleanAssignment.sttList.map(s => {
+                        const cleanSTT = { ...s };
+                        if (cleanSTT.orderInfo) {
+                            cleanSTT.orderInfo = { ...cleanSTT.orderInfo };
+                            // Ensure totalAmount is defined (default to 0)
+                            if (cleanSTT.orderInfo.totalAmount === undefined) {
+                                cleanSTT.orderInfo.totalAmount = 0;
+                            }
+                        }
+                        return cleanSTT;
+                    });
+                }
+                return cleanAssignment;
+            });
 
             // Create data with timestamp
             const dataWithTimestamp = {
-                assignments: assignments,
+                assignments: sanitizedAssignments,
                 _timestamp: Date.now(), // Add timestamp for conflict resolution
                 _version: 1 // Version for future compatibility
             };
 
-            console.log('[SAVE] 📤 Saving to Firebase with timestamp:', dataWithTimestamp._timestamp, immediate ? '(immediate)' : '(debounced)');
+            console.log('[SAVE] 💾 Saving to LocalStorage with timestamp:', dataWithTimestamp._timestamp);
 
-            // Clear existing debounce timer
-            if (saveDebounceTimer) {
-                clearTimeout(saveDebounceTimer);
-            }
-
-            // Function to perform Firebase save
+            // Function to perform LocalStorage save
             const performSave = () => {
-                const firebasePath = getUserFirebasePath();
-                console.log('[SAVE] 📤 Firebase save starting to path:', firebasePath);
-                database.ref(firebasePath).set(dataWithTimestamp)
-                    .then(() => {
-                        console.log('[SAVE] ✅ Firebase save success');
-                        // Delay resetting isLocalUpdate to prevent race condition with Firebase listener
-                        setTimeout(() => {
-                            isLocalUpdate = false;
-                            console.log('[SAVE] 🔓 isLocalUpdate reset to false');
-                        }, 500); // Wait 500ms after save to let Firebase listener settle
-                    })
-                    .catch(error => {
-                        console.error('[SAVE] ❌ Firebase save error:', error);
-                        isLocalUpdate = false;
-                    });
+                try {
+                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+                    console.log('[SAVE] ✅ LocalStorage save success');
+
+                    // Dispatch storage event manually for same-window listeners (if any)
+                    window.dispatchEvent(new Event('storage'));
+                } catch (error) {
+                    console.error('[SAVE] ❌ LocalStorage save error:', error);
+                    showNotification('Lỗi lưu dữ liệu: ' + error.message, 'error');
+                }
             };
 
             // If immediate save (e.g., delete operations), save right away
@@ -758,21 +770,26 @@
             if (immediate) {
                 performSave();
             } else {
-                saveDebounceTimer = setTimeout(performSave, 1000); // Wait 1 second after last save
+                if (saveDebounceTimer) {
+                    clearTimeout(saveDebounceTimer);
+                }
+                saveDebounceTimer = setTimeout(() => {
+                    saveDebounceTimer = null; // Clear timer ref
+                    performSave();
+                }, 500); // Reduced debounce time for local storage
             }
         } catch (error) {
             console.error('Error saving assignments:', error);
-            isLocalUpdate = false; // Reset flag on error
         }
     }
 
     // loadAssignments() removed - now loading directly from Firebase only
 
     /**
-     * Hard refresh - Force reload data from Firebase
+     * Hard refresh - Force reload data from LocalStorage
      * Called from UI button
      */
-    window.hardRefreshFromFirebase = async function() {
+    window.hardRefreshFromFirebase = async function () {
         try {
             console.log('[HARD-REFRESH] 🔄 Hard refresh requested...');
 
@@ -782,15 +799,16 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
-            // Force reload from Firebase
-            await loadAssignmentsFromFirebase();
+            // Force reload from LocalStorage
+            loadAssignmentsFromLocalStorage();
 
             // Restore button
-            btn.disabled = false;
-            btn.innerHTML = originalHTML;
-
-            console.log('[HARD-REFRESH] ✅ Hard refresh completed');
-            alert('✅ Đã tải lại dữ liệu từ Firebase!');
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                console.log('[HARD-REFRESH] ✅ Hard refresh completed');
+                alert('✅ Đã tải lại dữ liệu từ LocalStorage!');
+            }, 500);
 
         } catch (error) {
             console.error('[HARD-REFRESH] ❌ Error:', error);
@@ -805,222 +823,62 @@
         }
     };
 
-    // Load assignments from Firebase only (no localStorage)
-    async function loadAssignmentsFromFirebase() {
+    // Load assignments from LocalStorage
+    function loadAssignmentsFromLocalStorage() {
         try {
-            const firebasePath = getUserFirebasePath();
-            console.log('[INIT] 🔄 Loading assignments from Firebase path:', firebasePath);
+            console.log('[INIT] 🔄 Loading assignments from LocalStorage...');
 
-            // Read Firebase
-            const snapshot = await database.ref(firebasePath).once('value');
-            const firebaseData = snapshot.val();
+            const storedData = localStorage.getItem('productAssignments');
 
-            if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
-                // New format with timestamp
-                assignments = firebaseData.assignments;
-                console.log('[INIT] ✅ Loaded from Firebase:', assignments.length, 'assignments');
-            } else if (Array.isArray(firebaseData)) {
-                // Old format from Firebase - migrate
-                console.log('[INIT] 📦 Old Firebase format detected, migrating...');
-                assignments = firebaseData;
-                saveAssignments(); // Save with timestamp
+            if (storedData) {
+                const parsedData = JSON.parse(storedData);
+
+                if (parsedData && parsedData.assignments && Array.isArray(parsedData.assignments)) {
+                    // New format with timestamp
+                    assignments = parsedData.assignments;
+                    console.log('[INIT] ✅ Loaded from LocalStorage:', assignments.length, 'assignments');
+                } else if (Array.isArray(parsedData)) {
+                    // Old format (direct array) - migrate
+                    console.log('[INIT] 📦 Old LocalStorage format detected, migrating...');
+                    assignments = parsedData;
+                    saveAssignments(); // Save with timestamp
+                } else {
+                    console.log('[INIT] ⚠️ Invalid data in LocalStorage');
+                    assignments = [];
+                }
             } else {
-                // Empty or invalid data
-                console.log('[INIT] 📭 Firebase is empty');
+                // Empty
+                console.log('[INIT] 📭 LocalStorage is empty');
                 assignments = [];
             }
 
             renderAssignmentTable();
-
-            // Ensure isLocalUpdate is false after initial load
-            isLocalUpdate = false;
             console.log('[INIT] ✅ Initial load complete, assignments count:', assignments.length);
         } catch (error) {
-            console.error('[INIT] ❌ Error loading from Firebase:', error);
+            console.error('[INIT] ❌ Error loading from LocalStorage:', error);
             assignments = [];
             renderAssignmentTable();
-            isLocalUpdate = false;
         }
     }
 
-    // Setup Firebase Listeners (Firebase as single source of truth)
-    function setupFirebaseListeners() {
-        const firebasePath = getUserFirebasePath();
-        console.log('[SYNC] 🔧 Setting up Firebase listeners for path:', firebasePath);
+    // Setup LocalStorage Listeners (Sync between tabs)
+    function setupLocalStorageListeners() {
+        console.log('[SYNC] 🔧 Setting up LocalStorage listeners');
 
-        let isFirstLoad = true; // Skip first trigger (we already loaded initial data)
-        let lastDataHash = null; // Track last data to detect real changes
-
-        // Listen for product assignments - sync from Firebase
-        database.ref(firebasePath).on('value', (snapshot) => {
-            console.log('[SYNC] 🔔 Firebase listener triggered!');
-            console.log('[SYNC] isLocalUpdate:', isLocalUpdate, '| isFirstLoad:', isFirstLoad);
-
-            // Skip first trigger (already loaded in loadAssignmentsFromFirebase)
-            if (isFirstLoad) {
-                console.log('[SYNC] ⏭️ Skip first listener trigger (initial data already loaded)');
-                isFirstLoad = false;
-                // Save initial data hash
-                lastDataHash = JSON.stringify(snapshot.val());
-                return;
-            }
-
-            // Skip if this is a local update (to prevent duplicate render)
-            if (isLocalUpdate) {
-                console.log('[SYNC] ⏭️ Skip Firebase listener render (local update in progress)');
-                // Update hash even for local updates
-                lastDataHash = JSON.stringify(snapshot.val());
-                return;
-            }
-
-            // Read Firebase data directly
-            const firebaseData = snapshot.val();
-
-            // Compare with last data to detect real changes
-            const currentDataHash = JSON.stringify(firebaseData);
-            if (currentDataHash === lastDataHash) {
-                console.log('[SYNC] ⏭️ Skip render - data unchanged (same hash)');
-                return;
-            }
-
-            console.log('[SYNC] 🔄 Data changed, updating UI...');
-            lastDataHash = currentDataHash;
-
-            // Handle new format
-            if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
-                const oldCount = assignments.length;
-                const newCount = firebaseData.assignments.length;
-
-                // Detect change type
-                const changeType = newCount > oldCount ? 'added' :
-                                 newCount < oldCount ? 'removed' : 'updated';
-
-                assignments = firebaseData.assignments;
-                renderAssignmentTable();
-
-                console.log(`[SYNC] 🔄 Synced from Firebase (${changeType}):`, oldCount, '→', newCount, 'assignments');
-            }
-            // Handle old format (backward compatibility)
-            else if (firebaseData && Array.isArray(firebaseData)) {
-                console.log('[SYNC] 📦 Old format detected, syncing...');
-                assignments = firebaseData;
-                saveAssignments(); // Migrate to new format
-                renderAssignmentTable();
-            }
-            // Handle empty/null data
-            else if (firebaseData === null) {
-                console.log('[SYNC] 🗑️ Firebase is empty, clearing assignments');
-                assignments = [];
-                renderAssignmentTable();
-            } else {
-                console.log('[SYNC] ⚠️ Unexpected Firebase data format:', typeof firebaseData);
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'productAssignments') {
+                console.log('[SYNC] 🔔 LocalStorage changed (from another tab)');
+                loadAssignmentsFromLocalStorage();
+                showNotification('🔄 Dữ liệu đã được cập nhật từ tab khác');
             }
         });
-
-        console.log('[SYNC] ✅ Firebase listeners setup complete');
     }
 
-    // =====================================================
-    // HELPER: Load fresh data from Firebase
-    // =====================================================
-    // This function loads fresh data from Firebase.
-    // Used by visibility/focus listeners to refresh data when tab becomes active.
-    // Returns: true if data was loaded successfully
-    async function syncFromFirebase(eventType) {
-        try {
-            const firebasePath = getUserFirebasePath();
-            console.log(`[${eventType}] 🔍 Loading fresh data from Firebase path:`, firebasePath);
 
-            // Fetch data from Firebase
-            const snapshot = await database.ref(firebasePath).once('value');
-            const firebaseData = snapshot.val();
 
-            if (firebaseData && firebaseData.assignments && Array.isArray(firebaseData.assignments)) {
-                const oldCount = assignments.length;
-                assignments = firebaseData.assignments;
-                console.log(`[${eventType}] ✅ Loaded from Firebase: ${oldCount} → ${assignments.length} assignments`);
-                return true; // Data was loaded
-            } else if (firebaseData === null) {
-                console.log(`[${eventType}] 📭 Firebase is empty`);
-                assignments = [];
-                return true;
-            } else {
-                console.warn(`[${eventType}] ⚠️ Invalid Firebase data format`);
-                return false;
-            }
-        } catch (error) {
-            console.error(`[${eventType}] ❌ Error loading from Firebase:`, error);
-            return false;
-        }
-    }
 
-    // setupLocalStorageListener() removed - no longer using localStorage
 
-    // Setup visibility change listener (reload when tab becomes visible)
-    function setupVisibilityListener() {
-        // Flag to prevent duplicate syncs from rapid tab switches
-        let isVisibilitySyncing = false;
 
-        document.addEventListener('visibilitychange', async () => {
-            if (!document.hidden && !isVisibilitySyncing) {
-                isVisibilitySyncing = true;
-                console.log('[VISIBILITY] 👁️ Tab became visible, loading fresh data from Firebase...');
-
-                try {
-                    // Load fresh data from Firebase
-                    const synced = await syncFromFirebase('VISIBILITY');
-
-                    // Render updated data
-                    if (synced) {
-                        renderAssignmentTable();
-                        showNotification('🔄 Đã đồng bộ dữ liệu mới từ Firebase');
-                    }
-                } catch (error) {
-                    console.error('[VISIBILITY] ❌ Error during sync:', error);
-                } finally {
-                    // Release lock after 1 second to allow next sync
-                    setTimeout(() => {
-                        isVisibilitySyncing = false;
-                    }, 1000);
-                }
-            }
-        });
-
-        console.log('[VISIBILITY] ✅ Visibility change listener setup complete');
-    }
-
-    // Setup focus listener (reload when iframe gains focus)
-    function setupFocusListener() {
-        // Flag to prevent duplicate syncs
-        let isFocusSyncing = false;
-
-        window.addEventListener('focus', async () => {
-            if (!isFocusSyncing) {
-                isFocusSyncing = true;
-                console.log('[FOCUS] 🎯 Tab gained focus, loading fresh data from Firebase...');
-
-                try {
-                    // Load fresh data from Firebase
-                    const synced = await syncFromFirebase('FOCUS');
-
-                    // Render updated data
-                    if (synced) {
-                        renderAssignmentTable();
-                        showNotification('🔄 Đã đồng bộ dữ liệu mới từ Firebase');
-                    }
-                } catch (error) {
-                    console.error('[FOCUS] ❌ Error during sync:', error);
-                } finally {
-                    // Release lock after 500ms (focus is less frequent than visibility)
-                    setTimeout(() => {
-                        isFocusSyncing = false;
-                    }, 500);
-                }
-            }
-        });
-
-        console.log('[FOCUS] ✅ Focus listener setup complete');
-    }
 
     // Product Search Input Handler
     document.getElementById('productSearch').addEventListener('input', (e) => {
@@ -1065,15 +923,13 @@
             await getValidToken();
             loadOrdersData();
 
-            // Load assignments from Firebase (Firebase as single source of truth)
-            console.log('[INIT] 📱 Loading from Firebase...');
-            await loadAssignmentsFromFirebase();
+            // Load assignments from LocalStorage
+            console.log('[INIT] 📱 Loading from LocalStorage...');
+            loadAssignmentsFromLocalStorage();
 
-            // Setup all listeners (Firebase as single source of truth)
+            // Setup all listeners
             console.log('[INIT] 🔧 Setting up listeners...');
-            setupFirebaseListeners();       // Firebase sync
-            setupVisibilityListener();      // Reload when tab visible
-            setupFocusListener();           // Reload when iframe focused
+            setupLocalStorageListeners();       // LocalStorage sync
 
             await loadProductsData();
             updateOrdersCount(); // Update initial count
@@ -1112,7 +968,7 @@
     }
 
     // Filter Assignments by search text
-    window.filterAssignments = function(searchText) {
+    window.filterAssignments = function (searchText) {
         const searchLower = removeVietnameseTones(searchText.toLowerCase().trim());
         const tableBody = document.getElementById('assignmentTableBody');
         const rows = tableBody.querySelectorAll('tr.assignment-row');
@@ -1182,7 +1038,7 @@
     /**
      * Open Upload History Modal
      */
-    window.openUploadHistoryModal = async function() {
+    window.openUploadHistoryModal = async function () {
         console.log('[HISTORY] 📜 Opening upload history modal...');
 
         try {
@@ -1285,7 +1141,7 @@
     /**
      * Filter upload history based on user input
      */
-    window.filterUploadHistory = function() {
+    window.filterUploadHistory = function () {
         const status = document.getElementById('historyStatusFilter').value;
         const dateFrom = document.getElementById('historyDateFrom').value;
         const dateTo = document.getElementById('historyDateTo').value;
@@ -1508,7 +1364,7 @@
     /**
      * Change history page
      */
-    window.changeHistoryPage = function(page) {
+    window.changeHistoryPage = function (page) {
         currentHistoryPage = page;
         renderUploadHistoryList();
 
@@ -1520,7 +1376,7 @@
      * View upload history detail
      * Lazy load uploadResults from Firebase
      */
-    window.viewUploadHistoryDetail = async function(uploadId) {
+    window.viewUploadHistoryDetail = async function (uploadId) {
         console.log('[HISTORY] 👁️ Viewing detail for:', uploadId);
 
         try {
@@ -1721,8 +1577,8 @@
                                             <td>
                                                 <div class="d-flex align-items-center gap-2">
                                                     ${product.imageUrl
-                                                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                                                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
+                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
                                                     <div>
                                                         <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
                                                         <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
@@ -1777,7 +1633,7 @@
      * Compare Cart History - Show preview comparison modal
      * Similar to previewModal but for history records
      */
-    window.compareCartHistory = async function(uploadId) {
+    window.compareCartHistory = async function (uploadId) {
         console.log('[HISTORY-COMPARE] 🔍 Comparing cart for uploadId:', uploadId);
 
         try {
@@ -1939,17 +1795,17 @@
                                     </thead>
                                     <tbody>
                                         ${Object.values(assignedProductCounts).map(product => {
-                                            const statusBadge = product.isExisting
-                                                ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, đã cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
-                                                : '<span class="badge bg-success ms-2" title="Sản phẩm mới đã được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
+                const statusBadge = product.isExisting
+                    ? '<span class="badge bg-warning text-dark ms-2" title="Sản phẩm đã có trong đơn, đã cộng thêm số lượng"><i class="fas fa-plus"></i> Cộng SL</span>'
+                    : '<span class="badge bg-success ms-2" title="Sản phẩm mới đã được thêm vào đơn"><i class="fas fa-star"></i> Mới</span>';
 
-                                            return `
+                return `
                                             <tr class="${product.isExisting ? 'table-warning' : 'table-success'}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
                                                         ${product.imageUrl
-                                                            ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                                                            : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                         <div style="flex: 1;">
                                                             <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
                                                             <div style="font-size: 12px; color: #6b7280;">
@@ -1988,19 +1844,19 @@
                                         </thead>
                                         <tbody>
                                             ${existingProducts.map(product => {
-                                                // Check if this product will be updated (exists in assigned products)
-                                                const willBeUpdated = !!assignedProductCounts[product.productId];
-                                                const updateBadge = willBeUpdated
-                                                    ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này đã được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
-                                                    : '';
+                            // Check if this product will be updated (exists in assigned products)
+                            const willBeUpdated = !!assignedProductCounts[product.productId];
+                            const updateBadge = willBeUpdated
+                                ? '<span class="badge bg-warning text-dark ms-1" title="Sản phẩm này đã được cộng thêm số lượng"><i class="fas fa-arrow-up"></i></span>'
+                                : '';
 
-                                                return `
+                            return `
                                                 <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                     <td>
                                                         <div class="d-flex align-items-center gap-2">
                                                             ${product.imageUrl
-                                                                ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                                                                : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                    ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                                    : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;">📦</div>'}
                                                             <div style="flex: 1;">
                                                                 <div style="font-weight: 600; font-size: 14px;">${product.nameGet || product.name || 'N/A'}</div>
                                                                 <div style="font-size: 12px; color: #6b7280;">${product.code || 'N/A'}${updateBadge}</div>
