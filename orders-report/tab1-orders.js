@@ -3354,8 +3354,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         }
 
         // Initialize Chat Product State
-        // Initialize Chat Product State
         initChatProductSearch();
+
+        // Initialize ChatProductManager for history tracking
+        if (window.chatProductManager) {
+            await window.chatProductManager.init('shared');
+            console.log('[CHAT] ChatProductManager initialized');
+        }
 
         // Firebase Sync Logic - Shared products across all orders
         if (database) {
@@ -5041,7 +5046,7 @@ function displayChatSearchResults(results) {
         const currentQty = productsInOrder.get(p.Id) || 0;
 
         return `
-        <div class="chat-search-item ${isInOrder ? 'in-order' : ''}" data-product-id="${p.Id}" onclick="addChatProductFromSearch(${p.Id})" style="
+        <div class="chat-search-item ${isInOrder ? 'in-order' : ''}" data-product-id="${p.Id}" onclick="window.chatProductManager?.addProductFromSearch(${p.Id})" style="
             padding: 12px 16px;
             border-bottom: 1px solid #f1f5f9;
             display: flex;
