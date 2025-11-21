@@ -431,6 +431,7 @@ function mergeOrdersByPhone(orders) {
             const allNames = new Set();
             const allAddresses = new Set();
             const allNotes = [];
+            const allSTTs = [];
             let totalAmount = 0;
             let totalQuantity = 0;
             const allIds = [];
@@ -441,6 +442,7 @@ function mergeOrdersByPhone(orders) {
                 if (order.Name && order.Name.trim()) allNames.add(order.Name.trim());
                 if (order.Address && order.Address.trim()) allAddresses.add(order.Address.trim());
                 if (order.Note && order.Note.trim()) allNotes.push(order.Note.trim());
+                if (order.SessionIndex) allSTTs.push(order.SessionIndex);
                 totalAmount += (order.TotalAmount || 0);
                 totalQuantity += (order.TotalQuantity || 0);
                 allIds.push(order.Id);
@@ -464,7 +466,8 @@ function mergeOrdersByPhone(orders) {
                 Id: allIds.join('_'), // Combine IDs for checkbox handling
                 OriginalIds: allIds, // Store original IDs for reference
                 MergedCount: groupOrders.length, // Track how many orders were merged
-                SessionIndex: `${groupOrders[0].SessionIndex || ''}` + (groupOrders.length > 1 ? ` (${groupOrders.length})` : '')
+                SessionIndex: allSTTs.length > 1 ? allSTTs.join(' + ') : (groupOrders[0].SessionIndex || ''),
+                AllSTTs: allSTTs // Store all STT for reference
             };
 
             mergedOrders.push(mergedOrder);
