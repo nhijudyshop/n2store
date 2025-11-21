@@ -9,7 +9,7 @@ class ChatProductManager {
         this.productHistory = [];
     }
 
-    init(orderId) {
+    async init(orderId) {
         if (!orderId) {
             console.error('[CHAT-PRODUCT] No orderId provided');
             return;
@@ -30,6 +30,16 @@ class ChatProductManager {
             this.startHistoryListening();
         } else {
             console.error('[CHAT-PRODUCT] Firebase not initialized');
+        }
+
+        // Load Excel products for suggestions
+        if (window.enhancedProductSearchManager) {
+            try {
+                await window.enhancedProductSearchManager.fetchExcelProducts();
+                console.log('[CHAT-PRODUCT] Excel products loaded for suggestions');
+            } catch (error) {
+                console.error('[CHAT-PRODUCT] Error loading Excel products:', error);
+            }
         }
 
         this.renderTable();
@@ -291,24 +301,48 @@ class ChatProductManager {
         if (!suggestionsEl) return;
 
         if (this.searchResults.length === 0) {
-            suggestionsEl.style.display = 'none';
+            suggestionsEl.innerHTML = `
+                <div class="no-suggestions" style="
+                    padding: 16px;
+                    text-align: center;
+                    color: #9ca3af;
+                    font-size: 13px;
+                ">
+                    <i class="fas fa-search" style="font-size: 24px; opacity: 0.3; margin-bottom: 8px;"></i>
+                    <p style="margin: 0;">Không tìm thấy sản phẩm</p>
+                </div>
+            `;
+            suggestionsEl.style.display = 'block';
             return;
         }
 
-        suggestionsEl.innerHTML = this.searchResults.map(product => `
-            <div class="chat-product-suggestion-item" onclick="window.chatProductManager.selectProduct(${product.Id})">
-                <div class="suggestion-image">
-                    ${product.ImageUrl ? `<img src="${product.ImageUrl}" onerror="this.src='https://via.placeholder.com/40'"/>` : '<div class="no-image"><i class="fas fa-box"></i></div>'}
-                </div>
-                <div class="suggestion-info">
-                    <div class="suggestion-name">${product.Name}</div>
-                    <div class="suggestion-meta">
-                        <span class="suggestion-code">${product.Code || 'No Code'}</span>
-                        <span class="suggestion-price">${(product.Price || 0).toLocaleString('vi-VN')}đ</span>
+        suggestionsEl.innerHTML = this.searchResults.map(product => {
+            const imageUrl = product.ImageUrl || product.Thumbnails?.[0];
+            return `
+                <div class="chat-product-suggestion-item" onclick="window.chatProductManager.selectProduct(${product.Id})">
+                    <div class="suggestion-image">
+                        ${imageUrl
+                            ? `<img src="${imageUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${product.Name}"/>
+                               <div class="no-image" style="display: none;"><i class="fas fa-box"></i></div>`
+                            : '<div class="no-image"><i class="fas fa-box"></i></div>'
+                        }
+                    </div>
+                    <div class="suggestion-info">
+                        <div class="suggestion-name" title="${product.Name}">${product.Name}</div>
+                        <div class="suggestion-meta">
+                            ${product.Code ? `<span class="suggestion-code"><i class="fas fa-barcode"></i> ${product.Code}</span>` : ''}
+                            <span class="suggestion-price"><strong>${(product.Price || 0).toLocaleString('vi-VN')}đ</strong></span>
+                        </div>
+                        ${product.QtyAvailable !== null && product.QtyAvailable !== undefined
+                            ? `<div class="suggestion-stock" style="font-size: 11px; color: ${product.QtyAvailable > 0 ? '#10b981' : '#ef4444'}; margin-top: 4px;">
+                                <i class="fas fa-warehouse"></i> Tồn: ${product.QtyAvailable}
+                               </div>`
+                            : ''
+                        }
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         suggestionsEl.style.display = 'block';
     }
