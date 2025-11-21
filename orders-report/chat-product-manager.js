@@ -408,6 +408,41 @@ class ChatProductManager {
         }
     }
 
+    // Add product directly from external search (e.g., tab1-orders.js)
+    async addProductFromSearch(productId) {
+        try {
+            // Get product details from productSearchManager
+            if (!window.productSearchManager) {
+                console.error('[CHAT-PRODUCT] productSearchManager not available');
+                return;
+            }
+
+            const product = await window.productSearchManager.getFullProductDetails(productId);
+            if (!product) {
+                console.error('[CHAT-PRODUCT] Product not found:', productId);
+                return;
+            }
+
+            // Add to Firebase
+            await this.addProduct(product);
+
+            // Clear search and hide dropdown
+            const searchInput = document.getElementById('chatProductSearchInput');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            const suggestions = document.getElementById('chatProductSearchResults');
+            if (suggestions) {
+                suggestions.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('[CHAT-PRODUCT] Error adding product from search:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Lỗi khi thêm sản phẩm', 'error');
+            }
+        }
+    }
+
     renderTable() {
         const tbody = document.getElementById('chatProductTableBody');
         const totalEl = document.getElementById('chatProductTotal');
