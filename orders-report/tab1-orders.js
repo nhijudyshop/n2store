@@ -1857,7 +1857,15 @@ async function openEditModal(orderId) {
     document.getElementById("editModalBody").innerHTML =
         `<div class="loading-state"><div class="loading-spinner"></div><div class="loading-text">Đang tải dữ liệu đơn hàng...</div></div>`;
     try {
-        await fetchOrderData(orderId);
+        // Check if this is a merged order
+        const order = allData.find(o => o.Id === orderId);
+        if (order && order.OriginalIds && order.OriginalIds.length > 1) {
+            // Merged order - fetch all original orders
+            await fetchMergedOrderData(order);
+        } else {
+            // Single order
+            await fetchOrderData(orderId);
+        }
     } catch (error) {
         showErrorState(error.message);
     }
@@ -1876,6 +1884,79 @@ async function fetchOrderData(orderId) {
     if (!response.ok)
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     currentEditOrderData = await response.json();
+    updateModalWithData(currentEditOrderData);
+}
+
+async function fetchMergedOrderData(mergedOrder) {
+    const headers = await window.tokenManager.getAuthHeader();
+
+    // Fetch all original orders in parallel
+    const fetchPromises = mergedOrder.OriginalIds.map(async (orderId) => {
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            headers: {
+                ...headers,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+        });
+        if (!response.ok)
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        return await response.json();
+    });
+
+    const allOrders = await Promise.all(fetchPromises);
+
+    // Find order with largest STT to use as base (products will move from smaller STT to larger STT)
+    let baseOrder = allOrders[0];
+    for (let i = 1; i < allOrders.length; i++) {
+        const currentOrder = allOrders[i];
+        const currentSTT = allData.find(o => o.Id === currentOrder.Id)?.SessionIndex;
+        const baseSTT = allData.find(o => o.Id === baseOrder.Id)?.SessionIndex;
+
+        if (currentSTT && baseSTT && parseInt(currentSTT) > parseInt(baseSTT)) {
+            baseOrder = currentOrder;
+        }
+    }
+
+    // Merge all orders data
+    const mergedDetails = [];
+    const allCodes = [];
+    let totalAmount = 0;
+    let totalQuantity = 0;
+    let latestUpdate = baseOrder.LastUpdated;
+
+    allOrders.forEach(order => {
+        // Collect all products/details
+        if (order.Details && Array.isArray(order.Details)) {
+            mergedDetails.push(...order.Details);
+        }
+
+        // Collect order codes
+        allCodes.push(order.Code);
+
+        // Sum totals
+        totalAmount += (order.TotalAmount || 0);
+        totalQuantity += (order.TotalQuantity || 0);
+
+        // Keep latest update time
+        if (new Date(order.LastUpdated) > new Date(latestUpdate)) {
+            latestUpdate = order.LastUpdated;
+        }
+    });
+
+    // Create merged order data
+    currentEditOrderData = {
+        ...baseOrder,
+        Code: allCodes.join(' + '),
+        Details: mergedDetails,
+        TotalAmount: totalAmount,
+        TotalQuantity: totalQuantity,
+        LastUpdated: latestUpdate,
+        IsMerged: true,
+        MergedOrdersData: allOrders // Keep all original orders for reference
+    };
+
     updateModalWithData(currentEditOrderData);
 }
 
