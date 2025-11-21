@@ -435,7 +435,7 @@
 
             <!-- Right Panel: Products -->
             <div class="chat-right-panel"
-                style="width: 380px; display: flex; flex-direction: column; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);">
+                style="width: 380px; display: flex; flex-direction: column; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%); overflow: visible;">
 
                 <!-- Modern Header with Tabs -->
                 <div class="chat-modal-header" style="
@@ -518,8 +518,8 @@
                 </div>
 
                 <!-- Search Section -->
-                <div style="padding: 16px; background: white; border-bottom: 1px solid #e5e7eb;">
-                    <div style="position: relative;">
+                <div style="padding: 16px; background: white; border-bottom: 1px solid #e5e7eb; position: relative; overflow: visible;">
+                    <div style="position: relative; overflow: visible;">
                         <i class="fas fa-search" style="
                             position: absolute;
                             left: 14px;
@@ -527,6 +527,7 @@
                             transform: translateY(-50%);
                             color: #9ca3af;
                             font-size: 14px;
+                            z-index: 1;
                         "></i>
                         <input type="text" id="chatProductSearch" placeholder="Tìm kiếm sản phẩm..." style="
                             width: 100%;
@@ -536,6 +537,8 @@
                             font-size: 14px;
                             transition: all 0.3s;
                             background: #f9fafb;
+                            position: relative;
+                            z-index: 1;
                         " onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
                            onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';">
                         <div id="chatProductSuggestions" class="product-suggestions" style="display: none;">
@@ -776,7 +779,7 @@
                     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
                     max-height: 400px;
                     overflow-y: auto;
-                    z-index: 1000;
+                    z-index: 10000;
                     border: 1px solid #e5e7eb;
                 }
 
