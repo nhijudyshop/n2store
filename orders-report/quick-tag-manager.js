@@ -19,6 +19,7 @@ const quickTagManager = {
     currentOrderId: null,
     currentOrderCode: null,
     currentDropdown: null,
+    tempSelectedTags: [], // Store temporary selections
 
     /**
      * Initialize quick tag manager
@@ -127,6 +128,21 @@ const quickTagManager = {
         this.currentOrderId = orderId;
         this.currentOrderCode = orderCode;
 
+        // Initialize temp tags from current order
+        const order = allData.find(o => o.Id === orderId);
+        this.tempSelectedTags = [];
+        if (order && order.Tags) {
+            if (Array.isArray(order.Tags)) {
+                this.tempSelectedTags = [...order.Tags];
+            } else if (typeof order.Tags === 'string') {
+                try {
+                    this.tempSelectedTags = JSON.parse(order.Tags);
+                } catch (e) {
+                    console.error('[QUICK-TAG] Error parsing tags:', e);
+                }
+            }
+        }
+
         // Get or create dropdown
         let dropdown = buttonElement.nextElementSibling;
         if (!dropdown || !dropdown.classList.contains('quick-tag-dropdown')) {
@@ -168,9 +184,16 @@ const quickTagManager = {
             <div class="quick-tag-list" id="quickTagList">
                 <!-- Will be populated dynamically -->
             </div>
-            <div class="quick-tag-dropdown-footer">
-                <button class="quick-tag-open-modal-btn" onclick="quickTagManager.openFullModal()">
-                    <i class="fas fa-th"></i>
+            <div class="quick-tag-dropdown-footer" style="display: flex; gap: 8px; padding: 8px; border-top: 1px solid #eee;">
+                <button class="quick-tag-btn-save" onclick="quickTagManager.saveQuickTags()" style="flex: 1; background: #10b981; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                    <i class="fas fa-save"></i> Lưu
+                </button>
+                <button class="quick-tag-btn-cancel" onclick="quickTagManager.closeAllDropdowns()" style="flex: 1; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 6px; border-radius: 4px; cursor: pointer;">
+                    Hủy
+                </button>
+            </div>
+            <div class="quick-tag-dropdown-footer-secondary" style="padding: 0 8px 8px 8px;">
+                <button class="quick-tag-open-modal-btn" onclick="quickTagManager.openFullModal()" style="width: 100%; background: transparent; border: none; color: #6b7280; font-size: 12px; cursor: pointer; text-decoration: underline;">
                     Quản lý đầy đủ
                 </button>
             </div>
@@ -195,16 +218,8 @@ const quickTagManager = {
         // Filter tags that are in quick access
         const quickTags = availableTags.filter(tag => quickTagNames.includes(tag.Name));
 
-        // Get current order tags
-        const currentOrder = allData.find(o => o.Id === this.currentOrderId);
-        let currentTagIds = [];
-        if (currentOrder && currentOrder.Tags) {
-            try {
-                currentTagIds = JSON.parse(currentOrder.Tags).map(t => t.Id);
-            } catch (e) {
-                console.error('[QUICK-TAG] Error parsing order tags:', e);
-            }
-        }
+        // Use tempSelectedTags instead of order data
+        const currentTagIds = this.tempSelectedTags.map(t => t.Id);
 
         // Render quick tags
         if (quickTags.length === 0) {
@@ -238,55 +253,54 @@ const quickTagManager = {
     },
 
     /**
-     * Toggle tag for current order
+     * Toggle tag (Local only)
      */
-    async toggleTag(tagId, tagName, element) {
-        // Get current order
-        const order = allData.find(o => o.Id === this.currentOrderId);
-        if (!order) {
-            console.error('[QUICK-TAG] Order not found:', this.currentOrderId);
-            return;
-        }
-
-        // Parse current tags
-        let orderTags = [];
-        if (order.Tags) {
-            try {
-                orderTags = JSON.parse(order.Tags);
-            } catch (e) {
-                console.error('[QUICK-TAG] Error parsing tags:', e);
-                orderTags = [];
-            }
-        }
-
-        // Check if tag is currently selected
-        const tagIndex = orderTags.findIndex(t => t.Id === tagId);
+    toggleTag(tagId, tagName, element) {
+        // Check if tag is currently selected in temp array
+        const tagIndex = this.tempSelectedTags.findIndex(t => t.Id == tagId); // Use loose equality for safety
         const isCurrentlySelected = tagIndex > -1;
 
-        console.log(`[QUICK-TAG] Toggling tag "${tagName}" for order ${this.currentOrderId}: ${!isCurrentlySelected ? 'ADD' : 'REMOVE'}`);
+        if (!isCurrentlySelected) {
+            // Add tag
+            const tag = availableTags.find(t => t.Id == tagId);
+            if (tag) {
+                this.tempSelectedTags.push({ Id: tag.Id, Name: tag.Name, Color: tag.Color });
+                element.classList.add('selected');
+                if (!element.querySelector('.fa-check-circle')) {
+                    element.insertAdjacentHTML('beforeend', '<i class="fas fa-check-circle" style="margin-left: auto; color: #10b981;"></i>');
+                }
+            }
+        } else {
+            // Remove tag
+            this.tempSelectedTags.splice(tagIndex, 1);
+            element.classList.remove('selected');
+            const checkIcon = element.querySelector('.fa-check-circle');
+            if (checkIcon) checkIcon.remove();
+        }
+    },
+
+    /**
+     * Save quick tags to API
+     */
+    async saveQuickTags() {
+        if (!this.currentOrderId) return;
 
         try {
-            // Toggle tag
-            if (!isCurrentlySelected) {
-                // Add tag
-                const tag = availableTags.find(t => t.Id === tagId);
-                if (tag) {
-                    orderTags.push({ Id: tag.Id, Name: tag.Name, Color: tag.Color });
-                }
-            } else {
-                // Remove tag
-                orderTags.splice(tagIndex, 1);
-            }
+            // Show loading state on button
+            const saveBtn = this.currentDropdown.querySelector('.quick-tag-btn-save');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lưu...';
+            saveBtn.disabled = true;
 
-            // Save to API using AssignTag endpoint (same as saveOrderTags in tab1-orders.js)
             const payload = {
-                Tags: orderTags.map((tag) => ({
+                Tags: this.tempSelectedTags.map((tag) => ({
                     Id: tag.Id,
                     Color: tag.Color,
                     Name: tag.Name,
                 })),
                 OrderId: this.currentOrderId,
             };
+
             const headers = await window.tokenManager.getAuthHeader();
             const response = await API_CONFIG.smartFetch(
                 "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
@@ -302,41 +316,43 @@ const quickTagManager = {
             );
 
             if (response.ok) {
-                // Update local data in both allData and displayedData
-                order.Tags = JSON.stringify(orderTags);
+                // Update local data
+                const order = allData.find(o => o.Id === this.currentOrderId);
+                if (order) {
+                    order.Tags = JSON.stringify(this.tempSelectedTags);
 
-                // Also update in displayedData to ensure consistency
-                const displayedOrder = displayedData.find(o => o.Id === this.currentOrderId);
-                if (displayedOrder) {
-                    displayedOrder.Tags = JSON.stringify(orderTags);
+                    // Update displayed data
+                    const displayedOrder = displayedData.find(o => o.Id === this.currentOrderId);
+                    if (displayedOrder) {
+                        displayedOrder.Tags = JSON.stringify(this.tempSelectedTags);
+                    }
                 }
 
-                // Re-render table to update tag display
+                // Re-render table
                 renderTable();
 
-                // Refresh dropdown to show updated tag states
-                if (this.currentDropdown) {
-                    this.updateDropdown(this.currentDropdown);
-                }
+                // Close dropdown
+                this.closeAllDropdowns();
 
-                console.log(`[QUICK-TAG] Tag "${tagName}" ${!isCurrentlySelected ? 'added' : 'removed'} successfully`);
-
-                // Show notification
                 if (window.notificationManager) {
-                    window.notificationManager.show(
-                        `${!isCurrentlySelected ? '✅ Đã thêm' : '🗑️ Đã bỏ'} tag "${tagName}"`,
-                        !isCurrentlySelected ? 'success' : 'info'
-                    );
+                    window.notificationManager.show('✅ Đã cập nhật tag thành công', 'success');
                 }
             } else {
                 throw new Error('Failed to update tags');
             }
         } catch (error) {
-            console.error('[QUICK-TAG] Error toggling tag:', error);
+            console.error('[QUICK-TAG] Error saving tags:', error);
             if (window.notificationManager) {
-                window.notificationManager.show('❌ Lỗi khi cập nhật tag', 'error');
+                window.notificationManager.show('❌ Lỗi khi lưu tag', 'error');
             } else {
-                alert('❌ Lỗi khi cập nhật tag: ' + error.message);
+                alert('❌ Lỗi khi lưu tag: ' + error.message);
+            }
+
+            // Reset button
+            const saveBtn = this.currentDropdown.querySelector('.quick-tag-btn-save');
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu';
+                saveBtn.disabled = false;
             }
         }
     },
@@ -351,7 +367,7 @@ const quickTagManager = {
 };
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     quickTagManager.initialize();
 });
 
