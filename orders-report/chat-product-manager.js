@@ -302,14 +302,9 @@ class ChatProductManager {
 
         if (this.searchResults.length === 0) {
             suggestionsEl.innerHTML = `
-                <div class="no-suggestions" style="
-                    padding: 16px;
-                    text-align: center;
-                    color: #9ca3af;
-                    font-size: 13px;
-                ">
-                    <i class="fas fa-search" style="font-size: 24px; opacity: 0.3; margin-bottom: 8px;"></i>
-                    <p style="margin: 0;">Không tìm thấy sản phẩm</p>
+                <div style="padding: 16px; text-align: center; color: #9ca3af;">
+                    <i class="fas fa-search" style="font-size: 20px; opacity: 0.5; margin-bottom: 8px;"></i>
+                    <p style="margin: 0; font-size: 13px;">Không tìm thấy sản phẩm</p>
                 </div>
             `;
             suggestionsEl.style.display = 'block';
@@ -317,29 +312,26 @@ class ChatProductManager {
         }
 
         suggestionsEl.innerHTML = this.searchResults.map(product => {
-            const imageUrl = product.ImageUrl || product.Thumbnails?.[0];
+            const imageUrl = product.ImageUrl || (product.Thumbnails && product.Thumbnails[0]);
             return `
-                <div class="chat-product-suggestion-item" onclick="window.chatProductManager.selectProduct(${product.Id})">
-                    <div class="suggestion-image">
+                <div class="suggestion-item" onclick="window.chatProductManager.selectProduct(${product.Id})" style="
+                    display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #f3f4f6;
+                " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;">
                         ${imageUrl
-                    ? `<img src="${imageUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${product.Name}"/>
-                               <div class="no-image" style="display: none;"><i class="fas fa-box"></i></div>`
-                    : '<div class="no-image"><i class="fas fa-box"></i></div>'
-                }
+                            ? `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                               <i class="fas fa-box" style="color: #9ca3af; display: none;"></i>`
+                            : `<i class="fas fa-box" style="color: #9ca3af;"></i>`
+                        }
                     </div>
-                    <div class="suggestion-info">
-                        <div class="suggestion-name" title="${product.Name}">${product.Name}</div>
-                        <div class="suggestion-meta">
-                            ${product.Code ? `<span class="suggestion-code"><i class="fas fa-barcode"></i> ${product.Code}</span>` : ''}
-                            <span class="suggestion-price"><strong>${(product.Price || 0).toLocaleString('vi-VN')}đ</strong></span>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 14px; font-weight: 500; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${product.Name}</div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+                            ${product.Code ? `<span style="font-size: 11px; color: #6b7280; background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${product.Code}</span>` : ''}
+                            <span style="font-size: 12px; font-weight: 600; color: #8b5cf6;">${(product.Price || 0).toLocaleString('vi-VN')}đ</span>
                         </div>
-                        ${product.QtyAvailable !== null && product.QtyAvailable !== undefined
-                    ? `<div class="suggestion-stock" style="font-size: 11px; color: ${product.QtyAvailable > 0 ? '#10b981' : '#ef4444'}; margin-top: 4px;">
-                                <i class="fas fa-warehouse"></i> Tồn: ${product.QtyAvailable}
-                               </div>`
-                    : ''
-                }
                     </div>
+                    <i class="fas fa-plus-circle" style="color: #8b5cf6; font-size: 18px;"></i>
                 </div>
             `;
         }).join('');
