@@ -3,8 +3,10 @@ class ChatProductManager {
         this.orderId = null;
         this.products = [];
         this.firebaseRef = null;
+        this.historyRef = null;
         this.isListening = false;
         this.searchResults = [];
+        this.productHistory = [];
     }
 
     init(orderId) {
@@ -16,12 +18,16 @@ class ChatProductManager {
         this.orderId = orderId;
         this.products = [];
         this.searchResults = [];
+        this.productHistory = [];
 
         // Initialize Firebase reference
         // Path: chat_products/{orderId}
+        // History Path: chat_products_history/{orderId}
         if (firebase && firebase.database) {
             this.firebaseRef = firebase.database().ref(`chat_products/${this.orderId}`);
+            this.historyRef = firebase.database().ref(`chat_products_history/${this.orderId}`);
             this.startListening();
+            this.startHistoryListening();
         } else {
             console.error('[CHAT-PRODUCT] Firebase not initialized');
         }
@@ -35,9 +41,13 @@ class ChatProductManager {
             this.firebaseRef.off();
             this.isListening = false;
         }
+        if (this.historyRef) {
+            this.historyRef.off();
+        }
         this.orderId = null;
         this.products = [];
         this.searchResults = [];
+        this.productHistory = [];
 
         // Clear search input
         const searchInput = document.getElementById('chatProductSearch');
@@ -46,6 +56,42 @@ class ChatProductManager {
         // Hide suggestions
         const suggestions = document.getElementById('chatProductSuggestions');
         if (suggestions) suggestions.style.display = 'none';
+    }
+
+    startHistoryListening() {
+        if (!this.historyRef) return;
+
+        console.log(`[CHAT-PRODUCT-HISTORY] Listening for changes on chat_products_history/${this.orderId}`);
+
+        this.historyRef.orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                this.productHistory = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
+            } else {
+                this.productHistory = [];
+            }
+            this.renderHistory();
+        }, (error) => {
+            console.error('[CHAT-PRODUCT-HISTORY] Firebase listener error:', error);
+        });
+    }
+
+    async logHistory(action, productName, details = {}) {
+        if (!this.historyRef) return;
+
+        try {
+            const historyEntry = {
+                action: action, // 'add', 'remove', 'update_quantity'
+                productName: productName,
+                details: details,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                user: 'Current User' // You can get from auth if available
+            };
+
+            await this.historyRef.push(historyEntry);
+        } catch (error) {
+            console.error('[CHAT-PRODUCT-HISTORY] Error logging history:', error);
+        }
     }
 
     startListening() {
@@ -83,25 +129,88 @@ class ChatProductManager {
                     Quantity: newQuantity
                 });
 
+                // Log history
+                await this.logHistory('update_quantity', product.Name, {
+                    productId: product.Id,
+                    oldQuantity: existingProduct.Quantity || 1,
+                    newQuantity: newQuantity
+                });
+
                 if (window.notificationManager) {
                     window.notificationManager.show(`Đã tăng số lượng: ${product.Name}`, 'success');
                 }
             } else {
+                // Load product details with real image from API
+                let productData = { ...product };
+
+                // Try to load full product details including image
+                if (product.Id && window.tokenManager) {
+                    try {
+                        const token = await window.tokenManager.getValidToken();
+                        const response = await fetch(
+                            `${API_CONFIG.WORKER_URL}/api/odata/Product(${product.Id})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            }
+                        );
+
+                        if (response.ok) {
+                            const fullProductData = await response.json();
+                            productData.ImageUrl = fullProductData.ImageUrl;
+                            productData.Name = fullProductData.NameGet || productData.Name;
+                            productData.Code = fullProductData.DefaultCode || fullProductData.Barcode || productData.Code;
+
+                            // Load template for image if product doesn't have one
+                            if (!productData.ImageUrl && fullProductData.ProductTmplId) {
+                                try {
+                                    const templateResponse = await fetch(
+                                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${fullProductData.ProductTmplId})?$expand=Images`,
+                                        {
+                                            headers: {
+                                                'Authorization': `Bearer ${token}`
+                                            }
+                                        }
+                                    );
+
+                                    if (templateResponse.ok) {
+                                        const templateData = await templateResponse.json();
+                                        productData.ImageUrl = templateData.ImageUrl;
+                                    }
+                                } catch (error) {
+                                    console.error('[CHAT-PRODUCT] Error loading template:', error);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('[CHAT-PRODUCT] Error loading product details:', error);
+                        // Continue with basic product data
+                    }
+                }
+
                 // Add new product
                 const newProduct = {
-                    Id: product.Id,
-                    Code: product.Code || '',
-                    Name: product.Name || '',
-                    Price: product.Price || 0,
+                    Id: productData.Id,
+                    Code: productData.Code || '',
+                    Name: productData.Name || '',
+                    Price: productData.Price || 0,
                     Quantity: 1,
-                    ImageUrl: product.ImageUrl || '',
+                    ImageUrl: productData.ImageUrl || '',
                     AddedAt: firebase.database.ServerValue.TIMESTAMP
                 };
 
-                await this.firebaseRef.child(String(product.Id)).set(newProduct);
+                await this.firebaseRef.child(String(productData.Id)).set(newProduct);
+
+                // Log history
+                await this.logHistory('add', productData.Name, {
+                    productId: productData.Id,
+                    quantity: 1,
+                    price: productData.Price
+                });
 
                 if (window.notificationManager) {
-                    window.notificationManager.show(`Đã thêm: ${product.Name}`, 'success');
+                    window.notificationManager.show(`Đã thêm: ${productData.Name}`, 'success');
                 }
             }
         } catch (error) {
@@ -114,7 +223,18 @@ class ChatProductManager {
         if (!this.firebaseRef) return;
 
         try {
+            const product = this.products.find(p => p.Id === productId);
             await this.firebaseRef.child(String(productId)).remove();
+
+            // Log history
+            if (product) {
+                await this.logHistory('remove', product.Name, {
+                    productId: productId,
+                    quantity: product.Quantity,
+                    price: product.Price
+                });
+            }
+
             if (window.notificationManager) {
                 window.notificationManager.show('Đã xóa sản phẩm', 'success');
             }
@@ -133,9 +253,21 @@ class ChatProductManager {
         }
 
         try {
+            const product = this.products.find(p => p.Id === productId);
+            const oldQuantity = product ? product.Quantity : 0;
+
             await this.firebaseRef.child(String(productId)).update({
                 Quantity: newQuantity
             });
+
+            // Log history
+            if (product) {
+                await this.logHistory('update_quantity', product.Name, {
+                    productId: productId,
+                    oldQuantity: oldQuantity,
+                    newQuantity: newQuantity
+                });
+            }
         } catch (error) {
             console.error('[CHAT-PRODUCT] Error updating quantity:', error);
         }
@@ -279,6 +411,88 @@ class ChatProductManager {
         if (productCountEl) productCountEl.textContent = this.products.length;
     }
 
+    renderHistory() {
+        const historyContainer = document.getElementById('chatProductHistoryBody');
+        if (!historyContainer) return;
+
+        if (this.productHistory.length === 0) {
+            historyContainer.innerHTML = `
+                <div class="empty-history-state" style="
+                    text-align: center;
+                    padding: 40px 20px;
+                    color: #9ca3af;
+                ">
+                    <i class="fas fa-history" style="font-size: 36px; opacity: 0.3; margin-bottom: 12px;"></i>
+                    <p style="font-size: 14px; font-weight: 500; margin: 0;">Chưa có lịch sử</p>
+                </div>
+            `;
+            return;
+        }
+
+        historyContainer.innerHTML = this.productHistory.map(entry => {
+            const date = new Date(entry.timestamp);
+            const timeStr = date.toLocaleString('vi-VN');
+
+            let actionIcon = '';
+            let actionText = '';
+            let actionColor = '';
+
+            switch (entry.action) {
+                case 'add':
+                    actionIcon = '<i class="fas fa-plus-circle"></i>';
+                    actionText = 'Thêm';
+                    actionColor = '#10b981';
+                    break;
+                case 'remove':
+                    actionIcon = '<i class="fas fa-trash-alt"></i>';
+                    actionText = 'Xóa';
+                    actionColor = '#ef4444';
+                    break;
+                case 'update_quantity':
+                    actionIcon = '<i class="fas fa-edit"></i>';
+                    actionText = 'Cập nhật SL';
+                    actionColor = '#3b82f6';
+                    break;
+            }
+
+            let detailsHtml = '';
+            if (entry.action === 'update_quantity') {
+                detailsHtml = `<span style="color: #6b7280; font-size: 11px;">${entry.details.oldQuantity} → ${entry.details.newQuantity}</span>`;
+            } else if (entry.action === 'add') {
+                detailsHtml = `<span style="color: #6b7280; font-size: 11px;">SL: ${entry.details.quantity}</span>`;
+            }
+
+            return `
+                <div class="history-item" style="
+                    padding: 10px 12px;
+                    border-bottom: 1px solid #f3f4f6;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    transition: background 0.2s;
+                " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                    <div style="color: ${actionColor}; font-size: 16px; flex-shrink: 0;">
+                        ${actionIcon}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 13px; font-weight: 500; color: #1f2937; margin-bottom: 2px;">
+                            ${entry.productName}
+                        </div>
+                        <div style="font-size: 11px; color: #9ca3af;">
+                            ${timeStr}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: ${actionColor}; font-size: 11px; font-weight: 600; margin-bottom: 2px;">
+                            ${actionText}
+                        </div>
+                        ${detailsHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
     setupEventListeners() {
         const searchInput = document.getElementById('chatProductSearch');
         if (searchInput) {
@@ -298,6 +512,57 @@ class ChatProductManager {
                     suggestions.style.display = 'none';
                 }
             });
+        }
+
+        // Setup tab switching
+        const productsTab = document.getElementById('productsTabBtn');
+        const historyTab = document.getElementById('historyTabBtn');
+
+        if (productsTab) {
+            productsTab.addEventListener('click', () => {
+                this.switchTab('products');
+            });
+        }
+
+        if (historyTab) {
+            historyTab.addEventListener('click', () => {
+                this.switchTab('history');
+            });
+        }
+    }
+
+    switchTab(tab) {
+        const productsContent = document.getElementById('chatProductListContainer');
+        const historyContent = document.getElementById('chatProductHistoryContainer');
+        const productsTabBtn = document.getElementById('productsTabBtn');
+        const historyTabBtn = document.getElementById('historyTabBtn');
+
+        if (tab === 'products') {
+            if (productsContent) productsContent.style.display = 'block';
+            if (historyContent) historyContent.style.display = 'none';
+            if (productsTabBtn) {
+                productsTabBtn.classList.add('active');
+                productsTabBtn.style.background = 'white';
+                productsTabBtn.style.color = '#667eea';
+            }
+            if (historyTabBtn) {
+                historyTabBtn.classList.remove('active');
+                historyTabBtn.style.background = 'transparent';
+                historyTabBtn.style.color = 'rgba(255, 255, 255, 0.8)';
+            }
+        } else {
+            if (productsContent) productsContent.style.display = 'none';
+            if (historyContent) historyContent.style.display = 'block';
+            if (historyTabBtn) {
+                historyTabBtn.classList.add('active');
+                historyTabBtn.style.background = 'white';
+                historyTabBtn.style.color = '#667eea';
+            }
+            if (productsTabBtn) {
+                productsTabBtn.classList.remove('active');
+                productsTabBtn.style.background = 'transparent';
+                productsTabBtn.style.color = 'rgba(255, 255, 255, 0.8)';
+            }
         }
     }
 }

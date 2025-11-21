@@ -437,11 +437,11 @@
             <div class="chat-right-panel"
                 style="width: 380px; display: flex; flex-direction: column; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);">
 
-                <!-- Modern Header -->
+                <!-- Modern Header with Tabs -->
                 <div class="chat-modal-header" style="
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     border-bottom: none;
-                    padding: 20px;
+                    padding: 20px 20px 0 20px;
                     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
                 ">
                     <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
@@ -471,6 +471,48 @@
                         ">
                             <i class="fas fa-box-open" style="margin-right: 6px;"></i>
                             <span id="productCount">0</span> sản phẩm
+                        </div>
+
+                        <!-- Tabs -->
+                        <div style="display: flex; gap: 4px; margin-top: 12px;">
+                            <button id="productsTabBtn" class="product-tab-btn active" style="
+                                flex: 1;
+                                padding: 10px 16px;
+                                border: none;
+                                background: white;
+                                color: #667eea;
+                                border-radius: 8px 8px 0 0;
+                                font-size: 13px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 6px;
+                            ">
+                                <i class="fas fa-shopping-cart"></i>
+                                Sản phẩm
+                            </button>
+                            <button id="historyTabBtn" class="product-tab-btn" style="
+                                flex: 1;
+                                padding: 10px 16px;
+                                border: none;
+                                background: transparent;
+                                color: rgba(255, 255, 255, 0.8);
+                                border-radius: 8px 8px 0 0;
+                                font-size: 13px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 6px;
+                            ">
+                                <i class="fas fa-history"></i>
+                                Lịch sử
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -524,6 +566,18 @@
                     </div>
                 </div>
 
+                <!-- History List -->
+                <div class="chat-product-body" style="
+                    flex: 1;
+                    overflow-y: auto;
+                    background: white;
+                    display: none;
+                " id="chatProductHistoryContainer">
+                    <div id="chatProductHistoryBody">
+                        <!-- History will be dynamically inserted here -->
+                    </div>
+                </div>
+
                 <!-- Footer Actions -->
                 <div style="
                     padding: 16px;
@@ -553,6 +607,14 @@
             </div>
 
             <style>
+                /* Tab Buttons */
+                .product-tab-btn:hover {
+                    background: rgba(255, 255, 255, 0.1) !important;
+                }
+                .product-tab-btn.active:hover {
+                    background: white !important;
+                }
+
                 /* Custom Scrollbar for Products */
                 .chat-product-body::-webkit-scrollbar {
                     width: 6px;
