@@ -144,10 +144,18 @@ class ChatProductManager {
         if (!this.historyRef) return;
 
         try {
+            // Remove undefined values from details to avoid Firebase errors
+            const cleanDetails = {};
+            Object.keys(details).forEach(key => {
+                if (details[key] !== undefined) {
+                    cleanDetails[key] = details[key];
+                }
+            });
+
             const historyEntry = {
                 action: action, // 'add', 'remove', 'update_quantity'
                 productName: productName,
-                details: details,
+                details: cleanDetails,
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
                 user: 'Current User' // You can get from auth if available
             };
@@ -210,7 +218,7 @@ class ChatProductManager {
                 // Try to load full product details including image
                 if (product.Id && window.tokenManager) {
                     try {
-                        const token = await window.tokenManager.getValidToken();
+                        const token = await window.tokenManager.getToken();
                         const response = await fetch(
                             `${API_CONFIG.WORKER_URL}/api/odata/Product(${product.Id})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`,
                             {
