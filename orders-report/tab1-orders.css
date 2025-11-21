@@ -121,6 +121,13 @@ body {
 }
 
 /* Column width control - Using data-column to avoid nth-child issues when hiding columns */
+/* STT column */
+.table th[data-column="stt"],
+.table td[data-column="stt"] {
+    max-width: 60px;
+    width: 60px;
+}
+
 .table th[data-column="tag"],
 .table td[data-column="tag"] {
     max-width: 120px;
@@ -198,6 +205,14 @@ body {
 .table td[data-column="status"] {
     max-width: 120px;
     width: 120px;
+}
+
+/* Actions column */
+.table th[data-column="actions"],
+.table td[data-column="actions"] {
+    max-width: 80px;
+    width: 80px;
+    text-align: center;
 }
 
 .status-badge {
