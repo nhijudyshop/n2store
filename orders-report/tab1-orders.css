@@ -3443,16 +3443,20 @@ td[data-column].hidden {
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s;
+    border: 2px solid transparent;
 }
 
 .quick-tag-item:hover {
     background: #f3f4f6;
 }
 
-.quick-tag-item-checkbox {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
+.quick-tag-item.selected {
+    background: #f0fdf4;
+    border-color: #10b981;
+}
+
+.quick-tag-item.selected:hover {
+    background: #dcfce7;
 }
 
 .quick-tag-item-color {
@@ -3467,6 +3471,11 @@ td[data-column].hidden {
     font-size: 13px;
     color: #374151;
     font-weight: 500;
+}
+
+.quick-tag-item.selected .quick-tag-item-name {
+    color: #047857;
+    font-weight: 600;
 }
 
 .quick-tag-dropdown-footer {
