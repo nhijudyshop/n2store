@@ -4,7 +4,7 @@
  * Purpose: Offline caching, performance optimization
  */
 
-const CACHE_VERSION = 'n2store-v1.0.0';
+const CACHE_VERSION = 'n2store-v1.0.1';
 const CACHE_NAME = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
@@ -12,6 +12,7 @@ const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const STATIC_ASSETS = [
     '/',
     '/index.html',
+    '/orders-report/modern.css',
     '/js/common-utils.js',
     '/js/logger.js',
     '/js/firebase-config.js',
