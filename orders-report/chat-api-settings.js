@@ -18,7 +18,7 @@ class ChatAPISettings {
      * @returns {string} 'browser' or 'server'
      */
     getRealtimeMode() {
-        return localStorage.getItem(this.REALTIME_MODE_KEY) || 'browser';
+        return localStorage.getItem(this.REALTIME_MODE_KEY) || 'server';
     }
 
     /**
@@ -136,7 +136,9 @@ class ChatAPISettings {
      * @returns {boolean}
      */
     isRealtimeEnabled() {
-        return localStorage.getItem(this.REALTIME_KEY) === 'true';
+        const saved = localStorage.getItem(this.REALTIME_KEY);
+        // Mặc định là true nếu chưa có giá trị
+        return saved === null ? true : saved === 'true';
     }
 
     /**
