@@ -199,19 +199,26 @@ class ChatProductManager {
     renderTable() {
         const tbody = document.getElementById('chatProductTableBody');
         const totalEl = document.getElementById('chatProductTotal');
+        const totalFooterEl = document.getElementById('chatProductTotalFooter');
+        const productCountEl = document.getElementById('productCount');
 
         if (!tbody) return;
 
         if (this.products.length === 0) {
             tbody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center text-muted py-4">
-                        <i class="fas fa-box-open fa-2x mb-2"></i>
-                        <p class="small mb-0">Chưa có sản phẩm nào</p>
-                    </td>
-                </tr>
+                <div class="empty-products-state" style="
+                    text-align: center;
+                    padding: 60px 20px;
+                    color: #9ca3af;
+                ">
+                    <i class="fas fa-shopping-cart" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
+                    <p style="font-size: 15px; font-weight: 500; margin: 0;">Chưa có sản phẩm nào</p>
+                    <p style="font-size: 13px; margin: 8px 0 0 0;">Thêm sản phẩm vào giỏ hàng</p>
+                </div>
             `;
             if (totalEl) totalEl.textContent = '0đ';
+            if (totalFooterEl) totalFooterEl.textContent = '0đ';
+            if (productCountEl) productCountEl.textContent = '0';
             return;
         }
 
@@ -222,35 +229,54 @@ class ChatProductManager {
             totalPrice += lineTotal;
 
             return `
-                <tr>
-                    <td>
-                        <div class="product-cell">
+                <div class="product-card">
+                    <div class="product-card-content">
+                        <div class="product-image">
+                            ${product.ImageUrl
+                                ? `<img src="${product.ImageUrl}" alt="${product.Name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                   <i class="fas fa-box" style="display: none;"></i>`
+                                : `<i class="fas fa-box"></i>`
+                            }
+                        </div>
+                        <div class="product-details">
                             <div class="product-name" title="${product.Name}">${product.Name}</div>
-                            <div class="product-code small text-muted">${product.Code || '---'}</div>
+                            ${product.Code ? `<div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">${product.Code}</div>` : ''}
+                            <div class="product-meta">
+                                <div class="product-quantity">
+                                    <button class="btn-qty-adjust" onclick="window.chatProductManager.updateQuantity(${product.Id}, ${(product.Quantity || 1) - 1})"
+                                        style="background: none; border: none; cursor: pointer; color: #6b7280; padding: 0 4px; font-size: 14px; font-weight: bold;">
+                                        -
+                                    </button>
+                                    <span style="min-width: 20px; text-align: center;">${product.Quantity || 1}</span>
+                                    <button class="btn-qty-adjust" onclick="window.chatProductManager.updateQuantity(${product.Id}, ${(product.Quantity || 1) + 1})"
+                                        style="background: none; border: none; cursor: pointer; color: #6b7280; padding: 0 4px; font-size: 14px; font-weight: bold;">
+                                        +
+                                    </button>
+                                </div>
+                                <div class="product-price">${lineTotal.toLocaleString('vi-VN')}đ</div>
+                            </div>
+                            <div class="product-actions">
+                                <button class="product-action-btn" onclick="window.chatProductManager.updateQuantity(${product.Id}, ${(product.Quantity || 1) - 1})">
+                                    <i class="fas fa-minus"></i> Giảm
+                                </button>
+                                <button class="product-action-btn" onclick="window.chatProductManager.updateQuantity(${product.Id}, ${(product.Quantity || 1) + 1})">
+                                    <i class="fas fa-plus"></i> Thêm
+                                </button>
+                                <button class="product-action-btn delete" onclick="window.chatProductManager.removeProduct(${product.Id})">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
                         </div>
-                    </td>
-                    <td class="text-center">
-                        <div class="qty-control">
-                            <button class="btn-qty-mini" onclick="window.chatProductManager.updateQuantity(${product.Id}, ${(product.Quantity || 1) - 1})">-</button>
-                            <span>${product.Quantity || 1}</span>
-                            <button class="btn-qty-mini" onclick="window.chatProductManager.updateQuantity(${product.Id}, ${(product.Quantity || 1) + 1})">+</button>
-                        </div>
-                    </td>
-                    <td class="text-right">
-                        ${(product.Price || 0).toLocaleString('vi-VN')}đ
-                    </td>
-                    <td class="text-center">
-                        <button class="btn-icon-delete" onclick="window.chatProductManager.removeProduct(${product.Id})">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </td>
-                </tr>
+                    </div>
+                </div>
             `;
         }).join('');
 
-        if (totalEl) {
-            totalEl.textContent = totalPrice.toLocaleString('vi-VN') + 'đ';
-        }
+        // Update all total displays
+        const formattedTotal = totalPrice.toLocaleString('vi-VN') + 'đ';
+        if (totalEl) totalEl.textContent = formattedTotal;
+        if (totalFooterEl) totalFooterEl.textContent = formattedTotal;
+        if (productCountEl) productCountEl.textContent = this.products.length;
     }
 
     setupEventListeners() {
