@@ -1491,7 +1491,6 @@ function createRowHTML(order) {
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
-                    ${order.noteEdited ? '<span class="note-edited-badge">✏️ ĐÃ SỬA</span>' : ''}
                     <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
