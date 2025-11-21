@@ -280,9 +280,8 @@ const quickTagManager = {
 
             // Save to API
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `${API_CONFIG.TPOS_ODATA}/Order(${this.currentOrderId})`;
             const response = await API_CONFIG.smartFetch(
-                apiUrl,
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Order(${this.currentOrderId})`,
                 {
                     method: 'PATCH',
                     headers: {
