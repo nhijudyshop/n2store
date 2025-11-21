@@ -278,22 +278,26 @@ const quickTagManager = {
                 orderTags.splice(tagIndex, 1);
             }
 
-            // Save to API using AssignTag endpoint
+            // Save to API using AssignTag endpoint (same as saveOrderTags in tab1-orders.js)
+            const payload = {
+                Tags: orderTags.map((tag) => ({
+                    Id: tag.Id,
+                    Color: tag.Color,
+                    Name: tag.Name,
+                })),
+                OrderId: this.currentOrderId,
+            };
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `${API_CONFIG.TPOS_ODATA}/TagSaleOnlineOrder/ODataService.AssignTag`;
             const response = await API_CONFIG.smartFetch(
-                apiUrl,
+                "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
                 {
-                    method: 'POST',
+                    method: "POST",
                     headers: {
                         ...headers,
-                        'accept': 'application/json',
-                        'content-type': 'application/json',
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
                     },
-                    body: JSON.stringify({
-                        Tags: orderTags,
-                        OrderId: this.currentOrderId
-                    })
+                    body: JSON.stringify(payload),
                 }
             );
 
