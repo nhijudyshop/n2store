@@ -21,11 +21,11 @@ class ChatProductManager {
         this.productHistory = [];
 
         // Initialize Firebase reference
-        // Path: chat_products/{orderId}
-        // History Path: chat_products_history/{orderId}
+        // Path: chat_products/shared (Global List)
+        // History Path: chat_products_history/shared (Global History)
         if (firebase && firebase.database) {
-            this.firebaseRef = firebase.database().ref(`chat_products/${this.orderId}`);
-            this.historyRef = firebase.database().ref(`chat_products_history/${this.orderId}`);
+            this.firebaseRef = firebase.database().ref(`chat_products/shared`);
+            this.historyRef = firebase.database().ref(`chat_products_history/shared`);
             this.startListening();
             this.startHistoryListening();
         } else {
@@ -322,10 +322,10 @@ class ChatProductManager {
                 <div class="chat-product-suggestion-item" onclick="window.chatProductManager.selectProduct(${product.Id})">
                     <div class="suggestion-image">
                         ${imageUrl
-                            ? `<img src="${imageUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${product.Name}"/>
+                    ? `<img src="${imageUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="${product.Name}"/>
                                <div class="no-image" style="display: none;"><i class="fas fa-box"></i></div>`
-                            : '<div class="no-image"><i class="fas fa-box"></i></div>'
-                        }
+                    : '<div class="no-image"><i class="fas fa-box"></i></div>'
+                }
                     </div>
                     <div class="suggestion-info">
                         <div class="suggestion-name" title="${product.Name}">${product.Name}</div>
@@ -334,11 +334,11 @@ class ChatProductManager {
                             <span class="suggestion-price"><strong>${(product.Price || 0).toLocaleString('vi-VN')}đ</strong></span>
                         </div>
                         ${product.QtyAvailable !== null && product.QtyAvailable !== undefined
-                            ? `<div class="suggestion-stock" style="font-size: 11px; color: ${product.QtyAvailable > 0 ? '#10b981' : '#ef4444'}; margin-top: 4px;">
+                    ? `<div class="suggestion-stock" style="font-size: 11px; color: ${product.QtyAvailable > 0 ? '#10b981' : '#ef4444'}; margin-top: 4px;">
                                 <i class="fas fa-warehouse"></i> Tồn: ${product.QtyAvailable}
                                </div>`
-                            : ''
-                        }
+                    : ''
+                }
                     </div>
                 </div>
             `;
@@ -399,10 +399,10 @@ class ChatProductManager {
                     <div class="product-card-content">
                         <div class="product-image">
                             ${product.ImageUrl
-                                ? `<img src="${product.ImageUrl}" alt="${product.Name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    ? `<img src="${product.ImageUrl}" alt="${product.Name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                    <i class="fas fa-box" style="display: none;"></i>`
-                                : `<i class="fas fa-box"></i>`
-                            }
+                    : `<i class="fas fa-box"></i>`
+                }
                         </div>
                         <div class="product-details">
                             <div class="product-name" title="${product.Name}">${product.Name}</div>

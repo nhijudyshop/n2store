@@ -4453,3 +4453,300 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
         }
     }
 });
+// =====================================================
+// QUICK ADD PRODUCT LOGIC
+// =====================================================
+let quickAddSelectedProducts = [];
+let quickAddSearchTimeout = null;
+
+function openQuickAddProductModal() {
+    // Update UI - Global List
+    document.getElementById('targetOrdersCount').textContent = "Danh sách chung";
+
+    // Reset state
+    quickAddSelectedProducts = [];
+    renderQuickAddSelectedProducts();
+    document.getElementById('quickProductSearch').value = '';
+    document.getElementById('quickProductSuggestions').style.display = 'none';
+
+    // Show modal
+    document.getElementById('quickAddProductModal').style.display = 'block';
+    document.getElementById('quickAddProductModal').classList.add('show');
+    document.getElementById('quickAddProductBackdrop').style.display = 'block';
+
+    // Focus search
+    setTimeout(() => {
+        document.getElementById('quickProductSearch').focus();
+    }, 100);
+
+    // Initialize search manager if needed
+    if (window.enhancedProductSearchManager && !window.enhancedProductSearchManager.isLoaded) {
+        window.enhancedProductSearchManager.fetchExcelProducts();
+    }
+}
+
+function closeQuickAddProductModal() {
+    document.getElementById('quickAddProductModal').style.display = 'none';
+    document.getElementById('quickAddProductModal').classList.remove('show');
+    document.getElementById('quickAddProductBackdrop').style.display = 'none';
+}
+
+// Search Input Handler
+document.getElementById('quickProductSearch').addEventListener('input', function (e) {
+    const query = e.target.value;
+
+    if (quickAddSearchTimeout) clearTimeout(quickAddSearchTimeout);
+
+    if (!query || query.trim().length < 2) {
+        document.getElementById('quickProductSuggestions').style.display = 'none';
+        return;
+    }
+
+    quickAddSearchTimeout = setTimeout(() => {
+        if (window.enhancedProductSearchManager) {
+            const results = window.enhancedProductSearchManager.search(query, 10);
+            renderQuickAddSuggestions(results);
+        }
+    }, 300);
+});
+
+// Hide suggestions on click outside
+document.addEventListener('click', function (e) {
+    const suggestions = document.getElementById('quickProductSuggestions');
+    const searchInput = document.getElementById('quickProductSearch');
+
+    if (suggestions && e.target !== searchInput && !suggestions.contains(e.target)) {
+        suggestions.style.display = 'none';
+    }
+});
+
+function renderQuickAddSuggestions(products) {
+    const suggestionsEl = document.getElementById('quickProductSuggestions');
+
+    if (products.length === 0) {
+        suggestionsEl.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: #9ca3af;">
+                <i class="fas fa-search" style="font-size: 20px; opacity: 0.5; margin-bottom: 8px;"></i>
+                <p style="margin: 0; font-size: 13px;">Không tìm thấy sản phẩm</p>
+            </div>
+        `;
+        suggestionsEl.style.display = 'block';
+        return;
+    }
+
+    suggestionsEl.innerHTML = products.map(product => {
+        const imageUrl = product.ImageUrl || (product.Thumbnails && product.Thumbnails[0]);
+        return `
+            <div class="suggestion-item" onclick="addQuickProduct(${product.Id})" style="
+                display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #f3f4f6;
+            " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                <div style="width: 40px; height: 40px; border-radius: 8px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;">
+                    ${imageUrl
+                ? `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                           <i class="fas fa-box" style="color: #9ca3af; display: none;"></i>`
+                : `<i class="fas fa-box" style="color: #9ca3af;"></i>`
+            }
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 14px; font-weight: 500; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${product.Name}</div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+                        ${product.Code ? `<span style="font-size: 11px; color: #6b7280; background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${product.Code}</span>` : ''}
+                        <span style="font-size: 12px; font-weight: 600; color: #8b5cf6;">${(product.Price || 0).toLocaleString('vi-VN')}đ</span>
+                    </div>
+                </div>
+                <i class="fas fa-plus-circle" style="color: #8b5cf6; font-size: 18px;"></i>
+            </div>
+        `;
+    }).join('');
+
+    suggestionsEl.style.display = 'block';
+}
+
+async function addQuickProduct(productId) {
+    // Check if already added
+    const existing = quickAddSelectedProducts.find(p => p.Id === productId);
+    if (existing) {
+        existing.Quantity += 1;
+        renderQuickAddSelectedProducts();
+        document.getElementById('quickProductSuggestions').style.display = 'none';
+        document.getElementById('quickProductSearch').value = '';
+        return;
+    }
+
+    // Get product details
+    let product = null;
+    if (window.enhancedProductSearchManager) {
+        // Try to get from Excel cache first
+        product = window.enhancedProductSearchManager.getFromExcel(productId);
+
+        // If not full details, try to fetch
+        if (product && !product.HasFullDetails) {
+            try {
+                const fullProduct = await window.enhancedProductSearchManager.getFullProductDetails(productId);
+                product = { ...product, ...fullProduct };
+            } catch (e) {
+                console.warn("Could not fetch full details", e);
+            }
+        }
+    }
+
+    if (!product) return;
+
+    quickAddSelectedProducts.push({
+        Id: product.Id,
+        Name: product.Name,
+        Code: product.Code || product.DefaultCode || '',
+        Price: product.Price || 0,
+        ImageUrl: product.ImageUrl,
+        Quantity: 1
+    });
+
+    renderQuickAddSelectedProducts();
+    document.getElementById('quickProductSuggestions').style.display = 'none';
+    document.getElementById('quickProductSearch').value = '';
+    document.getElementById('quickProductSearch').focus();
+}
+
+function removeQuickProduct(index) {
+    quickAddSelectedProducts.splice(index, 1);
+    renderQuickAddSelectedProducts();
+}
+
+function updateQuickProductQuantity(index, change) {
+    const product = quickAddSelectedProducts[index];
+    const newQty = product.Quantity + change;
+
+    if (newQty <= 0) {
+        removeQuickProduct(index);
+    } else {
+        product.Quantity = newQty;
+        renderQuickAddSelectedProducts();
+    }
+}
+
+function clearSelectedProducts() {
+    quickAddSelectedProducts = [];
+    renderQuickAddSelectedProducts();
+}
+
+function renderQuickAddSelectedProducts() {
+    const container = document.getElementById('selectedProductsList');
+    const countEl = document.getElementById('selectedProductsCount');
+    const clearBtn = document.getElementById('clearAllProductsBtn');
+
+    countEl.textContent = quickAddSelectedProducts.length;
+    clearBtn.style.display = quickAddSelectedProducts.length > 0 ? 'block' : 'none';
+
+    if (quickAddSelectedProducts.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 40px 0; color: #9ca3af;">
+                <i class="fas fa-basket-shopping" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                <p style="margin: 0; font-weight: 500;">Chưa có sản phẩm nào</p>
+                <p style="margin: 4px 0 0 0; font-size: 13px;">Tìm kiếm và chọn sản phẩm để thêm</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = quickAddSelectedProducts.map((product, index) => {
+        const imageUrl = product.ImageUrl;
+        const total = (product.Price * product.Quantity).toLocaleString('vi-VN');
+
+        return `
+            <div class="selected-product-item" style="
+                display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #f3f4f6; background: white;
+            ">
+                <div style="width: 48px; height: 48px; border-radius: 8px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;">
+                    ${imageUrl
+                ? `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                           <i class="fas fa-box" style="color: #9ca3af; display: none;"></i>`
+                : `<i class="fas fa-box" style="color: #9ca3af;"></i>`
+            }
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 14px; font-weight: 500; color: #1f2937; margin-bottom: 4px;">${product.Name}</div>
+                    <div style="font-size: 12px; color: #6b7280;">${product.Code || 'No Code'}</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="display: flex; align-items: center; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <button onclick="updateQuickProductQuantity(${index}, -1)" style="padding: 4px 8px; background: none; border: none; cursor: pointer; color: #6b7280;">-</button>
+                        <span style="font-size: 13px; font-weight: 600; min-width: 24px; text-align: center;">${product.Quantity}</span>
+                        <button onclick="updateQuickProductQuantity(${index}, 1)" style="padding: 4px 8px; background: none; border: none; cursor: pointer; color: #6b7280;">+</button>
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: #374151; min-width: 80px; text-align: right;">
+                        ${total}đ
+                    </div>
+                    <button onclick="removeQuickProduct(${index})" style="padding: 6px; background: none; border: none; cursor: pointer; color: #ef4444; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function saveSelectedProductsToOrders() {
+    if (quickAddSelectedProducts.length === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning("Vui lòng chọn ít nhất một sản phẩm!");
+        } else {
+            alert("Vui lòng chọn ít nhất một sản phẩm!");
+        }
+        return;
+    }
+
+    showLoading(true);
+
+    try {
+        // Initialize Firebase if needed
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+        const ref = db.ref(`chat_products/shared`);
+
+        // Get existing products first to merge quantities
+        const snapshot = await ref.once('value');
+        const existingProducts = snapshot.val() || {};
+
+        // Merge new products
+        quickAddSelectedProducts.forEach(newProduct => {
+            if (existingProducts[newProduct.Id]) {
+                // Update quantity
+                existingProducts[newProduct.Id].Quantity = (existingProducts[newProduct.Id].Quantity || 0) + newProduct.Quantity;
+            } else {
+                // Add new
+                existingProducts[newProduct.Id] = {
+                    Id: newProduct.Id,
+                    Name: newProduct.Name,
+                    Code: newProduct.Code,
+                    Price: newProduct.Price,
+                    Quantity: newProduct.Quantity,
+                    ImageUrl: newProduct.ImageUrl || '',
+                    AddedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+            }
+        });
+
+        // Save back to Firebase
+        await ref.set(existingProducts);
+
+        showLoading(false);
+        closeQuickAddProductModal();
+
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã thêm sản phẩm vào danh sách chung!`);
+        } else {
+            alert(`✅ Đã thêm sản phẩm vào danh sách chung!`);
+        }
+
+    } catch (error) {
+        console.error("Error saving products:", error);
+        showLoading(false);
+        if (window.notificationManager) {
+            window.notificationManager.error("Lỗi khi lưu sản phẩm: " + error.message);
+        } else {
+            alert("❌ Lỗi khi lưu sản phẩm: " + error.message);
+        }
+    }
+}
