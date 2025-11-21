@@ -3238,6 +3238,7 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
     allChatComments = [];
     isLoadingMoreMessages = false;
     currentOrder = null;
+    currentChatOrderId = null;
     currentConversationId = null;
     currentParentCommentId = null;
     currentPostId = null;
@@ -3251,6 +3252,7 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
 
     // Lưu order hiện tại
     currentOrder = order;
+    currentChatOrderId = orderId;
 
     // Update modal title based on type
     const titleText = type === 'comment' ? 'Bình luận' : 'Tin nhắn';
@@ -3410,7 +3412,7 @@ function closeChatModal() {
     allChatComments = [];
     isLoadingMoreMessages = false;
     currentOrder = null;
-    currentConversationId = null;
+    currentChatOrderId = null;
     currentConversationId = null;
     currentParentCommentId = null;
 
