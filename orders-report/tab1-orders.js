@@ -477,47 +477,27 @@ function performTableSearch() {
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
 
-    // Apply messages and comments unread filters (Independent with OR logic when both active)
-    const messagesUnreadFilter = document.getElementById('messagesUnreadFilter')?.value || 'all';
-    const commentsUnreadFilter = document.getElementById('commentsUnreadFilter')?.value || 'all';
+    // Apply conversation status filter (Merged Messages & Comments)
+    const conversationFilter = document.getElementById('conversationFilter')?.value || 'all';
 
-    const messagesActive = messagesUnreadFilter !== 'all';
-    const commentsActive = commentsUnreadFilter !== 'all';
+    if (window.pancakeDataManager && conversationFilter !== 'all') {
+        tempData = tempData.filter(order => {
+            const msgUnread = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
+            const cmmUnread = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
 
-    if (window.pancakeDataManager && (messagesActive || commentsActive)) {
-        if (messagesActive && commentsActive) {
-            // Both filters active → OR logic (show orders matching EITHER filter)
-            tempData = tempData.filter(order => {
-                const msgUnread = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
-                const cmmUnread = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
+            const hasUnreadMessage = msgUnread.hasUnread;
+            const hasUnreadComment = cmmUnread.hasUnread;
 
-                const msgMatch = (messagesUnreadFilter === 'unread')
-                    ? msgUnread.hasUnread
-                    : !msgUnread.hasUnread;
-
-                const cmmMatch = (commentsUnreadFilter === 'unread')
-                    ? cmmUnread.hasUnread
-                    : !cmmUnread.hasUnread;
-
-                return msgMatch || cmmMatch; // OR logic
-            });
-        } else if (messagesActive) {
-            // Only messages filter active
-            tempData = tempData.filter(order => {
-                const unreadInfo = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
-                return (messagesUnreadFilter === 'unread')
-                    ? unreadInfo.hasUnread
-                    : !unreadInfo.hasUnread;
-            });
-        } else if (commentsActive) {
-            // Only comments filter active
-            tempData = tempData.filter(order => {
-                const unreadInfo = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
-                return (commentsUnreadFilter === 'unread')
-                    ? unreadInfo.hasUnread
-                    : !unreadInfo.hasUnread;
-            });
-        }
+            if (conversationFilter === 'unread') {
+                // Show if EITHER has unread
+                return hasUnreadMessage || hasUnreadComment;
+            } else if (conversationFilter === 'read') {
+                // Show if BOTH are read (or no unread)
+                // Note: We consider "read" as NOT having unread.
+                return !hasUnreadMessage && !hasUnreadComment;
+            }
+            return true;
+        });
     }
 
     filteredData = tempData;
@@ -3366,6 +3346,12 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
             // Setup infinite scroll for messages
             setupChatInfiniteScroll();
         }
+
+        // Initialize Chat Product Manager
+        if (window.chatProductManager) {
+            window.chatProductManager.init(order.Id);
+        }
+
     } catch (error) {
         console.error(`[CHAT] Error loading ${type}:`, error);
         const errorText = type === 'comment' ? 'Lỗi khi tải bình luận' : 'Lỗi khi tải tin nhắn';
@@ -4338,6 +4324,78 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
             setTimeout(() => row.classList.remove('product-row-highlight'), 2000);
         }
     });
+
+    // 🔄 UPDATE ALL DATA & RE-FILTER IF NEEDED
+    // Even if the order is not currently displayed (filtered out), we need to update its state in allData
+    // and check if it should now be displayed based on current filters.
+
+    // 1. Update PancakeDataManager Cache (Crucial for performTableSearch)
+    if (window.pancakeDataManager) {
+        // We need to manually update the cache because performTableSearch uses getMessageUnreadInfoForOrder
+        // which reads from this cache.
+        // The conversation object from the event has the structure we need.
+
+        // We need to find where to put it. 
+        // PancakeDataManager stores conversations in inboxMapByPSID and inboxMapByFBID
+        // We can try to call a method to update it, or manually set it if exposed.
+        // Looking at PancakeDataManager, it doesn't seem to have a public 'updateConversation' method 
+        // that takes a raw payload easily without fetching.
+        // However, we can try to update the map if we can access it, but it's better to rely on 
+        // what we have.
+
+        // Actually, let's just update the order's internal state if possible, OR
+        // since performTableSearch calls window.pancakeDataManager.getMessageUnreadInfoForOrder(order),
+        // and that function looks up in inboxMapByPSID.
+
+        // Let's try to update the map directly if possible, or add a helper in PancakeDataManager.
+        // Since we can't easily modify PancakeDataManager right now without switching files,
+        // let's assume for now we can't easily update the private maps if they are not exposed.
+
+        // WAIT: window.pancakeDataManager.inboxMapByPSID is likely accessible.
+        if (window.pancakeDataManager.inboxMapByPSID) {
+            window.pancakeDataManager.inboxMapByPSID.set(String(psid), conversation);
+        }
+    }
+
+    // 2. Check if we need to refresh the table (if order was hidden but now matches filter)
+    const conversationFilter = document.getElementById('conversationFilter')?.value || 'all';
+
+    // Only care if we are filtering by 'unread'
+    if (conversationFilter === 'unread') {
+        // Check if any matching order is NOT in displayedData
+        // We need to find orders in allData that match this PSID/PageID
+        const allMatchingOrders = allData.filter(o => {
+            const matchesPsid = o.Facebook_ASUserId === psid;
+            const matchesPage = pageId ? (o.Facebook_PostId && o.Facebook_PostId.startsWith(pageId)) : true;
+            return matchesPsid && matchesPage;
+        });
+
+        const hiddenOrders = allMatchingOrders.filter(o => !displayedData.includes(o));
+
+        if (hiddenOrders.length > 0) {
+            console.log(`[TAB1] Found ${hiddenOrders.length} hidden orders matching realtime update. Refreshing table...`);
+
+            // We need to ensure the filter logic sees them as "unread".
+            // Since we updated the PancakeDataManager cache above, performTableSearch should now
+            // correctly identify them as unread.
+
+            performTableSearch();
+
+            // After refresh, highlight them
+            setTimeout(() => {
+                hiddenOrders.forEach(order => {
+                    const checkbox = document.querySelector(`input[value="${order.Id}"]`);
+                    if (checkbox) {
+                        const row = checkbox.closest('tr');
+                        if (row) {
+                            row.classList.add('product-row-highlight');
+                            setTimeout(() => row.classList.remove('product-row-highlight'), 2000);
+                        }
+                    }
+                });
+            }, 100);
+        }
+    }
 
     // 🔄 REALTIME CHAT MODAL UPDATE
     const chatModal = document.getElementById('chatModal');

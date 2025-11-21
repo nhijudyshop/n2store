@@ -56,14 +56,8 @@
             <input type="datetime-local" id="startDate" />
             <label>Đến ngày:</label>
             <input type="datetime-local" id="endDate" />
-            <label>Tin nhắn:</label>
-            <select id="messagesUnreadFilter" style="min-width: 150px" onchange="performTableSearch()">
-                <option value="all" selected>Tất cả</option>
-                <option value="unread">Chưa đọc</option>
-                <option value="read">Đã đọc</option>
-            </select>
-            <label>Bình luận:</label>
-            <select id="commentsUnreadFilter" style="min-width: 150px" onchange="performTableSearch()">
+            <label>Trạng thái hội thoại:</label>
+            <select id="conversationFilter" style="min-width: 150px" onchange="performTableSearch()">
                 <option value="all" selected>Tất cả</option>
                 <option value="unread">Chưa đọc</option>
                 <option value="read">Đã đọc</option>
@@ -393,49 +387,88 @@
 
     <!-- Chat Messages Modal -->
     <div class="chat-modal" id="chatModal">
-        <div class="chat-modal-content">
-            <div class="chat-modal-header">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <i class="fab fa-facebook-messenger" style="color: #0084ff; font-size: 24px;"></i>
-                    <div>
-                        <h3 id="chatModalTitle">Tin nhắn</h3>
-                        <p id="chatModalSubtitle" style="margin: 0; font-size: 12px;"></p>
+        <div class="chat-modal-content" style="display: flex; flex-direction: row; max-width: 1000px; width: 95%;">
+            <!-- Left Panel: Chat -->
+            <div class="chat-left-panel"
+                style="flex: 1; display: flex; flex-direction: column; border-right: 1px solid #e5e7eb;">
+                <div class="chat-modal-header">
+                    <div class="chat-header-info">
+                        <h3 id="chatModalTitle">Tin nhắn với Khách hàng</h3>
+                        <p id="chatModalSubtitle">Đang tải...</p>
+                    </div>
+                    <button class="chat-modal-close" onclick="closeChatModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="chat-modal-body" id="chatModalBody">
+                    <div class="chat-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải tin nhắn...</p>
                     </div>
                 </div>
-                <button class="chat-modal-close" onclick="closeChatModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="chat-modal-body" id="chatModalBody">
-                <div class="chat-loading">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Đang tải tin nhắn...</p>
+                <!-- Reply Input (chỉ hiển thị cho comments) -->
+                <div class="chat-reply-container" id="chatReplyContainer" style="display: none;">
+                    <div
+                        style="display: flex; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+                        <input type="text" id="chatReplyInput" placeholder="Nhập tin nhắn trả lời..."
+                            style="flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;"
+                            onkeypress="if(event.key==='Enter') sendReplyComment();" />
+                        <button class="chat-btn-send" id="chatSendBtn" onclick="sendReplyComment()"
+                            style="padding: 10px 20px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
+                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.3)';"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            <i class="fas fa-paper-plane"></i>
+                            Gửi
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <!-- Reply Input (chỉ hiển thị cho comments) -->
-            <div class="chat-reply-container" id="chatReplyContainer" style="display: none;">
-                <div
-                    style="display: flex; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
-                    <input type="text" id="chatReplyInput" placeholder="Nhập tin nhắn trả lời..."
-                        style="flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;"
-                        onkeypress="if(event.key==='Enter') sendReplyComment();" />
-                    <button class="chat-btn-send" id="chatSendBtn" onclick="sendReplyComment()"
-                        style="padding: 10px 20px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
-                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.3)';"
-                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                        <i class="fas fa-paper-plane"></i>
-                        Gửi
+                <div class="chat-modal-footer">
+                    <button class="chat-btn-close" onclick="closeChatModal()">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
+                    <button class="chat-btn-mark-read" id="chatMarkReadBtn" onclick="markChatAsRead()"
+                        style="display: none;">
+                        <i class="fas fa-check"></i> Đánh dấu đã đọc
                     </button>
                 </div>
             </div>
-            <div class="chat-modal-footer">
-                <button class="chat-btn-close" onclick="closeChatModal()">
-                    <i class="fas fa-times"></i> Đóng
-                </button>
-                <button class="chat-btn-mark-read" id="chatMarkReadBtn" onclick="markChatAsRead()"
-                    style="display: none;">
-                    <i class="fas fa-check"></i> Đánh dấu đã đọc
-                </button>
+
+            <!-- Right Panel: Products -->
+            <div class="chat-right-panel"
+                style="width: 350px; display: flex; flex-direction: column; background: #f9fafb;">
+                <div class="chat-modal-header" style="background: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+                    <h3 style="font-size: 16px;"><i class="fas fa-box"></i> Sản phẩm</h3>
+                    <div class="product-total-badge" id="chatProductTotal"
+                        style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                        0đ</div>
+                </div>
+
+                <div class="chat-product-body" style="flex: 1; overflow-y: auto; padding: 0;">
+                    <table class="table table-sm table-hover mb-0" style="font-size: 13px;">
+                        <thead style="background: #f9fafb; position: sticky; top: 0;">
+                            <tr>
+                                <th style="width: 45%">Sản phẩm</th>
+                                <th style="width: 25%" class="text-center">SL</th>
+                                <th style="width: 20%" class="text-right">Giá</th>
+                                <th style="width: 10%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="chatProductTableBody">
+                            <!-- Products will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="chat-product-footer"
+                    style="padding: 12px; border-top: 1px solid #e5e7eb; background: white;">
+                    <div style="position: relative;">
+                        <input type="text" id="chatProductSearch" placeholder="Tìm sản phẩm (tên, mã)..."
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                        <div id="chatProductSuggestions" class="product-suggestions" style="display: none;">
+                            <!-- Suggestions -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -458,6 +491,7 @@
     <script src="chat-data-manager.js"></script>
     <script src="message-template-manager.js"></script>
     <script src="product-search-manager.js"></script>
+    <script src="chat-product-manager.js"></script>
     <script src="search-functions.js"></script>
     <script src="column-visibility-manager.js"></script>
     <script src="realtime-manager.js"></script>
