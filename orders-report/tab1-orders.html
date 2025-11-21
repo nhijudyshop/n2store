@@ -80,20 +80,20 @@
                 style="display: flex; align-items: center; gap: 8px; margin-left: 12px; background: #f3f4f6; padding: 4px 8px; border-radius: 8px; border: 1px solid #e5e7eb;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <input type="checkbox" id="realtimeToggleCheckbox" onchange="toggleRealtimeMode(this.checked)"
-                        style="cursor: pointer; width: 16px; height: 16px;">
+                        style="cursor: pointer; width: 16px; height: 16px;" checked>
                     <label for="realtimeToggleCheckbox"
                         style="cursor: pointer; font-size: 14px; font-weight: 500; color: #374151; user-select: none;">
                         <i class="fas fa-bolt" style="color: #f59e0b; margin-right: 4px;"></i> Realtime
                     </label>
                 </div>
 
-                <!-- Mode Switcher (Hidden by default, shown when Realtime is checked) -->
+                <!-- Mode Switcher (Shown by default with Server 24/7 selected) -->
                 <div id="realtimeModeContainer"
-                    style="display: none; margin-left: 8px; padding-left: 8px; border-left: 1px solid #d1d5db;">
+                    style="display: block; margin-left: 8px; padding-left: 8px; border-left: 1px solid #d1d5db;">
                     <select id="realtimeModeSelect" onchange="changeRealtimeMode(this.value)"
                         style="padding: 2px 6px; border-radius: 4px; border: 1px solid #d1d5db; font-size: 12px; background: white; cursor: pointer;">
                         <option value="browser">Browser (Direct)</option>
-                        <option value="server">Server (24/7)</option>
+                        <option value="server" selected>Server (24/7)</option>
                         <option value="localhost">Server (Localhost)</option>
                     </select>
                     <button onclick="window.realtimeManager.manualConnect()"
