@@ -302,20 +302,22 @@ const quickTagManager = {
             );
 
             if (response.ok) {
-                // Update local data
+                // Update local data in both allData and displayedData
                 order.Tags = JSON.stringify(orderTags);
 
-                // Update UI - toggle selected class and check icon
-                element.classList.toggle('selected');
-                const checkIcon = element.querySelector('.fa-check-circle');
-                if (checkIcon) {
-                    checkIcon.remove();
-                } else {
-                    element.insertAdjacentHTML('beforeend', '<i class="fas fa-check-circle" style="margin-left: auto; color: #10b981;"></i>');
+                // Also update in displayedData to ensure consistency
+                const displayedOrder = displayedData.find(o => o.Id === this.currentOrderId);
+                if (displayedOrder) {
+                    displayedOrder.Tags = JSON.stringify(orderTags);
                 }
 
                 // Re-render table to update tag display
                 renderTable();
+
+                // Refresh dropdown to show updated tag states
+                if (this.currentDropdown) {
+                    this.updateDropdown(this.currentDropdown);
+                }
 
                 console.log(`[QUICK-TAG] Tag "${tagName}" ${!isCurrentlySelected ? 'added' : 'removed'} successfully`);
 
