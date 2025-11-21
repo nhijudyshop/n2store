@@ -3223,7 +3223,8 @@ let currentConversationId = null;  // Lưu conversation ID cho reply
 let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
 
-async function openChatModal(orderId, channelId, psid, type = 'message') {
+window.openChatModal = async function (orderId, channelId, psid, type = 'message') {
+    console.log('[CHAT] Opening modal:', { orderId, channelId, psid, type });
     if (!channelId || !psid) {
         alert('Không có thông tin tin nhắn cho đơn hàng này');
         return;
@@ -3394,7 +3395,7 @@ async function openChatModal(orderId, channelId, psid, type = 'message') {
     }
 }
 
-function closeChatModal() {
+window.closeChatModal = function () {
     document.getElementById('chatModal').classList.remove('show');
 
     // Clean up scroll listener
@@ -3427,7 +3428,7 @@ function closeChatModal() {
  * Gửi reply comment theo Pancake API
  * Flow: POST /conversations/{conversationId}/messages -> POST /sync_comments -> Refresh
  */
-async function sendReplyComment() {
+window.sendReplyComment = async function () {
     const messageInput = document.getElementById('chatReplyInput');
     const sendBtn = document.getElementById('chatSendBtn');
     const message = messageInput.value.trim();
@@ -4103,7 +4104,7 @@ async function loadMoreComments() {
     }
 }
 
-async function markChatAsRead() {
+window.markChatAsRead = async function () {
     if (!currentChatChannelId || !currentChatPSID) return;
 
     try {
