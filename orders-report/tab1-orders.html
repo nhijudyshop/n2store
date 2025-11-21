@@ -435,41 +435,274 @@
 
             <!-- Right Panel: Products -->
             <div class="chat-right-panel"
-                style="width: 350px; display: flex; flex-direction: column; background: #f9fafb;">
-                <div class="chat-modal-header" style="background: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
-                    <h3 style="font-size: 16px;"><i class="fas fa-box"></i> Sản phẩm</h3>
-                    <div class="product-total-badge" id="chatProductTotal"
-                        style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">
-                        0đ</div>
+                style="width: 380px; display: flex; flex-direction: column; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);">
+
+                <!-- Modern Header -->
+                <div class="chat-modal-header" style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-bottom: none;
+                    padding: 20px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+                ">
+                    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <h3 style="font-size: 18px; font-weight: 700; color: white; margin: 0; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-shopping-bag" style="font-size: 20px;"></i>
+                                Giỏ hàng
+                            </h3>
+                            <div class="product-total-badge" id="chatProductTotal" style="
+                                background: rgba(255, 255, 255, 0.25);
+                                backdrop-filter: blur(10px);
+                                color: white;
+                                padding: 6px 14px;
+                                border-radius: 20px;
+                                font-size: 13px;
+                                font-weight: 700;
+                                border: 1px solid rgba(255, 255, 255, 0.3);
+                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                            ">
+                                0đ
+                            </div>
+                        </div>
+                        <div id="productCountBadge" style="
+                            color: rgba(255, 255, 255, 0.9);
+                            font-size: 13px;
+                            font-weight: 500;
+                        ">
+                            <i class="fas fa-box-open" style="margin-right: 6px;"></i>
+                            <span id="productCount">0</span> sản phẩm
+                        </div>
+                    </div>
                 </div>
 
-                <div class="chat-product-body" style="flex: 1; overflow-y: auto; padding: 0;">
-                    <table class="table table-sm table-hover mb-0" style="font-size: 13px;">
-                        <thead style="background: #f9fafb; position: sticky; top: 0;">
-                            <tr>
-                                <th style="width: 45%">Sản phẩm</th>
-                                <th style="width: 25%" class="text-center">SL</th>
-                                <th style="width: 20%" class="text-right">Giá</th>
-                                <th style="width: 10%"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="chatProductTableBody">
-                            <!-- Products will be loaded here -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="chat-product-footer"
-                    style="padding: 12px; border-top: 1px solid #e5e7eb; background: white;">
+                <!-- Search Section -->
+                <div style="padding: 16px; background: white; border-bottom: 1px solid #e5e7eb;">
                     <div style="position: relative;">
-                        <input type="text" id="chatProductSearch" placeholder="Tìm sản phẩm (tên, mã)..."
-                            style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                        <i class="fas fa-search" style="
+                            position: absolute;
+                            left: 14px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            color: #9ca3af;
+                            font-size: 14px;
+                        "></i>
+                        <input type="text" id="chatProductSearch" placeholder="Tìm kiếm sản phẩm..." style="
+                            width: 100%;
+                            padding: 12px 12px 12px 40px;
+                            border: 2px solid #e5e7eb;
+                            border-radius: 12px;
+                            font-size: 14px;
+                            transition: all 0.3s;
+                            background: #f9fafb;
+                        " onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
+                           onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';">
                         <div id="chatProductSuggestions" class="product-suggestions" style="display: none;">
                             <!-- Suggestions -->
                         </div>
                     </div>
                 </div>
+
+                <!-- Products List -->
+                <div class="chat-product-body" style="
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 16px;
+                    background: #f9fafb;
+                " id="chatProductListContainer">
+                    <!-- Products will be dynamically inserted here -->
+                    <div id="chatProductTableBody" style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Empty State -->
+                        <div class="empty-products-state" style="
+                            text-align: center;
+                            padding: 60px 20px;
+                            color: #9ca3af;
+                        ">
+                            <i class="fas fa-shopping-cart" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
+                            <p style="font-size: 15px; font-weight: 500; margin: 0;">Chưa có sản phẩm nào</p>
+                            <p style="font-size: 13px; margin: 8px 0 0 0;">Thêm sản phẩm vào giỏ hàng</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div style="
+                    padding: 16px;
+                    background: white;
+                    border-top: 2px solid #e5e7eb;
+                    box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.02);
+                ">
+                    <div style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 12px 16px;
+                        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+                        border-radius: 12px;
+                        margin-bottom: 12px;
+                    ">
+                        <span style="font-size: 14px; font-weight: 600; color: #374151;">
+                            Tổng cộng:
+                        </span>
+                        <span id="chatProductTotalFooter" style="
+                            font-size: 18px;
+                            font-weight: 700;
+                            color: #667eea;
+                        ">0đ</span>
+                    </div>
+                </div>
             </div>
+
+            <style>
+                /* Custom Scrollbar for Products */
+                .chat-product-body::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .chat-product-body::-webkit-scrollbar-track {
+                    background: #f1f1f1;
+                    border-radius: 10px;
+                }
+                .chat-product-body::-webkit-scrollbar-thumb {
+                    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 10px;
+                }
+                .chat-product-body::-webkit-scrollbar-thumb:hover {
+                    background: linear-gradient(180deg, #764ba2 0%, #667eea 100%);
+                }
+
+                /* Product Card Styles */
+                .product-card {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 14px;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    border: 1px solid #e5e7eb;
+                    position: relative;
+                    overflow: hidden;
+                }
+                .product-card::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 4px;
+                    height: 100%;
+                    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                }
+                .product-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.15);
+                    border-color: #667eea;
+                }
+                .product-card:hover::before {
+                    opacity: 1;
+                }
+
+                .product-card-content {
+                    display: flex;
+                    gap: 12px;
+                    align-items: flex-start;
+                }
+
+                .product-image {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 10px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+                }
+
+                .product-image i {
+                    font-size: 24px;
+                    color: white;
+                }
+
+                .product-details {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .product-name {
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #1f2937;
+                    margin-bottom: 6px;
+                    line-height: 1.4;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                }
+
+                .product-meta {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                }
+
+                .product-quantity {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: #f3f4f6;
+                    padding: 4px 10px;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: #6b7280;
+                }
+
+                .product-price {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: #667eea;
+                    white-space: nowrap;
+                }
+
+                .product-actions {
+                    margin-top: 10px;
+                    padding-top: 10px;
+                    border-top: 1px solid #f3f4f6;
+                    display: flex;
+                    gap: 8px;
+                }
+
+                .product-action-btn {
+                    flex: 1;
+                    padding: 6px 12px;
+                    border: 1px solid #e5e7eb;
+                    background: white;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                }
+
+                .product-action-btn:hover {
+                    background: #f9fafb;
+                    border-color: #667eea;
+                    color: #667eea;
+                }
+
+                .product-action-btn.delete:hover {
+                    background: #fef2f2;
+                    border-color: #ef4444;
+                    color: #ef4444;
+                }
+            </style>
         </div>
     </div>
 
