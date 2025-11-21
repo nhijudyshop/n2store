@@ -319,10 +319,10 @@ class ChatProductManager {
                 " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                     <div style="width: 40px; height: 40px; border-radius: 8px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;">
                         ${imageUrl
-                            ? `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    ? `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                <i class="fas fa-box" style="color: #9ca3af; display: none;"></i>`
-                            : `<i class="fas fa-box" style="color: #9ca3af;"></i>`
-                        }
+                    : `<i class="fas fa-box" style="color: #9ca3af;"></i>`
+                }
                     </div>
                     <div style="flex: 1; min-width: 0;">
                         <div style="font-size: 14px; font-weight: 500; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${product.Name}</div>
