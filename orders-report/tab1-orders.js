@@ -430,7 +430,16 @@ function mergeOrdersByPhone(orders) {
             mergedOrders.push(groupOrders[0]);
         } else {
             // Multiple orders with same phone number - merge them
-            const baseOrder = { ...groupOrders[0] };
+            // Sort by SessionIndex (STT) to find the order with largest STT
+            const sortedOrders = [...groupOrders].sort((a, b) => {
+                const sttA = parseInt(a.SessionIndex) || 0;
+                const sttB = parseInt(b.SessionIndex) || 0;
+                return sttB - sttA; // Descending order (largest first)
+            });
+
+            // Order with largest STT becomes the target (will receive all products)
+            const targetOrder = sortedOrders[0];
+            const sourceOrders = sortedOrders.slice(1); // Orders with smaller STT (will lose products)
 
             // Collect all unique values
             const allCodes = [];
@@ -441,7 +450,7 @@ function mergeOrdersByPhone(orders) {
             let totalAmount = 0;
             let totalQuantity = 0;
             const allIds = [];
-            let earliestDate = baseOrder.DateCreated;
+            let earliestDate = targetOrder.DateCreated;
 
             groupOrders.forEach(order => {
                 allCodes.push(order.Code);
@@ -461,19 +470,25 @@ function mergeOrdersByPhone(orders) {
 
             // Create merged order
             const mergedOrder = {
-                ...baseOrder,
+                ...targetOrder, // Use target order as base
                 Code: allCodes.join(' + '),
                 Name: Array.from(allNames).join(' / '),
                 Address: Array.from(allAddresses).join(' | '),
-                Note: allNotes.length > 0 ? allNotes.join(' | ') : baseOrder.Note,
+                Note: allNotes.length > 0 ? allNotes.join(' | ') : targetOrder.Note,
                 TotalAmount: totalAmount,
                 TotalQuantity: totalQuantity,
                 DateCreated: earliestDate,
                 Id: allIds.join('_'), // Combine IDs for checkbox handling
                 OriginalIds: allIds, // Store original IDs for reference
                 MergedCount: groupOrders.length, // Track how many orders were merged
-                SessionIndex: allSTTs.length > 1 ? allSTTs.join(' + ') : (groupOrders[0].SessionIndex || ''),
-                AllSTTs: allSTTs // Store all STT for reference
+                SessionIndex: allSTTs.length > 1 ? allSTTs.join(' + ') : (targetOrder.SessionIndex || ''),
+                AllSTTs: allSTTs, // Store all STT for reference
+                // NEW: Store merge info for product transfer
+                TargetOrderId: targetOrder.Id, // Order with largest STT (will receive products)
+                SourceOrderIds: sourceOrders.map(o => o.Id), // Orders with smaller STT (will lose products)
+                TargetSTT: targetOrder.SessionIndex,
+                SourceSTTs: sourceOrders.map(o => o.SessionIndex),
+                IsMerged: true // Flag to identify merged orders
             };
 
             mergedOrders.push(mergedOrder);
@@ -1477,7 +1492,7 @@ function createRowHTML(order) {
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
                     ${order.noteEdited ? '<span class="note-edited-badge">✏️ ĐÃ SỬA</span>' : ''}
-                    <button class="btn-edit-icon" onclick="openEditModal('${order.Id}')" title="Chỉnh sửa đơn hàng"><i class="fas fa-edit"></i></button>
+                    <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
             <td data-column="order-code" style="max-width: 120px; white-space: normal;">
@@ -5321,5 +5336,243 @@ function removeChatProduct(index) {
         saveChatProductsToFirebase('shared', currentChatOrderDetails);
     }
 }
+
+// =====================================================
+// MERGE ORDER PRODUCTS API FUNCTIONS
+// =====================================================
+
+/**
+ * Get order details with products from API
+ * @param {string} orderId - Order ID
+ * @returns {Promise<Object>} Order data with Details array
+ */
+async function getOrderDetails(orderId) {
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            headers: {
+                ...headers,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log(`[MERGE-API] Fetched order ${orderId} with ${data.Details?.length || 0} products`);
+        return data;
+    } catch (error) {
+        console.error(`[MERGE-API] Error fetching order ${orderId}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Update order products via API
+ * @param {string} orderId - Order ID
+ * @param {Array} productDetails - Array of product details
+ * @param {number} totalAmount - Total amount
+ * @param {number} totalQuantity - Total quantity
+ * @returns {Promise<Object>} Updated order data
+ */
+async function updateOrderProducts(orderId, productDetails, totalAmount, totalQuantity) {
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})`;
+
+        // Prepare payload
+        const payload = {
+            Details: productDetails || [],
+            TotalAmount: totalAmount || 0,
+            TotalQuantity: totalQuantity || 0
+        };
+
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            method: 'PUT',
+            headers: {
+                ...headers,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log(`[MERGE-API] Updated order ${orderId} with ${productDetails.length} products`);
+        return data;
+    } catch (error) {
+        console.error(`[MERGE-API] Error updating order ${orderId}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * Execute product merge for a single merged order
+ * @param {Object} mergedOrder - Merged order object with TargetOrderId and SourceOrderIds
+ * @returns {Promise<Object>} Merge result
+ */
+async function executeMergeOrderProducts(mergedOrder) {
+    if (!mergedOrder.IsMerged || !mergedOrder.TargetOrderId || !mergedOrder.SourceOrderIds || mergedOrder.SourceOrderIds.length === 0) {
+        console.log('[MERGE-API] Not a merged order or no source orders to merge');
+        return { success: false, message: 'Not a merged order' };
+    }
+
+    try {
+        console.log(`[MERGE-API] Starting merge for phone ${mergedOrder.Telephone}`);
+        console.log(`[MERGE-API] Target: STT ${mergedOrder.TargetSTT} (${mergedOrder.TargetOrderId})`);
+        console.log(`[MERGE-API] Sources: STT ${mergedOrder.SourceSTTs.join(', ')} (${mergedOrder.SourceOrderIds.length} orders)`);
+
+        // Step 1: Fetch all order details
+        const targetOrderData = await getOrderDetails(mergedOrder.TargetOrderId);
+        const sourceOrdersData = await Promise.all(
+            mergedOrder.SourceOrderIds.map(id => getOrderDetails(id))
+        );
+
+        // Step 2: Collect all products
+        let allProducts = [...(targetOrderData.Details || [])];
+        let totalAmount = targetOrderData.TotalAmount || 0;
+        let totalQuantity = targetOrderData.TotalQuantity || 0;
+
+        sourceOrdersData.forEach((sourceOrder, index) => {
+            const sourceProducts = sourceOrder.Details || [];
+            console.log(`[MERGE-API] Source STT ${mergedOrder.SourceSTTs[index]}: ${sourceProducts.length} products`);
+
+            // Add source products to target
+            allProducts.push(...sourceProducts);
+            totalAmount += (sourceOrder.TotalAmount || 0);
+            totalQuantity += (sourceOrder.TotalQuantity || 0);
+        });
+
+        console.log(`[MERGE-API] Total products to merge: ${allProducts.length}`);
+        console.log(`[MERGE-API] Total amount: ${totalAmount}, Total quantity: ${totalQuantity}`);
+
+        // Step 3: Update target order with all products
+        await updateOrderProducts(mergedOrder.TargetOrderId, allProducts, totalAmount, totalQuantity);
+        console.log(`[MERGE-API] ✅ Updated target order STT ${mergedOrder.TargetSTT} with ${allProducts.length} products`);
+
+        // Step 4: Clear products from source orders
+        for (let i = 0; i < mergedOrder.SourceOrderIds.length; i++) {
+            const sourceId = mergedOrder.SourceOrderIds[i];
+            const sourceSTT = mergedOrder.SourceSTTs[i];
+
+            await updateOrderProducts(sourceId, [], 0, 0);
+            console.log(`[MERGE-API] ✅ Cleared products from source order STT ${sourceSTT}`);
+        }
+
+        console.log(`[MERGE-API] ✅ Merge completed successfully!`);
+        return {
+            success: true,
+            message: `Đã gộp ${sourceOrdersData.length} đơn vào STT ${mergedOrder.TargetSTT}`,
+            targetSTT: mergedOrder.TargetSTT,
+            sourceSTTs: mergedOrder.SourceSTTs,
+            totalProducts: allProducts.length
+        };
+
+    } catch (error) {
+        console.error('[MERGE-API] Error during merge:', error);
+        return {
+            success: false,
+            message: 'Lỗi: ' + error.message,
+            error: error
+        };
+    }
+}
+
+/**
+ * Execute product merge for all merged orders in current displayed data
+ * @returns {Promise<Object>} Bulk merge result
+ */
+async function executeBulkMergeOrderProducts() {
+    try {
+        // Find all merged orders in displayed data
+        const mergedOrders = displayedData.filter(order => order.IsMerged === true);
+
+        if (mergedOrders.length === 0) {
+            alert('Không có đơn hàng nào cần gộp sản phẩm.');
+            return { success: false, message: 'No merged orders found' };
+        }
+
+        const confirmMsg = `Bạn có chắc muốn gộp sản phẩm cho ${mergedOrders.length} đơn hàng đã merge?\n\n` +
+            `Hành động này sẽ:\n` +
+            `- Chuyển tất cả sản phẩm từ đơn STT nhỏ sang đơn STT lớn\n` +
+            `- Xóa sản phẩm khỏi các đơn STT nhỏ`;
+
+        if (!confirm(confirmMsg)) {
+            return { success: false, message: 'Cancelled by user' };
+        }
+
+        // Show loading indicator
+        if (window.notificationManager) {
+            window.notificationManager.show(`Đang gộp sản phẩm cho ${mergedOrders.length} đơn hàng...`, 'info');
+        }
+
+        // Execute merge for each merged order
+        const results = [];
+        for (let i = 0; i < mergedOrders.length; i++) {
+            const order = mergedOrders[i];
+            console.log(`[MERGE-BULK] Processing ${i + 1}/${mergedOrders.length}: Phone ${order.Telephone}`);
+
+            const result = await executeMergeOrderProducts(order);
+            results.push({ order, result });
+
+            // Small delay to avoid rate limiting
+            if (i < mergedOrders.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        // Count successes and failures
+        const successCount = results.filter(r => r.result.success).length;
+        const failureCount = results.length - successCount;
+
+        let summaryMsg = `✅ Hoàn tất gộp sản phẩm:\n\n`;
+        summaryMsg += `- Thành công: ${successCount}/${results.length} đơn\n`;
+        if (failureCount > 0) {
+            summaryMsg += `- Thất bại: ${failureCount} đơn\n\n`;
+            summaryMsg += `Các đơn thất bại:\n`;
+            results.filter(r => !r.result.success).forEach(r => {
+                summaryMsg += `  • SĐT ${r.order.Telephone}: ${r.result.message}\n`;
+            });
+        }
+
+        alert(summaryMsg);
+
+        if (window.notificationManager) {
+            window.notificationManager.show(
+                `Đã gộp ${successCount}/${results.length} đơn hàng`,
+                successCount === results.length ? 'success' : 'warning'
+            );
+        }
+
+        // Refresh table
+        performSearch();
+
+        return {
+            success: true,
+            totalOrders: results.length,
+            successCount,
+            failureCount,
+            results
+        };
+
+    } catch (error) {
+        console.error('[MERGE-BULK] Error during bulk merge:', error);
+        alert('❌ Lỗi khi gộp sản phẩm: ' + error.message);
+        return { success: false, message: error.message, error };
+    }
+}
+
+// Make function globally accessible
+window.executeMergeOrderProducts = executeMergeOrderProducts;
+window.executeBulkMergeOrderProducts = executeBulkMergeOrderProducts;
 
 
