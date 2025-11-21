@@ -73,6 +73,12 @@ class ChatProductManager {
 
         console.log(`[CHAT-PRODUCT-HISTORY] Listening for changes on chat_products_history/shared`);
 
+        // Note: To optimize Firebase query performance, add this to your Firebase Rules:
+        // "chat_products_history": {
+        //   "shared": {
+        //     ".indexOn": ["timestamp"]
+        //   }
+        // }
         this.historyRef.orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
