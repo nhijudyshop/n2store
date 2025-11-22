@@ -26,14 +26,14 @@ let currentOrderTags = [];
 // FIREBASE CONFIGURATION FOR NOTE TRACKING
 // =====================================================
 const firebaseConfig = {
-    apiKey: "AIzaSyD2izLYXLYWR8RtsIS7vvQWroPPtxi_50A",
-    authDomain: "product-s-98d2c.firebaseapp.com",
-    databaseURL: "https://product-s-98d2c-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "product-s-98d2c",
-    storageBucket: "product-s-98d2c.firebasestorage.app",
-    messagingSenderId: "694055453687",
-    appId: "1:694055453687:web:1d0bc6c90d6d21088e0cbb",
-    measurementId: "G-MXT4TJK349"
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D"
 };
 
 // Initialize Firebase
