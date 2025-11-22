@@ -37,21 +37,37 @@
     <div class="main-content">
         <!-- Filter Section -->
         <div class="filter-section">
-            <!-- Employee Assignment Input -->
+            <!-- Employee Assignment Table -->
             <div class="employee-input-container" style="width: 100%; margin-bottom: 12px;">
-                <label class="employee-input-label">
-                    <i class="fas fa-users"></i> Phân chia đơn hàng theo STT cho nhân viên:
-                </label>
-                <div class="input-group">
-                    <input type="text" class="form-control" id="employeeRangeInput"
-                        placeholder="Ví dụ: 1-200 Huyền, 201-400 Hạnh, 401-600 Bo" />
-                    <button class="btn-primary" onclick="applyEmployeeRanges()">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <label class="employee-input-label" style="margin: 0;">
+                        <i class="fas fa-users"></i> Phân chia đơn hàng theo STT cho nhân viên:
+                    </label>
+                    <button class="btn-primary" onclick="applyEmployeeRanges()" style="padding: 6px 16px;">
                         <i class="fas fa-check"></i> Áp dụng
                     </button>
                 </div>
+                <div id="employeeAssignmentTable" style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
+                    <table style="width: 100%; font-size: 13px;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; border-bottom: 1px solid #e5e7eb;">
+                            <tr>
+                                <th style="padding: 8px; text-align: left; font-weight: 600;">Nhân viên</th>
+                                <th style="padding: 8px; text-align: center; width: 100px; font-weight: 600;">STT Từ</th>
+                                <th style="padding: 8px; text-align: center; width: 100px; font-weight: 600;">STT Đến</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeAssignmentBody">
+                            <tr>
+                                <td colspan="3" style="text-align: center; padding: 20px; color: #9ca3af;">
+                                    <i class="fas fa-spinner fa-spin"></i> Đang tải danh sách nhân viên...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 <div class="employee-input-help">
                     <i class="fas fa-info-circle"></i>
-                    Nhập khoảng STT và tên nhân viên, cách nhau bằng dấu phẩy. Dữ liệu sẽ được lưu tự động.
+                    Nhập khoảng STT cho từng nhân viên. Dữ liệu sẽ được lưu tự động khi bấm "Áp dụng".
                 </div>
             </div>
 
@@ -255,7 +271,7 @@
                                 <input type="checkbox" id="selectAll" />
                             </th>
                             <th data-column="stt">STT</th>
-                            <th data-column="employee">Nhân viên</th>
+                            <th data-column="employee" style="width: 90px;">Nhân viên</th>
                             <th data-column="tag">TAG</th>
                             <th data-column="order-code">Mã ĐH</th>
                             <th data-column="customer">Khách hàng</th>
@@ -1052,9 +1068,13 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <!-- API Configuration (load first!) -->
     <script src="api-config.js"></script>
+
+    <!-- User Employee Loader -->
+    <script src="user-employee-loader.js"></script>
 
     <script src="token-manager.js"></script>
     <script src="cache.js"></script>
