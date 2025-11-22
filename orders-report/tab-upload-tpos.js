@@ -4098,10 +4098,13 @@ ${encodedString}
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Summary Row -->
-                        <tr class="finalize-summary-row">
+                        <!-- Summary Row with Toggle Button -->
+                        <tr class="finalize-summary-row" onclick="toggleProductDetails()" style="cursor: pointer;">
                             <td>
-                                <strong><i class="fas fa-chart-bar"></i> TỔNG CỘNG: ${stats.uniqueProducts} sản phẩm</strong>
+                                <strong>
+                                    <i class="fas fa-chevron-right finalize-toggle-icon" id="productDetailsToggleIcon"></i>
+                                    <i class="fas fa-chart-bar"></i> TỔNG CỘNG: ${stats.uniqueProducts} sản phẩm
+                                </strong>
                             </td>
                             <td class="text-center">
                                 <strong>${stats.totalQuantity} món</strong>
@@ -4112,7 +4115,9 @@ ${encodedString}
                         </tr>
         `;
 
-        // Product rows
+        // Product rows (wrapped in collapsible tbody)
+        html += `</tbody><tbody id="productDetailsBody" class="finalize-details-collapsed">`;
+
         stats.productDetails.forEach(product => {
             const imageHtml = product.imageUrl
                 ? `<img src="${product.imageUrl}" alt="${product.productCode}" class="finalize-product-img">`
@@ -4121,7 +4126,7 @@ ${encodedString}
             const sttList = product.stts.join(', ');
 
             html += `
-                <tr>
+                <tr class="finalize-detail-row">
                     <td>
                         <div class="d-flex align-items-center">
                             ${imageHtml}
@@ -4149,6 +4154,32 @@ ${encodedString}
 
         return html;
     }
+
+    /**
+     * Toggle product details visibility
+     */
+    window.toggleProductDetails = function() {
+        const detailsBody = document.getElementById('productDetailsBody');
+        const toggleIcon = document.getElementById('productDetailsToggleIcon');
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('finalize-details-collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            detailsBody.classList.remove('finalize-details-collapsed');
+            detailsBody.classList.add('finalize-details-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            // Collapse
+            detailsBody.classList.remove('finalize-details-expanded');
+            detailsBody.classList.add('finalize-details-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
 
     /**
      * Save finalize session to Firebase
