@@ -710,3 +710,116 @@ body {
         flex: 1;
     }
 }
+
+/* ============================================
+   VIEW MODE TOGGLE STYLES
+   ============================================ */
+
+/* View Mode Toggle Button Group */
+.card-header .btn-group {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-header .btn-group .btn {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.card-header .btn-group .btn-light {
+    background: white;
+    color: var(--primary);
+    border: none;
+}
+
+.card-header .btn-group .btn-light:hover {
+    background: #f8f9fa;
+}
+
+.card-header .btn-group .btn-outline-light {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.card-header .btn-group .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Product View Specific Styles */
+.product-code-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.product-code-cell img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--gray-200);
+}
+
+.orders-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.order-badge-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin: 2px;
+    background: var(--gray-100);
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+    transition: all 0.2s ease;
+}
+
+.order-badge-item:hover {
+    background: var(--gray-200);
+    transform: translateY(-1px);
+}
+
+.order-badge-item.selected {
+    background: #d1fae5;
+    border-color: var(--success);
+}
+
+.stt-mini-badge {
+    background: var(--info);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+/* Responsive adjustments for product view */
+@media (max-width: 768px) {
+    .card-header .btn-group {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .card-header .btn-group .btn {
+        flex: 1;
+    }
+
+    .order-badge-item {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+
+    .stt-mini-badge {
+        padding: 1px 6px;
+        font-size: 10px;
+    }
+}

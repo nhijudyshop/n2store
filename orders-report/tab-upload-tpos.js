@@ -9,6 +9,7 @@
     let ordersData = []; // Orders data from tab1
     let productNotes = {}; // Store notes for each product: { "stt-productId": "note text" }
     let userStorageManager = null; // User-specific storage manager
+    let currentViewMode = 'order'; // 'order' or 'product' - view mode for table
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -654,6 +655,185 @@ ${encodedString}
             `;
         }).join('');
     }
+
+    // Render Table by Product (grouped by product, showing which orders contain it)
+    function renderTableByProduct() {
+        const tbody = document.getElementById('productsTableBody');
+        const totalProducts = document.getElementById('totalProducts');
+        const tableHead = document.querySelector('#productsTable thead tr');
+
+        // Update table headers for product view
+        tableHead.innerHTML = `
+            <th style="width: 50px">
+                <input type="checkbox" class="form-check-input" disabled>
+            </th>
+            <th style="width: 15%">Mã sản phẩm</th>
+            <th style="width: 55%">Đơn hàng chứa sản phẩm</th>
+            <th style="width: 15%">Tổng SL</th>
+        `;
+
+        // Group products from all orders
+        const productGroups = {};
+        Object.entries(sessionIndexData).forEach(([stt, data]) => {
+            data.products.forEach(product => {
+                const productId = product.productId;
+                const productCode = product.productCode || product.productName;
+
+                if (!productGroups[productId]) {
+                    productGroups[productId] = {
+                        productId: productId,
+                        productCode: productCode,
+                        productName: product.productName,
+                        imageUrl: product.imageUrl,
+                        orders: []
+                    };
+                }
+
+                // Add order info with quantity
+                const existingOrder = productGroups[productId].orders.find(o => o.stt === stt);
+                if (existingOrder) {
+                    existingOrder.quantity++;
+                } else {
+                    productGroups[productId].orders.push({
+                        stt: stt,
+                        customerName: data.orderInfo?.customerName || 'N/A',
+                        phone: data.orderInfo?.phone || 'N/A',
+                        quantity: 1
+                    });
+                }
+            });
+        });
+
+        const productKeys = Object.keys(productGroups);
+        totalProducts.textContent = productKeys.length;
+
+        if (productKeys.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        <p class="mb-2">Chưa có sản phẩm nào được gán STT</p>
+                        <p class="small">Vui lòng vào tab "Gán Sản Phẩm - STT" để thêm sản phẩm</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Sort by product code
+        const sortedProducts = Object.values(productGroups).sort((a, b) =>
+            a.productCode.localeCompare(b.productCode)
+        );
+
+        tbody.innerHTML = sortedProducts.map(product => {
+            const totalQuantity = product.orders.reduce((sum, o) => sum + o.quantity, 0);
+
+            // Create orders list with STT badges
+            const ordersHtml = product.orders.map(order => {
+                const isSelected = selectedSessionIndexes.has(order.stt);
+                return `
+                    <div class="order-badge-item ${isSelected ? 'selected' : ''}" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; margin: 4px; background: ${isSelected ? '#d1fae5' : '#f3f4f6'}; border-radius: 8px; border: 1px solid ${isSelected ? '#10b981' : '#e5e7eb'};">
+                        <span class="stt-mini-badge" style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">#${order.stt}</span>
+                        <span style="font-size: 13px; color: #374151;">${order.customerName}</span>
+                        <span style="font-size: 12px; color: #6b7280;">(x${order.quantity})</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <tr>
+                    <td>
+                        <div class="product-checkbox-group">
+                            <input
+                                type="checkbox"
+                                class="form-check-input product-group-checkbox"
+                                data-product-id="${product.productId}"
+                                onchange="handleProductGroupCheckbox('${product.productId}', this.checked)"
+                            >
+                        </div>
+                    </td>
+                    <td>
+                        <div class="product-code-cell" style="display: flex; align-items: center; gap: 10px;">
+                            ${product.imageUrl ? `<img src="${product.imageUrl}" alt="${product.productCode}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;">` : ''}
+                            <div>
+                                <div style="font-weight: 700; font-size: 16px; color: #1f2937;">${product.productCode}</div>
+                                ${product.productName !== product.productCode ? `<div style="font-size: 12px; color: #6b7280;">${product.productName}</div>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="orders-list" style="display: flex; flex-wrap: wrap; gap: 2px;">
+                            ${ordersHtml}
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <div class="total-quantity-cell">
+                            <div class="total-badge">${totalQuantity}</div>
+                            <div class="total-label">sản phẩm</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Switch View Mode (order or product)
+    window.switchViewMode = function(mode) {
+        if (mode === currentViewMode) return;
+
+        currentViewMode = mode;
+
+        // Update button states
+        const orderBtn = document.getElementById('viewModeOrder');
+        const productBtn = document.getElementById('viewModeProduct');
+
+        if (mode === 'order') {
+            orderBtn.classList.remove('btn-outline-light');
+            orderBtn.classList.add('btn-light', 'active');
+            productBtn.classList.remove('btn-light', 'active');
+            productBtn.classList.add('btn-outline-light');
+
+            // Reset table headers for order view
+            const tableHead = document.querySelector('#productsTable thead tr');
+            tableHead.innerHTML = `
+                <th style="width: 50px">
+                    <input type="checkbox" class="form-check-input" disabled>
+                </th>
+                <th style="width: 12%">STT</th>
+                <th style="width: 25%">Thông tin đơn hàng</th>
+                <th style="width: 50%">Sản phẩm</th>
+                <th style="width: 10%">Tổng SL</th>
+            `;
+
+            renderTable();
+        } else {
+            productBtn.classList.remove('btn-outline-light');
+            productBtn.classList.add('btn-light', 'active');
+            orderBtn.classList.remove('btn-light', 'active');
+            orderBtn.classList.add('btn-outline-light');
+
+            renderTableByProduct();
+        }
+    };
+
+    // Handle Product Group Checkbox (select/deselect all orders containing this product)
+    window.handleProductGroupCheckbox = function(productId, checked) {
+        // Find all orders containing this product
+        Object.entries(sessionIndexData).forEach(([stt, data]) => {
+            const hasProduct = data.products.some(p => p.productId === productId);
+            if (hasProduct) {
+                if (checked) {
+                    selectedSessionIndexes.add(stt);
+                } else {
+                    selectedSessionIndexes.delete(stt);
+                }
+            }
+        });
+
+        // Re-render to update visual state
+        renderTableByProduct();
+        updateSelectedCount();
+    };
 
     // Update Total Count
     function updateTotalCount() {
