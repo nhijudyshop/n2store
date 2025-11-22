@@ -179,6 +179,17 @@ window.addEventListener("DOMContentLoaded", async function () {
 
     // Sync employee ranges from Firebase
     syncEmployeeRanges();
+
+    // Close modals when clicking outside
+    window.addEventListener('click', function (event) {
+        const tagModal = document.getElementById('tagModal');
+        if (event.target === tagModal) {
+            closeTagModal();
+            if (window.quickTagManager) {
+                window.quickTagManager.closeAllDropdowns();
+            }
+        }
+    });
 });
 
 // =====================================================
@@ -343,6 +354,27 @@ function toggleEmployeeDrawer() {
             loadAndRenderEmployeeTable();
             drawer.classList.add('active');
             overlay.classList.add('active');
+        }
+    }
+}
+
+function toggleControlBar() {
+    const controlBar = document.getElementById('controlBar');
+    const btn = document.getElementById('toggleControlBarBtn');
+
+    if (controlBar && btn) {
+        const isHidden = controlBar.style.display === 'none';
+
+        if (isHidden) {
+            controlBar.style.display = 'flex'; // Or 'block' depending on layout, but flex is used in inline style in html sometimes. Let's check original css. 
+            // The original div.filter-section likely has display: flex in CSS. 
+            // Let's assume removing style.display will revert to CSS class definition, or set to '' to clear inline style.
+            controlBar.style.display = '';
+
+            btn.innerHTML = '<i class="fas fa-sliders-h"></i> Ẩn bộ lọc';
+        } else {
+            controlBar.style.display = 'none';
+            btn.innerHTML = '<i class="fas fa-sliders-h"></i> Hiển thị bộ lọc';
         }
     }
 }

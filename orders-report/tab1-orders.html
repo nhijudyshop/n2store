@@ -35,8 +35,15 @@
     </button>
     <!-- Main Content -->
     <div class="main-content">
+        <!-- Filter Toggle Button -->
+        <div style="padding: 10px 20px 0 20px;">
+            <button id="toggleControlBarBtn" class="btn-primary" onclick="toggleControlBar()" style="background: #6b7280; padding: 6px 12px; font-size: 13px;">
+                <i class="fas fa-sliders-h"></i> Hiển thị bộ lọc
+            </button>
+        </div>
+
         <!-- Filter Section -->
-        <div class="filter-section">
+        <div class="filter-section" id="controlBar" style="display: none;">
             <button class="btn-primary" id="employeeSettingsBtn" onclick="toggleEmployeeDrawer()"
                 style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
                 title="Cài đặt phân chia nhân viên">

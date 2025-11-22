@@ -143,11 +143,15 @@ const quickTagManager = {
             }
         }
 
+        // Auto-open Full Modal
+        this.openFullModal();
+
         // Get or create dropdown
-        let dropdown = buttonElement.nextElementSibling;
-        if (!dropdown || !dropdown.classList.contains('quick-tag-dropdown')) {
+        let dropdown = document.getElementById('quickTagDropdownSingleton');
+        if (!dropdown) {
             dropdown = this.createDropdown();
-            buttonElement.parentElement.appendChild(dropdown);
+            dropdown.id = 'quickTagDropdownSingleton';
+            document.body.appendChild(dropdown);
         }
 
         // Load current order tags
@@ -155,7 +159,13 @@ const quickTagManager = {
             // Update dropdown with current tags
             this.updateDropdown(dropdown);
 
-            // Show dropdown
+            // Position and show dropdown
+            const rect = buttonElement.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.top = (rect.bottom + 4) + 'px';
+            dropdown.style.left = rect.left + 'px';
+            dropdown.style.zIndex = '10001';
+
             dropdown.classList.add('show');
             this.currentDropdown = dropdown;
         });
@@ -165,9 +175,10 @@ const quickTagManager = {
      * Close all dropdowns
      */
     closeAllDropdowns() {
-        document.querySelectorAll('.quick-tag-dropdown').forEach(dropdown => {
+        const dropdown = document.getElementById('quickTagDropdownSingleton');
+        if (dropdown) {
             dropdown.classList.remove('show');
-        });
+        }
         this.currentDropdown = null;
     },
 
@@ -178,8 +189,8 @@ const quickTagManager = {
         const dropdown = document.createElement('div');
         dropdown.className = 'quick-tag-dropdown';
         dropdown.innerHTML = `
-            <div class="quick-tag-dropdown-header">
-                <h4><i class="fas fa-bolt"></i> Chọn nhanh TAG</h4>
+            <div class="quick-tag-dropdown-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h4 style="margin: 0;"><i class="fas fa-bolt"></i> Chọn nhanh TAG</h4>
             </div>
             <div class="quick-tag-list" id="quickTagList">
                 <!-- Will be populated dynamically -->
@@ -190,11 +201,6 @@ const quickTagManager = {
                 </button>
                 <button class="quick-tag-btn-cancel" onclick="quickTagManager.closeAllDropdowns()" style="flex: 1; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 6px; border-radius: 4px; cursor: pointer;">
                     Hủy
-                </button>
-            </div>
-            <div class="quick-tag-dropdown-footer-secondary" style="padding: 0 8px 8px 8px;">
-                <button class="quick-tag-open-modal-btn" onclick="quickTagManager.openFullModal()" style="width: 100%; background: transparent; border: none; color: #6b7280; font-size: 12px; cursor: pointer; text-decoration: underline;">
-                    Quản lý đầy đủ
                 </button>
             </div>
         `;
@@ -361,7 +367,7 @@ const quickTagManager = {
      * Open full modal
      */
     openFullModal() {
-        this.closeAllDropdowns();
+        // this.closeAllDropdowns(); // Allow simultaneous open
         openTagModal(this.currentOrderId, this.currentOrderCode);
     }
 };
