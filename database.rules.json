@@ -1,17 +1,72 @@
 {
   "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
     "savedProducts": {
-      ".read": true,
-      ".write": true,
-      ".indexOn": ["Id"]
+      ".indexOn": [
+        "Id",
+        "isHidden"
+      ]
+    },
+    "savedProductsMeta": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     "displaySettings": {
-      ".read": true,
-      ".write": true
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     "syncCurrentPage": {
-      ".read": true,
-      ".write": true
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "pancake_jwt_token": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "tpos_token": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "chat_products": {
+      "shared": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "chat_products_history": {
+      "shared": {
+        ".indexOn": [
+          "timestamp"
+        ],
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "order_products": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "order_notes_snapshot": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "productAssignments_history": {
+      ".indexOn": [
+        "timestamp"
+      ],
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "app_version": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
     }
   }
 }
