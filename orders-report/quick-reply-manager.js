@@ -7,14 +7,19 @@ class QuickReplyManager {
         this.replies = [];
         this.targetInputId = null;
         this.STORAGE_KEY = 'quickReplies';
+        this.autocompleteActive = false;
+        this.selectedSuggestionIndex = -1;
+        this.currentSuggestions = [];
         this.init();
     }
 
     init() {
         console.log('[QUICK-REPLY] 🚀 Initializing...');
         this.createModalDOM();
+        this.createAutocompleteDOM();
         this.loadReplies();
         this.attachEventListeners();
+        this.setupAutocomplete();
     }
 
     createModalDOM() {
@@ -180,6 +185,20 @@ class QuickReplyManager {
                 topic: '',
                 topicColor: '',
                 message: 'Dạ mẫu shop nhận hàng về 1-2 ngày , chị lấy e nhận về hàng cho TY nha 😍'
+            },
+            {
+                id: 11,
+                shortcut: 'chot_don_ord',
+                topic: '',
+                topicColor: '',
+                message: 'Dạ e chốt mình\nVề hàng thơi gian dự kiến 1-2 ngày\n❌ Mình đặt inbox đã có hàng , đừng đặt trên live tránh trường hợp trùng mẫu - trùng đơn nhé\n❌ Lưu ý: Hàng sẽ về sớm hơn hoặc chậm hơn dự kiến vài ngày\n❌ HÀNG ĐÃ ĐĂT INBOX , KHÁCH HỖ TRỢ KHÔNG HỦY GIUP SHOP Ạ ❌'
+            },
+            {
+                id: 12,
+                shortcut: 'QL',
+                topic: '',
+                topicColor: '',
+                message: 'Dạ e gửi bill qua lấy cho mình , đơn hàng mình có vấn đề gì liên hệ qua SDT quản lí 0977774305 nhé c ạ ❤️ Em cám ơn'
             }
         ];
     }
@@ -333,6 +352,196 @@ class QuickReplyManager {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // =====================================================
+    // AUTOCOMPLETE FEATURE
+    // =====================================================
+
+    createAutocompleteDOM() {
+        if (document.getElementById('quickReplyAutocomplete')) {
+            return;
+        }
+
+        const autocompleteHTML = `
+            <div class="quick-reply-autocomplete" id="quickReplyAutocomplete">
+                <!-- Suggestions will be rendered here -->
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', autocompleteHTML);
+        console.log('[QUICK-REPLY] ✅ Autocomplete DOM created');
+    }
+
+    setupAutocomplete() {
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            const chatInput = document.getElementById('chatReplyInput');
+            if (!chatInput) {
+                console.log('[QUICK-REPLY] ⚠️ chatReplyInput not found, autocomplete disabled');
+                return;
+            }
+
+            // Attach event listeners
+            chatInput.addEventListener('input', (e) => this.handleAutocompleteInput(e));
+            chatInput.addEventListener('keydown', (e) => this.handleAutocompleteKeydown(e));
+
+            console.log('[QUICK-REPLY] ✅ Autocomplete setup complete');
+        }, 1000);
+    }
+
+    handleAutocompleteInput(e) {
+        const input = e.target;
+        const value = input.value;
+        const cursorPos = input.selectionStart;
+
+        // Find the last / before cursor
+        const textBeforeCursor = value.substring(0, cursorPos);
+        const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+
+        if (lastSlashIndex === -1) {
+            this.hideAutocomplete();
+            return;
+        }
+
+        // Get text after /
+        const query = textBeforeCursor.substring(lastSlashIndex + 1);
+
+        // Check if there's a space after / (means query ended)
+        if (query.includes(' ') || query.includes('\n')) {
+            this.hideAutocomplete();
+            return;
+        }
+
+        // Filter suggestions
+        this.currentSuggestions = this.replies.filter(reply => {
+            if (!reply.shortcut) return false;
+            return reply.shortcut.toLowerCase().startsWith(query.toLowerCase());
+        });
+
+        if (this.currentSuggestions.length > 0) {
+            this.showAutocomplete(input, query, lastSlashIndex);
+        } else {
+            this.hideAutocomplete();
+        }
+    }
+
+    handleAutocompleteKeydown(e) {
+        if (!this.autocompleteActive) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.selectedSuggestionIndex = Math.min(
+                this.selectedSuggestionIndex + 1,
+                this.currentSuggestions.length - 1
+            );
+            this.renderAutocomplete();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, 0);
+            this.renderAutocomplete();
+        } else if (e.key === 'Enter' && this.selectedSuggestionIndex >= 0) {
+            e.preventDefault();
+            const selected = this.currentSuggestions[this.selectedSuggestionIndex];
+            if (selected) {
+                this.applyAutocompleteSuggestion(selected);
+            }
+        } else if (e.key === 'Escape') {
+            this.hideAutocomplete();
+        }
+    }
+
+    showAutocomplete(inputElement, query, slashIndex) {
+        this.autocompleteActive = true;
+        this.selectedSuggestionIndex = 0;
+
+        // Position dropdown below input
+        const dropdown = document.getElementById('quickReplyAutocomplete');
+        const inputRect = inputElement.getBoundingClientRect();
+
+        dropdown.style.left = inputRect.left + 'px';
+        dropdown.style.top = (inputRect.bottom + 4) + 'px';
+        dropdown.style.width = Math.max(400, inputRect.width) + 'px';
+        dropdown.style.display = 'block';
+
+        this.renderAutocomplete();
+    }
+
+    renderAutocomplete() {
+        const dropdown = document.getElementById('quickReplyAutocomplete');
+
+        const suggestionsHTML = this.currentSuggestions.map((reply, index) => {
+            const isSelected = index === this.selectedSuggestionIndex;
+            const topicHTML = reply.topic ? `
+                <span class="quick-reply-topic" style="background-color: ${reply.topicColor || '#6b7280'}; font-size: 10px; padding: 2px 6px;">
+                    ${this.escapeHtml(reply.topic)}
+                </span>
+            ` : '';
+
+            const messagePreview = reply.message.length > 60
+                ? reply.message.substring(0, 60) + '...'
+                : reply.message;
+
+            return `
+                <div class="autocomplete-item ${isSelected ? 'selected' : ''}"
+                     data-index="${index}"
+                     onclick="quickReplyManager.selectAutocompleteSuggestion(${index})">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-weight: 600; color: #667eea; min-width: 80px;">/${this.escapeHtml(reply.shortcut)}</span>
+                        ${topicHTML}
+                    </div>
+                    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+                        ${this.escapeHtml(messagePreview)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        dropdown.innerHTML = suggestionsHTML;
+    }
+
+    selectAutocompleteSuggestion(index) {
+        const selected = this.currentSuggestions[index];
+        if (selected) {
+            this.applyAutocompleteSuggestion(selected);
+        }
+    }
+
+    applyAutocompleteSuggestion(reply) {
+        const input = document.getElementById('chatReplyInput');
+        if (!input) return;
+
+        const value = input.value;
+        const cursorPos = input.selectionStart;
+        const textBeforeCursor = value.substring(0, cursorPos);
+        const textAfterCursor = value.substring(cursorPos);
+
+        // Find the / that triggered autocomplete
+        const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+
+        // Replace from / to cursor with the message
+        const newValue = value.substring(0, lastSlashIndex) + reply.message + textAfterCursor;
+        input.value = newValue;
+
+        // Set cursor position after inserted text
+        const newCursorPos = lastSlashIndex + reply.message.length;
+        input.setSelectionRange(newCursorPos, newCursorPos);
+
+        this.hideAutocomplete();
+        input.focus();
+
+        console.log('[QUICK-REPLY] ✅ Applied autocomplete:', reply.shortcut);
+    }
+
+    hideAutocomplete() {
+        this.autocompleteActive = false;
+        this.selectedSuggestionIndex = -1;
+        this.currentSuggestions = [];
+
+        const dropdown = document.getElementById('quickReplyAutocomplete');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
     }
 }
 
