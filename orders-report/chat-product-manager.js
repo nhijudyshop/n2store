@@ -496,7 +496,14 @@ class ChatProductManager {
 
         let totalPrice = 0;
 
-        tbody.innerHTML = this.products.map(product => {
+        // Sort products by AddedAt timestamp (newest first)
+        const sortedProducts = [...this.products].sort((a, b) => {
+            const timeA = a.AddedAt || 0;
+            const timeB = b.AddedAt || 0;
+            return timeB - timeA; // Descending order (newest first)
+        });
+
+        tbody.innerHTML = sortedProducts.map(product => {
             const lineTotal = (product.Price || 0) * (product.Quantity || 1);
             totalPrice += lineTotal;
 
@@ -795,7 +802,7 @@ class ChatProductManager {
         const historyTabBtn = document.getElementById('historyTabBtn');
 
         if (tab === 'products') {
-            if (productsContent) productsContent.style.display = 'block';
+            if (productsContent) productsContent.style.display = 'flex';
             if (historyContent) historyContent.style.display = 'none';
             if (productsTabBtn) {
                 productsTabBtn.classList.add('active');
@@ -809,7 +816,7 @@ class ChatProductManager {
             }
         } else {
             if (productsContent) productsContent.style.display = 'none';
-            if (historyContent) historyContent.style.display = 'block';
+            if (historyContent) historyContent.style.display = 'flex';
             if (historyTabBtn) {
                 historyTabBtn.classList.add('active');
                 historyTabBtn.style.background = 'white';

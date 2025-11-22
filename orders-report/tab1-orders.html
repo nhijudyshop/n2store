@@ -406,13 +406,20 @@
             <!-- Left Panel: Chat -->
             <div class="chat-left-panel"
                 style="flex: 1; display: flex; flex-direction: column; border-right: 1px solid #e5e7eb;">
-                <div class="chat-modal-header">
+                <div class="chat-modal-header"
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px 24px; border-bottom: none;">
                     <div class="chat-header-info">
-                        <h3 id="chatModalTitle">Tin nhắn với Khách hàng</h3>
-                        <p id="chatModalSubtitle">Đang tải...</p>
+                        <h3 id="chatModalTitle"
+                            style="color: white; font-size: 18px; font-weight: 600; margin: 0 0 4px 0;">Tin nhắn với
+                            Khách hàng</h3>
+                        <p id="chatModalSubtitle" style="color: rgba(255, 255, 255, 0.9); font-size: 13px; margin: 0;">
+                            Đang tải...</p>
                     </div>
-                    <button class="chat-modal-close" onclick="closeChatModal()">
-                        <i class="fas fa-times"></i>
+                    <button class="chat-modal-close" onclick="closeChatModal()"
+                        style="background: rgba(255, 255, 255, 0.2); border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';"
+                        onmouseout="this.style.background='rgba(255, 255, 255, 0.2)';">
+                        <i class="fas fa-times" style="color: white; font-size: 16px;"></i>
                     </button>
                 </div>
                 <div class="chat-modal-body" id="chatModalBody">
@@ -422,19 +429,99 @@
                     </div>
                 </div>
                 <!-- Reply Input (chỉ hiển thị cho comments) -->
-                <div class="chat-reply-container" id="chatReplyContainer" style="display: none;">
-                    <div
-                        style="display: flex; gap: 8px; align-items: center; padding: 12px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+                <div class="chat-reply-container" id="chatReplyContainer"
+                    style="display: none; background: white; border-top: 1px solid #e5e7eb;">
+                    <!-- Input Row -->
+                    <div style="display: flex; gap: 8px; align-items: center; padding: 12px 16px;">
                         <input type="text" id="chatReplyInput" placeholder="Nhập tin nhắn trả lời..."
-                            style="flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;"
+                            style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 14px; background: #f9fafb; transition: all 0.2s;"
+                            onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
+                            onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';"
                             onkeypress="if(event.key==='Enter') sendReplyComment();" />
                         <button class="chat-btn-send" id="chatSendBtn" onclick="sendReplyComment()"
-                            style="padding: 10px 20px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"
-                            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.3)';"
-                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            style="padding: 10px 24px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0, 132, 255, 0.3);"
+                            onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.4)';"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0, 132, 255, 0.3)';">
                             <i class="fas fa-paper-plane"></i>
                             Gửi
                         </button>
+                    </div>
+
+                    <!-- Toolbar Row -->
+                    <div
+                        style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 12px 16px; border-top: 1px solid #f3f4f6;">
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <!-- Help Icon -->
+                            <button class="toolbar-icon-btn" title="Trợ giúp"
+                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
+                                onmouseover="this.style.background='#f3f4f6';"
+                                onmouseout="this.style.background='none';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                                    viewBox="0 0 256 256">
+                                    <path
+                                        d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,168a12,12,0,1,1,12-12A12,12,0,0,1,128,192Zm8-48.72V144a8,8,0,0,1-16,0v-8a8,8,0,0,1,8-8c13.23,0,24-9,24-20s-10.77-20-24-20-24,9-24,20v4a8,8,0,0,1-16,0v-4c0-19.85,17.94-36,40-36s40,16.15,40,36C168,125.38,154.24,139.93,136,143.28Z">
+                                    </path>
+                                </svg>
+                            </button>
+
+                            <!-- Message Template Icon -->
+                            <button class="toolbar-icon-btn" title="Tin nhắn mẫu"
+                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
+                                onmouseover="this.style.background='#f3f4f6';"
+                                onmouseout="this.style.background='none';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                                    viewBox="0 0 256 256">
+                                    <path
+                                        d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm32,128H96a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Zm0-32H96a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Z">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <!-- Photo Icon -->
+                            <button class="toolbar-icon-btn" title="Hình ảnh"
+                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
+                                onmouseover="this.style.background='#f3f4f6';"
+                                onmouseout="this.style.background='none';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                                    viewBox="0 0 256 256">
+                                    <path
+                                        d="M216,40H72A16,16,0,0,0,56,56V72H40A16,16,0,0,0,24,88V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V184h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM172,72a12,12,0,1,1-12,12A12,12,0,0,1,172,72Zm12,128H40V88H56v80a16,16,0,0,0,16,16H184Zm32-32H72V120.69l30.34-30.35a8,8,0,0,1,11.32,0L163.31,140,189,114.34a8,8,0,0,1,11.31,0L216,130.07V168Z">
+                                    </path>
+                                </svg>
+                            </button>
+
+                            <!-- File Attachment Icon -->
+                            <button class="toolbar-icon-btn" title="Tệp đính kèm"
+                                onclick="document.getElementById('uploadFileInput').click();"
+                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
+                                onmouseover="this.style.background='#f3f4f6';"
+                                onmouseout="this.style.background='none';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                                    viewBox="0 0 256 256">
+                                    <path
+                                        d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,35.73a40,40,0,1,1,56.61,56.55L105,193A24,24,0,1,1,71,159L154.3,74.38A8,8,0,1,1,165.7,85.6L82.39,170.31a8,8,0,1,0,11.27,11.36L192.93,81A24,24,0,1,0,159,47L59.76,147.68a40,40,0,1,0,56.53,56.62l82.06-82A8,8,0,0,1,209.66,122.34Z">
+                                    </path>
+                                </svg>
+                            </button>
+                            <input id="uploadFileInput" type="file" multiple=""
+                                accept="video/*, audio/*, .docx, .doc, .xlsx, .xls, .pdf, .csv, .gif, .text, .pptx, .ppt, image/*"
+                                style="display: none;">
+
+                            <!-- Sticker Icon -->
+                            <button class="toolbar-icon-btn" title="Sticker"
+                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
+                                onmouseover="this.style.background='#f3f4f6';"
+                                onmouseout="this.style.background='none';">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                                    viewBox="0 0 256 256">
+                                    <path
+                                        d="M168,32H88A56.06,56.06,0,0,0,32,88v80a56.06,56.06,0,0,0,56,56h48a8.07,8.07,0,0,0,2.53-.41c26.23-8.75,76.31-58.83,85.06-85.06A8.07,8.07,0,0,0,224,136V88A56.06,56.06,0,0,0,168,32ZM136,207.42V176a40,40,0,0,1,40-40h31.42C198.16,157.55,157.55,198.16,136,207.42Z">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="chat-modal-footer">
@@ -448,7 +535,6 @@
                 </div>
             </div>
 
-            <!-- Right Panel: Products -->
             <!-- Right Panel: Products -->
             <div class="chat-right-panel"
                 style="width: 400px; display: flex; flex-direction: column; background: #f8fafc; border-left: 1px solid #e2e8f0;">
@@ -487,43 +573,28 @@
                     gap: 8px;
                     border-bottom: 1px solid #e2e8f0;
                 ">
-                    <button id="productsTabBtn" class="product-tab-btn active" onclick="window.chatProductManager?.switchTab('products')" style="
-                        flex: 1;
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        background: white;
-                        color: #667eea;
-                    ">
+                    <button id="productsTabBtn" class="product-tab-btn active"
+                        onclick="window.chatProductManager?.switchTab('products')"
+                        style="flex: 1; padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: white; color: #667eea;">
                         <i class="fas fa-shopping-bag"></i> Sản phẩm
                     </button>
-                    <button id="historyTabBtn" class="product-tab-btn" onclick="window.chatProductManager?.switchTab('history')" style="
-                        flex: 1;
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                        background: transparent;
-                        color: rgba(255, 255, 255, 0.8);
-                    ">
+                    <button id="historyTabBtn" class="product-tab-btn"
+                        onclick="window.chatProductManager?.switchTab('history')"
+                        style="flex: 1; padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: transparent; color: rgba(255, 255, 255, 0.8);">
                         <i class="fas fa-history"></i> Lịch sử
                     </button>
                 </div>
 
-                <!-- Products Container (Tab 1) -->
-                <div id="chatProductListContainer" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
-                    <!-- Search -->
-                    <div class="chat-panel-search"
-                        style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;">
-                        <div style="position: relative;">
-                            <i class="fas fa-search" style="
+                <!-- Tab Content Wrapper -->
+                <div style="flex: 1; position: relative; min-height: 0;">
+                    <!-- Products Container (Tab 1) -->
+                    <div id="chatProductListContainer"
+                        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; min-height: 0;">
+                        <!-- Search -->
+                        <div class="chat-panel-search"
+                            style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;">
+                            <div style="position: relative;">
+                                <i class="fas fa-search" style="
                                 position: absolute;
                                 left: 12px;
                                 top: 50%;
@@ -531,7 +602,8 @@
                                 color: #94a3b8;
                                 font-size: 14px;
                             "></i>
-                            <input type="text" id="chatProductSearchInput" placeholder="Tìm sản phẩm (Tên, Mã)..." style="
+                                <input type="text" id="chatProductSearchInput" placeholder="Tìm sản phẩm (Tên, Mã)..."
+                                    style="
                                 width: 100%;
                                 padding: 10px 12px 10px 36px;
                                 border: 1px solid #cbd5e1;
@@ -540,10 +612,10 @@
                                 transition: all 0.2s;
                                 background: #f8fafc;
                             " onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
-                                onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
+                                    onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
 
-                            <!-- Search Results Dropdown -->
-                            <div id="chatProductSearchResults" class="chat-search-results" style="
+                                <!-- Search Results Dropdown -->
+                                <div id="chatProductSearchResults" class="chat-search-results" style="
                                 display: none;
                                 position: absolute;
                                 top: calc(100% + 4px);
@@ -557,41 +629,45 @@
                                 overflow-y: auto;
                                 z-index: 50;
                             "></div>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Product List -->
-                    <div class="chat-product-list" id="chatProductTableBody" style="
+                        <!-- Product List -->
+                        <div class="chat-product-list" id="chatProductTableBody" style="
                         flex: 1;
                         overflow-y: auto;
                         overflow-x: hidden;
-                        padding: 16px;
+                        padding: 12px;
                         display: flex;
                         flex-direction: column;
-                        gap: 12px;
+                        gap: 8px;
                         min-height: 0;
+                        background: white;
                     ">
-                        <!-- Empty State -->
-                        <div class="chat-empty-cart" style="
+                            <!-- Empty State -->
+                            <div class="chat-empty-cart" style="
                             text-align: center;
                             padding: 40px 20px;
                             color: #94a3b8;
                         ">
-                            <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                            <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm nào</p>
-                            <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
+                                <i class="fas fa-box-open"
+                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                                <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm nào</p>
+                                <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- History Container (Tab 2) -->
-                <div id="chatProductHistoryContainer" style="flex: 1; display: none; flex-direction: column; min-height: 0;">
-                    <!-- History Header with Clear Button -->
-                    <div style="padding: 12px 16px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                        <span style="font-size: 13px; color: #64748b; font-weight: 500;">
-                            <i class="fas fa-history"></i> 50 thao tác gần nhất
-                        </span>
-                        <button onclick="window.chatProductManager?.clearHistory()" style="
+                    <!-- History Container (Tab 2) -->
+                    <div id="chatProductHistoryContainer"
+                        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; min-height: 0;">
+                        <!-- History Header with Clear Button -->
+                        <div
+                            style="padding: 12px 16px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                            <span style="font-size: 13px; color: #64748b; font-weight: 500;">
+                                <i class="fas fa-history"></i> 50 thao tác gần nhất
+                            </span>
+                            <button onclick="window.chatProductManager?.clearHistory()" style="
                             padding: 6px 12px;
                             background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
                             color: white;
@@ -604,30 +680,35 @@
                             align-items: center;
                             gap: 6px;
                             transition: all 0.2s;
-                        " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(239, 68, 68, 0.3)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';" title="Xóa toàn bộ lịch sử (Admin)">
-                            <i class="fas fa-trash-alt"></i> Xóa lịch sử
-                        </button>
-                    </div>
+                        " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(239, 68, 68, 0.3)';"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+                                title="Xóa toàn bộ lịch sử (Admin)">
+                                <i class="fas fa-trash-alt"></i> Xóa lịch sử
+                            </button>
+                        </div>
 
-                    <!-- History List -->
-                    <div class="chat-product-history" id="chatProductHistoryBody" style="
+                        <!-- History List -->
+                        <div class="chat-product-history" id="chatProductHistoryBody" style="
                         flex: 1;
                         overflow-y: auto;
                         overflow-x: hidden;
                         background: white;
                         min-height: 0;
                     ">
-                        <!-- Will be populated by JavaScript -->
-                        <div class="empty-history-state" style="
+                            <!-- Will be populated by JavaScript -->
+                            <div class="empty-history-state" style="
                             text-align: center;
                             padding: 40px 20px;
                             color: #9ca3af;
                         ">
-                            <i class="fas fa-history" style="font-size: 36px; opacity: 0.3; margin-bottom: 12px;"></i>
-                            <p style="font-size: 14px; font-weight: 500; margin: 0;">Chưa có lịch sử</p>
+                                <i class="fas fa-history"
+                                    style="font-size: 36px; opacity: 0.3; margin-bottom: 12px;"></i>
+                                <p style="font-size: 14px; font-weight: 500; margin: 0;">Chưa có lịch sử</p>
+                            </div>
                         </div>
                     </div>
                 </div>
+                <!-- End Tab Content Wrapper -->
 
                 <!-- Footer -->
                 <div class="chat-panel-footer" style="
@@ -716,6 +797,7 @@
                 border: 1px solid #e5e7eb;
                 position: relative;
                 overflow: hidden;
+                flex-shrink: 0;
             }
 
             .product-card::before {
@@ -891,6 +973,52 @@
 
             .product-suggestions::-webkit-scrollbar-thumb:hover {
                 background: #9ca3af;
+            }
+
+            /* History Item Styles */
+            .history-item {
+                flex-shrink: 0;
+                padding: 12px 14px;
+                border-bottom: 1px solid #f3f4f6;
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                transition: all 0.2s;
+                position: relative;
+            }
+
+            .history-item:hover {
+                background: #f9fafb;
+                border-left: 3px solid;
+                padding-left: 11px;
+            }
+
+            .history-item:hover .delete-history-btn {
+                opacity: 1;
+            }
+
+            .delete-history-btn {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                width: 24px;
+                height: 24px;
+                border: none;
+                background: #fee2e2;
+                color: #ef4444;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: all 0.2s;
+                font-size: 11px;
+            }
+
+            .delete-history-btn:hover {
+                background: #ef4444;
+                color: white;
             }
         </style>
     </div>
