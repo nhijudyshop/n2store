@@ -3873,15 +3873,31 @@ ${encodedString}
     function calculateSessionStats(records) {
         console.log('[FINALIZE] 📊 Calculating session stats from', records.length, 'records...');
 
+        // Debug: Log first record structure
+        if (records.length > 0) {
+            const firstRecord = records[0];
+            console.log('[FINALIZE] 🔍 FIRST RECORD FULL STRUCTURE:', JSON.stringify(firstRecord, null, 2).substring(0, 2000));
+            console.log('[FINALIZE] 🔍 First record keys:', Object.keys(firstRecord));
+            console.log('[FINALIZE] 🔍 uploadResults exists?', !!firstRecord.uploadResults, 'type:', typeof firstRecord.uploadResults);
+            console.log('[FINALIZE] 🔍 beforeSnapshot exists?', !!firstRecord.beforeSnapshot);
+            if (firstRecord.beforeSnapshot) {
+                console.log('[FINALIZE] 🔍 beforeSnapshot keys:', Object.keys(firstRecord.beforeSnapshot));
+                console.log('[FINALIZE] 🔍 assignments exists?', !!firstRecord.beforeSnapshot.assignments);
+            }
+        }
+
         const uniqueSTTs = new Set();
         const productMap = new Map(); // productCode -> { details, totalQty, stts }
 
         records.forEach((record, idx) => {
-            console.log(`[FINALIZE] Processing record ${idx + 1}:`, record.uploadId);
+            // Only log first 3 records
+            if (idx < 3) {
+                console.log(`[FINALIZE] Processing record ${idx + 1}:`, record.uploadId);
+            }
 
             // Method 1: Use uploadResults with existingProducts (most reliable)
             if (record.uploadResults && Array.isArray(record.uploadResults)) {
-                console.log('[FINALIZE] Using uploadResults, count:', record.uploadResults.length);
+                if (idx < 3) console.log('[FINALIZE] Using uploadResults, count:', record.uploadResults.length);
 
                 record.uploadResults.forEach(result => {
                     if (result.success) {
