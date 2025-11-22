@@ -412,23 +412,8 @@
                 }
             });
 
-        // Load user info
+        // Tab management
         window.addEventListener("DOMContentLoaded", function () {
-            try {
-                const authData =
-                    sessionStorage.getItem("loginindex_auth") ||
-                    localStorage.getItem("loginindex_auth");
-                if (authData) {
-                    const auth = JSON.parse(authData);
-                    if (auth.userType) {
-                        document.getElementById("userName").textContent =
-                            auth.userType.split("-")[0];
-                    }
-                }
-            } catch (error) {
-                console.error("Error loading user info:", error);
-            }
-
             // Restore last active tab or default to orders
             const savedTab = localStorage.getItem("currentTab");
             if (savedTab && ["orders", "statistics", "upload", "product-assignment", "report-online"].includes(savedTab)) {
