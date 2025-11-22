@@ -491,7 +491,7 @@ class UnifiedNavigationManager {
                         <i data-lucide="user"></i>
                     </div>
                     <div class="mobile-user-details">
-                        <div class="mobile-user-name">${userInfo?.displayName || userInfo?.username || "User"}</div>
+                        <div class="mobile-user-name">${userInfo?.displayName || "User"}</div>
                         <div class="mobile-user-role">${roleName}</div>
                     </div>
                 </div>
@@ -904,7 +904,7 @@ class UnifiedNavigationManager {
         const userName = document.getElementById("userName");
         if (userName) {
             userName.textContent =
-                userInfo.displayName || userInfo.username || "User";
+                userInfo.displayName || "User";
         }
 
         const userRole = document.querySelector(".user-role");
@@ -2014,7 +2014,7 @@ class UnifiedNavigationManager {
         const summary = `
 QUYỀN TRUY CẬP CỦA BẠN
 
-Tài khoản: ${userInfo?.displayName || userInfo?.username || "Unknown"}
+Tài khoản: ${userInfo?.displayName || "Unknown"}
 Vai trò: ${roleName}
 Tổng quyền: ${accessiblePages.length}/${MENU_CONFIG.length} trang
 
