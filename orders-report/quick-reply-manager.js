@@ -16,10 +16,60 @@ class QuickReplyManager {
     init() {
         console.log('[QUICK-REPLY] 🚀 Initializing...');
         this.createModalDOM();
+        this.createSettingsModalDOM();
         this.createAutocompleteDOM();
         this.loadReplies();
         this.attachEventListeners();
         this.setupAutocomplete();
+    }
+
+    createSettingsModalDOM() {
+        if (document.getElementById('quickReplySettingsModal')) {
+            return;
+        }
+
+        const settingsHTML = `
+            <div class="quick-reply-overlay" id="quickReplySettingsModal">
+                <div class="quick-reply-modal" style="max-width: 700px;">
+                    <!-- Header -->
+                    <div class="quick-reply-header">
+                        <h3>
+                            <i class="fas fa-cog"></i>
+                            Quản lý mẫu tin nhắn
+                        </h3>
+                        <button class="quick-reply-close" onclick="quickReplyManager.closeSettings()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="quick-reply-body" id="quickReplySettingsBody" style="padding: 20px;">
+                        <button onclick="quickReplyManager.addNewTemplate()"
+                                style="width: 100%; padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 600; margin-bottom: 16px; cursor: pointer; transition: all 0.2s;"
+                                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.3)'"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                            <i class="fas fa-plus"></i> Thêm mẫu mới
+                        </button>
+                        <div id="settingsTemplateList"></div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="quick-reply-footer">
+                        <div class="quick-reply-footer-info">
+                            Quản lý danh sách mẫu tin nhắn
+                        </div>
+                        <div class="quick-reply-footer-actions">
+                            <button onclick="quickReplyManager.closeSettings()">
+                                <i class="fas fa-check"></i> Xong
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', settingsHTML);
+        console.log('[QUICK-REPLY] ✅ Settings modal DOM created');
     }
 
     createModalDOM() {
@@ -61,6 +111,9 @@ class QuickReplyManager {
                             <span id="quickReplyCount">0</span> mẫu tin nhắn
                         </div>
                         <div class="quick-reply-footer-actions">
+                            <button onclick="quickReplyManager.openSettings()">
+                                <i class="fas fa-cog"></i> Cài đặt
+                            </button>
                             <button onclick="quickReplyManager.closeModal()">
                                 <i class="fas fa-times"></i> Đóng
                             </button>
@@ -542,6 +595,160 @@ class QuickReplyManager {
         if (dropdown) {
             dropdown.style.display = 'none';
         }
+    }
+
+    // =====================================================
+    // SETTINGS MANAGEMENT
+    // =====================================================
+
+    openSettings() {
+        console.log('[QUICK-REPLY] ⚙️ Opening settings...');
+
+        const modal = document.getElementById('quickReplySettingsModal');
+        modal?.classList.add('active');
+
+        this.renderSettingsList();
+    }
+
+    closeSettings() {
+        console.log('[QUICK-REPLY] ⚙️ Closing settings...');
+
+        const modal = document.getElementById('quickReplySettingsModal');
+        modal?.classList.remove('active');
+
+        // Reload main modal if it's open
+        if (this.isModalOpen()) {
+            this.renderReplies();
+        }
+    }
+
+    renderSettingsList() {
+        const listEl = document.getElementById('settingsTemplateList');
+        if (!listEl) return;
+
+        if (this.replies.length === 0) {
+            listEl.innerHTML = '<p style="text-align: center; color: #9ca3af; padding: 20px;">Chưa có mẫu tin nhắn nào</p>';
+            return;
+        }
+
+        const itemsHTML = this.replies.map((reply, index) => {
+            const topicHTML = reply.topic ? `
+                <span class="quick-reply-topic" style="background-color: ${reply.topicColor || '#6b7280'}; font-size: 11px; padding: 3px 8px; margin-left: 8px;">
+                    ${this.escapeHtml(reply.topic)}
+                </span>
+            ` : '';
+
+            return `
+                <div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                                <strong style="color: #667eea;">/${this.escapeHtml(reply.shortcut || '')}</strong>
+                                ${topicHTML}
+                            </div>
+                            <div style="font-size: 13px; color: #6b7280; line-height: 1.5; max-height: 60px; overflow: hidden;">
+                                ${this.escapeHtml(reply.message.substring(0, 100))}${reply.message.length > 100 ? '...' : ''}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-left: 12px;">
+                            <button onclick="quickReplyManager.editTemplate(${reply.id})"
+                                    style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-edit"></i> Sửa
+                            </button>
+                            <button onclick="quickReplyManager.deleteTemplate(${reply.id})"
+                                    style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-trash"></i> Xóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        listEl.innerHTML = itemsHTML;
+    }
+
+    addNewTemplate() {
+        const shortcut = prompt('Nhập ký tự tắt (VD: CÁMƠN, STK):');
+        if (!shortcut) return;
+
+        const topic = prompt('Nhập chủ đề (có thể bỏ trống):') || '';
+        const topicColor = topic ? prompt('Nhập mã màu (VD: #3add99):') || '#6b7280' : '';
+        const message = prompt('Nhập nội dung tin nhắn:');
+
+        if (!message) {
+            alert('Nội dung tin nhắn không được để trống!');
+            return;
+        }
+
+        // Find max ID
+        const maxId = this.replies.length > 0 ? Math.max(...this.replies.map(r => r.id)) : 0;
+
+        const newReply = {
+            id: maxId + 1,
+            shortcut: shortcut,
+            topic: topic,
+            topicColor: topicColor,
+            message: message
+        };
+
+        this.replies.push(newReply);
+        this.saveReplies();
+        this.renderSettingsList();
+
+        if (window.notificationManager) {
+            window.notificationManager.success('Đã thêm mẫu tin nhắn mới!');
+        }
+
+        console.log('[QUICK-REPLY] ✅ Added new template:', shortcut);
+    }
+
+    editTemplate(id) {
+        const reply = this.replies.find(r => r.id === id);
+        if (!reply) return;
+
+        const shortcut = prompt('Ký tự tắt:', reply.shortcut) || reply.shortcut;
+        const topic = prompt('Chủ đề:', reply.topic) || reply.topic;
+        const topicColor = prompt('Mã màu:', reply.topicColor) || reply.topicColor;
+        const message = prompt('Nội dung:', reply.message);
+
+        if (!message) {
+            alert('Nội dung tin nhắn không được để trống!');
+            return;
+        }
+
+        reply.shortcut = shortcut;
+        reply.topic = topic;
+        reply.topicColor = topicColor;
+        reply.message = message;
+
+        this.saveReplies();
+        this.renderSettingsList();
+
+        if (window.notificationManager) {
+            window.notificationManager.success('Đã cập nhật mẫu tin nhắn!');
+        }
+
+        console.log('[QUICK-REPLY] ✅ Updated template:', id);
+    }
+
+    deleteTemplate(id) {
+        const reply = this.replies.find(r => r.id === id);
+        if (!reply) return;
+
+        if (!confirm(`Xóa mẫu "${reply.shortcut || reply.topic}"?`)) {
+            return;
+        }
+
+        this.replies = this.replies.filter(r => r.id !== id);
+        this.saveReplies();
+        this.renderSettingsList();
+
+        if (window.notificationManager) {
+            window.notificationManager.success('Đã xóa mẫu tin nhắn!');
+        }
+
+        console.log('[QUICK-REPLY] ✅ Deleted template:', id);
     }
 }
 
