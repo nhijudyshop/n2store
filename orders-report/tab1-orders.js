@@ -743,7 +743,8 @@ function performTableSearch() {
 
     const auth = window.authManager ? window.authManager.getAuthState() : null;
     const currentUserType = auth && auth.userType ? auth.userType : null;
-    const currentUserId = auth && auth.id ? auth.id : null; // Assuming auth has id
+    const currentDisplayName = auth && auth.displayName ? auth.displayName : null;
+    const currentUserId = auth && auth.id ? auth.id : null;
 
     // Fallback: Check username string for Admin
     if (!isAdmin && currentUserType) {
@@ -755,7 +756,7 @@ function performTableSearch() {
     }
 
     if (!isAdmin && employeeRanges.length > 0) {
-        console.log('[FILTER] Current user:', currentUserType, 'ID:', currentUserId);
+        console.log('[FILTER] Current user:', currentDisplayName || currentUserType, 'ID:', currentUserId);
 
         let userRange = null;
 
@@ -765,13 +766,19 @@ function performTableSearch() {
             if (userRange) console.log('[FILTER] Matched by ID');
         }
 
-        // 2. If not found, try matching by full name
-        if (!userRange && currentUserType) {
-            userRange = employeeRanges.find(r => r.name === currentUserType);
-            if (userRange) console.log('[FILTER] Matched by Full Name');
+        // 2. If not found, try matching by Display Name (Exact match)
+        if (!userRange && currentDisplayName) {
+            userRange = employeeRanges.find(r => r.name === currentDisplayName);
+            if (userRange) console.log('[FILTER] Matched by Display Name');
         }
 
-        // 3. If not found, try matching by short name (before "-")
+        // 3. If not found, try matching by User Type (Legacy)
+        if (!userRange && currentUserType) {
+            userRange = employeeRanges.find(r => r.name === currentUserType);
+            if (userRange) console.log('[FILTER] Matched by User Type');
+        }
+
+        // 4. If not found, try matching by short name (before "-")
         if (!userRange && currentUserType) {
             const shortName = currentUserType.split('-')[0].trim();
             userRange = employeeRanges.find(r => r.name === shortName);
@@ -782,7 +789,7 @@ function performTableSearch() {
             const debugInfo = `
 🔍 THÔNG TIN DEBUG:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 Tài khoản hiện tại: ${currentUserType}
+👤 Tài khoản hiện tại: ${currentDisplayName || currentUserType}
 🆔 User ID: ${currentUserId || 'Không có'}
 🔐 Là Admin? ${isAdmin ? 'CÓ' : 'KHÔNG'}
 📊 STT được phân: ${userRange.start} - ${userRange.end}
@@ -791,22 +798,22 @@ function performTableSearch() {
 ⚠️ Đang áp dụng filter cho bạn!
             `.trim();
 
-            console.warn(debugInfo);
+            console.log(debugInfo);
 
-            // Show alert once per session
-            if (!window._filterDebugShown) {
-                alert(debugInfo);
-                window._filterDebugShown = true;
-            }
+            // Alert removed as per user request
+            // if (!window._filterDebugShown) {
+            //     alert(debugInfo);
+            //     window._filterDebugShown = true;
+            // }
 
             tempData = tempData.filter(order => {
                 const stt = parseInt(order.SessionIndex);
                 if (isNaN(stt)) return false;
                 return stt >= userRange.start && stt <= userRange.end;
             });
-            console.log(`[FILTER] Applied STT range ${userRange.start}-${userRange.end} for ${currentUserType}`);
+            console.log(`[FILTER] Applied STT range ${userRange.start}-${userRange.end} for ${currentDisplayName || currentUserType}`);
         } else {
-            console.log('[FILTER] No range found for user:', currentUserType);
+            console.log('[FILTER] No range found for user:', currentDisplayName || currentUserType);
         }
     } else if (isAdmin) {
         console.log('[FILTER] User is Admin - NO FILTER APPLIED');
