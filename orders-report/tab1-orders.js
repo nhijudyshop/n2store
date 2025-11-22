@@ -171,71 +171,133 @@ window.addEventListener("DOMContentLoaded", async function () {
         }
     });
 
-    // Load saved employee ranges
-    loadEmployeeRanges();
+    // Load employee table from Firestore
+    loadAndRenderEmployeeTable();
 });
 
 // =====================================================
 // EMPLOYEE RANGE MANAGEMENT FUNCTIONS
 // =====================================================
-function loadEmployeeRanges() {
-    const saved = localStorage.getItem('tab1_employee_ranges');
-    if (saved) {
-        try {
-            employeeRanges = JSON.parse(saved);
-            document.getElementById('employeeRangeInput').value = formatEmployeeRanges(employeeRanges);
-            console.log('[EMPLOYEE] Loaded employee ranges:', employeeRanges);
-        } catch (e) {
-            console.error('[EMPLOYEE] Error loading employee ranges:', e);
+async function loadAndRenderEmployeeTable() {
+    try {
+        // Initialize user loader
+        if (window.userEmployeeLoader) {
+            await window.userEmployeeLoader.initialize();
+            const users = await window.userEmployeeLoader.loadUsers();
+
+            if (users.length > 0) {
+                renderEmployeeTable(users);
+            } else {
+                console.warn('[EMPLOYEE] No users found');
+                const tbody = document.getElementById('employeeAssignmentBody');
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Không tìm thấy nhân viên nào</td></tr>';
+            }
+        } else {
+            console.error('[EMPLOYEE] userEmployeeLoader not available');
         }
+    } catch (error) {
+        console.error('[EMPLOYEE] Error loading employee table:', error);
+        const tbody = document.getElementById('employeeAssignmentBody');
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: #ef4444;">Lỗi tải danh sách nhân viên</td></tr>';
     }
 }
 
-function formatEmployeeRanges(ranges) {
-    return ranges.map(r => `${r.start}-${r.end} ${r.name}`).join(', ');
+function renderEmployeeTable(users) {
+    const tbody = document.getElementById('employeeAssignmentBody');
+
+    // Load saved ranges from localStorage
+    const saved = localStorage.getItem('tab1_employee_ranges');
+    let savedRanges = {};
+
+    if (saved) {
+        try {
+            const ranges = JSON.parse(saved);
+            // Convert array to object for easy lookup
+            ranges.forEach(range => {
+                savedRanges[range.name] = { start: range.start, end: range.end };
+            });
+        } catch (e) {
+            console.error('[EMPLOYEE] Error loading saved ranges:', e);
+        }
+    }
+
+    // Render table rows
+    let html = '';
+    users.forEach(user => {
+        const savedRange = savedRanges[user.displayName] || { start: '', end: '' };
+
+        html += `
+            <tr>
+                <td style="padding: 8px;">${user.displayName}</td>
+                <td style="padding: 8px; text-align: center;">
+                    <input type="number"
+                        class="employee-range-input"
+                        data-user-id="${user.id}"
+                        data-user-name="${user.displayName}"
+                        data-field="start"
+                        value="${savedRange.start}"
+                        placeholder="Từ"
+                        style="width: 80px; padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 4px; text-align: center;">
+                </td>
+                <td style="padding: 8px; text-align: center;">
+                    <input type="number"
+                        class="employee-range-input"
+                        data-user-id="${user.id}"
+                        data-user-name="${user.displayName}"
+                        data-field="end"
+                        value="${savedRange.end}"
+                        placeholder="Đến"
+                        style="width: 80px; padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 4px; text-align: center;">
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
 }
 
-function parseEmployeeRanges(input) {
-    if (!input || !input.trim()) return [];
+function applyEmployeeRanges() {
+    const inputs = document.querySelectorAll('.employee-range-input');
+    const rangesMap = {};
 
-    const ranges = [];
-    const parts = input.split(',');
+    // Collect ranges from inputs
+    inputs.forEach(input => {
+        const userName = input.getAttribute('data-user-name');
+        const field = input.getAttribute('data-field');
+        const value = input.value.trim();
 
-    parts.forEach(part => {
-        part = part.trim();
-        // Format: "1-200 Huyền" or "201-400 Hạnh"
-        const match = part.match(/(\d+)\s*-\s*(\d+)\s+(.+)/);
-        if (match) {
-            ranges.push({
-                start: parseInt(match[1]),
-                end: parseInt(match[2]),
-                name: match[3].trim()
+        if (!rangesMap[userName]) {
+            rangesMap[userName] = {};
+        }
+
+        rangesMap[userName][field] = value ? parseInt(value) : null;
+    });
+
+    // Build employee ranges array
+    employeeRanges = [];
+
+    Object.keys(rangesMap).forEach(userName => {
+        const range = rangesMap[userName];
+
+        // Only include if both start and end are filled
+        if (range.start !== null && range.end !== null && range.start > 0 && range.end > 0) {
+            employeeRanges.push({
+                name: userName,
+                start: range.start,
+                end: range.end
             });
         }
     });
 
-    return ranges;
-}
-
-function applyEmployeeRanges() {
-    const input = document.getElementById('employeeRangeInput').value;
-    const ranges = parseEmployeeRanges(input);
-
-    if (ranges.length === 0) {
-        alert('Vui lòng nhập đúng định dạng: 1-200 Huyền, 201-400 Hạnh');
-        return;
-    }
-
-    employeeRanges = ranges;
-    localStorage.setItem('tab1_employee_ranges', JSON.stringify(ranges));
-
-    const names = ranges.map(r => r.name).join(', ');
+    // Save to localStorage
+    localStorage.setItem('tab1_employee_ranges', JSON.stringify(employeeRanges));
 
     // Show notification
+    const assignedCount = employeeRanges.length;
     if (window.notificationManager) {
-        window.notificationManager.show(`✅ Đã lưu phân chia cho: ${names}`, 'success');
+        window.notificationManager.show(`✅ Đã lưu phân chia cho ${assignedCount} nhân viên`, 'success');
     } else {
-        alert(`✅ Đã lưu phân chia cho: ${names}`);
+        alert(`✅ Đã lưu phân chia cho ${assignedCount} nhân viên`);
     }
 
     // Re-render table to show employee names
@@ -1666,7 +1728,7 @@ function renderByEmployee() {
                             <tr>
                                 <th><input type="checkbox" class="employee-select-all" data-employee="${employeeName}" /></th>
                                 <th data-column="stt">STT</th>
-                                <th data-column="employee">Nhân viên</th>
+                                <th data-column="employee" style="width: 90px;">Nhân viên</th>
                                 <th data-column="tag">TAG</th>
                                 <th data-column="order-code">Mã ĐH</th>
                                 <th data-column="customer">Khách hàng</th>
