@@ -1558,18 +1558,151 @@ function highlightUpdatedRow(orderId) {
 }
 
 function renderTable() {
-    const tbody = document.getElementById("tableBody");
     if (displayedData.length === 0) {
+        const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
             '<tr><td colspan="16" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
-    tbody.innerHTML = displayedData.map(createRowHTML).join("");
+
+    // Group by employee if ranges are configured
+    if (employeeRanges.length > 0) {
+        renderByEmployee();
+    } else {
+        renderAllOrders();
+    }
 
     // Apply column visibility after rendering
     if (window.columnVisibility) {
         window.columnVisibility.initialize();
     }
+}
+
+function renderAllOrders() {
+    const tableContainer = document.getElementById('tableContainer');
+
+    // Show the default table wrapper
+    const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
+    if (defaultTableWrapper) {
+        defaultTableWrapper.style.display = 'block';
+    }
+
+    // Remove any existing employee sections
+    const existingSections = tableContainer.querySelectorAll('.employee-section');
+    existingSections.forEach(section => section.remove());
+
+    // Render all orders in the default table
+    const tbody = document.getElementById("tableBody");
+    tbody.innerHTML = displayedData.map(createRowHTML).join("");
+}
+
+function renderByEmployee() {
+    // Group data by employee
+    const dataByEmployee = {};
+
+    // Initialize groups for each employee
+    employeeRanges.forEach(range => {
+        dataByEmployee[range.name] = [];
+    });
+
+    // Add "Khác" category for orders without employee
+    dataByEmployee['Khác'] = [];
+
+    // Group orders by employee
+    displayedData.forEach(order => {
+        const employeeName = getEmployeeName(order.SessionIndex) || 'Khác';
+        if (!dataByEmployee[employeeName]) {
+            dataByEmployee[employeeName] = [];
+        }
+        dataByEmployee[employeeName].push(order);
+    });
+
+    // Get ordered list of employees
+    const orderedEmployees = employeeRanges.map(r => r.name).filter(name => dataByEmployee[name].length > 0);
+
+    // Add "Khác" at the end if it has data
+    if (dataByEmployee['Khác'].length > 0) {
+        orderedEmployees.push('Khác');
+    }
+
+    // Hide the default table container
+    const tableContainer = document.getElementById('tableContainer');
+    const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
+    if (defaultTableWrapper) {
+        defaultTableWrapper.style.display = 'none';
+    }
+
+    // Remove existing employee sections
+    const existingSections = tableContainer.querySelectorAll('.employee-section');
+    existingSections.forEach(section => section.remove());
+
+    // Render each employee section
+    orderedEmployees.forEach(employeeName => {
+        const orders = dataByEmployee[employeeName];
+        const totalAmount = orders.reduce((sum, order) => sum + (order.TotalAmount || 0), 0);
+        const totalQuantity = orders.reduce((sum, order) => sum + (order.TotalQuantity || 0), 0);
+
+        const section = document.createElement('div');
+        section.className = 'employee-section';
+
+        section.innerHTML = `
+            <div class="employee-header">
+                <div>
+                    <div class="employee-name">
+                        <i class="fas fa-user-circle"></i> ${employeeName}
+                    </div>
+                    <div class="employee-stats">
+                        ${orders.length} đơn hàng • ${totalQuantity} sản phẩm • ${totalAmount.toLocaleString('vi-VN')}đ
+                    </div>
+                </div>
+                <div class="employee-total">
+                    ${orders.length} đơn
+                </div>
+            </div>
+            <div class="employee-table-wrapper">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" class="employee-select-all" data-employee="${employeeName}" /></th>
+                                <th data-column="stt">STT</th>
+                                <th data-column="employee">Nhân viên</th>
+                                <th data-column="tag">TAG</th>
+                                <th data-column="order-code">Mã ĐH</th>
+                                <th data-column="customer">Khách hàng</th>
+                                <th data-column="messages">Tin nhắn</th>
+                                <th data-column="comments">Bình luận</th>
+                                <th data-column="phone">SĐT</th>
+                                <th data-column="address">Địa chỉ</th>
+                                <th data-column="notes">Ghi chú</th>
+                                <th data-column="total">Tổng tiền</th>
+                                <th data-column="quantity">SL</th>
+                                <th data-column="created-date">Ngày tạo</th>
+                                <th data-column="status">Trạng thái</th>
+                                <th data-column="actions">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orders.map(createRowHTML).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        tableContainer.appendChild(section);
+    });
+
+    // Add event listeners for employee select all checkboxes
+    const employeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
+    employeeSelectAlls.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const section = this.closest('.employee-section');
+            const checkboxes = section.querySelectorAll('tbody input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateActionButtons();
+        });
+    });
 }
 
 function createRowHTML(order) {
