@@ -12,6 +12,8 @@ class MessageTemplateManager {
         this.currentOrder = null;
         this.selectedOrders = [];
         this.DEBUG_MODE = true; // Enable debug logging
+        this.mode = 'send'; // 'send' or 'insert'
+        this.targetInputId = null; // Input element to insert text into
         this.init();
     }
 
@@ -150,9 +152,15 @@ class MessageTemplateManager {
         this.log('✅ Event listeners attached');
     }
 
-    async openModal(orderData = null) {
+    async openModal(orderData = null, mode = 'send', targetInputId = null) {
         this.log('📂 Opening modal...');
-        
+        this.log('📋 Mode:', mode);
+        this.log('📋 Target input:', targetInputId);
+
+        // Set mode and target
+        this.mode = mode;
+        this.targetInputId = targetInputId;
+
         if (Array.isArray(orderData)) {
             this.selectedOrders = orderData;
             this.currentOrder = orderData[0];
@@ -171,6 +179,9 @@ class MessageTemplateManager {
         modal?.classList.add('active');
         document.body.style.overflow = 'hidden';
 
+        // Update button text based on mode
+        this.updateModalUI();
+
         // IMPORTANT: Always reload templates when opening modal
         this.log('🔄 Force reloading templates...');
         await this.loadTemplates();
@@ -184,10 +195,35 @@ class MessageTemplateManager {
         this.selectedTemplate = null;
         this.currentOrder = null;
         this.selectedOrders = [];
-        
+        this.mode = 'send';
+        this.targetInputId = null;
+
         const searchInput = document.getElementById('messageSearchInput');
         if (searchInput) searchInput.value = '';
         document.getElementById('messageClearSearch')?.classList.remove('show');
+    }
+
+    updateModalUI() {
+        const sendBtn = document.getElementById('messageBtnSend');
+        const modalTitle = document.querySelector('.message-modal-header h3');
+
+        if (this.mode === 'insert') {
+            // Insert mode - change button to "Chọn"
+            if (sendBtn) {
+                sendBtn.innerHTML = '<i class="fas fa-check"></i> Chọn';
+            }
+            if (modalTitle) {
+                modalTitle.innerHTML = '<i class="fas fa-comment-dots"></i> Chọn tin nhắn mẫu';
+            }
+        } else {
+            // Send mode - default button
+            if (sendBtn) {
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+            }
+            if (modalTitle) {
+                modalTitle.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi tin nhắn Facebook';
+            }
+        }
     }
 
     isModalOpen() {
@@ -519,6 +555,13 @@ class MessageTemplateManager {
             return;
         }
 
+        // INSERT MODE - just insert text into input
+        if (this.mode === 'insert') {
+            this.insertTemplateToInput();
+            return;
+        }
+
+        // SEND MODE - continue with normal flow
         try {
             const ordersCount = this.selectedOrders.length;
             this.log('📤 Sending message to', ordersCount, 'order(s)');
@@ -871,7 +914,7 @@ class MessageTemplateManager {
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-        
+
         try {
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
@@ -881,6 +924,65 @@ class MessageTemplateManager {
             this.log('❌ Fallback copy error:', err);
             document.body.removeChild(textArea);
             return false;
+        }
+    }
+
+    insertTemplateToInput() {
+        this.log('📝 Inserting template to input...');
+
+        if (!this.targetInputId) {
+            this.log('❌ No target input specified');
+            if (window.notificationManager) {
+                window.notificationManager.error('Không tìm thấy ô nhập liệu');
+            }
+            return;
+        }
+
+        const inputElement = document.getElementById(this.targetInputId);
+        if (!inputElement) {
+            this.log('❌ Target input not found:', this.targetInputId);
+            if (window.notificationManager) {
+                window.notificationManager.error('Không tìm thấy ô nhập liệu');
+            }
+            return;
+        }
+
+        // Get template content (plain text only)
+        let content = this.selectedTemplate.BodyPlain || '';
+
+        // If we have order data, replace placeholders
+        if (this.currentOrder) {
+            this.log('🔄 Replacing placeholders with order data...');
+            content = this.replacePlaceholders(content, this.currentOrder);
+        }
+
+        // Insert into input
+        const currentValue = inputElement.value || '';
+        const newValue = currentValue ? `${currentValue}\n${content}` : content;
+        inputElement.value = newValue;
+
+        this.log('✅ Template inserted to input');
+        this.log('  - Input ID:', this.targetInputId);
+        this.log('  - Content length:', content.length);
+
+        // Show notification
+        if (window.notificationManager) {
+            window.notificationManager.success(
+                `Đã chèn template: ${this.selectedTemplate.Name}`,
+                2000
+            );
+        }
+
+        // Close modal
+        this.closeModal();
+
+        // Focus on input
+        inputElement.focus();
+
+        // Move cursor to end
+        if (inputElement.setSelectionRange) {
+            const len = inputElement.value.length;
+            inputElement.setSelectionRange(len, len);
         }
     }
 

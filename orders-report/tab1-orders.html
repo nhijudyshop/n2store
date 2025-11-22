@@ -485,6 +485,7 @@
 
                             <!-- Message Template Icon -->
                             <button class="toolbar-icon-btn" title="Tin nhắn mẫu"
+                                onclick="openChatTemplateModal()"
                                 style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
                                 onmouseover="this.style.background='#f3f4f6';"
                                 onmouseout="this.style.background='none';">
@@ -1099,6 +1100,39 @@
                 }
             });
         });
+
+        /**
+         * Open message template modal for inserting into chat input
+         */
+        function openChatTemplateModal() {
+            console.log('🔔 Opening chat template modal for insert mode...');
+
+            if (!window.messageTemplateManager) {
+                console.error('❌ MessageTemplateManager not initialized');
+                if (window.notificationManager) {
+                    window.notificationManager.error('Hệ thống chưa sẵn sàng, vui lòng thử lại');
+                }
+                return;
+            }
+
+            // Get current order data if available (from chat modal context)
+            let currentOrderData = null;
+
+            // Try to get order data from global chat context
+            if (window.currentChatOrder) {
+                currentOrderData = window.currentChatOrder;
+                console.log('📦 Using order data from window.currentChatOrder:', currentOrderData);
+            }
+
+            // Open modal in INSERT mode with target input
+            window.messageTemplateManager.openModal(
+                currentOrderData,  // orderData
+                'insert',          // mode
+                'chatReplyInput'   // targetInputId
+            );
+
+            console.log('✅ Chat template modal opened');
+        }
     </script>
 
     <!-- Save Indicator -->
