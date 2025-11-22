@@ -7,9 +7,11 @@ class QuickReplyManager {
         this.replies = [];
         this.targetInputId = null;
         this.STORAGE_KEY = 'quickReplies';
+        this.FIREBASE_COLLECTION = 'quickReplies';
         this.autocompleteActive = false;
         this.selectedSuggestionIndex = -1;
         this.currentSuggestions = [];
+        this.db = null;
         this.init();
     }
 
@@ -18,9 +20,24 @@ class QuickReplyManager {
         this.createModalDOM();
         this.createSettingsModalDOM();
         this.createAutocompleteDOM();
+        this.initFirebase();
         this.loadReplies();
         this.attachEventListeners();
         this.setupAutocomplete();
+    }
+
+    initFirebase() {
+        try {
+            // Check if Firebase is initialized
+            if (typeof firebase !== 'undefined' && firebase.firestore) {
+                this.db = firebase.firestore();
+                console.log('[QUICK-REPLY] ✅ Firebase Firestore initialized');
+            } else {
+                console.warn('[QUICK-REPLY] ⚠️ Firebase not available, using localStorage only');
+            }
+        } catch (error) {
+            console.error('[QUICK-REPLY] ❌ Firebase init error:', error);
+        }
     }
 
     createSettingsModalDOM() {
@@ -147,8 +164,42 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] ✅ Event listeners attached');
     }
 
-    loadReplies() {
-        // Try to load from localStorage
+    async loadReplies() {
+        console.log('[QUICK-REPLY] 📥 Loading replies...');
+
+        // Try load from Firebase first
+        if (this.db) {
+            try {
+                console.log('[QUICK-REPLY] 🔄 Loading from Firebase...');
+                const snapshot = await this.db.collection(this.FIREBASE_COLLECTION)
+                    .orderBy('id', 'asc')
+                    .get();
+
+                if (!snapshot.empty) {
+                    this.replies = snapshot.docs.map(doc => ({
+                        ...doc.data(),
+                        docId: doc.id // Keep Firestore doc ID for updates
+                    }));
+
+                    // Save to localStorage as cache
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+
+                    console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase');
+                    return;
+                } else {
+                    console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, creating defaults...');
+                    // No data in Firebase, create defaults
+                    this.replies = this.getDefaultReplies();
+                    await this.saveReplies(); // Save to Firebase
+                    return;
+                }
+            } catch (error) {
+                console.error('[QUICK-REPLY] ❌ Firebase load error:', error);
+                // Fallback to localStorage
+            }
+        }
+
+        // Fallback: Try to load from localStorage
         const stored = localStorage.getItem(this.STORAGE_KEY);
 
         if (stored) {
@@ -162,7 +213,7 @@ class QuickReplyManager {
         } else {
             // Use default replies
             this.replies = this.getDefaultReplies();
-            this.saveReplies();
+            await this.saveReplies();
             console.log('[QUICK-REPLY] ✅ Loaded default replies');
         }
     }
@@ -256,12 +307,47 @@ class QuickReplyManager {
         ];
     }
 
-    saveReplies() {
+    async saveReplies() {
+        console.log('[QUICK-REPLY] 💾 Saving replies...');
+
+        // Save to localStorage as cache
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
-            console.log('[QUICK-REPLY] ✅ Saved', this.replies.length, 'replies to localStorage');
+            console.log('[QUICK-REPLY] ✅ Saved to localStorage');
         } catch (e) {
-            console.error('[QUICK-REPLY] ❌ Error saving replies:', e);
+            console.error('[QUICK-REPLY] ❌ localStorage save error:', e);
+        }
+
+        // Save to Firebase
+        if (this.db) {
+            try {
+                console.log('[QUICK-REPLY] 🔄 Syncing to Firebase...');
+
+                // Use batch write for better performance
+                const batch = this.db.batch();
+
+                // Delete all existing documents first
+                const existingDocs = await this.db.collection(this.FIREBASE_COLLECTION).get();
+                existingDocs.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+
+                // Add all current replies
+                this.replies.forEach(reply => {
+                    const docRef = this.db.collection(this.FIREBASE_COLLECTION).doc();
+                    const replyData = { ...reply };
+                    delete replyData.docId; // Remove docId before saving
+                    batch.set(docRef, replyData);
+                });
+
+                await batch.commit();
+                console.log('[QUICK-REPLY] ✅ Synced', this.replies.length, 'replies to Firebase');
+            } catch (error) {
+                console.error('[QUICK-REPLY] ❌ Firebase save error:', error);
+                // Continue even if Firebase save fails
+            }
+        } else {
+            console.log('[QUICK-REPLY] ⚠️ Firebase not available, saved to localStorage only');
         }
     }
 
@@ -668,7 +754,7 @@ class QuickReplyManager {
         listEl.innerHTML = itemsHTML;
     }
 
-    addNewTemplate() {
+    async addNewTemplate() {
         const shortcut = prompt('Nhập ký tự tắt (VD: CÁMƠN, STK):');
         if (!shortcut) return;
 
@@ -693,7 +779,7 @@ class QuickReplyManager {
         };
 
         this.replies.push(newReply);
-        this.saveReplies();
+        await this.saveReplies();
         this.renderSettingsList();
 
         if (window.notificationManager) {
@@ -703,7 +789,7 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] ✅ Added new template:', shortcut);
     }
 
-    editTemplate(id) {
+    async editTemplate(id) {
         const reply = this.replies.find(r => r.id === id);
         if (!reply) return;
 
@@ -722,7 +808,7 @@ class QuickReplyManager {
         reply.topicColor = topicColor;
         reply.message = message;
 
-        this.saveReplies();
+        await this.saveReplies();
         this.renderSettingsList();
 
         if (window.notificationManager) {
@@ -732,7 +818,7 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] ✅ Updated template:', id);
     }
 
-    deleteTemplate(id) {
+    async deleteTemplate(id) {
         const reply = this.replies.find(r => r.id === id);
         if (!reply) return;
 
@@ -741,7 +827,7 @@ class QuickReplyManager {
         }
 
         this.replies = this.replies.filter(r => r.id !== id);
-        this.saveReplies();
+        await this.saveReplies();
         this.renderSettingsList();
 
         if (window.notificationManager) {
