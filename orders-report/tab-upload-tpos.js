@@ -40,32 +40,146 @@
     // PRODUCT ENCODING/DECODING UTILITIES
     // =====================================================
     const ENCODE_KEY = 'live';
+    const BASE_TIME = 1704067200000; // 2024-01-01 00:00:00 UTC
+
+    /**
+     * Base64URL encode - compact format without padding
+     * @param {string} str - String to encode
+     * @returns {string} Base64URL encoded string
+     */
+    function base64UrlEncode(str) {
+        return btoa(String.fromCharCode(...new TextEncoder().encode(str)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+    }
+
+    /**
+     * Base64URL decode
+     * @param {string} str - Base64URL encoded string
+     * @returns {string} Decoded string
+     */
+    function base64UrlDecode(str) {
+        const padding = '='.repeat((4 - str.length % 4) % 4);
+        const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
+        const binary = atob(base64);
+        return new TextDecoder().decode(
+            Uint8Array.from(binary, c => c.charCodeAt(0))
+        );
+    }
+
+    /**
+     * Generate short checksum (6 characters)
+     * @param {string} str - String to checksum
+     * @returns {string} Checksum in base36 (6 chars)
+     */
+    function shortChecksum(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash).toString(36).substring(0, 6);
+    }
 
     /**
      * Encode product info with XOR cipher using key "live"
+     * NEW FORMAT: Includes orderId, compact data, checksum, Base64URL
+     * @param {number} orderId - Order ID
      * @param {string} productCode - Product code
      * @param {number} quantity - Quantity
      * @param {number} price - Price
      * @param {number} timestamp - Optional timestamp (defaults to current time)
-     * @returns {string} Encoded string
+     * @returns {string} Base64URL encoded string
      */
-    function encodeProductLine(productCode, quantity, price, timestamp = null) {
-        // Generate timestamp if not provided to ensure uniqueness
+    function encodeProductLine(orderId, productCode, quantity, price, timestamp = null) {
+        // Generate timestamp if not provided
         const ts = timestamp || Date.now();
-        const rawString = `${productCode}|${quantity}|${price}|${ts}`;
-        return xorEncrypt(rawString, ENCODE_KEY);
+
+        // Use relative timestamp (seconds since BASE_TIME) for compactness
+        const relativeTime = Math.floor((ts - BASE_TIME) / 1000);
+
+        // Compact format: use comma separator (shorter than pipe)
+        const data = `${orderId},${productCode},${quantity},${price},${relativeTime}`;
+
+        // Generate checksum (6 chars)
+        const checksum = shortChecksum(data);
+
+        // Full data with checksum
+        const fullData = `${data},${checksum}`;
+
+        // XOR encrypt
+        const encrypted = xorEncrypt(fullData, ENCODE_KEY);
+
+        // Base64URL encode (no padding, URL-safe)
+        return base64UrlEncode(encrypted);
     }
 
     /**
-     * Decode product line
+     * Decode product line - supports both old and new formats
+     * NEW FORMAT: Base64URL, comma separator, orderId, checksum
+     * OLD FORMAT: Base64, pipe separator, no orderId
      * @param {string} encoded - Encoded string
-     * @returns {object|null} { productCode, quantity, price, timestamp } or null if invalid
+     * @param {number} expectedOrderId - Expected order ID (for verification in new format)
+     * @returns {object|null} { orderId?, productCode, quantity, price, timestamp } or null if invalid
      */
-    function decodeProductLine(encoded) {
+    function decodeProductLine(encoded, expectedOrderId = null) {
         try {
+            // Detect format by checking for Base64URL characters
+            const isNewFormat = encoded.includes('-') || encoded.includes('_') || (!encoded.includes('+') && !encoded.includes('/') && !encoded.includes('='));
+
+            if (isNewFormat) {
+                // ===== NEW FORMAT: Base64URL + orderId + checksum =====
+                try {
+                    // Base64URL decode
+                    const decrypted = base64UrlDecode(encoded);
+
+                    // XOR decrypt
+                    const fullData = xorDecrypt(decrypted, ENCODE_KEY);
+
+                    // Parse
+                    const parts = fullData.split(',');
+                    if (parts.length !== 6) {
+                        // Not new format, fallback to old format
+                        throw new Error('Not new format');
+                    }
+
+                    const [orderId, productCode, quantity, price, relativeTime, checksum] = parts;
+
+                    // Verify checksum
+                    const data = `${orderId},${productCode},${quantity},${price},${relativeTime}`;
+                    if (checksum !== shortChecksum(data)) {
+                        console.warn('⚠️ Checksum mismatch - data may be corrupted');
+                        return null;
+                    }
+
+                    // Verify order ID if provided
+                    if (expectedOrderId !== null && orderId !== expectedOrderId.toString()) {
+                        console.warn(`⚠️ OrderId mismatch: encoded=${orderId}, expected=${expectedOrderId}`);
+                        return null;
+                    }
+
+                    // Convert relative timestamp back to absolute
+                    const timestamp = parseInt(relativeTime) * 1000 + BASE_TIME;
+
+                    return {
+                        orderId: parseInt(orderId),
+                        productCode,
+                        quantity: parseInt(quantity),
+                        price: parseFloat(price),
+                        timestamp
+                    };
+                } catch (newFormatError) {
+                    // Fallback to old format
+                    console.log('New format decode failed, trying old format...');
+                }
+            }
+
+            // ===== OLD FORMAT: Base64 + pipe separator =====
             const decoded = xorDecrypt(encoded, ENCODE_KEY);
             const parts = decoded.split('|');
-            // Support both old format (3 parts) and new format (4 parts with timestamp)
+
+            // Support both old format (3 parts) and old format with timestamp (4 parts)
             if (parts.length !== 3 && parts.length !== 4) return null;
 
             const result = {
@@ -126,13 +240,14 @@
 
     /**
      * Append encoded products to order Note
+     * @param {number} orderId - Order ID
      * @param {string} currentNote - Current order note (can be null/empty)
      * @param {array} products - Array of { productCode, quantity, price }
      * @returns {string} Updated note with encoded products
      */
-    function appendEncodedProducts(currentNote, products) {
+    function appendEncodedProducts(orderId, currentNote, products) {
         const encodedLines = products.map(p =>
-            encodeProductLine(p.productCode, p.quantity, p.price)
+            encodeProductLine(orderId, p.productCode, p.quantity, p.price)
         );
 
         const encodedBlock = encodedLines.join('\n');
@@ -1282,7 +1397,7 @@ ${encodedString}
                     if (productsToEncode.length > 0) {
                         console.log(`[UPLOAD] 🔐 Encoding ${productsToEncode.length} products to Note...`);
                         const currentNote = orderData.Note || '';
-                        orderData.Note = appendEncodedProducts(currentNote, productsToEncode);
+                        orderData.Note = appendEncodedProducts(orderId, currentNote, productsToEncode);
                         console.log(`[UPLOAD] ✅ Updated order Note with encoded products`);
                     }
 
@@ -3356,7 +3471,9 @@ ${encodedString}
     // DEBUG/TEST FUNCTIONS (Exposed to window for testing)
     // =====================================================
     window.testProductEncoding = function () {
-        console.log('=== Testing Product Encoding ===\n');
+        console.log('=== Testing Product Encoding (NEW FORMAT) ===\n');
+
+        const testOrderId = 12345; // Test order ID
 
         // Test 1: Single product
         const products = [
@@ -3365,34 +3482,49 @@ ${encodedString}
             { productCode: 'ABC-123', quantity: 10, price: 50000 }
         ];
 
+        console.log('Test Order ID:', testOrderId);
         console.log('Original products:', products);
 
         // Encode
+        console.log('\n=== Testing Encoding ===\n');
         const encodedLines = products.map(p => {
-            const encoded = encodeProductLine(p.productCode, p.quantity, p.price);
-            console.log(`  ${p.productCode}|${p.quantity}|${p.price} → ${encoded}`);
+            const encoded = encodeProductLine(testOrderId, p.productCode, p.quantity, p.price);
+            console.log(`  Order ${testOrderId}: ${p.productCode}|${p.quantity}|${p.price} → ${encoded} (${encoded.length} chars)`);
             return encoded;
         });
 
-        console.log('\n=== Testing Decoding ===\n');
+        console.log('\n=== Testing Decoding (with correct orderId) ===\n');
 
-        // Decode
+        // Decode with correct orderId
         encodedLines.forEach((encoded, i) => {
-            const decoded = decodeProductLine(encoded);
+            const decoded = decodeProductLine(encoded, testOrderId);
             console.log(`  ${encoded} → `, decoded);
             const original = products[i];
-            const match = decoded.productCode === original.productCode &&
+            const match = decoded &&
+                decoded.orderId === testOrderId &&
+                decoded.productCode === original.productCode &&
                 decoded.quantity === original.quantity &&
                 decoded.price === original.price;
             console.log(`  Match: ${match ? '✅' : '❌'}`);
         });
 
+        console.log('\n=== Testing Decoding (with WRONG orderId - should fail) ===\n');
+
+        // Decode with wrong orderId (should return null)
+        const wrongOrderId = 99999;
+        encodedLines.forEach((encoded, i) => {
+            const decoded = decodeProductLine(encoded, wrongOrderId);
+            console.log(`  ${encoded} with orderId=${wrongOrderId} → `, decoded);
+            console.log(`  Expected to fail: ${decoded === null ? '✅' : '❌'}`);
+        });
+
         console.log('\n=== Testing Note Append ===\n');
 
         const currentNote = 'Khách VIP - Giao gấp trước 5h';
-        const updatedNote = appendEncodedProducts(currentNote, products);
+        const updatedNote = appendEncodedProducts(testOrderId, currentNote, products);
         console.log('Original Note:', currentNote);
         console.log('Updated Note:', updatedNote);
+        console.log('Note length:', updatedNote.length, 'chars');
 
         console.log('\n=== Testing Extract ===\n');
 
