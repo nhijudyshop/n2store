@@ -4191,6 +4191,144 @@ window.markChatAsRead = async function () {
 }
 
 // =====================================================
+// PRODUCT ENCODING/DECODING UTILITIES (for Note verification)
+// =====================================================
+const ENCODE_KEY = 'live';
+const BASE_TIME = 1704067200000; // 2024-01-01 00:00:00 UTC
+
+/**
+ * Base64URL decode
+ * @param {string} str - Base64URL encoded string
+ * @returns {string} Decoded string
+ */
+function base64UrlDecode(str) {
+    const padding = '='.repeat((4 - str.length % 4) % 4);
+    const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
+    const binary = atob(base64);
+    return new TextDecoder().decode(
+        Uint8Array.from(binary, c => c.charCodeAt(0))
+    );
+}
+
+/**
+ * Generate short checksum (6 characters)
+ * @param {string} str - String to checksum
+ * @returns {string} Checksum in base36 (6 chars)
+ */
+function shortChecksum(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36).substring(0, 6);
+}
+
+/**
+ * XOR decryption with key
+ * @param {string} encoded - Base64 encoded encrypted text
+ * @param {string} key - Decryption key
+ * @returns {string} Decrypted text
+ */
+function xorDecrypt(encoded, key) {
+    // Decode from base64
+    const encrypted = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+    const keyBytes = new TextEncoder().encode(key);
+    const decrypted = new Uint8Array(encrypted.length);
+
+    for (let i = 0; i < encrypted.length; i++) {
+        decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
+    }
+
+    return new TextDecoder().decode(decrypted);
+}
+
+/**
+ * Decode product line - supports both old and new formats
+ * NEW FORMAT: Base64URL, comma separator, orderId, checksum
+ * OLD FORMAT: Base64, pipe separator, no orderId
+ * @param {string} encoded - Encoded string
+ * @param {number} expectedOrderId - Expected order ID (for verification in new format)
+ * @returns {object|null} { orderId?, productCode, quantity, price, timestamp } or null if invalid
+ */
+function decodeProductLine(encoded, expectedOrderId = null) {
+    try {
+        // Detect format by checking for Base64URL characters
+        const isNewFormat = encoded.includes('-') || encoded.includes('_') || (!encoded.includes('+') && !encoded.includes('/') && !encoded.includes('='));
+
+        if (isNewFormat) {
+            // ===== NEW FORMAT: Base64URL + orderId + checksum =====
+            try {
+                // Base64URL decode
+                const decrypted = base64UrlDecode(encoded);
+
+                // XOR decrypt
+                const fullData = xorDecrypt(decrypted, ENCODE_KEY);
+
+                // Parse
+                const parts = fullData.split(',');
+                if (parts.length !== 6) {
+                    // Not new format, fallback to old format
+                    throw new Error('Not new format');
+                }
+
+                const [orderId, productCode, quantity, price, relativeTime, checksum] = parts;
+
+                // Verify checksum
+                const data = `${orderId},${productCode},${quantity},${price},${relativeTime}`;
+                if (checksum !== shortChecksum(data)) {
+                    console.debug('[DECODE] Checksum mismatch - data may be corrupted');
+                    return null;
+                }
+
+                // Verify order ID if provided
+                if (expectedOrderId !== null && orderId !== expectedOrderId.toString()) {
+                    console.debug(`[DECODE] OrderId mismatch: encoded=${orderId}, expected=${expectedOrderId}`);
+                    return null;
+                }
+
+                // Convert relative timestamp back to absolute
+                const timestamp = parseInt(relativeTime) * 1000 + BASE_TIME;
+
+                return {
+                    orderId: parseInt(orderId),
+                    productCode,
+                    quantity: parseInt(quantity),
+                    price: parseFloat(price),
+                    timestamp
+                };
+            } catch (newFormatError) {
+                // Fallback to old format
+                console.debug('[DECODE] New format decode failed, trying old format...');
+            }
+        }
+
+        // ===== OLD FORMAT: Base64 + pipe separator =====
+        const decoded = xorDecrypt(encoded, ENCODE_KEY);
+        const parts = decoded.split('|');
+
+        // Support both old format (3 parts) and old format with timestamp (4 parts)
+        if (parts.length !== 3 && parts.length !== 4) return null;
+
+        const result = {
+            productCode: parts[0],
+            quantity: parseInt(parts[1]),
+            price: parseFloat(parts[2])
+        };
+
+        // Add timestamp if present
+        if (parts.length === 4) {
+            result.timestamp = parseInt(parts[3]);
+        }
+
+        return result;
+    } catch (error) {
+        console.debug('[DECODE] Decode error:', error);
+        return null;
+    }
+}
+
+// =====================================================
 // NOTE EDITED DETECTION VIA FIREBASE SNAPSHOT
 // =====================================================
 
@@ -4235,6 +4373,79 @@ async function loadNoteSnapshots() {
 }
 
 /**
+ * Check if note contains VALID encoded products (belongs to this order)
+ * Verifies orderId to prevent cross-order copy attacks
+ * @param {string} note - Order note
+ * @param {number} expectedOrderId - Order ID to verify against
+ * @returns {boolean} - True if has valid encoded products belonging to this order
+ */
+function hasValidEncodedProducts(note, expectedOrderId) {
+    if (!note || !note.trim()) return false;
+
+    const lines = note.split('\n');
+    let foundValid = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Quick pattern check (NEW format: Base64URL - compact, no padding)
+        const isNewFormat = /^[A-Za-z0-9_-]{40,65}$/.test(trimmed);
+
+        // Quick pattern check (OLD format: Base64 with padding)
+        const isOldFormat = /^[A-Za-z0-9+/]{50,80}={0,2}$/.test(trimmed);
+
+        if (!isNewFormat && !isOldFormat) {
+            continue; // Not an encoded line
+        }
+
+        try {
+            // ===== NEW FORMAT: Has orderId → Verify! =====
+            if (isNewFormat) {
+                // Decode with expectedOrderId to verify
+                const decoded = decodeProductLine(trimmed, expectedOrderId);
+
+                if (decoded && decoded.orderId === expectedOrderId) {
+                    // ✅ Valid encoded product for THIS order
+                    foundValid = true;
+                    console.log(`[NOTE-TRACKER] ✅ Valid encoded line for order #${expectedOrderId}`);
+                } else {
+                    // ⚠️ Encoded line from ANOTHER order (copy attack) or decode failed
+                    // Try decode without verification to see original orderId
+                    const decodedNoCheck = decodeProductLine(trimmed, null);
+                    if (decodedNoCheck && decodedNoCheck.orderId) {
+                        console.warn(
+                            `[NOTE-TRACKER] ⚠️ Order #${expectedOrderId} contains COPIED encoded line from Order #${decodedNoCheck.orderId} - REJECTED`
+                        );
+                    } else {
+                        console.warn(
+                            `[NOTE-TRACKER] ⚠️ Order #${expectedOrderId} has invalid encoded line (checksum fail or corrupted)`
+                        );
+                    }
+                }
+            }
+
+            // ===== OLD FORMAT: No orderId → Accept for backward compatibility =====
+            else if (isOldFormat) {
+                const decoded = decodeProductLine(trimmed);
+                if (decoded && decoded.productCode) {
+                    // Old format doesn't have orderId to verify
+                    // Accept as valid (backward compatibility)
+                    foundValid = true;
+                    console.log(`[NOTE-TRACKER] ℹ️ Found old format encoded line (no orderId verification available)`);
+                }
+            }
+
+        } catch (e) {
+            // Decode failed, not a valid encoded line
+            console.debug(`[NOTE-TRACKER] Failed to decode line: ${trimmed.substring(0, 20)}...`);
+            continue;
+        }
+    }
+
+    return foundValid;
+}
+
+/**
  * Compare current notes with snapshots and detect edits
  * @param {Array} orders - Array of order objects
  * @param {Object} snapshots - Map of orderId -> snapshot
@@ -4266,14 +4477,26 @@ async function compareAndUpdateNoteStatus(orders, snapshots) {
                 order.noteEdited = false;
             }
         } else {
-            // No snapshot exists - save current note as baseline
+            // No snapshot exists - only save if note has valid encoded products
             order.noteEdited = false;
-            newSnapshotsToSave[orderId] = {
-                note: currentNote,
-                code: order.Code,
-                stt: order.SessionIndex,
-                timestamp: Date.now()
-            };
+
+            // ✅ NEW: Verify orderId in encoded products to prevent cross-order copy
+            if (hasValidEncodedProducts(currentNote, orderId)) {
+                // Has valid encoded products belonging to THIS order → Save snapshot
+                console.log(`[NOTE-TRACKER] 📸 Saving snapshot for order #${orderId} (has valid encoded products)`);
+
+                newSnapshotsToSave[orderId] = {
+                    note: currentNote,
+                    code: order.Code,
+                    stt: order.SessionIndex,
+                    timestamp: Date.now()
+                };
+            } else {
+                // No valid encoded products → Skip saving snapshot
+                if (currentNote) {
+                    console.log(`[NOTE-TRACKER] ⏭️ Skipping order #${orderId} (no valid encoded products)`);
+                }
+            }
         }
     });
 
