@@ -1096,8 +1096,20 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
         // 🎯 HÀM PARSE NGÀY TỪ TÊN CHIẾN DỊCH
         function extractCampaignDate(campaignName) {
             // Tìm pattern: DD/MM/YY hoặc DD/MM/YYYY (ví dụ: "11/11/25", "15/11/2025")
-            const match = campaignName.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
-            return match ? match[1] : null;
+            const match = campaignName.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+            if (!match) return null;
+
+            let day = match[1].padStart(2, '0');
+            let month = match[2].padStart(2, '0');
+            let year = match[3];
+
+            // Normalize year: convert YY → YYYY (assume 20YY)
+            if (year.length === 2) {
+                year = '20' + year;
+            }
+
+            // Return normalized format: DD/MM/YYYY
+            return `${day}/${month}/${year}`;
         }
 
         // 🎯 BƯỚC 2: GỘP CÁC CHIẾN DỊCH THEO NGÀY TRONG TÊN
