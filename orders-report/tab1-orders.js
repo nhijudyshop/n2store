@@ -172,7 +172,13 @@ window.addEventListener("DOMContentLoaded", async function () {
     });
 
     // Load employee table from Firestore
-    loadAndRenderEmployeeTable();
+    // loadAndRenderEmployeeTable(); // Moved to syncEmployeeRanges
+
+    // Check admin permission
+    checkAdminPermission();
+
+    // Sync employee ranges from Firebase
+    syncEmployeeRanges();
 });
 
 // =====================================================
@@ -205,20 +211,12 @@ async function loadAndRenderEmployeeTable() {
 function renderEmployeeTable(users) {
     const tbody = document.getElementById('employeeAssignmentBody');
 
-    // Load saved ranges from localStorage
-    const saved = localStorage.getItem('tab1_employee_ranges');
+    // Use global employeeRanges which is synced from Firebase
     let savedRanges = {};
-
-    if (saved) {
-        try {
-            const ranges = JSON.parse(saved);
-            // Convert array to object for easy lookup
-            ranges.forEach(range => {
-                savedRanges[range.name] = { start: range.start, end: range.end };
-            });
-        } catch (e) {
-            console.error('[EMPLOYEE] Error loading saved ranges:', e);
-        }
+    if (employeeRanges && employeeRanges.length > 0) {
+        employeeRanges.forEach(range => {
+            savedRanges[range.name] = { start: range.start, end: range.end };
+        });
     }
 
     // Render table rows
@@ -274,14 +272,19 @@ function applyEmployeeRanges() {
     });
 
     // Build employee ranges array
-    employeeRanges = [];
+    const newRanges = [];
 
     Object.keys(rangesMap).forEach(userName => {
         const range = rangesMap[userName];
 
         // Only include if both start and end are filled
         if (range.start !== null && range.end !== null && range.start > 0 && range.end > 0) {
-            employeeRanges.push({
+            // Find user ID from input attribute
+            const input = document.querySelector(`.employee-range-input[data-user-name="${userName}"]`);
+            const userId = input ? input.getAttribute('data-user-id') : null;
+
+            newRanges.push({
+                id: userId,
                 name: userName,
                 start: range.start,
                 end: range.end
@@ -289,22 +292,24 @@ function applyEmployeeRanges() {
         }
     });
 
-    // Save to localStorage
-    localStorage.setItem('tab1_employee_ranges', JSON.stringify(employeeRanges));
-
-    // Show notification
-    const assignedCount = employeeRanges.length;
-    if (window.notificationManager) {
-        window.notificationManager.show(`✅ Đã lưu phân chia cho ${assignedCount} nhân viên`, 'success');
+    // Save to Firebase
+    if (database) {
+        database.ref('settings/employee_ranges').set(newRanges)
+            .then(() => {
+                if (window.notificationManager) {
+                    window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên lên Firebase`, 'success');
+                } else {
+                    alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên lên Firebase`);
+                }
+                toggleEmployeeDrawer();
+            })
+            .catch((error) => {
+                console.error('[EMPLOYEE] Error saving ranges to Firebase:', error);
+                alert('❌ Lỗi khi lưu lên Firebase: ' + error.message);
+            });
     } else {
-        alert(`✅ Đã lưu phân chia cho ${assignedCount} nhân viên`);
+        alert('❌ Lỗi: Không thể kết nối Firebase');
     }
-
-    // Re-render table to show employee names
-    performTableSearch();
-
-    // Close drawer
-    toggleEmployeeDrawer();
 }
 
 function getEmployeeName(stt) {
@@ -334,11 +339,39 @@ function toggleEmployeeDrawer() {
             drawer.classList.remove('active');
             overlay.classList.remove('active');
         } else {
-            // Open drawer
+            // Open drawer - Reload table to show latest data
+            loadAndRenderEmployeeTable();
             drawer.classList.add('active');
             overlay.classList.add('active');
         }
     }
+}
+
+function checkAdminPermission() {
+    const btn = document.getElementById('employeeSettingsBtn');
+    if (btn) {
+        // Check if user is admin (checkLogin === 0)
+        const isAdmin = window.authManager && window.authManager.hasPermission(0);
+        if (!isAdmin) {
+            btn.style.display = 'none';
+        } else {
+            btn.style.display = 'inline-flex';
+        }
+    }
+}
+
+function syncEmployeeRanges() {
+    if (!database) return;
+
+    const rangesRef = database.ref('settings/employee_ranges');
+    rangesRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        employeeRanges = data || [];
+        console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firebase`);
+
+        // Re-apply filter to current view
+        performTableSearch();
+    });
 }
 
 // =====================================================
@@ -703,6 +736,81 @@ function performTableSearch() {
     let tempData = searchQuery
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
+
+    // Apply Employee STT Range Filter
+    // Check if user is admin (checkLogin === 0)
+    let isAdmin = window.authManager && window.authManager.hasPermission(0);
+
+    const auth = window.authManager ? window.authManager.getAuthState() : null;
+    const currentUserType = auth && auth.userType ? auth.userType : null;
+    const currentUserId = auth && auth.id ? auth.id : null; // Assuming auth has id
+
+    // Fallback: Check username string for Admin
+    if (!isAdmin && currentUserType) {
+        const lowerName = currentUserType.toLowerCase();
+        if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
+            isAdmin = true;
+            console.log('[FILTER] User identified as Admin by name check');
+        }
+    }
+
+    if (!isAdmin && employeeRanges.length > 0) {
+        console.log('[FILTER] Current user:', currentUserType, 'ID:', currentUserId);
+
+        let userRange = null;
+
+        // 1. Try matching by ID first (most reliable)
+        if (currentUserId) {
+            userRange = employeeRanges.find(r => r.id === currentUserId);
+            if (userRange) console.log('[FILTER] Matched by ID');
+        }
+
+        // 2. If not found, try matching by full name
+        if (!userRange && currentUserType) {
+            userRange = employeeRanges.find(r => r.name === currentUserType);
+            if (userRange) console.log('[FILTER] Matched by Full Name');
+        }
+
+        // 3. If not found, try matching by short name (before "-")
+        if (!userRange && currentUserType) {
+            const shortName = currentUserType.split('-')[0].trim();
+            userRange = employeeRanges.find(r => r.name === shortName);
+            if (userRange) console.log('[FILTER] Matched by Short Name:', shortName);
+        }
+
+        if (userRange) {
+            const debugInfo = `
+🔍 THÔNG TIN DEBUG:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 Tài khoản hiện tại: ${currentUserType}
+🆔 User ID: ${currentUserId || 'Không có'}
+🔐 Là Admin? ${isAdmin ? 'CÓ' : 'KHÔNG'}
+📊 STT được phân: ${userRange.start} - ${userRange.end}
+👥 Tên trong setting: ${userRange.name}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ Đang áp dụng filter cho bạn!
+            `.trim();
+
+            console.warn(debugInfo);
+
+            // Show alert once per session
+            if (!window._filterDebugShown) {
+                alert(debugInfo);
+                window._filterDebugShown = true;
+            }
+
+            tempData = tempData.filter(order => {
+                const stt = parseInt(order.SessionIndex);
+                if (isNaN(stt)) return false;
+                return stt >= userRange.start && stt <= userRange.end;
+            });
+            console.log(`[FILTER] Applied STT range ${userRange.start}-${userRange.end} for ${currentUserType}`);
+        } else {
+            console.log('[FILTER] No range found for user:', currentUserType);
+        }
+    } else if (isAdmin) {
+        console.log('[FILTER] User is Admin - NO FILTER APPLIED');
+    }
 
     // Apply conversation status filter (Merged Messages & Comments)
     const conversationFilter = document.getElementById('conversationFilter')?.value || 'all';
@@ -1649,8 +1757,21 @@ function renderTable() {
         return;
     }
 
-    // Group by employee if ranges are configured
-    if (employeeRanges.length > 0) {
+    // Check if user is admin
+    let isAdmin = window.authManager && window.authManager.hasPermission(0);
+
+    // Fallback: Check username string for Admin
+    const auth = window.authManager ? window.authManager.getAuthState() : null;
+    const currentUserType = auth && auth.userType ? auth.userType : null;
+    if (!isAdmin && currentUserType) {
+        const lowerName = currentUserType.toLowerCase();
+        if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
+            isAdmin = true;
+        }
+    }
+
+    // Group by employee if ranges are configured AND user is NOT admin
+    if (!isAdmin && employeeRanges.length > 0) {
         renderByEmployee();
     } else {
         renderAllOrders();
@@ -1780,7 +1901,7 @@ function renderByEmployee() {
     // Add event listeners for employee select all checkboxes
     const employeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
     employeeSelectAlls.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
+        checkbox.addEventListener('change', function () {
             const section = this.closest('.employee-section');
             const checkboxes = section.querySelectorAll('tbody input[type="checkbox"]');
             checkboxes.forEach(cb => cb.checked = this.checked);
@@ -5153,30 +5274,34 @@ function closeQuickAddProductModal() {
 }
 
 // Search Input Handler
-document.getElementById('quickProductSearch').addEventListener('input', function (e) {
-    const query = e.target.value;
+const quickProductSearchEl = document.getElementById('quickProductSearch');
+if (quickProductSearchEl) {
+    quickProductSearchEl.addEventListener('input', function (e) {
+        const query = e.target.value;
 
-    if (quickAddSearchTimeout) clearTimeout(quickAddSearchTimeout);
+        if (quickAddSearchTimeout) clearTimeout(quickAddSearchTimeout);
 
-    if (!query || query.trim().length < 2) {
-        document.getElementById('quickProductSuggestions').style.display = 'none';
-        return;
-    }
-
-    quickAddSearchTimeout = setTimeout(() => {
-        if (window.enhancedProductSearchManager) {
-            const results = window.enhancedProductSearchManager.search(query, 10);
-            renderQuickAddSuggestions(results);
+        if (!query || query.trim().length < 2) {
+            const suggestionsEl = document.getElementById('quickProductSuggestions');
+            if (suggestionsEl) suggestionsEl.style.display = 'none';
+            return;
         }
-    }, 300);
-});
+
+        quickAddSearchTimeout = setTimeout(() => {
+            if (window.enhancedProductSearchManager) {
+                const results = window.enhancedProductSearchManager.search(query, 10);
+                renderQuickAddSuggestions(results);
+            }
+        }, 300);
+    });
+}
 
 // Hide suggestions on click outside
 document.addEventListener('click', function (e) {
     const suggestions = document.getElementById('quickProductSuggestions');
     const searchInput = document.getElementById('quickProductSearch');
 
-    if (suggestions && e.target !== searchInput && !suggestions.contains(e.target)) {
+    if (suggestions && searchInput && e.target !== searchInput && !suggestions.contains(e.target)) {
         suggestions.style.display = 'none';
     }
 });
