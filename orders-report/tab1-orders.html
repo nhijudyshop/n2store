@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="tab1-orders.css" />
     <link rel="stylesheet" href="message-template-modal.css" />
+    <link rel="stylesheet" href="quick-reply-modal.css" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="decoding-utility.js"></script>
@@ -1065,6 +1066,7 @@
     <script src="chat-api-settings.js"></script>
     <script src="chat-data-manager.js"></script>
     <script src="message-template-manager.js"></script>
+    <script src="quick-reply-manager.js"></script>
     <script src="product-search-manager.js"></script>
     <script src="chat-product-manager.js"></script>
     <script src="search-functions.js"></script>
@@ -1102,36 +1104,23 @@
         });
 
         /**
-         * Open message template modal for inserting into chat input
+         * Open quick reply modal for inserting into chat input
          */
         function openChatTemplateModal() {
-            console.log('🔔 Opening chat template modal for insert mode...');
+            console.log('🔔 Opening quick reply modal...');
 
-            if (!window.messageTemplateManager) {
-                console.error('❌ MessageTemplateManager not initialized');
+            if (!window.quickReplyManager) {
+                console.error('❌ QuickReplyManager not initialized');
                 if (window.notificationManager) {
                     window.notificationManager.error('Hệ thống chưa sẵn sàng, vui lòng thử lại');
                 }
                 return;
             }
 
-            // Get current order data if available (from chat modal context)
-            let currentOrderData = null;
+            // Open quick reply modal with target input
+            window.quickReplyManager.openModal('chatReplyInput');
 
-            // Try to get order data from global chat context
-            if (window.currentChatOrder) {
-                currentOrderData = window.currentChatOrder;
-                console.log('📦 Using order data from window.currentChatOrder:', currentOrderData);
-            }
-
-            // Open modal in INSERT mode with target input
-            window.messageTemplateManager.openModal(
-                currentOrderData,  // orderData
-                'insert',          // mode
-                'chatReplyInput'   // targetInputId
-            );
-
-            console.log('✅ Chat template modal opened');
+            console.log('✅ Quick reply modal opened');
         }
     </script>
 
