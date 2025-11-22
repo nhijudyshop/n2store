@@ -37,40 +37,12 @@
     <div class="main-content">
         <!-- Filter Section -->
         <div class="filter-section">
-            <!-- Employee Assignment Table -->
-            <div class="employee-input-container" style="width: 100%; margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <label class="employee-input-label" style="margin: 0;">
-                        <i class="fas fa-users"></i> Phân chia đơn hàng theo STT cho nhân viên:
-                    </label>
-                    <button class="btn-primary" onclick="applyEmployeeRanges()" style="padding: 6px 16px;">
-                        <i class="fas fa-check"></i> Áp dụng
-                    </button>
-                </div>
-                <div id="employeeAssignmentTable" style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
-                    <table style="width: 100%; font-size: 13px;">
-                        <thead style="position: sticky; top: 0; background: #f8f9fa; border-bottom: 1px solid #e5e7eb;">
-                            <tr>
-                                <th style="padding: 8px; text-align: left; font-weight: 600;">Nhân viên</th>
-                                <th style="padding: 8px; text-align: center; width: 100px; font-weight: 600;">STT Từ</th>
-                                <th style="padding: 8px; text-align: center; width: 100px; font-weight: 600;">STT Đến</th>
-                            </tr>
-                        </thead>
-                        <tbody id="employeeAssignmentBody">
-                            <tr>
-                                <td colspan="3" style="text-align: center; padding: 20px; color: #9ca3af;">
-                                    <i class="fas fa-spinner fa-spin"></i> Đang tải danh sách nhân viên...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="employee-input-help">
-                    <i class="fas fa-info-circle"></i>
-                    Nhập khoảng STT cho từng nhân viên. Dữ liệu sẽ được lưu tự động khi bấm "Áp dụng".
-                </div>
-            </div>
-
+            <button class="btn-primary" id="employeeSettingsBtn" onclick="toggleEmployeeDrawer()"
+                style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
+                title="Cài đặt phân chia nhân viên">
+                <i class="fas fa-users-cog"></i>
+                Cài đặt phân chia nhân viên
+            </button>
             <label>Khoảng tải:</label>
             <select id="skipRangeFilter" style="min-width: 150px">
                 <option value="0" selected>3000 đầu tiên</option>
@@ -1457,6 +1429,52 @@
         });
         // ====================================
     </script>
+
+    <!-- Employee Assignment Drawer -->
+    <div class="employee-drawer-overlay" id="employeeDrawerOverlay" onclick="toggleEmployeeDrawer()"></div>
+    <div class="employee-drawer" id="employeeDrawer">
+        <div class="employee-drawer-header">
+            <h3>
+                <i class="fas fa-users-cog"></i>
+                Cài đặt phân chia nhân viên
+            </h3>
+            <button class="employee-drawer-close" onclick="toggleEmployeeDrawer()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="employee-drawer-body">
+            <div id="employeeAssignmentTable" style="max-height: calc(100vh - 200px); overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 16px;">
+                <table style="width: 100%; font-size: 13px;">
+                    <thead style="position: sticky; top: 0; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; z-index: 1;">
+                        <tr>
+                            <th style="padding: 8px; text-align: left; font-weight: 600;">Nhân viên</th>
+                            <th style="padding: 8px; text-align: center; width: 100px; font-weight: 600;">STT Từ</th>
+                            <th style="padding: 8px; text-align: center; width: 100px; font-weight: 600;">STT Đến</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeAssignmentBody">
+                        <tr>
+                            <td colspan="3" style="text-align: center; padding: 20px; color: #9ca3af;">
+                                <i class="fas fa-spinner fa-spin"></i> Đang tải danh sách nhân viên...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="employee-input-help" style="margin-bottom: 16px;">
+                <i class="fas fa-info-circle"></i>
+                Nhập khoảng STT cho từng nhân viên. Dữ liệu sẽ được lưu tự động khi bấm "Áp dụng".
+            </div>
+        </div>
+        <div class="employee-drawer-footer">
+            <button class="btn-secondary" onclick="toggleEmployeeDrawer()">
+                <i class="fas fa-times"></i> Đóng
+            </button>
+            <button class="btn-primary" onclick="applyEmployeeRanges()">
+                <i class="fas fa-check"></i> Áp dụng
+            </button>
+        </div>
+    </div>
 </body>
 
 </html>

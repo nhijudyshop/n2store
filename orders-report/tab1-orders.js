@@ -302,6 +302,9 @@ function applyEmployeeRanges() {
 
     // Re-render table to show employee names
     performTableSearch();
+
+    // Close drawer
+    toggleEmployeeDrawer();
 }
 
 function getEmployeeName(stt) {
@@ -317,6 +320,25 @@ function getEmployeeName(stt) {
     }
 
     return null;
+}
+
+function toggleEmployeeDrawer() {
+    const drawer = document.getElementById('employeeDrawer');
+    const overlay = document.getElementById('employeeDrawerOverlay');
+
+    if (drawer && overlay) {
+        const isActive = drawer.classList.contains('active');
+
+        if (isActive) {
+            // Close drawer
+            drawer.classList.remove('active');
+            overlay.classList.remove('active');
+        } else {
+            // Open drawer
+            drawer.classList.add('active');
+            overlay.classList.add('active');
+        }
+    }
 }
 
 // =====================================================
