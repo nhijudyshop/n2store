@@ -243,6 +243,54 @@
     color: #667eea;
 }
 
+/* =====================================================
+   AUTOCOMPLETE DROPDOWN
+   ===================================================== */
+
+.quick-reply-autocomplete {
+    display: none;
+    position: fixed;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 10003;
+    padding: 4px;
+}
+
+.quick-reply-autocomplete::-webkit-scrollbar {
+    width: 6px;
+}
+
+.quick-reply-autocomplete::-webkit-scrollbar-track {
+    background: #f3f4f6;
+}
+
+.quick-reply-autocomplete::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.autocomplete-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+}
+
+.autocomplete-item:hover {
+    background: #f3f4f6;
+}
+
+.autocomplete-item.selected {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-left: 3px solid #667eea;
+    padding-left: 9px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .quick-reply-modal {
@@ -266,5 +314,9 @@
     .quick-reply-message,
     .quick-reply-shortcut {
         font-size: 12px;
+    }
+
+    .quick-reply-autocomplete {
+        max-width: 90vw !important;
     }
 }
