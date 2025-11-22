@@ -1,71 +1,51 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
-    "savedProducts": {
-      ".indexOn": [
-        "Id",
-        "isHidden"
-      ]
-    },
-    "savedProductsMeta": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "displaySettings": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "syncCurrentPage": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+    ".read": true,
+    ".write": true,
+    "productAssignments": {
+      "$userId": {
+        ".indexOn": [
+          "_timestamp"
+        ]
+      }
     },
     "pancake_jwt_token": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".validate": "newData.hasChildren(['token', 'exp'])"
     },
     "tpos_token": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".validate": "newData.hasChildren(['access_token', 'expires_at'])"
     },
     "chat_products": {
       "shared": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".indexOn": [
+          "Id"
+        ]
+      },
+      "$orderId": {
+        ".indexOn": [
+          "Id"
+        ]
       }
     },
     "chat_products_history": {
       "shared": {
         ".indexOn": [
           "timestamp"
-        ],
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ]
       }
     },
-    "order_products": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "order_notes_snapshot": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "productAssignments_history": {
+    "savedProducts": {
       ".indexOn": [
-        "timestamp"
-      ],
-      ".read": "auth != null",
-      ".write": "auth != null"
+        "addedAt",
+        "Id",
+        "soldQty"
+      ]
     },
-    "app_version": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "users": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+    "savedProductsMeta": {
+      "sortedIds": {
+        ".indexOn": [
+          ".value"
+        ]
       }
     }
   }
