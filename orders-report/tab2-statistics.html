@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -41,7 +42,7 @@
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .header-title {
@@ -95,7 +96,7 @@
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .employee-input-container {
@@ -123,7 +124,7 @@
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
         .table-title {
@@ -311,12 +312,8 @@
                     <i class="fas fa-users"></i> Phân chia đơn hàng theo STT cho nhân viên:
                 </label>
                 <div class="input-group">
-                    <input
-                        type="text"
-                        class="form-control"
-                        id="employeeRangeInput"
-                        placeholder="Ví dụ: 1-200 Huyền, 201-400 Hạnh, 401-600 Bo"
-                    />
+                    <input type="text" class="form-control" id="employeeRangeInput"
+                        placeholder="Ví dụ: 1-200 Huyền, 201-400 Hạnh, 401-600 Bo" />
                     <button class="btn btn-primary" onclick="applyEmployeeRanges()">
                         <i class="fas fa-check"></i> Áp dụng
                     </button>
@@ -352,13 +349,9 @@
                     <label class="form-label small">
                         <i class="fas fa-search"></i> Tìm kiếm:
                     </label>
-                    <input
-                        type="text"
-                        class="form-control"
-                        id="searchInput"
+                    <input type="text" class="form-control" id="searchInput"
                         placeholder="Tìm theo STT, tên khách hàng, số điện thoại, ghi chú..."
-                        oninput="applyFilters()"
-                    />
+                        oninput="applyFilters()" />
                 </div>
             </div>
         </div>
@@ -422,6 +415,7 @@
     <script src="api-config.js"></script>
     <script src="auth.js"></script>
     <script src="token-manager.js"></script>
+    <script src="decoding-utility.js"></script>
 
     <script>
         // =====================================================
@@ -470,7 +464,7 @@
         // =====================================================
         // INITIALIZATION
         // =====================================================
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', function () {
             console.log('[KPI-STATS] Initializing...');
 
             // Check if Firebase is ready
@@ -723,8 +717,8 @@
             // Convert to array and filter only successful uploads
             uploadHistory = Object.values(data).filter(record => {
                 return record.uploadStatus === 'completed' ||
-                       record.uploadStatus === 'partial' ||
-                       record.uploadStatus === 'deletion_failed';
+                    record.uploadStatus === 'partial' ||
+                    record.uploadStatus === 'deletion_failed';
             });
 
             console.log('[KPI-STATS] Loaded upload history:', uploadHistory.length, 'records');
@@ -1150,13 +1144,14 @@
                 // Format note with line count and edited indicator
                 let noteDisplay = '';
                 if (item.customerNote) {
-                    noteDisplay = item.customerNote;
+                    noteDisplay = window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(item.customerNote) : item.customerNote;
+
                     if (item.noteLineCount > 0) {
-                        noteDisplay += `\n\n📝 ${item.noteLineCount} dòng (≈ ${item.noteLineCount} sản phẩm)`;
+                        noteDisplay += `<br><small class="text-muted">📝 ${item.noteLineCount} dòng (≈ ${item.noteLineCount} sản phẩm)</small>`;
                     }
                     // Add edited indicator if note was edited
                     if (item.noteEdited) {
-                        noteDisplay += `\n\n✏️ Đã chỉnh sửa`;
+                        noteDisplay += `<br><small class="text-primary">✏️ Đã chỉnh sửa</small>`;
                     }
                 }
 
@@ -1489,4 +1484,5 @@
         window.viewProductDetail = viewProductDetail;
     </script>
 </body>
+
 </html>

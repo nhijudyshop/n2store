@@ -1542,7 +1542,7 @@ function createRowHTML(order) {
             ${commentsHTML}
             <td data-column="phone">${highlight(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
-            <td data-column="notes">${highlight(order.Note)}</td>
+            <td data-column="notes">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(order.Note) : highlight(order.Note)}</td>
             <td data-column="total">${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
             <td data-column="quantity">${order.TotalQuantity || 0}</td>
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
@@ -1991,6 +1991,10 @@ function renderInfoTab(data) {
                 <div class="info-field"><div class="info-label">Mã đơn</div><div class="info-value highlight">${data.Code || ""}</div></div>
                 <div class="info-field"><div class="info-label">Trạng thái</div><div class="info-value"><span class="status-badge-large ${data.Status === "Draft" ? "status-badge-draft" : "status-badge-order"}">${data.StatusText || data.Status || ""}</span></div></div>
                 <div class="info-field"><div class="info-label">Tổng tiền</div><div class="info-value highlight">${(data.TotalAmount || 0).toLocaleString("vi-VN")}đ</div></div>
+                <div class="info-field" style="grid-column: 1 / -1;">
+                    <div class="info-label">Ghi chú</div>
+                    <div class="info-value">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(data.Note || "") : (data.Note || "")}</div>
+                </div>
             </div>
         </div>`;
 }
@@ -2322,6 +2326,20 @@ function renderAuditLogTimeline(auditLogs) {
 
 function formatAuditDescription(description) {
     if (!description) return '';
+
+    // Try to decode encoded strings first
+    if (window.DecodingUtility) {
+        // Find potential encoded strings (long, no spaces, Base64URL chars)
+        description = description.replace(/\b([A-Za-z0-9\-_=]{20,})\b/g, (match) => {
+            // Check if it can be decoded
+            const decoded = window.DecodingUtility.decodeProductLine(match);
+            if (decoded) {
+                // Use the utility to format it
+                return window.DecodingUtility.formatNoteWithDecodedData(match);
+            }
+            return match;
+        });
+    }
 
     // Replace \r\n with <br> and format the text
     let formatted = description

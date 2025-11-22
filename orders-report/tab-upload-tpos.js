@@ -163,7 +163,7 @@
                     const timestamp = parseInt(relativeTime) * 1000 + BASE_TIME;
 
                     return {
-                        orderId: parseInt(orderId),
+                        orderId: orderId,
                         productCode,
                         quantity: parseInt(quantity),
                         price: parseFloat(price),
@@ -306,38 +306,12 @@
     function formatNoteWithClickableEncoded(note) {
         if (!note || !note.trim()) return '(Không có)';
 
-        // If not admin, return as-is
-        if (!isAdmin()) {
-            return `<span class="text-muted" style="font-size: 13px;">${note}</span>`;
+        if (window.DecodingUtility) {
+            return window.DecodingUtility.formatNoteWithDecodedData(note);
         }
 
-        // Split into lines and process each
-        const lines = note.split('\n');
-        const formattedLines = lines.map(line => {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) return '';
-
-            // Try to decode to check if it's an encoded string
-            try {
-                const decoded = decodeProductLine(trimmedLine);
-                if (decoded) {
-                    // This is an encoded string - make it clickable
-                    return `<span class="encoded-string-clickable"
-                                  data-encoded="${escapeHtml(trimmedLine)}"
-                                  title="Click để xem nội dung đã decode"
-                                  style="cursor: pointer; color: #3b82f6; text-decoration: underline; font-family: monospace; font-size: 12px;">
-                                ${truncateString(trimmedLine, 40)}
-                            </span>`;
-                }
-            } catch (e) {
-                // Not an encoded string, return as plain text
-            }
-
-            // Return as plain text
-            return escapeHtml(trimmedLine);
-        });
-
-        return `<span class="text-muted" style="font-size: 13px;">${formattedLines.join('<br>')}</span>`;
+        // Fallback if utility not loaded
+        return `<span class="text-muted" style="font-size: 13px;">${escapeHtml(note)}</span>`;
     }
 
     /**

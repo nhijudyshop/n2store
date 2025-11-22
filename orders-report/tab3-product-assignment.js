@@ -1617,7 +1617,7 @@
             html += `
                 <div class="history-note mt-3">
                     <i class="fas fa-sticky-note"></i>
-                    <strong>Ghi chú:</strong> ${record.note}
+                    <strong>Ghi chú:</strong> ${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(record.note) : record.note}
                 </div>
             `;
         }

@@ -1,24 +1,21 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Upload Đơn Hàng Lên TPOS</title>
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    />
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="decoding-utility.js"></script>
 
     <link rel="stylesheet" href="tab-upload-tpos.css" />
 </head>
+
 <body>
     <!-- Main Container -->
     <div class="container-fluid p-4">
@@ -30,10 +27,12 @@
                     <p class="text-muted mb-0">Chọn sản phẩm và upload lên hệ thống TPOS</p>
                 </div>
                 <div>
-                    <button class="btn btn-sm btn-warning me-2" onclick="hardRefreshFromFirebase()" title="Load lại dữ liệu từ Firebase">
+                    <button class="btn btn-sm btn-warning me-2" onclick="hardRefreshFromFirebase()"
+                        title="Load lại dữ liệu từ Firebase">
                         <i class="fas fa-sync-alt"></i> Hard Refresh
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()" title="Reload toàn bộ trang">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()"
+                        title="Reload toàn bộ trang">
                         <i class="fas fa-redo"></i> Reload Page
                     </button>
                     <span class="badge bg-info ms-2" id="totalProductsBadge">
@@ -147,10 +146,8 @@
                     </div>
                     <div class="modal-body">
                         <div class="progress mb-3">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                 role="progressbar"
-                                 id="uploadProgress"
-                                 style="width: 0%">0%</div>
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                id="uploadProgress" style="width: 0%">0%</div>
                         </div>
                         <p class="text-center mb-0" id="uploadStatus">Đang chuẩn bị...</p>
                     </div>
@@ -166,13 +163,15 @@
                         <h5 class="modal-title">
                             <i class="fas fa-edit"></i> Xem chi tiết đơn hàng
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="closeEditModal()"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            onclick="closeEditModal()"></button>
                     </div>
                     <div class="modal-body" id="editModalBody">
                         <!-- Content will be populated by JavaScript -->
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeEditModal()">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                            onclick="closeEditModal()">
                             <i class="fas fa-times"></i> Đóng
                         </button>
                     </div>
@@ -195,7 +194,8 @@
                         <div class="history-filters mb-3">
                             <div class="row g-2">
                                 <div class="col-md-3">
-                                    <select class="form-select form-select-sm" id="historyStatusFilter" onchange="filterUploadHistory()">
+                                    <select class="form-select form-select-sm" id="historyStatusFilter"
+                                        onchange="filterUploadHistory()">
                                         <option value="all">Tất cả trạng thái</option>
                                         <option value="completed">✅ Thành công</option>
                                         <option value="partial">⚠️ Thành công một phần</option>
@@ -203,13 +203,16 @@
                                     </select>
                                 </div>
                                 <div class="col-md-3">
-                                    <input type="date" class="form-control form-control-sm" id="historyDateFrom" onchange="filterUploadHistory()" placeholder="Từ ngày">
+                                    <input type="date" class="form-control form-control-sm" id="historyDateFrom"
+                                        onchange="filterUploadHistory()" placeholder="Từ ngày">
                                 </div>
                                 <div class="col-md-3">
-                                    <input type="date" class="form-control form-control-sm" id="historyDateTo" onchange="filterUploadHistory()" placeholder="Đến ngày">
+                                    <input type="date" class="form-control form-control-sm" id="historyDateTo"
+                                        onchange="filterUploadHistory()" placeholder="Đến ngày">
                                 </div>
                                 <div class="col-md-3">
-                                    <input type="text" class="form-control form-control-sm" id="historySearchSTT" oninput="filterUploadHistory()" placeholder="🔍 Tìm STT...">
+                                    <input type="text" class="form-control form-control-sm" id="historySearchSTT"
+                                        oninput="filterUploadHistory()" placeholder="🔍 Tìm STT...">
                                 </div>
                             </div>
                         </div>
@@ -286,4 +289,5 @@
     <script src="notification-system.js"></script>
     <script src="tab-upload-tpos.js"></script>
 </body>
+
 </html>
