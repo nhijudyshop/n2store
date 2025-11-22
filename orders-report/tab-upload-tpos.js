@@ -3748,4 +3748,394 @@ ${encodedString}
 
     console.log('✅ Event delegation for encoded strings initialized');
 
+    // =====================================================
+    // FINALIZE SESSION FUNCTIONALITY
+    // =====================================================
+
+    // State for finalize session
+    let finalizeSessionData = {
+        records: [],
+        stats: null,
+        lastFinalizeTimestamp: null
+    };
+
+    /**
+     * Get last finalize timestamp from Firebase
+     * @returns {Promise<number|null>} Timestamp of last finalize or null
+     */
+    async function getLastFinalizeTimestamp() {
+        try {
+            console.log('[FINALIZE] 📅 Getting last finalize timestamp...');
+
+            const snapshot = await database.ref('uploadSessionFinalize')
+                .orderByChild('timestamp')
+                .limitToLast(1)
+                .once('value');
+
+            const data = snapshot.val();
+            if (!data) {
+                console.log('[FINALIZE] ℹ️ No previous finalize found');
+                return null;
+            }
+
+            const lastRecord = Object.values(data)[0];
+            console.log('[FINALIZE] ✅ Last finalize timestamp:', new Date(lastRecord.timestamp).toLocaleString('vi-VN'));
+            return lastRecord.timestamp;
+
+        } catch (error) {
+            console.error('[FINALIZE] ❌ Error getting last finalize timestamp:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Load upload history from ALL users (admin view)
+     * @param {number|null} sinceTimestamp - Only load records after this timestamp
+     * @returns {Promise<Array>} Array of history records
+     */
+    async function loadAllUsersUploadHistory(sinceTimestamp = null) {
+        try {
+            console.log('[FINALIZE] 📥 Loading history from ALL users...');
+            console.log('[FINALIZE] Since timestamp:', sinceTimestamp ? new Date(sinceTimestamp).toLocaleString('vi-VN') : 'Beginning');
+
+            // Load from root productAssignments_history (all users)
+            const snapshot = await database.ref('productAssignments_history')
+                .once('value');
+
+            const data = snapshot.val();
+            if (!data) {
+                console.log('[FINALIZE] ℹ️ No history records found');
+                return [];
+            }
+
+            // Flatten nested structure: productAssignments_history/{userId}/{uploadId}
+            const allRecords = [];
+
+            Object.keys(data).forEach(userId => {
+                const userRecords = data[userId];
+                if (typeof userRecords === 'object' && userRecords !== null) {
+                    Object.keys(userRecords).forEach(uploadId => {
+                        const record = userRecords[uploadId];
+                        if (record && record.timestamp) {
+                            // Filter by timestamp if specified
+                            if (!sinceTimestamp || record.timestamp > sinceTimestamp) {
+                                // Only include successful uploads
+                                if (record.uploadStatus === 'completed' || record.uploadStatus === 'partial') {
+                                    allRecords.push({
+                                        ...record,
+                                        userId: userId,
+                                        uploadId: uploadId
+                                    });
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Sort by timestamp (oldest first for consistent processing)
+            allRecords.sort((a, b) => a.timestamp - b.timestamp);
+
+            console.log(`[FINALIZE] ✅ Loaded ${allRecords.length} records from all users`);
+            return allRecords;
+
+        } catch (error) {
+            console.error('[FINALIZE] ❌ Error loading all users history:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Calculate session statistics from history records
+     * @param {Array} records - Array of history records
+     * @returns {Object} Statistics { uniqueSTTs, totalQuantity, uniqueProducts, productDetails }
+     */
+    function calculateSessionStats(records) {
+        console.log('[FINALIZE] 📊 Calculating session stats...');
+
+        const uniqueSTTs = new Set();
+        const productMap = new Map(); // productCode -> { details, totalQty, stts }
+
+        records.forEach(record => {
+            // Get products from beforeSnapshot.assignments
+            if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+                record.beforeSnapshot.assignments.forEach(assignment => {
+                    const productCode = assignment.productCode;
+                    const productId = assignment.productId;
+
+                    // Get quantity for each STT
+                    if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                        assignment.sttList.forEach(stt => {
+                            // Check if this STT was successfully uploaded
+                            const uploadResult = record.uploadResults?.find(r => String(r.stt) === String(stt));
+                            if (uploadResult && uploadResult.success) {
+                                uniqueSTTs.add(String(stt));
+
+                                // Add to product map
+                                if (!productMap.has(productCode)) {
+                                    productMap.set(productCode, {
+                                        productCode: productCode,
+                                        productId: productId,
+                                        productName: assignment.productName || productCode,
+                                        imageUrl: assignment.imageUrl || '',
+                                        totalQuantity: 0,
+                                        stts: new Set()
+                                    });
+                                }
+
+                                const product = productMap.get(productCode);
+                                product.totalQuantity += 1; // Each STT = 1 quantity per product
+                                product.stts.add(String(stt));
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        // Convert product map to array with STT arrays
+        const productDetails = Array.from(productMap.values()).map(p => ({
+            ...p,
+            stts: Array.from(p.stts).sort((a, b) => parseInt(a) - parseInt(b))
+        }));
+
+        // Sort by total quantity descending
+        productDetails.sort((a, b) => b.totalQuantity - a.totalQuantity);
+
+        // Calculate total quantity (sum of all product quantities)
+        const totalQuantity = productDetails.reduce((sum, p) => sum + p.totalQuantity, 0);
+
+        const stats = {
+            uniqueSTTs: uniqueSTTs.size,
+            totalQuantity: totalQuantity,
+            uniqueProducts: productMap.size,
+            productDetails: productDetails
+        };
+
+        console.log('[FINALIZE] ✅ Stats calculated:', {
+            uniqueSTTs: stats.uniqueSTTs,
+            totalQuantity: stats.totalQuantity,
+            uniqueProducts: stats.uniqueProducts
+        });
+
+        return stats;
+    }
+
+    /**
+     * Open Finalize Session Modal
+     */
+    window.openFinalizeSessionModal = async function() {
+        console.log('[FINALIZE] 🎯 Opening finalize session modal...');
+
+        try {
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('finalizeSessionModal'));
+            modal.show();
+
+            // Show loading state
+            const bodyEl = document.getElementById('finalizeSessionModalBody');
+            bodyEl.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-3">Đang tải thống kê từ tất cả users...</p>
+                </div>
+            `;
+
+            // Disable save button
+            document.getElementById('saveFinalizeBtn').disabled = true;
+
+            // Get last finalize timestamp
+            const lastTimestamp = await getLastFinalizeTimestamp();
+            finalizeSessionData.lastFinalizeTimestamp = lastTimestamp;
+
+            // Load all users history since last finalize
+            const records = await loadAllUsersUploadHistory(lastTimestamp);
+            finalizeSessionData.records = records;
+
+            if (records.length === 0) {
+                bodyEl.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Không có upload nào từ ${lastTimestamp ? new Date(lastTimestamp).toLocaleString('vi-VN') : 'trước đó'} đến hiện tại</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Calculate statistics
+            const stats = calculateSessionStats(records);
+            finalizeSessionData.stats = stats;
+
+            // Render content
+            bodyEl.innerHTML = renderFinalizeSessionContent(stats, lastTimestamp);
+
+            // Enable save button
+            document.getElementById('saveFinalizeBtn').disabled = false;
+
+        } catch (error) {
+            console.error('[FINALIZE] ❌ Error opening modal:', error);
+
+            const bodyEl = document.getElementById('finalizeSessionModalBody');
+            bodyEl.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Lỗi khi tải thống kê: ${error.message}
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Render finalize session content
+     * @param {Object} stats - Statistics object
+     * @param {number|null} lastTimestamp - Last finalize timestamp
+     * @returns {string} HTML content
+     */
+    function renderFinalizeSessionContent(stats, lastTimestamp) {
+        const fromDate = lastTimestamp
+            ? new Date(lastTimestamp).toLocaleString('vi-VN')
+            : 'Bắt đầu';
+        const toDate = new Date().toLocaleString('vi-VN');
+
+        let html = `
+            <div class="finalize-session-info mb-4">
+                <div class="alert alert-info">
+                    <i class="fas fa-calendar-alt"></i>
+                    <strong>Thống kê từ:</strong> ${fromDate} <i class="fas fa-arrow-right mx-2"></i> ${toDate}
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover finalize-table">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 50%">SẢN PHẨM</th>
+                            <th style="width: 15%" class="text-center">SỐ LƯỢNG</th>
+                            <th style="width: 35%">MÃ ĐƠN HÀNG (STT)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Summary Row -->
+                        <tr class="finalize-summary-row">
+                            <td>
+                                <strong><i class="fas fa-chart-bar"></i> TỔNG CỘNG: ${stats.uniqueProducts} sản phẩm</strong>
+                            </td>
+                            <td class="text-center">
+                                <strong>${stats.totalQuantity} món</strong>
+                            </td>
+                            <td>
+                                <strong>${stats.uniqueSTTs} đơn hàng</strong>
+                            </td>
+                        </tr>
+        `;
+
+        // Product rows
+        stats.productDetails.forEach(product => {
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" alt="${product.productCode}" class="finalize-product-img">`
+                : `<div class="finalize-product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
+            const sttList = product.stts.join(', ');
+
+            html += `
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            ${imageHtml}
+                            <div class="ms-2">
+                                <strong>[${product.productCode}]</strong>
+                                <div class="text-muted small">${product.productName}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center align-middle">
+                        <span class="badge bg-primary fs-6">${product.totalQuantity}</span>
+                    </td>
+                    <td class="align-middle">
+                        <span class="text-muted small">STT: ${sttList}</span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * Save finalize session to Firebase
+     */
+    window.saveFinalizeSession = async function() {
+        console.log('[FINALIZE] 💾 Saving finalize session...');
+
+        try {
+            const saveBtn = document.getElementById('saveFinalizeBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+
+            const stats = finalizeSessionData.stats;
+            if (!stats) {
+                throw new Error('Không có dữ liệu thống kê');
+            }
+
+            // Create finalize record
+            const timestamp = Date.now();
+            const finalizeRecord = {
+                timestamp: timestamp,
+                fromTimestamp: finalizeSessionData.lastFinalizeTimestamp || null,
+                toTimestamp: timestamp,
+                stats: {
+                    uniqueSTTs: stats.uniqueSTTs,
+                    totalQuantity: stats.totalQuantity,
+                    uniqueProducts: stats.uniqueProducts
+                },
+                productSummary: stats.productDetails.map(p => ({
+                    productCode: p.productCode,
+                    quantity: p.totalQuantity,
+                    sttCount: p.stts.length
+                })),
+                recordCount: finalizeSessionData.records.length,
+                createdBy: userStorageManager?.getUserIdentifier() || 'unknown',
+                createdAt: new Date().toISOString()
+            };
+
+            // Save to Firebase
+            await database.ref(`uploadSessionFinalize/${timestamp}`).set(finalizeRecord);
+
+            console.log('[FINALIZE] ✅ Finalize session saved!');
+            showNotification('✅ Đã lưu chốt đợt live thành công!', 'success');
+
+            // Close modal
+            const modalEl = document.getElementById('finalizeSessionModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) {
+                modal.hide();
+            }
+
+            // Reset state
+            finalizeSessionData = {
+                records: [],
+                stats: null,
+                lastFinalizeTimestamp: null
+            };
+
+        } catch (error) {
+            console.error('[FINALIZE] ❌ Error saving finalize session:', error);
+            showNotification('❌ Lỗi khi lưu chốt đợt live: ' + error.message, 'error');
+
+            const saveBtn = document.getElementById('saveFinalizeBtn');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Lưu Chốt Đợt Live';
+        }
+    };
+
+    console.log('✅ Finalize session functionality initialized');
+
 })();

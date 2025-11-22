@@ -27,6 +27,10 @@
                     <p class="text-muted mb-0">Chọn sản phẩm và upload lên hệ thống TPOS</p>
                 </div>
                 <div>
+                    <button class="btn btn-sm btn-success me-2" onclick="openFinalizeSessionModal()"
+                        title="Chốt và thống kê đợt upload live">
+                        <i class="fas fa-flag-checkered"></i> Chốt upload đợt live
+                    </button>
                     <button class="btn btn-sm btn-warning me-2" onclick="hardRefreshFromFirebase()"
                         title="Load lại dữ liệu từ Firebase">
                         <i class="fas fa-sync-alt"></i> Hard Refresh
@@ -285,6 +289,37 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="fas fa-times"></i> Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finalize Session Modal -->
+        <div class="modal fade" id="finalizeSessionModal" tabindex="-1">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-flag-checkered"></i> Chốt Upload Đợt Live
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="finalizeSessionModalBody">
+                        <!-- Content will be populated by JavaScript -->
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="text-muted mt-2">Đang tải thống kê...</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Hủy
+                        </button>
+                        <button type="button" class="btn btn-success" id="saveFinalizeBtn" onclick="saveFinalizeSession()" disabled>
+                            <i class="fas fa-save"></i> Lưu Chốt Đợt Live
                         </button>
                     </div>
                 </div>
