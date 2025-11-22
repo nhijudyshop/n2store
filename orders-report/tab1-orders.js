@@ -6,6 +6,7 @@ let filteredData = [];
 let displayedData = [];
 let totalCount = 0;
 let selectedCampaign = null;
+let employeeRanges = []; // Employee STT ranges
 
 // Search State
 let searchQuery = "";
@@ -169,7 +170,92 @@ window.addEventListener("DOMContentLoaded", async function () {
             handleTableSearch("");
         }
     });
+
+    // Load saved employee ranges
+    loadEmployeeRanges();
 });
+
+// =====================================================
+// EMPLOYEE RANGE MANAGEMENT FUNCTIONS
+// =====================================================
+function loadEmployeeRanges() {
+    const saved = localStorage.getItem('tab1_employee_ranges');
+    if (saved) {
+        try {
+            employeeRanges = JSON.parse(saved);
+            document.getElementById('employeeRangeInput').value = formatEmployeeRanges(employeeRanges);
+            console.log('[EMPLOYEE] Loaded employee ranges:', employeeRanges);
+        } catch (e) {
+            console.error('[EMPLOYEE] Error loading employee ranges:', e);
+        }
+    }
+}
+
+function formatEmployeeRanges(ranges) {
+    return ranges.map(r => `${r.start}-${r.end} ${r.name}`).join(', ');
+}
+
+function parseEmployeeRanges(input) {
+    if (!input || !input.trim()) return [];
+
+    const ranges = [];
+    const parts = input.split(',');
+
+    parts.forEach(part => {
+        part = part.trim();
+        // Format: "1-200 Huyền" or "201-400 Hạnh"
+        const match = part.match(/(\d+)\s*-\s*(\d+)\s+(.+)/);
+        if (match) {
+            ranges.push({
+                start: parseInt(match[1]),
+                end: parseInt(match[2]),
+                name: match[3].trim()
+            });
+        }
+    });
+
+    return ranges;
+}
+
+function applyEmployeeRanges() {
+    const input = document.getElementById('employeeRangeInput').value;
+    const ranges = parseEmployeeRanges(input);
+
+    if (ranges.length === 0) {
+        alert('Vui lòng nhập đúng định dạng: 1-200 Huyền, 201-400 Hạnh');
+        return;
+    }
+
+    employeeRanges = ranges;
+    localStorage.setItem('tab1_employee_ranges', JSON.stringify(ranges));
+
+    const names = ranges.map(r => r.name).join(', ');
+
+    // Show notification
+    if (window.notificationManager) {
+        window.notificationManager.show(`✅ Đã lưu phân chia cho: ${names}`, 'success');
+    } else {
+        alert(`✅ Đã lưu phân chia cho: ${names}`);
+    }
+
+    // Re-render table to show employee names
+    performTableSearch();
+}
+
+function getEmployeeName(stt) {
+    if (!stt || employeeRanges.length === 0) return null;
+
+    const sttNum = parseInt(stt);
+    if (isNaN(sttNum)) return null;
+
+    for (const range of employeeRanges) {
+        if (sttNum >= range.start && sttNum <= range.end) {
+            return range.name;
+        }
+    }
+
+    return null;
+}
 
 // =====================================================
 // TAG MANAGEMENT FUNCTIONS
@@ -1475,7 +1561,7 @@ function renderTable() {
     const tbody = document.getElementById("tableBody");
     if (displayedData.length === 0) {
         tbody.innerHTML =
-            '<tr><td colspan="15" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="16" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
     tbody.innerHTML = displayedData.map(createRowHTML).join("");
@@ -1514,6 +1600,12 @@ function createRowHTML(order) {
     const mergedClass = isMerged ? 'merged-order-row' : '';
     const mergedIcon = isMerged ? '<i class="fas fa-link merged-icon" title="Đơn gộp"></i>' : '';
 
+    // Get employee name for STT
+    const employeeName = getEmployeeName(order.SessionIndex);
+    const employeeHTML = employeeName
+        ? `<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">${employeeName}</span>`
+        : '<span style="color: #9ca3af;">−</span>';
+
     return `
         <tr class="${rowClass} ${mergedClass}">
             <td><input type="checkbox" value="${order.Id}" /></td>
@@ -1523,6 +1615,7 @@ function createRowHTML(order) {
                     ${mergedIcon}
                 </div>
             </td>
+            <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
             <td data-column="tag">
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
                     <div class="tag-btn-container" style="position: relative;">
