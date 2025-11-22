@@ -3666,3 +3666,46 @@ td[data-column].hidden {
 .employee-input-container .btn-primary:hover {
     background: #2563eb;
 }
+
+/* Employee Section Styles */
+.employee-section {
+    margin-bottom: 32px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.employee-header {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.employee-name {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.employee-stats {
+    font-size: 13px;
+    opacity: 0.9;
+    margin-top: 4px;
+}
+
+.employee-total {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.employee-table-wrapper {
+    padding: 0;
+}
+
+.employee-section .table-wrapper {
+    max-height: none;
+    box-shadow: none;
+}
