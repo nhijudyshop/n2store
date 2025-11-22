@@ -3803,6 +3803,8 @@ ${encodedString}
                 .once('value');
 
             const data = snapshot.val();
+            console.log('[FINALIZE] Raw data from Firebase:', data);
+
             if (!data) {
                 console.log('[FINALIZE] ℹ️ No history records found');
                 return [];
@@ -3812,10 +3814,22 @@ ${encodedString}
             const allRecords = [];
 
             Object.keys(data).forEach(userId => {
+                console.log('[FINALIZE] Processing userId:', userId);
                 const userRecords = data[userId];
+
                 if (typeof userRecords === 'object' && userRecords !== null) {
                     Object.keys(userRecords).forEach(uploadId => {
                         const record = userRecords[uploadId];
+                        console.log('[FINALIZE] Record:', uploadId, {
+                            timestamp: record?.timestamp,
+                            uploadStatus: record?.uploadStatus,
+                            hasBeforeSnapshot: !!record?.beforeSnapshot,
+                            hasAssignments: !!record?.beforeSnapshot?.assignments,
+                            assignmentsCount: record?.beforeSnapshot?.assignments?.length,
+                            uploadedSTTs: record?.uploadedSTTs,
+                            uploadResultsCount: record?.uploadResults?.length
+                        });
+
                         if (record && record.timestamp) {
                             // Filter by timestamp if specified
                             if (!sinceTimestamp || record.timestamp > sinceTimestamp) {
@@ -3826,7 +3840,12 @@ ${encodedString}
                                         userId: userId,
                                         uploadId: uploadId
                                     });
+                                    console.log('[FINALIZE] ✅ Added record:', uploadId);
+                                } else {
+                                    console.log('[FINALIZE] ⏭️ Skipped (status):', record.uploadStatus);
                                 }
+                            } else {
+                                console.log('[FINALIZE] ⏭️ Skipped (timestamp)');
                             }
                         }
                     });
@@ -3847,31 +3866,68 @@ ${encodedString}
 
     /**
      * Calculate session statistics from history records
+     * Uses uploadResults.existingProducts for product details (most reliable source)
      * @param {Array} records - Array of history records
      * @returns {Object} Statistics { uniqueSTTs, totalQuantity, uniqueProducts, productDetails }
      */
     function calculateSessionStats(records) {
-        console.log('[FINALIZE] 📊 Calculating session stats...');
+        console.log('[FINALIZE] 📊 Calculating session stats from', records.length, 'records...');
 
         const uniqueSTTs = new Set();
         const productMap = new Map(); // productCode -> { details, totalQty, stts }
 
-        records.forEach(record => {
-            // Get products from beforeSnapshot.assignments
-            if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+        records.forEach((record, idx) => {
+            console.log(`[FINALIZE] Processing record ${idx + 1}:`, record.uploadId);
+
+            // Method 1: Use uploadResults with existingProducts (most reliable)
+            if (record.uploadResults && Array.isArray(record.uploadResults)) {
+                console.log('[FINALIZE] Using uploadResults, count:', record.uploadResults.length);
+
+                record.uploadResults.forEach(result => {
+                    if (result.success) {
+                        const stt = String(result.stt);
+                        uniqueSTTs.add(stt);
+
+                        // Get products from existingProducts
+                        if (result.existingProducts && Array.isArray(result.existingProducts)) {
+                            result.existingProducts.forEach(product => {
+                                const productCode = product.productCode || product.code || 'Unknown';
+                                const quantity = product.quantity || 1;
+
+                                if (!productMap.has(productCode)) {
+                                    productMap.set(productCode, {
+                                        productCode: productCode,
+                                        productId: product.productId || product.id || '',
+                                        productName: product.productName || product.name || productCode,
+                                        imageUrl: product.imageUrl || product.image || '',
+                                        totalQuantity: 0,
+                                        stts: new Set()
+                                    });
+                                }
+
+                                const p = productMap.get(productCode);
+                                p.totalQuantity += quantity;
+                                p.stts.add(stt);
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Method 2: Fallback to beforeSnapshot.assignments if no existingProducts
+            if (productMap.size === 0 && record.beforeSnapshot && record.beforeSnapshot.assignments) {
+                console.log('[FINALIZE] Fallback to beforeSnapshot.assignments');
+
                 record.beforeSnapshot.assignments.forEach(assignment => {
                     const productCode = assignment.productCode;
                     const productId = assignment.productId;
 
-                    // Get quantity for each STT
                     if (assignment.sttList && Array.isArray(assignment.sttList)) {
                         assignment.sttList.forEach(stt => {
-                            // Check if this STT was successfully uploaded
                             const uploadResult = record.uploadResults?.find(r => String(r.stt) === String(stt));
                             if (uploadResult && uploadResult.success) {
                                 uniqueSTTs.add(String(stt));
 
-                                // Add to product map
                                 if (!productMap.has(productCode)) {
                                     productMap.set(productCode, {
                                         productCode: productCode,
@@ -3884,14 +3940,23 @@ ${encodedString}
                                 }
 
                                 const product = productMap.get(productCode);
-                                product.totalQuantity += 1; // Each STT = 1 quantity per product
+                                product.totalQuantity += 1;
                                 product.stts.add(String(stt));
                             }
                         });
                     }
                 });
             }
+
+            // Method 3: Last resort - just count STTs from uploadedSTTs
+            if (uniqueSTTs.size === 0 && record.uploadedSTTs && Array.isArray(record.uploadedSTTs)) {
+                console.log('[FINALIZE] Last resort: using uploadedSTTs directly');
+                record.uploadedSTTs.forEach(stt => uniqueSTTs.add(String(stt)));
+            }
         });
+
+        console.log('[FINALIZE] Product map size:', productMap.size);
+        console.log('[FINALIZE] Unique STTs:', uniqueSTTs.size);
 
         // Convert product map to array with STT arrays
         const productDetails = Array.from(productMap.values()).map(p => ({
