@@ -233,6 +233,250 @@ KPI Fee = (Số SP hiện tại - Số SP lúc upload) × 5,000đ
 
 ---
 
+### 4.1. CHI TIẾT LOGIC TÍNH KPI ⭐⭐⭐
+
+#### Bối Cảnh & Mục Đích
+
+**Vấn đề cần giải quyết:**
+- Khi nhân viên upload đơn hàng lên TPOS, đơn hàng đã có sẵn một số sản phẩm
+- SAU KHI upload thành công, nhân viên có thể THÊM sản phẩm mới vào đơn hàng
+- Cần tính phí KPI cho những sản phẩm được thêm SAU khi upload
+
+**Nguyên tắc:**
+- Chỉ tính KPI từ **lần upload ĐẦU TIÊN** của mỗi đơn hàng (STT)
+- Các lần upload sau **KHÔNG ảnh hưởng** đến baseline
+- KPI = 5,000đ × số sản phẩm thêm mới
+
+---
+
+#### Flow Chi Tiết Từng Bước
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           BƯỚC 1: TẢI LỊCH SỬ UPLOAD                          ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  loadUploadHistory() tải từ Firebase:                                        ║
+║  - Path: productAssignments_history                                          ║
+║  - Limit: 200 records gần nhất                                               ║
+║  - Filter: uploadStatus = 'completed' | 'partial' | 'deletion_failed'       ║
+║                                                                              ║
+║  Mỗi record chứa:                                                            ║
+║  {                                                                           ║
+║    uploadId: "abc123",                                                       ║
+║    timestamp: 1700000000000,        ← Thời điểm upload                       ║
+║    uploadStatus: "completed",                                                ║
+║    uploadResults: [                                                          ║
+║      {                                                                       ║
+║        stt: "150",                  ← Số thứ tự đơn hàng                     ║
+║        orderId: "order-xyz",        ← ID đơn hàng trong TPOS                 ║
+║        success: true,                                                        ║
+║        existingProducts: [          ← ⭐ SNAPSHOT SẢN PHẨM LÚC UPLOAD        ║
+║          { ProductId, ProductName, Quantity, Price, ... },                   ║
+║          { ProductId, ProductName, Quantity, Price, ... }                    ║
+║        ]                                                                     ║
+║      },                                                                      ║
+║      { stt: "151", ... },                                                    ║
+║      { stt: "152", ... }                                                     ║
+║    ]                                                                         ║
+║  }                                                                           ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+                                    │
+                                    ▼
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     BƯỚC 2: XÁC ĐỊNH LẦN UPLOAD ĐẦU TIÊN                      ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  // Sort tất cả upload theo thời gian TĂNG DẦN                               ║
+║  const sortedHistory = [...uploadHistory].sort((a, b) =>                     ║
+║      a.timestamp - b.timestamp                                               ║
+║  );                                                                          ║
+║                                                                              ║
+║  // Duyệt qua và CHỈ GIỮ LẦN ĐẦU TIÊN cho mỗi STT                           ║
+║  const firstUploadBySTT = {};                                                ║
+║                                                                              ║
+║  sortedHistory.forEach(record => {                                           ║
+║      record.uploadResults.forEach(result => {                                ║
+║          const stt = result.stt;                                             ║
+║          if (!firstUploadBySTT[stt]) {  // ← Chỉ lấy lần đầu                 ║
+║              firstUploadBySTT[stt] = {                                       ║
+║                  uploadId: record.uploadId,                                  ║
+║                  timestamp: record.timestamp,                                ║
+║                  orderId: result.orderId,                                    ║
+║                  productsAtUpload: result.existingProducts.length            ║
+║              };                                                              ║
+║          }                                                                   ║
+║          // Các lần upload sau bị BỎ QUA                                     ║
+║      });                                                                     ║
+║  });                                                                         ║
+║                                                                              ║
+║  VÍ DỤ:                                                                      ║
+║  ┌────────────────────────────────────────────────────────────┐              ║
+║  │ STT 150:                                                   │              ║
+║  │   - Upload lần 1: 10/11/2024, 3 SP  ← BASELINE (được lưu) │              ║
+║  │   - Upload lần 2: 12/11/2024, 5 SP  ← BỎ QUA              │              ║
+║  │   - Upload lần 3: 15/11/2024, 5 SP  ← BỎ QUA              │              ║
+║  │                                                            │              ║
+║  │ → firstUploadBySTT["150"].productsAtUpload = 3            │              ║
+║  └────────────────────────────────────────────────────────────┘              ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+                                    │
+                                    ▼
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      BƯỚC 3: TẢI ĐƠN HÀNG HIỆN TẠI                            ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  loadCurrentOrders() tải từ localStorage:                                    ║
+║  - Key: 'tab1_filter_data'                                                   ║
+║  - Source: Dữ liệu được Tab 1 lưu sau khi load từ TPOS API                  ║
+║                                                                              ║
+║  Mỗi order chứa:                                                             ║
+║  {                                                                           ║
+║    SessionIndex: "150",             ← STT đơn hàng                           ║
+║    Name: "Nguyễn Văn A",            ← Tên khách hàng                         ║
+║    Telephone: "0901234567",         ← Số điện thoại                          ║
+║    Note: "Áo size M\nQuần size L",  ← Ghi chú                                ║
+║    TotalQuantity: 5                 ← ⭐ TỔNG SỐ SP HIỆN TẠI                 ║
+║  }                                                                           ║
+║                                                                              ║
+║  QUAN TRỌNG:                                                                 ║
+║  - TotalQuantity là số SP HIỆN TẠI trong đơn hàng                           ║
+║  - Được cập nhật realtime từ TPOS API khi Tab 1 refresh                     ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+                                    │
+                                    ▼
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          BƯỚC 4: TÍNH TOÁN KPI                                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  Object.keys(firstUploadBySTT).forEach(stt => {                              ║
+║                                                                              ║
+║      // 1. Lấy thông tin upload                                              ║
+║      const uploadInfo = firstUploadBySTT[stt];                               ║
+║                                                                              ║
+║      // 2. Tìm đơn hàng hiện tại                                             ║
+║      const currentOrder = currentOrders.find(                                ║
+║          order => order.SessionIndex === stt                                 ║
+║      );                                                                      ║
+║                                                                              ║
+║      // 3. Lấy số SP                                                         ║
+║      const currentProductCount = currentOrder.TotalQuantity;  // SP hiện tại ║
+║      const uploadedProductCount = uploadInfo.productsAtUpload; // SP lúc up  ║
+║                                                                              ║
+║      // 4. Tính SP thêm mới                                                  ║
+║      const newProductsAdded = Math.max(0, current - uploaded);               ║
+║      //                       ↑ max(0, ...) để tránh số âm                   ║
+║                                                                              ║
+║      // 5. Tính KPI                                                          ║
+║      const kpiFee = newProductsAdded * 5000;                                 ║
+║                                                                              ║
+║  });                                                                         ║
+║                                                                              ║
+║  ┌────────────────────────────────────────────────────────────────────────┐  ║
+║  │                        VÍ DỤ TÍNH TOÁN                                 │  ║
+║  ├────────────────────────────────────────────────────────────────────────┤  ║
+║  │                                                                        │  ║
+║  │  STT 150:                                                              │  ║
+║  │    - Lần upload đầu: 3 SP (lưu vào existingProducts)                  │  ║
+║  │    - Hiện tại: 7 SP (TotalQuantity từ TPOS)                           │  ║
+║  │    - SP thêm mới: 7 - 3 = 4 SP                                        │  ║
+║  │    - KPI: 4 × 5,000đ = 20,000đ                                        │  ║
+║  │                                                                        │  ║
+║  │  STT 151:                                                              │  ║
+║  │    - Lần upload đầu: 5 SP                                             │  ║
+║  │    - Hiện tại: 5 SP (không thay đổi)                                  │  ║
+║  │    - SP thêm mới: 5 - 5 = 0 SP                                        │  ║
+║  │    - KPI: 0 × 5,000đ = 0đ                                             │  ║
+║  │                                                                        │  ║
+║  │  STT 152:                                                              │  ║
+║  │    - Lần upload đầu: 8 SP                                             │  ║
+║  │    - Hiện tại: 6 SP (giảm do xóa SP)                                  │  ║
+║  │    - SP thêm mới: max(0, 6-8) = 0 SP  ← Không tính số âm             │  ║
+║  │    - KPI: 0đ                                                          │  ║
+║  │                                                                        │  ║
+║  └────────────────────────────────────────────────────────────────────────┘  ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+                                    │
+                                    ▼
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         BƯỚC 5: TẠO KPI DATA OBJECT                           ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  kpiData.push({                                                              ║
+║      stt: "150",                                                             ║
+║      orderId: "order-xyz",                                                   ║
+║      uploadId: "abc123",                                                     ║
+║      uploadTime: 1700000000000,                                              ║
+║      uploadTimeFormatted: "10/11/2024, 09:30:00",                           ║
+║      customerName: "Nguyễn Văn A",                                           ║
+║      customerPhone: "0901234567",                                            ║
+║      customerNote: "Áo size M\nQuần size L",                                 ║
+║      noteLineCount: 2,                ← Số dòng ghi chú (chỉ tham khảo)      ║
+║      noteEdited: false,               ← Ghi chú có bị sửa không?             ║
+║      productsAtUpload: 3,             ← SP lúc upload                        ║
+║      productsNow: 7,                  ← SP hiện tại                          ║
+║      newProductsAdded: 4,             ← SP thêm mới                          ║
+║      kpiFee: 20000,                   ← KPI (VNĐ)                            ║
+║      employeeName: "Huyền"            ← Tên nhân viên (theo range STT)       ║
+║  });                                                                         ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
+#### Sơ Đồ So Sánh Trực Quan
+
+```
+              LÚC UPLOAD (Baseline)              HIỆN TẠI (Current)
+              ════════════════════              ═══════════════════
+
+STT 150       ┌─────────────────┐               ┌─────────────────┐
+              │ SP 1: Áo        │               │ SP 1: Áo        │
+              │ SP 2: Quần      │               │ SP 2: Quần      │
+              │ SP 3: Giày      │               │ SP 3: Giày      │
+              │                 │               │ SP 4: Mũ    ◄───┼──── THÊM MỚI
+              │                 │               │ SP 5: Túi   ◄───┼──── THÊM MỚI
+              │                 │               │ SP 6: Kính  ◄───┼──── THÊM MỚI
+              │                 │               │ SP 7: Vớ    ◄───┼──── THÊM MỚI
+              └─────────────────┘               └─────────────────┘
+
+              Total: 3 SP                       Total: 7 SP
+
+                              ════════════════════════
+                              KPI = (7 - 3) × 5,000đ
+                                  = 4 × 5,000đ
+                                  = 20,000đ
+                              ════════════════════════
+```
+
+---
+
+#### Tại Sao Chỉ Tính Lần Upload Đầu Tiên?
+
+| Scenario | Giải thích |
+|----------|------------|
+| **Upload lần 1** | Đây là baseline - thời điểm đơn hàng "chính thức" được ghi nhận |
+| **Upload lần 2+** | Có thể là re-upload do lỗi, update thông tin, hoặc sync lại - KHÔNG phải baseline mới |
+| **Mục đích KPI** | Thưởng cho việc THÊM sản phẩm SAU khi đơn hàng đã được upload lần đầu |
+
+---
+
+#### Edge Cases & Xử Lý
+
+| Case | Xử lý |
+|------|-------|
+| SP hiện tại < SP lúc upload | `max(0, current - uploaded)` → KPI = 0đ |
+| Đơn hàng bị xóa khỏi TPOS | Skip - không tính KPI |
+| Đơn hàng chưa từng upload | Không xuất hiện trong danh sách |
+| Upload failed | Không lưu vào history → không tính |
+
+---
+
 ### 5. PHÁT HIỆN GHI CHÚ ĐÃ CHỈNH SỬA (Note Edit Detection)
 
 #### `loadNoteSnapshots()`
