@@ -843,12 +843,32 @@ ${encodedString}
 
     // Update Selected Count
     function updateSelectedCount() {
-        const selectedCount = document.getElementById('selectedCount');
+        const selectedItemCount = document.getElementById('selectedItemCount');
+        const selectedOrderCount = document.getElementById('selectedOrderCount');
+        const selectedProductCodeCount = document.getElementById('selectedProductCodeCount');
         const uploadBtn = document.getElementById('uploadBtn');
         const actionSection = document.getElementById('actionSection');
         const selectAllCheckbox = document.getElementById('selectAll');
 
-        selectedCount.textContent = selectedSessionIndexes.size;
+        // Calculate counts for selected orders
+        let totalItems = 0; // Tổng số món (quantity)
+        const uniqueProductCodes = new Set(); // Mã sản phẩm unique
+
+        selectedSessionIndexes.forEach(stt => {
+            const data = sessionIndexData[stt];
+            if (data && data.products) {
+                totalItems += data.products.length;
+                data.products.forEach(product => {
+                    const code = product.productCode || product.productName;
+                    uniqueProductCodes.add(code);
+                });
+            }
+        });
+
+        // Update display
+        selectedItemCount.textContent = totalItems;
+        selectedOrderCount.textContent = selectedSessionIndexes.size;
+        selectedProductCodeCount.textContent = uniqueProductCodes.size;
 
         // Show/hide action section
         if (selectedSessionIndexes.size > 0) {
