@@ -339,7 +339,7 @@
                         <span>STT</span>
                     </label>
                     <label class="column-setting-item">
-                        <input type="checkbox" data-column="employee" checked />
+                        <input type="checkbox" data-column="employee" />
                         <span>Nhân viên</span>
                     </label>
                     <label class="column-setting-item">
@@ -383,7 +383,7 @@
                         <span>Số lượng</span>
                     </label>
                     <label class="column-setting-item">
-                        <input type="checkbox" data-column="created-date" checked />
+                        <input type="checkbox" data-column="created-date" />
                         <span>Ngày tạo</span>
                     </label>
                     <label class="column-setting-item">
@@ -391,7 +391,7 @@
                         <span>Trạng thái</span>
                     </label>
                     <label class="column-setting-item">
-                        <input type="checkbox" data-column="actions" />
+                        <input type="checkbox" data-column="actions" checked />
                         <span>Thao tác</span>
                     </label>
                 </div>
@@ -1443,9 +1443,11 @@
             </button>
         </div>
         <div class="employee-drawer-body">
-            <div id="employeeAssignmentTable" style="max-height: calc(100vh - 200px); overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 16px;">
+            <div id="employeeAssignmentTable"
+                style="max-height: calc(100vh - 200px); overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 16px;">
                 <table style="width: 100%; font-size: 13px;">
-                    <thead style="position: sticky; top: 0; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; z-index: 1;">
+                    <thead
+                        style="position: sticky; top: 0; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; z-index: 1;">
                         <tr>
                             <th style="padding: 8px; text-align: left; font-weight: 600;">Nhân viên</th>
                             <th style="padding: 8px; text-align: center; width: 100px; font-weight: 600;">STT Từ</th>

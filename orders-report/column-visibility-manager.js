@@ -9,6 +9,7 @@ const COLUMN_VISIBILITY_KEY = 'orderTableColumnVisibility';
 const DEFAULT_COLUMN_VISIBILITY = {
     'stt': true,
     'tag': true,
+    'employee': false,
     'order-code': false,
     'customer': true,
     'messages': true,
@@ -18,9 +19,9 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'notes': false,
     'total': true,
     'quantity': true,
-    'created-date': true,
+    'created-date': false,
     'status': true,
-    'actions': false
+    'actions': true
 };
 
 // =====================================================
@@ -201,7 +202,7 @@ function showSaveIndicator(message) {
 // =====================================================
 
 // Close modal when clicking outside
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const modal = document.getElementById('columnSettingsModal');
     if (e.target === modal) {
         closeColumnSettingsModal();
@@ -209,7 +210,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Close modal with Escape key
-document.addEventListener('keydown', function(e) {
+document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
         const modal = document.getElementById('columnSettingsModal');
         if (modal && modal.classList.contains('show')) {
@@ -219,7 +220,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('[COLUMN] Column visibility manager loaded');
     // Initialize will be called after table is rendered
 });

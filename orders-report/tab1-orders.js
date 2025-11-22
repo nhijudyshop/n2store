@@ -5108,6 +5108,19 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                 </div>
             `;
 
+            // Add click event and styling
+            const clickHandler = type === 'INBOX'
+                ? `openChatModal('${order.Id}', '${pageId}', '${psid}')`
+                : `openChatModal('${order.Id}', '${pageId}', '${psid}', 'comment')`;
+
+            const tooltipText = type === 'INBOX'
+                ? 'Click để xem toàn bộ tin nhắn'
+                : 'Click để xem bình luận';
+
+            cell.setAttribute('onclick', clickHandler);
+            cell.style.cursor = 'pointer';
+            cell.title = tooltipText;
+
             // Highlight
             row.classList.add('product-row-highlight');
             setTimeout(() => row.classList.remove('product-row-highlight'), 2000);
