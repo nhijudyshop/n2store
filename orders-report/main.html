@@ -13,7 +13,10 @@
     <!-- N2Store Optimization: Core Utilities Loader -->
     <script src="../js/core-loader.js"></script>
 
-    <!-- Navigation Manager - Load trước khi load page scripts -->
+    <!-- Auth must load BEFORE navigation -->
+    <script src="auth.js"></script>
+
+    <!-- Navigation Manager - Load sau khi load auth -->
     <script src="../js/navigation-modern.js"></script>
     <script src="../js/common-utils.js"></script>
 
@@ -246,8 +249,7 @@
 
     <!-- Scripts -->
     <!-- ONLY load minimal scripts for main.html -->
-    <!-- Auth check only - business logic handled by tabs -->
-    <script src="auth.js"></script>
+    <!-- Auth already loaded in HEAD - business logic handled by tabs -->
 
     <!-- Main.html only needs auth and tab navigation -->
     <!-- DO NOT load: token-manager, cache, notification-system, pancake, chat managers -->
