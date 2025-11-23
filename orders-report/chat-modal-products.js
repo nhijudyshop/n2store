@@ -79,7 +79,11 @@
         }
 
         try {
-            const results = await window.productSearchManager.searchProducts(query);
+            // Ensure products are loaded first
+            if (!window.productSearchManager.isLoaded) {
+                await window.productSearchManager.fetchExcelProducts();
+            }
+            const results = window.productSearchManager.search(query, 10);
             displayChatSearchResults(results);
         } catch (error) {
             console.error('[CHAT-PRODUCTS] Search error:', error);
