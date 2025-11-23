@@ -4677,6 +4677,9 @@ ${encodedString}
 (function() {
     'use strict';
 
+    // Get Firebase database reference
+    const database = firebase.database();
+
     /**
      * Open finalize history modal
      */
