@@ -3866,25 +3866,12 @@ ${encodedString}
 
     /**
      * Calculate session statistics from history records
-     * Uses uploadResults.existingProducts for product details (most reliable source)
+     * Uses beforeSnapshot.assignments for uploaded products (correct source)
      * @param {Array} records - Array of history records
      * @returns {Object} Statistics { uniqueSTTs, totalQuantity, uniqueProducts, productDetails }
      */
     function calculateSessionStats(records) {
         console.log('[FINALIZE] 📊 Calculating session stats from', records.length, 'records...');
-
-        // Debug: Log first record structure
-        if (records.length > 0) {
-            const firstRecord = records[0];
-            console.log('[FINALIZE] 🔍 FIRST RECORD FULL STRUCTURE:', JSON.stringify(firstRecord, null, 2).substring(0, 2000));
-            console.log('[FINALIZE] 🔍 First record keys:', Object.keys(firstRecord));
-            console.log('[FINALIZE] 🔍 uploadResults exists?', !!firstRecord.uploadResults, 'type:', typeof firstRecord.uploadResults);
-            console.log('[FINALIZE] 🔍 beforeSnapshot exists?', !!firstRecord.beforeSnapshot);
-            if (firstRecord.beforeSnapshot) {
-                console.log('[FINALIZE] 🔍 beforeSnapshot keys:', Object.keys(firstRecord.beforeSnapshot));
-                console.log('[FINALIZE] 🔍 assignments exists?', !!firstRecord.beforeSnapshot.assignments);
-            }
-        }
 
         const uniqueSTTs = new Set();
         const productMap = new Map(); // productCode -> { details, totalQty, stts }
@@ -3895,44 +3882,25 @@ ${encodedString}
                 console.log(`[FINALIZE] Processing record ${idx + 1}:`, record.uploadId);
             }
 
-            // Method 1: Use uploadResults with existingProducts (most reliable)
+            // Get list of successful STTs from uploadResults
+            const successfulSTTs = new Set();
             if (record.uploadResults && Array.isArray(record.uploadResults)) {
-                if (idx < 3) console.log('[FINALIZE] Using uploadResults, count:', record.uploadResults.length);
-
                 record.uploadResults.forEach(result => {
                     if (result.success) {
-                        const stt = String(result.stt);
-                        uniqueSTTs.add(stt);
-
-                        // Get products from existingProducts
-                        if (result.existingProducts && Array.isArray(result.existingProducts)) {
-                            result.existingProducts.forEach(product => {
-                                const productCode = product.productCode || product.code || 'Unknown';
-                                const quantity = product.quantity || 1;
-
-                                if (!productMap.has(productCode)) {
-                                    productMap.set(productCode, {
-                                        productCode: productCode,
-                                        productId: product.productId || product.id || '',
-                                        productName: product.productName || product.name || productCode,
-                                        imageUrl: product.imageUrl || product.image || '',
-                                        totalQuantity: 0,
-                                        stts: new Set()
-                                    });
-                                }
-
-                                const p = productMap.get(productCode);
-                                p.totalQuantity += quantity;
-                                p.stts.add(stt);
-                            });
-                        }
+                        successfulSTTs.add(String(result.stt));
                     }
                 });
             }
 
-            // Method 2: Fallback to beforeSnapshot.assignments if no existingProducts
-            if (productMap.size === 0 && record.beforeSnapshot && record.beforeSnapshot.assignments) {
-                console.log('[FINALIZE] Fallback to beforeSnapshot.assignments');
+            if (idx < 3) {
+                console.log('[FINALIZE] Successful STTs:', Array.from(successfulSTTs));
+            }
+
+            // PRIMARY METHOD: Use beforeSnapshot.assignments (this is the UPLOADED products)
+            if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+                if (idx < 3) {
+                    console.log('[FINALIZE] Using beforeSnapshot.assignments, count:', record.beforeSnapshot.assignments.length);
+                }
 
                 record.beforeSnapshot.assignments.forEach(assignment => {
                     const productCode = assignment.productCode;
@@ -3940,9 +3908,11 @@ ${encodedString}
 
                     if (assignment.sttList && Array.isArray(assignment.sttList)) {
                         assignment.sttList.forEach(stt => {
-                            const uploadResult = record.uploadResults?.find(r => String(r.stt) === String(stt));
-                            if (uploadResult && uploadResult.success) {
-                                uniqueSTTs.add(String(stt));
+                            const sttStr = String(stt);
+
+                            // Only count if this STT was successfully uploaded
+                            if (successfulSTTs.has(sttStr)) {
+                                uniqueSTTs.add(sttStr);
 
                                 if (!productMap.has(productCode)) {
                                     productMap.set(productCode, {
@@ -3957,17 +3927,17 @@ ${encodedString}
 
                                 const product = productMap.get(productCode);
                                 product.totalQuantity += 1;
-                                product.stts.add(String(stt));
+                                product.stts.add(sttStr);
                             }
                         });
                     }
                 });
             }
 
-            // Method 3: Last resort - just count STTs from uploadedSTTs
-            if (uniqueSTTs.size === 0 && record.uploadedSTTs && Array.isArray(record.uploadedSTTs)) {
-                console.log('[FINALIZE] Last resort: using uploadedSTTs directly');
-                record.uploadedSTTs.forEach(stt => uniqueSTTs.add(String(stt)));
+            // FALLBACK: If no assignments, just count STTs
+            if (uniqueSTTs.size === 0 && successfulSTTs.size > 0) {
+                console.log('[FINALIZE] Fallback: only counting STTs');
+                successfulSTTs.forEach(stt => uniqueSTTs.add(stt));
             }
         });
 
@@ -4315,19 +4285,31 @@ ${encodedString}
             });
         });
 
-        // Actually, we need to count from the raw data - each STT appearance = 1
-        // Let's recalculate from finalizeSessionData.records
+        // Recalculate from the raw data using beforeSnapshot.assignments (correct source)
         sttProductCount.clear();
 
         if (finalizeSessionData.records) {
             finalizeSessionData.records.forEach(record => {
+                // Get successful STTs
+                const successfulSTTs = new Set();
                 if (record.uploadResults) {
                     record.uploadResults.forEach(result => {
-                        if (result.success && result.existingProducts) {
-                            const stt = String(result.stt);
-                            result.existingProducts.forEach(product => {
-                                const count = sttProductCount.get(stt) || 0;
-                                sttProductCount.set(stt, count + (product.quantity || 1));
+                        if (result.success) {
+                            successfulSTTs.add(String(result.stt));
+                        }
+                    });
+                }
+
+                // Count products per STT from beforeSnapshot.assignments
+                if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+                    record.beforeSnapshot.assignments.forEach(assignment => {
+                        if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                            assignment.sttList.forEach(stt => {
+                                const sttStr = String(stt);
+                                if (successfulSTTs.has(sttStr)) {
+                                    const count = sttProductCount.get(sttStr) || 0;
+                                    sttProductCount.set(sttStr, count + 1);
+                                }
                             });
                         }
                     });
