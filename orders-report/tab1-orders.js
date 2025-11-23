@@ -3955,6 +3955,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             setupChatInfiniteScroll();
         }
 
+        /* LEGACY CODE REMOVED
         // Initialize Chat Product State
         initChatProductSearch();
 
@@ -3987,6 +3988,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             currentChatOrderDetails = order.Details ? JSON.parse(JSON.stringify(order.Details)) : [];
             renderChatProductsPanel();
         }
+        */
 
 
 
@@ -5654,6 +5656,7 @@ async function saveSelectedProductsToOrders() {
 // CHAT SHOPPING CART LOGIC
 // =====================================================
 
+/* LEGACY CODE REMOVED
 function renderChatProductsPanel() {
     const listContainer = document.getElementById("chatProductList");
     const countBadge = document.getElementById("chatProductCountBadge");
@@ -5781,6 +5784,7 @@ function renderChatProductsPanel() {
         </div>
     `).join("");
 }
+*/
 
 // --- Search Logic ---
 var chatSearchTimeout = null;
@@ -6039,6 +6043,7 @@ function saveChatProductsToFirebase(orderId, products) {
     ref.set(products).catch(err => console.error("[CHAT-FIREBASE] Save error:", err));
 }
 
+/* LEGACY CODE REMOVED
 async function addChatProductFromSearch(productId) {
     // Show loading state on the clicked item
     const searchItem = document.querySelector(`.chat-search-item[onclick*="${productId}"]`);
@@ -6138,9 +6143,11 @@ async function addChatProductFromSearch(productId) {
         alert("Lỗi khi thêm sản phẩm: " + error.message);
     }
 }
+*/
 
 // --- Action Logic ---
 
+/* LEGACY CODE REMOVED
 function updateChatProductQuantity(index, delta, specificValue = null) {
     if (index < 0 || index >= currentChatOrderDetails.length) return;
 
@@ -6155,7 +6162,9 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
     renderChatProductsPanel();
     saveChatProductsToFirebase('shared', currentChatOrderDetails);
 }
+*/
 
+/* LEGACY CODE REMOVED
 function removeChatProduct(index) {
     if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
         currentChatOrderDetails.splice(index, 1);
@@ -6163,6 +6172,7 @@ function removeChatProduct(index) {
         saveChatProductsToFirebase('shared', currentChatOrderDetails);
     }
 }
+*/
 
 // =====================================================
 // MERGE ORDER PRODUCTS API FUNCTIONS

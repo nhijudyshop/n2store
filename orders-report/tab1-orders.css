@@ -3970,3 +3970,13 @@ td[data-column].hidden {
 .btn-secondary:hover {
     background: #4b5563;
 }
+/* Hide spin buttons for chat quantity input */
+.chat-quantity-input::-webkit-outer-spin-button,
+.chat-quantity-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.chat-quantity-input {
+  -moz-appearance: textfield;
+}

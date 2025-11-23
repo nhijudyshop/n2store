@@ -266,6 +266,22 @@
     window.updateChatProductQuantity = function (index, change, value = null) {
         const product = window.currentChatOrderData.Details[index];
         const oldQty = product.Quantity || 0;
+
+        // Handle decrease confirmation
+        if (change < 0) {
+            if (oldQty <= 1) {
+                // If quantity is 1, treat as remove request
+                // removeChatProduct has its own confirmation
+                window.removeChatProduct(index);
+                return;
+            } else {
+                // If quantity > 1, confirm decrease
+                if (!confirm(`Bạn có chắc muốn giảm số lượng sản phẩm "${product.ProductNameGet || product.ProductName}"?`)) {
+                    return;
+                }
+            }
+        }
+
         let newQty = value !== null ? parseInt(value, 10) : oldQty + change;
 
         if (newQty < 1) newQty = 1;
@@ -359,9 +375,20 @@
                         <button onclick="updateChatProductQuantity(${i}, -1)" class="chat-qty-btn">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <input type="number" class="chat-quantity-input" value="${p.Quantity || 1}"
-                            onchange="updateChatProductQuantity(${i}, 0, this.value)" min="1">
-                        <button onclick="updateChatProductQuantity(${i}, 1)" class="chat-qty-btn">
+                        <span class="chat-quantity-label" style="
+                            width: 32px;
+                            height: 24px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 13px;
+                            font-weight: 600;
+                            border-left: 1px solid #e2e8f0;
+                            border-right: 1px solid #e2e8f0;
+                            background: #f8fafc;
+                            color: #1e293b;
+                        ">${p.Quantity || 1}</span>
+                        <button class="chat-qty-btn" disabled style="opacity: 0.5; cursor: not-allowed; background: #f1f5f9; color: #cbd5e1;">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
