@@ -267,7 +267,16 @@
         const oldQty = product.Quantity || 0;
         let newQty = value !== null ? parseInt(value, 10) : oldQty + change;
 
-        if (newQty < 1) newQty = 1;
+        // If trying to reduce below 1, show confirm to remove product entirely
+        if (newQty < 1) {
+            showProductConfirmModal({
+                type: 'remove',
+                index: index,
+                product: product,
+                quantity: oldQty
+            });
+            return;
+        }
 
         // If quantity is being reduced, show confirm modal
         if (newQty < oldQty) {
