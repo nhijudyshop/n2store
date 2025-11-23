@@ -4368,31 +4368,27 @@ ${encodedString}
     }
 
     /**
-     * Calculate cart statistics from orders data (tab1)
+     * Calculate cart statistics from sessionIndexData (product assignments grouped by STT)
      * @returns {Object} Cart statistics
      */
     function calculateCartStats() {
-        console.log('[CART-STATS] 📊 Calculating cart statistics from orders...');
-
-        const ordersData = getOrdersDataFromLocalStorage();
-        console.log('[CART-STATS] Loaded ordersData:', ordersData.length, 'orders');
+        console.log('[CART-STATS] 📊 Calculating cart statistics from sessionIndexData...');
 
         const uniqueSTTs = new Set();
         const productMap = new Map(); // productCode -> { details, totalQty, sttQuantities }
 
-        ordersData.forEach(order => {
-            const stt = String(order.stt);
+        // Iterate over sessionIndexData (products assigned to each STT)
+        Object.entries(sessionIndexData).forEach(([stt, data]) => {
             uniqueSTTs.add(stt);
 
-            // Parse products from order
-            if (order.products && Array.isArray(order.products) && order.products.length > 0) {
-                order.products.forEach(product => {
-                    const productCode = product.productCode || product.code;
+            // data.products contains all products assigned to this STT
+            if (data.products && Array.isArray(data.products)) {
+                data.products.forEach(product => {
+                    const productCode = product.productCode || product.productName;
                     if (!productCode) return;
 
-                    const productQty = product.quantity || 1;
-                    const productName = product.productName || product.name || productCode;
-                    const imageUrl = product.imageUrl || product.image || '';
+                    const productName = product.productName || productCode;
+                    const imageUrl = product.imageUrl || '';
 
                     if (!productMap.has(productCode)) {
                         productMap.set(productCode, {
@@ -4405,11 +4401,11 @@ ${encodedString}
                     }
 
                     const productData = productMap.get(productCode);
-                    productData.totalQuantity += productQty;
+                    productData.totalQuantity += 1; // Each product entry = 1 quantity
 
                     // Track quantity for each STT
                     const currentQty = productData.sttQuantities.get(stt) || 0;
-                    productData.sttQuantities.set(stt, currentQty + productQty);
+                    productData.sttQuantities.set(stt, currentQty + 1);
                 });
             }
         });
@@ -4789,21 +4785,20 @@ ${encodedString}
         const ordersData = getOrdersDataFromLocalStorage();
         console.log('[DISCREPANCY] Loaded ordersData:', ordersData.length, 'orders');
 
-        // Build map of products from orders (expected products)
+        // Build map of products from sessionIndexData (expected products from cart)
         const expectedProductMap = new Map(); // productCode -> { totalQuantity, stts: [stt1, stt2, ...] }
         const expectedSTTMap = new Map(); // stt -> { productCodes: [code1, code2, ...], totalQuantity }
 
-        ordersData.forEach(order => {
-            const stt = String(order.stt);
-            const quantity = order.quantity || 0;
+        // Use sessionIndexData (products assigned to each STT) for expected products
+        Object.entries(sessionIndexData).forEach(([stt, data]) => {
+            // Find customer name from ordersData
+            const order = ordersData.find(o => String(o.stt) === stt);
+            const customerName = order?.customerName || data.orderInfo?.customerName || '';
 
-            // Parse products from order
-            if (order.products && Array.isArray(order.products) && order.products.length > 0) {
-                order.products.forEach(product => {
-                    const productCode = product.productCode || product.code;
+            if (data.products && Array.isArray(data.products)) {
+                data.products.forEach(product => {
+                    const productCode = product.productCode || product.productName;
                     if (!productCode) return;
-
-                    const productQty = product.quantity || 1;
 
                     // Track by product code
                     if (!expectedProductMap.has(productCode)) {
@@ -4814,7 +4809,7 @@ ${encodedString}
                         });
                     }
                     const expectedProduct = expectedProductMap.get(productCode);
-                    expectedProduct.totalQuantity += productQty;
+                    expectedProduct.totalQuantity += 1;
                     if (!expectedProduct.stts.includes(stt)) {
                         expectedProduct.stts.push(stt);
                     }
@@ -4823,7 +4818,7 @@ ${encodedString}
                     if (!expectedSTTMap.has(stt)) {
                         expectedSTTMap.set(stt, {
                             stt: stt,
-                            customerName: order.customerName || '',
+                            customerName: customerName,
                             productCodes: [],
                             totalQuantity: 0
                         });
@@ -4832,20 +4827,8 @@ ${encodedString}
                     if (!expectedSTT.productCodes.includes(productCode)) {
                         expectedSTT.productCodes.push(productCode);
                     }
-                    expectedSTT.totalQuantity += productQty;
+                    expectedSTT.totalQuantity += 1;
                 });
-            } else if (quantity > 0) {
-                // Fallback: If no products array, track quantity at STT level
-                // This ensures totalExpected matches totalOrderQuantity from comment analysis
-                if (!expectedSTTMap.has(stt)) {
-                    expectedSTTMap.set(stt, {
-                        stt: stt,
-                        customerName: order.customerName || '',
-                        productCodes: [],
-                        totalQuantity: 0
-                    });
-                }
-                expectedSTTMap.get(stt).totalQuantity += quantity;
             }
         });
 
