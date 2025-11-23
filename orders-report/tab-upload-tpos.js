@@ -2495,11 +2495,25 @@ ${encodedString}
     // =====================================================
 
     /**
-     * Get tag settings from localStorage
-     * @returns {Object} Tag settings object { tagId: "note", ... }
+     * Get tag settings from Firebase (with localStorage fallback)
+     * @returns {Promise<Object>} Tag settings object { tagId: "note", ... }
      */
-    function getTagSettings() {
+    async function getTagSettings() {
         try {
+            // Try Firebase first
+            if (database) {
+                console.log('[AUTO-TAG] Loading tag settings from Firebase...');
+                const snapshot = await database.ref('tagSettings/shared').once('value');
+                const firebaseSettings = snapshot.val();
+
+                if (firebaseSettings) {
+                    console.log('[AUTO-TAG] Loaded tag settings from Firebase:', Object.keys(firebaseSettings).length, 'tags');
+                    return firebaseSettings;
+                }
+            }
+
+            // Fallback to localStorage
+            console.log('[AUTO-TAG] Firebase settings not found, using localStorage fallback');
             const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
             const saved = localStorage.getItem(TAG_SETTINGS_KEY);
             return saved ? JSON.parse(saved) : {};
@@ -2518,33 +2532,17 @@ ${encodedString}
         try {
             console.log('[AUTO-TAG] Finding tags for notes:', productNotesList);
 
-            // Load available tags if not loaded
+            // Check if tags are loaded (should be loaded from tab1-orders.js)
             if (!window.availableTags || window.availableTags.length === 0) {
-                console.log('[AUTO-TAG] Loading available tags...');
-                // Load tags from API (same as tab1-orders.js)
-                const headers = await window.tokenManager.getAuthHeader();
-                const response = await fetch(
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder?$orderby=Id',
-                    {
-                        headers: {
-                            ...headers,
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                        },
-                    }
-                );
-
-                if (!response.ok) {
-                    throw new Error(`Failed to load tags: ${response.status}`);
-                }
-
-                const data = await response.json();
-                window.availableTags = data.value || [];
-                console.log(`[AUTO-TAG] Loaded ${window.availableTags.length} tags`);
+                console.warn('[AUTO-TAG] ⚠️ window.availableTags not available. Tags should be loaded from tab1-orders.js first.');
+                console.warn('[AUTO-TAG] Please open "Quản Lý Đơn Hàng" tab first to load tags.');
+                return [];
             }
 
-            // Get tag settings (note mappings)
-            const tagSettings = getTagSettings();
+            console.log(`[AUTO-TAG] Using ${window.availableTags.length} available tags`);
+
+            // Get tag settings (note mappings) from Firebase
+            const tagSettings = await getTagSettings();
             console.log('[AUTO-TAG] Tag settings:', tagSettings);
 
             // Find matching tags
