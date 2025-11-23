@@ -4368,31 +4368,27 @@ ${encodedString}
     }
 
     /**
-     * Calculate cart statistics from orders data (tab1)
+     * Calculate cart statistics from sessionIndexData (product assignments grouped by STT)
      * @returns {Object} Cart statistics
      */
     function calculateCartStats() {
-        console.log('[CART-STATS] 📊 Calculating cart statistics from orders...');
-
-        const ordersData = getOrdersDataFromLocalStorage();
-        console.log('[CART-STATS] Loaded ordersData:', ordersData.length, 'orders');
+        console.log('[CART-STATS] 📊 Calculating cart statistics from sessionIndexData...');
 
         const uniqueSTTs = new Set();
         const productMap = new Map(); // productCode -> { details, totalQty, sttQuantities }
 
-        ordersData.forEach(order => {
-            const stt = String(order.stt);
+        // Iterate over sessionIndexData (products assigned to each STT)
+        Object.entries(sessionIndexData).forEach(([stt, data]) => {
             uniqueSTTs.add(stt);
 
-            // Parse products from order
-            if (order.products && Array.isArray(order.products) && order.products.length > 0) {
-                order.products.forEach(product => {
-                    const productCode = product.productCode || product.code;
+            // data.products contains all products assigned to this STT
+            if (data.products && Array.isArray(data.products)) {
+                data.products.forEach(product => {
+                    const productCode = product.productCode || product.productName;
                     if (!productCode) return;
 
-                    const productQty = product.quantity || 1;
-                    const productName = product.productName || product.name || productCode;
-                    const imageUrl = product.imageUrl || product.image || '';
+                    const productName = product.productName || productCode;
+                    const imageUrl = product.imageUrl || '';
 
                     if (!productMap.has(productCode)) {
                         productMap.set(productCode, {
@@ -4405,11 +4401,11 @@ ${encodedString}
                     }
 
                     const productData = productMap.get(productCode);
-                    productData.totalQuantity += productQty;
+                    productData.totalQuantity += 1; // Each product entry = 1 quantity
 
                     // Track quantity for each STT
                     const currentQty = productData.sttQuantities.get(stt) || 0;
-                    productData.sttQuantities.set(stt, currentQty + productQty);
+                    productData.sttQuantities.set(stt, currentQty + 1);
                 });
             }
         });
