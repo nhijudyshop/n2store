@@ -5131,6 +5131,8 @@ ${encodedString}
                 },
                 productSummary: stats.productDetails.map(p => ({
                     productCode: p.productCode,
+                    productName: p.productName,
+                    imageUrl: p.imageUrl,
                     quantity: p.totalQuantity,
                     sttCount: p.stts.length,
                     sttQuantities: p.sttQuantities // Save detailed STT quantities
@@ -5143,6 +5145,7 @@ ${encodedString}
                     duplicateEntries: commentAnalysisData.duplicateEntries.map(e => ({
                         stt: e.stt,
                         customerName: e.customerName,
+                        commentLines: e.commentLines || [],
                         commentCount: e.commentCount,
                         productCount: e.productCount,
                         difference: e.difference,
@@ -5152,6 +5155,7 @@ ${encodedString}
                     missingEntries: commentAnalysisData.missingEntries.map(e => ({
                         stt: e.stt,
                         customerName: e.customerName,
+                        commentLines: e.commentLines || [],
                         commentCount: e.commentCount,
                         productCount: e.productCount,
                         difference: e.difference,
@@ -5341,139 +5345,185 @@ ${encodedString}
 
     /**
      * Render finalize history body content
+     * Updated to match the layout of renderFinalizeSessionContent for consistency
      */
     function renderFinalizeHistoryBody(session, productSummary, commentAnalysis) {
         let html = '';
 
         // Time range info
-        if (session.fromTimestamp) {
-            const fromTime = new Date(session.fromTimestamp).toLocaleString('vi-VN');
-            const toTime = new Date(session.toTimestamp).toLocaleString('vi-VN');
-            html += `
-                <div class="alert alert-info mb-3">
-                    <i class="fas fa-clock me-2"></i>
-                    <strong>Khoảng thời gian:</strong> ${fromTime} → ${toTime}
-                    <span class="ms-3"><strong>Số record:</strong> ${session.recordCount || 0}</span>
+        const fromDate = session.fromTimestamp
+            ? new Date(session.fromTimestamp).toLocaleString('vi-VN')
+            : 'Bắt đầu';
+        const toDate = new Date(session.toTimestamp).toLocaleString('vi-VN');
+
+        html += `
+            <div class="finalize-session-info mb-4">
+                <div class="alert alert-info">
+                    <i class="fas fa-calendar-alt"></i>
+                    <strong>Thống kê từ:</strong> ${fromDate} <i class="fas fa-arrow-right mx-2"></i> ${toDate}
                 </div>
-            `;
-        }
+            </div>
+        `;
 
-        // Product summary section
+        // Product details section with same layout as finalize session
         if (productSummary && productSummary.length > 0) {
+            const stats = session.stats || {};
+            const sessionId = session.timestamp; // Use timestamp as unique ID
+
             html += `
-                <div class="finalize-history-section">
-                    <h6><i class="fas fa-box me-2"></i>Chi tiết sản phẩm (${productSummary.length} mã)</h6>
-                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                        <table class="finalize-product-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Mã sản phẩm</th>
-                                    <th>Số lượng</th>
-                                    <th>MÃ ĐƠN HÀNG (STT)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover finalize-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 50%">SẢN PHẨM</th>
+                                <th style="width: 15%" class="text-center">SỐ LƯỢNG</th>
+                                <th style="width: 35%">MÃ ĐƠN HÀNG (STT)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Summary Row with Toggle Button -->
+                            <tr class="finalize-summary-row" onclick="toggleHistoryProductDetails('${sessionId}')" style="cursor: pointer;">
+                                <td>
+                                    <strong>
+                                        <i class="fas fa-chevron-right finalize-toggle-icon" id="productDetailsToggleIcon-${sessionId}"></i>
+                                        <i class="fas fa-chart-bar"></i> TỔNG CỘNG: ${stats.uniqueProducts || productSummary.length} sản phẩm
+                                    </strong>
+                                </td>
+                                <td class="text-center">
+                                    <strong>${stats.totalQuantity || 0} món</strong>
+                                </td>
+                                <td>
+                                    <strong>${stats.uniqueSTTs || 0} đơn hàng</strong>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tbody id="productDetailsBody-${sessionId}" class="finalize-details-collapsed">
             `;
 
-            productSummary.forEach((p, idx) => {
+            productSummary.forEach(product => {
+                const imageHtml = product.imageUrl
+                    ? `<img src="${product.imageUrl}" alt="${product.productCode}" class="finalize-product-img">`
+                    : `<div class="finalize-product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
                 // Format STT list with quantities: "31, 32x2" (only show xN if N > 1)
-                const sttList = p.sttQuantities && Array.isArray(p.sttQuantities) && p.sttQuantities.length > 0
-                    ? p.sttQuantities.map(item =>
+                const sttList = product.sttQuantities && Array.isArray(product.sttQuantities) && product.sttQuantities.length > 0
+                    ? product.sttQuantities.map(item =>
                         item.quantity > 1 ? `${item.stt}x${item.quantity}` : item.stt
                       ).join(', ')
-                    : `${p.sttCount} STT`; // Fallback for old data
+                    : `${product.sttCount} STT`; // Fallback for old data
 
                 html += `
-                    <tr>
-                        <td>${idx + 1}</td>
-                        <td><strong>${p.productCode}</strong></td>
-                        <td>${p.quantity}</td>
-                        <td><span class="text-muted small">${sttList}</span></td>
+                    <tr class="finalize-detail-row">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                ${imageHtml}
+                                <div class="ms-2">
+                                    <strong>[${product.productCode}]</strong>
+                                    ${product.productName ? `<div class="text-muted small">${product.productName}</div>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-center align-middle">
+                            <span class="badge bg-primary fs-6">${product.quantity}</span>
+                        </td>
+                        <td class="align-middle">
+                            <span class="text-muted small">${sttList}</span>
+                        </td>
                     </tr>
                 `;
             });
 
             html += `
-                            </tbody>
-                        </table>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
             `;
         }
 
-        // Comment analysis section
-        if (commentAnalysis && (commentAnalysis.duplicateEntries?.length > 0 || commentAnalysis.missingEntries?.length > 0)) {
+        // Comment analysis section with same layout as finalize session
+        if (commentAnalysis) {
+            const { totalComments, totalProductEntries, totalOrderQuantity, duplicateEntries, missingEntries } = commentAnalysis;
+            const sessionId = session.timestamp;
+
             html += `
-                <div class="finalize-history-section">
-                    <h6><i class="fas fa-comments me-2"></i>Phân tích Comment</h6>
-                    <div class="alert alert-secondary mb-3">
-                        <strong>${commentAnalysis.totalComments || 0}</strong> comment tạo đơn |
-                        <strong>${commentAnalysis.totalProductEntries || 0}</strong> số phiếu đã nhập |
-                        <strong>${commentAnalysis.totalOrderQuantity || 0}</strong> số món
-                    </div>
-                    <div class="finalize-comment-summary">
+                <div class="comment-analysis-section mt-4">
+                    <div class="table-responsive">
+                        <table class="table table-bordered comment-analysis-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th colspan="2" class="text-center">
+                                        <i class="fas fa-comments"></i> KIỂM TRA COMMENT
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Summary Row -->
+                                <tr class="comment-summary-row" onclick="toggleHistoryCommentAnalysis('${sessionId}')" style="cursor: pointer;">
+                                    <td colspan="2">
+                                        <strong>
+                                            <i class="fas fa-chevron-right comment-toggle-icon" id="commentAnalysisToggleIcon-${sessionId}"></i>
+                                            <i class="fas fa-chart-pie"></i>
+                                            Tổng: <span class="text-primary">${totalComments || 0}</span> comment tạo đơn |
+                                            <span class="text-success">${totalProductEntries || 0}</span> số phiếu đã nhập |
+                                            <span class="text-info">${totalOrderQuantity || 0}</span> số món trong tất cả giỏ
+                                        </strong>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Collapsible Details -->
+                        <div id="commentAnalysisBody-${sessionId}" class="comment-analysis-collapsed">
+                            <div class="row">
+                                <!-- Left Column: Comment nhập trùng -->
+                                <div class="col-md-6">
+                                    <div class="comment-column comment-duplicate">
+                                        <h6 class="comment-column-header bg-warning text-dark">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            COMMENT NHẬP TRÙNG (${duplicateEntries?.length || 0})
+                                            <small class="d-block">Số comment < Số sản phẩm</small>
+                                        </h6>
+                                        <div class="comment-entries-list">
             `;
 
-            // Duplicate entries (left column)
-            html += `
-                <div class="finalize-comment-box duplicate">
-                    <div class="finalize-comment-box-header">
-                        <i class="fas fa-clone me-2"></i>Comment nhập trùng (${commentAnalysis.duplicateEntries?.length || 0})
-                    </div>
-                    <div class="finalize-comment-box-body">
-            `;
-
-            if (commentAnalysis.duplicateEntries && commentAnalysis.duplicateEntries.length > 0) {
-                commentAnalysis.duplicateEntries.forEach(entry => {
-                    html += `
-                        <div class="finalize-comment-entry">
-                            <span class="stt-badge">${entry.stt}</span>
-                            <span class="customer-name">${entry.customerName || ''}</span>
-                            <span class="diff negative">${entry.difference}</span>
-                            ${entry.checked ? '<i class="fas fa-check check-icon"></i>' : ''}
-                        </div>
-                    `;
-                });
+            if (!duplicateEntries || duplicateEntries.length === 0) {
+                html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
             } else {
-                html += '<div class="text-muted text-center py-2">Không có</div>';
+                duplicateEntries.forEach((entry, idx) => {
+                    html += renderHistoryCommentEntry(entry, idx, 'duplicate');
+                });
             }
 
             html += `
-                    </div>
-                </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: Comment nhập thiếu -->
+                                <div class="col-md-6">
+                                    <div class="comment-column comment-missing">
+                                        <h6 class="comment-column-header bg-danger text-white">
+                                            <i class="fas fa-times-circle"></i>
+                                            COMMENT NHẬP THIẾU (${missingEntries?.length || 0})
+                                            <small class="d-block">Số comment > Số sản phẩm</small>
+                                        </h6>
+                                        <div class="comment-entries-list">
             `;
 
-            // Missing entries (right column)
-            html += `
-                <div class="finalize-comment-box missing">
-                    <div class="finalize-comment-box-header">
-                        <i class="fas fa-exclamation-triangle me-2"></i>Comment nhập thiếu (${commentAnalysis.missingEntries?.length || 0})
-                    </div>
-                    <div class="finalize-comment-box-body">
-            `;
-
-            if (commentAnalysis.missingEntries && commentAnalysis.missingEntries.length > 0) {
-                commentAnalysis.missingEntries.forEach(entry => {
-                    html += `
-                        <div class="finalize-comment-entry">
-                            <span class="stt-badge">${entry.stt}</span>
-                            <span class="customer-name">${entry.customerName || ''}</span>
-                            <span class="diff positive">+${entry.difference}</span>
-                            ${entry.checked ? '<i class="fas fa-check check-icon"></i>' : ''}
-                        </div>
-                    `;
-                });
+            if (!missingEntries || missingEntries.length === 0) {
+                html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
             } else {
-                html += '<div class="text-muted text-center py-2">Không có</div>';
+                missingEntries.forEach((entry, idx) => {
+                    html += renderHistoryCommentEntry(entry, idx, 'missing');
+                });
             }
 
             html += `
-                    </div>
-                </div>
-            `;
-
-            html += `
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -5481,6 +5531,109 @@ ${encodedString}
 
         return html || '<div class="text-muted text-center py-3">Không có chi tiết</div>';
     }
+
+    /**
+     * Render a single comment entry for history view (read-only version)
+     */
+    function renderHistoryCommentEntry(entry, idx, type) {
+        const commentsHtml = entry.commentLines && entry.commentLines.length > 0
+            ? entry.commentLines.map(c => `<div class="comment-line">• ${escapeHistoryHtml(c)}</div>`).join('')
+            : '<div class="text-muted small">(Không có comment)</div>';
+
+        const diffLabel = type === 'duplicate'
+            ? `Thiếu ${entry.difference} ghi chú`
+            : `Thừa ${entry.difference} ghi chú`;
+
+        return `
+            <div class="comment-entry" data-type="${type}" data-idx="${idx}">
+                <div class="comment-entry-header">
+                    <span class="stt-badge">STT ${entry.stt}</span>
+                    <span class="customer-name">${escapeHistoryHtml(entry.customerName || '')}</span>
+                    <span class="diff-badge ${type === 'duplicate' ? 'bg-warning' : 'bg-danger'}">${diffLabel}</span>
+                </div>
+                <div class="comment-entry-body">
+                    <div class="comment-lines">${commentsHtml}</div>
+                    <div class="comment-stats">
+                        <small class="text-muted">
+                            ${entry.commentCount || 0} comment / ${entry.productCount || 0} sản phẩm
+                        </small>
+                    </div>
+                </div>
+                ${entry.userNote ? `
+                    <div class="comment-entry-footer">
+                        <div class="alert alert-info py-1 px-2 mb-0">
+                            <i class="fas fa-sticky-note me-1"></i> ${escapeHistoryHtml(entry.userNote)}
+                        </div>
+                    </div>
+                ` : ''}
+                ${entry.checked ? `
+                    <div class="text-success small mt-1">
+                        <i class="fas fa-check-circle"></i> Đã xác nhận
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Escape HTML special characters for history view
+     */
+    function escapeHistoryHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Toggle product details visibility in history view
+     */
+    window.toggleHistoryProductDetails = function(sessionId) {
+        const detailsBody = document.getElementById(`productDetailsBody-${sessionId}`);
+        const toggleIcon = document.getElementById(`productDetailsToggleIcon-${sessionId}`);
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('finalize-details-collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            detailsBody.classList.remove('finalize-details-collapsed');
+            detailsBody.classList.add('finalize-details-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            // Collapse
+            detailsBody.classList.remove('finalize-details-expanded');
+            detailsBody.classList.add('finalize-details-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
+
+    /**
+     * Toggle comment analysis details visibility in history view
+     */
+    window.toggleHistoryCommentAnalysis = function(sessionId) {
+        const detailsBody = document.getElementById(`commentAnalysisBody-${sessionId}`);
+        const toggleIcon = document.getElementById(`commentAnalysisToggleIcon-${sessionId}`);
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('comment-analysis-collapsed');
+
+        if (isCollapsed) {
+            detailsBody.classList.remove('comment-analysis-collapsed');
+            detailsBody.classList.add('comment-analysis-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            detailsBody.classList.remove('comment-analysis-expanded');
+            detailsBody.classList.add('comment-analysis-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
 
     /**
      * Toggle finalize history item expand/collapse
