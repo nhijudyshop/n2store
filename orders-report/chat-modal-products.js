@@ -28,6 +28,10 @@
             p.IsHeld = false;
         });
 
+        // Initialize held status listener
+        window.currentHeldStatus = {};
+        listenToHeldStatus(window.currentChatOrderData.Id);
+
         // Render products table
         renderChatProductsTable();
 
@@ -37,6 +41,74 @@
         // Update counts
         updateChatProductCounts();
     };
+
+    /**
+     * Listen to realtime held status
+     */
+    function listenToHeldStatus(orderId) {
+        if (!orderId || !window.firebase) return;
+
+        const ref = firebase.database().ref(`held_products/${orderId}`);
+        ref.on('value', (snapshot) => {
+            window.currentHeldStatus = snapshot.val() || {};
+            renderChatProductsTable();
+        });
+    }
+
+    /**
+     * Update held status in Firebase
+     */
+    function updateHeldStatus(productId, isHeld) {
+        console.log('[HELD-DEBUG] updateHeldStatus called:', { productId, isHeld });
+
+        if (!window.currentChatOrderData?.Id) {
+            console.warn('[HELD-DEBUG] No current order data');
+            return;
+        }
+        if (!window.firebase) {
+            console.error('[HELD-DEBUG] Firebase not available');
+            return;
+        }
+        if (!window.authManager) {
+            console.error('[HELD-DEBUG] AuthManager not available');
+            return;
+        }
+
+        const orderId = window.currentChatOrderData.Id;
+        const auth = window.authManager.getAuthState();
+        console.log('[HELD-DEBUG] Auth state:', auth);
+
+        if (!auth) {
+            console.warn('[HELD-DEBUG] No auth object');
+            return;
+        }
+
+        // Fallback for userId if id is missing
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+
+        if (!userId) {
+            // Last resort: use displayName but sanitize it
+            if (auth.displayName) {
+                userId = auth.displayName.replace(/[.#$/\[\]]/g, '_'); // Sanitize for Firebase key
+            } else {
+                console.warn('[HELD-DEBUG] No usable User ID found in auth');
+                return;
+            }
+        }
+
+        const ref = firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
+
+        if (isHeld) {
+            console.log('[HELD-DEBUG] Setting held status in Firebase');
+            ref.set({
+                displayName: auth.displayName || auth.userType || 'Unknown',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).catch(err => console.error('[HELD-DEBUG] Firebase set error:', err));
+        } else {
+            console.log('[HELD-DEBUG] Removing held status from Firebase');
+            ref.remove().catch(err => console.error('[HELD-DEBUG] Firebase remove error:', err));
+        }
+    }
 
     /**
      * Initialize inline product search for chat modal
@@ -229,8 +301,11 @@
                 // Render table
                 renderChatProductsTable();
 
-                // REMOVED: Immediate save
+                // Save changes
                 // await saveChatOrderChanges();
+
+                // Update Firebase status
+                updateHeldStatus(newProduct.ProductId, true);
 
                 if (window.notificationManager) {
                     window.notificationManager.show(
@@ -363,6 +438,9 @@
                 window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
             }
         } else {
+            // Remove from Firebase
+            updateHeldStatus(product.ProductId, false);
+
             if (window.notificationManager) {
                 window.notificationManager.show('Đã xóa sản phẩm đang giữ', 'success');
             }
@@ -572,6 +650,21 @@
             const nameColor = isOutOfStock ? '#ef4444' : 'inherit';
             const stockColor = isOutOfStock ? '#ef4444' : '#059669';
 
+            // Check realtime held status
+            let heldStatusHtml = '';
+            if (window.currentHeldStatus && window.currentHeldStatus[p.ProductId]) {
+                const holders = window.currentHeldStatus[p.ProductId];
+                // Convert object to array of display names
+                const names = Object.values(holders).map(h => h.displayName);
+                if (names.length > 0) {
+                    // Join names if multiple people holding (rare but possible)
+                    const namesStr = names.join(', ');
+                    heldStatusHtml = `<span style="color: #d97706; font-size: 11px; margin-left: 6px; font-style: italic;">
+                        <i class="fas fa-user-clock" style="margin-right: 2px;"></i> ${namesStr} đang giữ sản phẩm này
+                    </span>`;
+                }
+            }
+
             return `
             <tr class="chat-product-row" data-index="${i}">
                 <td style="width: 30px;">${i + 1}</td>
@@ -581,7 +674,10 @@
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">${p.ProductNameGet || p.ProductName}</div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
-                    ${p.StockQty !== undefined && p.StockQty !== null ? `<div style="font-size: 11px; color: ${stockColor}; font-weight: 500;">Tồn: ${p.StockQty}</div>` : ''}
+                    <div style="display: flex; align-items: center;">
+                        ${p.StockQty !== undefined && p.StockQty !== null ? `<div style="font-size: 11px; color: ${stockColor}; font-weight: 500;">Tồn: ${p.StockQty}</div>` : ''}
+                        ${heldStatusHtml}
+                    </div>
                 </td>
                 <td style="text-align: center; width: 140px;">
                     <div class="chat-quantity-controls">
@@ -742,6 +838,9 @@
                     heldProduct.IsHeld = false;
                     newDetails.push(heldProduct);
                 }
+
+                // Remove from Firebase (since it's now saved/merged)
+                updateHeldStatus(heldProduct.ProductId, false);
             });
 
             // Update Details array
@@ -775,6 +874,8 @@
         if (typeof window.addToDroppedProducts === 'function') {
             for (const p of heldProducts) {
                 await window.addToDroppedProducts(p, p.Quantity, 'unsaved_exit');
+                // Remove from Firebase
+                updateHeldStatus(p.ProductId, false);
             }
         }
 
