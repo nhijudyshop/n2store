@@ -38,7 +38,8 @@
     <div class="main-content">
         <!-- Filter Toggle Button -->
         <div style="padding: 10px 20px 0 20px;">
-            <button id="toggleControlBarBtn" class="btn-primary" onclick="toggleControlBar()" style="background: #6b7280; padding: 6px 12px; font-size: 13px;">
+            <button id="toggleControlBarBtn" class="btn-primary" onclick="toggleControlBar()"
+                style="background: #6b7280; padding: 6px 12px; font-size: 13px;">
                 <i class="fas fa-sliders-h"></i> Hiển thị bộ lọc
             </button>
         </div>
@@ -198,7 +199,8 @@
             <div class="stats-item">
                 <div class="stats-value" id="totalOrdersCount">0</div>
                 <div class="stats-label">Tổng đơn hàng</div>
-                <div class="stats-sublabel" id="mergedOrdersInfo" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">-</div>
+                <div class="stats-sublabel" id="mergedOrdersInfo"
+                    style="font-size: 11px; color: #9ca3af; margin-top: 4px;">-</div>
             </div>
             <div class="stats-item">
                 <div class="stats-value" id="displayedOrdersCount">0</div>
@@ -347,13 +349,15 @@
                 <!-- Search -->
                 <div class="tag-search">
                     <div class="tag-search-wrapper">
-                        <input type="text" id="tagSettingsSearchInput" placeholder="Tìm kiếm tag..." oninput="filterTagSettings()" />
+                        <input type="text" id="tagSettingsSearchInput" placeholder="Tìm kiếm tag..."
+                            oninput="filterTagSettings()" />
                         <i class="fas fa-search tag-search-icon"></i>
                     </div>
                 </div>
 
                 <!-- Info -->
-                <div style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                <div
+                    style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
                     <div style="font-size: 13px; color: #1e40af;">
                         <i class="fas fa-info-circle"></i>
                         Nhập ghi chú hoặc tên tùy chỉnh cho mỗi tag. Thông tin này sẽ được lưu cục bộ.
@@ -536,8 +540,7 @@
                             </button>
 
                             <!-- Message Template Icon -->
-                            <button class="toolbar-icon-btn" title="Tin nhắn mẫu"
-                                onclick="openChatTemplateModal()"
+                            <button class="toolbar-icon-btn" title="Tin nhắn mẫu" onclick="openChatTemplateModal()"
                                 style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
                                 onmouseover="this.style.background='#f3f4f6';"
                                 onmouseout="this.style.background='none';">
@@ -635,7 +638,8 @@
                     ">
                         <i class="fas fa-shopping-cart"></i>
                         Đơn hàng
-                        <span id="chatOrdersCountBadge" style="background: #eff6ff; color: #3b82f6; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0</span>
+                        <span id="chatOrdersCountBadge"
+                            style="background: #eff6ff; color: #3b82f6; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0</span>
                     </button>
                     <button class="chat-tab-btn" data-tab="dropped" onclick="switchChatPanelTab('dropped')" style="
                         flex: 1;
@@ -655,7 +659,8 @@
                     ">
                         <i class="fas fa-box-open"></i>
                         Hàng rớt - xả
-                        <span id="chatDroppedCountBadge" style="background: #fef2f2; color: #ef4444; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0</span>
+                        <span id="chatDroppedCountBadge"
+                            style="background: #fef2f2; color: #ef4444; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0</span>
                     </button>
                     <button class="chat-tab-btn" data-tab="history" onclick="switchChatPanelTab('history')" style="
                         flex: 1;
@@ -679,25 +684,34 @@
                 </div>
 
                 <!-- Tab Content: Orders -->
-                <div id="chatTabOrders" class="chat-tab-content" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <div id="chatTabOrders" class="chat-tab-content"
+                    style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
                     <!-- Product Search -->
-                    <div class="chat-product-search-inline" style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
+                    <div class="chat-product-search-inline"
+                        style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
                         <div class="chat-search-input-wrapper" style="position: relative;">
-                            <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
-                            <input type="text" id="chatInlineProductSearch" placeholder="Tìm sản phẩm theo tên hoặc mã..." autocomplete="off"
+                            <i class="fas fa-search"
+                                style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
+                            <input type="text" id="chatInlineProductSearch"
+                                placeholder="Tìm sản phẩm theo tên hoặc mã..." autocomplete="off"
                                 style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #f8fafc;"
                                 onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
                                 onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
                         </div>
-                        <div id="chatInlineSearchResults" class="chat-inline-search-results" style="display: none; margin-top: 8px; max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);"></div>
+                        <div id="chatInlineSearchResults" class="chat-inline-search-results"
+                            style="display: none; margin-top: 8px; max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                        </div>
                     </div>
 
                     <!-- Products Table Container -->
                     <div style="flex: 1; overflow-y: auto; background: white;">
+                        <!-- Danh sách sản phẩm đơn hàng của tin nhắn, bình luận -->
                         <div id="chatProductsTableContainer" style="padding: 16px;">
                             <!-- Empty State -->
-                            <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                                <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                            <div class="chat-empty-products"
+                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                                <i class="fas fa-box-open"
+                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
                                 <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm</p>
                                 <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
                             </div>
@@ -718,7 +732,8 @@
                             margin-bottom: 16px;
                         ">
                             <span style="font-size: 14px; color: #64748b;">Tổng tiền:</span>
-                            <span id="chatProductTotal" style="font-size: 18px; font-weight: 700; color: #3b82f6;">0đ</span>
+                            <span id="chatProductTotal"
+                                style="font-size: 18px; font-weight: 700; color: #3b82f6;">0đ</span>
                         </div>
                         <div style="font-size: 12px; color: #94a3b8; text-align: center;">
                             <span id="productCount">0</span> sản phẩm
@@ -727,12 +742,16 @@
                 </div>
 
                 <!-- Tab Content: Dropped Items -->
-                <div id="chatTabDropped" class="chat-tab-content" style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
+                <div id="chatTabDropped" class="chat-tab-content"
+                    style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
                     <!-- Search for dropped items -->
-                    <div class="chat-product-search-inline" style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
+                    <div class="chat-product-search-inline"
+                        style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
                         <div class="chat-search-input-wrapper" style="position: relative;">
-                            <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
-                            <input type="text" id="chatDroppedProductSearch" placeholder="Tìm sản phẩm trong hàng rớt - xả..." autocomplete="off"
+                            <i class="fas fa-search"
+                                style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
+                            <input type="text" id="chatDroppedProductSearch"
+                                placeholder="Tìm sản phẩm trong hàng rớt - xả..." autocomplete="off"
                                 style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #f8fafc;"
                                 onfocus="this.style.borderColor='#ef4444'; this.style.background='white';"
                                 onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';"
@@ -743,10 +762,13 @@
                     <!-- Dropped Products Table Container -->
                     <div style="flex: 1; overflow-y: auto; background: white;">
                         <div id="chatDroppedProductsContainer" style="padding: 16px;">
-                            <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                                <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                            <div class="chat-empty-products"
+                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                                <i class="fas fa-box-open"
+                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
                                 <p style="font-size: 14px; margin: 0;">Chưa có hàng rớt - xả</p>
-                                <p style="font-size: 12px; margin-top: 4px;">Sản phẩm bị xóa hoặc giảm số lượng sẽ hiển thị ở đây</p>
+                                <p style="font-size: 12px; margin-top: 4px;">Sản phẩm bị xóa hoặc giảm số lượng sẽ hiển
+                                    thị ở đây</p>
                             </div>
                         </div>
                     </div>
@@ -765,7 +787,8 @@
                             margin-bottom: 16px;
                         ">
                             <span style="font-size: 14px; color: #64748b;">Tổng giá trị:</span>
-                            <span id="chatDroppedTotal" style="font-size: 18px; font-weight: 700; color: #ef4444;">0đ</span>
+                            <span id="chatDroppedTotal"
+                                style="font-size: 18px; font-weight: 700; color: #ef4444;">0đ</span>
                         </div>
                         <div style="font-size: 12px; color: #94a3b8; text-align: center;">
                             <span id="droppedProductCount">0</span> sản phẩm rớt - xả
@@ -774,12 +797,15 @@
                 </div>
 
                 <!-- Tab Content: History -->
-                <div id="chatTabHistory" class="chat-tab-content" style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
+                <div id="chatTabHistory" class="chat-tab-content"
+                    style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
                     <!-- History Container -->
                     <div style="flex: 1; overflow-y: auto; background: white;">
                         <div id="chatHistoryContainer" style="padding: 16px;">
-                            <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                                <i class="fas fa-history" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                            <div class="chat-empty-products"
+                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                                <i class="fas fa-history"
+                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
                                 <p style="font-size: 14px; margin: 0;">Chưa có lịch sử</p>
                                 <p style="font-size: 12px; margin-top: 4px;">Các thao tác sẽ được ghi lại ở đây</p>
                             </div>
