@@ -4064,28 +4064,24 @@ ${encodedString}
     };
 
     /**
-     * Render finalize session content
+     * Render a product statistics table
      * @param {Object} stats - Statistics object
-     * @param {number|null} lastTimestamp - Last finalize timestamp
+     * @param {string} title - Table title
+     * @param {string} toggleId - ID for toggle icon
+     * @param {string} bodyId - ID for tbody
+     * @param {string} toggleFunction - Function name for toggle
      * @returns {string} HTML content
      */
-    function renderFinalizeSessionContent(stats, lastTimestamp) {
-        const fromDate = lastTimestamp
-            ? new Date(lastTimestamp).toLocaleString('vi-VN')
-            : 'Bắt đầu';
-        const toDate = new Date().toLocaleString('vi-VN');
-
+    function renderProductStatsTable(stats, title, toggleId, bodyId, toggleFunction) {
         let html = `
-            <div class="finalize-session-info mb-4">
-                <div class="alert alert-info">
-                    <i class="fas fa-calendar-alt"></i>
-                    <strong>Thống kê từ:</strong> ${fromDate} <i class="fas fa-arrow-right mx-2"></i> ${toDate}
-                </div>
-            </div>
-
-            <div class="table-responsive">
+            <div class="table-responsive mb-4">
                 <table class="table table-bordered table-hover finalize-table">
                     <thead class="table-dark">
+                        <tr>
+                            <th colspan="3" class="text-center">
+                                <i class="fas fa-shopping-cart"></i> ${title}
+                            </th>
+                        </tr>
                         <tr>
                             <th style="width: 50%">SẢN PHẨM</th>
                             <th style="width: 15%" class="text-center">SỐ LƯỢNG</th>
@@ -4094,10 +4090,10 @@ ${encodedString}
                     </thead>
                     <tbody>
                         <!-- Summary Row with Toggle Button -->
-                        <tr class="finalize-summary-row" onclick="toggleProductDetails()" style="cursor: pointer;">
+                        <tr class="finalize-summary-row" onclick="${toggleFunction}()" style="cursor: pointer;">
                             <td>
                                 <strong>
-                                    <i class="fas fa-chevron-right finalize-toggle-icon" id="productDetailsToggleIcon"></i>
+                                    <i class="fas fa-chevron-right finalize-toggle-icon" id="${toggleId}"></i>
                                     <i class="fas fa-chart-bar"></i> TỔNG CỘNG: ${stats.uniqueProducts} sản phẩm
                                 </strong>
                             </td>
@@ -4108,10 +4104,9 @@ ${encodedString}
                                 <strong>${stats.uniqueSTTs} đơn hàng</strong>
                             </td>
                         </tr>
+                    </tbody>
+                    <tbody id="${bodyId}" class="finalize-details-collapsed">
         `;
-
-        // Product rows (wrapped in collapsible tbody)
-        html += `</tbody><tbody id="productDetailsBody" class="finalize-details-collapsed">`;
 
         stats.productDetails.forEach(product => {
             const imageHtml = product.imageUrl
@@ -4132,7 +4127,7 @@ ${encodedString}
                             ${imageHtml}
                             <div class="ms-2">
                                 <strong>[${product.productCode}]</strong>
-                                <div class="text-muted small">${product.productName}</div>
+                                ${product.productName ? `<div class="text-muted small">${product.productName}</div>` : ''}
                             </div>
                         </div>
                     </td>
@@ -4152,6 +4147,53 @@ ${encodedString}
             </div>
         `;
 
+        return html;
+    }
+
+    /**
+     * Render finalize session content
+     * @param {Object} stats - Statistics object
+     * @param {number|null} lastTimestamp - Last finalize timestamp
+     * @returns {string} HTML content
+     */
+    function renderFinalizeSessionContent(stats, lastTimestamp) {
+        const fromDate = lastTimestamp
+            ? new Date(lastTimestamp).toLocaleString('vi-VN')
+            : 'Bắt đầu';
+        const toDate = new Date().toLocaleString('vi-VN');
+
+        let html = `
+            <div class="finalize-session-info mb-4">
+                <div class="alert alert-info">
+                    <i class="fas fa-calendar-alt"></i>
+                    <strong>Thống kê từ:</strong> ${fromDate} <i class="fas fa-arrow-right mx-2"></i> ${toDate}
+                </div>
+            </div>
+        `;
+
+        // Calculate cart statistics
+        const cartStats = calculateCartStats();
+        cartStatsData = cartStats; // Store in global state
+
+        // Add cart statistics table
+        html += renderProductStatsTable(
+            cartStats,
+            'THỐNG KÊ MÃ SP TRONG GIỎ HÀNG',
+            'cartDetailsToggleIcon',
+            'cartDetailsBody',
+            'toggleCartDetails'
+        );
+
+        // Add uploaded statistics table (renamed from "SẢN PHẨM")
+        html += renderProductStatsTable(
+            stats,
+            'THỐNG KÊ UPLOAD TPOS',
+            'productDetailsToggleIcon',
+            'productDetailsBody',
+            'toggleProductDetails'
+        );
+
+
         // Add comment analysis table
         const commentAnalysis = analyzeCommentMismatch(stats);
         html += renderCommentAnalysisTable(commentAnalysis);
@@ -4163,6 +4205,32 @@ ${encodedString}
 
         return html;
     }
+
+    /**
+     * Toggle cart details visibility
+     */
+    window.toggleCartDetails = function() {
+        const detailsBody = document.getElementById('cartDetailsBody');
+        const toggleIcon = document.getElementById('cartDetailsToggleIcon');
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('finalize-details-collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            detailsBody.classList.remove('finalize-details-collapsed');
+            detailsBody.classList.add('finalize-details-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            // Collapse
+            detailsBody.classList.remove('finalize-details-expanded');
+            detailsBody.classList.add('finalize-details-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
 
     /**
      * Toggle product details visibility
@@ -4238,6 +4306,14 @@ ${encodedString}
         extraSTTs: []
     };
 
+    // State for cart statistics (from orders in tab1)
+    let cartStatsData = {
+        uniqueSTTs: 0,
+        totalQuantity: 0,
+        uniqueProducts: 0,
+        productDetails: []
+    };
+
     /**
      * Parse order.Note and extract clean comment lines (remove encoded strings)
      * @param {string} note - The order note
@@ -4289,6 +4365,93 @@ ${encodedString}
             console.error('[COMMENT] Error loading ordersData:', error);
             return [];
         }
+    }
+
+    /**
+     * Calculate cart statistics from orders data (tab1)
+     * @returns {Object} Cart statistics
+     */
+    function calculateCartStats() {
+        console.log('[CART-STATS] 📊 Calculating cart statistics from orders...');
+
+        const ordersData = getOrdersDataFromLocalStorage();
+        console.log('[CART-STATS] Loaded ordersData:', ordersData.length, 'orders');
+
+        const uniqueSTTs = new Set();
+        const productMap = new Map(); // productCode -> { details, totalQty, sttQuantities }
+
+        ordersData.forEach(order => {
+            const stt = String(order.stt);
+            uniqueSTTs.add(stt);
+
+            // Parse products from order
+            if (order.products && Array.isArray(order.products) && order.products.length > 0) {
+                order.products.forEach(product => {
+                    const productCode = product.productCode || product.code;
+                    if (!productCode) return;
+
+                    const productQty = product.quantity || 1;
+                    const productName = product.productName || product.name || productCode;
+                    const imageUrl = product.imageUrl || product.image || '';
+
+                    if (!productMap.has(productCode)) {
+                        productMap.set(productCode, {
+                            productCode: productCode,
+                            productName: productName,
+                            imageUrl: imageUrl,
+                            totalQuantity: 0,
+                            sttQuantities: new Map() // Track quantity per STT
+                        });
+                    }
+
+                    const productData = productMap.get(productCode);
+                    productData.totalQuantity += productQty;
+
+                    // Track quantity for each STT
+                    const currentQty = productData.sttQuantities.get(stt) || 0;
+                    productData.sttQuantities.set(stt, currentQty + productQty);
+                });
+            }
+        });
+
+        console.log('[CART-STATS] Product map size:', productMap.size);
+        console.log('[CART-STATS] Unique STTs:', uniqueSTTs.size);
+
+        // Convert product map to array with STT quantities
+        const productDetails = Array.from(productMap.values()).map(p => {
+            // Convert sttQuantities Map to sorted array of {stt, quantity}
+            const sttArray = Array.from(p.sttQuantities.entries())
+                .map(([stt, qty]) => ({ stt, quantity: qty }))
+                .sort((a, b) => parseInt(a.stt) - parseInt(b.stt));
+
+            return {
+                ...p,
+                sttQuantities: sttArray,
+                // Keep stts for backward compatibility
+                stts: sttArray.map(item => item.stt)
+            };
+        });
+
+        // Sort by total quantity descending
+        productDetails.sort((a, b) => b.totalQuantity - a.totalQuantity);
+
+        // Calculate total quantity (sum of all product quantities)
+        const totalQuantity = productDetails.reduce((sum, p) => sum + p.totalQuantity, 0);
+
+        const stats = {
+            uniqueSTTs: uniqueSTTs.size,
+            totalQuantity: totalQuantity,
+            uniqueProducts: productMap.size,
+            productDetails: productDetails
+        };
+
+        console.log('[CART-STATS] ✅ Stats calculated:', {
+            uniqueSTTs: stats.uniqueSTTs,
+            totalQuantity: stats.totalQuantity,
+            uniqueProducts: stats.uniqueProducts
+        });
+
+        return stats;
     }
 
     /**
@@ -5179,6 +5342,20 @@ ${encodedString}
                     sttCount: p.stts.length,
                     sttQuantities: p.sttQuantities // Save detailed STT quantities
                 })),
+                // Cart statistics (from orders in tab1)
+                cartStats: {
+                    uniqueSTTs: cartStatsData.uniqueSTTs,
+                    totalQuantity: cartStatsData.totalQuantity,
+                    uniqueProducts: cartStatsData.uniqueProducts,
+                    productDetails: cartStatsData.productDetails.map(p => ({
+                        productCode: p.productCode,
+                        productName: p.productName,
+                        imageUrl: p.imageUrl,
+                        quantity: p.totalQuantity,
+                        sttCount: p.stts.length,
+                        sttQuantities: p.sttQuantities
+                    }))
+                },
                 // Comment analysis data
                 commentAnalysis: {
                     totalComments: commentAnalysisData.totalComments,
@@ -5426,6 +5603,89 @@ ${encodedString}
     }
 
     /**
+     * Render product stats table for history view
+     */
+    function renderHistoryProductStatsTable(stats, productDetails, title, sessionId, type) {
+        const toggleId = `${type}ToggleIcon-${sessionId}`;
+        const bodyId = `${type}Body-${sessionId}`;
+        const toggleFunction = `toggleHistory${type.charAt(0).toUpperCase() + type.slice(1)}Details`;
+
+        let html = `
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-hover finalize-table">
+                    <thead class="table-dark">
+                        <tr>
+                            <th colspan="3" class="text-center">
+                                <i class="fas fa-shopping-cart"></i> ${title}
+                            </th>
+                        </tr>
+                        <tr>
+                            <th style="width: 50%">SẢN PHẨM</th>
+                            <th style="width: 15%" class="text-center">SỐ LƯỢNG</th>
+                            <th style="width: 35%">MÃ ĐƠN HÀNG (STT)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="finalize-summary-row" onclick="${toggleFunction}('${sessionId}')" style="cursor: pointer;">
+                            <td>
+                                <strong>
+                                    <i class="fas fa-chevron-right finalize-toggle-icon" id="${toggleId}"></i>
+                                    <i class="fas fa-chart-bar"></i> TỔNG CỘNG: ${stats.uniqueProducts || productDetails.length} sản phẩm
+                                </strong>
+                            </td>
+                            <td class="text-center">
+                                <strong>${stats.totalQuantity || 0} món</strong>
+                            </td>
+                            <td>
+                                <strong>${stats.uniqueSTTs || 0} đơn hàng</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tbody id="${bodyId}" class="finalize-details-collapsed">
+        `;
+
+        productDetails.forEach(product => {
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" alt="${product.productCode}" class="finalize-product-img">`
+                : `<div class="finalize-product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
+            const sttList = product.sttQuantities && Array.isArray(product.sttQuantities) && product.sttQuantities.length > 0
+                ? product.sttQuantities.map(item =>
+                    item.quantity > 1 ? `${item.stt}x${item.quantity}` : item.stt
+                  ).join(', ')
+                : `${product.sttCount} STT`;
+
+            html += `
+                <tr class="finalize-detail-row">
+                    <td>
+                        <div class="d-flex align-items-center">
+                            ${imageHtml}
+                            <div class="ms-2">
+                                <strong>[${product.productCode}]</strong>
+                                ${product.productName ? `<div class="text-muted small">${product.productName}</div>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center align-middle">
+                        <span class="badge bg-primary fs-6">${product.quantity}</span>
+                    </td>
+                    <td class="align-middle">
+                        <span class="text-muted small">${sttList}</span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
      * Render finalize history body content
      * Updated to match the layout of renderFinalizeSessionContent for consistency
      */
@@ -5447,79 +5707,29 @@ ${encodedString}
             </div>
         `;
 
-        // Product details section with same layout as finalize session
+        const sessionId = session.timestamp;
+        const stats = session.stats || {};
+
+        // Add cart statistics table (if available)
+        if (session.cartStats && session.cartStats.productDetails && session.cartStats.productDetails.length > 0) {
+            html += renderHistoryProductStatsTable(
+                session.cartStats,
+                session.cartStats.productDetails,
+                'THỐNG KÊ MÃ SP TRONG GIỎ HÀNG',
+                sessionId,
+                'cart'
+            );
+        }
+
+        // Add uploaded statistics table (renamed from "SẢN PHẨM")
         if (productSummary && productSummary.length > 0) {
-            const stats = session.stats || {};
-            const sessionId = session.timestamp; // Use timestamp as unique ID
-
-            html += `
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover finalize-table">
-                        <thead class="table-dark">
-                            <tr>
-                                <th style="width: 50%">SẢN PHẨM</th>
-                                <th style="width: 15%" class="text-center">SỐ LƯỢNG</th>
-                                <th style="width: 35%">MÃ ĐƠN HÀNG (STT)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Summary Row with Toggle Button -->
-                            <tr class="finalize-summary-row" onclick="toggleHistoryProductDetails('${sessionId}')" style="cursor: pointer;">
-                                <td>
-                                    <strong>
-                                        <i class="fas fa-chevron-right finalize-toggle-icon" id="productDetailsToggleIcon-${sessionId}"></i>
-                                        <i class="fas fa-chart-bar"></i> TỔNG CỘNG: ${stats.uniqueProducts || productSummary.length} sản phẩm
-                                    </strong>
-                                </td>
-                                <td class="text-center">
-                                    <strong>${stats.totalQuantity || 0} món</strong>
-                                </td>
-                                <td>
-                                    <strong>${stats.uniqueSTTs || 0} đơn hàng</strong>
-                                </td>
-                            </tr>
-                        </tbody>
-                        <tbody id="productDetailsBody-${sessionId}" class="finalize-details-collapsed">
-            `;
-
-            productSummary.forEach(product => {
-                const imageHtml = product.imageUrl
-                    ? `<img src="${product.imageUrl}" alt="${product.productCode}" class="finalize-product-img">`
-                    : `<div class="finalize-product-img-placeholder"><i class="fas fa-box"></i></div>`;
-
-                // Format STT list with quantities: "31, 32x2" (only show xN if N > 1)
-                const sttList = product.sttQuantities && Array.isArray(product.sttQuantities) && product.sttQuantities.length > 0
-                    ? product.sttQuantities.map(item =>
-                        item.quantity > 1 ? `${item.stt}x${item.quantity}` : item.stt
-                      ).join(', ')
-                    : `${product.sttCount} STT`; // Fallback for old data
-
-                html += `
-                    <tr class="finalize-detail-row">
-                        <td>
-                            <div class="d-flex align-items-center">
-                                ${imageHtml}
-                                <div class="ms-2">
-                                    <strong>[${product.productCode}]</strong>
-                                    ${product.productName ? `<div class="text-muted small">${product.productName}</div>` : ''}
-                                </div>
-                            </div>
-                        </td>
-                        <td class="text-center align-middle">
-                            <span class="badge bg-primary fs-6">${product.quantity}</span>
-                        </td>
-                        <td class="align-middle">
-                            <span class="text-muted small">${sttList}</span>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
+            html += renderHistoryProductStatsTable(
+                stats,
+                productSummary,
+                'THỐNG KÊ UPLOAD TPOS',
+                sessionId,
+                'product'
+            );
         }
 
         // Comment analysis section with same layout as finalize session
@@ -5933,11 +6143,35 @@ ${encodedString}
     }
 
     /**
+     * Toggle cart details visibility in history view
+     */
+    window.toggleHistoryCartDetails = function(sessionId) {
+        const detailsBody = document.getElementById(`cartBody-${sessionId}`);
+        const toggleIcon = document.getElementById(`cartToggleIcon-${sessionId}`);
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('finalize-details-collapsed');
+
+        if (isCollapsed) {
+            detailsBody.classList.remove('finalize-details-collapsed');
+            detailsBody.classList.add('finalize-details-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            detailsBody.classList.remove('finalize-details-expanded');
+            detailsBody.classList.add('finalize-details-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
+
+    /**
      * Toggle product details visibility in history view
      */
     window.toggleHistoryProductDetails = function(sessionId) {
-        const detailsBody = document.getElementById(`productDetailsBody-${sessionId}`);
-        const toggleIcon = document.getElementById(`productDetailsToggleIcon-${sessionId}`);
+        const detailsBody = document.getElementById(`productBody-${sessionId}`);
+        const toggleIcon = document.getElementById(`productToggleIcon-${sessionId}`);
 
         if (!detailsBody || !toggleIcon) return;
 
