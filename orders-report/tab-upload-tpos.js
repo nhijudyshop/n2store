@@ -4156,6 +4156,12 @@ ${encodedString}
         const commentAnalysis = analyzeCommentMismatch(stats);
         html += renderCommentAnalysisTable(commentAnalysis);
 
+        // Add product/STT discrepancy table (if there's a discrepancy)
+        const productDiscrepancy = analyzeProductDiscrepancy(stats);
+        if (productDiscrepancy.hasDiscrepancy) {
+            html += renderProductDiscrepancyTable(productDiscrepancy);
+        }
+
         return html;
     }
 
@@ -4594,6 +4600,461 @@ ${encodedString}
             commentAnalysisData.missingEntries[idx].checked = checked;
         }
     };
+
+    // =====================================================
+    // PRODUCT/STT DISCREPANCY ANALYSIS FUNCTIONS
+    // =====================================================
+
+    /**
+     * Analyze product and STT discrepancies between uploaded data and original orders
+     * @param {Object} stats - Product statistics from calculateSessionStats
+     * @returns {Object} Discrepancy analysis data
+     */
+    function analyzeProductDiscrepancy(stats) {
+        console.log('[DISCREPANCY] 📊 Analyzing product/STT discrepancies...');
+
+        const ordersData = getOrdersDataFromLocalStorage();
+        console.log('[DISCREPANCY] Loaded ordersData:', ordersData.length, 'orders');
+
+        // Build map of products from orders (expected products)
+        const expectedProductMap = new Map(); // productCode -> { totalQuantity, stts: [stt1, stt2, ...] }
+        const expectedSTTMap = new Map(); // stt -> { productCodes: [code1, code2, ...], totalQuantity }
+
+        ordersData.forEach(order => {
+            const stt = String(order.stt);
+            const quantity = order.quantity || 0;
+
+            // Parse products from order
+            if (order.products && Array.isArray(order.products)) {
+                order.products.forEach(product => {
+                    const productCode = product.productCode || product.code;
+                    if (!productCode) return;
+
+                    // Track by product code
+                    if (!expectedProductMap.has(productCode)) {
+                        expectedProductMap.set(productCode, {
+                            productCode: productCode,
+                            totalQuantity: 0,
+                            stts: []
+                        });
+                    }
+                    const expectedProduct = expectedProductMap.get(productCode);
+                    expectedProduct.totalQuantity += 1;
+                    if (!expectedProduct.stts.includes(stt)) {
+                        expectedProduct.stts.push(stt);
+                    }
+
+                    // Track by STT
+                    if (!expectedSTTMap.has(stt)) {
+                        expectedSTTMap.set(stt, {
+                            stt: stt,
+                            customerName: order.customerName || '',
+                            productCodes: [],
+                            totalQuantity: 0
+                        });
+                    }
+                    const expectedSTT = expectedSTTMap.get(stt);
+                    if (!expectedSTT.productCodes.includes(productCode)) {
+                        expectedSTT.productCodes.push(productCode);
+                    }
+                    expectedSTT.totalQuantity += 1;
+                });
+            }
+        });
+
+        // Build map of uploaded products
+        const uploadedProductMap = new Map(); // productCode -> { totalQuantity, stts: [stt1, stt2, ...] }
+        const uploadedSTTMap = new Map(); // stt -> { productCodes: [code1, code2, ...], totalQuantity }
+
+        stats.productDetails.forEach(product => {
+            uploadedProductMap.set(product.productCode, {
+                productCode: product.productCode,
+                productName: product.productName,
+                imageUrl: product.imageUrl,
+                totalQuantity: product.totalQuantity,
+                stts: product.stts
+            });
+
+            product.stts.forEach(stt => {
+                if (!uploadedSTTMap.has(stt)) {
+                    uploadedSTTMap.set(stt, {
+                        stt: stt,
+                        productCodes: [],
+                        totalQuantity: 0
+                    });
+                }
+                const uploadedSTT = uploadedSTTMap.get(stt);
+                if (!uploadedSTT.productCodes.includes(product.productCode)) {
+                    uploadedSTT.productCodes.push(product.productCode);
+                }
+                // Count the quantity for this STT from sttQuantities
+                const sttQty = product.sttQuantities.find(sq => sq.stt === stt);
+                uploadedSTT.totalQuantity += sttQty ? sttQty.quantity : 0;
+            });
+        });
+
+        console.log('[DISCREPANCY] Expected products:', expectedProductMap.size);
+        console.log('[DISCREPANCY] Uploaded products:', uploadedProductMap.size);
+        console.log('[DISCREPANCY] Expected STTs:', expectedSTTMap.size);
+        console.log('[DISCREPANCY] Uploaded STTs:', uploadedSTTMap.size);
+
+        // Compare and identify discrepancies
+        const missingProducts = []; // Products in orders but not uploaded
+        const extraProducts = [];   // Products uploaded but not in orders (or excess quantity)
+        const missingSTTs = [];      // STTs in orders but not uploaded
+        const extraSTTs = [];        // STTs uploaded but not in orders
+
+        // Check for missing products
+        expectedProductMap.forEach((expected, productCode) => {
+            const uploaded = uploadedProductMap.get(productCode);
+            if (!uploaded) {
+                missingProducts.push({
+                    productCode: productCode,
+                    expectedQuantity: expected.totalQuantity,
+                    uploadedQuantity: 0,
+                    difference: expected.totalQuantity,
+                    stts: expected.stts.join(', ')
+                });
+            } else if (uploaded.totalQuantity < expected.totalQuantity) {
+                missingProducts.push({
+                    productCode: productCode,
+                    productName: uploaded.productName,
+                    imageUrl: uploaded.imageUrl,
+                    expectedQuantity: expected.totalQuantity,
+                    uploadedQuantity: uploaded.totalQuantity,
+                    difference: expected.totalQuantity - uploaded.totalQuantity,
+                    stts: expected.stts.join(', ')
+                });
+            }
+        });
+
+        // Check for extra products
+        uploadedProductMap.forEach((uploaded, productCode) => {
+            const expected = expectedProductMap.get(productCode);
+            if (!expected) {
+                extraProducts.push({
+                    productCode: productCode,
+                    productName: uploaded.productName,
+                    imageUrl: uploaded.imageUrl,
+                    expectedQuantity: 0,
+                    uploadedQuantity: uploaded.totalQuantity,
+                    difference: uploaded.totalQuantity,
+                    stts: uploaded.stts.join(', ')
+                });
+            } else if (uploaded.totalQuantity > expected.totalQuantity) {
+                extraProducts.push({
+                    productCode: productCode,
+                    productName: uploaded.productName,
+                    imageUrl: uploaded.imageUrl,
+                    expectedQuantity: expected.totalQuantity,
+                    uploadedQuantity: uploaded.totalQuantity,
+                    difference: uploaded.totalQuantity - expected.totalQuantity,
+                    stts: uploaded.stts.join(', ')
+                });
+            }
+        });
+
+        // Check for missing STTs
+        expectedSTTMap.forEach((expected, stt) => {
+            const uploaded = uploadedSTTMap.get(stt);
+            if (!uploaded) {
+                missingSTTs.push({
+                    stt: stt,
+                    customerName: expected.customerName,
+                    expectedQuantity: expected.totalQuantity,
+                    uploadedQuantity: 0,
+                    difference: expected.totalQuantity,
+                    productCodes: expected.productCodes.join(', ')
+                });
+            } else if (uploaded.totalQuantity < expected.totalQuantity) {
+                missingSTTs.push({
+                    stt: stt,
+                    customerName: expected.customerName,
+                    expectedQuantity: expected.totalQuantity,
+                    uploadedQuantity: uploaded.totalQuantity,
+                    difference: expected.totalQuantity - uploaded.totalQuantity,
+                    productCodes: expected.productCodes.join(', ')
+                });
+            }
+        });
+
+        // Check for extra STTs
+        uploadedSTTMap.forEach((uploaded, stt) => {
+            const expected = expectedSTTMap.get(stt);
+            if (!expected) {
+                extraSTTs.push({
+                    stt: stt,
+                    customerName: '',
+                    expectedQuantity: 0,
+                    uploadedQuantity: uploaded.totalQuantity,
+                    difference: uploaded.totalQuantity,
+                    productCodes: uploaded.productCodes.join(', ')
+                });
+            } else if (uploaded.totalQuantity > expected.totalQuantity) {
+                extraSTTs.push({
+                    stt: stt,
+                    customerName: expected.customerName,
+                    expectedQuantity: expected.totalQuantity,
+                    uploadedQuantity: uploaded.totalQuantity,
+                    difference: uploaded.totalQuantity - expected.totalQuantity,
+                    productCodes: uploaded.productCodes.join(', ')
+                });
+            }
+        });
+
+        // Sort by difference (descending)
+        missingProducts.sort((a, b) => b.difference - a.difference);
+        extraProducts.sort((a, b) => b.difference - a.difference);
+        missingSTTs.sort((a, b) => b.difference - a.difference);
+        extraSTTs.sort((a, b) => b.difference - a.difference);
+
+        const hasDiscrepancy = missingProducts.length > 0 || extraProducts.length > 0 ||
+                               missingSTTs.length > 0 || extraSTTs.length > 0;
+
+        const result = {
+            hasDiscrepancy: hasDiscrepancy,
+            totalExpected: Array.from(expectedProductMap.values()).reduce((sum, p) => sum + p.totalQuantity, 0),
+            totalUploaded: stats.totalQuantity,
+            missingProducts: missingProducts,
+            extraProducts: extraProducts,
+            missingSTTs: missingSTTs,
+            extraSTTs: extraSTTs
+        };
+
+        console.log('[DISCREPANCY] Analysis result:', {
+            hasDiscrepancy: result.hasDiscrepancy,
+            totalExpected: result.totalExpected,
+            totalUploaded: result.totalUploaded,
+            missingProducts: missingProducts.length,
+            extraProducts: extraProducts.length,
+            missingSTTs: missingSTTs.length,
+            extraSTTs: extraSTTs.length
+        });
+
+        return result;
+    }
+
+    /**
+     * Render product/STT discrepancy table HTML
+     * @param {Object} discrepancy - Discrepancy analysis data
+     * @returns {string} HTML string
+     */
+    function renderProductDiscrepancyTable(discrepancy) {
+        const { totalExpected, totalUploaded, missingProducts, extraProducts, missingSTTs, extraSTTs } = discrepancy;
+
+        const diffValue = totalUploaded - totalExpected;
+        const diffClass = diffValue > 0 ? 'text-warning' : (diffValue < 0 ? 'text-danger' : 'text-success');
+        const diffIcon = diffValue > 0 ? 'fa-exclamation-triangle' : (diffValue < 0 ? 'fa-times-circle' : 'fa-check-circle');
+
+        let html = `
+            <div class="product-discrepancy-section mt-4">
+                <div class="alert alert-warning">
+                    <h5 class="alert-heading">
+                        <i class="fas fa-clipboard-list"></i> PHÁT HIỆN CHÊNH LỆCH SỐ LƯỢNG
+                    </h5>
+                    <p class="mb-0">
+                        <strong>Số món trong tất cả giỏ:</strong> <span class="badge bg-info">${totalExpected}</span>
+                        <i class="fas fa-arrow-right mx-2"></i>
+                        <strong>Số phiếu đã nhập:</strong> <span class="badge bg-primary">${totalUploaded}</span>
+                        <i class="fas fa-arrow-right mx-2"></i>
+                        <strong>Chênh lệch:</strong> <span class="badge bg-secondary ${diffClass}"><i class="fas ${diffIcon}"></i> ${diffValue > 0 ? '+' : ''}${diffValue}</span>
+                    </p>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered discrepancy-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th colspan="4" class="text-center">
+                                    <i class="fas fa-box"></i> CHI TIẾT CHÊNH LỆCH SẢN PHẨM & STT
+                                </th>
+                            </tr>
+                        </thead>
+                    </table>
+
+                    <div class="row">
+                        <!-- Missing Products Column -->
+                        <div class="col-md-6">
+                            <div class="discrepancy-column">
+                                <h6 class="discrepancy-column-header bg-danger text-white">
+                                    <i class="fas fa-minus-circle"></i>
+                                    SẢN PHẨM THIẾU (${missingProducts.length})
+                                    <small class="d-block">Có trong giỏ nhưng chưa nhập đủ</small>
+                                </h6>
+                                <div class="discrepancy-entries-list">
+        `;
+
+        if (missingProducts.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            missingProducts.forEach(item => {
+                const imageHtml = item.imageUrl
+                    ? `<img src="${item.imageUrl}" alt="${item.productCode}" class="discrepancy-product-img">`
+                    : `<div class="discrepancy-product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
+                html += `
+                    <div class="discrepancy-entry bg-danger-subtle">
+                        <div class="d-flex align-items-start">
+                            ${imageHtml}
+                            <div class="flex-grow-1 ms-2">
+                                <div class="fw-bold">${escapeHtml(item.productCode)}</div>
+                                ${item.productName ? `<div class="text-muted small">${escapeHtml(item.productName)}</div>` : ''}
+                                <div class="discrepancy-stats mt-1">
+                                    <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                    <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                    <span class="badge bg-danger">Thiếu: ${item.difference}</span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-tags"></i> STT: ${item.stts}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Extra Products Column -->
+                        <div class="col-md-6">
+                            <div class="discrepancy-column">
+                                <h6 class="discrepancy-column-header bg-warning text-dark">
+                                    <i class="fas fa-plus-circle"></i>
+                                    SẢN PHẨM THỪA (${extraProducts.length})
+                                    <small class="d-block">Nhập nhiều hơn số lượng trong giỏ</small>
+                                </h6>
+                                <div class="discrepancy-entries-list">
+        `;
+
+        if (extraProducts.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            extraProducts.forEach(item => {
+                const imageHtml = item.imageUrl
+                    ? `<img src="${item.imageUrl}" alt="${item.productCode}" class="discrepancy-product-img">`
+                    : `<div class="discrepancy-product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
+                html += `
+                    <div class="discrepancy-entry bg-warning-subtle">
+                        <div class="d-flex align-items-start">
+                            ${imageHtml}
+                            <div class="flex-grow-1 ms-2">
+                                <div class="fw-bold">${escapeHtml(item.productCode)}</div>
+                                ${item.productName ? `<div class="text-muted small">${escapeHtml(item.productName)}</div>` : ''}
+                                <div class="discrepancy-stats mt-1">
+                                    <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                    <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                    <span class="badge bg-warning">Thừa: ${item.difference}</span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-tags"></i> STT: ${item.stts}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Missing STTs Section -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="discrepancy-column">
+                                <h6 class="discrepancy-column-header bg-danger text-white">
+                                    <i class="fas fa-receipt"></i>
+                                    STT THIẾU (${missingSTTs.length})
+                                    <small class="d-block">Có trong giỏ nhưng chưa nhập đủ sản phẩm</small>
+                                </h6>
+                                <div class="discrepancy-entries-list">
+        `;
+
+        if (missingSTTs.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            missingSTTs.forEach(item => {
+                html += `
+                    <div class="discrepancy-entry bg-danger-subtle">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge bg-danger">STT ${item.stt}</span>
+                                ${item.customerName ? `<span class="ms-2 text-muted">${escapeHtml(item.customerName)}</span>` : ''}
+                            </div>
+                            <div class="discrepancy-stats">
+                                <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                <span class="badge bg-danger">Thiếu: ${item.difference}</span>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            <i class="fas fa-box"></i> Sản phẩm: ${item.productCodes}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Extra STTs Section -->
+                        <div class="col-md-6">
+                            <div class="discrepancy-column">
+                                <h6 class="discrepancy-column-header bg-warning text-dark">
+                                    <i class="fas fa-receipt"></i>
+                                    STT THỪA (${extraSTTs.length})
+                                    <small class="d-block">Nhập nhiều hơn số lượng trong giỏ</small>
+                                </h6>
+                                <div class="discrepancy-entries-list">
+        `;
+
+        if (extraSTTs.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            extraSTTs.forEach(item => {
+                html += `
+                    <div class="discrepancy-entry bg-warning-subtle">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge bg-warning text-dark">STT ${item.stt}</span>
+                                ${item.customerName ? `<span class="ms-2 text-muted">${escapeHtml(item.customerName)}</span>` : ''}
+                            </div>
+                            <div class="discrepancy-stats">
+                                <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                <span class="badge bg-warning text-dark">Thừa: ${item.difference}</span>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            <i class="fas fa-box"></i> Sản phẩm: ${item.productCodes}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
 
     /**
      * Save finalize session to Firebase
