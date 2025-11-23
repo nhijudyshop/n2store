@@ -10,6 +10,9 @@
     window.currentChatOrderData = null;
     let chatInlineSearchTimeout = null;
 
+    // Pending confirm action state
+    let pendingConfirmAction = null;
+
     /**
      * Initialize chat modal products when modal is opened
      */
@@ -266,12 +269,21 @@
 
         if (newQty < 1) newQty = 1;
 
-        // If quantity is reduced, add the difference to dropped products
-        if (newQty < oldQty && typeof window.addToDroppedProducts === 'function') {
+        // If quantity is being reduced, show confirm modal
+        if (newQty < oldQty) {
             const reducedQty = oldQty - newQty;
-            window.addToDroppedProducts(product, reducedQty, 'reduced');
+            showProductConfirmModal({
+                type: 'reduce',
+                index: index,
+                product: product,
+                oldQty: oldQty,
+                newQty: newQty,
+                reducedQty: reducedQty
+            });
+            return;
         }
 
+        // If increasing, just update directly
         product.Quantity = newQty;
 
         // Re-render table
@@ -300,22 +312,134 @@
     window.removeChatProduct = function (index) {
         const product = window.currentChatOrderData.Details[index];
 
-        if (!confirm(`Xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`)) {
-            return;
+        showProductConfirmModal({
+            type: 'remove',
+            index: index,
+            product: product,
+            quantity: product.Quantity || 1
+        });
+    };
+
+    /**
+     * Show product confirm modal
+     */
+    function showProductConfirmModal(action) {
+        pendingConfirmAction = action;
+
+        const modal = document.getElementById('productConfirmModal');
+        const icon = document.getElementById('productConfirmIcon');
+        const title = document.getElementById('productConfirmTitle');
+        const message = document.getElementById('productConfirmMessage');
+        const details = document.getElementById('productConfirmDetails');
+        const confirmBtn = document.getElementById('productConfirmBtn');
+
+        if (!modal) return;
+
+        const product = action.product;
+        const productImage = product.ImageUrl
+            ? `<img src="${product.ImageUrl}" class="product-img">`
+            : `<div class="product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
+        if (action.type === 'remove') {
+            // Remove product
+            icon.className = 'product-confirm-icon danger';
+            icon.innerHTML = '<i class="fas fa-trash-alt"></i>';
+            title.textContent = 'Xóa sản phẩm';
+            message.textContent = 'Sản phẩm sẽ được chuyển vào tab "Hàng rớt - xả"';
+            confirmBtn.className = 'product-confirm-btn confirm';
+            confirmBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa sản phẩm';
+
+            details.innerHTML = `
+                ${productImage}
+                <div class="product-info">
+                    <div class="product-name">${product.ProductNameGet || product.ProductName}</div>
+                    <div class="product-meta">Mã: ${product.ProductCode || 'N/A'} • ${(product.Price || 0).toLocaleString('vi-VN')}đ</div>
+                </div>
+                <div class="product-qty">
+                    <div class="qty-change remove">
+                        <span class="old">${action.quantity}</span>
+                        <span class="arrow">→</span>
+                        <span class="new">Xóa</span>
+                    </div>
+                </div>
+            `;
+        } else if (action.type === 'reduce') {
+            // Reduce quantity
+            icon.className = 'product-confirm-icon warning';
+            icon.innerHTML = '<i class="fas fa-minus-circle"></i>';
+            title.textContent = 'Giảm số lượng';
+            message.textContent = `Giảm ${action.reducedQty} sản phẩm và chuyển vào "Hàng rớt - xả"`;
+            confirmBtn.className = 'product-confirm-btn confirm warning';
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i> Xác nhận giảm';
+
+            details.innerHTML = `
+                ${productImage}
+                <div class="product-info">
+                    <div class="product-name">${product.ProductNameGet || product.ProductName}</div>
+                    <div class="product-meta">Mã: ${product.ProductCode || 'N/A'} • ${(product.Price || 0).toLocaleString('vi-VN')}đ</div>
+                </div>
+                <div class="product-qty">
+                    <div class="qty-change">
+                        <span class="old">${action.oldQty}</span>
+                        <span class="arrow">→</span>
+                        <span class="new">${action.newQty}</span>
+                    </div>
+                </div>
+            `;
         }
 
-        // Add to dropped products before removing
-        if (typeof window.addToDroppedProducts === 'function') {
-            window.addToDroppedProducts(product, product.Quantity || 1, 'removed');
+        modal.classList.add('show');
+    }
+
+    /**
+     * Close product confirm modal
+     */
+    window.closeProductConfirmModal = function () {
+        const modal = document.getElementById('productConfirmModal');
+        if (modal) {
+            modal.classList.remove('show');
         }
+        pendingConfirmAction = null;
+    };
 
-        window.currentChatOrderData.Details.splice(index, 1);
+    /**
+     * Execute the pending confirm action
+     */
+    window.executeProductConfirm = function () {
+        if (!pendingConfirmAction) return;
 
-        // Re-render table
-        renderChatProductsTable();
+        const action = pendingConfirmAction;
+        closeProductConfirmModal();
 
-        if (window.notificationManager) {
-            window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
+        if (action.type === 'remove') {
+            // Add to dropped products before removing
+            if (typeof window.addToDroppedProducts === 'function') {
+                window.addToDroppedProducts(action.product, action.quantity, 'removed');
+            }
+
+            window.currentChatOrderData.Details.splice(action.index, 1);
+
+            // Re-render table
+            renderChatProductsTable();
+
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
+            }
+        } else if (action.type === 'reduce') {
+            // Add reduced quantity to dropped products
+            if (typeof window.addToDroppedProducts === 'function') {
+                window.addToDroppedProducts(action.product, action.reducedQty, 'reduced');
+            }
+
+            // Update the quantity
+            action.product.Quantity = action.newQty;
+
+            // Re-render table
+            renderChatProductsTable();
+
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã giảm số lượng (chuyển vào hàng rớt - xả)', 'success');
+            }
         }
     };
 
