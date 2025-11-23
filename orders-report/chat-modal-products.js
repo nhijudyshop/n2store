@@ -177,7 +177,8 @@
             }
 
             // Get full product details
-            const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
+            // Get full product details (FORCE REFRESH to get latest qty)
+            const fullProduct = await window.productSearchManager.getFullProductDetails(productId, true);
 
             if (!fullProduct) {
                 throw new Error('Không tìm thấy thông tin sản phẩm');
@@ -193,14 +194,13 @@
                 window.currentChatOrderData.Details = [];
             }
 
-            // Check if product already exists
+            // Check if product already exists IN HELD LIST
             const existingIndex = window.currentChatOrderData.Details.findIndex(
-                p => p.ProductId == productId
+                p => p.ProductId == productId && p.IsHeld
             );
 
             if (existingIndex > -1) {
-                // Increase quantity
-                // Note: updateChatProductQuantity will call saveChatOrderChanges
+                // Increase quantity of HELD product
                 updateChatProductQuantity(existingIndex, 1);
             } else {
                 // Add new product
@@ -220,7 +220,8 @@
                     ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
                     UOMName: fullProduct.UOM?.Name || 'Cái',
                     ImageUrl: fullProduct.ImageUrl,
-                    IsHeld: true // Mark as held (new product)
+                    IsHeld: true, // Mark as held (new product)
+                    StockQty: fullProduct.QtyAvailable // Store stock quantity
                 };
 
                 window.currentChatOrderData.Details.push(newProduct);
@@ -228,12 +229,12 @@
                 // Render table
                 renderChatProductsTable();
 
-                // Save changes
-                await saveChatOrderChanges();
+                // REMOVED: Immediate save
+                // await saveChatOrderChanges();
 
                 if (window.notificationManager) {
                     window.notificationManager.show(
-                        `Đã thêm ${newProduct.ProductNameGet}`,
+                        `Đã thêm ${newProduct.ProductNameGet} vào danh sách đang giữ`,
                         'success'
                     );
                 }
@@ -303,11 +304,17 @@
         // Re-render table
         renderChatProductsTable();
 
-        // Save changes
-        await saveChatOrderChanges();
-
-        if (window.notificationManager) {
-            window.notificationManager.show('Đã cập nhật số lượng', 'success');
+        // Save changes ONLY if not held
+        if (!product.IsHeld) {
+            await saveChatOrderChanges();
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã cập nhật số lượng', 'success');
+            }
+        } else {
+            // Just show local notification
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã cập nhật số lượng (chưa lưu)', 'success');
+            }
         }
     };
 
@@ -320,10 +327,12 @@
 
         // Debounce save for note updates could be good, but for now let's just save on change (blur)
         // The input has onchange="updateChatProductNote..." which triggers on blur/enter
-        saveChatOrderChanges();
 
-        if (window.notificationManager) {
-            window.notificationManager.show('Đã cập nhật ghi chú', 'success');
+        if (!product.IsHeld) {
+            saveChatOrderChanges();
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã cập nhật ghi chú', 'success');
+            }
         }
     };
 
@@ -347,11 +356,16 @@
         // Re-render table
         renderChatProductsTable();
 
-        // Save changes
-        await saveChatOrderChanges();
-
-        if (window.notificationManager) {
-            window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
+        // Save changes ONLY if not held
+        if (!product.IsHeld) {
+            await saveChatOrderChanges();
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
+            }
+        } else {
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã xóa sản phẩm đang giữ', 'success');
+            }
         }
     };
 
@@ -514,6 +528,7 @@
                 delete cleaned.UOMName;
                 delete cleaned.ImageUrl;
                 delete cleaned.ProductCode; // Usually read-only or not needed if ProductId is set
+                delete cleaned.StockQty; // Remove stock quantity (client-only)
 
                 return cleaned;
             });
@@ -553,6 +568,10 @@
             const i = details.indexOf(p); // Get actual index in main array
             const isHeld = p.IsHeld === true;
 
+            const isOutOfStock = p.StockQty === 0;
+            const nameColor = isOutOfStock ? '#ef4444' : 'inherit';
+            const stockColor = isOutOfStock ? '#ef4444' : '#059669';
+
             return `
             <tr class="chat-product-row" data-index="${i}">
                 <td style="width: 30px;">${i + 1}</td>
@@ -560,8 +579,9 @@
                     ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
                 </td>
                 <td>
-                    <div style="font-weight: 600; margin-bottom: 2px;">${p.ProductNameGet || p.ProductName}</div>
+                    <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">${p.ProductNameGet || p.ProductName}</div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
+                    ${p.StockQty !== undefined && p.StockQty !== null ? `<div style="font-size: 11px; color: ${stockColor}; font-weight: 500;">Tồn: ${p.StockQty}</div>` : ''}
                 </td>
                 <td style="text-align: center; width: 140px;">
                     <div class="chat-quantity-controls">

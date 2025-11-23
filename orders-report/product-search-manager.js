@@ -433,9 +433,9 @@ class EnhancedProductSearchManager {
     // GET FULL PRODUCT DETAILS
     // ========================================
 
-    async getFullProductDetails(productId) {
-        // Check cache first
-        if (this.fullProductCache.has(productId)) {
+    async getFullProductDetails(productId, forceRefresh = false) {
+        // Check cache first (if not forced)
+        if (!forceRefresh && this.fullProductCache.has(productId)) {
             console.log(
                 `[PRODUCT] Using cached full details for product ${productId}`,
             );
