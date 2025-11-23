@@ -154,6 +154,9 @@
     /**
      * Add product to chat order
      */
+    /**
+     * Add product to chat order
+     */
     window.addChatProductToOrder = async function (productId) {
         let notificationId = null;
 
@@ -192,14 +195,8 @@
 
             if (existingIndex > -1) {
                 // Increase quantity
+                // Note: updateChatProductQuantity will call saveChatOrderChanges
                 updateChatProductQuantity(existingIndex, 1);
-
-                if (window.notificationManager) {
-                    window.notificationManager.show(
-                        `Đã tăng số lượng sản phẩm`,
-                        'success'
-                    );
-                }
             } else {
                 // Add new product
                 const newProduct = {
@@ -224,6 +221,9 @@
 
                 // Render table
                 renderChatProductsTable();
+
+                // Save changes
+                await saveChatOrderChanges();
 
                 if (window.notificationManager) {
                     window.notificationManager.show(
@@ -263,7 +263,7 @@
     /**
      * Update product quantity in chat order
      */
-    window.updateChatProductQuantity = function (index, change, value = null) {
+    window.updateChatProductQuantity = async function (index, change, value = null) {
         const product = window.currentChatOrderData.Details[index];
         const oldQty = product.Quantity || 0;
 
@@ -297,6 +297,9 @@
         // Re-render table
         renderChatProductsTable();
 
+        // Save changes
+        await saveChatOrderChanges();
+
         if (window.notificationManager) {
             window.notificationManager.show('Đã cập nhật số lượng', 'success');
         }
@@ -309,6 +312,10 @@
         const product = window.currentChatOrderData.Details[index];
         product.Note = note;
 
+        // Debounce save for note updates could be good, but for now let's just save on change (blur)
+        // The input has onchange="updateChatProductNote..." which triggers on blur/enter
+        saveChatOrderChanges();
+
         if (window.notificationManager) {
             window.notificationManager.show('Đã cập nhật ghi chú', 'success');
         }
@@ -317,7 +324,7 @@
     /**
      * Remove product from chat order
      */
-    window.removeChatProduct = function (index) {
+    window.removeChatProduct = async function (index) {
         const product = window.currentChatOrderData.Details[index];
 
         if (!confirm(`Xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`)) {
@@ -334,10 +341,105 @@
         // Re-render table
         renderChatProductsTable();
 
+        // Save changes
+        await saveChatOrderChanges();
+
         if (window.notificationManager) {
             window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
         }
     };
+
+    /**
+     * Save chat order changes to API
+     */
+    async function saveChatOrderChanges() {
+        if (!window.currentChatOrderData || !window.currentChatOrderData.Id) return;
+
+        let notifId = null;
+        try {
+            if (window.notificationManager) {
+                notifId = window.notificationManager.saving('Đang lưu thay đổi...');
+            }
+
+            const payload = prepareChatOrderPayload(window.currentChatOrderData);
+
+            // Get auth headers
+            const headers = await window.tokenManager.getAuthHeader();
+
+            const response = await API_CONFIG.smartFetch(
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${window.currentChatOrderData.Id})`,
+                {
+                    method: "PUT",
+                    headers: {
+                        ...headers,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            if (window.notificationManager && notifId) {
+                window.notificationManager.remove(notifId);
+            }
+
+            // Update cache if needed
+            if (window.cacheManager) {
+                window.cacheManager.clear("orders");
+            }
+
+            console.log('[CHAT-PRODUCTS] Order saved successfully');
+
+        } catch (error) {
+            console.error('[CHAT-PRODUCTS] Error saving order:', error);
+            if (window.notificationManager) {
+                if (notifId) window.notificationManager.remove(notifId);
+                window.notificationManager.error(`Lỗi lưu đơn hàng: ${error.message}`, 5000);
+            }
+        }
+    }
+
+    /**
+     * Prepare payload for chat order update
+     */
+    function prepareChatOrderPayload(orderData) {
+        // Clone data
+        const payload = JSON.parse(JSON.stringify(orderData));
+
+        // Add context
+        if (!payload["@odata.context"]) {
+            payload["@odata.context"] = "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
+        }
+
+        // Clean Details
+        if (payload.Details && Array.isArray(payload.Details)) {
+            payload.Details = payload.Details.map(detail => {
+                const cleaned = { ...detail };
+
+                // Remove null/undefined Id
+                if (!cleaned.Id) {
+                    delete cleaned.Id;
+                }
+
+                // Ensure OrderId matches
+                cleaned.OrderId = payload.Id;
+
+                return cleaned;
+            });
+        }
+
+        // Recalculate totals
+        const details = payload.Details || [];
+        payload.TotalQuantity = details.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+        payload.TotalAmount = details.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+
+        return payload;
+    }
 
     /**
      * Render products table in chat modal
