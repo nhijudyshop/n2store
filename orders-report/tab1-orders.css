@@ -3410,6 +3410,22 @@ td[data-column].hidden {
     border-left: 1px solid #e5e7eb;
 }
 
+/* Chat Panel Tabs */
+.chat-tab-btn:hover {
+    background: #f1f5f9 !important;
+}
+
+.chat-tab-btn.active:hover {
+    background: white !important;
+}
+
+.chat-tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 /* Chat Product Table */
 .chat-product-body {
     flex: 1;
