@@ -3838,6 +3838,33 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Show modal
     document.getElementById('chatModal').classList.add('show');
 
+    // Initialize chat modal products with order data
+    // Fetch full order data with product details
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        });
+        if (response.ok) {
+            const fullOrderData = await response.json();
+            // Initialize products panel with full order data
+            if (typeof window.initChatModalProducts === 'function') {
+                window.initChatModalProducts(fullOrderData);
+            }
+        }
+    } catch (error) {
+        console.error('[CHAT] Error loading order details:', error);
+        // Continue with basic order data
+        if (typeof window.initChatModalProducts === 'function') {
+            window.initChatModalProducts(order);
+        }
+    }
+
     // Show loading
     const modalBody = document.getElementById('chatModalBody');
     const loadingText = type === 'comment' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';

@@ -637,11 +637,27 @@
                     </div>
                 </div>
 
-                <!-- Content Area -->
-                <div style="flex: 1; background: white; display: flex; align-items: center; justify-content: center;">
-                    <div style="text-align: center; color: #94a3b8; padding: 40px 20px;">
-                        <i class="fas fa-shopping-cart" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
-                        <p style="font-size: 14px; margin: 0; font-weight: 500;">Thông tin đơn hàng</p>
+                <!-- Product Search -->
+                <div class="chat-product-search-inline" style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
+                    <div class="chat-search-input-wrapper" style="position: relative;">
+                        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
+                        <input type="text" id="chatInlineProductSearch" placeholder="Tìm sản phẩm theo tên hoặc mã..." autocomplete="off"
+                            style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #f8fafc;"
+                            onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
+                            onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
+                    </div>
+                    <div id="chatInlineSearchResults" class="chat-inline-search-results" style="display: none; margin-top: 8px; max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);"></div>
+                </div>
+
+                <!-- Products Table Container -->
+                <div style="flex: 1; overflow-y: auto; background: white;">
+                    <div id="chatProductsTableContainer" style="padding: 16px;">
+                        <!-- Empty State -->
+                        <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                            <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                            <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm</p>
+                            <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
+                        </div>
                     </div>
                 </div>
 
@@ -955,6 +971,217 @@
                 background: #ef4444;
                 color: white;
             }
+
+            /* Chat Products Table Styles */
+            .chat-products-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+                background: white;
+            }
+
+            .chat-products-table thead {
+                background: #f8fafc;
+                border-bottom: 2px solid #e2e8f0;
+            }
+
+            .chat-products-table th {
+                padding: 12px 8px;
+                text-align: left;
+                font-weight: 600;
+                color: #475569;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .chat-products-table td {
+                padding: 12px 8px;
+                border-bottom: 1px solid #f1f5f9;
+                vertical-align: middle;
+            }
+
+            .chat-products-table tbody tr:hover {
+                background: #f8fafc;
+            }
+
+            .chat-product-row {
+                transition: all 0.2s;
+            }
+
+            .chat-product-image {
+                width: 50px;
+                height: 50px;
+                object-fit: cover;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+            }
+
+            .chat-quantity-controls {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                justify-content: center;
+            }
+
+            .chat-qty-btn {
+                width: 28px;
+                height: 28px;
+                border: 1px solid #cbd5e1;
+                background: white;
+                border-radius: 6px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                color: #64748b;
+            }
+
+            .chat-qty-btn:hover {
+                background: #f1f5f9;
+                border-color: #3b82f6;
+                color: #3b82f6;
+            }
+
+            .chat-quantity-input {
+                width: 50px;
+                text-align: center;
+                padding: 6px;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+
+            .chat-note-input {
+                width: 100%;
+                padding: 6px 8px;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 12px;
+                transition: all 0.2s;
+            }
+
+            .chat-note-input:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            }
+
+            .chat-btn-product-action {
+                padding: 6px 10px;
+                border: 1px solid #cbd5e1;
+                background: white;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+                color: #64748b;
+                font-size: 12px;
+            }
+
+            .chat-btn-edit-item:hover {
+                background: #eff6ff;
+                border-color: #3b82f6;
+                color: #3b82f6;
+            }
+
+            .chat-btn-delete-item:hover {
+                background: #fef2f2;
+                border-color: #ef4444;
+                color: #ef4444;
+            }
+
+            .chat-products-table tfoot {
+                background: #f8fafc;
+                font-weight: 600;
+                border-top: 2px solid #e2e8f0;
+            }
+
+            .chat-products-table tfoot td {
+                padding: 14px 8px;
+                color: #1e293b;
+            }
+
+            /* Chat Inline Search Results */
+            .chat-inline-search-results {
+                scrollbar-width: thin;
+                scrollbar-color: #cbd5e1 #f8fafc;
+            }
+
+            .chat-inline-search-results::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .chat-inline-search-results::-webkit-scrollbar-track {
+                background: #f8fafc;
+            }
+
+            .chat-inline-search-results::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 3px;
+            }
+
+            .chat-search-result-item {
+                padding: 12px;
+                border-bottom: 1px solid #f1f5f9;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .chat-search-result-item:hover {
+                background: #f8fafc;
+            }
+
+            .chat-search-result-item:last-child {
+                border-bottom: none;
+            }
+
+            .chat-search-result-image {
+                width: 45px;
+                height: 45px;
+                object-fit: cover;
+                border-radius: 6px;
+                border: 1px solid #e2e8f0;
+                flex-shrink: 0;
+            }
+
+            .chat-search-result-info {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .chat-search-result-name {
+                font-size: 13px;
+                font-weight: 600;
+                color: #1e293b;
+                margin-bottom: 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .chat-search-result-code {
+                font-size: 11px;
+                color: #64748b;
+            }
+
+            .chat-search-result-price {
+                font-size: 13px;
+                font-weight: 600;
+                color: #3b82f6;
+                flex-shrink: 0;
+            }
+
+            .chat-search-no-results {
+                padding: 20px;
+                text-align: center;
+                color: #94a3b8;
+                font-size: 13px;
+            }
         </style>
     </div>
     </div>
@@ -983,6 +1210,7 @@
     <script src="quick-reply-manager.js"></script>
     <script src="product-search-manager.js"></script>
     <script src="chat-product-manager.js"></script>
+    <script src="chat-modal-products.js"></script>
     <script src="search-functions.js"></script>
     <script src="column-visibility-manager.js"></script>
     <script src="quick-tag-manager.js"></script>
