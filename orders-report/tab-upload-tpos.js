@@ -4560,7 +4560,7 @@ ${encodedString}
                                data-type="${type}"
                                data-idx="${idx}"
                                onchange="updateCommentChecked(this, '${type}', ${idx})">
-                        <span class="form-check-label">Đã xem</span>
+                        <span class="form-check-label">Xác nhận</span>
                     </label>
                 </div>
             </div>
@@ -5097,6 +5097,25 @@ ${encodedString}
             const stats = finalizeSessionData.stats;
             if (!stats) {
                 throw new Error('Không có dữ liệu thống kê');
+            }
+
+            // Validate all comment checkboxes are checked
+            const hasCommentDiscrepancies =
+                (commentAnalysisData.duplicateEntries && commentAnalysisData.duplicateEntries.length > 0) ||
+                (commentAnalysisData.missingEntries && commentAnalysisData.missingEntries.length > 0);
+
+            if (hasCommentDiscrepancies) {
+                // Check duplicate entries
+                const uncheckedDuplicate = commentAnalysisData.duplicateEntries.find(e => !e.checked);
+                if (uncheckedDuplicate) {
+                    throw new Error(`Vui lòng xác nhận tất cả các comment nhập trùng. STT ${uncheckedDuplicate.stt} chưa được xác nhận.`);
+                }
+
+                // Check missing entries
+                const uncheckedMissing = commentAnalysisData.missingEntries.find(e => !e.checked);
+                if (uncheckedMissing) {
+                    throw new Error(`Vui lòng xác nhận tất cả các comment nhập thiếu. STT ${uncheckedMissing.stt} chưa được xác nhận.`);
+                }
             }
 
             // Create finalize record
