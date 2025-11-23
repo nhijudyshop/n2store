@@ -1614,6 +1614,17 @@ ${encodedString}
                     }
 
                     console.log(`[UPLOAD] ✅ Successfully uploaded STT ${stt}`);
+
+                    // ============================================
+                    // AUTO-ASSIGN TAGS BASED ON PRODUCT NOTES
+                    // ============================================
+                    try {
+                        await autoAssignTagsByProductNotes(orderId, stt, sessionData);
+                    } catch (autoTagError) {
+                        console.error(`[UPLOAD] ⚠️ Auto-tag assignment failed for STT ${stt}:`, autoTagError);
+                        // Don't fail the upload if tag assignment fails
+                    }
+
                     results.push({ stt, orderId, success: true, existingProducts });
 
                 } catch (error) {
@@ -2478,6 +2489,181 @@ ${encodedString}
     // REMOVED: setupVisibilityListener and setupFocusListener
     // No longer needed - Firebase real-time listener handles all updates automatically
     // Firebase will trigger the listener callback when data changes, regardless of tab visibility
+
+    // =====================================================
+    // AUTO TAG ASSIGNMENT BASED ON PRODUCT NOTE
+    // =====================================================
+
+    /**
+     * Get tag settings from localStorage
+     * @returns {Object} Tag settings object { tagId: "note", ... }
+     */
+    function getTagSettings() {
+        try {
+            const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
+            const saved = localStorage.getItem(TAG_SETTINGS_KEY);
+            return saved ? JSON.parse(saved) : {};
+        } catch (error) {
+            console.error('[AUTO-TAG] Error loading tag settings:', error);
+            return {};
+        }
+    }
+
+    /**
+     * Find tags that match product notes
+     * @param {Array} productNotesList - Array of note strings from products
+     * @returns {Promise<Array>} Array of matching tags { Id, Color, Name }
+     */
+    async function findMatchingTagsByNotes(productNotesList) {
+        try {
+            console.log('[AUTO-TAG] Finding tags for notes:', productNotesList);
+
+            // Load available tags if not loaded
+            if (!window.availableTags || window.availableTags.length === 0) {
+                console.log('[AUTO-TAG] Loading available tags...');
+                // Load tags from API (same as tab1-orders.js)
+                const headers = await window.tokenManager.getAuthHeader();
+                const response = await fetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder?$orderby=Id',
+                    {
+                        headers: {
+                            ...headers,
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load tags: ${response.status}`);
+                }
+
+                const data = await response.json();
+                window.availableTags = data.value || [];
+                console.log(`[AUTO-TAG] Loaded ${window.availableTags.length} tags`);
+            }
+
+            // Get tag settings (note mappings)
+            const tagSettings = getTagSettings();
+            console.log('[AUTO-TAG] Tag settings:', tagSettings);
+
+            // Find matching tags
+            const matchingTags = [];
+            const uniqueTagIds = new Set();
+
+            // For each product note, find matching tag
+            productNotesList.forEach(note => {
+                if (!note || note.trim() === '' || note.toLowerCase() === 'live') {
+                    return; // Skip empty notes or "live"
+                }
+
+                const normalizedNote = note.trim().toLowerCase();
+                console.log(`[AUTO-TAG] Searching tag for note: "${note}"`);
+
+                // Search through tag settings
+                Object.keys(tagSettings).forEach(tagId => {
+                    const tagNote = tagSettings[tagId];
+                    if (tagNote && tagNote.trim().toLowerCase() === normalizedNote) {
+                        // Found matching tag
+                        const tag = window.availableTags.find(t => String(t.Id) === String(tagId));
+                        if (tag && !uniqueTagIds.has(tag.Id)) {
+                            console.log(`[AUTO-TAG] ✅ Found matching tag: ${tag.Name} (note: "${tagNote}")`);
+                            matchingTags.push({
+                                Id: tag.Id,
+                                Color: tag.Color,
+                                Name: tag.Name
+                            });
+                            uniqueTagIds.add(tag.Id);
+                        }
+                    }
+                });
+            });
+
+            console.log(`[AUTO-TAG] Found ${matchingTags.length} matching tags`);
+            return matchingTags;
+
+        } catch (error) {
+            console.error('[AUTO-TAG] Error finding matching tags:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Auto-assign tags to order based on product notes
+     * @param {number} orderId - Order ID
+     * @param {number} stt - Session index (STT)
+     * @param {Object} sessionData - Session data containing products
+     */
+    async function autoAssignTagsByProductNotes(orderId, stt, sessionData) {
+        try {
+            console.log(`[AUTO-TAG] 🏷️ Auto-assigning tags for Order ${orderId}, STT ${stt}`);
+
+            // Collect all product notes for this STT
+            const productNotesList = [];
+
+            if (sessionData && sessionData.products) {
+                sessionData.products.forEach(product => {
+                    const noteKey = `${stt}-${product.productId}`;
+                    const note = productNotes[noteKey];
+                    if (note && note.trim() !== '' && note.toLowerCase() !== 'live') {
+                        productNotesList.push(note);
+                    }
+                });
+            }
+
+            console.log(`[AUTO-TAG] Product notes to match:`, productNotesList);
+
+            if (productNotesList.length === 0) {
+                console.log('[AUTO-TAG] No product notes to match, skipping auto-tag assignment');
+                return;
+            }
+
+            // Find matching tags
+            const matchingTags = await findMatchingTagsByNotes(productNotesList);
+
+            if (matchingTags.length === 0) {
+                console.log('[AUTO-TAG] No matching tags found, skipping assignment');
+                return;
+            }
+
+            console.log(`[AUTO-TAG] Assigning ${matchingTags.length} tags to order ${orderId}:`, matchingTags.map(t => t.Name));
+
+            // Call API to assign tags (same as tab1-orders.js saveOrderTags)
+            const payload = {
+                Tags: matchingTags,
+                OrderId: orderId,
+            };
+
+            const headers = await window.tokenManager.getAuthHeader();
+            const response = await fetch(
+                "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                {
+                    method: "POST",
+                    headers: {
+                        ...headers,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            }
+
+            console.log(`[AUTO-TAG] ✅ Successfully assigned ${matchingTags.length} tags to order ${orderId}`);
+
+            // Show notification
+            const tagNames = matchingTags.map(t => t.Name).join(', ');
+            showNotification(`✅ Đã tự động thêm tag: ${tagNames}`, 'success');
+
+        } catch (error) {
+            console.error(`[AUTO-TAG] ❌ Error auto-assigning tags for order ${orderId}:`, error);
+            // Don't throw - this is a non-critical feature
+            // Upload should still succeed even if tag assignment fails
+        }
+    }
 
     // =====================================================
     // HISTORY & BACKUP SYSTEM
