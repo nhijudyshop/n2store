@@ -60,11 +60,11 @@ class ChatProductManager {
         this.productHistory = [];
 
         // Clear search input
-        const searchInput = document.getElementById('chatProductSearchInput');
+        const searchInput = document.getElementById('chatInlineProductSearch');
         if (searchInput) searchInput.value = '';
 
         // Hide suggestions
-        const suggestions = document.getElementById('chatProductSearchResults');
+        const suggestions = document.getElementById('chatInlineSearchResults');
         if (suggestions) suggestions.style.display = 'none';
     }
 
@@ -424,12 +424,12 @@ class ChatProductManager {
             this.addProduct(product);
 
             // Clear search
-            const searchInput = document.getElementById('chatProductSearchInput');
+            const searchInput = document.getElementById('chatInlineProductSearch');
             if (searchInput) {
                 searchInput.value = '';
                 searchInput.focus();
             }
-            document.getElementById('chatProductSearchResults').style.display = 'none';
+            document.getElementById('chatInlineSearchResults').style.display = 'none';
         }
     }
 
