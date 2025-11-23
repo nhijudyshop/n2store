@@ -308,37 +308,50 @@
             return;
         }
 
-        // Add to current order
-        const existingIndex = window.currentChatOrderData.Details.findIndex(
-            p => p.ProductId === product.ProductId
-        );
-
-        if (existingIndex > -1) {
-            window.currentChatOrderData.Details[existingIndex].Quantity += product.Quantity;
-        } else {
-            window.currentChatOrderData.Details.push({
-                ProductId: product.ProductId,
-                ProductName: product.ProductName,
-                ProductNameGet: product.ProductNameGet,
-                ProductCode: product.ProductCode,
-                ImageUrl: product.ImageUrl,
-                Price: product.Price,
-                Quantity: product.Quantity,
-                UOMName: product.UOMName,
-                Note: null
-            });
+        if (!confirm(`Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`)) {
+            return;
         }
 
-        // Remove from dropped list
-        if (firebaseDb && product.id) {
-            try {
-                await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).remove();
-            } catch (error) {
-                console.error('[DROPPED-PRODUCTS] Error removing from Firebase:', error);
+        // Always add as new held item (will be merged on save)
+        window.currentChatOrderData.Details.push({
+            ProductId: product.ProductId,
+            ProductName: product.ProductName,
+            ProductNameGet: product.ProductNameGet,
+            ProductCode: product.ProductCode,
+            ImageUrl: product.ImageUrl,
+            Price: product.Price,
+            Quantity: 1, // Always 1
+            UOMName: product.UOMName,
+            Note: null,
+            IsHeld: true // Always mark as held
+        });
+
+        // Decrease quantity in dropped list
+        product.Quantity -= 1;
+
+        if (product.Quantity <= 0) {
+            // Remove from Firebase if quantity is 0
+            if (firebaseDb && product.id) {
+                try {
+                    await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).remove();
+                } catch (error) {
+                    console.error('[DROPPED-PRODUCTS] Error removing from Firebase:', error);
+                }
+            }
+            droppedProducts.splice(index, 1);
+        } else {
+            // Update quantity in Firebase
+            if (firebaseDb && product.id) {
+                try {
+                    await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).update({
+                        Quantity: product.Quantity
+                    });
+                } catch (error) {
+                    console.error('[DROPPED-PRODUCTS] Error updating quantity:', error);
+                }
             }
         }
 
-        droppedProducts.splice(index, 1);
         saveToLocalStorage();
 
         // Add history
@@ -346,7 +359,7 @@
             action: 'Chuyển về đơn hàng',
             productName: product.ProductNameGet || product.ProductName,
             productCode: product.ProductCode,
-            quantity: product.Quantity,
+            quantity: 1,
             price: product.Price
         });
 
@@ -355,15 +368,15 @@
         updateDroppedCounts();
 
         // Re-render orders table
-        if (typeof renderChatProductsTable === 'function') {
-            renderChatProductsTable();
+        if (typeof window.renderChatProductsTable === 'function') {
+            window.renderChatProductsTable();
         }
 
         // Switch to orders tab
         switchChatPanelTab('orders');
 
         if (window.notificationManager) {
-            window.notificationManager.show('Đã chuyển sản phẩm về đơn hàng', 'success');
+            window.notificationManager.show('Đã chuyển 1 sản phẩm về đơn hàng', 'success');
         }
     };
 

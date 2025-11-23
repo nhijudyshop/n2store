@@ -23,6 +23,11 @@
             window.currentChatOrderData.Details = [];
         }
 
+        // Reset IsHeld for all existing products (they are now part of the order)
+        window.currentChatOrderData.Details.forEach(p => {
+            p.IsHeld = false;
+        });
+
         // Render products table
         renderChatProductsTable();
 
@@ -214,7 +219,8 @@
                     ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
                     ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
                     UOMName: fullProduct.UOM?.Name || 'Cái',
-                    ImageUrl: fullProduct.ImageUrl
+                    ImageUrl: fullProduct.ImageUrl,
+                    IsHeld: true // Mark as held (new product)
                 };
 
                 window.currentChatOrderData.Details.push(newProduct);
@@ -357,9 +363,13 @@
 
         let notifId = null;
         try {
-            if (window.notificationManager) {
-                notifId = window.notificationManager.saving('Đang lưu thay đổi...');
-            }
+            // Show inline loading
+            showChatTableLoading();
+
+            // Optional: still show global notification if preferred, or rely on inline
+            // if (window.notificationManager) {
+            //     notifId = window.notificationManager.saving('Đang lưu thay đổi...');
+            // }
 
             const payload = prepareChatOrderPayload(window.currentChatOrderData);
 
@@ -401,6 +411,67 @@
                 if (notifId) window.notificationManager.remove(notifId);
                 window.notificationManager.error(`Lỗi lưu đơn hàng: ${error.message}`, 5000);
             }
+        } finally {
+            // Hide inline loading
+            hideChatTableLoading();
+        }
+    }
+
+    /**
+     * Show inline loading overlay for chat table
+     */
+    function showChatTableLoading() {
+        const container = document.getElementById('chatProductsTableContainer');
+        if (!container) return;
+
+        // Ensure container is relative for absolute positioning of overlay
+        if (getComputedStyle(container).position === 'static') {
+            container.style.position = 'relative';
+        }
+
+        // Check if overlay already exists
+        let overlay = container.querySelector('.chat-table-loading-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'chat-table-loading-overlay';
+            overlay.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(255, 255, 255, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+                backdrop-filter: blur(1px);
+                border-radius: 8px;
+            `;
+            overlay.innerHTML = `
+                <div style="text-align: center; color: #3b82f6;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i>
+                    <div style="font-size: 13px; font-weight: 500;">Đang cập nhật...</div>
+                </div>
+            `;
+            container.appendChild(overlay);
+        }
+
+        overlay.style.display = 'flex';
+    }
+
+    /**
+     * Hide inline loading overlay
+     */
+    function hideChatTableLoading() {
+        const container = document.getElementById('chatProductsTableContainer');
+        if (!container) return;
+
+        const overlay = container.querySelector('.chat-table-loading-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+            // Optional: remove it from DOM if you prefer not to keep it
+            // overlay.remove();
         }
     }
 
@@ -416,6 +487,14 @@
             payload["@odata.context"] = "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
         }
 
+        // Clean top-level properties (remove navigation properties to avoid 400 Bad Request)
+        delete payload.Partner;
+        delete payload.User;
+        delete payload.CRMTeam;
+        delete payload.DeliveryInfo;
+        delete payload.ExtraAddress;
+        delete payload.Facebook_Configs;
+
         // Clean Details
         if (payload.Details && Array.isArray(payload.Details)) {
             payload.Details = payload.Details.map(detail => {
@@ -428,6 +507,13 @@
 
                 // Ensure OrderId matches
                 cleaned.OrderId = payload.Id;
+
+                // Remove client-only properties
+                delete cleaned.IsHeld;
+                delete cleaned.ProductNameGet;
+                delete cleaned.UOMName;
+                delete cleaned.ImageUrl;
+                delete cleaned.ProductCode; // Usually read-only or not needed if ProductId is set
 
                 return cleaned;
             });
@@ -444,7 +530,7 @@
     /**
      * Render products table in chat modal
      */
-    function renderChatProductsTable() {
+    window.renderChatProductsTable = function () {
         const container = document.getElementById('chatProductsTableContainer');
         if (!container) return;
 
@@ -462,7 +548,12 @@
             return;
         }
 
-        const productsHTML = details.map((p, i) => `
+        // Helper to render rows
+        const renderRows = (products) => products.map((p) => {
+            const i = details.indexOf(p); // Get actual index in main array
+            const isHeld = p.IsHeld === true;
+
+            return `
             <tr class="chat-product-row" data-index="${i}">
                 <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
@@ -474,7 +565,7 @@
                 </td>
                 <td style="text-align: center; width: 140px;">
                     <div class="chat-quantity-controls">
-                        <button onclick="updateChatProductQuantity(${i}, -1)" class="chat-qty-btn">
+                        <button onclick="updateChatProductQuantity(${i}, -1)" class="chat-qty-btn" ${isHeld ? 'disabled style="opacity: 0.5; cursor: not-allowed; background: #f1f5f9; color: #cbd5e1;"' : ''}>
                             <i class="fas fa-minus"></i>
                         </button>
                         <span class="chat-quantity-label" style="
@@ -487,10 +578,10 @@
                             font-weight: 600;
                             border-left: 1px solid #e2e8f0;
                             border-right: 1px solid #e2e8f0;
-                            background: #f8fafc;
-                            color: #1e293b;
+                            background: ${isHeld ? '#f1f5f9' : '#f8fafc'};
+                            color: ${isHeld ? '#94a3b8' : '#1e293b'};
                         ">${p.Quantity || 1}</span>
-                        <button class="chat-qty-btn" disabled style="opacity: 0.5; cursor: not-allowed; background: #f1f5f9; color: #cbd5e1;">
+                        <button onclick="updateChatProductQuantity(${i}, 1)" class="chat-qty-btn" ${isHeld ? 'disabled style="opacity: 0.5; cursor: not-allowed; background: #f1f5f9; color: #cbd5e1;"' : 'disabled style="opacity: 0.5; cursor: not-allowed; background: #f1f5f9; color: #cbd5e1;"'}>
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -507,7 +598,57 @@
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
+
+        // Split products
+        const heldProducts = details.filter(p => p.IsHeld);
+        const orderProducts = details.filter(p => !p.IsHeld);
+
+        let tableContent = '';
+
+        // Section 1: Held Products (if any)
+        if (heldProducts.length > 0) {
+            tableContent += `
+                <tr class="chat-product-section-header" style="background: #fef3c7;">
+                    <td colspan="6" style="padding: 8px 12px; font-weight: 600; color: #d97706; font-size: 13px;">
+                        <i class="fas fa-hand-holding-box" style="margin-right: 6px;"></i>Sản phẩm đang giữ
+                    </td>
+                    <td colspan="2" style="text-align: right; padding: 4px 8px;">
+                        <button onclick="confirmHeldProducts()" class="chat-btn-save-held" style="
+                            background: #d97706;
+                            color: white;
+                            border: none;
+                            padding: 4px 12px;
+                            border-radius: 4px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 4px;
+                        ">
+                            <i class="fas fa-check"></i> Lưu vào đơn
+                        </button>
+                    </td>
+                </tr>
+                ${renderRows(heldProducts)}
+            `;
+        }
+
+        // Section 2: Order Products
+        if (orderProducts.length > 0) {
+            tableContent += `
+                <tr class="chat-product-section-header" style="background: #f1f5f9;">
+                    <td colspan="8" style="padding: 8px 12px; font-weight: 600; color: #475569; font-size: 13px;">
+                        <i class="fas fa-list-alt" style="margin-right: 6px;"></i>Danh sách sản phẩm của đơn hàng
+                    </td>
+                </tr>
+                ${renderRows(orderProducts)}
+            `;
+        } else if (heldProducts.length === 0) {
+            // Should be handled by empty check at top, but just in case
+            tableContent += `<tr><td colspan="8" style="text-align:center; padding: 20px;">Không có sản phẩm</td></tr>`;
+        }
 
         // Calculate totals
         const totalQuantity = details.reduce((sum, p) => sum + (p.Quantity || 0), 0);
@@ -528,7 +669,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    ${productsHTML}
+                    ${tableContent}
                 </tbody>
                 <tfoot>
                     <tr>
@@ -545,6 +686,86 @@
         // Update counts in header and footer
         updateChatProductCounts();
     }
+
+
+    /**
+     * Confirm held products (save to order)
+     */
+    window.confirmHeldProducts = async function () {
+        if (!window.currentChatOrderData || !window.currentChatOrderData.Details) return;
+
+        let hasChanges = false;
+        const newDetails = [];
+        const heldProducts = [];
+
+        // Separate held and non-held products
+        window.currentChatOrderData.Details.forEach(p => {
+            if (p.IsHeld) {
+                heldProducts.push(p);
+            } else {
+                newDetails.push(p);
+            }
+        });
+
+        if (heldProducts.length > 0) {
+            hasChanges = true;
+
+            heldProducts.forEach(heldProduct => {
+                // Find if exists in non-held (newDetails)
+                const existingProduct = newDetails.find(p => p.ProductId === heldProduct.ProductId);
+
+                if (existingProduct) {
+                    // Merge quantity
+                    existingProduct.Quantity += heldProduct.Quantity;
+                } else {
+                    // Add as new non-held
+                    heldProduct.IsHeld = false;
+                    newDetails.push(heldProduct);
+                }
+            });
+
+            // Update Details array
+            window.currentChatOrderData.Details = newDetails;
+        }
+
+        if (hasChanges) {
+            renderChatProductsTable();
+            await saveChatOrderChanges();
+
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã lưu sản phẩm vào đơn hàng', 'success');
+            }
+        }
+    };
+
+    /**
+     * Cleanup held products (move back to dropped)
+     * Called when closing modal without saving
+     */
+    window.cleanupHeldProducts = async function () {
+        if (!window.currentChatOrderData || !window.currentChatOrderData.Details) return;
+
+        const heldProducts = window.currentChatOrderData.Details.filter(p => p.IsHeld);
+
+        if (heldProducts.length === 0) return;
+
+        console.log('[CHAT-PRODUCTS] Cleaning up held products:', heldProducts.length);
+
+        // Move to dropped products
+        if (typeof window.addToDroppedProducts === 'function') {
+            for (const p of heldProducts) {
+                await window.addToDroppedProducts(p, p.Quantity, 'unsaved_exit');
+            }
+        }
+
+        // Remove from order
+        window.currentChatOrderData.Details = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
+
+        // Save order (to remove them from backend)
+        // Note: This might be called during close, so we need to ensure it runs
+        await saveChatOrderChanges();
+    };
+
 
     /**
      * Update product counts in UI

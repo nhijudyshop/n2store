@@ -828,6 +828,7 @@ body {
         opacity: 0;
         transform: scale(0.8);
     }
+
     to {
         opacity: 1;
         transform: scale(1);
@@ -3970,13 +3971,14 @@ td[data-column].hidden {
 .btn-secondary:hover {
     background: #4b5563;
 }
+
 /* Hide spin buttons for chat quantity input */
 .chat-quantity-input::-webkit-outer-spin-button,
 .chat-quantity-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .chat-quantity-input {
-  -moz-appearance: textfield;
+    -moz-appearance: textfield;
 }

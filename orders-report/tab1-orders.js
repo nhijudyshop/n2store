@@ -4004,7 +4004,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     }
 }
 
-window.closeChatModal = function () {
+window.closeChatModal = async function () {
+    // Cleanup unsaved held products
+    if (typeof window.cleanupHeldProducts === 'function') {
+        await window.cleanupHeldProducts();
+    }
+
     document.getElementById('chatModal').classList.remove('show');
 
     // Clean up scroll listener
