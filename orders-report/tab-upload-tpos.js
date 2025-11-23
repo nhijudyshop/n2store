@@ -4676,3 +4676,297 @@ ${encodedString}
     console.log('✅ Finalize session functionality initialized');
 
 })();
+
+// ===== FINALIZE HISTORY FUNCTIONALITY =====
+(function() {
+    'use strict';
+
+    /**
+     * Open finalize history modal
+     */
+    window.openFinalizeHistoryModal = async function() {
+        console.log('[FINALIZE-HISTORY] 📋 Opening finalize history modal...');
+
+        // Show modal
+        const modalEl = document.getElementById('finalizeHistoryModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        // Show loading
+        const modalBody = document.getElementById('finalizeHistoryModalBody');
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-purple" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2">Đang tải lịch sử chốt đợt live...</p>
+            </div>
+        `;
+
+        try {
+            // Load finalize history from Firebase
+            const history = await loadFinalizeHistory();
+            console.log('[FINALIZE-HISTORY] Loaded', history.length, 'finalize sessions');
+
+            // Render history
+            renderFinalizeHistoryList(history, modalBody);
+
+        } catch (error) {
+            console.error('[FINALIZE-HISTORY] ❌ Error loading history:', error);
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> Lỗi tải lịch sử: ${error.message}
+                </div>
+            `;
+        }
+    };
+
+    /**
+     * Load finalize history from Firebase
+     */
+    async function loadFinalizeHistory() {
+        const snapshot = await database.ref('uploadSessionFinalize')
+            .orderByChild('timestamp')
+            .once('value');
+
+        const history = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                history.push({
+                    id: child.key,
+                    ...child.val()
+                });
+            });
+        }
+
+        // Sort by timestamp descending (newest first)
+        history.sort((a, b) => b.timestamp - a.timestamp);
+
+        return history;
+    }
+
+    /**
+     * Render finalize history list
+     */
+    function renderFinalizeHistoryList(history, container) {
+        if (!history || history.length === 0) {
+            container.innerHTML = `
+                <div class="finalize-no-data">
+                    <i class="fas fa-clipboard-list d-block"></i>
+                    <p class="mb-0">Chưa có lịch sử chốt đợt live nào</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '<div class="finalize-history-list">';
+
+        history.forEach((session, index) => {
+            const time = new Date(session.timestamp);
+            const timeStr = time.toLocaleString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const stats = session.stats || {};
+            const commentAnalysis = session.commentAnalysis || {};
+            const productSummary = session.productSummary || [];
+
+            html += `
+                <div class="finalize-history-item">
+                    <div class="finalize-history-header" onclick="toggleFinalizeHistoryItem(${index})">
+                        <div class="session-info">
+                            <div class="session-time">
+                                <i class="fas fa-calendar-check me-2"></i>${timeStr}
+                            </div>
+                            <div class="session-by">
+                                <i class="fas fa-user me-1"></i>${session.createdBy || 'Unknown'}
+                            </div>
+                        </div>
+                        <div class="session-stats">
+                            <div class="stat-item">
+                                <div class="stat-value">${stats.uniqueSTTs || 0}</div>
+                                <div class="stat-label">Đơn hàng</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${stats.totalQuantity || 0}</div>
+                                <div class="stat-label">Món</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${stats.uniqueProducts || 0}</div>
+                                <div class="stat-label">Sản phẩm</div>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-chevron-down toggle-icon" id="toggleIcon-${index}"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="finalize-history-body" id="historyBody-${index}">
+                        ${renderFinalizeHistoryBody(session, productSummary, commentAnalysis)}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    /**
+     * Render finalize history body content
+     */
+    function renderFinalizeHistoryBody(session, productSummary, commentAnalysis) {
+        let html = '';
+
+        // Time range info
+        if (session.fromTimestamp) {
+            const fromTime = new Date(session.fromTimestamp).toLocaleString('vi-VN');
+            const toTime = new Date(session.toTimestamp).toLocaleString('vi-VN');
+            html += `
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-clock me-2"></i>
+                    <strong>Khoảng thời gian:</strong> ${fromTime} → ${toTime}
+                    <span class="ms-3"><strong>Số record:</strong> ${session.recordCount || 0}</span>
+                </div>
+            `;
+        }
+
+        // Product summary section
+        if (productSummary && productSummary.length > 0) {
+            html += `
+                <div class="finalize-history-section">
+                    <h6><i class="fas fa-box me-2"></i>Chi tiết sản phẩm (${productSummary.length} mã)</h6>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="finalize-product-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Mã sản phẩm</th>
+                                    <th>Số lượng</th>
+                                    <th>Số STT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            productSummary.forEach((p, idx) => {
+                html += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><strong>${p.productCode}</strong></td>
+                        <td>${p.quantity}</td>
+                        <td>${p.sttCount}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Comment analysis section
+        if (commentAnalysis && (commentAnalysis.duplicateEntries?.length > 0 || commentAnalysis.missingEntries?.length > 0)) {
+            html += `
+                <div class="finalize-history-section">
+                    <h6><i class="fas fa-comments me-2"></i>Phân tích Comment</h6>
+                    <div class="alert alert-secondary mb-3">
+                        <strong>${commentAnalysis.totalComments || 0}</strong> comment tạo đơn |
+                        <strong>${commentAnalysis.totalProductEntries || 0}</strong> số phiếu đã nhập |
+                        <strong>${commentAnalysis.totalOrderQuantity || 0}</strong> số món
+                    </div>
+                    <div class="finalize-comment-summary">
+            `;
+
+            // Duplicate entries (left column)
+            html += `
+                <div class="finalize-comment-box duplicate">
+                    <div class="finalize-comment-box-header">
+                        <i class="fas fa-clone me-2"></i>Comment nhập trùng (${commentAnalysis.duplicateEntries?.length || 0})
+                    </div>
+                    <div class="finalize-comment-box-body">
+            `;
+
+            if (commentAnalysis.duplicateEntries && commentAnalysis.duplicateEntries.length > 0) {
+                commentAnalysis.duplicateEntries.forEach(entry => {
+                    html += `
+                        <div class="finalize-comment-entry">
+                            <span class="stt-badge">${entry.stt}</span>
+                            <span class="customer-name">${entry.customerName || ''}</span>
+                            <span class="diff negative">${entry.difference}</span>
+                            ${entry.checked ? '<i class="fas fa-check check-icon"></i>' : ''}
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="text-muted text-center py-2">Không có</div>';
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            // Missing entries (right column)
+            html += `
+                <div class="finalize-comment-box missing">
+                    <div class="finalize-comment-box-header">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Comment nhập thiếu (${commentAnalysis.missingEntries?.length || 0})
+                    </div>
+                    <div class="finalize-comment-box-body">
+            `;
+
+            if (commentAnalysis.missingEntries && commentAnalysis.missingEntries.length > 0) {
+                commentAnalysis.missingEntries.forEach(entry => {
+                    html += `
+                        <div class="finalize-comment-entry">
+                            <span class="stt-badge">${entry.stt}</span>
+                            <span class="customer-name">${entry.customerName || ''}</span>
+                            <span class="diff positive">+${entry.difference}</span>
+                            ${entry.checked ? '<i class="fas fa-check check-icon"></i>' : ''}
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="text-muted text-center py-2">Không có</div>';
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        return html || '<div class="text-muted text-center py-3">Không có chi tiết</div>';
+    }
+
+    /**
+     * Toggle finalize history item expand/collapse
+     */
+    window.toggleFinalizeHistoryItem = function(index) {
+        const body = document.getElementById(`historyBody-${index}`);
+        const icon = document.getElementById(`toggleIcon-${index}`);
+
+        if (body.classList.contains('expanded')) {
+            body.classList.remove('expanded');
+            icon.classList.remove('expanded');
+        } else {
+            body.classList.add('expanded');
+            icon.classList.add('expanded');
+        }
+    };
+
+    console.log('✅ Finalize history functionality initialized');
+
+})();

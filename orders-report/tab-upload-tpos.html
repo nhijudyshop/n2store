@@ -68,8 +68,11 @@
             </div>
         </div>
 
-        <!-- History Button (Always visible) -->
+        <!-- History Buttons (Always visible) -->
         <div class="mb-4 text-end">
+            <button class="btn btn-purple me-2" onclick="openFinalizeHistoryModal()">
+                <i class="fas fa-clipboard-check"></i> Lịch Sử Chốt Đợt Live
+            </button>
             <button class="btn btn-info" onclick="openUploadHistoryModal()">
                 <i class="fas fa-history"></i> Xem Lịch Sử Upload
             </button>
@@ -322,6 +325,33 @@
                             <i class="fas fa-save"></i> Lưu Chốt Đợt Live
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Finalize History Modal -->
+    <div class="modal fade" id="finalizeHistoryModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-purple text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-clipboard-check"></i> Lịch Sử Chốt Đợt Live
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="finalizeHistoryModalBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-purple" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2">Đang tải lịch sử chốt đợt live...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
                 </div>
             </div>
         </div>
