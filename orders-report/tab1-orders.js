@@ -415,6 +415,7 @@ async function loadAvailableTags() {
         if (cached) {
             console.log("[TAG] Using cached tags");
             availableTags = cached;
+            window.availableTags = availableTags; // Export to window
             return;
         }
 
@@ -439,11 +440,13 @@ async function loadAvailableTags() {
 
         const data = await response.json();
         availableTags = data.value || [];
+        window.availableTags = availableTags; // Export to window
         window.cacheManager.set("tags", availableTags, "tags");
         console.log(`[TAG] Loaded ${availableTags.length} tags from API`);
     } catch (error) {
         console.error("[TAG] Error loading tags:", error);
         availableTags = [];
+        window.availableTags = availableTags; // Export to window
     }
 }
 
