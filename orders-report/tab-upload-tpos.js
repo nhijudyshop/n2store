@@ -3878,7 +3878,7 @@ ${encodedString}
         console.log('[FINALIZE] 📊 Calculating session stats from', records.length, 'records...');
 
         const uniqueSTTs = new Set();
-        const productMap = new Map(); // productCode -> { details, totalQty, stts }
+        const productMap = new Map(); // productCode -> { details, totalQty, sttQuantities }
 
         records.forEach((record, idx) => {
             // Only log first 3 records
@@ -3934,13 +3934,16 @@ ${encodedString}
                                         productName: assignment.productName || productCode,
                                         imageUrl: assignment.imageUrl || '',
                                         totalQuantity: 0,
-                                        stts: new Set()
+                                        sttQuantities: new Map() // Track quantity per STT
                                     });
                                 }
 
                                 const product = productMap.get(productCode);
                                 product.totalQuantity += 1;
-                                product.stts.add(sttStr);
+
+                                // Track quantity for each STT
+                                const currentQty = product.sttQuantities.get(sttStr) || 0;
+                                product.sttQuantities.set(sttStr, currentQty + 1);
                             }
                         });
                     }
@@ -3957,11 +3960,20 @@ ${encodedString}
         console.log('[FINALIZE] Product map size:', productMap.size);
         console.log('[FINALIZE] Unique STTs:', uniqueSTTs.size);
 
-        // Convert product map to array with STT arrays
-        const productDetails = Array.from(productMap.values()).map(p => ({
-            ...p,
-            stts: Array.from(p.stts).sort((a, b) => parseInt(a) - parseInt(b))
-        }));
+        // Convert product map to array with STT quantities
+        const productDetails = Array.from(productMap.values()).map(p => {
+            // Convert sttQuantities Map to sorted array of {stt, quantity}
+            const sttArray = Array.from(p.sttQuantities.entries())
+                .map(([stt, qty]) => ({ stt, quantity: qty }))
+                .sort((a, b) => parseInt(a.stt) - parseInt(b.stt));
+
+            return {
+                ...p,
+                sttQuantities: sttArray,
+                // Keep stts for backward compatibility
+                stts: sttArray.map(item => item.stt)
+            };
+        });
 
         // Sort by total quantity descending
         productDetails.sort((a, b) => b.totalQuantity - a.totalQuantity);
@@ -4106,7 +4118,10 @@ ${encodedString}
                 ? `<img src="${product.imageUrl}" alt="${product.productCode}" class="finalize-product-img">`
                 : `<div class="finalize-product-img-placeholder"><i class="fas fa-box"></i></div>`;
 
-            const sttList = product.stts.join(', ');
+            // Format STT list with quantities: "31x2, 32x3"
+            const sttList = product.sttQuantities && product.sttQuantities.length > 0
+                ? product.sttQuantities.map(item => `${item.stt}x${item.quantity}`).join(', ')
+                : product.stts.join(', '); // Fallback for backward compatibility
 
             html += `
                 <tr class="finalize-detail-row">
@@ -4123,7 +4138,7 @@ ${encodedString}
                         <span class="badge bg-primary fs-6">${product.totalQuantity}</span>
                     </td>
                     <td class="align-middle">
-                        <span class="text-muted small">STT: ${sttList}</span>
+                        <span class="text-muted small">${sttList}</span>
                     </td>
                 </tr>
             `;
@@ -4608,7 +4623,8 @@ ${encodedString}
                 productSummary: stats.productDetails.map(p => ({
                     productCode: p.productCode,
                     quantity: p.totalQuantity,
-                    sttCount: p.stts.length
+                    sttCount: p.stts.length,
+                    sttQuantities: p.sttQuantities // Save detailed STT quantities
                 })),
                 // Comment analysis data
                 commentAnalysis: {
@@ -4845,19 +4861,24 @@ ${encodedString}
                                     <th>#</th>
                                     <th>Mã sản phẩm</th>
                                     <th>Số lượng</th>
-                                    <th>Số STT</th>
+                                    <th>MÃ ĐƠN HÀNG (STT)</th>
                                 </tr>
                             </thead>
                             <tbody>
             `;
 
             productSummary.forEach((p, idx) => {
+                // Format STT list with quantities: "31x2, 32x3"
+                const sttList = p.sttQuantities && Array.isArray(p.sttQuantities) && p.sttQuantities.length > 0
+                    ? p.sttQuantities.map(item => `${item.stt}x${item.quantity}`).join(', ')
+                    : `${p.sttCount} STT`; // Fallback for old data
+
                 html += `
                     <tr>
                         <td>${idx + 1}</td>
                         <td><strong>${p.productCode}</strong></td>
                         <td>${p.quantity}</td>
-                        <td>${p.sttCount}</td>
+                        <td><span class="text-muted small">${sttList}</span></td>
                     </tr>
                 `;
             });
