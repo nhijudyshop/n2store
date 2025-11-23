@@ -1476,6 +1476,7 @@
 
             listContainer.innerHTML = tags.map(tag => {
                 const customValue = settings[tag.Id] || '';
+                const hasSavedValue = customValue !== '';
                 return `
                     <div class="tag-settings-item" data-tag-id="${tag.Id}">
                         <div class="tag-settings-color" style="background-color: ${tag.Color || '#6b7280'}"></div>
@@ -1483,10 +1484,18 @@
                         <input
                             type="text"
                             class="tag-settings-input"
+                            id="tagInput_${tag.Id}"
                             data-tag-id="${tag.Id}"
                             value="${customValue}"
-                            placeholder="Nhập ghi chú hoặc tên tùy chỉnh..."
+                            placeholder="Nhập ghi chú..."
                         />
+                        <button
+                            class="tag-settings-save-btn"
+                            onclick="saveTagSettingItem('${tag.Id}')"
+                            title="Lưu ghi chú">
+                            <i class="fas fa-save"></i> Lưu
+                        </button>
+                        ${hasSavedValue ? `<div class="tag-settings-saved-badge" id="savedBadge_${tag.Id}"><i class="fas fa-check"></i></div>` : ''}
                     </div>
                 `;
             }).join('');
@@ -1513,7 +1522,44 @@
         }
 
         /**
-         * Save tag settings
+         * Save individual tag setting
+         */
+        function saveTagSettingItem(tagId) {
+            const input = document.getElementById(`tagInput_${tagId}`);
+            if (!input) return;
+
+            const value = input.value.trim();
+            const settings = getTagSettings();
+
+            if (value) {
+                settings[tagId] = value;
+            } else {
+                delete settings[tagId];
+            }
+
+            setTagSettings(settings);
+
+            // Show saved badge
+            let badge = document.getElementById(`savedBadge_${tagId}`);
+            if (value && !badge) {
+                const item = input.closest('.tag-settings-item');
+                badge = document.createElement('div');
+                badge.className = 'tag-settings-saved-badge';
+                badge.id = `savedBadge_${tagId}`;
+                badge.innerHTML = '<i class="fas fa-check"></i>';
+                item.appendChild(badge);
+            } else if (!value && badge) {
+                badge.remove();
+            }
+
+            // Show notification
+            if (window.notificationManager) {
+                window.notificationManager.show('✅ Đã lưu!', 'success');
+            }
+        }
+
+        /**
+         * Save all tag settings (for footer Save button)
          */
         function saveTagSettings() {
             const inputs = document.querySelectorAll('.tag-settings-input');
@@ -1533,9 +1579,9 @@
             setTagSettings(settings);
 
             if (window.notificationManager) {
-                window.notificationManager.show('✅ Đã lưu cài đặt tag!', 'success');
+                window.notificationManager.show('✅ Đã lưu tất cả cài đặt tag!', 'success');
             } else {
-                alert('✅ Đã lưu cài đặt tag!');
+                alert('✅ Đã lưu tất cả cài đặt tag!');
             }
 
             closeTagSettingsModal();
