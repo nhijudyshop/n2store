@@ -261,9 +261,17 @@
      */
     window.updateChatProductQuantity = function (index, change, value = null) {
         const product = window.currentChatOrderData.Details[index];
-        let newQty = value !== null ? parseInt(value, 10) : (product.Quantity || 0) + change;
+        const oldQty = product.Quantity || 0;
+        let newQty = value !== null ? parseInt(value, 10) : oldQty + change;
 
         if (newQty < 1) newQty = 1;
+
+        // If quantity is reduced, add the difference to dropped products
+        if (newQty < oldQty && typeof window.addToDroppedProducts === 'function') {
+            const reducedQty = oldQty - newQty;
+            window.addToDroppedProducts(product, reducedQty, 'reduced');
+        }
+
         product.Quantity = newQty;
 
         // Re-render table
@@ -296,13 +304,18 @@
             return;
         }
 
+        // Add to dropped products before removing
+        if (typeof window.addToDroppedProducts === 'function') {
+            window.addToDroppedProducts(product, product.Quantity || 1, 'removed');
+        }
+
         window.currentChatOrderData.Details.splice(index, 1);
 
         // Re-render table
         renderChatProductsTable();
 
         if (window.notificationManager) {
-            window.notificationManager.show('Đã xóa sản phẩm', 'success');
+            window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
         }
     };
 
@@ -408,10 +421,10 @@
         const totalQuantity = details.reduce((sum, p) => sum + (p.Quantity || 0), 0);
         const totalAmount = details.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
 
-        // Update header badge
-        const badge = document.getElementById('chatProductCountBadge');
-        if (badge) {
-            badge.textContent = `${totalQuantity} sản phẩm`;
+        // Update orders tab badge
+        const ordersBadge = document.getElementById('chatOrdersCountBadge');
+        if (ordersBadge) {
+            ordersBadge.textContent = totalQuantity;
         }
 
         // Update footer total
