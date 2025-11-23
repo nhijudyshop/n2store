@@ -4156,11 +4156,10 @@ ${encodedString}
         const commentAnalysis = analyzeCommentMismatch(stats);
         html += renderCommentAnalysisTable(commentAnalysis);
 
-        // Add product/STT discrepancy table (if there's a discrepancy)
+        // Add product/STT discrepancy table (always show, with collapsible toggle)
         const productDiscrepancy = analyzeProductDiscrepancy(stats);
-        if (productDiscrepancy.hasDiscrepancy) {
-            html += renderProductDiscrepancyTable(productDiscrepancy);
-        }
+        productDiscrepancyData = productDiscrepancy; // Store in global state
+        html += renderProductDiscrepancyTable(productDiscrepancy);
 
         return html;
     }
@@ -4226,6 +4225,17 @@ ${encodedString}
         totalOrderQuantity: 0,
         duplicateEntries: [],
         missingEntries: []
+    };
+
+    // State for product discrepancy analysis
+    let productDiscrepancyData = {
+        hasDiscrepancy: false,
+        totalExpected: 0,
+        totalUploaded: 0,
+        missingProducts: [],
+        extraProducts: [],
+        missingSTTs: [],
+        extraSTTs: []
     };
 
     /**
@@ -4862,7 +4872,7 @@ ${encodedString}
     }
 
     /**
-     * Render product/STT discrepancy table HTML
+     * Render product/STT discrepancy table HTML with collapsible toggle
      * @param {Object} discrepancy - Discrepancy analysis data
      * @returns {string} HTML string
      */
@@ -4872,34 +4882,41 @@ ${encodedString}
         const diffValue = totalUploaded - totalExpected;
         const diffClass = diffValue > 0 ? 'text-warning' : (diffValue < 0 ? 'text-danger' : 'text-success');
         const diffIcon = diffValue > 0 ? 'fa-exclamation-triangle' : (diffValue < 0 ? 'fa-times-circle' : 'fa-check-circle');
+        const hasDiscrepancy = discrepancy.hasDiscrepancy;
 
         let html = `
             <div class="product-discrepancy-section mt-4">
-                <div class="alert alert-warning">
-                    <h5 class="alert-heading">
-                        <i class="fas fa-clipboard-list"></i> PHÁT HIỆN CHÊNH LỆCH SỐ LƯỢNG
-                    </h5>
-                    <p class="mb-0">
-                        <strong>Số món trong tất cả giỏ:</strong> <span class="badge bg-info">${totalExpected}</span>
-                        <i class="fas fa-arrow-right mx-2"></i>
-                        <strong>Số phiếu đã nhập:</strong> <span class="badge bg-primary">${totalUploaded}</span>
-                        <i class="fas fa-arrow-right mx-2"></i>
-                        <strong>Chênh lệch:</strong> <span class="badge bg-secondary ${diffClass}"><i class="fas ${diffIcon}"></i> ${diffValue > 0 ? '+' : ''}${diffValue}</span>
-                    </p>
-                </div>
-
                 <div class="table-responsive">
                     <table class="table table-bordered discrepancy-table">
                         <thead class="table-dark">
                             <tr>
-                                <th colspan="4" class="text-center">
-                                    <i class="fas fa-box"></i> CHI TIẾT CHÊNH LỆCH SẢN PHẨM & STT
+                                <th colspan="2" class="text-center">
+                                    <i class="fas fa-clipboard-list"></i> PHÁT HIỆN CHÊNH LỆCH SỐ LƯỢNG
                                 </th>
                             </tr>
                         </thead>
+                        <tbody>
+                            <!-- Summary Row -->
+                            <tr class="discrepancy-summary-row" onclick="toggleProductDiscrepancy()" style="cursor: pointer;">
+                                <td colspan="2">
+                                    <strong>
+                                        <i class="fas fa-chevron-right discrepancy-toggle-icon" id="productDiscrepancyToggleIcon"></i>
+                                        <i class="fas fa-chart-line"></i>
+                                        Số món trong tất cả giỏ: <span class="badge bg-info">${totalExpected}</span>
+                                        <i class="fas fa-arrow-right mx-2"></i>
+                                        Số phiếu đã nhập: <span class="badge bg-primary">${totalUploaded}</span>
+                                        <i class="fas fa-arrow-right mx-2"></i>
+                                        Chênh lệch: <span class="badge bg-secondary ${diffClass}"><i class="fas ${diffIcon}"></i> ${diffValue > 0 ? '+' : ''}${diffValue}</span>
+                                        ${hasDiscrepancy ? '<span class="badge bg-warning ms-2">Có chênh lệch!</span>' : '<span class="badge bg-success ms-2">Không chênh lệch</span>'}
+                                    </strong>
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
 
-                    <div class="row">
+                    <!-- Collapsible Details -->
+                    <div id="productDiscrepancyBody" class="product-discrepancy-collapsed">
+                        <div class="row">
                         <!-- Missing Products Column -->
                         <div class="col-md-6">
                             <div class="discrepancy-column">
@@ -5078,10 +5095,35 @@ ${encodedString}
                     </div>
                 </div>
             </div>
+        </div>
         `;
 
         return html;
     }
+
+    /**
+     * Toggle product discrepancy details visibility
+     */
+    window.toggleProductDiscrepancy = function() {
+        const detailsBody = document.getElementById('productDiscrepancyBody');
+        const toggleIcon = document.getElementById('productDiscrepancyToggleIcon');
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('product-discrepancy-collapsed');
+
+        if (isCollapsed) {
+            detailsBody.classList.remove('product-discrepancy-collapsed');
+            detailsBody.classList.add('product-discrepancy-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            detailsBody.classList.remove('product-discrepancy-expanded');
+            detailsBody.classList.add('product-discrepancy-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
 
     /**
      * Save finalize session to Firebase
@@ -5161,6 +5203,46 @@ ${encodedString}
                         difference: e.difference,
                         userNote: e.userNote,
                         checked: e.checked
+                    }))
+                },
+                // Product discrepancy data
+                productDiscrepancy: {
+                    hasDiscrepancy: productDiscrepancyData.hasDiscrepancy,
+                    totalExpected: productDiscrepancyData.totalExpected,
+                    totalUploaded: productDiscrepancyData.totalUploaded,
+                    missingProducts: productDiscrepancyData.missingProducts.map(p => ({
+                        productCode: p.productCode,
+                        productName: p.productName,
+                        imageUrl: p.imageUrl,
+                        expectedQuantity: p.expectedQuantity,
+                        uploadedQuantity: p.uploadedQuantity,
+                        difference: p.difference,
+                        stts: p.stts
+                    })),
+                    extraProducts: productDiscrepancyData.extraProducts.map(p => ({
+                        productCode: p.productCode,
+                        productName: p.productName,
+                        imageUrl: p.imageUrl,
+                        expectedQuantity: p.expectedQuantity,
+                        uploadedQuantity: p.uploadedQuantity,
+                        difference: p.difference,
+                        stts: p.stts
+                    })),
+                    missingSTTs: productDiscrepancyData.missingSTTs.map(s => ({
+                        stt: s.stt,
+                        customerName: s.customerName,
+                        expectedQuantity: s.expectedQuantity,
+                        uploadedQuantity: s.uploadedQuantity,
+                        difference: s.difference,
+                        productCodes: s.productCodes
+                    })),
+                    extraSTTs: productDiscrepancyData.extraSTTs.map(s => ({
+                        stt: s.stt,
+                        customerName: s.customerName,
+                        expectedQuantity: s.expectedQuantity,
+                        uploadedQuantity: s.uploadedQuantity,
+                        difference: s.difference,
+                        productCodes: s.productCodes
                     }))
                 },
                 recordCount: finalizeSessionData.records.length,
@@ -5529,7 +5611,272 @@ ${encodedString}
             `;
         }
 
+        // Product discrepancy section with same layout as finalize session
+        if (session.productDiscrepancy) {
+            const productDiscrepancy = session.productDiscrepancy;
+            const { totalExpected, totalUploaded, missingProducts, extraProducts, missingSTTs, extraSTTs } = productDiscrepancy;
+            const sessionId = session.timestamp;
+
+            const diffValue = totalUploaded - totalExpected;
+            const diffClass = diffValue > 0 ? 'text-warning' : (diffValue < 0 ? 'text-danger' : 'text-success');
+            const diffIcon = diffValue > 0 ? 'fa-exclamation-triangle' : (diffValue < 0 ? 'fa-times-circle' : 'fa-check-circle');
+            const hasDiscrepancy = productDiscrepancy.hasDiscrepancy;
+
+            html += `
+                <div class="product-discrepancy-section mt-4">
+                    <div class="table-responsive">
+                        <table class="table table-bordered discrepancy-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th colspan="2" class="text-center">
+                                        <i class="fas fa-clipboard-list"></i> PHÁT HIỆN CHÊNH LỆCH SỐ LƯỢNG
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Summary Row -->
+                                <tr class="discrepancy-summary-row" onclick="toggleHistoryProductDiscrepancy('${sessionId}')" style="cursor: pointer;">
+                                    <td colspan="2">
+                                        <strong>
+                                            <i class="fas fa-chevron-right discrepancy-toggle-icon" id="productDiscrepancyToggleIcon-${sessionId}"></i>
+                                            <i class="fas fa-chart-line"></i>
+                                            Số món trong tất cả giỏ: <span class="badge bg-info">${totalExpected || 0}</span>
+                                            <i class="fas fa-arrow-right mx-2"></i>
+                                            Số phiếu đã nhập: <span class="badge bg-primary">${totalUploaded || 0}</span>
+                                            <i class="fas fa-arrow-right mx-2"></i>
+                                            Chênh lệch: <span class="badge bg-secondary ${diffClass}"><i class="fas ${diffIcon}"></i> ${diffValue > 0 ? '+' : ''}${diffValue}</span>
+                                            ${hasDiscrepancy ? '<span class="badge bg-warning ms-2">Có chênh lệch!</span>' : '<span class="badge bg-success ms-2">Không chênh lệch</span>'}
+                                        </strong>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Collapsible Details -->
+                        <div id="productDiscrepancyBody-${sessionId}" class="product-discrepancy-collapsed">
+            `;
+
+            html += renderHistoryProductDiscrepancyDetails(missingProducts, extraProducts, missingSTTs, extraSTTs);
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         return html || '<div class="text-muted text-center py-3">Không có chi tiết</div>';
+    }
+
+    /**
+     * Render product discrepancy details for history view
+     */
+    function renderHistoryProductDiscrepancyDetails(missingProducts, extraProducts, missingSTTs, extraSTTs) {
+        let html = `
+            <div class="row">
+                <!-- Missing Products Column -->
+                <div class="col-md-6">
+                    <div class="discrepancy-column">
+                        <h6 class="discrepancy-column-header bg-danger text-white">
+                            <i class="fas fa-minus-circle"></i>
+                            SẢN PHẨM THIẾU (${missingProducts?.length || 0})
+                            <small class="d-block">Có trong giỏ nhưng chưa nhập đủ</small>
+                        </h6>
+                        <div class="discrepancy-entries-list">
+        `;
+
+        if (!missingProducts || missingProducts.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            missingProducts.forEach(item => {
+                const imageHtml = item.imageUrl
+                    ? `<img src="${item.imageUrl}" alt="${item.productCode}" class="discrepancy-product-img">`
+                    : `<div class="discrepancy-product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
+                html += `
+                    <div class="discrepancy-entry bg-danger-subtle">
+                        <div class="d-flex align-items-start">
+                            ${imageHtml}
+                            <div class="flex-grow-1 ms-2">
+                                <div class="fw-bold">${escapeHistoryHtml(item.productCode)}</div>
+                                ${item.productName ? `<div class="text-muted small">${escapeHistoryHtml(item.productName)}</div>` : ''}
+                                <div class="discrepancy-stats mt-1">
+                                    <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                    <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                    <span class="badge bg-danger">Thiếu: ${item.difference}</span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-tags"></i> STT: ${item.stts}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extra Products Column -->
+                <div class="col-md-6">
+                    <div class="discrepancy-column">
+                        <h6 class="discrepancy-column-header bg-warning text-dark">
+                            <i class="fas fa-plus-circle"></i>
+                            SẢN PHẨM THỪA (${extraProducts?.length || 0})
+                            <small class="d-block">Nhập nhiều hơn số lượng trong giỏ</small>
+                        </h6>
+                        <div class="discrepancy-entries-list">
+        `;
+
+        if (!extraProducts || extraProducts.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            extraProducts.forEach(item => {
+                const imageHtml = item.imageUrl
+                    ? `<img src="${item.imageUrl}" alt="${item.productCode}" class="discrepancy-product-img">`
+                    : `<div class="discrepancy-product-img-placeholder"><i class="fas fa-box"></i></div>`;
+
+                html += `
+                    <div class="discrepancy-entry bg-warning-subtle">
+                        <div class="d-flex align-items-start">
+                            ${imageHtml}
+                            <div class="flex-grow-1 ms-2">
+                                <div class="fw-bold">${escapeHistoryHtml(item.productCode)}</div>
+                                ${item.productName ? `<div class="text-muted small">${escapeHistoryHtml(item.productName)}</div>` : ''}
+                                <div class="discrepancy-stats mt-1">
+                                    <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                    <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                    <span class="badge bg-warning">Thừa: ${item.difference}</span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-tags"></i> STT: ${item.stts}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Missing STTs Section -->
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="discrepancy-column">
+                        <h6 class="discrepancy-column-header bg-danger text-white">
+                            <i class="fas fa-receipt"></i>
+                            STT THIẾU (${missingSTTs?.length || 0})
+                            <small class="d-block">Có trong giỏ nhưng chưa nhập đủ sản phẩm</small>
+                        </h6>
+                        <div class="discrepancy-entries-list">
+        `;
+
+        if (!missingSTTs || missingSTTs.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            missingSTTs.forEach(item => {
+                html += `
+                    <div class="discrepancy-entry bg-danger-subtle">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge bg-danger">STT ${item.stt}</span>
+                                ${item.customerName ? `<span class="ms-2 text-muted">${escapeHistoryHtml(item.customerName)}</span>` : ''}
+                            </div>
+                            <div class="discrepancy-stats">
+                                <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                <span class="badge bg-danger">Thiếu: ${item.difference}</span>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            <i class="fas fa-box"></i> Sản phẩm: ${item.productCodes}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extra STTs Section -->
+                <div class="col-md-6">
+                    <div class="discrepancy-column">
+                        <h6 class="discrepancy-column-header bg-warning text-dark">
+                            <i class="fas fa-receipt"></i>
+                            STT THỪA (${extraSTTs?.length || 0})
+                            <small class="d-block">Nhập nhiều hơn số lượng trong giỏ</small>
+                        </h6>
+                        <div class="discrepancy-entries-list">
+        `;
+
+        if (!extraSTTs || extraSTTs.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            extraSTTs.forEach(item => {
+                html += `
+                    <div class="discrepancy-entry bg-warning-subtle">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge bg-warning text-dark">STT ${item.stt}</span>
+                                ${item.customerName ? `<span class="ms-2 text-muted">${escapeHistoryHtml(item.customerName)}</span>` : ''}
+                            </div>
+                            <div class="discrepancy-stats">
+                                <span class="badge bg-light text-dark">Cần: ${item.expectedQuantity}</span>
+                                <span class="badge bg-light text-dark">Đã nhập: ${item.uploadedQuantity}</span>
+                                <span class="badge bg-warning text-dark">Thừa: ${item.difference}</span>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            <i class="fas fa-box"></i> Sản phẩm: ${item.productCodes}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        html += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * Toggle product discrepancy details visibility in history view
+     */
+    window.toggleHistoryProductDiscrepancy = function(sessionId) {
+        const detailsBody = document.getElementById(`productDiscrepancyBody-${sessionId}`);
+        const toggleIcon = document.getElementById(`productDiscrepancyToggleIcon-${sessionId}`);
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('product-discrepancy-collapsed');
+
+        if (isCollapsed) {
+            detailsBody.classList.remove('product-discrepancy-collapsed');
+            detailsBody.classList.add('product-discrepancy-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            detailsBody.classList.remove('product-discrepancy-expanded');
+            detailsBody.classList.add('product-discrepancy-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
     }
 
     /**

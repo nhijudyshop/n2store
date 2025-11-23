@@ -1093,6 +1093,26 @@ body {
     animation: fadeIn 0.3s ease;
 }
 
+/* Product Discrepancy Collapsed/Expanded states */
+.product-discrepancy-collapsed {
+    display: none;
+}
+
+.product-discrepancy-expanded {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.discrepancy-toggle-icon {
+    margin-right: 8px;
+    transition: transform 0.3s ease;
+    color: #3b82f6;
+}
+
+.discrepancy-summary-row:hover .discrepancy-toggle-icon {
+    color: #1d4ed8;
+}
+
 /* Comment Columns */
 .comment-column {
     background: white;
