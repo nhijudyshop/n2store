@@ -4152,6 +4152,10 @@ ${encodedString}
             </div>
         `;
 
+        // Add comment analysis table
+        const commentAnalysis = analyzeCommentMismatch(stats);
+        html += renderCommentAnalysisTable(commentAnalysis);
+
         return html;
     }
 
@@ -4178,6 +4182,403 @@ ${encodedString}
             detailsBody.classList.add('finalize-details-collapsed');
             toggleIcon.classList.remove('fa-chevron-down');
             toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
+
+    /**
+     * Toggle comment analysis details visibility
+     */
+    window.toggleCommentAnalysis = function() {
+        const detailsBody = document.getElementById('commentAnalysisBody');
+        const toggleIcon = document.getElementById('commentAnalysisToggleIcon');
+
+        if (!detailsBody || !toggleIcon) return;
+
+        const isCollapsed = detailsBody.classList.contains('comment-analysis-collapsed');
+
+        if (isCollapsed) {
+            detailsBody.classList.remove('comment-analysis-collapsed');
+            detailsBody.classList.add('comment-analysis-expanded');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            detailsBody.classList.remove('comment-analysis-expanded');
+            detailsBody.classList.add('comment-analysis-collapsed');
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-right');
+        }
+    };
+
+    // =====================================================
+    // COMMENT ANALYSIS FUNCTIONS
+    // =====================================================
+
+    // State for comment analysis
+    let commentAnalysisData = {
+        totalComments: 0,
+        totalProductEntries: 0,
+        totalOrderQuantity: 0,
+        duplicateEntries: [],
+        missingEntries: []
+    };
+
+    /**
+     * Parse order.Note and extract clean comment lines (remove encoded strings)
+     * @param {string} note - The order note
+     * @returns {Array<string>} Array of clean comment lines
+     */
+    function parseOrderNoteClean(note) {
+        if (!note || typeof note !== 'string') return [];
+
+        const lines = note.split('\n');
+        const cleanLines = [];
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+
+            // Check if line is encoded (long string without spaces)
+            const isEncoded = trimmed.length > 20 && !trimmed.includes(' ');
+            if (!isEncoded) {
+                cleanLines.push(trimmed);
+            }
+        });
+
+        return cleanLines;
+    }
+
+    /**
+     * Get ordersData from localStorage (loaded from Tab1)
+     * @returns {Array} Array of orders
+     */
+    function getOrdersDataFromLocalStorage() {
+        try {
+            const localStorageKey = userStorageManager
+                ? userStorageManager.getUserLocalStorageKey('ordersData')
+                : 'ordersData_guest';
+
+            const data = localStorage.getItem(localStorageKey);
+            if (data) {
+                return JSON.parse(data);
+            }
+
+            // Fallback to non-user-specific key
+            const fallbackData = localStorage.getItem('ordersData');
+            if (fallbackData) {
+                return JSON.parse(fallbackData);
+            }
+
+            return [];
+        } catch (error) {
+            console.error('[COMMENT] Error loading ordersData:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Analyze comment mismatch between order notes and uploaded products
+     * @param {Object} stats - Product statistics from calculateSessionStats
+     * @returns {Object} Comment analysis data
+     */
+    function analyzeCommentMismatch(stats) {
+        console.log('[COMMENT] 📊 Analyzing comment mismatch...');
+
+        const ordersData = getOrdersDataFromLocalStorage();
+        console.log('[COMMENT] Loaded ordersData:', ordersData.length, 'orders');
+
+        // Count total comments from ALL orders
+        let totalComments = 0;
+        const allOrdersMap = new Map(); // stt -> { order, commentLines }
+
+        ordersData.forEach(order => {
+            const stt = String(order.stt);
+            const commentLines = parseOrderNoteClean(order.note);
+            totalComments += commentLines.length;
+
+            allOrdersMap.set(stt, {
+                order: order,
+                commentLines: commentLines,
+                commentCount: commentLines.length
+            });
+        });
+
+        // Calculate total quantity from all orders in Tab1
+        const totalOrderQuantity = ordersData.reduce((sum, o) => sum + (o.quantity || 0), 0);
+
+        // Count STT occurrences in uploaded products (from stats.productDetails)
+        const sttProductCount = new Map(); // stt -> count of product entries
+
+        stats.productDetails.forEach(product => {
+            product.stts.forEach(stt => {
+                const count = sttProductCount.get(stt) || 0;
+                sttProductCount.set(stt, count + product.totalQuantity / product.stts.length);
+            });
+        });
+
+        // Actually, we need to count from the raw data - each STT appearance = 1
+        // Let's recalculate from finalizeSessionData.records
+        sttProductCount.clear();
+
+        if (finalizeSessionData.records) {
+            finalizeSessionData.records.forEach(record => {
+                if (record.uploadResults) {
+                    record.uploadResults.forEach(result => {
+                        if (result.success && result.existingProducts) {
+                            const stt = String(result.stt);
+                            result.existingProducts.forEach(product => {
+                                const count = sttProductCount.get(stt) || 0;
+                                sttProductCount.set(stt, count + (product.quantity || 1));
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        console.log('[COMMENT] STT product counts:', Object.fromEntries(sttProductCount));
+
+        // Compare and categorize
+        const duplicateEntries = []; // commentCount < productCount (nhập trùng/thiếu ghi chú)
+        const missingEntries = [];   // commentCount > productCount (nhập thiếu/thừa ghi chú)
+
+        // Get all STTs that were uploaded
+        const uploadedSTTs = new Set();
+        stats.productDetails.forEach(p => p.stts.forEach(stt => uploadedSTTs.add(stt)));
+
+        uploadedSTTs.forEach(stt => {
+            const orderData = allOrdersMap.get(stt);
+            const productCount = sttProductCount.get(stt) || 0;
+            const commentCount = orderData ? orderData.commentCount : 0;
+
+            if (commentCount < productCount) {
+                // Nhập trùng: có ít comment hơn số sản phẩm
+                duplicateEntries.push({
+                    stt: stt,
+                    customerName: orderData?.order?.customerName || '',
+                    phone: orderData?.order?.phone || '',
+                    commentLines: orderData?.commentLines || [],
+                    commentCount: commentCount,
+                    productCount: productCount,
+                    difference: productCount - commentCount,
+                    userNote: '',
+                    checked: false
+                });
+            } else if (commentCount > productCount) {
+                // Nhập thiếu: có nhiều comment hơn số sản phẩm
+                missingEntries.push({
+                    stt: stt,
+                    customerName: orderData?.order?.customerName || '',
+                    phone: orderData?.order?.phone || '',
+                    commentLines: orderData?.commentLines || [],
+                    commentCount: commentCount,
+                    productCount: productCount,
+                    difference: commentCount - productCount,
+                    userNote: '',
+                    checked: false
+                });
+            }
+        });
+
+        // Sort by difference (descending)
+        duplicateEntries.sort((a, b) => b.difference - a.difference);
+        missingEntries.sort((a, b) => b.difference - a.difference);
+
+        const result = {
+            totalComments: totalComments,
+            totalProductEntries: stats.totalQuantity,
+            totalOrderQuantity: totalOrderQuantity,
+            duplicateEntries: duplicateEntries,
+            missingEntries: missingEntries
+        };
+
+        console.log('[COMMENT] Analysis result:', {
+            totalComments: result.totalComments,
+            totalProductEntries: result.totalProductEntries,
+            totalOrderQuantity: result.totalOrderQuantity,
+            duplicateCount: duplicateEntries.length,
+            missingCount: missingEntries.length
+        });
+
+        commentAnalysisData = result;
+        return result;
+    }
+
+    /**
+     * Render comment analysis table HTML
+     * @param {Object} analysis - Comment analysis data
+     * @returns {string} HTML string
+     */
+    function renderCommentAnalysisTable(analysis) {
+        const { totalComments, totalProductEntries, totalOrderQuantity, duplicateEntries, missingEntries } = analysis;
+
+        let html = `
+            <div class="comment-analysis-section mt-4">
+                <div class="table-responsive">
+                    <table class="table table-bordered comment-analysis-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th colspan="2" class="text-center">
+                                    <i class="fas fa-comments"></i> KIỂM TRA COMMENT
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Summary Row -->
+                            <tr class="comment-summary-row" onclick="toggleCommentAnalysis()" style="cursor: pointer;">
+                                <td colspan="2">
+                                    <strong>
+                                        <i class="fas fa-chevron-right comment-toggle-icon" id="commentAnalysisToggleIcon"></i>
+                                        <i class="fas fa-chart-pie"></i>
+                                        Tổng: <span class="text-primary">${totalComments}</span> comment tạo đơn |
+                                        <span class="text-success">${totalProductEntries}</span> số phiếu đã nhập |
+                                        <span class="text-info">${totalOrderQuantity}</span> số món trong tất cả giỏ
+                                    </strong>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Collapsible Details -->
+                    <div id="commentAnalysisBody" class="comment-analysis-collapsed">
+                        <div class="row">
+                            <!-- Left Column: Comment nhập trùng -->
+                            <div class="col-md-6">
+                                <div class="comment-column comment-duplicate">
+                                    <h6 class="comment-column-header bg-warning text-dark">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        COMMENT NHẬP TRÙNG (${duplicateEntries.length})
+                                        <small class="d-block">Số comment < Số sản phẩm</small>
+                                    </h6>
+                                    <div class="comment-entries-list">
+        `;
+
+        if (duplicateEntries.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            duplicateEntries.forEach((entry, idx) => {
+                html += renderCommentEntry(entry, idx, 'duplicate');
+            });
+        }
+
+        html += `
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Comment nhập thiếu -->
+                            <div class="col-md-6">
+                                <div class="comment-column comment-missing">
+                                    <h6 class="comment-column-header bg-danger text-white">
+                                        <i class="fas fa-times-circle"></i>
+                                        COMMENT NHẬP THIẾU (${missingEntries.length})
+                                        <small class="d-block">Số comment > Số sản phẩm</small>
+                                    </h6>
+                                    <div class="comment-entries-list">
+        `;
+
+        if (missingEntries.length === 0) {
+            html += `<div class="text-muted text-center py-3"><i class="fas fa-check-circle text-success"></i> Không có</div>`;
+        } else {
+            missingEntries.forEach((entry, idx) => {
+                html += renderCommentEntry(entry, idx, 'missing');
+            });
+        }
+
+        html += `
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
+     * Render a single comment entry
+     * @param {Object} entry - Entry data
+     * @param {number} idx - Index
+     * @param {string} type - 'duplicate' or 'missing'
+     * @returns {string} HTML string
+     */
+    function renderCommentEntry(entry, idx, type) {
+        const commentsHtml = entry.commentLines.length > 0
+            ? entry.commentLines.map(c => `<div class="comment-line">• ${escapeHtml(c)}</div>`).join('')
+            : '<div class="text-muted small">(Không có comment)</div>';
+
+        const diffLabel = type === 'duplicate'
+            ? `Thiếu ${entry.difference} ghi chú`
+            : `Thừa ${entry.difference} ghi chú`;
+
+        return `
+            <div class="comment-entry" data-type="${type}" data-idx="${idx}">
+                <div class="comment-entry-header">
+                    <span class="stt-badge">STT ${entry.stt}</span>
+                    <span class="customer-name">${escapeHtml(entry.customerName)}</span>
+                    <span class="diff-badge ${type === 'duplicate' ? 'bg-warning' : 'bg-danger'}">${diffLabel}</span>
+                </div>
+                <div class="comment-entry-body">
+                    <div class="comment-lines">${commentsHtml}</div>
+                    <div class="comment-stats">
+                        <small class="text-muted">
+                            ${entry.commentCount} comment / ${entry.productCount} sản phẩm
+                        </small>
+                    </div>
+                </div>
+                <div class="comment-entry-footer">
+                    <input type="text"
+                           class="form-control form-control-sm comment-user-note"
+                           placeholder="Ghi chú lý do..."
+                           data-type="${type}"
+                           data-idx="${idx}"
+                           onchange="updateCommentNote(this, '${type}', ${idx})">
+                    <label class="form-check comment-check">
+                        <input type="checkbox"
+                               class="form-check-input"
+                               data-type="${type}"
+                               data-idx="${idx}"
+                               onchange="updateCommentChecked(this, '${type}', ${idx})">
+                        <span class="form-check-label">Đã xem</span>
+                    </label>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Escape HTML special characters
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Update comment user note
+     */
+    window.updateCommentNote = function(input, type, idx) {
+        const value = input.value;
+        if (type === 'duplicate') {
+            commentAnalysisData.duplicateEntries[idx].userNote = value;
+        } else {
+            commentAnalysisData.missingEntries[idx].userNote = value;
+        }
+    };
+
+    /**
+     * Update comment checked status
+     */
+    window.updateCommentChecked = function(checkbox, type, idx) {
+        const checked = checkbox.checked;
+        if (type === 'duplicate') {
+            commentAnalysisData.duplicateEntries[idx].checked = checked;
+        } else {
+            commentAnalysisData.missingEntries[idx].checked = checked;
         }
     };
 
@@ -4213,6 +4614,30 @@ ${encodedString}
                     quantity: p.totalQuantity,
                     sttCount: p.stts.length
                 })),
+                // Comment analysis data
+                commentAnalysis: {
+                    totalComments: commentAnalysisData.totalComments,
+                    totalProductEntries: commentAnalysisData.totalProductEntries,
+                    totalOrderQuantity: commentAnalysisData.totalOrderQuantity,
+                    duplicateEntries: commentAnalysisData.duplicateEntries.map(e => ({
+                        stt: e.stt,
+                        customerName: e.customerName,
+                        commentCount: e.commentCount,
+                        productCount: e.productCount,
+                        difference: e.difference,
+                        userNote: e.userNote,
+                        checked: e.checked
+                    })),
+                    missingEntries: commentAnalysisData.missingEntries.map(e => ({
+                        stt: e.stt,
+                        customerName: e.customerName,
+                        commentCount: e.commentCount,
+                        productCount: e.productCount,
+                        difference: e.difference,
+                        userNote: e.userNote,
+                        checked: e.checked
+                    }))
+                },
                 recordCount: finalizeSessionData.records.length,
                 createdBy: userStorageManager?.getUserIdentifier() || 'unknown',
                 createdAt: new Date().toISOString()
