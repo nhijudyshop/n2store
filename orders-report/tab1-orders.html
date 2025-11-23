@@ -1419,21 +1419,12 @@
         }
 
         /**
-         * Save tag custom data to localStorage and Firebase
+         * Save tag custom data to localStorage
          */
-        async function setTagSettings(settings) {
+        function setTagSettings(settings) {
             try {
-                // Save to localStorage
                 localStorage.setItem(TAG_SETTINGS_KEY, JSON.stringify(settings));
-                console.log('[TAG-SETTINGS] Tag settings saved to localStorage');
-
-                // Save to Firebase
-                if (window.firebase && window.firebase.database) {
-                    const db = window.firebase.database();
-                    // Use shared path for tag settings (all users share the same tag settings)
-                    await db.ref('tagSettings/shared').set(settings);
-                    console.log('[TAG-SETTINGS] Tag settings saved to Firebase');
-                }
+                console.log('[TAG-SETTINGS] Tag settings saved');
             } catch (error) {
                 console.error('[TAG-SETTINGS] Error saving tag settings:', error);
             }
@@ -1533,7 +1524,7 @@
         /**
          * Save individual tag setting
          */
-        async function saveTagSettingItem(tagId) {
+        function saveTagSettingItem(tagId) {
             const input = document.getElementById(`tagInput_${tagId}`);
             if (!input) return;
 
@@ -1546,7 +1537,7 @@
                 delete settings[tagId];
             }
 
-            await setTagSettings(settings);
+            setTagSettings(settings);
 
             // Show saved badge
             let badge = document.getElementById(`savedBadge_${tagId}`);
@@ -1570,7 +1561,7 @@
         /**
          * Save all tag settings (for footer Save button)
          */
-        async function saveTagSettings() {
+        function saveTagSettings() {
             const inputs = document.querySelectorAll('.tag-settings-input');
             const settings = getTagSettings();
 
@@ -1585,7 +1576,7 @@
                 }
             });
 
-            await setTagSettings(settings);
+            setTagSettings(settings);
 
             if (window.notificationManager) {
                 window.notificationManager.show('✅ Đã lưu tất cả cài đặt tag!', 'success');
