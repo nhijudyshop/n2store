@@ -289,9 +289,14 @@
         <div class="tag-modal-content">
             <div class="tag-modal-header">
                 <h3><i class="fas fa-tags"></i> Quản lý Tag</h3>
-                <button class="tag-modal-close" onclick="closeTagModal()">
-                    <i class="fas fa-times"></i>
-                </button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="tag-settings-btn" onclick="openTagSettingsModal()" title="Cài đặt Tag">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button class="tag-modal-close" onclick="closeTagModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
             <div class="tag-modal-body">
                 <!-- Search -->
@@ -323,6 +328,51 @@
                     Hủy
                 </button>
                 <button class="tag-btn-save" onclick="saveOrderTags()">
+                    <i class="fas fa-save"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Settings Modal -->
+    <div class="tag-modal" id="tagSettingsModal" style="display: none;">
+        <div class="tag-modal-content" style="max-width: 700px;">
+            <div class="tag-modal-header">
+                <h3><i class="fas fa-cog"></i> Cài đặt Tag</h3>
+                <button class="tag-modal-close" onclick="closeTagSettingsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body">
+                <!-- Search -->
+                <div class="tag-search">
+                    <div class="tag-search-wrapper">
+                        <input type="text" id="tagSettingsSearchInput" placeholder="Tìm kiếm tag..." oninput="filterTagSettings()" />
+                        <i class="fas fa-search tag-search-icon"></i>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                    <div style="font-size: 13px; color: #1e40af;">
+                        <i class="fas fa-info-circle"></i>
+                        Nhập ghi chú hoặc tên tùy chỉnh cho mỗi tag. Thông tin này sẽ được lưu cục bộ.
+                    </div>
+                </div>
+
+                <!-- Tag Settings List -->
+                <div class="tag-settings-list" id="tagSettingsList" style="max-height: 400px; overflow-y: auto;">
+                    <div class="no-tags-message">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải danh sách tag...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="tag-modal-footer">
+                <button class="tag-btn-cancel" onclick="closeTagSettingsModal()">
+                    Đóng
+                </button>
+                <button class="tag-btn-save" onclick="saveTagSettings()">
                     <i class="fas fa-save"></i> Lưu
                 </button>
             </div>
@@ -1350,6 +1400,145 @@
                     alert('❌ Lỗi: ' + error.message);
                 }
             }
+        }
+
+        // ====== TAG SETTINGS ======
+        const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
+
+        /**
+         * Get tag custom data from localStorage
+         */
+        function getTagSettings() {
+            try {
+                const saved = localStorage.getItem(TAG_SETTINGS_KEY);
+                return saved ? JSON.parse(saved) : {};
+            } catch (error) {
+                console.error('[TAG-SETTINGS] Error loading tag settings:', error);
+                return {};
+            }
+        }
+
+        /**
+         * Save tag custom data to localStorage
+         */
+        function setTagSettings(settings) {
+            try {
+                localStorage.setItem(TAG_SETTINGS_KEY, JSON.stringify(settings));
+                console.log('[TAG-SETTINGS] Tag settings saved');
+            } catch (error) {
+                console.error('[TAG-SETTINGS] Error saving tag settings:', error);
+            }
+        }
+
+        /**
+         * Open tag settings modal
+         */
+        async function openTagSettingsModal() {
+            const modal = document.getElementById('tagSettingsModal');
+            modal.style.display = 'flex';
+
+            // Load available tags if not loaded
+            if (!window.availableTags || window.availableTags.length === 0) {
+                await loadAvailableTags();
+            }
+
+            // Render tag settings list
+            renderTagSettingsList();
+        }
+
+        /**
+         * Close tag settings modal
+         */
+        function closeTagSettingsModal() {
+            document.getElementById('tagSettingsModal').style.display = 'none';
+            document.getElementById('tagSettingsSearchInput').value = '';
+        }
+
+        /**
+         * Render tag settings list
+         */
+        function renderTagSettingsList(filteredTags = null) {
+            const listContainer = document.getElementById('tagSettingsList');
+            if (!listContainer) return;
+
+            const tags = filteredTags || window.availableTags || [];
+            const settings = getTagSettings();
+
+            if (tags.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="no-tags-message">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Không tìm thấy tag nào</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listContainer.innerHTML = tags.map(tag => {
+                const customValue = settings[tag.Id] || '';
+                return `
+                    <div class="tag-settings-item" data-tag-id="${tag.Id}">
+                        <div class="tag-settings-color" style="background-color: ${tag.Color || '#6b7280'}"></div>
+                        <div class="tag-settings-name">${tag.Name}</div>
+                        <input
+                            type="text"
+                            class="tag-settings-input"
+                            data-tag-id="${tag.Id}"
+                            value="${customValue}"
+                            placeholder="Nhập ghi chú hoặc tên tùy chỉnh..."
+                        />
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Filter tag settings based on search input
+         */
+        function filterTagSettings() {
+            const searchTerm = document.getElementById('tagSettingsSearchInput').value.toLowerCase().trim();
+
+            if (!window.availableTags) return;
+
+            if (!searchTerm) {
+                renderTagSettingsList();
+                return;
+            }
+
+            const filtered = window.availableTags.filter(tag =>
+                tag.Name.toLowerCase().includes(searchTerm)
+            );
+
+            renderTagSettingsList(filtered);
+        }
+
+        /**
+         * Save tag settings
+         */
+        function saveTagSettings() {
+            const inputs = document.querySelectorAll('.tag-settings-input');
+            const settings = getTagSettings();
+
+            inputs.forEach(input => {
+                const tagId = input.dataset.tagId;
+                const value = input.value.trim();
+
+                if (value) {
+                    settings[tagId] = value;
+                } else {
+                    delete settings[tagId];
+                }
+            });
+
+            setTagSettings(settings);
+
+            if (window.notificationManager) {
+                window.notificationManager.show('✅ Đã lưu cài đặt tag!', 'success');
+            } else {
+                alert('✅ Đã lưu cài đặt tag!');
+            }
+
+            closeTagSettingsModal();
         }
 
         // ====== CHAT API SOURCE TOGGLE ======

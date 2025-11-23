@@ -516,6 +516,28 @@ body {
     color: #111827;
 }
 
+.tag-settings-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.tag-settings-btn:hover {
+    background: #f3f4f6;
+    color: #3b82f6;
+    transform: rotate(45deg);
+}
+
 .tag-modal-body {
     padding: 24px;
     overflow-y: auto;
@@ -703,6 +725,63 @@ body {
     font-size: 48px;
     margin-bottom: 12px;
     display: block;
+}
+
+/* Tag Settings List */
+.tag-settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tag-settings-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.tag-settings-item:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.tag-settings-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.tag-settings-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    min-width: 150px;
+}
+
+.tag-settings-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.tag-settings-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.tag-settings-input::placeholder {
+    color: #9ca3af;
 }
 
 /* ===== SEARCH BOX STYLES ===== */
