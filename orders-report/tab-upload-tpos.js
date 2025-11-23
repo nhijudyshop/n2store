@@ -4118,9 +4118,11 @@ ${encodedString}
                 ? `<img src="${product.imageUrl}" alt="${product.productCode}" class="finalize-product-img">`
                 : `<div class="finalize-product-img-placeholder"><i class="fas fa-box"></i></div>`;
 
-            // Format STT list with quantities: "31x2, 32x3"
+            // Format STT list with quantities: "31, 32x2" (only show xN if N > 1)
             const sttList = product.sttQuantities && product.sttQuantities.length > 0
-                ? product.sttQuantities.map(item => `${item.stt}x${item.quantity}`).join(', ')
+                ? product.sttQuantities.map(item =>
+                    item.quantity > 1 ? `${item.stt}x${item.quantity}` : item.stt
+                  ).join(', ')
                 : product.stts.join(', '); // Fallback for backward compatibility
 
             html += `
@@ -4868,9 +4870,11 @@ ${encodedString}
             `;
 
             productSummary.forEach((p, idx) => {
-                // Format STT list with quantities: "31x2, 32x3"
+                // Format STT list with quantities: "31, 32x2" (only show xN if N > 1)
                 const sttList = p.sttQuantities && Array.isArray(p.sttQuantities) && p.sttQuantities.length > 0
-                    ? p.sttQuantities.map(item => `${item.stt}x${item.quantity}`).join(', ')
+                    ? p.sttQuantities.map(item =>
+                        item.quantity > 1 ? `${item.stt}x${item.quantity}` : item.stt
+                      ).join(', ')
                     : `${p.sttCount} STT`; // Fallback for old data
 
                 html += `
