@@ -5786,7 +5786,7 @@ function renderChatProductsPanel() {
 var chatSearchTimeout = null;
 
 function initChatProductSearch() {
-    const input = document.getElementById("chatProductSearchInput");
+    const input = document.getElementById("chatInlineProductSearch");
     console.log("[CHAT-SEARCH] Initializing search. Input found:", !!input);
 
     if (!input) {
@@ -5809,7 +5809,7 @@ function initChatProductSearch() {
         if (chatSearchTimeout) clearTimeout(chatSearchTimeout);
 
         if (query.length < 2) {
-            const resultsDiv = document.getElementById("chatProductSearchResults");
+            const resultsDiv = document.getElementById("chatInlineSearchResults");
             if (resultsDiv) resultsDiv.style.display = "none";
             return;
         }
@@ -5819,8 +5819,8 @@ function initChatProductSearch() {
 
     // Close dropdown when clicking outside
     document.addEventListener("click", (e) => {
-        const dropdown = document.getElementById("chatProductSearchResults");
-        const searchContainer = input.closest('.chat-panel-search');
+        const dropdown = document.getElementById("chatInlineSearchResults");
+        const searchContainer = input.closest('.chat-product-search-inline');
         if (dropdown && searchContainer && !searchContainer.contains(e.target)) {
             dropdown.style.display = "none";
         }
@@ -5829,7 +5829,7 @@ function initChatProductSearch() {
 
 async function performChatProductSearch(query) {
     console.log("[CHAT-SEARCH] Performing search for:", query);
-    const resultsDiv = document.getElementById("chatProductSearchResults");
+    const resultsDiv = document.getElementById("chatInlineSearchResults");
     if (!resultsDiv) {
         console.error("[CHAT-SEARCH] Results div not found!");
         return;
@@ -5860,7 +5860,7 @@ async function performChatProductSearch(query) {
 }
 
 function displayChatSearchResults(results) {
-    const resultsDiv = document.getElementById("chatProductSearchResults");
+    const resultsDiv = document.getElementById("chatInlineSearchResults");
     if (!resultsDiv) return;
 
     // Ensure visibility and styling
