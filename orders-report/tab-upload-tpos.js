@@ -4625,10 +4625,12 @@ ${encodedString}
             const quantity = order.quantity || 0;
 
             // Parse products from order
-            if (order.products && Array.isArray(order.products)) {
+            if (order.products && Array.isArray(order.products) && order.products.length > 0) {
                 order.products.forEach(product => {
                     const productCode = product.productCode || product.code;
                     if (!productCode) return;
+
+                    const productQty = product.quantity || 1;
 
                     // Track by product code
                     if (!expectedProductMap.has(productCode)) {
@@ -4639,7 +4641,7 @@ ${encodedString}
                         });
                     }
                     const expectedProduct = expectedProductMap.get(productCode);
-                    expectedProduct.totalQuantity += 1;
+                    expectedProduct.totalQuantity += productQty;
                     if (!expectedProduct.stts.includes(stt)) {
                         expectedProduct.stts.push(stt);
                     }
@@ -4657,8 +4659,20 @@ ${encodedString}
                     if (!expectedSTT.productCodes.includes(productCode)) {
                         expectedSTT.productCodes.push(productCode);
                     }
-                    expectedSTT.totalQuantity += 1;
+                    expectedSTT.totalQuantity += productQty;
                 });
+            } else if (quantity > 0) {
+                // Fallback: If no products array, track quantity at STT level
+                // This ensures totalExpected matches totalOrderQuantity from comment analysis
+                if (!expectedSTTMap.has(stt)) {
+                    expectedSTTMap.set(stt, {
+                        stt: stt,
+                        customerName: order.customerName || '',
+                        productCodes: [],
+                        totalQuantity: 0
+                    });
+                }
+                expectedSTTMap.get(stt).totalQuantity += quantity;
             }
         });
 
@@ -4697,6 +4711,12 @@ ${encodedString}
         console.log('[DISCREPANCY] Uploaded products:', uploadedProductMap.size);
         console.log('[DISCREPANCY] Expected STTs:', expectedSTTMap.size);
         console.log('[DISCREPANCY] Uploaded STTs:', uploadedSTTMap.size);
+
+        // Debug: Log total expected quantities
+        const productMapTotal = Array.from(expectedProductMap.values()).reduce((sum, p) => sum + p.totalQuantity, 0);
+        const sttMapTotal = Array.from(expectedSTTMap.values()).reduce((sum, s) => sum + s.totalQuantity, 0);
+        console.log('[DISCREPANCY] Total from productMap:', productMapTotal);
+        console.log('[DISCREPANCY] Total from sttMap:', sttMapTotal);
 
         // Compare and identify discrepancies
         const missingProducts = []; // Products in orders but not uploaded
@@ -4811,9 +4831,16 @@ ${encodedString}
         const hasDiscrepancy = missingProducts.length > 0 || extraProducts.length > 0 ||
                                missingSTTs.length > 0 || extraSTTs.length > 0;
 
+        // Calculate totalExpected from STT map
+        // This matches the logic in comment analysis (totalOrderQuantity)
+        // We use STT map because it includes both:
+        // - Product quantities from orders WITH products array
+        // - Order quantities from orders WITHOUT products array
+        const totalExpected = Array.from(expectedSTTMap.values()).reduce((sum, s) => sum + s.totalQuantity, 0);
+
         const result = {
             hasDiscrepancy: hasDiscrepancy,
-            totalExpected: Array.from(expectedProductMap.values()).reduce((sum, p) => sum + p.totalQuantity, 0),
+            totalExpected: totalExpected,
             totalUploaded: stats.totalQuantity,
             missingProducts: missingProducts,
             extraProducts: extraProducts,
