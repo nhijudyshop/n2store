@@ -3394,7 +3394,7 @@ td[data-column].hidden {
 }
 
 .chat-left-panel {
-    flex: 1;
+    flex: 0 0 500px;
     display: flex;
     flex-direction: column;
     border-right: 1px solid #e5e7eb;
