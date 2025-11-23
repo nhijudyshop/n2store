@@ -3220,19 +3220,23 @@ ${encodedString}
 
         if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
             record.beforeSnapshot.assignments.forEach(assignment => {
-                assignment.sttList.forEach(stt => {
-                    if (!productsBySTT[stt]) {
-                        productsBySTT[stt] = [];
-                    }
-                    productsBySTT[stt].push({
-                        productId: assignment.productId,
-                        productCode: assignment.productCode,
-                        productName: assignment.productName,
-                        imageUrl: assignment.imageUrl,
-                        note: assignment.note || '',
-                        sessionIndexes: assignment.sttList // Array of all STTs for this product
+                if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                    assignment.sttList.forEach(sttItem => {
+                        // Handle both object {stt: "32"} and string "32" formats
+                        const stt = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+                        if (!productsBySTT[stt]) {
+                            productsBySTT[stt] = [];
+                        }
+                        productsBySTT[stt].push({
+                            productId: assignment.productId,
+                            productCode: assignment.productCode,
+                            productName: assignment.productName,
+                            imageUrl: assignment.imageUrl,
+                            note: assignment.note || '',
+                            sessionIndexes: assignment.sttList // Array of all STTs for this product
+                        });
                     });
-                });
+                }
             });
         }
 
@@ -3900,6 +3904,10 @@ ${encodedString}
             if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
                 if (idx < 3) {
                     console.log('[FINALIZE] Using beforeSnapshot.assignments, count:', record.beforeSnapshot.assignments.length);
+                    // Debug first assignment structure
+                    if (record.beforeSnapshot.assignments.length > 0) {
+                        console.log('[FINALIZE] First assignment:', JSON.stringify(record.beforeSnapshot.assignments[0]).substring(0, 500));
+                    }
                 }
 
                 record.beforeSnapshot.assignments.forEach(assignment => {
@@ -3907,8 +3915,13 @@ ${encodedString}
                     const productId = assignment.productId;
 
                     if (assignment.sttList && Array.isArray(assignment.sttList)) {
-                        assignment.sttList.forEach(stt => {
-                            const sttStr = String(stt);
+                        assignment.sttList.forEach(sttItem => {
+                            // Handle both object {stt: "32"} and string "32" formats
+                            const sttStr = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+
+                            if (idx < 3) {
+                                console.log('[FINALIZE] Processing STT item:', sttItem, '-> sttStr:', sttStr);
+                            }
 
                             // Only count if this STT was successfully uploaded
                             if (successfulSTTs.has(sttStr)) {
@@ -4304,8 +4317,9 @@ ${encodedString}
                 if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
                     record.beforeSnapshot.assignments.forEach(assignment => {
                         if (assignment.sttList && Array.isArray(assignment.sttList)) {
-                            assignment.sttList.forEach(stt => {
-                                const sttStr = String(stt);
+                            assignment.sttList.forEach(sttItem => {
+                                // Handle both object {stt: "32"} and string "32" formats
+                                const sttStr = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
                                 if (successfulSTTs.has(sttStr)) {
                                     const count = sttProductCount.get(sttStr) || 0;
                                     sttProductCount.set(sttStr, count + 1);
