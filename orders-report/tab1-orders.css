@@ -2682,8 +2682,8 @@ button[onclick*="showAddProductForm"] {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 10000;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start;
+    justify-content: flex-start;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
@@ -2693,7 +2693,8 @@ button[onclick*="showAddProductForm"] {
     opacity: 1;
 }
 
-.chat-modal-content {
+/* Old chat-modal-content - replaced by 2-column layout below */
+/* .chat-modal-content {
     background: white;
     border-radius: 12px;
     width: 90%;
@@ -2703,7 +2704,7 @@ button[onclick*="showAddProductForm"] {
     flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: slideIn 0.3s ease;
-}
+} */
 
 @keyframes slideIn {
     from {
@@ -3382,11 +3383,14 @@ td[data-column].hidden {
 .chat-modal-content {
     display: flex;
     flex-direction: row;
-    max-width: 1000px;
-    width: 95%;
-    height: 85vh;
-    max-height: 800px;
+    max-width: 100%;
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
     overflow: hidden;
+    border-radius: 0;
+    background: white;
+    box-shadow: none;
 }
 
 .chat-left-panel {
