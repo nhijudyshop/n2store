@@ -58,8 +58,8 @@
     /**
      * Update held status in Firebase
      */
-    function updateHeldStatus(productId, isHeld) {
-        console.log('[HELD-DEBUG] updateHeldStatus called:', { productId, isHeld });
+    function updateHeldStatus(productId, isHeld, quantity = 1) {
+        console.log('[HELD-DEBUG] updateHeldStatus called:', { productId, isHeld, quantity });
 
         if (!window.currentChatOrderData?.Id) {
             console.warn('[HELD-DEBUG] No current order data');
@@ -102,6 +102,7 @@
             console.log('[HELD-DEBUG] Setting held status in Firebase');
             ref.set({
                 displayName: auth.displayName || auth.userType || 'Unknown',
+                quantity: quantity,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             }).catch(err => console.error('[HELD-DEBUG] Firebase set error:', err));
         } else {
@@ -293,6 +294,7 @@
                     UOMName: fullProduct.UOM?.Name || 'Cái',
                     ImageUrl: fullProduct.ImageUrl,
                     IsHeld: true, // Mark as held (new product)
+                    IsFromDropped: false, // Mark as NOT from dropped list
                     StockQty: fullProduct.QtyAvailable // Store stock quantity
                 };
 
@@ -305,7 +307,7 @@
                 // await saveChatOrderChanges();
 
                 // Update Firebase status
-                updateHeldStatus(newProduct.ProductId, true);
+                updateHeldStatus(newProduct.ProductId, true, newProduct.Quantity);
 
                 if (window.notificationManager) {
                     window.notificationManager.show(
@@ -386,6 +388,9 @@
                 window.notificationManager.show('Đã cập nhật số lượng', 'success');
             }
         } else {
+            // Update Firebase status with new quantity
+            updateHeldStatus(product.ProductId, true, newQty);
+
             // Just show local notification
             if (window.notificationManager) {
                 window.notificationManager.show('Đã cập nhật số lượng (chưa lưu)', 'success');
@@ -421,8 +426,8 @@
             return;
         }
 
-        // Add to dropped products before removing
-        if (typeof window.addToDroppedProducts === 'function') {
+        // Add to dropped products ONLY if it came from dropped list
+        if (product.IsFromDropped && typeof window.addToDroppedProducts === 'function') {
             window.addToDroppedProducts(product, product.Quantity || 1, 'removed');
         }
 
@@ -435,7 +440,7 @@
         if (!product.IsHeld) {
             await saveChatOrderChanges();
             if (window.notificationManager) {
-                window.notificationManager.show('Đã xóa sản phẩm (chuyển vào hàng rớt - xả)', 'success');
+                window.notificationManager.show('Đã xóa sản phẩm', 'success');
             }
         } else {
             // Remove from Firebase
@@ -652,15 +657,31 @@
 
             // Check realtime held status
             let heldStatusHtml = '';
+            // console.log('[HELD-DEBUG] Checking held status for product:', p.ProductId, window.currentHeldStatus);
             if (window.currentHeldStatus && window.currentHeldStatus[p.ProductId]) {
                 const holders = window.currentHeldStatus[p.ProductId];
-                // Convert object to array of display names
-                const names = Object.values(holders).map(h => h.displayName);
+                // Convert object to array of display names and calculate total held
+                const names = [];
+                let totalHeld = 0;
+
+                Object.values(holders).forEach(h => {
+                    names.push(h.displayName);
+                    totalHeld += (parseInt(h.quantity) || 0);
+                });
+
+                // console.log('[HELD-DEBUG] Holders found:', names, 'Total held:', totalHeld);
+
                 if (names.length > 0) {
-                    // Join names if multiple people holding (rare but possible)
+                    // Join names if multiple people holding
                     const namesStr = names.join(', ');
-                    heldStatusHtml = `<span style="color: #d97706; font-size: 11px; margin-left: 6px; font-style: italic;">
-                        <i class="fas fa-user-clock" style="margin-right: 2px;"></i> ${namesStr} đang giữ sản phẩm này
+
+                    // Check if oversold
+                    const isOversold = (p.StockQty !== undefined && p.StockQty !== null) && (totalHeld > p.StockQty);
+                    const statusColor = isOversold ? '#ef4444' : '#d97706'; // Red if oversold, Orange if normal
+                    const warningText = isOversold ? ' <b>(Vượt quá tồn!)</b>' : '';
+
+                    heldStatusHtml = `<span style="color: ${statusColor}; font-size: 11px; margin-left: 6px; font-style: italic;">
+                        <i class="fas fa-user-clock" style="margin-right: 2px;"></i> ${namesStr} đang giữ ${totalHeld > 1 ? `(${totalHeld})` : ''}${warningText}
                     </span>`;
                 }
             }
@@ -824,6 +845,28 @@
         });
 
         if (heldProducts.length > 0) {
+            // VALIDATION: Check if total held quantity exceeds stock
+            if (window.currentHeldStatus) {
+                for (const p of heldProducts) {
+                    // Skip check if StockQty is not available (e.g. service product or error)
+                    if (p.StockQty === undefined || p.StockQty === null) continue;
+
+                    const holders = window.currentHeldStatus[p.ProductId];
+                    if (holders) {
+                        let totalHeld = 0;
+                        Object.values(holders).forEach(h => {
+                            totalHeld += (parseInt(h.quantity) || 0);
+                        });
+
+                        if (totalHeld > p.StockQty) {
+                            const msg = `Sản phẩm "${p.ProductNameGet || p.ProductName}" đang được giữ quá số lượng tồn!\n\nTổng đang giữ: ${totalHeld}\nTồn kho: ${p.StockQty}\n\nVui lòng giảm số lượng hoặc thương lượng với người khác.`;
+                            alert(msg);
+                            return; // ABORT SAVE
+                        }
+                    }
+                }
+            }
+
             hasChanges = true;
 
             heldProducts.forEach(heldProduct => {

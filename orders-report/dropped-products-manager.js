@@ -323,7 +323,8 @@
             Quantity: 1, // Always 1
             UOMName: product.UOMName,
             Note: null,
-            IsHeld: true // Always mark as held
+            IsHeld: true, // Always mark as held
+            IsFromDropped: true // Mark as from dropped list
         });
 
         // Decrease quantity in dropped list
