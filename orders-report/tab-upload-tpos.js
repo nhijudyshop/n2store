@@ -3440,8 +3440,7 @@ ${encodedString}
                         <div class="alert alert-success" role="alert">
                             <strong><i class="fas fa-check-circle"></i> Thành công (${successfulSTTs.length} STT):</strong>
                             ${successfulSTTs.map(stt => {
-                                const result = uploadResultsMap[stt];
-                                return `STT ${stt} → Order #${result.orderId}`;
+                                return `${stt}`;
                             }).join(', ')}
                         </div>
                     `;
