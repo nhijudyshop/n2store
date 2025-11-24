@@ -712,26 +712,33 @@ ${encodedString}
             }
         });
 
-        // Then, populate the orders for each product
-        Object.entries(sessionIndexData).forEach(([stt, data]) => {
-            data.products.forEach(product => {
-                const productId = product.productId;
+        // Then, populate the orders for each product (preserving insertion order)
+        // We need to iterate through assignments to preserve the STT insertion order
+        assignments.forEach(assignment => {
+            const productId = assignment.productId;
 
-                if (productGroups[productId]) {
-                    // Add order info with quantity
-                    const existingOrder = productGroups[productId].orders.find(o => o.stt === stt);
-                    if (existingOrder) {
-                        existingOrder.quantity++;
-                    } else {
-                        productGroups[productId].orders.push({
-                            stt: stt,
-                            customerName: data.orderInfo?.customerName || 'N/A',
-                            phone: data.orderInfo?.phone || 'N/A',
-                            quantity: 1
-                        });
+            if (productGroups[productId] && assignment.sttList) {
+                assignment.sttList.forEach(sttItem => {
+                    const stt = sttItem.stt;
+                    const sessionData = sessionIndexData[stt];
+
+                    if (sessionData) {
+                        // Check if this order is already in the list
+                        const existingOrder = productGroups[productId].orders.find(o => o.stt === stt);
+                        if (existingOrder) {
+                            existingOrder.quantity++;
+                        } else {
+                            productGroups[productId].orders.push({
+                                stt: stt,
+                                customerName: sttItem.orderInfo?.customerName || 'N/A',
+                                phone: sttItem.orderInfo?.phone || 'N/A',
+                                note: sttItem.orderInfo?.note || '',
+                                quantity: 1
+                            });
+                        }
                     }
-                }
-            });
+                });
+            }
         });
 
         const productKeys = productInsertionOrder; // Use insertion order from assignments
@@ -767,19 +774,19 @@ ${encodedString}
         tbody.innerHTML = sortedProducts.map(product => {
             const totalQuantity = product.orders.reduce((sum, o) => sum + o.quantity, 0);
 
-            // Sort orders by STT numerically
-            const sortedOrders = product.orders.sort((a, b) => {
-                return parseInt(a.stt) - parseInt(b.stt);
-            });
-
-            // Create orders list with STT badges
-            const ordersHtml = sortedOrders.map(order => {
+            // Create orders list with STT chips (matching tab3-product-assignment style)
+            // Don't sort - preserve insertion order
+            const ordersHtml = product.orders.map(order => {
                 const isSelected = selectedSessionIndexes.has(order.stt);
+                // Format: "STT 32 Huỳnh Thành Đạt - 1 ảo thu..." (customer name - note)
+                const chipText = [order.customerName, order.note].filter(Boolean).join(' - ');
+                const displayText = chipText.length > 30 ? chipText.substring(0, 30) + '...' : chipText;
+
                 return `
-                    <div class="order-badge-item ${isSelected ? 'selected' : ''}" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; margin: 4px; background: ${isSelected ? '#d1fae5' : '#f3f4f6'}; border-radius: 8px; border: 1px solid ${isSelected ? '#10b981' : '#e5e7eb'};">
-                        <span class="stt-mini-badge" style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">#${order.stt}</span>
-                        <span style="font-size: 13px; color: #374151;">${order.customerName}</span>
-                        <span style="font-size: 12px; color: #6b7280;">(x${order.quantity})</span>
+                    <div class="stt-chip" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin: 4px; background: ${isSelected ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}; color: white; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                        <span class="stt-chip-number" style="font-weight: 700;">STT ${order.stt}</span>
+                        ${displayText ? `<span class="stt-chip-customer" style="font-size: 11px; opacity: 0.9;">${displayText}</span>` : ''}
+                        ${order.quantity > 1 ? `<span style="font-size: 11px; opacity: 0.9;">(x${order.quantity})</span>` : ''}
                     </div>
                 `;
             }).join('');
@@ -806,7 +813,7 @@ ${encodedString}
                         </div>
                     </td>
                     <td>
-                        <div class="orders-list" style="display: flex; flex-wrap: wrap; gap: 2px;">
+                        <div class="orders-list" style="display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; border: 2px solid ${product.orders.length > 0 ? '#10b981' : '#e5e7eb'}; border-radius: 8px; background: ${product.orders.length > 0 ? 'rgba(16, 185, 129, 0.05)' : '#f9fafb'}; min-height: 52px;">
                             ${ordersHtml}
                         </div>
                     </td>
