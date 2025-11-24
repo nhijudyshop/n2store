@@ -414,8 +414,73 @@
         if (!orderId || !window.firebase) return;
 
         const ref = firebase.database().ref(`held_products/${orderId}`);
-        ref.on('value', (snapshot) => {
-            window.currentHeldStatus = snapshot.val() || {};
+        ref.on('value', async (snapshot) => {
+            const data = snapshot.val();
+            // console.log('[HELD-DEBUG] Received held status update:', data);
+            window.currentHeldStatus = data || {};
+
+            // SYNC LOGIC: Check for products in Firebase that are NOT in local Details
+            if (data) {
+                const heldProductIds = Object.keys(data);
+                const localProductIds = window.currentChatOrderData.Details.map(p => String(p.ProductId));
+
+                const missingProductIds = heldProductIds.filter(id => !localProductIds.includes(id));
+
+                if (missingProductIds.length > 0) {
+                    console.log('[HELD-DEBUG] Found missing held products:', missingProductIds);
+
+                    // Fetch and add missing products
+                    for (const productId of missingProductIds) {
+                        try {
+                            // Check if we have valid holders for this product
+                            const holders = data[productId];
+                            let hasValidHolders = false;
+                            if (holders) {
+                                Object.values(holders).forEach(h => {
+                                    if ((parseInt(h.quantity) || 0) > 0) hasValidHolders = true;
+                                });
+                            }
+
+                            if (!hasValidHolders) continue;
+
+                            // Fetch full details
+                            if (window.productSearchManager) {
+                                const fullProduct = await window.productSearchManager.getFullProductDetails(parseInt(productId));
+
+                                if (fullProduct) {
+                                    // Add to local details as HELD
+                                    const newProduct = {
+                                        ProductId: fullProduct.Id,
+                                        Quantity: 1, // Default, will be visual only as quantity comes from holders
+                                        Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
+                                        Note: null,
+                                        UOMId: fullProduct.UOM?.Id || 1,
+                                        Factor: 1,
+                                        Priority: 0,
+                                        OrderId: window.currentChatOrderData?.Id || null,
+                                        LiveCampaign_DetailId: null,
+                                        ProductWeight: 0,
+                                        ProductName: fullProduct.Name || fullProduct.NameTemplate,
+                                        ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                                        ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
+                                        UOMName: fullProduct.UOM?.Name || 'Cái',
+                                        ImageUrl: fullProduct.ImageUrl,
+                                        IsHeld: true,
+                                        IsFromDropped: false,
+                                        StockQty: fullProduct.QtyAvailable
+                                    };
+
+                                    window.currentChatOrderData.Details.push(newProduct);
+                                    console.log('[HELD-DEBUG] Added missing held product to local list:', newProduct.ProductNameGet);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('[HELD-DEBUG] Error syncing product ' + productId, err);
+                        }
+                    }
+                }
+            }
+
             renderChatProductsTable();
         });
     }
@@ -423,8 +488,8 @@
     /**
      * Update held status in Firebase
      */
-    function updateHeldStatus(productId, isHeld, quantity = 1) {
-        console.log('[HELD-DEBUG] updateHeldStatus called:', { productId, isHeld, quantity });
+    function updateHeldStatus(productId, isHeld, quantity = 1, isDraft = false) {
+        console.log('[HELD-DEBUG] updateHeldStatus called:', { productId, isHeld, quantity, isDraft });
 
         if (!window.currentChatOrderData?.Id) {
             console.warn('[HELD-DEBUG] No current order data');
@@ -468,6 +533,7 @@
             ref.set({
                 displayName: auth.displayName || auth.userType || 'Unknown',
                 quantity: quantity,
+                isDraft: isDraft,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             }).catch(err => console.error('[HELD-DEBUG] Firebase set error:', err));
         } else {
@@ -1037,32 +1103,43 @@
 
             // Check realtime held status
             let heldStatusHtml = '';
+
+            // Debug: Log held status check
             // console.log('[HELD-DEBUG] Checking held status for product:', p.ProductId, window.currentHeldStatus);
-            if (window.currentHeldStatus && window.currentHeldStatus[p.ProductId]) {
-                const holders = window.currentHeldStatus[p.ProductId];
-                // Convert object to array of display names and calculate total held
-                const names = [];
-                let totalHeld = 0;
 
-                Object.values(holders).forEach(h => {
-                    names.push(h.displayName);
-                    totalHeld += (parseInt(h.quantity) || 0);
-                });
+            if (window.currentHeldStatus) {
+                // Robust ID comparison: Convert both to strings
+                const productIdStr = String(p.ProductId);
+                const holders = window.currentHeldStatus[productIdStr] || window.currentHeldStatus[p.ProductId];
 
-                // console.log('[HELD-DEBUG] Holders found:', names, 'Total held:', totalHeld);
+                if (holders) {
+                    // Convert object to array of display names and calculate total held
+                    const names = [];
+                    let totalHeld = 0;
 
-                if (names.length > 0) {
-                    // Join names if multiple people holding
-                    const namesStr = names.join(', ');
+                    Object.values(holders).forEach(h => {
+                        // Filter out stale entries if needed, or just display all
+                        if (h.displayName) {
+                            names.push(h.displayName);
+                            totalHeld += (parseInt(h.quantity) || 0);
+                        }
+                    });
 
-                    // Check if oversold
-                    const isOversold = (p.StockQty !== undefined && p.StockQty !== null) && (totalHeld > p.StockQty);
-                    const statusColor = isOversold ? '#ef4444' : '#d97706'; // Red if oversold, Orange if normal
-                    const warningText = isOversold ? ' <b>(Vượt quá tồn!)</b>' : '';
+                    // console.log('[HELD-DEBUG] Holders found for ' + productIdStr + ':', names, 'Total held:', totalHeld);
 
-                    heldStatusHtml = `<span style="color: ${statusColor}; font-size: 11px; margin-left: 6px; font-style: italic;">
-                        <i class="fas fa-user-clock" style="margin-right: 2px;"></i> ${namesStr} đang giữ ${totalHeld > 1 ? `(${totalHeld})` : ''}${warningText}
-                    </span>`;
+                    if (names.length > 0) {
+                        // Join names if multiple people holding
+                        const namesStr = names.join(', ');
+
+                        // Check if oversold
+                        const isOversold = (p.StockQty !== undefined && p.StockQty !== null) && (totalHeld > p.StockQty);
+                        const statusColor = isOversold ? '#ef4444' : '#d97706'; // Red if oversold, Orange if normal
+                        const warningText = isOversold ? ' <b>(Vượt quá tồn!)</b>' : '';
+
+                        heldStatusHtml = `<span style="color: ${statusColor}; font-size: 11px; margin-left: 6px; font-style: italic;">
+                            <i class="fas fa-user-clock" style="margin-right: 2px;"></i> ${namesStr} đang giữ ${totalHeld > 1 ? `(${totalHeld})` : ''}${warningText}
+                        </span>`;
+                    }
                 }
             }
 
@@ -1127,11 +1204,27 @@
         if (heldProducts.length > 0) {
             tableContent += `
                 <tr class="chat-product-section-header" style="background: #fef3c7;">
-                    <td colspan="6" style="padding: 8px 12px; font-weight: 600; color: #d97706; font-size: 13px;">
+                    <td colspan="5" style="padding: 8px 12px; font-weight: 600; color: #d97706; font-size: 13px;">
                         <i class="fas fa-hand-holding-box" style="margin-right: 6px;"></i>Sản phẩm đang giữ
                     </td>
-                    <td colspan="2" style="text-align: right; padding: 4px 8px;">
-                        <button onclick="confirmHeldProducts()" class="chat-btn-save-held" style="
+                    <td colspan="3" style="text-align: right; padding: 4px 8px; white-space: nowrap;">
+                        <button onclick="confirmHeldProducts(true)" class="chat-btn-save-draft" style="
+                            background: #f59e0b;
+                            color: white;
+                            border: none;
+                            padding: 4px 12px;
+                            border-radius: 4px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 4px;
+                            margin-right: 16px;
+                        " title="Lưu vào đơn nhưng vẫn giữ trong danh sách đang giữ">
+                            <i class="fas fa-save"></i> Lưu nháp
+                        </button>
+                        <button onclick="confirmHeldProducts(false)" class="chat-btn-save-held" style="
                             background: #d97706;
                             color: white;
                             border: none;
@@ -1207,8 +1300,9 @@
 
     /**
      * Confirm held products (save to order)
+     * @param {boolean} isDraft - If true, save to order but keep in Firebase (held status)
      */
-    window.confirmHeldProducts = async function () {
+    window.confirmHeldProducts = async function (isDraft = false) {
         if (!window.currentChatOrderData || !window.currentChatOrderData.Details) return;
 
         let hasChanges = false;
@@ -1230,15 +1324,21 @@
                 `• ${p.ProductNameGet || p.ProductName} (SL: ${p.Quantity})`
             ).join('\n');
 
-            const confirmMessage = `Bạn có chắc muốn lưu ${heldProducts.length} sản phẩm đang giữ vào đơn hàng?\n\n${productList}\n\nSản phẩm sẽ được thêm vào đơn hàng và không thể hoàn tác.`;
+            const actionText = isDraft ? 'Lưu nháp' : 'Lưu vào đơn';
+            const noteText = isDraft
+                ? 'Sản phẩm sẽ được đánh dấu là NHÁP và KHÔNG bị xóa khi đóng đơn hàng. Sản phẩm CHƯA được thêm vào đơn hàng.'
+                : 'Sản phẩm sẽ được thêm vào đơn hàng và xóa khỏi danh sách đang giữ.';
 
-            const confirmed = await CustomPopup.confirm(confirmMessage, 'Xác nhận lưu sản phẩm');
+            const confirmMessage = `Bạn có chắc muốn ${actionText} ${heldProducts.length} sản phẩm?\n\n${productList}\n\n${noteText}`;
+
+            const confirmed = await CustomPopup.confirm(confirmMessage, `Xác nhận ${actionText}`);
             if (!confirmed) {
                 return;
             }
 
             // VALIDATION: Check if total held quantity exceeds stock
-            if (window.currentHeldStatus) {
+            // SKIP validation if saving as draft
+            if (!isDraft && window.currentHeldStatus) {
                 for (const p of heldProducts) {
                     // Skip check if StockQty is not available (e.g. service product or error)
                     if (p.StockQty === undefined || p.StockQty === null) continue;
@@ -1259,6 +1359,26 @@
                 }
             }
 
+            if (isDraft) {
+                // DRAFT MODE:
+                // 1. Do NOT add to newDetails (so they remain held in UI, or rather, we don't save them to API order yet)
+                // 2. Update Firebase with isDraft = true
+
+                heldProducts.forEach(heldProduct => {
+                    updateHeldStatus(heldProduct.ProductId, true, heldProduct.Quantity, true);
+                });
+
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đã lưu nháp sản phẩm (sẽ giữ lại khi đóng)', 'success');
+                }
+
+                // No need to save order changes or re-render, as we just updated Firebase status.
+                // But we might want to visually indicate they are drafts?
+                // For now, just keeping them in the list is enough.
+                return;
+            }
+
+            // NORMAL SAVE MODE:
             hasChanges = true;
 
             heldProducts.forEach(heldProduct => {
@@ -1270,11 +1390,12 @@
                     existingProduct.Quantity += heldProduct.Quantity;
                 } else {
                     // Add as new non-held
-                    heldProduct.IsHeld = false;
-                    newDetails.push(heldProduct);
+                    const productToAdd = { ...heldProduct };
+                    productToAdd.IsHeld = false;
+                    newDetails.push(productToAdd);
                 }
 
-                // Remove from Firebase (since it's now saved/merged)
+                // Remove from Firebase
                 updateHeldStatus(heldProduct.ProductId, false);
             });
 
@@ -1308,17 +1429,53 @@
         // Move to dropped products
         if (typeof window.addToDroppedProducts === 'function') {
             for (const p of heldProducts) {
+                // CHECK DRAFT STATUS
+                let isDraft = false;
+                if (window.currentHeldStatus && window.currentHeldStatus[p.ProductId]) {
+                    const holders = window.currentHeldStatus[p.ProductId];
+                    // Check if CURRENT user has it marked as draft
+                    // We need current user ID logic again here, or just check all holders?
+                    // Ideally check if *I* am holding it as draft.
+                    // But for simplicity, if ANYONE holds it as draft, we shouldn't delete?
+                    // No, only if *I* hold it.
+                    // Re-using auth logic from updateHeldStatus is hard here without duplicating.
+                    // Let's assume if it's in the list, I am holding it.
+                    // We need to check the Firebase data for MY entry.
+
+                    if (window.authManager) {
+                        const auth = window.authManager.getAuthState();
+                        let userId = auth.id || auth.Id || auth.username || auth.userType;
+                        if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+
+                        if (userId && holders[userId] && holders[userId].isDraft) {
+                            isDraft = true;
+                        }
+                    }
+                }
+
+                if (isDraft) {
+                    console.log(`[CHAT-PRODUCTS] Product ${p.ProductId} is DRAFT. Skipping removal.`);
+                    continue;
+                }
+
                 await window.addToDroppedProducts(p, p.Quantity, 'unsaved_exit');
                 // Remove from Firebase
                 updateHeldStatus(p.ProductId, false);
             }
         }
 
-        // Remove from order
+        // Remove from order (local only, as they are not saved to DB yet)
+        // Note: We remove ALL held products from the local order object because we are closing the modal.
+        // Even drafts shouldn't remain in the "Order Details" array if we are closing,
+        // because next time we open, we fetch them again from Firebase.
         window.currentChatOrderData.Details = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
 
-        // Save order (to remove them from backend)
-        // Note: This might be called during close, so we need to ensure it runs
+        // Save order (to remove them from backend if they were somehow saved? No, held products are not saved to backend order)
+        // Actually, held products are ONLY in local Details and Firebase. They are NOT in the API order until "Save to Order".
+        // So we don't need to saveChatOrderChanges() here unless we want to ensure they are gone from some other state?
+        // The original code called saveChatOrderChanges(), maybe to sync the removal of IsHeld items if they were accidentally saved?
+        // Or maybe just to be safe.
+        // If we don't save, it's fine.
         await saveChatOrderChanges();
     };
 

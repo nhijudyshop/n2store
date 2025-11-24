@@ -529,9 +529,9 @@ class EnhancedProductSearchManager {
                 StandardPrice:
                     fullProduct.StandardPrice ||
                     this.excelProducts[index].StandardPrice,
-                Name: fullProduct.Name || this.excelProducts[index].Name,
+                Name: fullProduct.NameGet || fullProduct.Name || this.excelProducts[index].Name,
                 NameNoSign: this.removeVietnameseTones(
-                    fullProduct.Name || this.excelProducts[index].Name,
+                    fullProduct.NameGet || fullProduct.Name || this.excelProducts[index].Name,
                 ),
                 Code:
                     fullProduct.DefaultCode ||
@@ -574,6 +574,10 @@ class EnhancedProductSearchManager {
                         fullProduct.PriceVariant ||
                         fullProduct.ListPrice ||
                         product.Price,
+                    Name: fullProduct.NameGet || fullProduct.Name || product.Name,
+                    NameNoSign: this.removeVietnameseTones(
+                        fullProduct.NameGet || fullProduct.Name || product.Name,
+                    ),
                     HasFullDetails: true,
                 };
 
