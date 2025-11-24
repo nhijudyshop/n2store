@@ -727,6 +727,137 @@ class ChatProductManager {
         }).join('');
     }
 
+    async renderInvoiceHistory() {
+        const container = document.getElementById('chatInvoiceHistoryContainer');
+        if (!container) return;
+
+        // Show loading
+        container.innerHTML = `
+            <div class="chat-loading-state" style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: #3b82f6; margin-bottom: 12px;"></i>
+                <p style="color: #64748b; font-size: 14px;">Đang tải lịch sử hóa đơn...</p>
+            </div>
+        `;
+
+        try {
+            if (!window.currentChatOrderData || !window.currentChatOrderData.PartnerId) {
+                throw new Error('Không tìm thấy thông tin khách hàng');
+            }
+
+            const partnerId = window.currentChatOrderData.PartnerId;
+            const invoices = await this.fetchInvoiceHistory(partnerId);
+
+            if (!invoices || invoices.length === 0) {
+                container.innerHTML = `
+                    <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                        <i class="fas fa-file-invoice-dollar" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                        <p style="font-size: 14px; margin: 0;">Chưa có lịch sử hóa đơn</p>
+                        <p style="font-size: 12px; margin-top: 4px;">Khách hàng chưa có hóa đơn nào trong 30 ngày qua</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render table
+            const rows = invoices.map((inv, index) => {
+                const date = inv.DateInvoice ? new Date(inv.DateInvoice).toLocaleDateString('vi-VN') : 'N/A';
+                const amount = (inv.AmountTotal || 0).toLocaleString('vi-VN');
+                const statusClass = inv.ShowState === 'Đã thanh toán' ? 'text-success' :
+                    inv.ShowState === 'Đã hủy' ? 'text-danger' : 'text-warning';
+
+                // Link to invoice form
+                const invoiceLink = `https://tomato.tpos.vn/#/app/fastsaleorder/invoiceform1?id=${inv.Id}`;
+
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 12px 8px; text-align: center; color: #64748b;">${index + 1}</td>
+                        <td style="padding: 12px 8px;">
+                            <a href="${invoiceLink}" target="_blank" style="font-weight: 600; color: #3b82f6; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                                ${inv.Number || 'N/A'}
+                                <i class="fas fa-external-link-alt" style="font-size: 10px;"></i>
+                            </a>
+                        </td>
+                        <td style="padding: 12px 8px; text-align: center;">${date}</td>
+                        <td style="padding: 12px 8px; text-align: right; font-weight: 600; color: #1f2937;">${amount}đ</td>
+                        <td style="padding: 12px 8px; text-align: center;">
+                            <span class="${statusClass}" style="font-size: 12px; font-weight: 500;">${inv.ShowState || 'N/A'}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 10px 8px; text-align: center; color: #64748b; font-weight: 600; width: 40px;">#</th>
+                            <th style="padding: 10px 8px; text-align: left; color: #64748b; font-weight: 600;">Số hóa đơn</th>
+                            <th style="padding: 10px 8px; text-align: center; color: #64748b; font-weight: 600; width: 100px;">Ngày</th>
+                            <th style="padding: 10px 8px; text-align: right; color: #64748b; font-weight: 600; width: 120px;">Tổng tiền</th>
+                            <th style="padding: 10px 8px; text-align: center; color: #64748b; font-weight: 600; width: 120px;">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            `;
+
+        } catch (error) {
+            console.error('[CHAT-INVOICE] Error rendering history:', error);
+            container.innerHTML = `
+                <div class="chat-error-state" style="text-align: center; padding: 40px 20px; color: #ef4444;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 12px;"></i>
+                    <p style="font-size: 14px; margin: 0;">Lỗi tải lịch sử hóa đơn</p>
+                    <p style="font-size: 12px; margin-top: 4px;">${error.message}</p>
+                    <button onclick="window.chatProductManager.renderInvoiceHistory()" style="
+                        margin-top: 12px;
+                        padding: 6px 16px;
+                        background: #fff;
+                        border: 1px solid #ef4444;
+                        color: #ef4444;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 12px;
+                    ">Thử lại</button>
+                </div>
+            `;
+        }
+    }
+
+    async fetchInvoiceHistory(partnerId) {
+        // Calculate date range (last 30 days)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+
+        const formatDate = (date) => {
+            return date.toISOString().split('T')[0]; // YYYY-MM-DD
+        };
+
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetOrdersByPartnerId?partnerId=${partnerId}&fromDate=${formatDate(startDate)}&toDate=${formatDate(endDate)}`;
+
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const response = await API_CONFIG.smartFetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.value || [];
+        } catch (error) {
+            console.error('[CHAT-INVOICE] API Error:', error);
+            throw error;
+        }
+    }
+
     setupEventListeners() {
         const searchInput = document.getElementById('chatProductSearchInput');
         if (searchInput) {

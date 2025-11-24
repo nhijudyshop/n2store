@@ -681,6 +681,26 @@
                         <i class="fas fa-history"></i>
                         Lịch sử
                     </button>
+                    <button class="chat-tab-btn" data-tab="invoice_history"
+                        onclick="switchChatPanelTab('invoice_history')" style="
+                        flex: 1;
+                        padding: 14px 16px;
+                        border: none;
+                        background: #f8fafc;
+                        color: #64748b;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        border-bottom: 2px solid transparent;
+                        transition: all 0.2s;
+                    ">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        Hóa đơn
+                    </button>
                 </div>
 
                 <!-- Tab Content: Orders -->
@@ -808,6 +828,23 @@
                                     style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
                                 <p style="font-size: 14px; margin: 0;">Chưa có lịch sử</p>
                                 <p style="font-size: 12px; margin-top: 4px;">Các thao tác sẽ được ghi lại ở đây</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Invoice History -->
+                <div id="chatTabInvoiceHistory" class="chat-tab-content"
+                    style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
+                    <!-- Invoice History Container -->
+                    <div style="flex: 1; overflow-y: auto; background: white;">
+                        <div id="chatInvoiceHistoryContainer" style="padding: 16px;">
+                            <div class="chat-empty-products"
+                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+                                <i class="fas fa-file-invoice-dollar"
+                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                                <p style="font-size: 14px; margin: 0;">Chưa có lịch sử hóa đơn</p>
+                                <p style="font-size: 12px; margin-top: 4px;">Danh sách hóa đơn sẽ hiển thị ở đây</p>
                             </div>
                         </div>
                     </div>
@@ -1967,6 +2004,38 @@
             </button>
         </div>
     </div>
+    <!-- Edit Order Modal -->
+    <div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit"></i> Xem chi tiết đơn hàng - <span id="modalOrderCode"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" onclick="closeEditModal()"></button>
+                </div>
+                <div class="modal-body-wrapper">
+                    <div class="edit-tabs">
+                        <button class="edit-tab-btn active" onclick="switchEditTab('info')">Thông tin liên hệ</button>
+                        <button class="edit-tab-btn" onclick="switchEditTab('products')">Sản phẩm</button>
+                        <button class="edit-tab-btn" onclick="switchEditTab('delivery')">Thông tin giao hàng</button>
+                        <button class="edit-tab-btn" onclick="switchEditTab('live')">Lịch sử đơn live</button>
+                        <button class="edit-tab-btn" onclick="switchEditTab('invoice_history')">Lịch sử hóa đơn</button>
+                        <button class="edit-tab-btn" onclick="switchEditTab('history')">Lịch sử chỉnh sửa</button>
+                    </div>
+                    <div class="modal-body" id="editModalBody">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

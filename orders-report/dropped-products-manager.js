@@ -637,7 +637,8 @@
 
         const activeContent = document.getElementById(
             tabName === 'orders' ? 'chatTabOrders' :
-                tabName === 'dropped' ? 'chatTabDropped' : 'chatTabHistory'
+                tabName === 'dropped' ? 'chatTabDropped' :
+                    tabName === 'history' ? 'chatTabHistory' : 'chatTabInvoiceHistory'
         );
 
         if (activeContent) {
@@ -649,6 +650,10 @@
             renderDroppedProductsTable();
         } else if (tabName === 'history') {
             renderHistoryList();
+        } else if (tabName === 'invoice_history') {
+            if (window.chatProductManager && typeof window.chatProductManager.renderInvoiceHistory === 'function') {
+                window.chatProductManager.renderInvoiceHistory();
+            }
         }
     };
 

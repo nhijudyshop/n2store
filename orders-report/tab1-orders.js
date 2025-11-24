@@ -2385,8 +2385,9 @@ function showSaveIndicator(type, message) {
                     <button class="edit-tab-btn" onclick="switchEditTab('products')"><i class="fas fa-box"></i> Sản phẩm (<span id="productCount">0</span>)</button>
                     <button class="edit-tab-btn" onclick="switchEditTab('delivery')"><i class="fas fa-shipping-fast"></i> Thông tin giao hàng</button>
                     <button class="edit-tab-btn" onclick="switchEditTab('live')"><i class="fas fa-video"></i> Lịch sử đơn live</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('invoices')"><i class="fas fa-file-invoice"></i> Lịch sử hóa đơn</button>
-                    <button class="edit-tab-btn" onclick="switchEditTab('history')"><i class="fas fa-history"></i> Lịch sử chỉnh sửa</button>
+                    <button class="edit-tab-btn" onclick="switchEditTab('invoices')"><i class="fas fa-file-invoice-dollar"></i> Thông tin hóa đơn</button>
+                    <button class="edit-tab-btn" onclick="switchEditTab('invoice_history')"><i class="fas fa-history"></i> Lịch sử hóa đơn</button>
+                    <button class="edit-tab-btn" onclick="switchEditTab('history')"><i class="fas fa-clock"></i> Lịch sử chỉnh sửa</button>
                 </div>
                 <div class="edit-modal-body" id="editModalBody"><div class="loading-state"><div class="loading-spinner"></div></div></div>
                 <div class="edit-modal-footer">
@@ -2472,6 +2473,7 @@ function renderTabContent(tabName) {
         delivery: renderDeliveryTab,
         live: renderLiveTab,
         invoices: renderInvoicesTab,
+        invoice_history: renderInvoiceHistoryTab,
         history: renderHistoryTab,
     };
     body.innerHTML = renderers[tabName]
@@ -2700,6 +2702,116 @@ async function renderHistoryTab(data) {
     }, 100);
 
     return loadingHTML;
+}
+
+async function renderInvoiceHistoryTab(data) {
+    const loadingHTML = `
+        <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Đang tải lịch sử hóa đơn...</div>
+        </div>
+    `;
+
+    // Return loading first, then fetch data
+    setTimeout(async () => {
+        try {
+            const partnerId = data.PartnerId || (data.Partner && data.Partner.Id);
+            if (!partnerId) {
+                throw new Error("Không tìm thấy thông tin khách hàng (PartnerId)");
+            }
+            await fetchAndDisplayInvoiceHistory(partnerId);
+        } catch (error) {
+            console.error('[INVOICE HISTORY] Error:', error);
+            document.getElementById('editModalBody').innerHTML = `
+                <div class="empty-state" style="color: #ef4444;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <p>Không thể tải lịch sử hóa đơn</p>
+                    <p style="font-size: 13px; color: #6b7280;">${error.message}</p>
+                    <button class="btn-primary" style="margin-top: 16px;" onclick="switchEditTab('invoice_history')">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                </div>
+            `;
+        }
+    }, 100);
+
+    return loadingHTML;
+}
+
+async function fetchAndDisplayInvoiceHistory(partnerId) {
+    // Calculate date range (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    const headers = await window.tokenManager.getAuthHeader();
+    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetOrdersByPartnerId?partnerId=${partnerId}&fromDate=${startDate.toISOString()}&toDate=${endDate.toISOString()}`;
+
+    console.log('[INVOICE HISTORY] Fetching history for partner:', partnerId);
+
+    const response = await API_CONFIG.smartFetch(apiUrl, {
+        headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('[INVOICE HISTORY] Received data:', data);
+    document.getElementById('editModalBody').innerHTML = renderInvoiceHistoryTable(data.value || []);
+}
+
+function renderInvoiceHistoryTable(invoices) {
+    if (invoices.length === 0) {
+        return `
+            <div class="empty-state">
+                <i class="fas fa-file-invoice" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
+                <p style="color: #6b7280; margin-bottom: 8px;">Không có lịch sử hóa đơn</p>
+                <p style="color: #9ca3af; font-size: 13px;">Khách hàng chưa có đơn hàng nào trong 30 ngày qua</p>
+            </div>
+        `;
+    }
+
+    const rows = invoices.map((inv, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td><a href="https://tomato.tpos.vn/#/app/fastsaleorder/invoiceform1?id=${inv.Id}" target="_blank" style="color: #3b82f6; text-decoration: none; font-weight: 500;">${inv.Number || 'N/A'}</a></td>
+            <td style="text-align: right; font-weight: 600;">${(inv.AmountTotal || 0).toLocaleString('vi-VN')}đ</td>
+            <td style="text-align: center;">
+                <span class="status-badge-large ${inv.State === 'completed' ? 'status-badge-paid' : 'status-badge-order'}">
+                    ${inv.ShowState || inv.State || 'N/A'}
+                </span>
+            </td>
+            <td>${inv.DateInvoice ? new Date(inv.DateInvoice).toLocaleString('vi-VN') : 'N/A'}</td>
+        </tr>
+    `).join('');
+
+    return `
+        <div class="info-card">
+            <h4><i class="fas fa-history"></i> Lịch sử hóa đơn (30 ngày gần nhất)</h4>
+            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
+                <table class="table" style="margin-top: 16px; width: 100%;">
+                    <thead style="position: sticky; top: 0; background: white; z-index: 1;">
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Mã hóa đơn</th>
+                            <th style="text-align: right;">Tổng tiền</th>
+                            <th style="text-align: center;">Trạng thái</th>
+                            <th>Ngày tạo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 async function fetchAndDisplayAuditLog(orderId) {
