@@ -95,22 +95,46 @@
             background-color: #f1f5f9;
         }
 
-        /* Fullscreen modal styles */
-        .modal-fullscreen {
-            max-width: 100% !important;
-            margin: 0 !important;
+        /* Fullscreen modal styles - Override Bootstrap and report-modern.css */
+        /* Important: report-modern.css has .modal-content { max-width: 600px } that needs to be overridden */
+
+        .modal.fade .modal-dialog.modal-fullscreen {
+            max-width: 100vw !important;
             width: 100vw !important;
             height: 100vh !important;
+            margin: 0 !important;
         }
 
-        .modal-fullscreen .modal-content {
+        .modal-dialog.modal-fullscreen {
+            max-width: 100vw !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Override the max-width: 600px from report-modern.css */
+        .modal-dialog.modal-fullscreen .modal-content,
+        .modal .modal-dialog.modal-fullscreen .modal-content,
+        #ordersModal .modal-content,
+        #orderDetailsModal .modal-content {
+            max-width: 100vw !important;
+            width: 100vw !important;
             height: 100vh !important;
             border: none !important;
             border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
         }
 
-        .modal-fullscreen .modal-body {
+        .modal-dialog.modal-fullscreen .modal-body {
+            flex: 1 !important;
             overflow-y: auto !important;
+        }
+
+        .modal-dialog.modal-fullscreen .modal-header,
+        .modal-dialog.modal-fullscreen .modal-footer {
+            flex-shrink: 0 !important;
         }
     </style>
 </head>
@@ -200,22 +224,26 @@
                     <!-- Nav tabs -->
                     <ul class="nav nav-tabs" id="orderDetailsTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="all-products-tab" data-bs-toggle="tab" data-bs-target="#all-products" type="button" role="tab">
+                            <button class="nav-link active" id="all-products-tab" data-bs-toggle="tab"
+                                data-bs-target="#all-products" type="button" role="tab">
                                 <i class="fas fa-box"></i> Tất cả SP
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="kpi-products-tab" data-bs-toggle="tab" data-bs-target="#kpi-products" type="button" role="tab">
+                            <button class="nav-link" id="kpi-products-tab" data-bs-toggle="tab"
+                                data-bs-target="#kpi-products" type="button" role="tab">
                                 <i class="fas fa-star text-warning"></i> SP có KPI
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="non-kpi-products-tab" data-bs-toggle="tab" data-bs-target="#non-kpi-products" type="button" role="tab">
+                            <button class="nav-link" id="non-kpi-products-tab" data-bs-toggle="tab"
+                                data-bs-target="#non-kpi-products" type="button" role="tab">
                                 <i class="fas fa-circle text-muted"></i> SP không KPI
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="invoice-tab" data-bs-toggle="tab" data-bs-target="#invoice" type="button" role="tab">
+                            <button class="nav-link" id="invoice-tab" data-bs-toggle="tab" data-bs-target="#invoice"
+                                type="button" role="tab">
                                 <i class="fas fa-file-invoice"></i> Hóa đơn
                             </button>
                         </li>
@@ -685,7 +713,7 @@
             nonKpiProductsBody.innerHTML = nonKpiHtml;
 
             // Load invoice when invoice tab is clicked
-            document.getElementById('invoice-tab').addEventListener('click', async function() {
+            document.getElementById('invoice-tab').addEventListener('click', async function () {
                 await loadInvoice(orderId, order.invoiceId);
             }, { once: true }); // Use once: true to prevent multiple listeners
         }
