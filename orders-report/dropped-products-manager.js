@@ -246,7 +246,13 @@
     window.removeFromDroppedProducts = async function (index) {
         const product = droppedProducts[index];
 
-        if (!confirm(`Xóa "${product.ProductNameGet || product.ProductName}" khỏi danh sách hàng rớt - xả?`)) {
+        if (window.CustomPopup) {
+            const confirmed = await window.CustomPopup.confirm(
+                `Bạn có chắc muốn xóa sản phẩm "${product.ProductNameGet || product.ProductName}" khỏi danh sách hàng rớt?`,
+                'Xác nhận xóa'
+            );
+            if (!confirmed) return;
+        } else if (!confirm(`Bạn có chắc muốn xóa sản phẩm "${product.ProductNameGet || product.ProductName}" khỏi danh sách hàng rớt?`)) {
             return;
         }
 
@@ -308,7 +314,13 @@
             return;
         }
 
-        if (!confirm(`Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`)) {
+        if (window.CustomPopup) {
+            const confirmed = await window.CustomPopup.confirm(
+                `Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`,
+                'Xác nhận chuyển'
+            );
+            if (!confirmed) return;
+        } else if (!confirm(`Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`)) {
             return;
         }
 
@@ -644,7 +656,13 @@
      * Clear all dropped products
      */
     window.clearAllDroppedProducts = async function () {
-        if (!confirm('Xóa tất cả hàng rớt - xả? Hành động này không thể hoàn tác.')) {
+        if (window.CustomPopup) {
+            const confirmed = await window.CustomPopup.confirm(
+                'Bạn có chắc muốn xóa toàn bộ danh sách hàng rớt?',
+                'Xác nhận xóa tất cả'
+            );
+            if (!confirmed) return;
+        } else if (!confirm('Bạn có chắc muốn xóa toàn bộ danh sách hàng rớt?')) {
             return;
         }
 
