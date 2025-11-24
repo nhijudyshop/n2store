@@ -1649,7 +1649,8 @@
                         const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
 
                         // FRAUD PREVENTION: Only count INCREMENTAL quantity
-                        // Compare new quantity in order vs historical KPI quantity
+                        // Compare new quantity vs historical MAX quantity (not kpiQuantity)
+                        // This prevents re-adding previously reduced quantities from scoring
                         let totalValidQty = 0;
                         const productDetails = heldProducts.map(p => {
                             const productId = String(p.ProductId);
@@ -1660,24 +1661,27 @@
 
                             // Get historical data
                             const historical = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || { quantity: 0, kpiQuantity: 0 };
+                            const historicalMaxQty = historical.quantity || 0;
                             const historicalKpiQty = historical.kpiQuantity || 0;
 
-                            // Calculate INCREMENTAL quantity (only new additions count)
-                            // Compare against KPI quantity (not max quantity in order)
-                            const incrementalQty = Math.max(0, newQuantityInOrder - historicalKpiQty);
+                            // Calculate INCREMENTAL quantity
+                            // Only count if EXCEEDING the historical maximum quantity
+                            // This prevents: Add 2 → Reduce to 1 → Re-add to 2 → Should NOT score
+                            const incrementalQty = Math.max(0, newQuantityInOrder - historicalMaxQty);
 
                             totalValidQty += incrementalQty;
 
                             if (incrementalQty === 0) {
-                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: No score (Historical KPI: ${historicalKpiQty}, New: ${newQuantityInOrder})`);
+                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: No score (Historical Max: ${historicalMaxQty}, New: ${newQuantityInOrder})`);
                             } else {
-                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: +${incrementalQty} score (Historical KPI: ${historicalKpiQty}, New: ${newQuantityInOrder})`);
+                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: +${incrementalQty} score (Historical Max: ${historicalMaxQty}, New: ${newQuantityInOrder})`);
                             }
 
                             return {
                                 name: p.ProductNameGet || p.ProductName || 'Unknown Product',
                                 quantity: p.Quantity || 0,
                                 newQuantityInOrder: newQuantityInOrder,
+                                historicalMaxQty: historicalMaxQty,
                                 historicalKpiQty: historicalKpiQty,
                                 incrementalQty: incrementalQty,
                                 isCounted: incrementalQty > 0
