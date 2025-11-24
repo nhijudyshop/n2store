@@ -692,39 +692,49 @@ ${encodedString}
             <th style="width: 15%">Tổng SL</th>
         `;
 
-        // Group products from all orders
+        // Group products from all orders, preserving the order from assignments
         const productGroups = {};
+        const productInsertionOrder = []; // Track insertion order from assignments array
+
+        // First, iterate through assignments to establish product order
+        assignments.forEach(assignment => {
+            const productId = assignment.productId;
+
+            if (!productGroups[productId]) {
+                productGroups[productId] = {
+                    productId: productId,
+                    productCode: assignment.productCode || assignment.productName,
+                    productName: assignment.productName,
+                    imageUrl: assignment.imageUrl,
+                    orders: []
+                };
+                productInsertionOrder.push(productId); // Track order as it appears in assignments
+            }
+        });
+
+        // Then, populate the orders for each product
         Object.entries(sessionIndexData).forEach(([stt, data]) => {
             data.products.forEach(product => {
                 const productId = product.productId;
-                const productCode = product.productCode || product.productName;
 
-                if (!productGroups[productId]) {
-                    productGroups[productId] = {
-                        productId: productId,
-                        productCode: productCode,
-                        productName: product.productName,
-                        imageUrl: product.imageUrl,
-                        orders: []
-                    };
-                }
-
-                // Add order info with quantity
-                const existingOrder = productGroups[productId].orders.find(o => o.stt === stt);
-                if (existingOrder) {
-                    existingOrder.quantity++;
-                } else {
-                    productGroups[productId].orders.push({
-                        stt: stt,
-                        customerName: data.orderInfo?.customerName || 'N/A',
-                        phone: data.orderInfo?.phone || 'N/A',
-                        quantity: 1
-                    });
+                if (productGroups[productId]) {
+                    // Add order info with quantity
+                    const existingOrder = productGroups[productId].orders.find(o => o.stt === stt);
+                    if (existingOrder) {
+                        existingOrder.quantity++;
+                    } else {
+                        productGroups[productId].orders.push({
+                            stt: stt,
+                            customerName: data.orderInfo?.customerName || 'N/A',
+                            phone: data.orderInfo?.phone || 'N/A',
+                            quantity: 1
+                        });
+                    }
                 }
             });
         });
 
-        const productKeys = Object.keys(productGroups);
+        const productKeys = productInsertionOrder; // Use insertion order from assignments
 
         // Calculate total items count
         let totalItemCount = 0;
@@ -751,16 +761,19 @@ ${encodedString}
             return;
         }
 
-        // Sort by product code
-        const sortedProducts = Object.values(productGroups).sort((a, b) =>
-            a.productCode.localeCompare(b.productCode)
-        );
+        // Map products in insertion order (preserving order from assignments)
+        const sortedProducts = productKeys.map(productId => productGroups[productId]);
 
         tbody.innerHTML = sortedProducts.map(product => {
             const totalQuantity = product.orders.reduce((sum, o) => sum + o.quantity, 0);
 
+            // Sort orders by STT numerically
+            const sortedOrders = product.orders.sort((a, b) => {
+                return parseInt(a.stt) - parseInt(b.stt);
+            });
+
             // Create orders list with STT badges
-            const ordersHtml = product.orders.map(order => {
+            const ordersHtml = sortedOrders.map(order => {
                 const isSelected = selectedSessionIndexes.has(order.stt);
                 return `
                     <div class="order-badge-item ${isSelected ? 'selected' : ''}" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; margin: 4px; background: ${isSelected ? '#d1fae5' : '#f3f4f6'}; border-radius: 8px; border: 1px solid ${isSelected ? '#10b981' : '#e5e7eb'};">
