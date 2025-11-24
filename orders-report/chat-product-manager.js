@@ -7,6 +7,8 @@ class ChatProductManager {
         this.isListening = false;
         this.searchResults = [];
         this.productHistory = [];
+        this.invoiceCache = new Map(); // Cache for invoice details with OrderLines
+        this.invoiceCacheTimestamp = null; // Timestamp for cache expiration
     }
 
     async init(orderId) {
@@ -727,7 +729,7 @@ class ChatProductManager {
         }).join('');
     }
 
-    async renderInvoiceHistory() {
+    async renderInvoiceHistory(forceRefresh = false) {
         const container = document.getElementById('chatInvoiceHistoryContainer');
         if (!container) return;
 
@@ -745,62 +747,156 @@ class ChatProductManager {
             }
 
             const partnerId = window.currentChatOrderData.PartnerId;
-            const invoices = await this.fetchInvoiceHistory(partnerId);
+            const invoices = await this.fetchInvoiceHistory(partnerId, forceRefresh);
 
             if (!invoices || invoices.length === 0) {
                 container.innerHTML = `
-                    <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                        <i class="fas fa-file-invoice-dollar" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                        <p style="font-size: 14px; margin: 0;">Chưa có lịch sử hóa đơn</p>
-                        <p style="font-size: 12px; margin-top: 4px;">Khách hàng chưa có hóa đơn nào trong 30 ngày qua</p>
+                    <div style="display: flex; flex-direction: column; height: 100%;">
+                        <div style="padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+                            <button onclick="window.chatProductManager.refreshInvoiceHistory()" style="
+                                padding: 6px 12px;
+                                background: #3b82f6;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 12px;
+                                font-weight: 600;
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                transition: background 0.2s;
+                            " onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                                <i class="fas fa-sync-alt"></i> Làm mới
+                            </button>
+                        </div>
+                        <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                            <i class="fas fa-file-invoice-dollar" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
+                            <p style="font-size: 14px; margin: 0;">Chưa có lịch sử hóa đơn</p>
+                            <p style="font-size: 12px; margin-top: 4px;">Khách hàng chưa có hóa đơn nào trong 30 ngày qua</p>
+                        </div>
                     </div>
                 `;
                 return;
             }
 
-            // Render table
-            const rows = invoices.map((inv, index) => {
+            // Render invoice cards with OrderLines
+            const invoiceCards = invoices.map((inv, index) => {
                 const date = inv.DateInvoice ? new Date(inv.DateInvoice).toLocaleDateString('vi-VN') : 'N/A';
                 const amount = (inv.AmountTotal || 0).toLocaleString('vi-VN');
                 const statusClass = inv.ShowState === 'Đã thanh toán' ? 'text-success' :
                     inv.ShowState === 'Đã hủy' ? 'text-danger' : 'text-warning';
+                const statusColor = inv.ShowState === 'Đã thanh toán' ? '#10b981' :
+                    inv.ShowState === 'Đã hủy' ? '#ef4444' : '#f59e0b';
 
                 // Link to invoice form
                 const invoiceLink = `https://tomato.tpos.vn/#/app/fastsaleorder/invoiceform1?id=${inv.Id}`;
 
+                // Render OrderLines (products)
+                let productsHtml = '';
+                if (inv.OrderLines && inv.OrderLines.length > 0) {
+                    const productRows = inv.OrderLines.map((line, idx) => {
+                        const productName = line.Product?.NameGet || line.ProductName || 'N/A';
+                        const quantity = line.ProductUOMQty || 0;
+                        const price = (line.PriceUnit || 0).toLocaleString('vi-VN');
+                        const total = (line.PriceTotal || 0).toLocaleString('vi-VN');
+                        const imageUrl = line.ProductImageUrl || line.Product?.ImageUrl;
+                        const note = line.Note ? `<div style="font-size: 10px; color: #6b7280; margin-top: 2px;">Ghi chú: ${line.Note}</div>` : '';
+
+                        return `
+                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                <td style="padding: 8px 4px; text-align: center; color: #94a3b8; font-size: 11px;">${idx + 1}</td>
+                                <td style="padding: 8px 4px;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        ${imageUrl ? `<img src="${imageUrl}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 32px; height: 32px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="font-size: 12px; color: #9ca3af;"></i></div>'}
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-size: 12px; font-weight: 500; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${productName}</div>
+                                            ${note}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="padding: 8px 4px; text-align: center; font-size: 12px; font-weight: 600; color: #1f2937;">${quantity}</td>
+                                <td style="padding: 8px 4px; text-align: right; font-size: 11px; color: #64748b;">${price}đ</td>
+                                <td style="padding: 8px 4px; text-align: right; font-size: 12px; font-weight: 600; color: #1f2937;">${total}đ</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    productsHtml = `
+                        <div id="invoice-products-${inv.Id}" style="display: none; padding: 12px; background: #f8fafc; border-top: 1px solid #e5e7eb;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead style="background: #e5e7eb;">
+                                    <tr>
+                                        <th style="padding: 6px 4px; text-align: center; color: #64748b; font-weight: 600; width: 30px; font-size: 11px;">#</th>
+                                        <th style="padding: 6px 4px; text-align: left; color: #64748b; font-weight: 600; font-size: 11px;">Sản phẩm</th>
+                                        <th style="padding: 6px 4px; text-align: center; color: #64748b; font-weight: 600; width: 50px; font-size: 11px;">SL</th>
+                                        <th style="padding: 6px 4px; text-align: right; color: #64748b; font-weight: 600; width: 80px; font-size: 11px;">Đơn giá</th>
+                                        <th style="padding: 6px 4px; text-align: right; color: #64748b; font-weight: 600; width: 90px; font-size: 11px;">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="background: white;">
+                                    ${productRows}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
                 return `
-                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td style="padding: 12px 8px; text-align: center; color: #64748b;">${index + 1}</td>
-                        <td style="padding: 12px 8px;">
-                            <a href="${invoiceLink}" target="_blank" style="font-weight: 600; color: #3b82f6; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                                ${inv.Number || 'N/A'}
-                                <i class="fas fa-external-link-alt" style="font-size: 10px;"></i>
-                            </a>
-                        </td>
-                        <td style="padding: 12px 8px; text-align: center;">${date}</td>
-                        <td style="padding: 12px 8px; text-align: right; font-weight: 600; color: #1f2937;">${amount}đ</td>
-                        <td style="padding: 12px 8px; text-align: center;">
-                            <span class="${statusClass}" style="font-size: 12px; font-weight: 500;">${inv.ShowState || 'N/A'}</span>
-                        </td>
-                    </tr>
+                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; background: white; overflow: hidden;">
+                        <div style="padding: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="window.chatProductManager.toggleInvoiceProducts('${inv.Id}')">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <a href="${invoiceLink}" target="_blank" style="font-weight: 600; color: #3b82f6; text-decoration: none; font-size: 14px;" onclick="event.stopPropagation()">
+                                        ${inv.Number || 'N/A'}
+                                    </a>
+                                    <span style="background: ${statusColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">${inv.ShowState || 'N/A'}</span>
+                                    ${inv.OrderLines && inv.OrderLines.length > 0 ? `<span style="background: #e5e7eb; color: #64748b; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">${inv.OrderLines.length} SP</span>` : ''}
+                                </div>
+                                <div style="display: flex; gap: 16px; font-size: 12px; color: #64748b;">
+                                    <span><i class="fas fa-calendar" style="margin-right: 4px;"></i>${date}</span>
+                                    <span style="font-weight: 600; color: #1f2937;"><i class="fas fa-money-bill-wave" style="margin-right: 4px;"></i>${amount}đ</span>
+                                </div>
+                            </div>
+                            ${inv.OrderLines && inv.OrderLines.length > 0 ? `
+                                <div>
+                                    <i id="invoice-toggle-icon-${inv.Id}" class="fas fa-chevron-down" style="color: #94a3b8; transition: transform 0.2s;"></i>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${productsHtml}
+                    </div>
                 `;
             }).join('');
 
             container.innerHTML = `
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                    <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0;">
-                        <tr>
-                            <th style="padding: 10px 8px; text-align: center; color: #64748b; font-weight: 600; width: 40px;">#</th>
-                            <th style="padding: 10px 8px; text-align: left; color: #64748b; font-weight: 600;">Số hóa đơn</th>
-                            <th style="padding: 10px 8px; text-align: center; color: #64748b; font-weight: 600; width: 100px;">Ngày</th>
-                            <th style="padding: 10px 8px; text-align: right; color: #64748b; font-weight: 600; width: 120px;">Tổng tiền</th>
-                            <th style="padding: 10px 8px; text-align: center; color: #64748b; font-weight: 600; width: 120px;">Trạng thái</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
+                <div style="display: flex; flex-direction: column; height: 100%;">
+                    <div style="padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: white;">
+                        <div style="font-size: 13px; color: #64748b;">
+                            <i class="fas fa-receipt" style="margin-right: 6px;"></i>
+                            Tìm thấy <strong style="color: #1f2937;">${invoices.length}</strong> hóa đơn
+                        </div>
+                        <button onclick="window.chatProductManager.refreshInvoiceHistory()" style="
+                            padding: 6px 12px;
+                            background: #3b82f6;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 12px;
+                            font-weight: 600;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            transition: background 0.2s;
+                        " onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                            <i class="fas fa-sync-alt"></i> Làm mới
+                        </button>
+                    </div>
+                    <div style="flex: 1; overflow-y: auto; padding: 12px;">
+                        ${invoiceCards}
+                    </div>
+                </div>
             `;
 
         } catch (error) {
@@ -825,7 +921,32 @@ class ChatProductManager {
         }
     }
 
-    async fetchInvoiceHistory(partnerId) {
+    toggleInvoiceProducts(invoiceId) {
+        const productsContainer = document.getElementById(`invoice-products-${invoiceId}`);
+        const toggleIcon = document.getElementById(`invoice-toggle-icon-${invoiceId}`);
+
+        if (productsContainer && toggleIcon) {
+            const isVisible = productsContainer.style.display !== 'none';
+            productsContainer.style.display = isVisible ? 'none' : 'block';
+            toggleIcon.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+    }
+
+    async refreshInvoiceHistory() {
+        console.log('[CHAT-INVOICE] Refreshing invoice history...');
+        await this.renderInvoiceHistory(true);
+    }
+
+    async fetchInvoiceHistory(partnerId, forceRefresh = false) {
+        // Check cache first (cache expires after 5 minutes)
+        const now = Date.now();
+        const cacheExpiry = 5 * 60 * 1000; // 5 minutes
+
+        if (!forceRefresh && this.invoiceCacheTimestamp && (now - this.invoiceCacheTimestamp < cacheExpiry)) {
+            console.log('[CHAT-INVOICE] Using cached invoice data');
+            return Array.from(this.invoiceCache.values());
+        }
+
         // Calculate date range (last 30 days)
         const endDate = new Date();
         const startDate = new Date();
@@ -851,11 +972,71 @@ class ChatProductManager {
             }
 
             const data = await response.json();
-            return data.value || [];
+            const invoices = data.value || [];
+
+            console.log(`[CHAT-INVOICE] Fetched ${invoices.length} invoices, now fetching details...`);
+
+            // Clear old cache
+            this.invoiceCache.clear();
+
+            // Fetch details for each invoice (with OrderLines)
+            const detailedInvoices = [];
+            for (const invoice of invoices) {
+                try {
+                    const details = await this.fetchInvoiceDetails(invoice.Id);
+                    if (details) {
+                        this.invoiceCache.set(invoice.Id, details);
+                        detailedInvoices.push(details);
+                    }
+                } catch (error) {
+                    console.error(`[CHAT-INVOICE] Error fetching details for invoice ${invoice.Id}:`, error);
+                    // Still add basic invoice without details
+                    this.invoiceCache.set(invoice.Id, invoice);
+                    detailedInvoices.push(invoice);
+                }
+            }
+
+            // Update cache timestamp
+            this.invoiceCacheTimestamp = now;
+
+            console.log(`[CHAT-INVOICE] Cached ${detailedInvoices.length} invoices with details`);
+            return detailedInvoices;
         } catch (error) {
             console.error('[CHAT-INVOICE] API Error:', error);
             throw error;
         }
+    }
+
+    async fetchInvoiceDetails(invoiceId) {
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder(${invoiceId})?$expand=OrderLines($expand=Product,ProductUOM,User)`;
+
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const response = await API_CONFIG.smartFetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log(`[CHAT-INVOICE] Fetched details for invoice ${invoiceId} with ${data.OrderLines?.length || 0} products`);
+            return data;
+        } catch (error) {
+            console.error(`[CHAT-INVOICE] Error fetching invoice ${invoiceId} details:`, error);
+            throw error;
+        }
+    }
+
+    clearInvoiceCache() {
+        this.invoiceCache.clear();
+        this.invoiceCacheTimestamp = null;
+        console.log('[CHAT-INVOICE] Cache cleared');
     }
 
     setupEventListeners() {
