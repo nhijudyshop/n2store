@@ -14,7 +14,7 @@
         /**
          * Initialize popup styles
          */
-        injectStyles: function() {
+        injectStyles: function () {
             if (document.getElementById('custom-popup-styles')) return;
 
             const styles = document.createElement('style');
@@ -185,7 +185,7 @@
         /**
          * Create popup element
          */
-        createPopup: function(config) {
+        createPopup: function (config) {
             const {
                 type = 'alert',
                 title = 'Thông báo',
@@ -227,7 +227,7 @@
         /**
          * Show popup and return promise
          */
-        show: function(config) {
+        show: function (config) {
             this.injectStyles();
 
             return new Promise((resolve) => {
@@ -297,7 +297,7 @@
         /**
          * Show alert popup
          */
-        alert: function(message, title = 'Thông báo', type = 'alert') {
+        alert: function (message, title = 'Thông báo', type = 'alert') {
             const icons = {
                 alert: 'fa-info-circle',
                 error: 'fa-exclamation-circle',
@@ -317,7 +317,7 @@
         /**
          * Show confirm popup
          */
-        confirm: function(message, title = 'Xác nhận') {
+        confirm: function (message, title = 'Xác nhận') {
             return this.show({
                 type: 'confirm',
                 title: title,
@@ -331,7 +331,7 @@
         /**
          * Show prompt popup
          */
-        prompt: function(message, title = 'Nhập thông tin', placeholder = '', defaultValue = '') {
+        prompt: function (message, title = 'Nhập thông tin', placeholder = '', defaultValue = '') {
             return this.show({
                 type: 'confirm',
                 title: title,
@@ -348,21 +348,21 @@
         /**
          * Show error popup
          */
-        error: function(message, title = 'Lỗi') {
+        error: function (message, title = 'Lỗi') {
             return this.alert(message, title, 'error');
         },
 
         /**
          * Show success popup
          */
-        success: function(message, title = 'Thành công') {
+        success: function (message, title = 'Thành công') {
             return this.alert(message, title, 'success');
         },
 
         /**
          * Show warning popup
          */
-        warning: function(message, title = 'Cảnh báo') {
+        warning: function (message, title = 'Cảnh báo') {
             return this.alert(message, title, 'confirm');
         }
     };
@@ -947,6 +947,9 @@
 
     /**
      * Prepare payload for chat order update
+     * CRITICAL: Do NOT modify the structure of this payload without checking payload_chinh_xac.json
+     * The server expects Partner, User, CRMTeam, and specific product details (ProductCode, UOMName, etc.) to be present.
+     * Do NOT delete these fields.
      */
     function prepareChatOrderPayload(orderData) {
         // Clone data
@@ -958,12 +961,14 @@
         }
 
         // Clean top-level properties (remove navigation properties to avoid 400 Bad Request)
-        delete payload.Partner;
-        delete payload.User;
-        delete payload.CRMTeam;
-        delete payload.DeliveryInfo;
-        delete payload.ExtraAddress;
-        delete payload.Facebook_Configs;
+        // User requested to match "correct" payload which includes these.
+        // DO NOT DELETE Partner, User, CRMTeam unless confirmed broken
+        // delete payload.Partner;
+        // delete payload.User;
+        // delete payload.CRMTeam;
+        // delete payload.DeliveryInfo;
+        // delete payload.ExtraAddress;
+        // delete payload.Facebook_Configs;
 
         // Clean Details
         if (payload.Details && Array.isArray(payload.Details)) {
@@ -980,10 +985,11 @@
 
                 // Remove client-only properties
                 delete cleaned.IsHeld;
-                delete cleaned.ProductNameGet;
-                delete cleaned.UOMName;
-                delete cleaned.ImageUrl;
-                delete cleaned.ProductCode; // Usually read-only or not needed if ProductId is set
+                delete cleaned.IsFromDropped; // Remove IsFromDropped
+                // delete cleaned.ProductNameGet; // Keep
+                // delete cleaned.UOMName; // Keep
+                // delete cleaned.ImageUrl; // Keep
+                // delete cleaned.ProductCode; // Keep
                 delete cleaned.StockQty; // Remove stock quantity (client-only)
 
                 return cleaned;
