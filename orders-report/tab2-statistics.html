@@ -1,1487 +1,347 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Thống Kê KPI Bán Hàng - N2Shop</title>
-
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thống kê sản phẩm đang giữ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="tab1-orders.css">
+    <link rel="stylesheet" href="report-modern.css">
     <style>
-        :root {
-            --primary: #0d6efd;
-            --success: #198754;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --info: #0dcaf0;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f8f9fa;
-            font-size: 14px;
-        }
-
-        .main-container {
-            padding: 24px;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .header-card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .header-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: #212529;
-            margin-bottom: 8px;
-        }
-
-        .header-subtitle {
-            color: #6c757d;
-            font-size: 14px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-top: 20px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, var(--primary) 0%, #0a58ca 100%);
-            color: white;
+            background-color: #f8fafc;
             padding: 20px;
-            border-radius: 10px;
-            text-align: center;
         }
 
-        .stat-card.success {
-            background: linear-gradient(135deg, var(--success) 0%, #146c43 100%);
-        }
-
-        .stat-card.warning {
-            background: linear-gradient(135deg, var(--warning) 0%, #cc9a06 100%);
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            opacity: 0.9;
-        }
-
-        .filter-section {
+        .stats-card {
             background: white;
             border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .employee-input-container {
-            margin-bottom: 16px;
-            padding: 16px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid var(--primary);
-        }
-
-        .employee-input-label {
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #495057;
-        }
-
-        .employee-input-help {
-            font-size: 12px;
-            color: #6c757d;
-            margin-top: 4px;
-        }
-
-        .table-card {
-            background: white;
-            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             padding: 24px;
             margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
-        .table-title {
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stats-title {
             font-size: 18px;
             font-weight: 600;
-            color: #212529;
-            margin-bottom: 16px;
+            color: #1e293b;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .data-table {
-            width: 100%;
-            margin-top: 16px;
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
         }
 
-        .data-table thead th {
-            background: #f8f9fa;
-            color: #495057;
+        .table th {
+            background: #f1f5f9;
             font-weight: 600;
+            color: #475569;
             font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 12px;
-            border-bottom: 2px solid #dee2e6;
+            padding: 12px 16px;
         }
 
-        .data-table tbody td {
-            padding: 12px;
+        .table td {
+            padding: 12px 16px;
             vertical-align: middle;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .data-table tbody tr:hover {
-            background: #f8f9fa;
-        }
-
-        .badge-kpi {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 13px;
-        }
-
-        .badge-kpi.positive {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-
-        .badge-kpi.zero {
-            background: #e9ecef;
-            color: #6c757d;
-        }
-
-        /* Row watermark for edited notes */
-        .data-table tbody tr.note-edited {
-            background: #fff3cd !important;
-            border-left: 4px solid #ffc107;
-        }
-
-        .data-table tbody tr.note-edited:hover {
-            background: #ffecb5 !important;
-        }
-
-        .note-edited-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            background: #ffc107;
-            color: #000;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            margin-left: 8px;
-        }
-
-        .loading-spinner {
-            text-align: center;
-            padding: 60px 20px;
-        }
-
-        .loading-spinner .spinner-border {
-            width: 3rem;
-            height: 3rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6c757d;
-        }
-
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.5;
+            color: #334155;
+            font-size: 14px;
         }
 
         .total-row {
-            background: #f8f9fa !important;
-            font-weight: 700;
-            border-top: 2px solid #dee2e6 !important;
-        }
-
-        .employee-section {
-            margin-top: 32px;
-            padding-top: 32px;
-            border-top: 3px solid #e9ecef;
-        }
-
-        .employee-header {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            color: white;
-            padding: 16px 20px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .employee-name {
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .employee-total {
-            font-size: 24px;
-            font-weight: 700;
-        }
-
-        .stt-badge {
-            background: #e7f5ff;
-            color: #1971c2;
-            padding: 4px 10px;
-            border-radius: 4px;
+            background: #f8fafc;
             font-weight: 600;
+        }
+
+        .refresh-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
             font-size: 13px;
-            display: inline-block;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+
+        /* Clickable row */
+        .clickable-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .clickable-row:hover {
+            background-color: #f1f5f9;
         }
     </style>
 </head>
 
 <body>
-    <div class="main-container">
-        <!-- Header -->
-        <div class="header-card">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h1 class="header-title">
-                        <i class="fas fa-chart-line text-primary"></i>
-                        Thống Kê KPI Bán Hàng
-                    </h1>
-                    <p class="header-subtitle">
-                        Tính phí cho sản phẩm được thêm vào đơn hàng sau thời điểm upload thành công
-                    </p>
-                </div>
-                <button class="btn btn-primary" onclick="loadData()">
-                    <i class="fas fa-sync-alt"></i> Tải lại dữ liệu
-                </button>
+    <div class="stats-card">
+        <div class="stats-header">
+            <div class="stats-title">
+                <i class="fas fa-chart-bar" style="color: #3b82f6;"></i>
+                Thống kê sản phẩm đang giữ đã lưu vào đơn
             </div>
-
-            <!-- Stats Summary -->
-            <div class="stats-grid" id="statsGrid" style="display: none;">
-                <div class="stat-card">
-                    <div class="stat-value" id="statTotalOrders">0</div>
-                    <div class="stat-label">Tổng đơn hàng đã upload</div>
-                </div>
-                <div class="stat-card success">
-                    <div class="stat-value" id="statTotalNewProducts">0</div>
-                    <div class="stat-label">Tổng sản phẩm thêm mới</div>
-                </div>
-                <div class="stat-card warning">
-                    <div class="stat-value" id="statTotalKPI">0đ</div>
-                    <div class="stat-label">Tổng KPI (5,000đ/SP)</div>
-                </div>
-            </div>
+            <button class="refresh-btn" onclick="loadStats()">
+                <i class="fas fa-sync-alt"></i> Làm mới
+            </button>
         </div>
 
-        <!-- Employee Assignment Input -->
-        <div class="filter-section">
-            <div class="employee-input-container">
-                <label class="employee-input-label">
-                    <i class="fas fa-users"></i> Phân chia đơn hàng theo STT cho nhân viên:
-                </label>
-                <div class="input-group">
-                    <input type="text" class="form-control" id="employeeRangeInput"
-                        placeholder="Ví dụ: 1-200 Huyền, 201-400 Hạnh, 401-600 Bo" />
-                    <button class="btn btn-primary" onclick="applyEmployeeRanges()">
-                        <i class="fas fa-check"></i> Áp dụng
-                    </button>
-                </div>
-                <div class="employee-input-help">
-                    <i class="fas fa-info-circle"></i>
-                    Nhập khoảng STT và tên nhân viên, cách nhau bằng dấu phẩy. Dữ liệu sẽ được lưu tự động.
-                </div>
-            </div>
-
-            <!-- Filters -->
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label small">
-                        <i class="fas fa-user"></i> Lọc theo nhân viên:
-                    </label>
-                    <select class="form-select" id="employeeFilter" onchange="applyFilters()">
-                        <option value="all">Tất cả nhân viên</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small">
-                        <i class="fas fa-filter"></i> Lọc theo trạng thái:
-                    </label>
-                    <select class="form-select" id="statusFilter" onchange="applyFilters()">
-                        <option value="all">Tất cả</option>
-                        <option value="has_new">Có sản phẩm mới</option>
-                        <option value="no_new">Không có sản phẩm mới</option>
-                        <option value="note_edited">✏️ Đã chỉnh sửa ghi chú</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small">
-                        <i class="fas fa-search"></i> Tìm kiếm:
-                    </label>
-                    <input type="text" class="form-control" id="searchInput"
-                        placeholder="Tìm theo STT, tên khách hàng, số điện thoại, ghi chú..."
-                        oninput="applyFilters()" />
-                </div>
-            </div>
-        </div>
-
-        <!-- Loading State -->
-        <div id="loadingState" class="table-card">
-            <div class="loading-spinner">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Đang tải...</span>
-                </div>
-                <p class="mt-3">Đang tải dữ liệu từ Firebase...</p>
-            </div>
-        </div>
-
-        <!-- Empty State -->
-        <div id="emptyState" class="table-card" style="display: none;">
-            <div class="empty-state">
-                <i class="fas fa-inbox"></i>
-                <h5>Chưa có dữ liệu</h5>
-                <p>Vui lòng upload đơn hàng ở tab "Upload TPOS" để có dữ liệu thống kê</p>
-            </div>
-        </div>
-
-        <!-- Data Container -->
-        <div id="dataContainer" style="display: none;">
-            <!-- Will be populated dynamically -->
+        <div class="table-container">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 60px; text-align: center;">STT</th>
+                        <th>Tên người dùng</th>
+                        <th style="text-align: center;">Tổng số lượng</th>
+                        <th style="text-align: right;">Tổng tiền (5.000đ/sp)</th>
+                    </tr>
+                </thead>
+                <tbody id="statsTableBody">
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot id="statsTableFooter" style="display: none;">
+                    <tr class="total-row">
+                        <td colspan="2" style="text-align: right;">Tổng cộng:</td>
+                        <td style="text-align: center;" id="grandTotalQty">0</td>
+                        <td style="text-align: right; color: #3b82f6;" id="grandTotalAmount">0đ</td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
     </div>
 
-    <!-- Product Detail Modal -->
-    <div class="modal fade" id="productDetailModal" tabindex="-1">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <!-- Details Modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-boxes"></i> Chi Tiết Sản Phẩm
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title">Chi tiết sản phẩm - <span id="modalUserName"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" id="productDetailModalBody">
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Đang tải...</span>
-                        </div>
-                        <p class="mt-3">Đang tải chi tiết sản phẩm...</p>
-                    </div>
+                <div class="modal-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead style="position: sticky; top: 0; background: white; z-index: 1;">
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Thời gian</th>
+                                <th>STT Đơn</th>
+                                <th>Sản phẩm</th>
+                                <th style="text-align: center;">SL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailsTableBody">
+                            <!-- Details will be loaded here -->
+                        </tbody>
+                    </table>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times"></i> Đóng
-                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Auth & Config -->
-    <script src="api-config.js"></script>
+    <!-- Config & Auth -->
+    <script src="config.js"></script>
     <script src="auth.js"></script>
-    <script src="token-manager.js"></script>
-    <script src="decoding-utility.js"></script>
 
     <script>
-        // =====================================================
-        // FIREBASE CONFIGURATION
-        // =====================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-            authDomain: "n2shop-69e37.firebaseapp.com",
-            databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "n2shop-69e37",
-            storageBucket: "n2shop-69e37-ne0q1",
-            messagingSenderId: "598906493303",
-            appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-            measurementId: "G-TEJH3S2T1D"
-        };
-
         // Initialize Firebase
-        let database = null;
-
-        try {
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-                console.log('[KPI-STATS] Firebase initialized successfully');
-            }
-            database = firebase.database();
-            console.log('[KPI-STATS] Database reference created');
-        } catch (error) {
-            console.error('[KPI-STATS] Firebase initialization error:', error);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
         }
 
-        // =====================================================
-        // GLOBAL STATE
-        // =====================================================
-        let uploadHistory = []; // All upload history records
-        let currentOrders = []; // Current orders from Tab 1
-        let employeeRanges = []; // Employee STT ranges
-        let kpiData = []; // Calculated KPI data
-        let filteredKpiData = []; // Filtered KPI data
+        let allStatsData = {}; // Store raw data for modal
 
-        // KPI Configuration - Easy to modify
-        const KPI_CONFIG = {
-            PRICE_PER_NEW_PRODUCT: 5000, // VNĐ per new product added after upload
-            DESCRIPTION: 'Phí cho sản phẩm được thêm vào đơn hàng SAU khi upload thành công lần đầu'
-        };
-
-        // =====================================================
-        // INITIALIZATION
-        // =====================================================
-        window.addEventListener('DOMContentLoaded', function () {
-            console.log('[KPI-STATS] Initializing...');
-
-            // Check if Firebase is ready
-            if (!database) {
-                console.error('[KPI-STATS] Database not initialized!');
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('emptyState').style.display = 'block';
-                document.getElementById('emptyState').querySelector('h5').textContent = 'Lỗi kết nối Firebase';
-                document.getElementById('emptyState').querySelector('p').textContent = 'Không thể kết nối đến cơ sở dữ liệu. Vui lòng thử lại sau.';
-                return;
-            }
-
-            // Load saved employee ranges
-            loadEmployeeRanges();
-
-            // Load data
-            loadData();
+        document.addEventListener('DOMContentLoaded', function () {
+            loadStats();
         });
 
-        // =====================================================
-        // UTILITY FUNCTIONS
-        // =====================================================
-        /**
-         * Count lines in note (each line = 1 product for reference)
-         * This is for display/comparison only, NOT for KPI calculation
-         */
-        function countNoteLines(note) {
-            if (!note || !note.trim()) return 0;
-            // Split by newline and filter out empty lines
-            const lines = note.split('\n').filter(line => line.trim().length > 0);
-            return lines.length;
-        }
+        function loadStats() {
+            const tbody = document.getElementById('statsTableBody');
+            const tfoot = document.getElementById('statsTableFooter');
 
-        // =====================================================
-        // NOTE EDIT DETECTION VIA FIREBASE SNAPSHOTS
-        // =====================================================
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
+                    </td>
+                </tr>
+            `;
 
-        // Shared Firebase snapshots cache
-        let noteSnapshotsCache = null;
+            const ref = firebase.database().ref('held_product_stats');
 
-        /**
-         * Load all note snapshots from Firebase (shared with tab1)
-         * @returns {Promise<Object>} - Map of orderId -> snapshot data
-         */
-        async function loadNoteSnapshots() {
-            // Return cached if available
-            if (noteSnapshotsCache) {
-                console.log('[KPI-STATS] Using cached note snapshots');
-                return noteSnapshotsCache;
-            }
+            ref.once('value').then((snapshot) => {
+                const data = snapshot.val();
 
-            try {
-                console.log('[KPI-STATS] Loading note snapshots from Firebase...');
-                const snapshot = await database.ref('order_notes_snapshot').once('value');
-                const data = snapshot.val() || {};
-
-                // Clean up expired snapshots (older than 30 days)
-                const now = Date.now();
-                const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
-                const cleanedData = {};
-                let expiredCount = 0;
-
-                Object.keys(data).forEach(orderId => {
-                    const snapshot = data[orderId];
-                    if (snapshot.timestamp && snapshot.timestamp > thirtyDaysAgo) {
-                        cleanedData[orderId] = snapshot;
-                    } else {
-                        expiredCount++;
-                    }
-                });
-
-                noteSnapshotsCache = cleanedData;
-                console.log(`[KPI-STATS] Loaded ${Object.keys(cleanedData).length} snapshots, ${expiredCount} expired`);
-                return cleanedData;
-            } catch (error) {
-                console.error('[KPI-STATS] Error loading snapshots:', error);
-                return {};
-            }
-        }
-
-        /**
-         * Check if note has been edited by comparing with snapshot
-         * Tab2 ONLY reads snapshots (tab1 is responsible for saving)
-         * @param {string} orderId - Order ID
-         * @param {string} currentNote - Current note text
-         * @param {Object} snapshots - Firebase snapshots (saved by tab1)
-         * @returns {boolean} - True if note was edited
-         */
-        function checkNoteEdited(orderId, currentNote, snapshots) {
-            const snapshot = snapshots[orderId];
-
-            if (!snapshot) {
-                // No snapshot yet = tab1 hasn't saved it yet, treat as not edited
-                return false;
-            }
-
-            // Compare current note with saved snapshot
-            const savedNote = (snapshot.note || '').trim();
-            const trimmedCurrentNote = (currentNote || '').trim();
-
-            return trimmedCurrentNote !== savedNote;
-        }
-
-        // Tab2 does NOT save snapshots - tab1 is responsible for that!
-        // We only READ snapshots and compare
-
-        // =====================================================
-        // EMPLOYEE RANGE MANAGEMENT
-        // =====================================================
-        function loadEmployeeRanges() {
-            const saved = localStorage.getItem('kpi_employee_ranges');
-            if (saved) {
-                try {
-                    employeeRanges = JSON.parse(saved);
-                    document.getElementById('employeeRangeInput').value = formatEmployeeRanges(employeeRanges);
-                    populateEmployeeFilter();
-                    console.log('[KPI-STATS] Loaded employee ranges:', employeeRanges);
-                } catch (e) {
-                    console.error('[KPI-STATS] Error loading employee ranges:', e);
-                }
-            }
-        }
-
-        function formatEmployeeRanges(ranges) {
-            return ranges.map(r => `${r.start}-${r.end} ${r.name}`).join(', ');
-        }
-
-        function parseEmployeeRanges(input) {
-            if (!input || !input.trim()) return [];
-
-            const ranges = [];
-            const parts = input.split(',');
-
-            parts.forEach(part => {
-                part = part.trim();
-                // Format: "1-200 Huyền" or "201-400 Hạnh"
-                const match = part.match(/(\d+)\s*-\s*(\d+)\s+(.+)/);
-                if (match) {
-                    ranges.push({
-                        start: parseInt(match[1]),
-                        end: parseInt(match[2]),
-                        name: match[3].trim()
-                    });
-                }
-            });
-
-            return ranges;
-        }
-
-        function applyEmployeeRanges() {
-            const input = document.getElementById('employeeRangeInput').value;
-            const ranges = parseEmployeeRanges(input);
-
-            if (ranges.length === 0) {
-                alert('Vui lòng nhập đúng định dạng: 1-200 Huyền, 201-400 Hạnh');
-                return;
-            }
-
-            employeeRanges = ranges;
-            localStorage.setItem('kpi_employee_ranges', JSON.stringify(ranges));
-
-            populateEmployeeFilter();
-            calculateKPI();
-            renderData();
-
-            const names = ranges.map(r => r.name).join(', ');
-            alert(`✅ Đã lưu phân chia cho: ${names}`);
-        }
-
-        function populateEmployeeFilter() {
-            const select = document.getElementById('employeeFilter');
-            const currentValue = select.value;
-
-            select.innerHTML = '<option value="all">Tất cả nhân viên</option>';
-
-            employeeRanges.forEach(range => {
-                const option = document.createElement('option');
-                option.value = range.name;
-                option.textContent = `${range.name} (STT ${range.start}-${range.end})`;
-                select.appendChild(option);
-            });
-
-            // Restore selection
-            const names = employeeRanges.map(r => r.name);
-            if (names.includes(currentValue)) {
-                select.value = currentValue;
-            }
-        }
-
-        function getEmployeeName(stt) {
-            if (!stt || employeeRanges.length === 0) return null;
-
-            const sttNum = parseInt(stt);
-            if (isNaN(sttNum)) return null;
-
-            for (const range of employeeRanges) {
-                if (sttNum >= range.start && sttNum <= range.end) {
-                    return range.name;
-                }
-            }
-
-            return null;
-        }
-
-        // =====================================================
-        // DATA LOADING
-        // =====================================================
-        async function loadData() {
-            console.log('[KPI-STATS] Loading data...');
-
-            document.getElementById('loadingState').style.display = 'block';
-            document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('dataContainer').style.display = 'none';
-
-            try {
-                // Load upload history from Firebase
-                await loadUploadHistory();
-
-                // Load current orders from localStorage (from Tab 1)
-                loadCurrentOrders();
-
-                // Calculate KPI
-                calculateKPI();
-
-                // Render data
-                renderData();
-
-            } catch (error) {
-                console.error('[KPI-STATS] Error loading data:', error);
-                alert('Lỗi khi tải dữ liệu: ' + error.message);
-            }
-        }
-
-        async function loadUploadHistory() {
-            console.log('[KPI-STATS] Loading upload history from Firebase...');
-
-            const snapshot = await database.ref('productAssignments_history')
-                .orderByChild('timestamp')
-                .limitToLast(200)
-                .once('value');
-
-            const data = snapshot.val();
-
-            if (!data) {
-                uploadHistory = [];
-                console.log('[KPI-STATS] No upload history found');
-                return;
-            }
-
-            // Convert to array and filter only successful uploads
-            uploadHistory = Object.values(data).filter(record => {
-                return record.uploadStatus === 'completed' ||
-                    record.uploadStatus === 'partial' ||
-                    record.uploadStatus === 'deletion_failed';
-            });
-
-            console.log('[KPI-STATS] Loaded upload history:', uploadHistory.length, 'records');
-        }
-
-        function loadCurrentOrders() {
-            console.log('[KPI-STATS] Loading current orders from localStorage...');
-
-            const stored = localStorage.getItem('tab1_filter_data');
-            if (stored) {
-                try {
-                    const filterData = JSON.parse(stored);
-                    currentOrders = filterData.data || [];
-                    console.log('[KPI-STATS] Loaded current orders:', currentOrders.length);
-                } catch (e) {
-                    console.error('[KPI-STATS] Error parsing stored orders:', e);
-                    currentOrders = [];
-                }
-            } else {
-                currentOrders = [];
-                console.log('[KPI-STATS] No current orders in localStorage');
-            }
-        }
-
-        // =====================================================
-        // KPI CALCULATION LOGIC
-        // =====================================================
-        /**
-         * Calculate KPI for each uploaded order
-         *
-         * Logic:
-         * 1. For each upload history record, get the list of uploaded STTs
-         * 2. For each STT, find the upload results (which contains products at upload time)
-         * 3. Find the current order data for that STT
-         * 4. Compare product count: current - uploaded = new products added
-         * 5. Calculate KPI: new products × 5000 VNĐ
-         *
-         * NOTE: This logic can be easily modified by changing KPI_CONFIG above
-         */
-        function calculateKPI() {
-            console.log('[KPI-STATS] Calculating KPI...');
-
-            kpiData = [];
-
-            // Group upload history by STT (keep only the FIRST upload for each STT)
-            const firstUploadBySTT = {};
-
-            // Sort by timestamp ascending to get first upload
-            const sortedHistory = [...uploadHistory].sort((a, b) => a.timestamp - b.timestamp);
-
-            sortedHistory.forEach(record => {
-                if (!record.uploadResults) return;
-
-                record.uploadResults.forEach(result => {
-                    const stt = String(result.stt);
-
-                    // Only keep the first upload for each STT
-                    if (!firstUploadBySTT[stt]) {
-                        firstUploadBySTT[stt] = {
-                            uploadId: record.uploadId,
-                            timestamp: record.timestamp,
-                            orderId: result.orderId,
-                            productsAtUpload: (result.existingProducts || []).length,
-                            success: result.success
-                        };
-                    }
-                });
-            });
-
-            console.log('[KPI-STATS] First uploads by STT:', Object.keys(firstUploadBySTT).length);
-
-            // Now calculate KPI for each STT
-            Object.keys(firstUploadBySTT).forEach(stt => {
-                const uploadInfo = firstUploadBySTT[stt];
-
-                // Find current order
-                const currentOrder = currentOrders.find(order => String(order.SessionIndex) === stt);
-
-                if (!currentOrder) {
-                    // Order not found in current data (maybe filtered out or deleted)
+                if (!data) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>Chưa có dữ liệu
+                            </td>
+                        </tr>
+                    `;
+                    tfoot.style.display = 'none';
                     return;
                 }
 
-                // Calculate products count
-                const currentProductCount = currentOrder.TotalQuantity || 0;
-                const uploadedProductCount = uploadInfo.productsAtUpload;
-                const newProductsAdded = Math.max(0, currentProductCount - uploadedProductCount);
+                allStatsData = data; // Save for modal usage
 
-                // Calculate KPI fee
-                const kpiFee = newProductsAdded * KPI_CONFIG.PRICE_PER_NEW_PRODUCT;
+                // Aggregate data by user
+                const userStats = {};
 
-                // Get employee name
-                const employeeName = getEmployeeName(stt);
+                // Data structure: userId -> timestamp -> { userName, productCount, amount, ... }
+                Object.keys(data).forEach(userId => {
+                    const userRecords = data[userId];
+                    if (!userRecords) return;
 
-                // Count note lines (for reference, NOT for KPI)
-                const noteLineCount = countNoteLines(currentOrder.Note || '');
+                    Object.values(userRecords).forEach(record => {
+                        if (!userStats[userId]) {
+                            userStats[userId] = {
+                                name: record.userName || 'Unknown',
+                                totalQty: 0,
+                                totalAmount: 0,
+                                id: userId // Store ID for click handler
+                            };
+                        }
 
-                kpiData.push({
-                    stt: stt,
-                    orderId: uploadInfo.orderId,
-                    uploadId: uploadInfo.uploadId,
-                    uploadTime: uploadInfo.timestamp,
-                    uploadTimeFormatted: new Date(uploadInfo.timestamp).toLocaleString('vi-VN'),
-                    customerName: currentOrder.Name || '-',
-                    customerPhone: currentOrder.Telephone || '-',
-                    customerNote: currentOrder.Note || '',
-                    noteLineCount: noteLineCount, // For display/comparison only
-                    noteEdited: false, // Will be checked asynchronously
-                    productsAtUpload: uploadedProductCount,
-                    productsNow: currentProductCount,
-                    newProductsAdded: newProductsAdded,
-                    kpiFee: kpiFee,
-                    employeeName: employeeName
+                        // Use stored amount or calculate 5000 * qty
+                        const qty = parseInt(record.productCount) || 0;
+                        const amount = record.amount || (qty * 5000);
+
+                        userStats[userId].totalQty += qty;
+                        userStats[userId].totalAmount += amount;
+
+                        // Update name if better one found (optional)
+                        if (record.userName && record.userName !== 'Unknown') {
+                            userStats[userId].name = record.userName;
+                        }
+                    });
                 });
-            });
 
-            // Sort by KPI fee descending
-            kpiData.sort((a, b) => b.kpiFee - a.kpiFee);
+                // Render table
+                let html = '';
+                let grandTotalQty = 0;
+                let grandTotalAmount = 0;
+                let stt = 1;
 
-            console.log('[KPI-STATS] KPI data calculated:', kpiData.length, 'orders');
-
-            // Apply filters first (show data immediately)
-            applyFilters();
-
-            // Load note edited status in background (don't block UI)
-            loadNoteEditedStatus();
-        }
-
-        /**
-         * Load note edited status for all orders using Firebase snapshots
-         * Tab2 ONLY reads snapshots (tab1 saves them on first view)
-         */
-        async function loadNoteEditedStatus() {
-            console.log('[KPI-STATS] Detecting edited notes using Firebase snapshots (read-only)...');
-
-            if (!kpiData || kpiData.length === 0) {
-                console.log('[KPI-STATS] No data to check');
-                return;
-            }
-
-            // Load all snapshots from Firebase (saved by tab1)
-            const snapshots = await loadNoteSnapshots();
-
-            // Check all orders by comparing with snapshots
-            let editedCount = 0;
-            let notInFirebaseCount = 0;
-
-            kpiData.forEach(item => {
-                // Check with snapshot (tab2 only reads, tab1 saves)
-                const edited = checkNoteEdited(item.orderId, item.customerNote, snapshots);
-                item.noteEdited = edited;
-
-                if (edited) {
-                    editedCount++;
-                    console.log(`[KPI-STATS] ✏️ Edited: STT ${item.stt}, "${snapshots[item.orderId]?.note}" → "${item.customerNote}"`);
-                } else if (!snapshots[item.orderId]) {
-                    notInFirebaseCount++;
-                }
-            });
-
-            // Final update
-            console.log(`[KPI-STATS] ✅ Found ${editedCount} edited notes out of ${kpiData.length} orders`);
-            if (notInFirebaseCount > 0) {
-                console.log(`[KPI-STATS] ℹ️ ${notInFirebaseCount} orders not in Firebase yet (will be saved by tab1 on first view)`);
-            }
-            renderData();
-        }
-
-        // =====================================================
-        // FILTERING & SEARCH
-        // =====================================================
-        function applyFilters() {
-            const employeeFilter = document.getElementById('employeeFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-            const searchText = document.getElementById('searchInput').value.toLowerCase().trim();
-
-            filteredKpiData = kpiData.filter(item => {
-                // Employee filter
-                if (employeeFilter !== 'all' && item.employeeName !== employeeFilter) {
-                    return false;
-                }
-
-                // Status filter
-                if (statusFilter === 'has_new' && item.newProductsAdded === 0) {
-                    return false;
-                }
-                if (statusFilter === 'no_new' && item.newProductsAdded > 0) {
-                    return false;
-                }
-                if (statusFilter === 'note_edited' && !item.noteEdited) {
-                    return false;
-                }
-
-                // Search filter with priority: STT → Phone → Name → Note
-                if (searchText) {
-                    const stt = String(item.stt || '').toLowerCase();
-                    const phone = (item.customerPhone || '').toLowerCase();
-                    const name = (item.customerName || '').toLowerCase();
-                    const note = (item.customerNote || '').toLowerCase();
-                    const employee = (item.employeeName || '').toLowerCase();
-
-                    // Check if search matches any field
-                    if (!stt.includes(searchText) &&
-                        !phone.includes(searchText) &&
-                        !name.includes(searchText) &&
-                        !note.includes(searchText) &&
-                        !employee.includes(searchText)) {
-                        return false;
-                    }
-                }
-
-                return true;
-            });
-
-            // Priority sorting: STT matches first, then phone, then name
-            if (searchText) {
-                filteredKpiData.sort((a, b) => {
-                    const searchLower = searchText.toLowerCase();
-                    const aStt = String(a.stt || '').toLowerCase();
-                    const bStt = String(b.stt || '').toLowerCase();
-                    const aPhone = (a.customerPhone || '').toLowerCase();
-                    const bPhone = (b.customerPhone || '').toLowerCase();
-                    const aName = (a.customerName || '').toLowerCase();
-                    const bName = (b.customerName || '').toLowerCase();
-
-                    // Priority 1: STT exact match
-                    const aSttMatch = aStt === searchLower;
-                    const bSttMatch = bStt === searchLower;
-                    if (aSttMatch && !bSttMatch) return -1;
-                    if (!aSttMatch && bSttMatch) return 1;
-
-                    // Priority 2: STT starts with
-                    const aSttStarts = aStt.startsWith(searchLower);
-                    const bSttStarts = bStt.startsWith(searchLower);
-                    if (aSttStarts && !bSttStarts) return -1;
-                    if (!aSttStarts && bSttStarts) return 1;
-
-                    // Priority 3: STT contains
-                    const aSttContains = aStt.includes(searchLower);
-                    const bSttContains = bStt.includes(searchLower);
-                    if (aSttContains && !bSttContains) return -1;
-                    if (!aSttContains && bSttContains) return 1;
-
-                    // Priority 4: Phone starts with
-                    const aPhoneStarts = aPhone.startsWith(searchLower);
-                    const bPhoneStarts = bPhone.startsWith(searchLower);
-                    if (aPhoneStarts && !bPhoneStarts) return -1;
-                    if (!aPhoneStarts && bPhoneStarts) return 1;
-
-                    // Priority 5: Phone contains
-                    const aPhoneContains = aPhone.includes(searchLower);
-                    const bPhoneContains = bPhone.includes(searchLower);
-                    if (aPhoneContains && !bPhoneContains) return -1;
-                    if (!aPhoneContains && bPhoneContains) return 1;
-
-                    // Priority 6: Name starts with
-                    const aNameStarts = aName.startsWith(searchLower);
-                    const bNameStarts = bName.startsWith(searchLower);
-                    if (aNameStarts && !bNameStarts) return -1;
-                    if (!aNameStarts && bNameStarts) return 1;
-
-                    // Priority 7: Name contains
-                    const aNameContains = aName.includes(searchLower);
-                    const bNameContains = bName.includes(searchLower);
-                    if (aNameContains && !bNameContains) return -1;
-                    if (!aNameContains && bNameContains) return 1;
-
-                    // Default: keep original order
-                    return 0;
-                });
-            }
-
-            renderData();
-        }
-
-        // =====================================================
-        // RENDERING
-        // =====================================================
-        function renderData() {
-            if (kpiData.length === 0) {
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('emptyState').style.display = 'block';
-                document.getElementById('dataContainer').style.display = 'none';
-                document.getElementById('statsGrid').style.display = 'none';
-                return;
-            }
-
-            document.getElementById('loadingState').style.display = 'none';
-            document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('dataContainer').style.display = 'block';
-            document.getElementById('statsGrid').style.display = 'grid';
-
-            // Update stats
-            updateStats();
-
-            // Render tables
-            renderTables();
-        }
-
-        function updateStats() {
-            const totalOrders = filteredKpiData.length;
-            const totalNewProducts = filteredKpiData.reduce((sum, item) => sum + item.newProductsAdded, 0);
-            const totalKPI = filteredKpiData.reduce((sum, item) => sum + item.kpiFee, 0);
-
-            document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
-            document.getElementById('statTotalNewProducts').textContent = totalNewProducts.toLocaleString('vi-VN');
-            document.getElementById('statTotalKPI').textContent = totalKPI.toLocaleString('vi-VN') + 'đ';
-        }
-
-        function renderTables() {
-            const container = document.getElementById('dataContainer');
-
-            // Group by employee
-            if (employeeRanges.length > 0) {
-                renderByEmployee(container);
-            } else {
-                renderAllData(container);
-            }
-        }
-
-        function renderAllData(container) {
-            const html = `
-                <div class="table-card">
-                    <h3 class="table-title">
-                        <i class="fas fa-table"></i>
-                        Danh Sách Đơn Hàng (${filteredKpiData.length})
-                    </h3>
-                    ${renderDataTable(filteredKpiData, true)}
-                </div>
-            `;
-
-            container.innerHTML = html;
-        }
-
-        function renderByEmployee(container) {
-            // Group data by employee
-            const dataByEmployee = {};
-
-            employeeRanges.forEach(range => {
-                dataByEmployee[range.name] = [];
-            });
-
-            // Add "other" category for orders without employee
-            dataByEmployee['Khác'] = [];
-
-            filteredKpiData.forEach(item => {
-                const employee = item.employeeName || 'Khác';
-                if (!dataByEmployee[employee]) {
-                    dataByEmployee[employee] = [];
-                }
-                dataByEmployee[employee].push(item);
-            });
-
-            // Render each employee section
-            let html = '';
-
-            // Sort employees by order in employeeRanges
-            const orderedEmployees = employeeRanges.map(r => r.name).filter(name => dataByEmployee[name].length > 0);
-
-            // Add "Khác" at the end if it has data
-            if (dataByEmployee['Khác'].length > 0) {
-                orderedEmployees.push('Khác');
-            }
-
-            orderedEmployees.forEach(employeeName => {
-                const data = dataByEmployee[employeeName];
-                const totalKPI = data.reduce((sum, item) => sum + item.kpiFee, 0);
-                const totalNewProducts = data.reduce((sum, item) => sum + item.newProductsAdded, 0);
-
-                html += `
-                    <div class="employee-section">
-                        <div class="employee-header">
-                            <div>
-                                <div class="employee-name">
-                                    <i class="fas fa-user-circle"></i> ${employeeName}
-                                </div>
-                                <div style="font-size: 13px; opacity: 0.9; margin-top: 4px;">
-                                    ${data.length} đơn hàng • ${totalNewProducts} sản phẩm thêm mới
-                                </div>
-                            </div>
-                            <div class="employee-total">
-                                ${totalKPI.toLocaleString('vi-VN')}đ
-                            </div>
-                        </div>
-                        ${renderDataTable(data, false)}
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-        }
-
-        function renderDataTable(data, showTotal) {
-            if (data.length === 0) {
-                return '<div class="empty-state"><p>Không có dữ liệu</p></div>';
-            }
-
-            const totalKPI = data.reduce((sum, item) => sum + item.kpiFee, 0);
-            const totalNewProducts = data.reduce((sum, item) => sum + item.newProductsAdded, 0);
-
-            let html = `
-                <table class="table data-table table-hover">
-                    <thead>
-                        <tr>
-                            <th style="width: 80px;">STT</th>
-                            <th style="width: 150px;">Khách hàng</th>
-                            <th style="width: 110px;">SĐT</th>
-                            <th style="width: 200px;">Ghi chú</th>
-                            <th style="width: 130px;">Thời gian upload</th>
-                            <th style="width: 90px; text-align: center;">SP lúc upload</th>
-                            <th style="width: 90px; text-align: center;">SP hiện tại</th>
-                            <th style="width: 90px; text-align: center;">SP thêm mới</th>
-                            <th style="width: 120px; text-align: right;">KPI (5,000đ/SP)</th>
-                            <th style="width: 110px; text-align: center;">Thao tác</th>
+                Object.values(userStats).forEach(stat => {
+                    html += `
+                        <tr class="clickable-row" onclick="showDetails('${stat.id}', '${stat.name.replace(/'/g, "\\'")}')">
+                            <td style="text-align: center;">${stt++}</td>
+                            <td style="font-weight: 500;">
+                                ${stat.name} <i class="fas fa-info-circle ms-2 text-muted" style="font-size: 12px;"></i>
+                            </td>
+                            <td style="text-align: center;">${stat.totalQty.toLocaleString('vi-VN')}</td>
+                            <td style="text-align: right; font-weight: 600;">${stat.totalAmount.toLocaleString('vi-VN')}đ</td>
                         </tr>
-                    </thead>
-                    <tbody>
-            `;
+                    `;
+                    grandTotalQty += stat.totalQty;
+                    grandTotalAmount += stat.totalAmount;
+                });
 
-            data.forEach(item => {
-                const badgeClass = item.newProductsAdded > 0 ? 'positive' : 'zero';
+                tbody.innerHTML = html;
 
-                // Format note with line count and edited indicator
-                let noteDisplay = '';
-                if (item.customerNote) {
-                    noteDisplay = window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(item.customerNote) : item.customerNote;
+                // Update footer
+                document.getElementById('grandTotalQty').textContent = grandTotalQty.toLocaleString('vi-VN');
+                document.getElementById('grandTotalAmount').textContent = grandTotalAmount.toLocaleString('vi-VN') + 'đ';
+                tfoot.style.display = 'table-footer-group';
 
-                    if (item.noteLineCount > 0) {
-                        noteDisplay += `<br><small class="text-muted">📝 ${item.noteLineCount} dòng (≈ ${item.noteLineCount} sản phẩm)</small>`;
-                    }
-                    // Add edited indicator if note was edited
-                    if (item.noteEdited) {
-                        noteDisplay += `<br><small class="text-primary">✏️ Đã chỉnh sửa</small>`;
-                    }
-                }
-
-                // Add watermark class for edited notes
-                const rowClass = item.noteEdited ? 'note-edited' : '';
-
-                html += `
-                    <tr class="${rowClass}">
-                        <td>
-                            <span class="stt-badge">${item.stt}</span>
-                            ${item.noteEdited ? '<span class="note-edited-badge">✏️ ĐÃ SỬA</span>' : ''}
-                        </td>
-                        <td>${item.customerName}</td>
-                        <td>${item.customerPhone}</td>
-                        <td style="max-width: 200px; white-space: pre-line; font-size: 13px; color: #495057;">${noteDisplay}</td>
-                        <td style="font-size: 12px; color: #6c757d;">${item.uploadTimeFormatted}</td>
-                        <td style="text-align: center;">${item.productsAtUpload}</td>
-                        <td style="text-align: center;">${item.productsNow}</td>
-                        <td style="text-align: center;">
-                            <span class="badge-kpi ${badgeClass}">${item.newProductsAdded}</span>
-                        </td>
-                        <td style="text-align: right; font-weight: 600; color: ${item.kpiFee > 0 ? '#198754' : '#6c757d'};">
-                            ${item.kpiFee.toLocaleString('vi-VN')}đ
-                        </td>
-                        <td style="text-align: center;">
-                            <button class="btn btn-sm btn-outline-primary" onclick="viewProductDetail('${item.stt}', '${item.uploadId}', '${item.orderId}')">
-                                <i class="fas fa-eye"></i> Chi tiết
-                            </button>
+            }).catch(error => {
+                console.error('Error loading stats:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 20px; color: #ef4444;">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải dữ liệu: ${error.message}
                         </td>
                     </tr>
                 `;
             });
-
-            if (showTotal) {
-                html += `
-                    <tr class="total-row">
-                        <td colspan="7" style="text-align: right;">TỔNG CỘNG:</td>
-                        <td style="text-align: center;">${totalNewProducts}</td>
-                        <td style="text-align: right; color: #198754; font-size: 16px;">
-                            ${totalKPI.toLocaleString('vi-VN')}đ
-                        </td>
-                        <td></td>
-                    </tr>
-                `;
-            }
-
-            html += `
-                    </tbody>
-                </table>
-            `;
-
-            return html;
         }
 
-        // =====================================================
-        // PRODUCT DETAIL VIEWER
-        // =====================================================
-        async function viewProductDetail(stt, uploadId, orderId) {
-            console.log('[KPI-STATS] Viewing product detail for STT:', stt, 'UploadId:', uploadId, 'OrderId:', orderId);
+        function showDetails(userId, userName) {
+            document.getElementById('modalUserName').textContent = userName;
+            const tbody = document.getElementById('detailsTableBody');
+            tbody.innerHTML = '';
 
-            // Open modal
-            const modal = new bootstrap.Modal(document.getElementById('productDetailModal'));
+            const userRecords = allStatsData[userId];
+            if (!userRecords) return;
+
+            // Convert to array and sort by timestamp desc
+            const records = Object.values(userRecords).sort((a, b) => b.timestamp - a.timestamp);
+
+            let html = '';
+            let index = 1;
+
+            records.forEach(record => {
+                const date = new Date(record.timestamp);
+                const timeStr = date.toLocaleString('vi-VN');
+                const sttDon = record.orderSTT || 'N/A';
+
+                // If products array exists, list them
+                let productDetails = '';
+                if (record.products && Array.isArray(record.products)) {
+                    productDetails = record.products.map(p =>
+                        `<div>• ${p.name} <span class="text-muted">x${p.quantity}</span></div>`
+                    ).join('');
+                } else {
+                    // Fallback for old data
+                    productDetails = `<span class="text-muted fst-italic">Không có chi tiết (${record.productCount} sp)</span>`;
+                }
+
+                html += `
+                    <tr>
+                        <td>${index++}</td>
+                        <td style="font-size: 13px;">${timeStr}</td>
+                        <td style="text-align: center; font-weight: 500;">${sttDon}</td>
+                        <td>${productDetails}</td>
+                        <td style="text-align: center;">${record.productCount}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+
+            const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
             modal.show();
-
-            // Show loading
-            const modalBody = document.getElementById('productDetailModalBody');
-            modalBody.innerHTML = `
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Đang tải...</span>
-                    </div>
-                    <p class="mt-3">Đang tải chi tiết sản phẩm...</p>
-                </div>
-            `;
-
-            try {
-                // 1. Load products at upload time from Firebase
-                console.log('[KPI-STATS] Loading upload history from Firebase...');
-                const uploadSnapshot = await database.ref(`productAssignments_history/${uploadId}`).once('value');
-                const uploadData = uploadSnapshot.val();
-
-                if (!uploadData) {
-                    throw new Error('Không tìm thấy lịch sử upload');
-                }
-
-                // Find products for this STT in upload results
-                const uploadResult = uploadData.uploadResults?.find(r => String(r.stt) === String(stt));
-                const productsAtUpload = uploadResult?.existingProducts || [];
-
-                console.log('[KPI-STATS] Products at upload:', productsAtUpload.length);
-
-                // 2. Load current products from API
-                console.log('[KPI-STATS] Loading current products from API...');
-                const headers = await window.tokenManager.getAuthHeader();
-                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`;
-
-                const response = await fetch(apiUrl, {
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
-                }
-
-                const orderData = await response.json();
-                const currentProducts = orderData.Details || [];
-
-                console.log('[KPI-STATS] Current products:', currentProducts.length);
-
-                // 3. Get note line count
-                const noteLineCount = countNoteLines(orderData.Note || '');
-
-                // 4. Compare products and render
-                renderProductComparison(modalBody, stt, productsAtUpload, currentProducts, uploadData.timestamp, noteLineCount);
-
-            } catch (error) {
-                console.error('[KPI-STATS] Error loading product detail:', error);
-                modalBody.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Lỗi:</strong> ${error.message}
-                    </div>
-                `;
-            }
         }
-
-        function renderProductComparison(container, stt, productsAtUpload, currentProducts, uploadTimestamp, noteLineCount) {
-            // Create a map of products at upload for quick lookup
-            const uploadProductMap = new Map();
-            productsAtUpload.forEach(p => {
-                const key = `${p.ProductId}_${p.ProductName}`;
-                uploadProductMap.set(key, {
-                    ...p,
-                    quantity: p.Quantity || 0
-                });
-            });
-
-            // Create a map of current products
-            const currentProductMap = new Map();
-            currentProducts.forEach(p => {
-                const key = `${p.ProductId}_${p.ProductName}`;
-                if (currentProductMap.has(key)) {
-                    const existing = currentProductMap.get(key);
-                    existing.quantity += (p.Quantity || 0);
-                } else {
-                    currentProductMap.set(key, {
-                        ProductId: p.ProductId,
-                        ProductName: p.ProductName,
-                        ProductCode: p.ProductCode,
-                        Price: p.Price,
-                        Quantity: p.Quantity || 0,
-                        quantity: p.Quantity || 0
-                    });
-                }
-            });
-
-            // Identify new products (products in current but not in upload, or increased quantity)
-            const newProducts = [];
-            const unchangedProducts = [];
-
-            currentProductMap.forEach((currentProd, key) => {
-                const uploadProd = uploadProductMap.get(key);
-
-                if (!uploadProd) {
-                    // Completely new product
-                    newProducts.push({
-                        ...currentProd,
-                        isNew: true,
-                        addedQuantity: currentProd.quantity
-                    });
-                } else if (currentProd.quantity > uploadProd.quantity) {
-                    // Increased quantity
-                    newProducts.push({
-                        ...currentProd,
-                        isNew: false,
-                        uploadQuantity: uploadProd.quantity,
-                        addedQuantity: currentProd.quantity - uploadProd.quantity
-                    });
-                } else {
-                    // Unchanged or decreased
-                    unchangedProducts.push({
-                        ...currentProd,
-                        uploadQuantity: uploadProd.quantity
-                    });
-                }
-            });
-
-            // Calculate total new products
-            const totalNewProducts = newProducts.reduce((sum, p) => sum + p.addedQuantity, 0);
-            const kpiFee = totalNewProducts * KPI_CONFIG.PRICE_PER_NEW_PRODUCT;
-
-            // Render HTML
-            let html = `
-                <div class="mb-4">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="alert alert-info mb-3">
-                                <h6 class="mb-2"><i class="fas fa-info-circle"></i> Thông tin</h6>
-                                <div><strong>STT:</strong> ${stt}</div>
-                                <div><strong>Thời gian upload:</strong> ${new Date(uploadTimestamp).toLocaleString('vi-VN')}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="alert alert-success mb-3">
-                                <h6 class="mb-2"><i class="fas fa-chart-line"></i> Thống kê</h6>
-                                <div><strong>Sản phẩm lúc upload:</strong> ${productsAtUpload.length} sản phẩm (${productsAtUpload.reduce((s, p) => s + (p.Quantity || 0), 0)} SP)</div>
-                                <div><strong>Sản phẩm hiện tại:</strong> ${currentProducts.length} dòng (${currentProducts.reduce((s, p) => s + (p.Quantity || 0), 0)} SP)</div>
-                                <div><strong>Ghi chú:</strong> <span class="badge bg-info">${noteLineCount} dòng (≈ ${noteLineCount} SP)</span> <small class="text-muted">(chỉ để tham khảo)</small></div>
-                                <div><strong>Sản phẩm thêm mới:</strong> <span class="badge bg-success">${totalNewProducts} SP</span></div>
-                                <div><strong>KPI:</strong> <span class="badge bg-warning text-dark">${kpiFee.toLocaleString('vi-VN')}đ</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <ul class="nav nav-tabs mb-3" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="new-products-tab" data-bs-toggle="tab" data-bs-target="#new-products" type="button">
-                            <i class="fas fa-plus-circle"></i> Sản phẩm thêm mới (${newProducts.length})
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="upload-products-tab" data-bs-toggle="tab" data-bs-target="#upload-products" type="button">
-                            <i class="fas fa-box"></i> Sản phẩm lúc upload (${productsAtUpload.length})
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="all-products-tab" data-bs-toggle="tab" data-bs-target="#all-products" type="button">
-                            <i class="fas fa-boxes"></i> Tất cả sản phẩm hiện tại (${currentProducts.length})
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="tab-content">
-                    <!-- New Products Tab -->
-                    <div class="tab-pane fade show active" id="new-products">
-                        ${renderProductTable(newProducts, 'new')}
-                    </div>
-
-                    <!-- Upload Products Tab -->
-                    <div class="tab-pane fade" id="upload-products">
-                        ${renderProductTable(productsAtUpload, 'upload')}
-                    </div>
-
-                    <!-- All Current Products Tab -->
-                    <div class="tab-pane fade" id="all-products">
-                        ${renderProductTable(currentProducts, 'current')}
-                    </div>
-                </div>
-            `;
-
-            container.innerHTML = html;
-        }
-
-        function renderProductTable(products, type) {
-            if (products.length === 0) {
-                return '<div class="alert alert-info">Không có sản phẩm</div>';
-            }
-
-            let html = `
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 50px;">#</th>
-                                <th style="width: 120px;">Mã SP</th>
-                                <th>Tên sản phẩm</th>
-                                <th style="width: 120px; text-align: right;">Đơn giá</th>
-            `;
-
-            if (type === 'new') {
-                html += `
-                                <th style="width: 100px; text-align: center;">SL lúc upload</th>
-                                <th style="width: 100px; text-align: center;">SL thêm mới</th>
-                                <th style="width: 120px; text-align: right;">KPI</th>
-                `;
-            } else {
-                html += `
-                                <th style="width: 100px; text-align: center;">Số lượng</th>
-                                <th style="width: 120px; text-align: right;">Thành tiền</th>
-                `;
-            }
-
-            html += `
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            products.forEach((product, index) => {
-                const quantity = product.Quantity || product.quantity || 0;
-                const price = product.Price || 0;
-                const total = quantity * price;
-
-                html += `<tr>`;
-                html += `<td>${index + 1}</td>`;
-                html += `<td>${product.ProductCode || '-'}</td>`;
-                html += `<td>${product.ProductName || '-'}</td>`;
-                html += `<td style="text-align: right;">${price.toLocaleString('vi-VN')}đ</td>`;
-
-                if (type === 'new') {
-                    const uploadQty = product.uploadQuantity || 0;
-                    const addedQty = product.addedQuantity || 0;
-                    const kpi = addedQty * KPI_CONFIG.PRICE_PER_NEW_PRODUCT;
-
-                    html += `<td style="text-align: center;">${uploadQty}</td>`;
-                    html += `<td style="text-align: center;"><span class="badge bg-success">${addedQty}</span></td>`;
-                    html += `<td style="text-align: right; font-weight: 600; color: #198754;">${kpi.toLocaleString('vi-VN')}đ</td>`;
-                } else {
-                    html += `<td style="text-align: center;">${quantity}</td>`;
-                    html += `<td style="text-align: right;">${total.toLocaleString('vi-VN')}đ</td>`;
-                }
-
-                html += `</tr>`;
-            });
-
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            return html;
-        }
-
-        // Make function globally accessible
-        window.viewProductDetail = viewProductDetail;
     </script>
 </body>
 

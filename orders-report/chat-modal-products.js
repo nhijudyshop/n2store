@@ -1461,6 +1461,37 @@
                 updateHeldStatus(heldProduct.ProductId, false);
             });
 
+            // SAVE STATS TO FIREBASE
+            try {
+                if (window.firebase && window.authManager) {
+                    const auth = window.authManager.getAuthState();
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+                    // Sanitize userId if needed or use displayName as fallback for ID if real ID missing
+                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+
+                    if (userId) {
+                        const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
+                        const totalHeldQty = heldProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+
+                        statsRef.set({
+                            userName: auth.displayName || auth.userType || 'Unknown',
+                            productCount: totalHeldQty,
+                            amount: totalHeldQty * 5000,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            orderId: window.currentChatOrderData.Id || 'unknown',
+                            orderSTT: window.currentChatOrderData.SessionIndex || '',
+                            products: heldProducts.map(p => ({
+                                name: p.ProductNameGet || p.ProductName || 'Unknown Product',
+                                quantity: p.Quantity || 0
+                            }))
+                        });
+                        console.log('[CHAT-PRODUCTS] Saved held product stats to Firebase');
+                    }
+                }
+            } catch (err) {
+                console.error('[CHAT-PRODUCTS] Error saving held stats:', err);
+            }
+
             // Update Details array
             window.currentChatOrderData.Details = newDetails;
         }

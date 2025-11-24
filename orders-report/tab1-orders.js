@@ -2071,10 +2071,10 @@ function renderMessagesColumn(order) {
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 
-    // If no message, show dash
-    if (!messageInfo.message && !messageInfo.hasUnread) {
-        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
-    }
+    // If no message, show dash but keep it clickable (via renderChatColumnWithData)
+    // if (!messageInfo.message && !messageInfo.hasUnread) {
+    //    return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
+    // }
 
     // Render with message data
     return renderChatColumnWithData(order, messageInfo, channelId, psid, 'messages');
@@ -2099,20 +2099,19 @@ function renderCommentsColumn(order) {
     const channelId = orderChatInfo.channelId;
     const psid = orderChatInfo.psid;
 
-    // If no comment, show dash
-    if (!commentInfo.message) {
-        return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
-    }
+    // If no comment, show dash but keep it clickable
+    // if (!commentInfo.message) {
+    //    return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
+    // }
 
     // Render with comment data
     return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
 }
 
 // Helper function to render chat column with data (for both messages and comments)
-// Helper function to render chat column with data (for both messages and comments)
 function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType = 'messages') {
     // Format message based on type
-    let displayMessage = 'Emoji hoặc ảnh';
+    let displayMessage = '−'; // Default to dash
     let messageIcon = '';
 
     if (chatInfo.attachments && chatInfo.attachments.length > 0) {
