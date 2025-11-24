@@ -1225,6 +1225,18 @@
         });
 
         if (heldProducts.length > 0) {
+            // Show confirmation dialog
+            const productList = heldProducts.map(p =>
+                `• ${p.ProductNameGet || p.ProductName} (SL: ${p.Quantity})`
+            ).join('\n');
+
+            const confirmMessage = `Bạn có chắc muốn lưu ${heldProducts.length} sản phẩm đang giữ vào đơn hàng?\n\n${productList}\n\nSản phẩm sẽ được thêm vào đơn hàng và không thể hoàn tác.`;
+
+            const confirmed = await CustomPopup.confirm(confirmMessage, 'Xác nhận lưu sản phẩm');
+            if (!confirmed) {
+                return;
+            }
+
             // VALIDATION: Check if total held quantity exceeds stock
             if (window.currentHeldStatus) {
                 for (const p of heldProducts) {
