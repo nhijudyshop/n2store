@@ -1732,6 +1732,53 @@
                 console.log('[KPI-FRAUD] Updated KPI quantities for', productsToUpdateHistory.length, 'products');
             }
 
+            // SAVE ORDER SNAPSHOT for statistics page
+            try {
+                if (window.firebase && window.authManager) {
+                    const auth = window.authManager.getAuthState();
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+
+                    if (userId && window.currentChatOrderData.Id) {
+                        const snapshotRef = firebase.database().ref(`order_snapshots/${window.currentChatOrderData.Id}`);
+
+                        // Extract invoice ID from chat modal if available
+                        let invoiceId = null;
+                        const invoiceContainer = document.getElementById('chatInvoiceHistoryContainer');
+                        if (invoiceContainer) {
+                            const firstLink = invoiceContainer.querySelector('a[href]');
+                            if (firstLink) {
+                                const href = firstLink.getAttribute('href');
+                                const match = href.match(/FastSaleOrder\((\d+)\)/);
+                                if (match) {
+                                    invoiceId = match[1];
+                                }
+                            }
+                        }
+
+                        // Save complete order snapshot
+                        await snapshotRef.set({
+                            orderId: window.currentChatOrderData.Id,
+                            orderSTT: window.currentChatOrderData.SessionIndex || '',
+                            products: newDetails.map(p => ({
+                                productId: p.ProductId,
+                                name: p.ProductNameGet || p.ProductName || 'Unknown Product',
+                                quantity: p.Quantity || 0,
+                                price: p.Price || 0
+                            })),
+                            userId: userId,
+                            userName: auth.displayName || auth.userType || 'Unknown',
+                            lastUpdated: firebase.database.ServerValue.TIMESTAMP,
+                            invoiceId: invoiceId
+                        });
+
+                        console.log('[ORDER-SNAPSHOT] Saved snapshot for order:', window.currentChatOrderData.Id, 'Invoice ID:', invoiceId);
+                    }
+                }
+            } catch (err) {
+                console.error('[ORDER-SNAPSHOT] Error saving order snapshot:', err);
+            }
+
             // Update Details array
             window.currentChatOrderData.Details = newDetails;
         }
