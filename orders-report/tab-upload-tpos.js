@@ -559,10 +559,24 @@ ${encodedString}
     // Render Table (grouped by SessionIndex)
     function renderTable() {
         const tbody = document.getElementById('productsTableBody');
+        const totalOrders = document.getElementById('totalOrders');
         const totalProducts = document.getElementById('totalProducts');
 
         const sessionIndexKeys = Object.keys(sessionIndexData);
-        totalProducts.textContent = sessionIndexKeys.length;
+        const uniqueProductCodes = new Set();
+
+        // Count unique product codes across all orders
+        Object.values(sessionIndexData).forEach(data => {
+            if (data && data.products) {
+                data.products.forEach(product => {
+                    const code = product.productCode || product.productName;
+                    uniqueProductCodes.add(code);
+                });
+            }
+        });
+
+        totalOrders.textContent = sessionIndexKeys.length;
+        totalProducts.textContent = uniqueProductCodes.size;
 
         if (sessionIndexKeys.length === 0) {
             tbody.innerHTML = `
@@ -659,6 +673,7 @@ ${encodedString}
     // Render Table by Product (grouped by product, showing which orders contain it)
     function renderTableByProduct() {
         const tbody = document.getElementById('productsTableBody');
+        const totalOrders = document.getElementById('totalOrders');
         const totalProducts = document.getElementById('totalProducts');
         const tableHead = document.querySelector('#productsTable thead tr');
 
@@ -705,6 +720,7 @@ ${encodedString}
         });
 
         const productKeys = Object.keys(productGroups);
+        totalOrders.textContent = Object.keys(sessionIndexData).length;
         totalProducts.textContent = productKeys.length;
 
         if (productKeys.length === 0) {
@@ -837,8 +853,24 @@ ${encodedString}
 
     // Update Total Count
     function updateTotalCount() {
+        const totalOrders = document.getElementById('totalOrders');
         const totalProducts = document.getElementById('totalProducts');
-        totalProducts.textContent = Object.keys(sessionIndexData).length;
+
+        const orderCount = Object.keys(sessionIndexData).length;
+        const uniqueProductCodes = new Set();
+
+        // Count unique product codes across all orders
+        Object.values(sessionIndexData).forEach(data => {
+            if (data && data.products) {
+                data.products.forEach(product => {
+                    const code = product.productCode || product.productName;
+                    uniqueProductCodes.add(code);
+                });
+            }
+        });
+
+        totalOrders.textContent = orderCount;
+        totalProducts.textContent = uniqueProductCodes.size;
     }
 
     // Update Selected Count
