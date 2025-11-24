@@ -403,6 +403,15 @@
         // Initialize search
         initChatInlineProductSearch();
 
+        // FRAUD PREVENTION: Track original product IDs to prevent delete-then-readd scoring
+        window.originalOrderProductIds = new Set();
+        if (window.currentChatOrderData.Details) {
+            window.currentChatOrderData.Details.forEach(p => {
+                if (p.ProductId) window.originalOrderProductIds.add(String(p.ProductId));
+            });
+        }
+        console.log('[KPI-FRAUD] Original products tracked:', window.originalOrderProductIds.size);
+
         // Update counts
         updateChatProductCounts();
     };
@@ -1471,21 +1480,35 @@
 
                     if (userId) {
                         const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
-                        const totalHeldQty = heldProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+
+                        // FRAUD PREVENTION: Only count products that were NOT in the original order
+                        const validProducts = heldProducts.filter(p => {
+                            const isOriginal = window.originalOrderProductIds && window.originalOrderProductIds.has(String(p.ProductId));
+                            if (isOriginal) {
+                                console.log(`[KPI-FRAUD] Product ${p.ProductId} excluded from score (was in original order)`);
+                            }
+                            return !isOriginal;
+                        });
+
+                        const validQty = validProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
 
                         statsRef.set({
                             userName: auth.displayName || auth.userType || 'Unknown',
-                            productCount: totalHeldQty,
-                            amount: totalHeldQty * 5000,
+                            productCount: validQty, // Only count valid quantity
+                            amount: validQty * 5000, // Only calculate amount for valid quantity
                             timestamp: firebase.database.ServerValue.TIMESTAMP,
                             orderId: window.currentChatOrderData.Id || 'unknown',
                             orderSTT: window.currentChatOrderData.SessionIndex || '',
-                            products: heldProducts.map(p => ({
-                                name: p.ProductNameGet || p.ProductName || 'Unknown Product',
-                                quantity: p.Quantity || 0
-                            }))
+                            products: heldProducts.map(p => {
+                                const isOriginal = window.originalOrderProductIds && window.originalOrderProductIds.has(String(p.ProductId));
+                                return {
+                                    name: p.ProductNameGet || p.ProductName || 'Unknown Product',
+                                    quantity: p.Quantity || 0,
+                                    isCounted: !isOriginal // Mark if it was counted
+                                };
+                            })
                         });
-                        console.log('[CHAT-PRODUCTS] Saved held product stats to Firebase');
+                        console.log(`[CHAT-PRODUCTS] Saved stats: ${validQty} valid items (Total held: ${heldProducts.length})`);
                     }
                 }
             } catch (err) {
