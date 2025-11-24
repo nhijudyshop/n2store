@@ -2685,10 +2685,14 @@ ${encodedString}
             console.log('[HISTORY] 💾 Saving upload history:', uploadId);
             console.log('[HISTORY] Status:', status);
 
+            // Get current user ID
+            const currentUserId = userStorageManager ? userStorageManager.getUserIdentifier() : null;
+
             // Build history record
             const historyRecord = {
                 uploadId: uploadId,
                 timestamp: Date.now(),
+                userId: currentUserId, // Save user who performed the upload
 
                 // Snapshots
                 beforeSnapshot: {
@@ -3001,11 +3005,8 @@ ${encodedString}
             // Populate user filter dropdown
             await populateUserFilter();
 
-            // Load history from Firebase
+            // Load history from Firebase (will auto-render via filterUploadHistory)
             await loadUploadHistory();
-
-            // Render history list
-            renderUploadHistoryList();
 
         } catch (error) {
             console.error('[HISTORY] ❌ Error opening history modal:', error);
@@ -3096,7 +3097,7 @@ ${encodedString}
                                 note: record.note || '',
                                 committedAt: record.committedAt || null,
                                 restoredAt: record.restoredAt || null,
-                                userId: userId // Add userId for tracking
+                                userId: record.userId || userId // Use record's userId or path userId
                             });
                         });
                     }
@@ -3116,7 +3117,7 @@ ${encodedString}
                         note: record.note || '',
                         committedAt: record.committedAt || null,
                         restoredAt: record.restoredAt || null,
-                        userId: selectedUser !== 'current' ? selectedUser : undefined // Add userId only for non-current user
+                        userId: record.userId || (selectedUser !== 'current' ? selectedUser : undefined) // Use record's userId first
                     };
                 });
             }
@@ -3133,6 +3134,9 @@ ${encodedString}
             filteredHistoryRecords = [...uploadHistoryRecords];
 
             console.log(`[HISTORY] ✅ Loaded ${uploadHistoryRecords.length} history records`);
+
+            // Re-apply filters and render
+            filterUploadHistory();
 
         } catch (error) {
             console.error('[HISTORY] ❌ Error loading history:', error);
