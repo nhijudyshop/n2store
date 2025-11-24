@@ -182,8 +182,18 @@
                     <!-- Nav tabs -->
                     <ul class="nav nav-tabs" id="orderDetailsTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" type="button" role="tab">
-                                <i class="fas fa-box"></i> Sản phẩm
+                            <button class="nav-link active" id="all-products-tab" data-bs-toggle="tab" data-bs-target="#all-products" type="button" role="tab">
+                                <i class="fas fa-box"></i> Tất cả SP
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="kpi-products-tab" data-bs-toggle="tab" data-bs-target="#kpi-products" type="button" role="tab">
+                                <i class="fas fa-star text-warning"></i> SP có KPI
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="non-kpi-products-tab" data-bs-toggle="tab" data-bs-target="#non-kpi-products" type="button" role="tab">
+                                <i class="fas fa-circle text-muted"></i> SP không KPI
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
@@ -195,8 +205,8 @@
 
                     <!-- Tab content -->
                     <div class="tab-content pt-3" id="orderDetailsTabContent">
-                        <!-- Products Tab -->
-                        <div class="tab-pane fade show active" id="products" role="tabpanel">
+                        <!-- All Products Tab -->
+                        <div class="tab-pane fade show active" id="all-products" role="tabpanel">
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
@@ -206,8 +216,43 @@
                                         <th style="text-align: right; width: 150px;">Giá</th>
                                     </tr>
                                 </thead>
-                                <tbody id="productsTableBody">
-                                    <!-- Products will be loaded here -->
+                                <tbody id="allProductsTableBody">
+                                    <!-- All products will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- KPI Products Tab -->
+                        <div class="tab-pane fade" id="kpi-products" role="tabpanel">
+                            <table class="table table-hover">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th>Tên sản phẩm</th>
+                                        <th style="text-align: center; width: 100px;">SL trong đơn</th>
+                                        <th style="text-align: center; width: 100px;">SL tính KPI</th>
+                                        <th style="text-align: right; width: 150px;">Giá trị KPI</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kpiProductsTableBody">
+                                    <!-- KPI products will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Non-KPI Products Tab -->
+                        <div class="tab-pane fade" id="non-kpi-products" role="tabpanel">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th>Tên sản phẩm</th>
+                                        <th style="text-align: center; width: 100px;">Số lượng</th>
+                                        <th>Lý do không tính KPI</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="nonKpiProductsTableBody">
+                                    <!-- Non-KPI products will be loaded here -->
                                 </tbody>
                             </table>
                         </div>
@@ -480,16 +525,43 @@
                 return;
             }
 
-            // Render products table
-            const productsBody = document.getElementById('productsTableBody');
-            let html = '';
-            let index = 1;
+            // Fetch KPI stats for this order from held_product_stats
+            let kpiProductsMap = new Map(); // productId -> kpi data
+
+            try {
+                const statsRef = firebase.database().ref('held_product_stats');
+                const statsSnapshot = await statsRef.once('value');
+                const allStats = statsSnapshot.val();
+
+                if (allStats) {
+                    // Search through all users' stats for this orderId
+                    Object.values(allStats).forEach(userStats => {
+                        Object.values(userStats).forEach(statRecord => {
+                            if (statRecord.orderId === orderId && statRecord.products) {
+                                // Found stats for this order
+                                statRecord.products.forEach(p => {
+                                    // Use product name as key since we might not have productId
+                                    const key = p.name || 'Unknown';
+                                    kpiProductsMap.set(key, p);
+                                });
+                            }
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading KPI stats:', error);
+            }
+
+            // Render ALL products table
+            const allProductsBody = document.getElementById('allProductsTableBody');
+            let allHtml = '';
+            let allIndex = 1;
 
             if (order.products && order.products.length > 0) {
                 order.products.forEach(p => {
-                    html += `
+                    allHtml += `
                         <tr>
-                            <td>${index++}</td>
+                            <td>${allIndex++}</td>
                             <td>${p.name || 'Unknown Product'}</td>
                             <td style="text-align: center;">${p.quantity || 0}</td>
                             <td style="text-align: right;">${(p.price || 0).toLocaleString('vi-VN')}đ</td>
@@ -497,7 +569,7 @@
                     `;
                 });
             } else {
-                html = `
+                allHtml = `
                     <tr>
                         <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-box-open mb-2"></i><br>Không có sản phẩm
@@ -505,8 +577,94 @@
                     </tr>
                 `;
             }
+            allProductsBody.innerHTML = allHtml;
 
-            productsBody.innerHTML = html;
+            // Render KPI products table
+            const kpiProductsBody = document.getElementById('kpiProductsTableBody');
+            let kpiHtml = '';
+            let kpiIndex = 1;
+            let hasKpiProducts = false;
+
+            if (order.products && order.products.length > 0) {
+                order.products.forEach(p => {
+                    const kpiData = kpiProductsMap.get(p.name);
+                    if (kpiData && kpiData.isCounted && kpiData.incrementalQty > 0) {
+                        hasKpiProducts = true;
+                        const kpiValue = kpiData.incrementalQty * 5000;
+                        kpiHtml += `
+                            <tr>
+                                <td>${kpiIndex++}</td>
+                                <td>${p.name || 'Unknown Product'}</td>
+                                <td style="text-align: center;">${kpiData.newQuantityInOrder || 0}</td>
+                                <td style="text-align: center; color: #059669; font-weight: 600;">${kpiData.incrementalQty}</td>
+                                <td style="text-align: right; color: #059669; font-weight: 600;">${kpiValue.toLocaleString('vi-VN')}đ</td>
+                            </tr>
+                        `;
+                    }
+                });
+            }
+
+            if (!hasKpiProducts) {
+                kpiHtml = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-info-circle mb-2"></i><br>Không có sản phẩm được tính KPI
+                        </td>
+                    </tr>
+                `;
+            }
+            kpiProductsBody.innerHTML = kpiHtml;
+
+            // Render NON-KPI products table
+            const nonKpiProductsBody = document.getElementById('nonKpiProductsTableBody');
+            let nonKpiHtml = '';
+            let nonKpiIndex = 1;
+            let hasNonKpiProducts = false;
+
+            if (order.products && order.products.length > 0) {
+                order.products.forEach(p => {
+                    const kpiData = kpiProductsMap.get(p.name);
+                    let reason = '';
+                    let isNonKpi = false;
+
+                    if (!kpiData) {
+                        // No KPI data found - likely wasn't in held products
+                        isNonKpi = true;
+                        reason = 'Sản phẩm không qua "Sản phẩm đang giữ"';
+                    } else if (!kpiData.isCounted || kpiData.incrementalQty === 0) {
+                        // Has KPI data but not counted
+                        isNonKpi = true;
+                        if (kpiData.newQuantityInOrder <= kpiData.historicalMaxQty) {
+                            reason = `Đã từng có ${kpiData.historicalMaxQty} trong đơn, hiện tại ${kpiData.newQuantityInOrder}`;
+                        } else {
+                            reason = 'Không đủ điều kiện tính KPI';
+                        }
+                    }
+
+                    if (isNonKpi) {
+                        hasNonKpiProducts = true;
+                        nonKpiHtml += `
+                            <tr>
+                                <td>${nonKpiIndex++}</td>
+                                <td>${p.name || 'Unknown Product'}</td>
+                                <td style="text-align: center;">${p.quantity || 0}</td>
+                                <td><span class="badge bg-secondary">${reason}</span></td>
+                            </tr>
+                        `;
+                    }
+                });
+            }
+
+            if (!hasNonKpiProducts) {
+                nonKpiHtml = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-info-circle mb-2"></i><br>Tất cả sản phẩm đều được tính KPI
+                        </td>
+                    </tr>
+                `;
+            }
+            nonKpiProductsBody.innerHTML = nonKpiHtml;
 
             // Load invoice when invoice tab is clicked
             document.getElementById('invoice-tab').addEventListener('click', async function() {
