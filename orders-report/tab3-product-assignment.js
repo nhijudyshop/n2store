@@ -11,6 +11,7 @@
     let tokenExpiry = null;
     let saveDebounceTimer = null;
     let userStorageManager = null; // User-specific storage manager
+    let autoAddVariants = true; // Auto-add all product variants when selecting a product
 
     // Firebase Configuration
     const firebaseConfig = {
@@ -290,6 +291,57 @@
         });
     }
 
+    // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
+    function sortVariants(variants) {
+        // Define size order
+        const sizeOrder = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+        return [...variants].sort((a, b) => {
+            const nameA = a.NameGet || '';
+            const nameB = b.NameGet || '';
+
+            // Extract number in parentheses (1), (2), (3), etc.
+            const numberMatchA = nameA.match(/\((\d+)\)/);
+            const numberMatchB = nameB.match(/\((\d+)\)/);
+
+            // If both have numbers, sort by number
+            if (numberMatchA && numberMatchB) {
+                return parseInt(numberMatchA[1]) - parseInt(numberMatchB[1]);
+            }
+
+            // Extract size in parentheses (S), (M), (L), etc.
+            const sizeMatchA = nameA.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
+            const sizeMatchB = nameB.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
+
+            // If both have sizes, sort by size order
+            if (sizeMatchA && sizeMatchB) {
+                const sizeA = sizeMatchA[1].toUpperCase();
+                const sizeB = sizeMatchB[1].toUpperCase();
+                const indexA = sizeOrder.indexOf(sizeA);
+                const indexB = sizeOrder.indexOf(sizeB);
+
+                // If both sizes are in the order list
+                if (indexA !== -1 && indexB !== -1) {
+                    return indexA - indexB;
+                }
+                // If only one is in the list, prioritize it
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+            }
+
+            // If one has number and other has size, number comes first
+            if (numberMatchA && sizeMatchB) return -1;
+            if (sizeMatchA && numberMatchB) return 1;
+
+            // If one has pattern and other doesn't, pattern comes first
+            if ((numberMatchA || sizeMatchA) && !(numberMatchB || sizeMatchB)) return -1;
+            if ((numberMatchB || sizeMatchB) && !(numberMatchA || sizeMatchA)) return 1;
+
+            // Default: alphabetical sort
+            return nameA.localeCompare(nameB);
+        });
+    }
+
     // Add Product to Assignment Table
     async function addProductToAssignment(productId) {
         try {
@@ -304,45 +356,125 @@
 
             const productData = await response.json();
             let imageUrl = productData.ImageUrl;
+            let templateData = null;
 
-            // Load template for image if needed
-            if (!imageUrl && productData.ProductTmplId) {
+            // Load template to get image and variants
+            if (productData.ProductTmplId) {
                 try {
                     const templateResponse = await authenticatedFetch(
-                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=Images`
+                        `${API_CONFIG.WORKER_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
                     );
 
                     if (templateResponse.ok) {
-                        const templateData = await templateResponse.json();
-                        imageUrl = templateData.ImageUrl;
+                        templateData = await templateResponse.json();
+                        if (!imageUrl) {
+                            imageUrl = templateData.ImageUrl;
+                        }
                     }
                 } catch (error) {
                     console.error('Error loading template:', error);
                 }
             }
 
-            // Check if product already assigned
-            const existingIndex = assignments.findIndex(a => a.productId === productData.Id);
-            if (existingIndex !== -1) {
-                showNotification('Sản phẩm đã có trong danh sách', 'error');
-                return;
+            // Check if auto-add variants is enabled and variants exist
+            if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+                // Filter only active variants (Active === true)
+                const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
+
+                // Sort variants by number (1), (2), (3)... and size (S), (M), (L), (XL), (XXL), (XXXL)
+                const sortedVariants = sortVariants(activeVariants);
+
+                // Check if there are active variants after filtering
+                if (sortedVariants.length === 0) {
+                    // No active variants, fallback to single product
+                    // Check if product already assigned
+                    const existingIndex = assignments.findIndex(a => a.productId === productData.Id);
+                    if (existingIndex !== -1) {
+                        showNotification('Sản phẩm đã có trong danh sách', 'error');
+                        return;
+                    }
+
+                    // Add single product to assignments
+                    const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                    const assignment = {
+                        id: Date.now(),
+                        productId: productData.Id,
+                        productName: productData.NameGet,
+                        productCode: productCode,
+                        imageUrl: imageUrl,
+                        sttList: []
+                    };
+
+                    assignments.push(assignment);
+                    saveAssignments();
+                    renderAssignmentTable();
+                    showNotification('Đã thêm sản phẩm vào danh sách');
+                    return; // Exit early
+                }
+
+                // Add all variants to assignments
+                let addedCount = 0;
+                let skippedCount = 0;
+
+                for (const variant of sortedVariants) {
+                    // Check if variant already assigned
+                    const existingIndex = assignments.findIndex(a => a.productId === variant.Id);
+                    if (existingIndex !== -1) {
+                        skippedCount++;
+                        continue; // Skip if already exists
+                    }
+
+                    const variantImageUrl = variant.ImageUrl || imageUrl; // Use variant image or fallback to template image
+                    const productCode = extractProductCode(variant.NameGet) || variant.DefaultCode || variant.Barcode || '';
+
+                    const assignment = {
+                        id: Date.now() + addedCount, // Unique ID for each variant
+                        productId: variant.Id,
+                        productName: variant.NameGet,
+                        productCode: productCode,
+                        imageUrl: variantImageUrl,
+                        sttList: []
+                    };
+
+                    assignments.push(assignment);
+                    addedCount++;
+                }
+
+                saveAssignments();
+                renderAssignmentTable();
+
+                if (addedCount > 0 && skippedCount > 0) {
+                    showNotification(`✅ Đã thêm ${addedCount} biến thể, bỏ qua ${skippedCount} biến thể đã tồn tại`);
+                } else if (skippedCount > 0) {
+                    showNotification(`⚠️ Tất cả ${skippedCount} biến thể đã tồn tại trong danh sách`, 'error');
+                } else if (addedCount > 0) {
+                    showNotification(`✅ Đã thêm ${addedCount} biến thể sản phẩm`);
+                }
+            } else {
+                // Add single product (original behavior when autoAddVariants is disabled or no variants)
+                // Check if product already assigned
+                const existingIndex = assignments.findIndex(a => a.productId === productData.Id);
+                if (existingIndex !== -1) {
+                    showNotification('Sản phẩm đã có trong danh sách', 'error');
+                    return;
+                }
+
+                // Add to assignments
+                const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
+                const assignment = {
+                    id: Date.now(),
+                    productId: productData.Id,
+                    productName: productData.NameGet,
+                    productCode: productCode,
+                    imageUrl: imageUrl,
+                    sttList: []
+                };
+
+                assignments.push(assignment);
+                saveAssignments();
+                renderAssignmentTable();
+                showNotification('Đã thêm sản phẩm vào danh sách');
             }
-
-            // Add to assignments
-            const productCode = extractProductCode(productData.NameGet) || productData.DefaultCode || productData.Barcode || '';
-            const assignment = {
-                id: Date.now(),
-                productId: productData.Id,
-                productName: productData.NameGet,
-                productCode: productCode,
-                imageUrl: imageUrl,
-                sttList: [] // Changed from sttNumber to sttList array
-            };
-
-            assignments.push(assignment);
-            saveAssignments();
-            renderAssignmentTable();
-            showNotification('Đã thêm sản phẩm vào danh sách');
         } catch (error) {
             console.error('Error adding product:', error);
             showNotification('Lỗi: ' + error.message, 'error');
