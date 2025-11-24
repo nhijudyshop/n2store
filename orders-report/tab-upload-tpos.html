@@ -39,9 +39,6 @@
                         title="Reload toàn bộ trang">
                         <i class="fas fa-redo"></i> Reload Page
                     </button>
-                    <span class="badge bg-info ms-2" id="totalProductsBadge">
-                        <i class="fas fa-box"></i> <span id="totalOrders">0</span> món - <span id="totalProducts">0</span> mã sản phẩm
-                    </span>
                 </div>
             </div>
         </div>
@@ -82,7 +79,12 @@
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-table"></i> Danh sách sản phẩm đã gán STT</h5>
+                    <div class="d-flex align-items-center gap-3">
+                        <h5 class="mb-0"><i class="fas fa-table"></i> Danh sách sản phẩm đã gán STT</h5>
+                        <span class="badge bg-info" id="totalProductsBadge" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
+                            <i class="fas fa-box"></i> <span id="totalItems">0</span> món - <span id="totalProducts">0</span> mã sản phẩm - <span id="totalOrders">0</span> đơn hàng
+                        </span>
+                    </div>
                     <div class="d-flex align-items-center gap-3">
                         <!-- View Mode Toggle -->
                         <div class="btn-group" role="group" aria-label="View mode toggle">
