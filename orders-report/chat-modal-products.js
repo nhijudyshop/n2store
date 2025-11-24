@@ -377,44 +377,56 @@
 
     /**
      * Load order product history from Firebase
-     * Returns a Set of all product IDs that have EVER been in this order
+     * Returns a Map of productId -> quantity for products that have EVER been in this order
      */
     async function loadOrderProductHistory(orderId) {
-        if (!window.firebase || !orderId) return new Set();
+        if (!window.firebase || !orderId) return new Map();
 
         try {
             const ref = firebase.database().ref(`order_product_history/${orderId}`);
             const snapshot = await ref.once('value');
             const data = snapshot.val() || {};
 
-            // Convert object keys to Set
-            const historySet = new Set(Object.keys(data));
-            console.log('[KPI-FRAUD] Loaded history from Firebase:', historySet.size, 'products');
-            return historySet;
+            // Convert to Map<productId, quantity>
+            const historyMap = new Map();
+            Object.keys(data).forEach(productId => {
+                const entry = data[productId];
+                // Handle both old format (true) and new format ({quantity: X})
+                const quantity = typeof entry === 'object' ? (entry.quantity || 0) : 0;
+                historyMap.set(productId, quantity);
+            });
+
+            console.log('[KPI-FRAUD] Loaded history from Firebase:', historyMap.size, 'products');
+            return historyMap;
         } catch (error) {
             console.error('[KPI-FRAUD] Error loading history:', error);
-            return new Set();
+            return new Map();
         }
     }
 
     /**
      * Update order product history in Firebase
-     * Adds new product IDs to the permanent history
+     * Updates product quantities in the permanent history
+     * @param {string} orderId - The order ID
+     * @param {Array<{productId: string, quantity: number}>} products - Array of {productId, quantity}
      */
-    async function updateOrderProductHistory(orderId, productIds) {
-        if (!window.firebase || !orderId || !productIds || productIds.length === 0) return;
+    async function updateOrderProductHistory(orderId, products) {
+        if (!window.firebase || !orderId || !products || products.length === 0) return;
 
         try {
             const ref = firebase.database().ref(`order_product_history/${orderId}`);
 
-            // Create updates object: { productId: true, ... }
+            // Create updates object: { productId: {quantity: X}, ... }
             const updates = {};
-            productIds.forEach(id => {
-                updates[String(id)] = true;
+            products.forEach(p => {
+                updates[String(p.productId)] = {
+                    quantity: p.quantity || 0,
+                    lastUpdated: Date.now()
+                };
             });
 
             await ref.update(updates);
-            console.log('[KPI-FRAUD] Updated history in Firebase:', productIds.length, 'products');
+            console.log('[KPI-FRAUD] Updated history in Firebase:', products.length, 'products');
         } catch (error) {
             console.error('[KPI-FRAUD] Error updating history:', error);
         }
@@ -449,27 +461,32 @@
         initChatInlineProductSearch();
 
         // FRAUD PREVENTION: Load PERMANENT history from Firebase
-        // This includes ALL products that have EVER been in this order
-        window.originalOrderProductIds = await loadOrderProductHistory(window.currentChatOrderData.Id);
+        // This is a Map<productId, quantity> of ALL products that have EVER been in this order
+        window.originalOrderProductQuantities = await loadOrderProductHistory(window.currentChatOrderData.Id);
 
-        // ALSO add current products to the history (in case Firebase is empty/new order)
-        const currentProductIds = [];
+        // ALSO add/update current products to the history (in case Firebase is empty/new order)
+        const currentProducts = [];
         if (window.currentChatOrderData.Details) {
             window.currentChatOrderData.Details.forEach(p => {
                 if (p.ProductId) {
                     const idStr = String(p.ProductId);
-                    window.originalOrderProductIds.add(idStr);
-                    currentProductIds.push(idStr);
+                    const qty = p.Quantity || 0;
+
+                    // Update in-memory map with MAX quantity seen
+                    const existingQty = window.originalOrderProductQuantities.get(idStr) || 0;
+                    window.originalOrderProductQuantities.set(idStr, Math.max(existingQty, qty));
+
+                    currentProducts.push({ productId: idStr, quantity: qty });
                 }
             });
         }
 
         // Save current products to Firebase history (initialize if needed)
-        if (currentProductIds.length > 0) {
-            await updateOrderProductHistory(window.currentChatOrderData.Id, currentProductIds);
+        if (currentProducts.length > 0) {
+            await updateOrderProductHistory(window.currentChatOrderData.Id, currentProducts);
         }
 
-        console.log('[KPI-FRAUD] Total historical products tracked:', window.originalOrderProductIds.size);
+        console.log('[KPI-FRAUD] Total historical products tracked:', window.originalOrderProductQuantities.size);
 
         // Update counts
         updateChatProductCounts();
@@ -1070,18 +1087,24 @@
                 window.cacheManager.clear("orders");
             }
 
-            // FRAUD PREVENTION: After successful save, update Firebase history
-            // This ensures ALL products in the order are tracked permanently
-            const productIds = (window.currentChatOrderData.Details || [])
+            // FRAUD PREVENTION: After successful save, update Firebase history with quantities
+            // This ensures ALL products and their MAX quantities are tracked permanently
+            const products = (window.currentChatOrderData.Details || [])
                 .filter(p => !p.IsHeld) // Only count non-held (saved) products
-                .map(p => String(p.ProductId))
-                .filter(id => id && id !== 'undefined' && id !== 'null');
+                .map(p => ({
+                    productId: String(p.ProductId),
+                    quantity: p.Quantity || 0
+                }))
+                .filter(p => p.productId && p.productId !== 'undefined' && p.productId !== 'null');
 
-            if (productIds.length > 0) {
-                await updateOrderProductHistory(window.currentChatOrderData.Id, productIds);
+            if (products.length > 0) {
+                await updateOrderProductHistory(window.currentChatOrderData.Id, products);
 
-                // Also update in-memory tracking
-                productIds.forEach(id => window.originalOrderProductIds.add(id));
+                // Also update in-memory tracking with MAX quantities
+                products.forEach(p => {
+                    const existingQty = window.originalOrderProductQuantities.get(p.productId) || 0;
+                    window.originalOrderProductQuantities.set(p.productId, Math.max(existingQty, p.quantity));
+                });
             }
 
             console.log('[CHAT-PRODUCTS] Order saved successfully');
@@ -1554,34 +1577,50 @@
                     if (userId) {
                         const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
 
-                        // FRAUD PREVENTION: Only count products that were NOT in the original order
-                        const validProducts = heldProducts.filter(p => {
-                            const isOriginal = window.originalOrderProductIds && window.originalOrderProductIds.has(String(p.ProductId));
-                            if (isOriginal) {
-                                console.log(`[KPI-FRAUD] Product ${p.ProductId} excluded from score (was in original order)`);
-                            }
-                            return !isOriginal;
-                        });
+                        // FRAUD PREVENTION: Only count INCREMENTAL quantity
+                        // Compare new quantity in order vs historical maximum quantity
+                        let totalValidQty = 0;
+                        const productDetails = heldProducts.map(p => {
+                            const productId = String(p.ProductId);
 
-                        const validQty = validProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
+                            // Find NEW quantity in newDetails (after merge)
+                            const productInOrder = newDetails.find(np => np.ProductId === p.ProductId);
+                            const newQuantityInOrder = productInOrder ? (productInOrder.Quantity || 0) : 0;
+
+                            // Get historical maximum quantity
+                            const historicalQty = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || 0;
+
+                            // Calculate INCREMENTAL quantity (only new additions count)
+                            const incrementalQty = Math.max(0, newQuantityInOrder - historicalQty);
+
+                            totalValidQty += incrementalQty;
+
+                            if (incrementalQty === 0) {
+                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: No score (Historical: ${historicalQty}, New: ${newQuantityInOrder})`);
+                            } else {
+                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: +${incrementalQty} score (Historical: ${historicalQty}, New: ${newQuantityInOrder})`);
+                            }
+
+                            return {
+                                name: p.ProductNameGet || p.ProductName || 'Unknown Product',
+                                quantity: p.Quantity || 0,
+                                newQuantityInOrder: newQuantityInOrder,
+                                historicalQty: historicalQty,
+                                incrementalQty: incrementalQty,
+                                isCounted: incrementalQty > 0
+                            };
+                        });
 
                         statsRef.set({
                             userName: auth.displayName || auth.userType || 'Unknown',
-                            productCount: validQty, // Only count valid quantity
-                            amount: validQty * 5000, // Only calculate amount for valid quantity
+                            productCount: totalValidQty, // Only count incremental quantity
+                            amount: totalValidQty * 5000, // Only calculate amount for incremental quantity
                             timestamp: firebase.database.ServerValue.TIMESTAMP,
                             orderId: window.currentChatOrderData.Id || 'unknown',
                             orderSTT: window.currentChatOrderData.SessionIndex || '',
-                            products: heldProducts.map(p => {
-                                const isOriginal = window.originalOrderProductIds && window.originalOrderProductIds.has(String(p.ProductId));
-                                return {
-                                    name: p.ProductNameGet || p.ProductName || 'Unknown Product',
-                                    quantity: p.Quantity || 0,
-                                    isCounted: !isOriginal // Mark if it was counted
-                                };
-                            })
+                            products: productDetails
                         });
-                        console.log(`[CHAT-PRODUCTS] Saved stats: ${validQty} valid items (Total held: ${heldProducts.length})`);
+                        console.log(`[CHAT-PRODUCTS] Saved stats: ${totalValidQty} valid incremental items (Total held: ${heldProducts.length})`);
                     }
                 }
             } catch (err) {
