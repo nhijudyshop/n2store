@@ -346,7 +346,7 @@
             loadStats();
         });
 
-        function loadStats() {
+        async function loadStats() {
             const tbody = document.getElementById('statsTableBody');
             const tfoot = document.getElementById('statsTableFooter');
 
@@ -358,10 +358,16 @@
                 </tr>
             `;
 
-            const ref = firebase.database().ref('held_product_stats');
+            try {
+                // Fetch both stats and snapshots in parallel
+                const [statsSnapshot, orderSnapshotsSnapshot] = await Promise.all([
+                    firebase.database().ref('held_product_stats').once('value'),
+                    firebase.database().ref('order_snapshots').once('value')
+                ]);
 
-            ref.once('value').then((snapshot) => {
-                const data = snapshot.val();
+                const data = statsSnapshot.val();
+                const allSnapshots = orderSnapshotsSnapshot.val() || {};
+                allOrderSnapshots = allSnapshots; // Save for modal usage
 
                 if (!data) {
                     tbody.innerHTML = `
@@ -392,7 +398,9 @@
                                 totalQty: 0,
                                 totalAmount: 0,
                                 orderIds: new Set(), // Track unique order IDs
-                                id: userId // Store ID for click handler
+                                id: userId, // Store ID for click handler
+                                hasMismatch: false, // Track if any order has mismatch
+                                mismatchDetails: [] // Store details of mismatches
                             };
                         }
 
@@ -415,6 +423,59 @@
                     });
                 });
 
+                // Validate products vs invoice for each user
+                Object.values(userStats).forEach(stat => {
+                    stat.orderIds.forEach(orderId => {
+                        const order = allSnapshots[orderId];
+                        if (!order) return;
+
+                        // Check if invoice products exist
+                        if (order.invoiceProducts && Array.isArray(order.invoiceProducts) && order.invoiceProducts.length > 0) {
+                            const orderProducts = order.products || [];
+                            const invoiceProducts = order.invoiceProducts;
+
+                            // 1. Check count mismatch
+                            if (orderProducts.length !== invoiceProducts.length) {
+                                stat.hasMismatch = true;
+                                stat.mismatchDetails.push(`Đơn ${order.orderSTT}: Số lượng mã SP không khớp (${orderProducts.length} vs ${invoiceProducts.length})`);
+                                return;
+                            }
+
+                            // 2. Check content mismatch (Name and Quantity)
+                            // Create maps for easier comparison
+                            const orderMap = new Map();
+                            orderProducts.forEach(p => {
+                                const key = (p.name || '').trim();
+                                orderMap.set(key, (orderMap.get(key) || 0) + (p.quantity || 0));
+                            });
+
+                            const invoiceMap = new Map();
+                            invoiceProducts.forEach(p => {
+                                const key = (p.name || '').trim();
+                                invoiceMap.set(key, (invoiceMap.get(key) || 0) + (p.quantity || 0));
+                            });
+
+                            // Compare maps
+                            let isMatch = true;
+                            if (orderMap.size !== invoiceMap.size) {
+                                isMatch = false;
+                            } else {
+                                for (const [name, qty] of orderMap) {
+                                    if (!invoiceMap.has(name) || invoiceMap.get(name) !== qty) {
+                                        isMatch = false;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!isMatch) {
+                                stat.hasMismatch = true;
+                                stat.mismatchDetails.push(`Đơn ${order.orderSTT}: Thông tin sản phẩm không khớp với hóa đơn`);
+                            }
+                        }
+                    });
+                });
+
                 // Render table
                 let html = '';
                 let grandTotalQty = 0;
@@ -424,11 +485,24 @@
 
                 Object.values(userStats).forEach(stat => {
                     const orderCount = stat.orderIds.size;
+                    
+                    // Determine row class and tooltip
+                    let rowClass = "clickable-row";
+                    let warningIcon = "";
+                    let tooltipAttr = "";
+                    
+                    if (stat.hasMismatch) {
+                        rowClass += " table-danger"; // Bootstrap danger class
+                        const tooltipText = stat.mismatchDetails.join('\\n');
+                        warningIcon = `<i class="fas fa-exclamation-triangle text-danger ms-2" title="${tooltipText}"></i>`;
+                        tooltipAttr = `title="${tooltipText}"`;
+                    }
+
                     html += `
-                        <tr class="clickable-row" onclick="showOrders('${stat.id}', '${stat.name.replace(/'/g, "\\'")}')">
+                        <tr class="${rowClass}" onclick="showOrders('${stat.id}', '${stat.name.replace(/'/g, "\\'")}')" ${tooltipAttr}>
                             <td style="text-align: center;">${stt++}</td>
                             <td style="font-weight: 500;">
-                                ${stat.name} <i class="fas fa-info-circle ms-2 text-muted" style="font-size: 12px;"></i>
+                                ${stat.name} ${warningIcon}
                             </td>
                             <td style="text-align: center; color: #059669; font-weight: 500;">${orderCount}</td>
                             <td style="text-align: center;">${stat.totalQty.toLocaleString('vi-VN')}</td>
@@ -448,7 +522,7 @@
                 document.getElementById('grandTotalAmount').textContent = grandTotalAmount.toLocaleString('vi-VN') + 'đ';
                 tfoot.style.display = 'table-footer-group';
 
-            }).catch(error => {
+            } catch (error) {
                 console.error('Error loading stats:', error);
                 tbody.innerHTML = `
                     <tr>
@@ -457,7 +531,7 @@
                         </td>
                     </tr>
                 `;
-            });
+            }
         }
 
         // Level 1: Show list of orders for a user
