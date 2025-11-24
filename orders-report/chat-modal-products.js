@@ -6,6 +6,371 @@
 (function () {
     'use strict';
 
+    // ==================== CUSTOM POPUP MANAGER ====================
+    /**
+     * Custom Popup Manager - Replaces browser default alert/confirm/prompt
+     */
+    const CustomPopup = {
+        /**
+         * Initialize popup styles
+         */
+        injectStyles: function() {
+            if (document.getElementById('custom-popup-styles')) return;
+
+            const styles = document.createElement('style');
+            styles.id = 'custom-popup-styles';
+            styles.textContent = `
+                .custom-popup-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.5);
+                    backdrop-filter: blur(4px);
+                    z-index: 99999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                }
+
+                .custom-popup-overlay.show {
+                    opacity: 1;
+                }
+
+                .custom-popup-container {
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                    max-width: 500px;
+                    width: 90%;
+                    overflow: hidden;
+                    transform: scale(0.9) translateY(-20px);
+                    transition: transform 0.2s ease;
+                }
+
+                .custom-popup-overlay.show .custom-popup-container {
+                    transform: scale(1) translateY(0);
+                }
+
+                .custom-popup-header {
+                    padding: 20px 24px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+
+                .custom-popup-header.alert {
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                }
+
+                .custom-popup-header.confirm {
+                    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                }
+
+                .custom-popup-header.error {
+                    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                }
+
+                .custom-popup-header.success {
+                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                }
+
+                .custom-popup-header-icon {
+                    font-size: 24px;
+                }
+
+                .custom-popup-header-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin: 0;
+                }
+
+                .custom-popup-body {
+                    padding: 24px;
+                    color: #1f2937;
+                    font-size: 15px;
+                    line-height: 1.6;
+                    white-space: pre-wrap;
+                }
+
+                .custom-popup-input {
+                    width: 100%;
+                    padding: 10px 12px;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    margin-top: 12px;
+                    transition: border-color 0.2s;
+                }
+
+                .custom-popup-input:focus {
+                    outline: none;
+                    border-color: #3b82f6;
+                }
+
+                .custom-popup-footer {
+                    padding: 16px 24px;
+                    background: #f9fafb;
+                    display: flex;
+                    gap: 12px;
+                    justify-content: flex-end;
+                }
+
+                .custom-popup-btn {
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                .custom-popup-btn:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                }
+
+                .custom-popup-btn:active {
+                    transform: translateY(0);
+                }
+
+                .custom-popup-btn-primary {
+                    background: #3b82f6;
+                    color: white;
+                }
+
+                .custom-popup-btn-primary:hover {
+                    background: #2563eb;
+                }
+
+                .custom-popup-btn-success {
+                    background: #10b981;
+                    color: white;
+                }
+
+                .custom-popup-btn-success:hover {
+                    background: #059669;
+                }
+
+                .custom-popup-btn-danger {
+                    background: #ef4444;
+                    color: white;
+                }
+
+                .custom-popup-btn-danger:hover {
+                    background: #dc2626;
+                }
+
+                .custom-popup-btn-secondary {
+                    background: #e5e7eb;
+                    color: #374151;
+                }
+
+                .custom-popup-btn-secondary:hover {
+                    background: #d1d5db;
+                }
+            `;
+            document.head.appendChild(styles);
+        },
+
+        /**
+         * Create popup element
+         */
+        createPopup: function(config) {
+            const {
+                type = 'alert',
+                title = 'Thông báo',
+                message = '',
+                icon = 'fa-info-circle',
+                confirmText = 'OK',
+                cancelText = 'Hủy',
+                showInput = false,
+                inputPlaceholder = '',
+                inputValue = ''
+            } = config;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'custom-popup-overlay';
+            overlay.innerHTML = `
+                <div class="custom-popup-container">
+                    <div class="custom-popup-header ${type}">
+                        <i class="fas ${icon} custom-popup-header-icon"></i>
+                        <h3 class="custom-popup-header-title">${title}</h3>
+                    </div>
+                    <div class="custom-popup-body">
+                        ${message}
+                        ${showInput ? `<input type="text" class="custom-popup-input" placeholder="${inputPlaceholder}" value="${inputValue}">` : ''}
+                    </div>
+                    <div class="custom-popup-footer">
+                        ${type === 'confirm' ? `<button class="custom-popup-btn custom-popup-btn-secondary" data-action="cancel">
+                            <i class="fas fa-times"></i> ${cancelText}
+                        </button>` : ''}
+                        <button class="custom-popup-btn custom-popup-btn-primary" data-action="confirm">
+                            <i class="fas fa-check"></i> ${confirmText}
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return overlay;
+        },
+
+        /**
+         * Show popup and return promise
+         */
+        show: function(config) {
+            this.injectStyles();
+
+            return new Promise((resolve) => {
+                const popup = this.createPopup(config);
+                document.body.appendChild(popup);
+
+                const input = popup.querySelector('.custom-popup-input');
+
+                // Focus input if exists
+                if (input) {
+                    setTimeout(() => input.focus(), 100);
+                }
+
+                // Animate in
+                setTimeout(() => popup.classList.add('show'), 10);
+
+                // Handle button clicks
+                const handleClick = (e) => {
+                    const action = e.target.closest('[data-action]')?.dataset.action;
+                    if (!action) return;
+
+                    // Animate out
+                    popup.classList.remove('show');
+
+                    setTimeout(() => {
+                        popup.remove();
+
+                        if (action === 'confirm') {
+                            resolve(input ? input.value : true);
+                        } else {
+                            resolve(false);
+                        }
+                    }, 200);
+                };
+
+                popup.addEventListener('click', (e) => {
+                    // Close on overlay click
+                    if (e.target === popup) {
+                        handleClick({ target: { closest: () => ({ dataset: { action: 'cancel' } }) } });
+                    }
+                });
+
+                popup.querySelectorAll('[data-action]').forEach(btn => {
+                    btn.addEventListener('click', handleClick);
+                });
+
+                // Handle Enter key
+                if (input) {
+                    input.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            handleClick({ target: { closest: () => ({ dataset: { action: 'confirm' } }) } });
+                        }
+                    });
+                }
+
+                // Handle Escape key
+                const handleEscape = (e) => {
+                    if (e.key === 'Escape') {
+                        handleClick({ target: { closest: () => ({ dataset: { action: 'cancel' } }) } });
+                        document.removeEventListener('keydown', handleEscape);
+                    }
+                };
+                document.addEventListener('keydown', handleEscape);
+            });
+        },
+
+        /**
+         * Show alert popup
+         */
+        alert: function(message, title = 'Thông báo', type = 'alert') {
+            const icons = {
+                alert: 'fa-info-circle',
+                error: 'fa-exclamation-circle',
+                success: 'fa-check-circle',
+                warning: 'fa-exclamation-triangle'
+            };
+
+            return this.show({
+                type: type,
+                title: title,
+                message: message,
+                icon: icons[type] || icons.alert,
+                confirmText: 'Đóng'
+            });
+        },
+
+        /**
+         * Show confirm popup
+         */
+        confirm: function(message, title = 'Xác nhận') {
+            return this.show({
+                type: 'confirm',
+                title: title,
+                message: message,
+                icon: 'fa-question-circle',
+                confirmText: 'Xác nhận',
+                cancelText: 'Hủy'
+            });
+        },
+
+        /**
+         * Show prompt popup
+         */
+        prompt: function(message, title = 'Nhập thông tin', placeholder = '', defaultValue = '') {
+            return this.show({
+                type: 'confirm',
+                title: title,
+                message: message,
+                icon: 'fa-edit',
+                showInput: true,
+                inputPlaceholder: placeholder,
+                inputValue: defaultValue,
+                confirmText: 'Xác nhận',
+                cancelText: 'Hủy'
+            });
+        },
+
+        /**
+         * Show error popup
+         */
+        error: function(message, title = 'Lỗi') {
+            return this.alert(message, title, 'error');
+        },
+
+        /**
+         * Show success popup
+         */
+        success: function(message, title = 'Thành công') {
+            return this.alert(message, title, 'success');
+        },
+
+        /**
+         * Show warning popup
+         */
+        warning: function(message, title = 'Cảnh báo') {
+            return this.alert(message, title, 'confirm');
+        }
+    };
+
+    // Make CustomPopup globally available
+    window.CustomPopup = CustomPopup;
+    // ==================== END CUSTOM POPUP MANAGER ====================
+
     // Global state for current chat order
     window.currentChatOrderData = null;
     let chatInlineSearchTimeout = null;
@@ -339,7 +704,7 @@
                     'error'
                 );
             } else {
-                alert(`Lỗi: ${error.message}`);
+                CustomPopup.error(`${error.message}`, 'Lỗi');
             }
         }
     };
@@ -360,7 +725,11 @@
                 return;
             } else {
                 // If quantity > 1, confirm decrease
-                if (!confirm(`Bạn có chắc muốn giảm số lượng sản phẩm "${product.ProductNameGet || product.ProductName}"?`)) {
+                const confirmed = await CustomPopup.confirm(
+                    `Bạn có chắc muốn giảm số lượng sản phẩm "${product.ProductNameGet || product.ProductName}"?`,
+                    'Xác nhận giảm số lượng'
+                );
+                if (!confirmed) {
                     return;
                 }
             }
@@ -422,7 +791,11 @@
     window.removeChatProduct = async function (index) {
         const product = window.currentChatOrderData.Details[index];
 
-        if (!confirm(`Xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`)) {
+        const confirmed = await CustomPopup.confirm(
+            `Bạn có chắc muốn xóa sản phẩm "${product.ProductNameGet || product.ProductName}"?`,
+            'Xác nhận xóa sản phẩm'
+        );
+        if (!confirmed) {
             return;
         }
 
@@ -860,7 +1233,7 @@
 
                         if (totalHeld > p.StockQty) {
                             const msg = `Sản phẩm "${p.ProductNameGet || p.ProductName}" đang được giữ quá số lượng tồn!\n\nTổng đang giữ: ${totalHeld}\nTồn kho: ${p.StockQty}\n\nVui lòng giảm số lượng hoặc thương lượng với người khác.`;
-                            alert(msg);
+                            await CustomPopup.warning(msg, 'Cảnh báo vượt quá tồn kho');
                             return; // ABORT SAVE
                         }
                     }
