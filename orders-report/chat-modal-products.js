@@ -1742,21 +1742,51 @@
                     if (userId && window.currentChatOrderData.Id) {
                         const snapshotRef = firebase.database().ref(`order_snapshots/${window.currentChatOrderData.Id}`);
 
-                        // Extract invoice ID from chat modal if available
+                        // Extract invoice ID and OrderLines from chat modal if available
                         let invoiceId = null;
-                        const invoiceContainer = document.getElementById('chatInvoiceHistoryContainer');
-                        if (invoiceContainer) {
-                            const firstLink = invoiceContainer.querySelector('a[href]');
-                            if (firstLink) {
-                                const href = firstLink.getAttribute('href');
-                                const match = href.match(/FastSaleOrder\((\d+)\)/);
-                                if (match) {
-                                    invoiceId = match[1];
+                        let invoiceProducts = [];
+
+                        // Try to get invoice data from chatProductManager cache
+                        if (window.chatProductManager && window.chatProductManager.invoiceCache) {
+                            // Find the first invoice in cache
+                            const invoices = Array.from(window.chatProductManager.invoiceCache.values());
+                            if (invoices.length > 0) {
+                                const firstInvoice = invoices[0];
+                                invoiceId = firstInvoice.Id;
+
+                                // Extract OrderLines with full details
+                                if (firstInvoice.OrderLines && firstInvoice.OrderLines.length > 0) {
+                                    invoiceProducts = firstInvoice.OrderLines.map(line => ({
+                                        productId: line.ProductId,
+                                        name: line.Product?.NameGet || line.ProductName || 'Unknown Product',
+                                        quantity: line.ProductUOMQty || 0,
+                                        price: line.PriceUnit || 0,
+                                        total: line.PriceTotal || 0,
+                                        note: line.Note || null,
+                                        imageUrl: line.ProductImageUrl || line.Product?.ImageUrl || null,
+                                        barcode: line.ProductBarcode || line.Product?.DefaultCode || null
+                                    }));
+                                    console.log('[ORDER-SNAPSHOT] Extracted', invoiceProducts.length, 'products from invoice OrderLines');
                                 }
                             }
                         }
 
-                        // Save complete order snapshot
+                        // Fallback: Try to extract invoice ID from DOM if cache not available
+                        if (!invoiceId) {
+                            const invoiceContainer = document.getElementById('chatInvoiceHistoryContainer');
+                            if (invoiceContainer) {
+                                const firstLink = invoiceContainer.querySelector('a[href]');
+                                if (firstLink) {
+                                    const href = firstLink.getAttribute('href');
+                                    const match = href.match(/FastSaleOrder\((\d+)\)/);
+                                    if (match) {
+                                        invoiceId = match[1];
+                                    }
+                                }
+                            }
+                        }
+
+                        // Save complete order snapshot with invoice products
                         await snapshotRef.set({
                             orderId: window.currentChatOrderData.Id,
                             orderSTT: window.currentChatOrderData.SessionIndex || '',
@@ -1766,13 +1796,14 @@
                                 quantity: p.Quantity || 0,
                                 price: p.Price || 0
                             })),
+                            invoiceProducts: invoiceProducts, // NEW: Products from invoice OrderLines
                             userId: userId,
                             userName: auth.displayName || auth.userType || 'Unknown',
                             lastUpdated: firebase.database.ServerValue.TIMESTAMP,
                             invoiceId: invoiceId
                         });
 
-                        console.log('[ORDER-SNAPSHOT] Saved snapshot for order:', window.currentChatOrderData.Id, 'Invoice ID:', invoiceId);
+                        console.log('[ORDER-SNAPSHOT] Saved snapshot for order:', window.currentChatOrderData.Id, 'Invoice ID:', invoiceId, 'Invoice Products:', invoiceProducts.length);
                     }
                 }
             } catch (err) {
