@@ -408,32 +408,80 @@
     };
 
     /**
-     * Listen to realtime held status
+     * Listen to realtime held status (GLOBAL)
      */
-    function listenToHeldStatus(orderId) {
-        if (!orderId || !window.firebase) return;
+    function listenToHeldStatus(currentOrderId) {
+        if (!window.firebase) return;
 
-        const ref = firebase.database().ref(`held_products/${orderId}`);
+        // Listen to ROOT held_products to get status from ALL orders
+        const ref = firebase.database().ref(`held_products`);
         ref.on('value', async (snapshot) => {
-            const data = snapshot.val();
-            // console.log('[HELD-DEBUG] Received held status update:', data);
-            window.currentHeldStatus = data || {};
+            const globalData = snapshot.val() || {};
+
+            // Aggregate data: productId -> { userId -> { quantity, displayName, orderId, isDraft } }
+            const aggregatedStatus = {};
+            const currentOrderHeldData = globalData[currentOrderId] || {};
+
+            Object.keys(globalData).forEach(orderId => {
+                const productsInOrder = globalData[orderId];
+                if (!productsInOrder) return;
+
+                Object.keys(productsInOrder).forEach(productId => {
+                    const holders = productsInOrder[productId];
+                    if (!holders) return;
+
+                    if (!aggregatedStatus[productId]) {
+                        aggregatedStatus[productId] = {};
+                    }
+
+                    Object.keys(holders).forEach(userId => {
+                        const holderData = holders[userId];
+                        // Composite key to allow same user holding in multiple orders (though rare for same product)
+                        // Actually, we want to list them all.
+                        // Let's keep userId as key if we assume one user holds per product per order?
+                        // But wait, if User A holds Product X in Order 1 AND Order 2?
+                        // The structure is productId -> userId -> data. 
+                        // If we use userId as key, we overwrite.
+                        // So we need a unique key for the holder entry in the aggregated view.
+                        // Let's use `${userId}_${orderId}` as key?
+                        // Or better, just an array of holders?
+                        // But existing code expects an object where values have .quantity.
+                        // Let's check renderRows usage of currentHeldStatus.
+
+                        // Existing usage in renderRows:
+                        // const holders = window.currentHeldStatus[p.ProductId];
+                        // Object.values(holders).forEach(h => ... h.displayName ... h.quantity)
+
+                        // So we can just use unique keys for the object values.
+                        const uniqueKey = `${userId}_${orderId}`;
+                        aggregatedStatus[productId][uniqueKey] = {
+                            ...holderData,
+                            orderId: orderId,
+                            isCurrentOrder: String(orderId) === String(currentOrderId)
+                        };
+                    });
+                });
+            });
+
+            // console.log('[HELD-DEBUG] Aggregated held status:', aggregatedStatus);
+            window.currentHeldStatus = aggregatedStatus;
 
             // SYNC LOGIC: Check for products in Firebase that are NOT in local Details
-            if (data) {
-                const heldProductIds = Object.keys(data);
+            // ONLY for the current order
+            if (currentOrderHeldData) {
+                const heldProductIds = Object.keys(currentOrderHeldData);
                 const localProductIds = window.currentChatOrderData.Details.map(p => String(p.ProductId));
 
                 const missingProductIds = heldProductIds.filter(id => !localProductIds.includes(id));
 
                 if (missingProductIds.length > 0) {
-                    console.log('[HELD-DEBUG] Found missing held products:', missingProductIds);
+                    console.log('[HELD-DEBUG] Found missing held products for CURRENT order:', missingProductIds);
 
                     // Fetch and add missing products
                     for (const productId of missingProductIds) {
                         try {
-                            // Check if we have valid holders for this product
-                            const holders = data[productId];
+                            // Check if we have valid holders for this product in CURRENT order
+                            const holders = currentOrderHeldData[productId];
                             let hasValidHolders = false;
                             if (holders) {
                                 Object.values(holders).forEach(h => {
@@ -535,10 +583,24 @@
                 quantity: quantity,
                 isDraft: isDraft,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                // IMPORTANT: Handle disconnect behavior
+                if (isDraft) {
+                    // If draft, CANCEL any remove-on-disconnect (persist)
+                    ref.onDisconnect().cancel();
+                    console.log('[HELD-DEBUG] Draft saved - persisted on disconnect');
+                } else {
+                    // If NOT draft, ensure it is removed on disconnect (refresh/close)
+                    ref.onDisconnect().remove();
+                    console.log('[HELD-DEBUG] Held status - set to remove on disconnect');
+                }
             }).catch(err => console.error('[HELD-DEBUG] Firebase set error:', err));
         } else {
             console.log('[HELD-DEBUG] Removing held status from Firebase');
-            ref.remove().catch(err => console.error('[HELD-DEBUG] Firebase remove error:', err));
+            ref.remove().then(() => {
+                // Cancel onDisconnect since we already removed it
+                ref.onDisconnect().cancel();
+            }).catch(err => console.error('[HELD-DEBUG] Firebase remove error:', err));
         }
     }
 
