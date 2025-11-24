@@ -687,8 +687,8 @@ ${encodedString}
             <th style="width: 50px">
                 <input type="checkbox" class="form-check-input" disabled>
             </th>
-            <th style="width: 15%">Mã sản phẩm</th>
             <th style="width: 55%">Đơn hàng chứa sản phẩm</th>
+            <th style="width: 15%">Mã sản phẩm</th>
             <th style="width: 15%">Tổng SL</th>
         `;
 
@@ -784,17 +784,17 @@ ${encodedString}
                         </div>
                     </td>
                     <td>
+                        <div class="orders-list" style="display: flex; flex-wrap: wrap; gap: 2px;">
+                            ${ordersHtml}
+                        </div>
+                    </td>
+                    <td>
                         <div class="product-code-cell" style="display: flex; align-items: center; gap: 10px;">
                             ${product.imageUrl ? `<img src="${product.imageUrl}" alt="${product.productCode}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;">` : ''}
                             <div>
                                 <div style="font-weight: 700; font-size: 16px; color: #1f2937;">${product.productCode}</div>
                                 ${product.productName !== product.productCode ? `<div style="font-size: 12px; color: #6b7280;">${product.productName}</div>` : ''}
                             </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="orders-list" style="display: flex; flex-wrap: wrap; gap: 2px;">
-                            ${ordersHtml}
                         </div>
                     </td>
                     <td class="text-center">
