@@ -312,19 +312,38 @@
             return;
         }
 
+        // Fetch full details to ensure correct payload structure
+        // CRITICAL: Must match payload_chinh_xac.json structure. Do NOT remove fields.
+        let fullProduct = null;
+        if (window.productSearchManager) {
+            try {
+                // Force refresh to get latest stock/details
+                fullProduct = await window.productSearchManager.getFullProductDetails(product.ProductId, true);
+            } catch (e) {
+                console.error('[DROPPED-PRODUCTS] Failed to fetch full details:', e);
+            }
+        }
+
         // Always add as new held item (will be merged on save)
         window.currentChatOrderData.Details.push({
             ProductId: product.ProductId,
-            ProductName: product.ProductName,
-            ProductNameGet: product.ProductNameGet,
-            ProductCode: product.ProductCode,
-            ImageUrl: product.ImageUrl,
+            ProductName: fullProduct ? (fullProduct.Name || fullProduct.NameTemplate) : product.ProductName,
+            ProductNameGet: fullProduct ? (fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`) : product.ProductNameGet,
+            ProductCode: fullProduct ? (fullProduct.DefaultCode || fullProduct.Barcode) : product.ProductCode,
+            ImageUrl: fullProduct ? fullProduct.ImageUrl : product.ImageUrl,
             Price: product.Price,
             Quantity: 1, // Always 1
-            UOMName: product.UOMName,
+            UOMId: fullProduct ? (fullProduct.UOM?.Id || 1) : 1,
+            UOMName: fullProduct ? (fullProduct.UOM?.Name || 'Cái') : product.UOMName,
+            Factor: 1,
+            Priority: 0,
+            OrderId: window.currentChatOrderData.Id,
+            LiveCampaign_DetailId: null,
+            ProductWeight: 0,
             Note: null,
             IsHeld: true, // Always mark as held
-            IsFromDropped: true // Mark as from dropped list
+            IsFromDropped: true, // Mark as from dropped list
+            StockQty: fullProduct ? fullProduct.QtyAvailable : 0
         });
 
         // Decrease quantity in dropped list

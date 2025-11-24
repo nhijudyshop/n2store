@@ -740,7 +740,8 @@
         if (newQty < 1) newQty = 1;
 
         // If quantity is reduced, add the difference to dropped products
-        if (newQty < oldQty && typeof window.addToDroppedProducts === 'function') {
+        // Applies to order products OR held products from dropped list
+        if (newQty < oldQty && (!product.IsHeld || product.IsFromDropped) && typeof window.addToDroppedProducts === 'function') {
             const reducedQty = oldQty - newQty;
             window.addToDroppedProducts(product, reducedQty, 'reduced');
         }
@@ -799,8 +800,8 @@
             return;
         }
 
-        // Add to dropped products ONLY if it came from dropped list
-        if (product.IsFromDropped && typeof window.addToDroppedProducts === 'function') {
+        // Add to dropped products if it's an order product OR came from dropped list
+        if ((!product.IsHeld || product.IsFromDropped) && typeof window.addToDroppedProducts === 'function') {
             window.addToDroppedProducts(product, product.Quantity || 1, 'removed');
         }
 
