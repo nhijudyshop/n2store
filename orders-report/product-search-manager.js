@@ -533,6 +533,10 @@ class EnhancedProductSearchManager {
                 NameNoSign: this.removeVietnameseTones(
                     fullProduct.Name || this.excelProducts[index].Name,
                 ),
+                Code:
+                    fullProduct.DefaultCode ||
+                    fullProduct.Barcode ||
+                    this.excelProducts[index].Code,
                 QtyAvailable:
                     fullProduct.QtyAvailable ??
                     this.excelProducts[index].QtyAvailable,
