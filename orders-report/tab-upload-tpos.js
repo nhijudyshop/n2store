@@ -559,15 +559,18 @@ ${encodedString}
     // Render Table (grouped by SessionIndex)
     function renderTable() {
         const tbody = document.getElementById('productsTableBody');
-        const totalOrders = document.getElementById('totalOrders');
+        const totalItems = document.getElementById('totalItems');
         const totalProducts = document.getElementById('totalProducts');
+        const totalOrders = document.getElementById('totalOrders');
 
         const sessionIndexKeys = Object.keys(sessionIndexData);
         const uniqueProductCodes = new Set();
+        let totalItemCount = 0;
 
-        // Count unique product codes across all orders
+        // Count unique product codes and total items across all orders
         Object.values(sessionIndexData).forEach(data => {
             if (data && data.products) {
+                totalItemCount += data.products.length;
                 data.products.forEach(product => {
                     const code = product.productCode || product.productName;
                     uniqueProductCodes.add(code);
@@ -575,8 +578,9 @@ ${encodedString}
             }
         });
 
-        totalOrders.textContent = sessionIndexKeys.length;
+        totalItems.textContent = totalItemCount;
         totalProducts.textContent = uniqueProductCodes.size;
+        totalOrders.textContent = sessionIndexKeys.length;
 
         if (sessionIndexKeys.length === 0) {
             tbody.innerHTML = `
@@ -673,8 +677,9 @@ ${encodedString}
     // Render Table by Product (grouped by product, showing which orders contain it)
     function renderTableByProduct() {
         const tbody = document.getElementById('productsTableBody');
-        const totalOrders = document.getElementById('totalOrders');
+        const totalItems = document.getElementById('totalItems');
         const totalProducts = document.getElementById('totalProducts');
+        const totalOrders = document.getElementById('totalOrders');
         const tableHead = document.querySelector('#productsTable thead tr');
 
         // Update table headers for product view
@@ -720,8 +725,18 @@ ${encodedString}
         });
 
         const productKeys = Object.keys(productGroups);
-        totalOrders.textContent = Object.keys(sessionIndexData).length;
+
+        // Calculate total items count
+        let totalItemCount = 0;
+        Object.values(sessionIndexData).forEach(data => {
+            if (data && data.products) {
+                totalItemCount += data.products.length;
+            }
+        });
+
+        totalItems.textContent = totalItemCount;
         totalProducts.textContent = productKeys.length;
+        totalOrders.textContent = Object.keys(sessionIndexData).length;
 
         if (productKeys.length === 0) {
             tbody.innerHTML = `
@@ -853,15 +868,18 @@ ${encodedString}
 
     // Update Total Count
     function updateTotalCount() {
-        const totalOrders = document.getElementById('totalOrders');
+        const totalItems = document.getElementById('totalItems');
         const totalProducts = document.getElementById('totalProducts');
+        const totalOrders = document.getElementById('totalOrders');
 
         const orderCount = Object.keys(sessionIndexData).length;
         const uniqueProductCodes = new Set();
+        let totalItemCount = 0;
 
-        // Count unique product codes across all orders
+        // Count unique product codes and total items across all orders
         Object.values(sessionIndexData).forEach(data => {
             if (data && data.products) {
+                totalItemCount += data.products.length;
                 data.products.forEach(product => {
                     const code = product.productCode || product.productName;
                     uniqueProductCodes.add(code);
@@ -869,8 +887,9 @@ ${encodedString}
             }
         });
 
-        totalOrders.textContent = orderCount;
+        totalItems.textContent = totalItemCount;
         totalProducts.textContent = uniqueProductCodes.size;
+        totalOrders.textContent = orderCount;
     }
 
     // Update Selected Count
