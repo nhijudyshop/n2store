@@ -377,7 +377,7 @@
 
     /**
      * Load order product history from Firebase
-     * Returns a Map of productId -> quantity for products that have EVER been in this order
+     * Returns a Map of productId -> {quantity, kpiQuantity} for products that have EVER been in this order
      */
     async function loadOrderProductHistory(orderId) {
         if (!window.firebase || !orderId) return new Map();
@@ -387,13 +387,19 @@
             const snapshot = await ref.once('value');
             const data = snapshot.val() || {};
 
-            // Convert to Map<productId, quantity>
+            // Convert to Map<productId, {quantity, kpiQuantity}>
             const historyMap = new Map();
             Object.keys(data).forEach(productId => {
                 const entry = data[productId];
                 // Handle both old format (true) and new format ({quantity: X})
-                const quantity = typeof entry === 'object' ? (entry.quantity || 0) : 0;
-                historyMap.set(productId, quantity);
+                if (typeof entry === 'object') {
+                    historyMap.set(productId, {
+                        quantity: entry.quantity || 0,
+                        kpiQuantity: entry.kpiQuantity || 0 // Track quantity that has been scored
+                    });
+                } else {
+                    historyMap.set(productId, { quantity: 0, kpiQuantity: 0 });
+                }
             });
 
             console.log('[KPI-FRAUD] Loaded history from Firebase:', historyMap.size, 'products');
@@ -408,7 +414,7 @@
      * Update order product history in Firebase
      * Updates product quantities in the permanent history
      * @param {string} orderId - The order ID
-     * @param {Array<{productId: string, quantity: number}>} products - Array of {productId, quantity}
+     * @param {Array<{productId: string, quantity: number, kpiQuantity: number}>} products - Array of {productId, quantity, kpiQuantity}
      */
     async function updateOrderProductHistory(orderId, products) {
         if (!window.firebase || !orderId || !products || products.length === 0) return;
@@ -416,11 +422,12 @@
         try {
             const ref = firebase.database().ref(`order_product_history/${orderId}`);
 
-            // Create updates object: { productId: {quantity: X}, ... }
+            // Create updates object: { productId: {quantity: X, kpiQuantity: Y}, ... }
             const updates = {};
             products.forEach(p => {
                 updates[String(p.productId)] = {
                     quantity: p.quantity || 0,
+                    kpiQuantity: p.kpiQuantity !== undefined ? p.kpiQuantity : p.quantity || 0,
                     lastUpdated: Date.now()
                 };
             });
@@ -461,7 +468,7 @@
         initChatInlineProductSearch();
 
         // FRAUD PREVENTION: Load PERMANENT history from Firebase
-        // This is a Map<productId, quantity> of ALL products that have EVER been in this order
+        // This is a Map<productId, {quantity, kpiQuantity}> of ALL products that have EVER been in this order
         window.originalOrderProductQuantities = await loadOrderProductHistory(window.currentChatOrderData.Id);
 
         // ALSO add/update current products to the history (in case Firebase is empty/new order)
@@ -473,10 +480,13 @@
                     const qty = p.Quantity || 0;
 
                     // Update in-memory map with MAX quantity seen
-                    const existingQty = window.originalOrderProductQuantities.get(idStr) || 0;
-                    window.originalOrderProductQuantities.set(idStr, Math.max(existingQty, qty));
+                    const existing = window.originalOrderProductQuantities.get(idStr) || { quantity: 0, kpiQuantity: 0 };
+                    window.originalOrderProductQuantities.set(idStr, {
+                        quantity: Math.max(existing.quantity, qty),
+                        kpiQuantity: existing.kpiQuantity // Keep existing KPI quantity
+                    });
 
-                    currentProducts.push({ productId: idStr, quantity: qty });
+                    currentProducts.push({ productId: idStr, quantity: qty, kpiQuantity: existing.kpiQuantity });
                 }
             });
         }
@@ -1087,24 +1097,85 @@
                 window.cacheManager.clear("orders");
             }
 
-            // FRAUD PREVENTION: After successful save, update Firebase history with quantities
-            // This ensures ALL products and their MAX quantities are tracked permanently
-            const products = (window.currentChatOrderData.Details || [])
-                .filter(p => !p.IsHeld) // Only count non-held (saved) products
-                .map(p => ({
-                    productId: String(p.ProductId),
-                    quantity: p.Quantity || 0
-                }))
-                .filter(p => p.productId && p.productId !== 'undefined' && p.productId !== 'null');
+            // FRAUD PREVENTION: Check for quantity REDUCTIONS and save negative KPI stats
+            const productsToUpdate = [];
+            const reductions = [];
 
-            if (products.length > 0) {
-                await updateOrderProductHistory(window.currentChatOrderData.Id, products);
+            (window.currentChatOrderData.Details || [])
+                .filter(p => !p.IsHeld) // Only check non-held (saved) products
+                .forEach(p => {
+                    const productId = String(p.ProductId);
+                    if (!productId || productId === 'undefined' || productId === 'null') return;
 
-                // Also update in-memory tracking with MAX quantities
-                products.forEach(p => {
-                    const existingQty = window.originalOrderProductQuantities.get(p.productId) || 0;
-                    window.originalOrderProductQuantities.set(p.productId, Math.max(existingQty, p.quantity));
+                    const newQuantity = p.Quantity || 0;
+                    const historical = window.originalOrderProductQuantities.get(productId) || { quantity: 0, kpiQuantity: 0 };
+                    const kpiQty = historical.kpiQuantity || 0;
+
+                    // Check if quantity DECREASED from what was previously counted for KPI
+                    if (newQuantity < kpiQty) {
+                        const reductionQty = kpiQty - newQuantity;
+                        reductions.push({
+                            productId: productId,
+                            productName: p.ProductNameGet || p.ProductName || 'Unknown',
+                            oldQuantity: kpiQty,
+                            newQuantity: newQuantity,
+                            reductionQty: reductionQty
+                        });
+                        console.log(`[KPI-REDUCTION] Product ${productId}: -${reductionQty} (was ${kpiQty}, now ${newQuantity})`);
+                    }
+
+                    // Prepare history update
+                    productsToUpdate.push({
+                        productId: productId,
+                        quantity: Math.max(historical.quantity, newQuantity),
+                        kpiQuantity: newQuantity // Update KPI quantity to current
+                    });
+
+                    // Update in-memory tracking
+                    window.originalOrderProductQuantities.set(productId, {
+                        quantity: Math.max(historical.quantity, newQuantity),
+                        kpiQuantity: newQuantity
+                    });
                 });
+
+            // Save NEGATIVE stats for reductions
+            if (reductions.length > 0 && window.firebase && window.authManager) {
+                try {
+                    const auth = window.authManager.getAuthState();
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+
+                    if (userId) {
+                        const totalReductionQty = reductions.reduce((sum, r) => sum + r.reductionQty, 0);
+                        const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
+
+                        await statsRef.set({
+                            userName: auth.displayName || auth.userType || 'Unknown',
+                            productCount: -totalReductionQty, // NEGATIVE count
+                            amount: -totalReductionQty * 5000, // NEGATIVE amount
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            orderId: window.currentChatOrderData.Id || 'unknown',
+                            orderSTT: window.currentChatOrderData.SessionIndex || '',
+                            isReduction: true, // Flag to indicate this is a reduction
+                            products: reductions.map(r => ({
+                                name: r.productName,
+                                quantity: -r.reductionQty, // Negative quantity
+                                oldQuantity: r.oldQuantity,
+                                newQuantity: r.newQuantity,
+                                isCounted: true
+                            }))
+                        });
+
+                        console.log(`[KPI-REDUCTION] Saved negative stats: -${totalReductionQty} items, -${totalReductionQty * 5000}đ`);
+                    }
+                } catch (err) {
+                    console.error('[KPI-REDUCTION] Error saving reduction stats:', err);
+                }
+            }
+
+            // Update history in Firebase
+            if (productsToUpdate.length > 0) {
+                await updateOrderProductHistory(window.currentChatOrderData.Id, productsToUpdate);
             }
 
             console.log('[CHAT-PRODUCTS] Order saved successfully');
@@ -1578,7 +1649,7 @@
                         const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
 
                         // FRAUD PREVENTION: Only count INCREMENTAL quantity
-                        // Compare new quantity in order vs historical maximum quantity
+                        // Compare new quantity in order vs historical KPI quantity
                         let totalValidQty = 0;
                         const productDetails = heldProducts.map(p => {
                             const productId = String(p.ProductId);
@@ -1587,25 +1658,27 @@
                             const productInOrder = newDetails.find(np => np.ProductId === p.ProductId);
                             const newQuantityInOrder = productInOrder ? (productInOrder.Quantity || 0) : 0;
 
-                            // Get historical maximum quantity
-                            const historicalQty = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || 0;
+                            // Get historical data
+                            const historical = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || { quantity: 0, kpiQuantity: 0 };
+                            const historicalKpiQty = historical.kpiQuantity || 0;
 
                             // Calculate INCREMENTAL quantity (only new additions count)
-                            const incrementalQty = Math.max(0, newQuantityInOrder - historicalQty);
+                            // Compare against KPI quantity (not max quantity in order)
+                            const incrementalQty = Math.max(0, newQuantityInOrder - historicalKpiQty);
 
                             totalValidQty += incrementalQty;
 
                             if (incrementalQty === 0) {
-                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: No score (Historical: ${historicalQty}, New: ${newQuantityInOrder})`);
+                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: No score (Historical KPI: ${historicalKpiQty}, New: ${newQuantityInOrder})`);
                             } else {
-                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: +${incrementalQty} score (Historical: ${historicalQty}, New: ${newQuantityInOrder})`);
+                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: +${incrementalQty} score (Historical KPI: ${historicalKpiQty}, New: ${newQuantityInOrder})`);
                             }
 
                             return {
                                 name: p.ProductNameGet || p.ProductName || 'Unknown Product',
                                 quantity: p.Quantity || 0,
                                 newQuantityInOrder: newQuantityInOrder,
-                                historicalQty: historicalQty,
+                                historicalKpiQty: historicalKpiQty,
                                 incrementalQty: incrementalQty,
                                 isCounted: incrementalQty > 0
                             };
@@ -1625,6 +1698,34 @@
                 }
             } catch (err) {
                 console.error('[CHAT-PRODUCTS] Error saving held stats:', err);
+            }
+
+            // Update kpiQuantity in history for products that were scored
+            // This marks these quantities as "already counted for KPI"
+            const productsToUpdateHistory = [];
+            heldProducts.forEach(p => {
+                const productId = String(p.ProductId);
+                const productInOrder = newDetails.find(np => np.ProductId === p.ProductId);
+                const newQuantityInOrder = productInOrder ? (productInOrder.Quantity || 0) : 0;
+
+                // Update both in-memory and prepare for Firebase update
+                const existing = window.originalOrderProductQuantities.get(productId) || { quantity: 0, kpiQuantity: 0 };
+                window.originalOrderProductQuantities.set(productId, {
+                    quantity: Math.max(existing.quantity, newQuantityInOrder),
+                    kpiQuantity: newQuantityInOrder // Update KPI quantity to current quantity
+                });
+
+                productsToUpdateHistory.push({
+                    productId: productId,
+                    quantity: Math.max(existing.quantity, newQuantityInOrder),
+                    kpiQuantity: newQuantityInOrder
+                });
+            });
+
+            // Save updated KPI quantities to Firebase
+            if (productsToUpdateHistory.length > 0) {
+                await updateOrderProductHistory(window.currentChatOrderData.Id, productsToUpdateHistory);
+                console.log('[KPI-FRAUD] Updated KPI quantities for', productsToUpdateHistory.length, 'products');
             }
 
             // Update Details array
