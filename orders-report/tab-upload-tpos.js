@@ -3274,7 +3274,7 @@ ${encodedString}
 
     /**
      * Render upload history detail HTML
-     * Shows detailed breakdown of each order (STT) with products uploaded
+     * Shows products grouped by product code with aggregated quantities from all STTs
      */
     function renderUploadHistoryDetail(record) {
         // Status config
@@ -3321,8 +3321,8 @@ ${encodedString}
             </div>
         `;
 
-        // Group products by STT from beforeSnapshot.assignments
-        const productsBySTT = {};
+        // Group products by product code from beforeSnapshot.assignments
+        const productsByCode = {};
 
         if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
             record.beforeSnapshot.assignments.forEach(assignment => {
@@ -3330,17 +3330,22 @@ ${encodedString}
                     assignment.sttList.forEach(sttItem => {
                         // Handle both object {stt: "32"} and string "32" formats
                         const stt = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
-                        if (!productsBySTT[stt]) {
-                            productsBySTT[stt] = [];
+                        const productKey = assignment.productCode || assignment.productId;
+
+                        if (!productsByCode[productKey]) {
+                            productsByCode[productKey] = {
+                                productId: assignment.productId,
+                                productCode: assignment.productCode,
+                                productName: assignment.productName,
+                                imageUrl: assignment.imageUrl,
+                                note: assignment.note || '',
+                                count: 0,
+                                sttList: []
+                            };
                         }
-                        productsBySTT[stt].push({
-                            productId: assignment.productId,
-                            productCode: assignment.productCode,
-                            productName: assignment.productName,
-                            imageUrl: assignment.imageUrl,
-                            note: assignment.note || '',
-                            sessionIndexes: assignment.sttList // Array of all STTs for this product
-                        });
+
+                        productsByCode[productKey].count++;
+                        productsByCode[productKey].sttList.push(stt);
                     });
                 }
             });
@@ -3354,12 +3359,21 @@ ${encodedString}
             });
         }
 
-        // Render each STT as a card (similar to preview modal)
-        html += '<h6 class="mb-3"><i class="fas fa-shopping-cart"></i> Chi Tiết Từng Giỏ Hàng</h6>';
+        // Get successful and failed STTs
+        const successfulSTTs = [];
+        const failedSTTs = [];
+        Object.entries(uploadResultsMap).forEach(([stt, result]) => {
+            if (result.success) {
+                successfulSTTs.push(stt);
+            } else {
+                failedSTTs.push(stt);
+            }
+        });
 
-        const sortedSTTs = Object.keys(productsBySTT).sort((a, b) => Number(a) - Number(b));
+        // Render products grouped by product code
+        html += '<h6 class="mb-3"><i class="fas fa-box"></i> Sản phẩm đã upload</h6>';
 
-        if (sortedSTTs.length === 0) {
+        if (Object.keys(productsByCode).length === 0) {
             html += `
                 <div class="alert alert-warning" role="alert">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -3367,97 +3381,84 @@ ${encodedString}
                 </div>
             `;
         } else {
-            sortedSTTs.forEach(stt => {
-                const products = productsBySTT[stt];
-                const uploadResult = uploadResultsMap[stt];
+            // Determine overall status
+            let cardClass = 'border-primary';
 
-                // Determine card border color based on result
-                let cardClass = 'border-secondary';
-                let headerClass = 'bg-secondary';
-                let resultBadge = '';
+            html += `
+                <div class="card mb-3 ${cardClass}">
+                    <div class="card-body">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50%;">Sản phẩm</th>
+                                    <th class="text-center" style="width: 15%;">Số lượng</th>
+                                    <th class="text-center" style="width: 20%;">Mã đơn hàng</th>
+                                    <th style="width: 15%;">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${Object.values(productsByCode)
+                                    .sort((a, b) => a.productName.localeCompare(b.productName))
+                                    .map(product => `
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                ${product.imageUrl
+                                                    ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
+                                                    : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
+                                                <div>
+                                                    <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
+                                                    <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">${product.count}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="text-muted" style="font-size: 13px;">
+                                                ${product.sttList.join(', ')}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            ${formatNoteWithClickableEncoded(product.note)}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
 
-                if (uploadResult) {
-                    if (uploadResult.success) {
-                        cardClass = 'border-success';
-                        headerClass = 'bg-success';
-                        resultBadge = `<span class="badge bg-success ms-2">✅ Upload thành công → Order #${uploadResult.orderId}</span>`;
-                    } else {
-                        cardClass = 'border-danger';
-                        headerClass = 'bg-danger';
-                        resultBadge = `<span class="badge bg-danger ms-2">❌ Upload thất bại</span>`;
-                    }
+            // Show upload results summary
+            if (successfulSTTs.length > 0 || failedSTTs.length > 0) {
+                html += '<h6 class="mb-3 mt-4"><i class="fas fa-clipboard-check"></i> Kết quả upload</h6>';
+
+                if (successfulSTTs.length > 0) {
+                    html += `
+                        <div class="alert alert-success" role="alert">
+                            <strong><i class="fas fa-check-circle"></i> Thành công (${successfulSTTs.length} STT):</strong>
+                            ${successfulSTTs.map(stt => {
+                                const result = uploadResultsMap[stt];
+                                return `STT ${stt} → Order #${result.orderId}`;
+                            }).join(', ')}
+                        </div>
+                    `;
                 }
 
-                // Count products
-                const productCounts = {};
-                products.forEach(product => {
-                    const key = product.productId;
-                    if (!productCounts[key]) {
-                        productCounts[key] = { ...product, count: 0 };
-                    }
-                    productCounts[key].count++;
-                });
-
-                html += `
-                    <div class="card mb-3 ${cardClass}">
-                        <div class="card-header ${headerClass} text-white">
-                            <h6 class="mb-0">
-                                <i class="fas fa-hashtag"></i> STT ${stt}
-                                ${resultBadge}
-                            </h6>
+                if (failedSTTs.length > 0) {
+                    html += `
+                        <div class="alert alert-danger" role="alert">
+                            <strong><i class="fas fa-exclamation-circle"></i> Thất bại (${failedSTTs.length} STT):</strong>
+                            ${failedSTTs.map(stt => {
+                                const result = uploadResultsMap[stt];
+                                return `STT ${stt} - ${result.error || 'Unknown error'}`;
+                            }).join('<br>')}
                         </div>
-                        <div class="card-body">
-                            <h6 class="text-primary mb-3">
-                                <i class="fas fa-box"></i> Sản phẩm đã upload (${Object.keys(productCounts).length})
-                            </h6>
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 40%;">Sản phẩm</th>
-                                        <th class="text-center" style="width: 12%;">Số lượng</th>
-                                        <th class="text-center" style="width: 25%;">Mã đơn hàng</th>
-                                        <th style="width: 23%;">Note</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${Object.values(productCounts).map(product => `
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    ${product.imageUrl
-                        ? `<img src="${product.imageUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">`
-                        : '<div style="width: 40px; height: 40px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📦</div>'}
-                                                    <div>
-                                                        <div style="font-weight: 600; font-size: 14px;">${product.productName}</div>
-                                                        <div style="font-size: 12px; color: #6b7280;">${product.productCode || 'N/A'}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-primary">${product.count}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="text-muted" style="font-size: 13px;">
-                                                    ${(product.sessionIndexes || []).map(item => typeof item === 'object' ? item.stt : item).join(', ') || 'N/A'}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                ${formatNoteWithClickableEncoded(product.note)}
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-
-                            ${uploadResult && !uploadResult.success && uploadResult.error ? `
-                                <div class="alert alert-danger mt-3 mb-0" role="alert">
-                                    <strong><i class="fas fa-exclamation-circle"></i> Lỗi:</strong> ${uploadResult.error}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            });
+                    `;
+                }
+            }
         }
 
         // Note section
