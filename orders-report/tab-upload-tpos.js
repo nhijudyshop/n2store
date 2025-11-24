@@ -1162,6 +1162,36 @@ ${encodedString}
         console.log(`📝 Updated note for ${noteKey}:`, value);
     };
 
+    // Helper function to filter out encoded notes and keep only non-encoded text
+    function filterNonEncodedNotes(noteText) {
+        if (!noteText) return '';
+
+        // Split by spaces and newlines
+        const parts = noteText.split(/[\s\n]+/);
+        const nonEncodedParts = [];
+
+        for (const part of parts) {
+            const trimmed = part.trim();
+            if (!trimmed) continue;
+
+            // Check if this part is encoded by attempting to decode it
+            // Encoded parts are typically long strings without spaces
+            if (trimmed.length > 20 && !trimmed.includes(' ')) {
+                // Try to decode using DecodingUtility
+                const decoded = window.DecodingUtility ? window.DecodingUtility.decodeProductLine(trimmed) : null;
+                if (decoded) {
+                    // This is an encoded part, skip it
+                    continue;
+                }
+            }
+
+            // This is a non-encoded part, keep it
+            nonEncodedParts.push(trimmed);
+        }
+
+        return nonEncodedParts.join(' ');
+    }
+
     // Render Preview Modal Content
     function renderPreviewModal() {
         const selectedSTTs = Array.from(selectedSessionIndexes);
@@ -1198,13 +1228,16 @@ ${encodedString}
                 assignedProductCounts[key].count++;
             });
 
+            // Filter non-encoded notes for display
+            const filteredNote = data.orderInfo?.note ? filterNonEncodedNotes(data.orderInfo.note) : '';
+
             html += `
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-hashtag"></i> STT ${stt}
                             ${data.orderInfo?.customerName ? `- ${data.orderInfo.customerName}` : ''}
-                            ${data.orderInfo?.note ? `- ${data.orderInfo.note}` : ''}
+                            ${filteredNote ? `, ${filteredNote}` : ''}
                         </h5>
                     </div>
                     <div class="card-body">
@@ -1230,7 +1263,9 @@ ${encodedString}
                 if (!productNotes[noteKey]) {
                     productNotes[noteKey] = 'live';
                 }
-                const existingNote = productNotes[noteKey] || '';
+                // Filter to show only non-encoded notes
+                const rawNote = productNotes[noteKey] || '';
+                const existingNote = filterNonEncodedNotes(rawNote);
 
                 // Badge to show if product is new or existing
                 const statusBadge = product.isExisting
@@ -1288,7 +1323,9 @@ ${encodedString}
                                         <tbody>
                                             ${orderProducts.map(product => {
                     const noteKey = `${stt}-${product.productId}`;
-                    const existingNote = productNotes[noteKey] || product.note || '';
+                    // Filter to show only non-encoded notes
+                    const rawNote = productNotes[noteKey] || product.note || '';
+                    const existingNote = filterNonEncodedNotes(rawNote);
 
                     // Check if this product will be updated (exists in assigned products)
                     const willBeUpdated = !!assignedProductCounts[product.productId];
@@ -3510,13 +3547,16 @@ ${encodedString}
                 }
             }
 
+            // Filter non-encoded notes for display
+            const historyFilteredNote = data.orderInfo?.note ? filterNonEncodedNotes(data.orderInfo.note) : '';
+
             html += `
                 <div class="card mb-4 ${cardClass}">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-hashtag"></i> STT ${stt}
                             ${data.orderInfo?.customerName ? `- ${data.orderInfo.customerName}` : ''}
-                            ${data.orderInfo?.note ? `<small class="ms-2">(${data.orderInfo.note})</small>` : ''}
+                            ${historyFilteredNote ? `, ${historyFilteredNote}` : ''}
                             ${statusBadge}
                         </h5>
                     </div>
