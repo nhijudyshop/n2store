@@ -778,14 +778,12 @@ ${encodedString}
             // Don't sort - preserve insertion order
             const ordersHtml = product.orders.map(order => {
                 const isSelected = selectedSessionIndexes.has(order.stt);
-                // Format: "STT 32 Huỳnh Thành Đạt - 1 ảo thu..." (customer name - note)
-                const chipText = [order.customerName, order.note].filter(Boolean).join(' - ');
-                const displayText = chipText.length > 30 ? chipText.substring(0, 30) + '...' : chipText;
+                // Format: "STT 32 Huỳnh Thành Đạt" (only customer name, no note)
 
                 return `
                     <div class="stt-chip" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin: 4px; background: ${isSelected ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}; color: white; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
                         <span class="stt-chip-number" style="font-weight: 700;">STT ${order.stt}</span>
-                        ${displayText ? `<span class="stt-chip-customer" style="font-size: 11px; opacity: 0.9;">${displayText}</span>` : ''}
+                        ${order.customerName ? `<span class="stt-chip-customer" style="font-size: 11px; opacity: 0.9;">${order.customerName}</span>` : ''}
                         ${order.quantity > 1 ? `<span style="font-size: 11px; opacity: 0.9;">(x${order.quantity})</span>` : ''}
                     </div>
                 `;
