@@ -376,9 +376,54 @@
     let chatInlineSearchTimeout = null;
 
     /**
+     * Load order product history from Firebase
+     * Returns a Set of all product IDs that have EVER been in this order
+     */
+    async function loadOrderProductHistory(orderId) {
+        if (!window.firebase || !orderId) return new Set();
+
+        try {
+            const ref = firebase.database().ref(`order_product_history/${orderId}`);
+            const snapshot = await ref.once('value');
+            const data = snapshot.val() || {};
+
+            // Convert object keys to Set
+            const historySet = new Set(Object.keys(data));
+            console.log('[KPI-FRAUD] Loaded history from Firebase:', historySet.size, 'products');
+            return historySet;
+        } catch (error) {
+            console.error('[KPI-FRAUD] Error loading history:', error);
+            return new Set();
+        }
+    }
+
+    /**
+     * Update order product history in Firebase
+     * Adds new product IDs to the permanent history
+     */
+    async function updateOrderProductHistory(orderId, productIds) {
+        if (!window.firebase || !orderId || !productIds || productIds.length === 0) return;
+
+        try {
+            const ref = firebase.database().ref(`order_product_history/${orderId}`);
+
+            // Create updates object: { productId: true, ... }
+            const updates = {};
+            productIds.forEach(id => {
+                updates[String(id)] = true;
+            });
+
+            await ref.update(updates);
+            console.log('[KPI-FRAUD] Updated history in Firebase:', productIds.length, 'products');
+        } catch (error) {
+            console.error('[KPI-FRAUD] Error updating history:', error);
+        }
+    }
+
+    /**
      * Initialize chat modal products when modal is opened
      */
-    window.initChatModalProducts = function (orderData) {
+    window.initChatModalProducts = async function (orderData) {
         console.log('[CHAT-PRODUCTS] Initializing with order data:', orderData);
 
         window.currentChatOrderData = orderData;
@@ -403,14 +448,28 @@
         // Initialize search
         initChatInlineProductSearch();
 
-        // FRAUD PREVENTION: Track original product IDs to prevent delete-then-readd scoring
-        window.originalOrderProductIds = new Set();
+        // FRAUD PREVENTION: Load PERMANENT history from Firebase
+        // This includes ALL products that have EVER been in this order
+        window.originalOrderProductIds = await loadOrderProductHistory(window.currentChatOrderData.Id);
+
+        // ALSO add current products to the history (in case Firebase is empty/new order)
+        const currentProductIds = [];
         if (window.currentChatOrderData.Details) {
             window.currentChatOrderData.Details.forEach(p => {
-                if (p.ProductId) window.originalOrderProductIds.add(String(p.ProductId));
+                if (p.ProductId) {
+                    const idStr = String(p.ProductId);
+                    window.originalOrderProductIds.add(idStr);
+                    currentProductIds.push(idStr);
+                }
             });
         }
-        console.log('[KPI-FRAUD] Original products tracked:', window.originalOrderProductIds.size);
+
+        // Save current products to Firebase history (initialize if needed)
+        if (currentProductIds.length > 0) {
+            await updateOrderProductHistory(window.currentChatOrderData.Id, currentProductIds);
+        }
+
+        console.log('[KPI-FRAUD] Total historical products tracked:', window.originalOrderProductIds.size);
 
         // Update counts
         updateChatProductCounts();
@@ -1009,6 +1068,20 @@
             // Update cache if needed
             if (window.cacheManager) {
                 window.cacheManager.clear("orders");
+            }
+
+            // FRAUD PREVENTION: After successful save, update Firebase history
+            // This ensures ALL products in the order are tracked permanently
+            const productIds = (window.currentChatOrderData.Details || [])
+                .filter(p => !p.IsHeld) // Only count non-held (saved) products
+                .map(p => String(p.ProductId))
+                .filter(id => id && id !== 'undefined' && id !== 'null');
+
+            if (productIds.length > 0) {
+                await updateOrderProductHistory(window.currentChatOrderData.Id, productIds);
+
+                // Also update in-memory tracking
+                productIds.forEach(id => window.originalOrderProductIds.add(id));
             }
 
             console.log('[CHAT-PRODUCTS] Order saved successfully');
