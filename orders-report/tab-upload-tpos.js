@@ -2880,6 +2880,103 @@ ${encodedString}
     const HISTORY_PAGE_SIZE = 20;
 
     /**
+     * Get user display name from userId
+     * @param {string} userId - User identifier
+     * @returns {string} Display name
+     */
+    function getUserDisplayName(userId) {
+        if (!userId) return 'Unknown';
+
+        // Extract username from userId (format: username-shop or just username)
+        if (userId.includes('-')) {
+            return userId.split('-')[0];
+        }
+        return userId;
+    }
+
+    /**
+     * Load all users who have upload history
+     * @returns {Promise<Array>} Array of user IDs
+     */
+    async function loadAllUsersForFilter() {
+        try {
+            console.log('[HISTORY] 📥 Loading all users for filter...');
+
+            // Query Firebase root path to get all users
+            const historyRef = database.ref('productAssignments_history');
+            const snapshot = await historyRef.once('value');
+
+            const userIds = [];
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    userIds.push(childSnapshot.key);
+                });
+            }
+
+            // Sort alphabetically
+            userIds.sort();
+
+            console.log(`[HISTORY] ✅ Found ${userIds.length} users with upload history`);
+            return userIds;
+        } catch (error) {
+            console.error('[HISTORY] ❌ Error loading users for filter:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Populate user filter dropdown with all users
+     */
+    async function populateUserFilter() {
+        try {
+            const userFilterSelect = document.getElementById('historyUserFilter');
+            if (!userFilterSelect) {
+                console.warn('[HISTORY] User filter select not found');
+                return;
+            }
+
+            // Get current logged-in user
+            const currentUser = userStorageManager ? userStorageManager.getUserIdentifier() : null;
+            console.log('[HISTORY] Current user:', currentUser);
+
+            // Load all users who have history
+            const allUsers = await loadAllUsersForFilter();
+
+            // Clear existing options and rebuild
+            userFilterSelect.innerHTML = `
+                <option value="current">👤 Lịch sử của tôi</option>
+                <option value="all">👥 Tất cả người dùng</option>
+            `;
+
+            // Add separator if there are users
+            if (allUsers.length > 0) {
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '───────────────';
+                userFilterSelect.appendChild(separator);
+            }
+
+            // Add option for each user
+            allUsers.forEach(userId => {
+                const option = document.createElement('option');
+                option.value = userId;
+                option.textContent = `👤 ${getUserDisplayName(userId)}`;
+
+                // Mark current user's option
+                if (userId === currentUser) {
+                    option.textContent += ' (bạn)';
+                }
+
+                userFilterSelect.appendChild(option);
+            });
+
+            console.log('[HISTORY] ✅ User filter populated with', allUsers.length, 'users');
+        } catch (error) {
+            console.error('[HISTORY] ❌ Error populating user filter:', error);
+        }
+    }
+
+    /**
      * Open Upload History Modal
      */
     window.openUploadHistoryModal = async function () {
@@ -2900,6 +2997,9 @@ ${encodedString}
                     <p class="text-muted mt-3">Đang tải lịch sử upload...</p>
                 </div>
             `;
+
+            // Populate user filter dropdown
+            await populateUserFilter();
 
             // Load history from Firebase
             await loadUploadHistory();
@@ -2928,18 +3028,43 @@ ${encodedString}
     /**
      * Load upload history from Firebase
      * Only loads summary fields for performance
+     * Supports loading by user filter: current, all, or specific userId
      */
     async function loadUploadHistory() {
         try {
             console.log('[HISTORY] 📥 Loading history from Firebase...');
 
-            // Query Firebase - orderByChild timestamp, limit to last 100 records
-            const historyPath = getUserFirebasePath('productAssignments_history');
-            console.log('[HISTORY] Loading from path:', historyPath);
-            const snapshot = await database.ref(historyPath)
-                .orderByChild('timestamp')
-                .limitToLast(100)
-                .once('value');
+            // Get selected user filter
+            const userFilterSelect = document.getElementById('historyUserFilter');
+            const selectedUser = userFilterSelect ? userFilterSelect.value : 'current';
+            console.log('[HISTORY] Selected user filter:', selectedUser);
+
+            let historyPath;
+            let snapshot;
+
+            // Determine query path based on user filter
+            if (selectedUser === 'current') {
+                // Load current user's history (default behavior)
+                historyPath = getUserFirebasePath('productAssignments_history');
+                console.log('[HISTORY] Loading current user history from path:', historyPath);
+                snapshot = await database.ref(historyPath)
+                    .orderByChild('timestamp')
+                    .limitToLast(100)
+                    .once('value');
+            } else if (selectedUser === 'all') {
+                // Load ALL users' history from root path
+                historyPath = 'productAssignments_history';
+                console.log('[HISTORY] Loading ALL users history from path:', historyPath);
+                snapshot = await database.ref(historyPath).once('value');
+            } else {
+                // Load specific user's history
+                historyPath = `productAssignments_history/${selectedUser}`;
+                console.log('[HISTORY] Loading specific user history from path:', historyPath);
+                snapshot = await database.ref(historyPath)
+                    .orderByChild('timestamp')
+                    .limitToLast(100)
+                    .once('value');
+            }
 
             const data = snapshot.val();
 
@@ -2950,26 +3075,59 @@ ${encodedString}
                 return;
             }
 
-            // Convert to array and extract ONLY summary fields (not beforeSnapshot/afterSnapshot)
-            uploadHistoryRecords = Object.keys(data).map(key => {
-                const record = data[key];
-                return {
-                    uploadId: record.uploadId || key,
-                    timestamp: record.timestamp || 0,
-                    uploadStatus: record.uploadStatus || 'unknown',
-                    totalSTTs: record.totalSTTs || 0,
-                    successCount: record.successCount || 0,
-                    failCount: record.failCount || 0,
-                    uploadedSTTs: record.uploadedSTTs || [],
-                    note: record.note || '',
-                    committedAt: record.committedAt || null,
-                    restoredAt: record.restoredAt || null
-                    // DO NOT load beforeSnapshot/afterSnapshot here (lazy load when needed)
-                };
-            });
+            // Convert to array based on data structure
+            uploadHistoryRecords = [];
+
+            if (selectedUser === 'all') {
+                // Flatten data from all users
+                Object.keys(data).forEach(userId => {
+                    const userHistory = data[userId];
+                    if (userHistory && typeof userHistory === 'object') {
+                        Object.keys(userHistory).forEach(uploadKey => {
+                            const record = userHistory[uploadKey];
+                            uploadHistoryRecords.push({
+                                uploadId: record.uploadId || uploadKey,
+                                timestamp: record.timestamp || 0,
+                                uploadStatus: record.uploadStatus || 'unknown',
+                                totalSTTs: record.totalSTTs || 0,
+                                successCount: record.successCount || 0,
+                                failCount: record.failCount || 0,
+                                uploadedSTTs: record.uploadedSTTs || [],
+                                note: record.note || '',
+                                committedAt: record.committedAt || null,
+                                restoredAt: record.restoredAt || null,
+                                userId: userId // Add userId for tracking
+                            });
+                        });
+                    }
+                });
+            } else {
+                // Single user data (current or specific user)
+                uploadHistoryRecords = Object.keys(data).map(key => {
+                    const record = data[key];
+                    return {
+                        uploadId: record.uploadId || key,
+                        timestamp: record.timestamp || 0,
+                        uploadStatus: record.uploadStatus || 'unknown',
+                        totalSTTs: record.totalSTTs || 0,
+                        successCount: record.successCount || 0,
+                        failCount: record.failCount || 0,
+                        uploadedSTTs: record.uploadedSTTs || [],
+                        note: record.note || '',
+                        committedAt: record.committedAt || null,
+                        restoredAt: record.restoredAt || null,
+                        userId: selectedUser !== 'current' ? selectedUser : undefined // Add userId only for non-current user
+                    };
+                });
+            }
 
             // Sort by timestamp descending (newest first)
             uploadHistoryRecords.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Limit to 100 most recent records when loading all users
+            if (selectedUser === 'all' && uploadHistoryRecords.length > 100) {
+                uploadHistoryRecords = uploadHistoryRecords.slice(0, 100);
+            }
 
             // Initialize filtered records (no filter yet)
             filteredHistoryRecords = [...uploadHistoryRecords];
@@ -3081,6 +3239,9 @@ ${encodedString}
         // Format uploadId (show last 8 chars)
         const shortId = record.uploadId.slice(-8);
 
+        // Format user badge (show if userId is present)
+        const userBadge = record.userId ? `<span class="user-badge">👤 ${getUserDisplayName(record.userId)}</span>` : '';
+
         // Format STTs list (limit to first 20, then "...")
         const sttList = record.uploadedSTTs.slice(0, 20).join(', ');
         const moreStt = record.uploadedSTTs.length > 20 ? ` và ${record.uploadedSTTs.length - 20} STT khác` : '';
@@ -3090,7 +3251,7 @@ ${encodedString}
                 <div class="history-card-header">
                     <div>
                         <h6 class="history-card-title">
-                            ${config.icon} Upload #${shortId}
+                            ${config.icon} Upload #${shortId} ${userBadge}
                             <span class="history-card-date">${dateStr}</span>
                         </h6>
                     </div>
@@ -3117,10 +3278,10 @@ ${encodedString}
                 </div>
 
                 <div class="history-actions">
-                    <button class="btn btn-sm btn-info" onclick="compareCartHistory('${record.uploadId}')">
+                    <button class="btn btn-sm btn-info" onclick="compareCartHistory('${record.uploadId}', '${record.userId || ''}')">
                         <i class="fas fa-balance-scale"></i> So Sánh Giỏ
                     </button>
-                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetail('${record.uploadId}')">
+                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetail('${record.uploadId}', '${record.userId || ''}')">
                         <i class="fas fa-eye"></i> Xem Chi Tiết
                     </button>
                 </div>
@@ -3220,8 +3381,8 @@ ${encodedString}
      * View upload history detail
      * Lazy load uploadResults from Firebase
      */
-    window.viewUploadHistoryDetail = async function (uploadId) {
-        console.log('[HISTORY] 👁️ Viewing detail for:', uploadId);
+    window.viewUploadHistoryDetail = async function (uploadId, userId = '') {
+        console.log('[HISTORY] 👁️ Viewing detail for:', uploadId, 'userId:', userId);
 
         try {
             // Show detail modal with loading state
@@ -3242,7 +3403,14 @@ ${encodedString}
             `;
 
             // Load full record from Firebase (with uploadResults)
-            const historyPath = getUserFirebasePath('productAssignments_history');
+            // If userId is provided, use that path; otherwise use current user's path
+            let historyPath;
+            if (userId && userId !== '') {
+                historyPath = `productAssignments_history/${userId}`;
+            } else {
+                historyPath = getUserFirebasePath('productAssignments_history');
+            }
+            console.log('[HISTORY] Loading detail from path:', historyPath);
             const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 
@@ -3481,8 +3649,8 @@ ${encodedString}
      * Compare Cart History - Show preview comparison modal
      * Similar to previewModal but for history records
      */
-    window.compareCartHistory = async function (uploadId) {
-        console.log('[HISTORY-COMPARE] 🔍 Comparing cart for uploadId:', uploadId);
+    window.compareCartHistory = async function (uploadId, userId = '') {
+        console.log('[HISTORY-COMPARE] 🔍 Comparing cart for uploadId:', uploadId, 'userId:', userId);
 
         try {
             // Show comparison modal with loading state
@@ -3500,7 +3668,14 @@ ${encodedString}
             `;
 
             // Load full record from Firebase (with beforeSnapshot)
-            const historyPath = getUserFirebasePath('productAssignments_history');
+            // If userId is provided, use that path; otherwise use current user's path
+            let historyPath;
+            if (userId && userId !== '') {
+                historyPath = `productAssignments_history/${userId}`;
+            } else {
+                historyPath = getUserFirebasePath('productAssignments_history');
+            }
+            console.log('[HISTORY-COMPARE] Loading from path:', historyPath);
             const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
             const record = snapshot.val();
 

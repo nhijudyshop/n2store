@@ -216,6 +216,14 @@
                         <div class="history-filters mb-3">
                             <div class="row g-2">
                                 <div class="col-md-3">
+                                    <select class="form-select form-select-sm" id="historyUserFilter"
+                                        onchange="loadUploadHistory()">
+                                        <option value="current">👤 Lịch sử của tôi</option>
+                                        <option value="all">👥 Tất cả người dùng</option>
+                                        <!-- User options will be populated by JS -->
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
                                     <select class="form-select form-select-sm" id="historyStatusFilter"
                                         onchange="filterUploadHistory()">
                                         <option value="all">Tất cả trạng thái</option>
@@ -224,15 +232,15 @@
                                         <option value="failed">❌ Thất bại</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <input type="date" class="form-control form-control-sm" id="historyDateFrom"
                                         onchange="filterUploadHistory()" placeholder="Từ ngày">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <input type="date" class="form-control form-control-sm" id="historyDateTo"
                                         onchange="filterUploadHistory()" placeholder="Đến ngày">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <input type="text" class="form-control form-control-sm" id="historySearchSTT"
                                         oninput="filterUploadHistory()" placeholder="🔍 Tìm STT...">
                                 </div>
