@@ -482,64 +482,12 @@
         // Initialize search
         initChatInlineProductSearch();
 
-        // WATERMARK METHOD: Load history and set BASELINE
+        // WATERMARK METHOD: ONLY LOAD history from Firebase (DO NOT set baseline yet)
+        // Baseline will be set BEFORE the FIRST action that changes the order
         // This is a Map<productId, {baselineQty, currentQty, kpiQty}>
         window.originalOrderProductQuantities = await loadOrderProductHistory(window.currentChatOrderData.Id);
 
-        // Set BASELINE for current products (snapshot at modal open time)
-        const currentProducts = [];
-        if (window.currentChatOrderData.Details) {
-            window.currentChatOrderData.Details.forEach(p => {
-                if (p.ProductId) {
-                    const idStr = String(p.ProductId);
-                    const qty = p.Quantity || 0;
-
-                    const existing = window.originalOrderProductQuantities.get(idStr);
-
-                    if (!existing || existing.baselineQty === 0) {
-                        // First time seeing this product OR baseline not set → Set BASELINE
-                        const newBaseline = qty; // Snapshot current quantity as baseline
-                        const newKpiQty = existing ? existing.kpiQty : 0; // Keep existing KPI if any
-
-                        window.originalOrderProductQuantities.set(idStr, {
-                            baselineQty: newBaseline,
-                            currentQty: qty,
-                            kpiQty: newKpiQty
-                        });
-
-                        currentProducts.push({
-                            productId: idStr,
-                            baselineQty: newBaseline,
-                            currentQty: qty,
-                            kpiQty: newKpiQty
-                        });
-
-                        console.log(`[KPI-WATERMARK] Set BASELINE for ${idStr}: ${newBaseline}`);
-                    } else {
-                        // Baseline already exists, just update current quantity
-                        window.originalOrderProductQuantities.set(idStr, {
-                            baselineQty: existing.baselineQty,
-                            currentQty: qty,
-                            kpiQty: existing.kpiQty
-                        });
-
-                        currentProducts.push({
-                            productId: idStr,
-                            baselineQty: existing.baselineQty,
-                            currentQty: qty,
-                            kpiQty: existing.kpiQty
-                        });
-                    }
-                }
-            });
-        }
-
-        // Save baseline to Firebase
-        if (currentProducts.length > 0) {
-            await updateOrderProductHistory(window.currentChatOrderData.Id, currentProducts);
-        }
-
-        console.log('[KPI-WATERMARK] Total products tracked:', window.originalOrderProductQuantities.size);
+        console.log('[KPI-WATERMARK] Loaded history:', window.originalOrderProductQuantities.size, 'products');
 
         // Update counts
         updateChatProductCounts();
@@ -1108,6 +1056,42 @@
             //     notifId = window.notificationManager.saving('Đang lưu thay đổi...');
             // }
 
+            // WATERMARK: Set BASELINE before API call (ONLY on FIRST action)
+            // Snapshot current state BEFORE any changes are made
+            const baselineSnapshot = [];
+            (window.currentChatOrderData.Details || []).forEach(p => {
+                if (!p.ProductId || p.IsHeld) return; // Skip held products
+
+                const productId = String(p.ProductId);
+                if (productId === 'undefined' || productId === 'null') return;
+
+                const qty = p.Quantity || 0;
+                const existing = window.originalOrderProductQuantities.get(productId);
+
+                // ONLY set baseline if NOT already set (baselineQty === 0 or undefined)
+                if (!existing || existing.baselineQty === 0) {
+                    const newEntry = {
+                        productId: productId,
+                        baselineQty: qty,  // Set baseline = current quantity BEFORE change
+                        currentQty: qty,
+                        kpiQty: existing ? existing.kpiQty : 0  // Keep existing KPI
+                    };
+
+                    baselineSnapshot.push(newEntry);
+
+                    // Update in-memory map
+                    window.originalOrderProductQuantities.set(productId, newEntry);
+
+                    console.log(`[KPI-WATERMARK] Set BASELINE before action: ${productId} = ${qty}`);
+                }
+            });
+
+            // Save baseline to Firebase BEFORE API call
+            if (baselineSnapshot.length > 0) {
+                await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
+                console.log(`[KPI-WATERMARK] Saved baseline for ${baselineSnapshot.length} products BEFORE API call`);
+            }
+
             const payload = prepareChatOrderPayload(window.currentChatOrderData);
 
             // Get auth headers
@@ -1140,7 +1124,7 @@
                 window.cacheManager.clear("orders");
             }
 
-            // WATERMARK: Check for KPI changes (both increases and decreases)
+            // WATERMARK: Check for KPI changes (both increases and decreases) AFTER API call
             const productsToUpdate = [];
             const reductions = [];
 
@@ -1151,13 +1135,15 @@
                     if (!productId || productId === 'undefined' || productId === 'null') return;
 
                     const newQuantity = p.Quantity || 0;
-                    const historical = window.originalOrderProductQuantities.get(productId) || {
-                        baselineQty: newQuantity, // If not tracked, assume current is baseline
-                        currentQty: newQuantity,
-                        kpiQty: 0
-                    };
+                    const historical = window.originalOrderProductQuantities.get(productId);
 
-                    // Calculate NEW KPI using WATERMARK
+                    // If product not tracked, skip (shouldn't happen after baseline is set)
+                    if (!historical) {
+                        console.warn(`[KPI-WATERMARK] Product ${productId} not tracked, skipping`);
+                        return;
+                    }
+
+                    // Calculate NEW KPI using WATERMARK (baseline is FIXED, never changes)
                     const baselineQty = historical.baselineQty || 0;
                     const oldKpiQty = historical.kpiQty || 0;
                     const newKpiQty = Math.max(0, newQuantity - baselineQty);
@@ -1675,6 +1661,39 @@
 
             // NORMAL SAVE MODE:
             hasChanges = true;
+
+            // WATERMARK: Set BASELINE BEFORE merging held products (ONLY on FIRST action)
+            const baselineSnapshot = [];
+            newDetails.forEach(p => {
+                if (!p.ProductId) return;
+
+                const productId = String(p.ProductId);
+                if (productId === 'undefined' || productId === 'null') return;
+
+                const qty = p.Quantity || 0;
+                const existing = window.originalOrderProductQuantities.get(productId);
+
+                // ONLY set baseline if NOT already set
+                if (!existing || existing.baselineQty === 0) {
+                    const newEntry = {
+                        productId: productId,
+                        baselineQty: qty,  // Set baseline = current quantity BEFORE merge
+                        currentQty: qty,
+                        kpiQty: existing ? existing.kpiQty : 0
+                    };
+
+                    baselineSnapshot.push(newEntry);
+                    window.originalOrderProductQuantities.set(productId, newEntry);
+
+                    console.log(`[KPI-WATERMARK] Set BASELINE before merge: ${productId} = ${qty}`);
+                }
+            });
+
+            // Save baseline to Firebase BEFORE merging
+            if (baselineSnapshot.length > 0) {
+                await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
+                console.log(`[KPI-WATERMARK] Saved baseline for ${baselineSnapshot.length} products BEFORE merge`);
+            }
 
             heldProducts.forEach(heldProduct => {
                 // Find if exists in non-held (newDetails)
