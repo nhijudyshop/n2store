@@ -1606,9 +1606,32 @@
             </tr>
         `}).join('');
 
-        // Split products
-        const heldProducts = details.filter(p => p.IsHeld);
+        // Split products AND merge duplicate held products by ProductId
+        const heldProductsRaw = details.filter(p => p.IsHeld);
+        const heldProductsMap = new Map();
+
+        // Merge held products with same ProductId
+        heldProductsRaw.forEach(p => {
+            const productId = String(p.ProductId);
+            if (heldProductsMap.has(productId)) {
+                // Duplicate found - merge by adding quantities
+                const existing = heldProductsMap.get(productId);
+                existing.Quantity = (existing.Quantity || 0) + (p.Quantity || 0);
+                console.log(`[MERGE-HELD] Merged duplicate product ${productId}: ${existing.Quantity - (p.Quantity || 0)} + ${p.Quantity || 0} = ${existing.Quantity}`);
+            } else {
+                // First occurrence - add to map (clone to avoid mutating original)
+                heldProductsMap.set(productId, { ...p });
+            }
+        });
+
+        const heldProducts = Array.from(heldProductsMap.values());
         const orderProducts = details.filter(p => !p.IsHeld);
+
+        // Update original Details array to remove duplicates (sync back)
+        if (heldProductsRaw.length !== heldProducts.length) {
+            console.log(`[MERGE-HELD] Removed ${heldProductsRaw.length - heldProducts.length} duplicate held products`);
+            window.currentChatOrderData.Details = [...heldProducts, ...orderProducts];
+        }
 
         let tableContent = '';
 
