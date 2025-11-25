@@ -1729,9 +1729,12 @@
                         const productDetails = heldProducts.map(p => {
                             const productId = String(p.ProductId);
 
+                            // Find CURRENT quantity in newDetails (before merge) - this is quantity BEFORE adding held product
+                            const productBeforeMerge = newDetails.find(np => np.ProductId === p.ProductId);
+                            const qtyBeforeMerge = productBeforeMerge ? (productBeforeMerge.Quantity || 0) : 0;
+
                             // Find NEW quantity in newDetails (after merge)
-                            const productInOrder = newDetails.find(np => np.ProductId === p.ProductId);
-                            const newQuantityInOrder = productInOrder ? (productInOrder.Quantity || 0) : 0;
+                            const newQuantityInOrder = qtyBeforeMerge + (p.Quantity || 0);
 
                             // Get historical data with watermark
                             const historical = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || {
@@ -1740,8 +1743,18 @@
                                 kpiQty: 0
                             };
 
-                            const baselineQty = historical.baselineQty || 0;
-                            const oldKpiQty = historical.kpiQty || 0;
+                            // SPECIAL HANDLING FOR DROPPED PRODUCTS
+                            // If product is from dropped list, use CURRENT quantity as baseline (not historical baseline)
+                            // This allows dropped products to count for KPI when re-added
+                            let baselineQty = historical.baselineQty || 0;
+                            let oldKpiQty = historical.kpiQty || 0;
+
+                            if (p.IsFromDropped === true) {
+                                // Use current quantity in order as baseline
+                                baselineQty = qtyBeforeMerge;
+                                // Old KPI remains the same (historical)
+                                console.log(`[KPI-DROPPED] Product ${productId} from dropped list: Using current qty ${qtyBeforeMerge} as baseline (historical baseline was ${historical.baselineQty})`);
+                            }
 
                             // Calculate NEW KPI quantity using WATERMARK
                             const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
@@ -1753,9 +1766,9 @@
                             totalValidQty += incrementalQty;
 
                             if (incrementalQty === 0) {
-                                console.log(`[KPI-WATERMARK] Product ${p.ProductId}: No score (Baseline=${baselineQty}, New=${newQuantityInOrder}, Old KPI=${oldKpiQty}, New KPI=${newKpiQty})`);
+                                console.log(`[KPI-WATERMARK] Product ${p.ProductId}: No score (Baseline=${baselineQty}, New=${newQuantityInOrder}, Old KPI=${oldKpiQty}, New KPI=${newKpiQty}, IsFromDropped=${p.IsFromDropped})`);
                             } else {
-                                console.log(`[KPI-WATERMARK] Product ${p.ProductId}: +${incrementalQty} score (Baseline=${baselineQty}, New=${newQuantityInOrder}, KPI: ${oldKpiQty} → ${newKpiQty})`);
+                                console.log(`[KPI-WATERMARK] Product ${p.ProductId}: +${incrementalQty} score (Baseline=${baselineQty}, New=${newQuantityInOrder}, KPI: ${oldKpiQty} → ${newKpiQty}, IsFromDropped=${p.IsFromDropped})`);
                             }
 
                             return {
@@ -1766,7 +1779,8 @@
                                 oldKpiQty: oldKpiQty,
                                 newKpiQty: newKpiQty,
                                 incrementalQty: incrementalQty,
-                                isCounted: incrementalQty > 0
+                                isCounted: incrementalQty > 0,
+                                isFromDropped: p.IsFromDropped || false
                             };
                         });
 
@@ -1800,7 +1814,15 @@
                     kpiQty: 0
                 };
 
-                const baselineQty = existing.baselineQty || 0;
+                // IMPORTANT: For dropped products, we DON'T update the historical baseline
+                // We only update currentQty and kpiQty
+                // The historical baseline remains for fraud prevention in future operations
+                let baselineQty = existing.baselineQty || 0;
+
+                // If this is the FIRST time seeing this product (baseline = 0) and it's from dropped list,
+                // we should NOT set a baseline, keep it at 0 so future additions count fully
+                // However, if baseline already exists, keep it for fraud prevention
+
                 const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
 
                 window.originalOrderProductQuantities.set(productId, {
