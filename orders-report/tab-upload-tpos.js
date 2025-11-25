@@ -3099,11 +3099,27 @@ ${encodedString}
 
             if (selectedUser === 'all') {
                 // Flatten data from all users
+                console.log('[HISTORY] 🔍 Flattening data from all users...', Object.keys(data).length, 'users found');
                 Object.keys(data).forEach(userId => {
                     const userHistory = data[userId];
+                    console.log(`[HISTORY]   User: ${userId}, type: ${typeof userHistory}, keys:`, userHistory ? Object.keys(userHistory).length : 0);
+
                     if (userHistory && typeof userHistory === 'object') {
                         Object.keys(userHistory).forEach(uploadKey => {
                             const record = userHistory[uploadKey];
+
+                            // Skip if record is not an object or is null
+                            if (!record || typeof record !== 'object') {
+                                console.warn('[HISTORY]     Skipping invalid record:', uploadKey);
+                                return;
+                            }
+
+                            // Skip records that don't look like upload history (missing required fields)
+                            if (!record.timestamp && !record.uploadId) {
+                                console.warn('[HISTORY]     Skipping non-history record:', uploadKey);
+                                return;
+                            }
+
                             uploadHistoryRecords.push({
                                 uploadId: record.uploadId || uploadKey,
                                 timestamp: record.timestamp || 0,
@@ -3120,6 +3136,7 @@ ${encodedString}
                         });
                     }
                 });
+                console.log('[HISTORY] ✅ Flattened to', uploadHistoryRecords.length, 'total records');
             } else {
                 // Single user data (current or specific user)
                 uploadHistoryRecords = Object.keys(data).map(key => {
