@@ -489,6 +489,19 @@
 
         console.log('[KPI-WATERMARK] Loaded history:', window.originalOrderProductQuantities.size, 'products');
 
+        // BASELINE SAVE: Capture initial snapshot of products when order is opened
+        // This snapshot will be used as baseline (ONLY products that existed when order was opened)
+        // Products added AFTER opening will NOT be included in baseline
+        window.initialOrderSnapshot = new Map();
+        (window.currentChatOrderData.Details || []).forEach(p => {
+            if (p.ProductId && !p.IsHeld) {
+                const productId = String(p.ProductId);
+                window.initialOrderSnapshot.set(productId, p.Quantity || 0);
+                console.log(`[BASELINE-SNAPSHOT] Captured initial product: ${productId} = ${p.Quantity || 0}`);
+            }
+        });
+        console.log('[BASELINE-SNAPSHOT] Captured', window.initialOrderSnapshot.size, 'products from initial order state');
+
         // Update counts
         updateChatProductCounts();
     };
@@ -1063,35 +1076,42 @@
             // Check if this is the FIRST action (no products have baseline yet)
             const hasAnyBaseline = window.originalOrderProductQuantities.size > 0;
 
-            if (!hasAnyBaseline) {
-                // FIRST ACTION: Set baseline for ALL products currently in order
+            if (!hasAnyBaseline && window.initialOrderSnapshot && window.initialOrderSnapshot.size > 0) {
+                // FIRST ACTION: Set baseline ONLY for products that existed when order was opened (from snapshot)
+                // Products added AFTER opening will NOT get baseline (they count for full KPI)
                 const baselineSnapshot = [];
-                (window.currentChatOrderData.Details || []).forEach(p => {
-                    if (!p.ProductId || p.IsHeld) return; // Skip held products
+                window.initialOrderSnapshot.forEach((initialQty, productId) => {
+                    // Check if product still exists in order (and not held)
+                    const product = (window.currentChatOrderData.Details || []).find(p =>
+                        String(p.ProductId) === productId && !p.IsHeld
+                    );
 
-                    const productId = String(p.ProductId);
-                    if (productId === 'undefined' || productId === 'null') return;
+                    if (product) {
+                        const currentQty = product.Quantity || 0;
+                        const kpiQty = Math.max(0, currentQty - initialQty);
 
-                    const qty = p.Quantity || 0;
-                    const newEntry = {
-                        productId: productId,
-                        baselineQty: qty,  // Set baseline = current quantity BEFORE change
-                        currentQty: qty,
-                        kpiQty: 0  // New product, no KPI yet
-                    };
+                        const newEntry = {
+                            productId: productId,
+                            baselineQty: initialQty,  // Use quantity from initial snapshot
+                            currentQty: currentQty,
+                            kpiQty: kpiQty
+                        };
 
-                    baselineSnapshot.push(newEntry);
+                        baselineSnapshot.push(newEntry);
 
-                    // Update in-memory map
-                    window.originalOrderProductQuantities.set(productId, newEntry);
+                        // Update in-memory map
+                        window.originalOrderProductQuantities.set(productId, newEntry);
 
-                    console.log(`[KPI-BASELINE] First action - set baseline: ${productId} = ${qty}`);
+                        console.log(`[KPI-BASELINE] First action - set baseline from snapshot: ${productId} = ${initialQty} (current: ${currentQty}, KPI: ${kpiQty})`);
+                    } else {
+                        console.log(`[KPI-BASELINE] Product ${productId} from snapshot no longer in order (removed or held)`);
+                    }
                 });
 
                 // Save baseline to Firebase
                 if (baselineSnapshot.length > 0) {
                     await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
-                    console.log(`[KPI-BASELINE] Saved ${baselineSnapshot.length} baselines (first action)`);
+                    console.log(`[KPI-BASELINE] Saved ${baselineSnapshot.length} baselines from snapshot (first action)`);
                 }
             }
             // SUBSEQUENT ACTIONS: Don't set baseline for new products (they should count for KPI)
@@ -1673,33 +1693,38 @@
             // Check if this is the FIRST action (no products have baseline yet)
             const hasAnyBaseline = window.originalOrderProductQuantities.size > 0;
 
-            if (!hasAnyBaseline) {
-                // FIRST ACTION: Set baseline for ALL products currently in order (BEFORE merge)
+            if (!hasAnyBaseline && window.initialOrderSnapshot && window.initialOrderSnapshot.size > 0) {
+                // FIRST ACTION: Set baseline ONLY for products that existed when order was opened (from snapshot)
+                // Products added AFTER opening (including held products being merged) will NOT get baseline
                 const baselineSnapshot = [];
-                newDetails.forEach(p => {
-                    if (!p.ProductId) return;
+                window.initialOrderSnapshot.forEach((initialQty, productId) => {
+                    // Check if product exists in newDetails (products BEFORE merge, excluding held)
+                    const product = newDetails.find(p => String(p.ProductId) === productId);
 
-                    const productId = String(p.ProductId);
-                    if (productId === 'undefined' || productId === 'null') return;
+                    if (product) {
+                        const currentQty = product.Quantity || 0;
+                        const kpiQty = Math.max(0, currentQty - initialQty);
 
-                    const qty = p.Quantity || 0;
-                    const newEntry = {
-                        productId: productId,
-                        baselineQty: qty,  // Set baseline = current quantity BEFORE merge
-                        currentQty: qty,
-                        kpiQty: 0  // New product, no KPI yet
-                    };
+                        const newEntry = {
+                            productId: productId,
+                            baselineQty: initialQty,  // Use quantity from initial snapshot
+                            currentQty: currentQty,
+                            kpiQty: kpiQty
+                        };
 
-                    baselineSnapshot.push(newEntry);
-                    window.originalOrderProductQuantities.set(productId, newEntry);
+                        baselineSnapshot.push(newEntry);
+                        window.originalOrderProductQuantities.set(productId, newEntry);
 
-                    console.log(`[KPI-BASELINE] First action - set baseline before merge: ${productId} = ${qty}`);
+                        console.log(`[KPI-BASELINE] First action - set baseline from snapshot before merge: ${productId} = ${initialQty} (current: ${currentQty}, KPI: ${kpiQty})`);
+                    } else {
+                        console.log(`[KPI-BASELINE] Product ${productId} from snapshot no longer in order before merge (removed)`);
+                    }
                 });
 
                 // Save baseline to Firebase BEFORE merging
                 if (baselineSnapshot.length > 0) {
                     await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
-                    console.log(`[KPI-BASELINE] Saved ${baselineSnapshot.length} baselines before merge (first action)`);
+                    console.log(`[KPI-BASELINE] Saved ${baselineSnapshot.length} baselines from snapshot before merge (first action)`);
                 }
             }
             // SUBSEQUENT ACTIONS: Don't set baseline for products being merged (they should count for KPI)
