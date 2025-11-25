@@ -1674,13 +1674,14 @@
                 const qty = p.Quantity || 0;
                 const existing = window.originalOrderProductQuantities.get(productId);
 
-                // ONLY set baseline if NOT already set
-                if (!existing || existing.baselineQty === 0) {
+                // ONLY set baseline if NO entry exists yet
+                // NEVER modify baseline once it's set (immutable)
+                if (!existing) {
                     const newEntry = {
                         productId: productId,
                         baselineQty: qty,  // Set baseline = current quantity BEFORE merge
                         currentQty: qty,
-                        kpiQty: existing ? existing.kpiQty : 0
+                        kpiQty: 0  // New product, no KPI yet
                     };
 
                     baselineSnapshot.push(newEntry);
@@ -1824,45 +1825,49 @@
                 const newQuantityInOrder = productInOrder ? (productInOrder.Quantity || 0) : 0;
 
                 // Update both in-memory and prepare for Firebase update
-                const existing = window.originalOrderProductQuantities.get(productId) || {
-                    baselineQty: 0,
-                    currentQty: 0,
-                    kpiQty: 0
-                };
+                const existing = window.originalOrderProductQuantities.get(productId);
 
-                // IMPORTANT: Use SAME logic as stats calculation for consistency
-                // Get pre-merge quantity for this product
-                const qtyBeforeMerge = preMergeQuantities.get(p.ProductId) || 0;
+                if (!existing) {
+                    // NEW product: Set baseline for first time
+                    const qtyBeforeMerge = preMergeQuantities.get(p.ProductId) || 0;
+                    const baselineQty = qtyBeforeMerge;  // For dropped products, baseline = qty before merge
+                    const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
 
-                let baselineQty = existing.baselineQty || 0;
+                    window.originalOrderProductQuantities.set(productId, {
+                        baselineQty: baselineQty,
+                        currentQty: newQuantityInOrder,
+                        kpiQty: newKpiQty
+                    });
 
-                // SPECIAL HANDLING FOR DROPPED PRODUCTS (same as stats calculation)
-                if (p.IsFromDropped === true) {
-                    if (existing.baselineQty === 0) {
-                        // Case 1: Product never in this order before → use current qty as baseline
-                        baselineQty = qtyBeforeMerge;
-                        console.log(`[KPI-HISTORY] Product ${productId} from dropped (NEW to order): Using pre-merge qty ${qtyBeforeMerge} as baseline`);
-                    } else {
-                        // Case 2: Product WAS in this order before (baseline > 0) → keep historical baseline
-                        baselineQty = existing.baselineQty;
-                        console.log(`[KPI-HISTORY] Product ${productId} from dropped (RE-ADDED): Keeping historical baseline ${existing.baselineQty} to prevent fraud`);
-                    }
+                    productsToUpdateHistory.push({
+                        productId: productId,
+                        baselineQty: baselineQty,
+                        currentQty: newQuantityInOrder,
+                        kpiQty: newKpiQty
+                    });
+
+                    console.log(`[KPI-HISTORY] Product ${productId}: Set baseline=${baselineQty} (first time)`);
+                } else {
+                    // EXISTING product: NEVER modify baseline (immutable!)
+                    // Only update currentQty and kpiQty
+                    const baselineQty = existing.baselineQty;  // PRESERVE existing baseline
+                    const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
+
+                    window.originalOrderProductQuantities.set(productId, {
+                        baselineQty: baselineQty,  // UNCHANGED
+                        currentQty: newQuantityInOrder,
+                        kpiQty: newKpiQty
+                    });
+
+                    productsToUpdateHistory.push({
+                        productId: productId,
+                        baselineQty: baselineQty,  // UNCHANGED
+                        currentQty: newQuantityInOrder,
+                        kpiQty: newKpiQty
+                    });
+
+                    console.log(`[KPI-HISTORY] Product ${productId}: Baseline LOCKED at ${baselineQty}, updated currentQty=${newQuantityInOrder}, kpiQty=${newKpiQty}`);
                 }
-
-                const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
-
-                window.originalOrderProductQuantities.set(productId, {
-                    baselineQty: baselineQty,
-                    currentQty: newQuantityInOrder,
-                    kpiQty: newKpiQty
-                });
-
-                productsToUpdateHistory.push({
-                    productId: productId,
-                    baselineQty: baselineQty,
-                    currentQty: newQuantityInOrder,
-                    kpiQty: newKpiQty
-                });
             });
 
             // Save updated watermark to Firebase
