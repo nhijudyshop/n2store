@@ -184,6 +184,41 @@
             cursor: not-allowed;
         }
 
+        .btn-delete {
+            background: rgba(255, 255, 255, 0.95);
+            color: #f44336;
+            border: 2px solid #f44336;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            margin-left: 4px;
+            flex-shrink: 0;
+        }
+
+        .btn-delete:hover {
+            background: #f44336;
+            color: white;
+            transform: scale(1.15);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+        }
+
+        .btn-delete:active {
+            transform: scale(0.95);
+        }
+
+        .btn-delete:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
         .grid-item-image {
             width: 100%;
             height: 0;
@@ -1671,6 +1706,7 @@
                         <div class="grid-item-name">
                             <span class="grid-item-name-text">${productNameDisplay}</span>
                             ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
+                            ${!orderIsHideEditControls ? `<button class="btn-delete" onclick="deleteProduct(${product.Id})" title="Xóa sản phẩm">Xóa</button>` : ''}
                         </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
@@ -2081,6 +2117,32 @@
                 updateProductGrid();
             }
             console.log(`👁️ Đã hiện sản phẩm: ${product.NameGet}`);
+        }
+
+        function deleteProduct(productId) {
+            const productKey = `product_${productId}`;
+            const product = orderProducts[productKey];
+            if (!product) return;
+
+            if (!confirm(`Bạn có chắc muốn xóa sản phẩm "${product.NameGet}"?\n\nSản phẩm sẽ bị xóa vĩnh viễn khỏi danh sách.`)) return;
+
+            // Delete from local object
+            delete orderProducts[productKey];
+
+            // Sync to Firebase if not syncing
+            if (!isSyncingFromFirebase) {
+                removeProductFromFirebase(database, productId, orderProducts).catch(error => {
+                    console.error('❌ Lỗi xóa sản phẩm:', error);
+                });
+            }
+
+            // Update UI
+            if (searchKeyword) {
+                performSearch(searchKeyword, false);
+            } else {
+                updateProductGrid();
+            }
+            console.log(`🗑️ Đã xóa sản phẩm: ${product.NameGet}`);
         }
 
         function updateProductTotal(productId, change) {
