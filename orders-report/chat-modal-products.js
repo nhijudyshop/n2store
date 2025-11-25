@@ -1056,21 +1056,23 @@
             //     notifId = window.notificationManager.saving('Đang lưu thay đổi...');
             // }
 
-            // WATERMARK: Set BASELINE before API call (ONLY on FIRST action)
-            // Snapshot current state BEFORE any changes are made
-            const baselineSnapshot = [];
-            (window.currentChatOrderData.Details || []).forEach(p => {
-                if (!p.ProductId || p.IsHeld) return; // Skip held products
+            // WATERMARK: Set BASELINE before API call (ONLY on FIRST action, ONLY for EXISTING products)
+            // Baseline is used to detect changes, so we only set it for products ALREADY in the order
+            // New products added later should NOT get baseline (they count for full KPI)
 
-                const productId = String(p.ProductId);
-                if (productId === 'undefined' || productId === 'null') return;
+            // Check if this is the FIRST action (no products have baseline yet)
+            const hasAnyBaseline = window.originalOrderProductQuantities.size > 0;
 
-                const qty = p.Quantity || 0;
-                const existing = window.originalOrderProductQuantities.get(productId);
+            if (!hasAnyBaseline) {
+                // FIRST ACTION: Set baseline for ALL products currently in order
+                const baselineSnapshot = [];
+                (window.currentChatOrderData.Details || []).forEach(p => {
+                    if (!p.ProductId || p.IsHeld) return; // Skip held products
 
-                // ONLY set baseline if NO entry exists yet
-                // Do NOT reset baseline if it's intentionally 0 (e.g., from dropped products)
-                if (!existing) {
+                    const productId = String(p.ProductId);
+                    if (productId === 'undefined' || productId === 'null') return;
+
+                    const qty = p.Quantity || 0;
                     const newEntry = {
                         productId: productId,
                         baselineQty: qty,  // Set baseline = current quantity BEFORE change
@@ -1083,15 +1085,16 @@
                     // Update in-memory map
                     window.originalOrderProductQuantities.set(productId, newEntry);
 
-                    console.log(`[KPI-WATERMARK] Set BASELINE before action: ${productId} = ${qty}`);
-                }
-            });
+                    console.log(`[KPI-BASELINE] First action - set baseline: ${productId} = ${qty}`);
+                });
 
-            // Save baseline to Firebase BEFORE API call
-            if (baselineSnapshot.length > 0) {
-                await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
-                console.log(`[KPI-WATERMARK] Saved baseline for ${baselineSnapshot.length} products BEFORE API call`);
+                // Save baseline to Firebase
+                if (baselineSnapshot.length > 0) {
+                    await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
+                    console.log(`[KPI-BASELINE] Saved ${baselineSnapshot.length} baselines (first action)`);
+                }
             }
+            // SUBSEQUENT ACTIONS: Don't set baseline for new products (they should count for KPI)
 
             const payload = prepareChatOrderPayload(window.currentChatOrderData);
 
@@ -1663,20 +1666,23 @@
             // NORMAL SAVE MODE:
             hasChanges = true;
 
-            // WATERMARK: Set BASELINE BEFORE merging held products (ONLY on FIRST action)
-            const baselineSnapshot = [];
-            newDetails.forEach(p => {
-                if (!p.ProductId) return;
+            // WATERMARK: Set BASELINE BEFORE merging held products (ONLY on FIRST action, ONLY for EXISTING products)
+            // Baseline is used to detect changes, so we only set it for products ALREADY in the order
+            // Held products being merged should NOT get baseline (they count for full KPI)
 
-                const productId = String(p.ProductId);
-                if (productId === 'undefined' || productId === 'null') return;
+            // Check if this is the FIRST action (no products have baseline yet)
+            const hasAnyBaseline = window.originalOrderProductQuantities.size > 0;
 
-                const qty = p.Quantity || 0;
-                const existing = window.originalOrderProductQuantities.get(productId);
+            if (!hasAnyBaseline) {
+                // FIRST ACTION: Set baseline for ALL products currently in order (BEFORE merge)
+                const baselineSnapshot = [];
+                newDetails.forEach(p => {
+                    if (!p.ProductId) return;
 
-                // ONLY set baseline if NO entry exists yet
-                // NEVER modify baseline once it's set (immutable)
-                if (!existing) {
+                    const productId = String(p.ProductId);
+                    if (productId === 'undefined' || productId === 'null') return;
+
+                    const qty = p.Quantity || 0;
                     const newEntry = {
                         productId: productId,
                         baselineQty: qty,  // Set baseline = current quantity BEFORE merge
@@ -1687,15 +1693,16 @@
                     baselineSnapshot.push(newEntry);
                     window.originalOrderProductQuantities.set(productId, newEntry);
 
-                    console.log(`[KPI-WATERMARK] Set BASELINE before merge: ${productId} = ${qty}`);
-                }
-            });
+                    console.log(`[KPI-BASELINE] First action - set baseline before merge: ${productId} = ${qty}`);
+                });
 
-            // Save baseline to Firebase BEFORE merging
-            if (baselineSnapshot.length > 0) {
-                await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
-                console.log(`[KPI-WATERMARK] Saved baseline for ${baselineSnapshot.length} products BEFORE merge`);
+                // Save baseline to Firebase BEFORE merging
+                if (baselineSnapshot.length > 0) {
+                    await updateOrderProductHistory(window.currentChatOrderData.Id, baselineSnapshot);
+                    console.log(`[KPI-BASELINE] Saved ${baselineSnapshot.length} baselines before merge (first action)`);
+                }
             }
+            // SUBSEQUENT ACTIONS: Don't set baseline for products being merged (they should count for KPI)
 
             // IMPORTANT: Capture quantities BEFORE merge for KPI calculation
             const preMergeQuantities = new Map();
@@ -1828,25 +1835,10 @@
                 const existing = window.originalOrderProductQuantities.get(productId);
 
                 if (!existing) {
-                    // NEW product: Set baseline for first time
-                    const qtyBeforeMerge = preMergeQuantities.get(p.ProductId) || 0;
-                    const baselineQty = qtyBeforeMerge;  // For dropped products, baseline = qty before merge
-                    const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
-
-                    window.originalOrderProductQuantities.set(productId, {
-                        baselineQty: baselineQty,
-                        currentQty: newQuantityInOrder,
-                        kpiQty: newKpiQty
-                    });
-
-                    productsToUpdateHistory.push({
-                        productId: productId,
-                        baselineQty: baselineQty,
-                        currentQty: newQuantityInOrder,
-                        kpiQty: newKpiQty
-                    });
-
-                    console.log(`[KPI-HISTORY] Product ${productId}: Set baseline=${baselineQty} (first time)`);
+                    // NEW product (no baseline): Don't create entry
+                    // Products without baseline count for FULL KPI (baselineQty = 0)
+                    console.log(`[KPI-HISTORY] Product ${productId}: No baseline (new product), will count for full KPI`);
+                    // Don't add to productsToUpdateHistory - no entry needed
                 } else {
                     // EXISTING product: NEVER modify baseline (immutable!)
                     // Only update currentQty and kpiQty
