@@ -1689,15 +1689,23 @@
                 const isMerged = product.isMerged || false;
                 const disableEdit = isMerged ? 'disabled title="Tắt chế độ gộp để chỉnh sửa"' : '';
 
+                // For delete button, create proper onclick handler
+                let deleteButtonOnclick;
+                let deleteButtonTitle;
+
                 // For hide button, create proper onclick handler
                 let hideButtonOnclick;
                 let hideButtonTitle;
 
                 if (isMerged && product.variants && product.variants.length > 0) {
                     const variantIds = product.variants.map(v => v.Id).join(',');
+                    deleteButtonOnclick = `deleteProducts([${variantIds}])`;
+                    deleteButtonTitle = 'Xóa tất cả biến thể';
                     hideButtonOnclick = `hideProducts([${variantIds}])`;
                     hideButtonTitle = 'Ẩn tất cả biến thể';
                 } else {
+                    deleteButtonOnclick = `deleteProduct(${product.Id})`;
+                    deleteButtonTitle = 'Xóa sản phẩm';
                     hideButtonOnclick = `hideProduct(${product.Id})`;
                     hideButtonTitle = 'Ẩn sản phẩm';
                 }
@@ -1713,7 +1721,7 @@
                         ${imageHtml}
                         <div class="grid-item-name">
                             <span class="grid-item-name-text">${productNameDisplay}</span>
-                            ${!orderIsHideEditControls ? `<div class="button-row"><button class="btn-delete" onclick="deleteProduct(${product.Id})" title="Xóa sản phẩm">Xóa</button><button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button></div>` : ''}
+                            ${!orderIsHideEditControls ? `<div class="button-row"><button class="btn-delete" onclick="${deleteButtonOnclick}" title="${deleteButtonTitle}">Xóa</button><button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button></div>` : ''}
                         </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
@@ -2175,6 +2183,39 @@
 
             const deletedCount = variantsToDelete.length;
             console.log(`🗑️ Đã xóa ${isMergedProduct ? `${deletedCount} biến thể của sản phẩm gộp` : 'sản phẩm'}: ${product.NameGet}`);
+        }
+
+        function deleteProducts(productIds) {
+            const count = productIds.length;
+            if (!confirm(`Bạn có chắc muốn xóa tất cả ${count} biến thể?\n\nTất cả biến thể sẽ bị xóa vĩnh viễn khỏi danh sách.`)) return;
+
+            let deletedCount = 0;
+            const productIdsToDelete = [];
+
+            productIds.forEach(productId => {
+                const productKey = `product_${productId}`;
+                const product = orderProducts[productKey];
+                if (product) {
+                    delete orderProducts[productKey];
+                    productIdsToDelete.push(productId);
+                    deletedCount++;
+                }
+            });
+
+            if (deletedCount > 0 && !isSyncingFromFirebase) {
+                // Use batch deletion for all products
+                removeProductsFromFirebase(database, productIdsToDelete, orderProducts).catch(error => {
+                    console.error('❌ Lỗi xóa sản phẩm:', error);
+                });
+            }
+
+            // Update UI
+            if (searchKeyword) {
+                performSearch(searchKeyword, false);
+            } else {
+                updateProductGrid();
+            }
+            console.log(`🗑️ Đã xóa ${deletedCount} biến thể`);
         }
 
         function updateProductTotal(productId, change) {
