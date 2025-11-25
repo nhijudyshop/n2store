@@ -849,11 +849,6 @@
                 throw new Error('Không tìm thấy thông tin sản phẩm');
             }
 
-            // Close loading
-            if (window.notificationManager && notificationId) {
-                window.notificationManager.remove(notificationId);
-            }
-
             // Ensure Details array exists
             if (!window.currentChatOrderData.Details) {
                 window.currentChatOrderData.Details = [];
@@ -865,8 +860,27 @@
             );
 
             if (existingIndex > -1) {
-                // Increase quantity of HELD product
-                updateChatProductQuantity(existingIndex, 1);
+                // Increase quantity of HELD product directly (avoid async issues)
+                const existingProduct = window.currentChatOrderData.Details[existingIndex];
+                existingProduct.Quantity = (existingProduct.Quantity || 0) + 1;
+
+                // Close loading
+                if (window.notificationManager && notificationId) {
+                    window.notificationManager.remove(notificationId);
+                }
+
+                // Render table
+                renderChatProductsTable();
+
+                // Update Firebase status with new quantity
+                updateHeldStatus(existingProduct.ProductId, true, existingProduct.Quantity);
+
+                if (window.notificationManager) {
+                    window.notificationManager.show(
+                        `Đã tăng số lượng ${existingProduct.ProductNameGet || existingProduct.ProductName} (${existingProduct.Quantity})`,
+                        'success'
+                    );
+                }
             } else {
                 // Add new product
                 const newProduct = {
@@ -892,11 +906,13 @@
 
                 window.currentChatOrderData.Details.push(newProduct);
 
+                // Close loading
+                if (window.notificationManager && notificationId) {
+                    window.notificationManager.remove(notificationId);
+                }
+
                 // Render table
                 renderChatProductsTable();
-
-                // Save changes
-                // await saveChatOrderChanges();
 
                 // Update Firebase status
                 updateHeldStatus(newProduct.ProductId, true, newProduct.Quantity);
