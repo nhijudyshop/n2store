@@ -219,6 +219,14 @@
             cursor: not-allowed;
         }
 
+        .button-row {
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            align-items: center;
+            justify-content: center;
+        }
+
         .grid-item-image {
             width: 100%;
             height: 0;
@@ -1705,8 +1713,7 @@
                         ${imageHtml}
                         <div class="grid-item-name">
                             <span class="grid-item-name-text">${productNameDisplay}</span>
-                            ${!orderIsHideEditControls ? `<button class="btn-delete" onclick="deleteProduct(${product.Id})" title="Xóa sản phẩm">Xóa</button>` : ''}
-                            ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
+                            ${!orderIsHideEditControls ? `<div class="button-row"><button class="btn-delete" onclick="deleteProduct(${product.Id})" title="Xóa sản phẩm">Xóa</button><button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button></div>` : ''}
                         </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
@@ -2135,18 +2142,29 @@
 
             if (!confirm(confirmMessage)) return;
 
-            // Delete all variants from local object
+            // Collect all product IDs to delete
+            const productIdsToDelete = variantsToDelete.map(variant => variant.Id);
+
+            // Delete all variants from local object first
             variantsToDelete.forEach(variant => {
                 const variantKey = `product_${variant.Id}`;
                 delete orderProducts[variantKey];
+            });
 
-                // Sync each variant to Firebase if not syncing
-                if (!isSyncingFromFirebase) {
-                    removeProductFromFirebase(database, variant.Id, orderProducts).catch(error => {
+            // Sync all deletions to Firebase in a single batch operation
+            if (!isSyncingFromFirebase) {
+                if (productIdsToDelete.length > 1) {
+                    // Use batch deletion for multiple products
+                    removeProductsFromFirebase(database, productIdsToDelete, orderProducts).catch(error => {
+                        console.error('❌ Lỗi xóa sản phẩm:', error);
+                    });
+                } else {
+                    // Use single deletion for one product
+                    removeProductFromFirebase(database, productIdsToDelete[0], orderProducts).catch(error => {
                         console.error('❌ Lỗi xóa sản phẩm:', error);
                     });
                 }
-            });
+            }
 
             // Update UI
             if (searchKeyword) {
