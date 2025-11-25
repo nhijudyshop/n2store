@@ -1705,8 +1705,8 @@
                         ${imageHtml}
                         <div class="grid-item-name">
                             <span class="grid-item-name-text">${productNameDisplay}</span>
-                            ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
                             ${!orderIsHideEditControls ? `<button class="btn-delete" onclick="deleteProduct(${product.Id})" title="Xóa sản phẩm">Xóa</button>` : ''}
+                            ${!orderIsHideEditControls ? `<button class="btn-hide" onclick="${hideButtonOnclick}" title="${hideButtonTitle}">Ẩn</button>` : ''}
                         </div>
                         <div class="grid-item-stats">
                             <div class="grid-stat grid-stat-total">
@@ -2124,17 +2124,29 @@
             const product = orderProducts[productKey];
             if (!product) return;
 
-            if (!confirm(`Bạn có chắc muốn xóa sản phẩm "${product.NameGet}"?\n\nSản phẩm sẽ bị xóa vĩnh viễn khỏi danh sách.`)) return;
+            // Determine if this is a merged product with variants
+            const isMergedProduct = product.isMerged && product.variants && product.variants.length > 0;
+            const variantsToDelete = isMergedProduct ? product.variants : [product];
 
-            // Delete from local object
-            delete orderProducts[productKey];
+            // Prepare confirmation message
+            const confirmMessage = isMergedProduct
+                ? `Bạn có chắc muốn xóa sản phẩm gộp "${product.NameGet}"?\n\nToàn bộ ${variantsToDelete.length} biến thể sẽ bị xóa vĩnh viễn khỏi danh sách.`
+                : `Bạn có chắc muốn xóa sản phẩm "${product.NameGet}"?\n\nSản phẩm sẽ bị xóa vĩnh viễn khỏi danh sách.`;
 
-            // Sync to Firebase if not syncing
-            if (!isSyncingFromFirebase) {
-                removeProductFromFirebase(database, productId, orderProducts).catch(error => {
-                    console.error('❌ Lỗi xóa sản phẩm:', error);
-                });
-            }
+            if (!confirm(confirmMessage)) return;
+
+            // Delete all variants from local object
+            variantsToDelete.forEach(variant => {
+                const variantKey = `product_${variant.Id}`;
+                delete orderProducts[variantKey];
+
+                // Sync each variant to Firebase if not syncing
+                if (!isSyncingFromFirebase) {
+                    removeProductFromFirebase(database, variant.Id, orderProducts).catch(error => {
+                        console.error('❌ Lỗi xóa sản phẩm:', error);
+                    });
+                }
+            });
 
             // Update UI
             if (searchKeyword) {
@@ -2142,7 +2154,9 @@
             } else {
                 updateProductGrid();
             }
-            console.log(`🗑️ Đã xóa sản phẩm: ${product.NameGet}`);
+
+            const deletedCount = variantsToDelete.length;
+            console.log(`🗑️ Đã xóa ${isMergedProduct ? `${deletedCount} biến thể của sản phẩm gộp` : 'sản phẩm'}: ${product.NameGet}`);
         }
 
         function updateProductTotal(productId, change) {
