@@ -474,6 +474,12 @@
                                 <i class="fas fa-file-invoice"></i> Hóa đơn
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="baseline-tab" data-bs-toggle="tab" data-bs-target="#baseline"
+                                type="button" role="tab">
+                                <i class="fas fa-lock text-primary"></i> Baseline
+                            </button>
+                        </li>
                     </ul>
 
                     <!-- Tab content -->
@@ -539,6 +545,35 @@
                                 <div style="text-align: center; padding: 40px; color: #94a3b8;">
                                     <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải hóa đơn...
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Baseline Tab -->
+                        <div class="tab-pane fade" id="baseline" role="tabpanel">
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Baseline:</strong> Snapshot sản phẩm trong đơn khi thực hiện hành động đầu tiên.
+                                Được dùng để so sánh và phát hiện thay đổi. Baseline không bao giờ thay đổi sau khi được tạo.
+                            </div>
+                            <table class="table table-hover">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th>Tên sản phẩm</th>
+                                        <th style="text-align: center; width: 150px;">Baseline Qty</th>
+                                        <th style="text-align: center; width: 150px;">Current Qty</th>
+                                        <th style="text-align: center; width: 150px;">KPI Qty</th>
+                                        <th style="text-align: center; width: 100px;">Thay đổi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="baselineTableBody">
+                                    <!-- Baseline products will be loaded here -->
+                                </tbody>
+                            </table>
+                            <div id="baselineEmpty" style="display: none; text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-lock-open fa-3x mb-3"></i>
+                                <p>Chưa có baseline cho đơn hàng này</p>
+                                <small>Baseline sẽ được tạo khi thực hiện hành động đầu tiên trên đơn hàng</small>
                             </div>
                         </div>
                     </div>
@@ -1058,6 +1093,11 @@
             document.getElementById('invoice-tab').addEventListener('click', async function () {
                 await loadInvoice(orderId, order.invoiceId, order.invoiceProducts);
             }, { once: true });
+
+            // Load baseline when baseline tab is clicked
+            document.getElementById('baseline-tab').addEventListener('click', async function () {
+                await loadBaseline(orderId, order.products);
+            }, { once: true });
         }
 
         // Fetch and display invoice
@@ -1253,6 +1293,99 @@
                         <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải hóa đơn: ${error.message}
                     </div>
                 `;
+            }
+        }
+
+        // Fetch and display baseline
+        async function loadBaseline(orderId, orderProducts) {
+            const baselineTableBody = document.getElementById('baselineTableBody');
+            const baselineEmpty = document.getElementById('baselineEmpty');
+
+            // Show loading
+            baselineTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải baseline...
+                    </td>
+                </tr>
+            `;
+            baselineEmpty.style.display = 'none';
+
+            try {
+                // Fetch baseline from Firebase order_product_history
+                const historyRef = firebase.database().ref(`order_product_history/${orderId}`);
+                const historySnapshot = await historyRef.once('value');
+                const historyData = historySnapshot.val();
+
+                if (!historyData || Object.keys(historyData).length === 0) {
+                    // No baseline data
+                    baselineTableBody.innerHTML = '';
+                    baselineEmpty.style.display = 'block';
+                    return;
+                }
+
+                // Create a map of product names from order products
+                const productNamesMap = new Map();
+                if (orderProducts && orderProducts.length > 0) {
+                    orderProducts.forEach(p => {
+                        productNamesMap.set(String(p.productId), p.name);
+                    });
+                }
+
+                // Build baseline table
+                let html = '';
+                let index = 1;
+                let hasBaseline = false;
+
+                Object.entries(historyData).forEach(([productId, data]) => {
+                    const baselineQty = data.baselineQty || 0;
+                    const currentQty = data.currentQty || 0;
+                    const kpiQty = data.kpiQty || 0;
+                    const productName = productNamesMap.get(productId) || `Product #${productId}`;
+
+                    // Calculate change
+                    const change = currentQty - baselineQty;
+                    const changeClass = change > 0 ? 'text-success' : (change < 0 ? 'text-danger' : 'text-muted');
+                    const changeIcon = change > 0 ? 'fa-arrow-up' : (change < 0 ? 'fa-arrow-down' : 'fa-minus');
+                    const changeText = change > 0 ? `+${change}` : change;
+
+                    hasBaseline = true;
+                    html += `
+                        <tr>
+                            <td>${index++}</td>
+                            <td>${productName}</td>
+                            <td style="text-align: center; font-weight: 600; color: #6366f1;">
+                                <i class="fas fa-lock" style="font-size: 10px; opacity: 0.5;"></i> ${baselineQty}
+                            </td>
+                            <td style="text-align: center; font-weight: 600;">${currentQty}</td>
+                            <td style="text-align: center; font-weight: 700; color: #059669;">${kpiQty}</td>
+                            <td style="text-align: center;">
+                                <span class="${changeClass}">
+                                    <i class="fas ${changeIcon}"></i> ${changeText}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                if (hasBaseline) {
+                    baselineTableBody.innerHTML = html;
+                    baselineEmpty.style.display = 'none';
+                } else {
+                    baselineTableBody.innerHTML = '';
+                    baselineEmpty.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error('Error loading baseline:', error);
+                baselineTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #ef4444;">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải baseline: ${error.message}
+                        </td>
+                    </tr>
+                `;
+                baselineEmpty.style.display = 'none';
             }
         }
 
