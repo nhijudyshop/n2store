@@ -20,9 +20,21 @@ class UserStorageManager {
             const authState = this.authManager?.getAuthState();
             if (authState && authState.isLoggedIn === 'true') {
                 this.currentUser = authState;
-                // Use username or uid as user identifier
-                this.userIdentifier = authState.username || authState.uid || authState.userType?.split('-')[0] || 'default';
-                console.log('[USER-STORAGE] Initialized for user:', this.userIdentifier);
+                // PRIORITY: Use userType first (most reliable in this system)
+                // Extract username from userType format: "username-shop" => "username"
+                let identifier = 'default';
+                if (authState.userType) {
+                    identifier = authState.userType.includes('-')
+                        ? authState.userType.split('-')[0]
+                        : authState.userType;
+                } else if (authState.username) {
+                    identifier = authState.username;
+                } else if (authState.uid) {
+                    identifier = authState.uid;
+                }
+
+                this.userIdentifier = identifier;
+                console.log('[USER-STORAGE] Initialized for user:', this.userIdentifier, '(from userType:', authState.userType + ')');
                 return true;
             } else {
                 console.warn('[USER-STORAGE] No authenticated user found');
