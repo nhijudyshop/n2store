@@ -2939,6 +2939,10 @@ ${encodedString}
                 return;
             }
 
+            // Preserve currently selected value before rebuilding
+            const previousSelection = userFilterSelect.value;
+            console.log('[HISTORY] Preserving selection:', previousSelection);
+
             // Get current logged-in user
             const currentUser = userStorageManager ? userStorageManager.getUserIdentifier() : null;
             console.log('[HISTORY] Current user:', currentUser);
@@ -2973,6 +2977,18 @@ ${encodedString}
 
                 userFilterSelect.appendChild(option);
             });
+
+            // Restore previously selected value if it still exists
+            if (previousSelection) {
+                // Check if the previous selection exists in the new options
+                const optionExists = Array.from(userFilterSelect.options).some(opt => opt.value === previousSelection);
+                if (optionExists) {
+                    userFilterSelect.value = previousSelection;
+                    console.log('[HISTORY] Restored selection to:', previousSelection);
+                } else {
+                    console.log('[HISTORY] Previous selection no longer exists, keeping default');
+                }
+            }
 
             console.log('[HISTORY] ✅ User filter populated with', allUsers.length, 'users');
         } catch (error) {
