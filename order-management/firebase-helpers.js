@@ -168,6 +168,28 @@ async function updateProductVisibility(database, productId, isHidden, localProdu
 }
 
 /**
+ * Delete a product permanently from Firebase
+ */
+async function removeProductFromFirebase(database, productId, localProductsObject) {
+    const productKey = `product_${productId}`;
+
+    // Prepare updates
+    const updates = {};
+    updates[`orderProducts/${productKey}`] = null; // null means remove
+
+    // Sync to Firebase
+    await database.ref().update(updates);
+
+    // Update sortedIds metadata
+    await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+        return (currentIds || []).filter(id => id !== productId.toString());
+    });
+
+    // Update count metadata
+    await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+}
+
+/**
  * Cleanup old products (older than 7 days)
  */
 async function cleanupOldProducts(database, localProductsObject) {
