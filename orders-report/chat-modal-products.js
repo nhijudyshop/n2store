@@ -1216,96 +1216,103 @@
                     const oldCurrentQty = historical.currentQty || 0;     // Previous qty
                     const oldKpiQty = historical.kpiQty || 0;            // Previous KPI
 
-                    // NEW BASELINE = HIGH WATER MARK (chỉ tăng, không giảm)
-                    const newBaseline = Math.max(oldBaseline, newQuantity);
+                    // BASE PRODUCT ANCHOR LOGIC
+                    // KPI = Max(0, Current - Base)
+                    // We no longer use "High Water Mark" (baseline) for KPI calculation.
+                    // baseline is now just a record, or we can ignore it. We will keep it for compatibility but logic relies on baseProduct.
 
-                    // Check if quantity DECREASED (reduction)
-                    if (newQuantity < oldCurrentQty) {
-                        const decreaseAmount = oldCurrentQty - newQuantity;
+                    const kpiQty = Math.max(0, newQuantity - baseProduct);
+                    const oldKpiQtyCalc = Math.max(0, oldCurrentQty - baseProduct); // Re-calculate old KPI based on base to be sure
+
+                    // Check for KPI CHANGE
+                    if (kpiQty > oldKpiQtyCalc) {
+                        // KPI INCREASE
+                        const kpiDelta = kpiQty - oldKpiQtyCalc;
+                        kpiIncreases.push({
+                            productId: productId,
+                            productName: p.ProductNameGet || p.ProductName || 'Unknown',
+                            baseProduct: baseProduct,
+                            oldKpiQty: oldKpiQtyCalc,
+                            newKpiQty: kpiQty,
+                            kpiDelta: kpiDelta
+                        });
+                        console.log(`[KPI-ANCHOR] KPI INCREASE ${productId}: qty ${oldCurrentQty}→${newQuantity}, base=${baseProduct}, KPI ${oldKpiQtyCalc}→${kpiQty} (+${kpiDelta})`);
+                    } else if (kpiQty < oldKpiQtyCalc) {
+                        // KPI DECREASE (Reduction)
+                        const kpiDelta = oldKpiQtyCalc - kpiQty; // Positive value for reduction amount
                         reductions.push({
                             productId: productId,
                             productName: p.ProductNameGet || p.ProductName || 'Unknown',
                             baseProduct: baseProduct,
-                            oldBaseline: oldBaseline,
-                            oldKpiQty: oldKpiQty,
-                            newQuantity: newQuantity,
-                            decreaseAmount: decreaseAmount
+                            oldKpiQty: oldKpiQtyCalc,
+                            newKpiQty: kpiQty,
+                            reductionQty: kpiDelta, // Amount reduced
+                            decreaseAmount: oldCurrentQty - newQuantity
                         });
-                        console.log(`[DUAL-TRACKING] Quantity decreased ${productId}: ${oldCurrentQty} → ${newQuantity} (-${decreaseAmount})`);
-                    }
-
-                    // Check if NEW HIGH WATER MARK reached (KPI increase)
-                    let kpiDelta = 0;
-                    if (newQuantity > oldBaseline) {
-                        // PHÁ KỶ LỤC! Cộng KPI cho phần vượt mức cũ
-                        kpiDelta = newQuantity - oldBaseline;
-                        kpiIncreases.push({
-                            productId: productId,
-                            productName: p.ProductNameGet || p.ProductName || 'Unknown',
-                            oldBaseline: oldBaseline,
-                            newBaseline: newBaseline,
-                            kpiDelta: kpiDelta
-                        });
-                        console.log(`[DUAL-TRACKING] NEW HIGH WATER MARK ${productId}: baseline ${oldBaseline} → ${newBaseline} (+${kpiDelta} KPI)`);
+                        console.log(`[KPI-ANCHOR] KPI DECREASE ${productId}: qty ${oldCurrentQty}→${newQuantity}, base=${baseProduct}, KPI ${oldKpiQtyCalc}→${kpiQty} (-${kpiDelta})`);
                     } else {
-                        console.log(`[DUAL-TRACKING] No KPI change ${productId}: qty=${newQuantity}, baseline=${oldBaseline} (no new record)`);
+                        console.log(`[KPI-ANCHOR] No KPI change ${productId}: qty ${oldCurrentQty}→${newQuantity}, base=${baseProduct}, KPI remains ${kpiQty}`);
                     }
-
-                    // Update KPI cumulative total
-                    const newKpiQty = oldKpiQty + kpiDelta;
 
                     // Prepare history update
                     productsToUpdate.push({
                         productId: productId,
-                        baseProduct: baseProduct,      // UNCHANGED
-                        baseline: newBaseline,         // HIGH WATER MARK
+                        baseProduct: baseProduct,      // IMMUTABLE
+                        baseline: baseProduct,         // Unused in Anchor logic, keep as base or whatever
                         currentQty: newQuantity,
-                        kpiQty: newKpiQty
+                        kpiQty: kpiQty
                     });
 
                     // Update in-memory tracking
                     window.originalOrderProductQuantities.set(productId, {
                         baseProduct: baseProduct,
-                        baseline: newBaseline,
+                        baseline: baseProduct,
                         currentQty: newQuantity,
-                        kpiQty: newKpiQty
+                        kpiQty: kpiQty
                     });
                 });
 
             // Check products that were DELETED (exist in history but not in current order)
             window.originalOrderProductQuantities.forEach((historical, productId) => {
                 if (!currentProductIds.has(productId)) {
-                    // Product was deleted - create reduction record
+                    // Product was deleted
                     const oldCurrentQty = historical.currentQty || 0;
+                    const baseProduct = historical.baseProduct || 0;
+                    const oldKpiQty = historical.kpiQty || 0;
 
-                    if (oldCurrentQty > 0) {
+                    // Calculate KPI reduction if any
+                    // New Qty = 0. New KPI = Max(0, 0 - Base) = 0.
+                    const newKpiQty = 0;
+
+                    if (oldKpiQty > 0) {
+                        const kpiDelta = oldKpiQty - newKpiQty; // Positive reduction amount
                         reductions.push({
                             productId: productId,
-                            productName: `Product ${productId}`, // We don't have full name anymore
-                            baseProduct: historical.baseProduct || 0,
-                            oldBaseline: historical.baseline || 0,
-                            oldKpiQty: historical.kpiQty || 0,
-                            newQuantity: 0,
+                            productName: `Product ${productId}`,
+                            baseProduct: baseProduct,
+                            oldKpiQty: oldKpiQty,
+                            newKpiQty: 0,
+                            reductionQty: kpiDelta,
                             decreaseAmount: oldCurrentQty
                         });
-                        console.log(`[DUAL-TRACKING] Deleted product ${productId}: qty ${oldCurrentQty} → 0 (full deletion)`);
+                        console.log(`[KPI-ANCHOR] Deleted product ${productId}: qty ${oldCurrentQty}→0, base=${baseProduct}, KPI ${oldKpiQty}→0 (-${kpiDelta})`);
                     }
 
-                    // Update history: set currentQty = 0, KEEP baseline (high water mark never decreases)
+                    // Update history: set currentQty = 0
                     productsToUpdate.push({
                         productId: productId,
-                        baseProduct: historical.baseProduct || 0,  // UNCHANGED
-                        baseline: historical.baseline || 0,        // KEEP high water mark
+                        baseProduct: baseProduct,  // IMMUTABLE
+                        baseline: baseProduct,
                         currentQty: 0,
-                        kpiQty: historical.kpiQty || 0             // KEEP cumulative KPI
+                        kpiQty: 0
                     });
 
                     // Update in-memory tracking
                     window.originalOrderProductQuantities.set(productId, {
-                        baseProduct: historical.baseProduct || 0,
-                        baseline: historical.baseline || 0,
+                        baseProduct: baseProduct,
+                        baseline: baseProduct,
                         currentQty: 0,
-                        kpiQty: historical.kpiQty || 0
+                        kpiQty: 0
                     });
                 }
             });
@@ -1331,10 +1338,9 @@
                             isReduction: true, // Flag to indicate this is a reduction
                             products: reductions.map(r => ({
                                 name: r.productName,
-                                quantity: -r.reductionQty, // Negative quantity
-                                baselineQty: r.baselineQty,
+                                quantity: -r.reductionQty, // Negative KPI quantity
+                                baseProduct: r.baseProduct,
                                 oldKpiQty: r.oldKpiQty,
-                                newQuantity: r.newQuantity,
                                 newKpiQty: r.newKpiQty,
                                 isCounted: true
                             }))
@@ -1344,6 +1350,42 @@
                     }
                 } catch (err) {
                     console.error('[KPI-REDUCTION] Error saving reduction stats:', err);
+                }
+            }
+
+            // Save POSITIVE stats for increases
+            if (kpiIncreases.length > 0 && window.firebase && window.authManager) {
+                try {
+                    const auth = window.authManager.getAuthState();
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+
+                    if (userId) {
+                        const totalIncreaseQty = kpiIncreases.reduce((sum, r) => sum + r.kpiDelta, 0);
+                        const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
+
+                        await statsRef.set({
+                            userName: auth.displayName || auth.userType || 'Unknown',
+                            productCount: totalIncreaseQty,
+                            amount: totalIncreaseQty * 5000,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            orderId: window.currentChatOrderData.Id || 'unknown',
+                            orderSTT: window.currentChatOrderData.SessionIndex || '',
+                            isReduction: false,
+                            products: kpiIncreases.map(r => ({
+                                name: r.productName,
+                                quantity: r.kpiDelta,
+                                baseProduct: r.baseProduct,
+                                oldKpiQty: r.oldKpiQty,
+                                newKpiQty: r.newKpiQty,
+                                isCounted: true
+                            }))
+                        });
+
+                        console.log(`[KPI-ANCHOR] Saved positive stats: +${totalIncreaseQty} items, +${totalIncreaseQty * 5000}đ`);
+                    }
+                } catch (err) {
+                    console.error('[KPI-ANCHOR] Error saving positive stats:', err);
                 }
             }
 
@@ -1895,71 +1937,14 @@
                     if (userId) {
                         const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
 
-                        // HIGH WATER MARK METHOD: Only count when breaking previous record
-                        let totalKpiDelta = 0;
-                        const productDetails = heldProducts.map(p => {
-                            const productId = String(p.ProductId);
+            // BASE PRODUCT ANCHOR LOGIC
+            // Only count KPI if (Current - Base) > 0
+            // Compare with previous KPI to determine Delta
 
-                            // Get quantity AFTER merge (from newDetails)
-                            const productAfterMerge = newDetails.find(np => np.ProductId === p.ProductId);
-                            const newQuantityInOrder = productAfterMerge ? (productAfterMerge.Quantity || 0) : 0;
-
-                            // Get historical tracking data
-                            const historical = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || {
-                                baseProduct: 0,
-                                baseline: 0,
-                                currentQty: 0,
-                                kpiQty: 0
-                            };
-
-                            const baseProduct = historical.baseProduct || 0;
-                            const oldBaseline = historical.baseline || 0;
-                            const oldKpiQty = historical.kpiQty || 0;
-
-                            // HIGH WATER MARK: Only count if breaking previous record
-                            let kpiDelta = 0;
-                            if (newQuantityInOrder > oldBaseline) {
-                                // PHÁ KỶ LỤC! Cộng KPI cho phần vượt mức cũ
-                                kpiDelta = newQuantityInOrder - oldBaseline;
-                                console.log(`[DUAL-TRACKING] Product ${productId}: NEW HIGH WATER MARK! ${oldBaseline} → ${newQuantityInOrder} (+${kpiDelta} KPI)`);
-                            } else {
-                                console.log(`[DUAL-TRACKING] Product ${productId}: No KPI (qty=${newQuantityInOrder}, baseline=${oldBaseline}, no new record)`);
-                            }
-
-                            totalKpiDelta += kpiDelta;
-
-                            return {
-                                name: p.ProductNameGet || p.ProductName || 'Unknown Product',
-                                quantity: p.Quantity || 0,
-                                newQuantityInOrder: newQuantityInOrder,
-                                baseProduct: baseProduct,
-                                oldBaseline: oldBaseline,
-                                newBaseline: Math.max(oldBaseline, newQuantityInOrder),
-                                oldKpiQty: oldKpiQty,
-                                kpiDelta: kpiDelta,
-                                isCounted: kpiDelta > 0,
-                                isFromDropped: p.IsFromDropped || false
-                            };
-                        });
-
-                        statsRef.set({
-                            userName: auth.displayName || auth.userType || 'Unknown',
-                            productCount: totalKpiDelta, // Only count when breaking records
-                            amount: totalKpiDelta * 5000,
-                            timestamp: firebase.database.ServerValue.TIMESTAMP,
-                            orderId: window.currentChatOrderData.Id || 'unknown',
-                            orderSTT: window.currentChatOrderData.SessionIndex || '',
-                            products: productDetails
-                        });
-                        console.log(`[DUAL-TRACKING] Saved KPI stats: +${totalKpiDelta} items (Total held: ${heldProducts.length})`);
-                    }
-                }
-            } catch (err) {
-                console.error('[CHAT-PRODUCTS] Error saving held stats:', err);
-            }
-
-            // Update dual tracking history for merged products
             const productsToUpdateHistory = [];
+            let totalKpiDelta = 0;
+            const productDetails = [];
+
             heldProducts.forEach(p => {
                 const productId = String(p.ProductId);
                 const productInOrder = newDetails.find(np => np.ProductId === p.ProductId);
@@ -1968,53 +1953,83 @@
                 // Update both in-memory and prepare for Firebase update
                 const existing = window.originalOrderProductQuantities.get(productId);
 
+                let baseProduct = 0;
+                let oldKpiQty = 0;
+
                 if (!existing) {
-                    // NEW product: Set baseProduct=0, baseline=newQty (first record)
-                    const newEntry = {
-                        baseProduct: 0,                 // New product
-                        baseline: newQuantityInOrder,   // High water mark = first qty
-                        currentQty: newQuantityInOrder,
-                        kpiQty: newQuantityInOrder      // All qty counts for KPI (first time)
-                    };
-
-                    window.originalOrderProductQuantities.set(productId, newEntry);
-
-                    productsToUpdateHistory.push({
-                        productId: productId,
-                        ...newEntry
-                    });
-
-                    console.log(`[DUAL-TRACKING] Product ${productId}: NEW product, baseProduct=0, baseline=${newQuantityInOrder}, kpiQty=${newQuantityInOrder}`);
+                    // NEW product: Base = 0
+                    baseProduct = 0;
+                    oldKpiQty = 0;
+                    console.log(`[KPI-ANCHOR] Product ${productId}: NEW product, base=0`);
                 } else {
-                    // EXISTING product: baseProduct IMMUTABLE, baseline = HIGH WATER MARK
-                    const baseProduct = existing.baseProduct || 0;      // IMMUTABLE
-                    const oldBaseline = existing.baseline || 0;
-                    const oldKpiQty = existing.kpiQty || 0;
-
-                    // Update baseline if new record
-                    const newBaseline = Math.max(oldBaseline, newQuantityInOrder);
-
-                    // Calculate KPI delta
-                    const kpiDelta = newQuantityInOrder > oldBaseline ? (newQuantityInOrder - oldBaseline) : 0;
-                    const newKpiQty = oldKpiQty + kpiDelta;
-
-                    const newEntry = {
-                        baseProduct: baseProduct,       // UNCHANGED
-                        baseline: newBaseline,          // HIGH WATER MARK
-                        currentQty: newQuantityInOrder,
-                        kpiQty: newKpiQty
-                    };
-
-                    window.originalOrderProductQuantities.set(productId, newEntry);
-
-                    productsToUpdateHistory.push({
-                        productId: productId,
-                        ...newEntry
-                    });
-
-                    console.log(`[DUAL-TRACKING] Product ${productId}: baseProduct=${baseProduct}, baseline ${oldBaseline}→${newBaseline}, kpiQty ${oldKpiQty}→${newKpiQty}`);
+                    // EXISTING product: Base is immutable
+                    baseProduct = existing.baseProduct || 0;
+                    oldKpiQty = existing.kpiQty || 0;
                 }
+
+                // Calculate New KPI Qty
+                const newKpiQty = Math.max(0, newQuantityInOrder - baseProduct);
+
+                // Calculate Delta
+                const kpiDelta = newKpiQty - oldKpiQty;
+
+                if (kpiDelta > 0) {
+                    totalKpiDelta += kpiDelta;
+                    productDetails.push({
+                        name: p.ProductNameGet || p.ProductName || 'Unknown Product',
+                        quantity: kpiDelta,
+                        newQuantityInOrder: newQuantityInOrder,
+                        baseProduct: baseProduct,
+                        oldKpiQty: oldKpiQty,
+                        newKpiQty: newKpiQty,
+                        isCounted: true,
+                        isFromDropped: p.IsFromDropped || false
+                    });
+                    console.log(`[KPI-ANCHOR] Product ${productId}: KPI INCREASE +${kpiDelta} (Base=${baseProduct}, OldKPI=${oldKpiQty}, NewKPI=${newKpiQty})`);
+                } else {
+                    console.log(`[KPI-ANCHOR] Product ${productId}: No KPI increase (Base=${baseProduct}, OldKPI=${oldKpiQty}, NewKPI=${newKpiQty})`);
+                }
+
+                // Prepare history update
+                const newEntry = {
+                    baseProduct: baseProduct,       // IMMUTABLE
+                    baseline: baseProduct,          // Unused
+                    currentQty: newQuantityInOrder,
+                    kpiQty: newKpiQty
+                };
+
+                window.originalOrderProductQuantities.set(productId, newEntry);
+                productsToUpdateHistory.push({
+                    productId: productId,
+                    ...newEntry
+                });
             });
+
+            // SAVE STATS TO FIREBASE (Only if positive delta)
+            if (totalKpiDelta > 0 && window.firebase && window.authManager) {
+                try {
+                    const auth = window.authManager.getAuthState();
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+
+                    if (userId) {
+                        const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
+
+                        statsRef.set({
+                            userName: auth.displayName || auth.userType || 'Unknown',
+                            productCount: totalKpiDelta,
+                            amount: totalKpiDelta * 5000,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP,
+                            orderId: window.currentChatOrderData.Id || 'unknown',
+                            orderSTT: window.currentChatOrderData.SessionIndex || '',
+                            products: productDetails
+                        });
+                        console.log(`[KPI-ANCHOR] Saved KPI stats: +${totalKpiDelta} items`);
+                    }
+                } catch (err) {
+                    console.error('[CHAT-PRODUCTS] Error saving held stats:', err);
+                }
+            }
 
             // Save updated dual tracking to Firebase
             if (productsToUpdateHistory.length > 0) {
