@@ -3073,6 +3073,8 @@ ${encodedString}
                 console.log('[HISTORY] ℹ️ No history records found');
                 uploadHistoryRecords = [];
                 filteredHistoryRecords = [];
+                // Still need to render empty state
+                filterUploadHistory();
                 return;
             }
 
