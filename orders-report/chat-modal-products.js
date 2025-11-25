@@ -1152,6 +1152,14 @@
             const productsToUpdate = [];
             const reductions = [];
 
+            // Create a set of current product IDs for quick lookup
+            const currentProductIds = new Set(
+                (window.currentChatOrderData.Details || [])
+                    .filter(p => !p.IsHeld)
+                    .map(p => String(p.ProductId))
+            );
+
+            // Check products that are STILL IN ORDER
             (window.currentChatOrderData.Details || [])
                 .filter(p => !p.IsHeld) // Only check non-held (saved) products
                 .forEach(p => {
@@ -1202,6 +1210,43 @@
                         kpiQty: newKpiQty
                     });
                 });
+
+            // Check products that were DELETED (exist in history but not in current order)
+            window.originalOrderProductQuantities.forEach((historical, productId) => {
+                if (!currentProductIds.has(productId)) {
+                    // Product was deleted
+                    const oldKpiQty = historical.kpiQty || 0;
+
+                    if (oldKpiQty > 0) {
+                        // Product had KPI score, create reduction record
+                        reductions.push({
+                            productId: productId,
+                            productName: `Product ${productId}`, // We don't have full name anymore
+                            baselineQty: historical.baselineQty || 0,
+                            oldKpiQty: oldKpiQty,
+                            newQuantity: 0,
+                            newKpiQty: 0,
+                            reductionQty: oldKpiQty
+                        });
+                        console.log(`[KPI-WATERMARK] Deleted product ${productId}: Baseline=${historical.baselineQty}, Old KPI=${oldKpiQty}, Reduction=${oldKpiQty}`);
+                    }
+
+                    // Update history: set currentQty and kpiQty to 0
+                    productsToUpdate.push({
+                        productId: productId,
+                        baselineQty: historical.baselineQty || 0,  // Keep baseline
+                        currentQty: 0,
+                        kpiQty: 0
+                    });
+
+                    // Update in-memory tracking
+                    window.originalOrderProductQuantities.set(productId, {
+                        baselineQty: historical.baselineQty || 0,
+                        currentQty: 0,
+                        kpiQty: 0
+                    });
+                }
+            });
 
             // Save NEGATIVE stats for reductions
             if (reductions.length > 0 && window.firebase && window.authManager) {
@@ -1860,10 +1905,25 @@
                 const existing = window.originalOrderProductQuantities.get(productId);
 
                 if (!existing) {
-                    // NEW product (no baseline): Don't create entry
-                    // Products without baseline count for FULL KPI (baselineQty = 0)
-                    console.log(`[KPI-HISTORY] Product ${productId}: No baseline (new product), will count for full KPI`);
-                    // Don't add to productsToUpdateHistory - no entry needed
+                    // NEW product (no baseline): SET BASELINE = 0 to track future changes
+                    // This prevents re-counting KPI when product is deleted and re-added
+                    const baselineQty = 0;  // New product, baseline = 0
+                    const kpiQty = newQuantityInOrder;  // All quantity counts for KPI
+
+                    window.originalOrderProductQuantities.set(productId, {
+                        baselineQty: baselineQty,
+                        currentQty: newQuantityInOrder,
+                        kpiQty: kpiQty
+                    });
+
+                    productsToUpdateHistory.push({
+                        productId: productId,
+                        baselineQty: baselineQty,
+                        currentQty: newQuantityInOrder,
+                        kpiQty: kpiQty
+                    });
+
+                    console.log(`[KPI-HISTORY] Product ${productId}: NEW product, set baseline=0, currentQty=${newQuantityInOrder}, kpiQty=${kpiQty}`);
                 } else {
                     // EXISTING product: NEVER modify baseline (immutable!)
                     // Only update currentQty and kpiQty
