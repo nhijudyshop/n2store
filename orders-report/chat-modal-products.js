@@ -1695,6 +1695,14 @@
                 console.log(`[KPI-WATERMARK] Saved baseline for ${baselineSnapshot.length} products BEFORE merge`);
             }
 
+            // IMPORTANT: Capture quantities BEFORE merge for KPI calculation
+            const preMergeQuantities = new Map();
+            newDetails.forEach(p => {
+                if (p.ProductId) {
+                    preMergeQuantities.set(p.ProductId, p.Quantity || 0);
+                }
+            });
+
             heldProducts.forEach(heldProduct => {
                 // Find if exists in non-held (newDetails)
                 const existingProduct = newDetails.find(p => p.ProductId === heldProduct.ProductId);
@@ -1729,12 +1737,12 @@
                         const productDetails = heldProducts.map(p => {
                             const productId = String(p.ProductId);
 
-                            // Find CURRENT quantity in newDetails (before merge) - this is quantity BEFORE adding held product
-                            const productBeforeMerge = newDetails.find(np => np.ProductId === p.ProductId);
-                            const qtyBeforeMerge = productBeforeMerge ? (productBeforeMerge.Quantity || 0) : 0;
+                            // Get quantity BEFORE merge (from captured map)
+                            const qtyBeforeMerge = preMergeQuantities.get(p.ProductId) || 0;
 
-                            // Find NEW quantity in newDetails (after merge)
-                            const newQuantityInOrder = qtyBeforeMerge + (p.Quantity || 0);
+                            // Get quantity AFTER merge (from newDetails)
+                            const productAfterMerge = newDetails.find(np => np.ProductId === p.ProductId);
+                            const newQuantityInOrder = productAfterMerge ? (productAfterMerge.Quantity || 0) : 0;
 
                             // Get historical data with watermark
                             const historical = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || {
