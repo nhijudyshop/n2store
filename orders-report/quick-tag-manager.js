@@ -344,6 +344,11 @@ const quickTagManager = {
                 // Close dropdown
                 this.closeAllDropdowns();
 
+                // Close tag modal if it's open
+                if (typeof closeTagModal === 'function') {
+                    closeTagModal();
+                }
+
                 if (window.notificationManager) {
                     window.notificationManager.show('✅ Đã cập nhật tag thành công', 'success');
                 }
