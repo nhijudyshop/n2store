@@ -1068,13 +1068,14 @@
                 const qty = p.Quantity || 0;
                 const existing = window.originalOrderProductQuantities.get(productId);
 
-                // ONLY set baseline if NOT already set (baselineQty === 0 or undefined)
-                if (!existing || existing.baselineQty === 0) {
+                // ONLY set baseline if NO entry exists yet
+                // Do NOT reset baseline if it's intentionally 0 (e.g., from dropped products)
+                if (!existing) {
                     const newEntry = {
                         productId: productId,
                         baselineQty: qty,  // Set baseline = current quantity BEFORE change
                         currentQty: qty,
-                        kpiQty: existing ? existing.kpiQty : 0  // Keep existing KPI
+                        kpiQty: 0  // New product, no KPI yet
                     };
 
                     baselineSnapshot.push(newEntry);
