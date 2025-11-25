@@ -1822,14 +1822,18 @@
                     kpiQty: 0
                 };
 
-                // IMPORTANT: For dropped products, we DON'T update the historical baseline
-                // We only update currentQty and kpiQty
-                // The historical baseline remains for fraud prevention in future operations
+                // IMPORTANT: Use SAME logic as stats calculation for consistency
+                // Get pre-merge quantity for this product
+                const qtyBeforeMerge = preMergeQuantities.get(p.ProductId) || 0;
+
                 let baselineQty = existing.baselineQty || 0;
 
-                // If this is the FIRST time seeing this product (baseline = 0) and it's from dropped list,
-                // we should NOT set a baseline, keep it at 0 so future additions count fully
-                // However, if baseline already exists, keep it for fraud prevention
+                // SPECIAL HANDLING FOR DROPPED PRODUCTS (same as stats calculation)
+                if (p.IsFromDropped === true) {
+                    // Use current quantity in order as baseline (not historical baseline)
+                    baselineQty = qtyBeforeMerge;
+                    console.log(`[KPI-HISTORY] Product ${productId} from dropped: Using pre-merge qty ${qtyBeforeMerge} as baseline (historical was ${existing.baselineQty})`);
+                }
 
                 const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
 
