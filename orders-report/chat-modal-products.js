@@ -377,7 +377,10 @@
 
     /**
      * Load order product history from Firebase
-     * Returns a Map of productId -> {quantity, kpiQuantity} for products that have EVER been in this order
+     * WATERMARK METHOD: Returns a Map of productId -> {baselineQty, currentQty, kpiQty}
+     * - baselineQty: Initial quantity when order is opened (KHÔNG tính KPI)
+     * - currentQty: Current quantity in order
+     * - kpiQty: Quantity counted for KPI = max(0, currentQty - baselineQty)
      */
     async function loadOrderProductHistory(orderId) {
         if (!window.firebase || !orderId) return new Map();
@@ -387,34 +390,45 @@
             const snapshot = await ref.once('value');
             const data = snapshot.val() || {};
 
-            // Convert to Map<productId, {quantity, kpiQuantity}>
+            // Convert to Map<productId, {baselineQty, currentQty, kpiQty}>
             const historyMap = new Map();
             Object.keys(data).forEach(productId => {
                 const entry = data[productId];
-                // Handle both old format (true) and new format ({quantity: X})
                 if (typeof entry === 'object') {
-                    historyMap.set(productId, {
-                        quantity: entry.quantity || 0,
-                        kpiQuantity: entry.kpiQuantity || 0 // Track quantity that has been scored
-                    });
+                    // New format with watermark
+                    if (entry.baselineQty !== undefined) {
+                        historyMap.set(productId, {
+                            baselineQty: entry.baselineQty || 0,
+                            currentQty: entry.currentQty || 0,
+                            kpiQty: entry.kpiQty || 0
+                        });
+                    } else {
+                        // Migrate old format: assume old quantity was baseline
+                        const oldQty = entry.quantity || 0;
+                        const oldKpiQty = entry.kpiQuantity || 0;
+                        historyMap.set(productId, {
+                            baselineQty: oldQty - oldKpiQty, // Reverse calculate baseline
+                            currentQty: oldQty,
+                            kpiQty: oldKpiQty
+                        });
+                    }
                 } else {
-                    historyMap.set(productId, { quantity: 0, kpiQuantity: 0 });
+                    historyMap.set(productId, { baselineQty: 0, currentQty: 0, kpiQty: 0 });
                 }
             });
 
-            console.log('[KPI-FRAUD] Loaded history from Firebase:', historyMap.size, 'products');
+            console.log('[KPI-WATERMARK] Loaded history from Firebase:', historyMap.size, 'products');
             return historyMap;
         } catch (error) {
-            console.error('[KPI-FRAUD] Error loading history:', error);
+            console.error('[KPI-WATERMARK] Error loading history:', error);
             return new Map();
         }
     }
 
     /**
-     * Update order product history in Firebase
-     * Updates product quantities in the permanent history
+     * Update order product history in Firebase (WATERMARK METHOD)
      * @param {string} orderId - The order ID
-     * @param {Array<{productId: string, quantity: number, kpiQuantity: number}>} products - Array of {productId, quantity, kpiQuantity}
+     * @param {Array<{productId: string, baselineQty: number, currentQty: number, kpiQty: number}>} products
      */
     async function updateOrderProductHistory(orderId, products) {
         if (!window.firebase || !orderId || !products || products.length === 0) return;
@@ -422,20 +436,21 @@
         try {
             const ref = firebase.database().ref(`order_product_history/${orderId}`);
 
-            // Create updates object: { productId: {quantity: X, kpiQuantity: Y}, ... }
+            // Create updates object with watermark structure
             const updates = {};
             products.forEach(p => {
                 updates[String(p.productId)] = {
-                    quantity: p.quantity || 0,
-                    kpiQuantity: p.kpiQuantity !== undefined ? p.kpiQuantity : p.quantity || 0,
+                    baselineQty: p.baselineQty || 0,
+                    currentQty: p.currentQty || 0,
+                    kpiQty: p.kpiQty || 0,
                     lastUpdated: Date.now()
                 };
             });
 
             await ref.update(updates);
-            console.log('[KPI-FRAUD] Updated history in Firebase:', products.length, 'products');
+            console.log('[KPI-WATERMARK] Updated history in Firebase:', products.length, 'products');
         } catch (error) {
-            console.error('[KPI-FRAUD] Error updating history:', error);
+            console.error('[KPI-WATERMARK] Error updating history:', error);
         }
     }
 
@@ -467,11 +482,11 @@
         // Initialize search
         initChatInlineProductSearch();
 
-        // FRAUD PREVENTION: Load PERMANENT history from Firebase
-        // This is a Map<productId, {quantity, kpiQuantity}> of ALL products that have EVER been in this order
+        // WATERMARK METHOD: Load history and set BASELINE
+        // This is a Map<productId, {baselineQty, currentQty, kpiQty}>
         window.originalOrderProductQuantities = await loadOrderProductHistory(window.currentChatOrderData.Id);
 
-        // ALSO add/update current products to the history (in case Firebase is empty/new order)
+        // Set BASELINE for current products (snapshot at modal open time)
         const currentProducts = [];
         if (window.currentChatOrderData.Details) {
             window.currentChatOrderData.Details.forEach(p => {
@@ -479,24 +494,52 @@
                     const idStr = String(p.ProductId);
                     const qty = p.Quantity || 0;
 
-                    // Update in-memory map with MAX quantity seen
-                    const existing = window.originalOrderProductQuantities.get(idStr) || { quantity: 0, kpiQuantity: 0 };
-                    window.originalOrderProductQuantities.set(idStr, {
-                        quantity: Math.max(existing.quantity, qty),
-                        kpiQuantity: existing.kpiQuantity // Keep existing KPI quantity
-                    });
+                    const existing = window.originalOrderProductQuantities.get(idStr);
 
-                    currentProducts.push({ productId: idStr, quantity: qty, kpiQuantity: existing.kpiQuantity });
+                    if (!existing || existing.baselineQty === 0) {
+                        // First time seeing this product OR baseline not set → Set BASELINE
+                        const newBaseline = qty; // Snapshot current quantity as baseline
+                        const newKpiQty = existing ? existing.kpiQty : 0; // Keep existing KPI if any
+
+                        window.originalOrderProductQuantities.set(idStr, {
+                            baselineQty: newBaseline,
+                            currentQty: qty,
+                            kpiQty: newKpiQty
+                        });
+
+                        currentProducts.push({
+                            productId: idStr,
+                            baselineQty: newBaseline,
+                            currentQty: qty,
+                            kpiQty: newKpiQty
+                        });
+
+                        console.log(`[KPI-WATERMARK] Set BASELINE for ${idStr}: ${newBaseline}`);
+                    } else {
+                        // Baseline already exists, just update current quantity
+                        window.originalOrderProductQuantities.set(idStr, {
+                            baselineQty: existing.baselineQty,
+                            currentQty: qty,
+                            kpiQty: existing.kpiQty
+                        });
+
+                        currentProducts.push({
+                            productId: idStr,
+                            baselineQty: existing.baselineQty,
+                            currentQty: qty,
+                            kpiQty: existing.kpiQty
+                        });
+                    }
                 }
             });
         }
 
-        // Save current products to Firebase history (initialize if needed)
+        // Save baseline to Firebase
         if (currentProducts.length > 0) {
             await updateOrderProductHistory(window.currentChatOrderData.Id, currentProducts);
         }
 
-        console.log('[KPI-FRAUD] Total historical products tracked:', window.originalOrderProductQuantities.size);
+        console.log('[KPI-WATERMARK] Total products tracked:', window.originalOrderProductQuantities.size);
 
         // Update counts
         updateChatProductCounts();
@@ -1097,7 +1140,7 @@
                 window.cacheManager.clear("orders");
             }
 
-            // FRAUD PREVENTION: Check for quantity REDUCTIONS and save negative KPI stats
+            // WATERMARK: Check for KPI changes (both increases and decreases)
             const productsToUpdate = [];
             const reductions = [];
 
@@ -1108,33 +1151,45 @@
                     if (!productId || productId === 'undefined' || productId === 'null') return;
 
                     const newQuantity = p.Quantity || 0;
-                    const historical = window.originalOrderProductQuantities.get(productId) || { quantity: 0, kpiQuantity: 0 };
-                    const kpiQty = historical.kpiQuantity || 0;
+                    const historical = window.originalOrderProductQuantities.get(productId) || {
+                        baselineQty: newQuantity, // If not tracked, assume current is baseline
+                        currentQty: newQuantity,
+                        kpiQty: 0
+                    };
 
-                    // Check if quantity DECREASED from what was previously counted for KPI
-                    if (newQuantity < kpiQty) {
-                        const reductionQty = kpiQty - newQuantity;
+                    // Calculate NEW KPI using WATERMARK
+                    const baselineQty = historical.baselineQty || 0;
+                    const oldKpiQty = historical.kpiQty || 0;
+                    const newKpiQty = Math.max(0, newQuantity - baselineQty);
+
+                    // Check if KPI DECREASED
+                    if (newKpiQty < oldKpiQty) {
+                        const reductionQty = oldKpiQty - newKpiQty;
                         reductions.push({
                             productId: productId,
                             productName: p.ProductNameGet || p.ProductName || 'Unknown',
-                            oldQuantity: kpiQty,
+                            baselineQty: baselineQty,
+                            oldKpiQty: oldKpiQty,
                             newQuantity: newQuantity,
+                            newKpiQty: newKpiQty,
                             reductionQty: reductionQty
                         });
-                        console.log(`[KPI-REDUCTION] Product ${productId}: -${reductionQty} (was ${kpiQty}, now ${newQuantity})`);
+                        console.log(`[KPI-WATERMARK] Reduction ${productId}: Baseline=${baselineQty}, Old KPI=${oldKpiQty}, New Total=${newQuantity}, New KPI=${newKpiQty}, Reduction=${reductionQty}`);
                     }
 
-                    // Prepare history update
+                    // Prepare history update with watermark
                     productsToUpdate.push({
                         productId: productId,
-                        quantity: Math.max(historical.quantity, newQuantity),
-                        kpiQuantity: newQuantity // Update KPI quantity to current
+                        baselineQty: baselineQty,
+                        currentQty: newQuantity,
+                        kpiQty: newKpiQty
                     });
 
                     // Update in-memory tracking
                     window.originalOrderProductQuantities.set(productId, {
-                        quantity: Math.max(historical.quantity, newQuantity),
-                        kpiQuantity: newQuantity
+                        baselineQty: baselineQty,
+                        currentQty: newQuantity,
+                        kpiQty: newKpiQty
                     });
                 });
 
@@ -1160,8 +1215,10 @@
                             products: reductions.map(r => ({
                                 name: r.productName,
                                 quantity: -r.reductionQty, // Negative quantity
-                                oldQuantity: r.oldQuantity,
+                                baselineQty: r.baselineQty,
+                                oldKpiQty: r.oldKpiQty,
                                 newQuantity: r.newQuantity,
+                                newKpiQty: r.newKpiQty,
                                 isCounted: true
                             }))
                         });
@@ -1648,9 +1705,7 @@
                     if (userId) {
                         const statsRef = firebase.database().ref(`held_product_stats/${userId}/${Date.now()}`);
 
-                        // FRAUD PREVENTION: Only count INCREMENTAL quantity
-                        // Compare new quantity vs historical MAX quantity (not kpiQuantity)
-                        // This prevents re-adding previously reduced quantities from scoring
+                        // WATERMARK METHOD: Only count quantity ABOVE baseline
                         let totalValidQty = 0;
                         const productDetails = heldProducts.map(p => {
                             const productId = String(p.ProductId);
@@ -1659,30 +1714,38 @@
                             const productInOrder = newDetails.find(np => np.ProductId === p.ProductId);
                             const newQuantityInOrder = productInOrder ? (productInOrder.Quantity || 0) : 0;
 
-                            // Get historical data
-                            const historical = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || { quantity: 0, kpiQuantity: 0 };
-                            const historicalMaxQty = historical.quantity || 0;
-                            const historicalKpiQty = historical.kpiQuantity || 0;
+                            // Get historical data with watermark
+                            const historical = (window.originalOrderProductQuantities && window.originalOrderProductQuantities.get(productId)) || {
+                                baselineQty: 0,
+                                currentQty: 0,
+                                kpiQty: 0
+                            };
 
-                            // Calculate INCREMENTAL quantity
-                            // Only count if EXCEEDING the historical maximum quantity
-                            // This prevents: Add 2 → Reduce to 1 → Re-add to 2 → Should NOT score
-                            const incrementalQty = Math.max(0, newQuantityInOrder - historicalMaxQty);
+                            const baselineQty = historical.baselineQty || 0;
+                            const oldKpiQty = historical.kpiQty || 0;
+
+                            // Calculate NEW KPI quantity using WATERMARK
+                            const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
+
+                            // Only count the DELTA (difference from old KPI)
+                            const kpiDelta = newKpiQty - oldKpiQty;
+                            const incrementalQty = Math.max(0, kpiDelta); // Only positive increases
 
                             totalValidQty += incrementalQty;
 
                             if (incrementalQty === 0) {
-                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: No score (Historical Max: ${historicalMaxQty}, New: ${newQuantityInOrder})`);
+                                console.log(`[KPI-WATERMARK] Product ${p.ProductId}: No score (Baseline=${baselineQty}, New=${newQuantityInOrder}, Old KPI=${oldKpiQty}, New KPI=${newKpiQty})`);
                             } else {
-                                console.log(`[KPI-FRAUD] Product ${p.ProductId}: +${incrementalQty} score (Historical Max: ${historicalMaxQty}, New: ${newQuantityInOrder})`);
+                                console.log(`[KPI-WATERMARK] Product ${p.ProductId}: +${incrementalQty} score (Baseline=${baselineQty}, New=${newQuantityInOrder}, KPI: ${oldKpiQty} → ${newKpiQty})`);
                             }
 
                             return {
                                 name: p.ProductNameGet || p.ProductName || 'Unknown Product',
                                 quantity: p.Quantity || 0,
                                 newQuantityInOrder: newQuantityInOrder,
-                                historicalMaxQty: historicalMaxQty,
-                                historicalKpiQty: historicalKpiQty,
+                                baselineQty: baselineQty,
+                                oldKpiQty: oldKpiQty,
+                                newKpiQty: newKpiQty,
                                 incrementalQty: incrementalQty,
                                 isCounted: incrementalQty > 0
                             };
@@ -1690,22 +1753,21 @@
 
                         statsRef.set({
                             userName: auth.displayName || auth.userType || 'Unknown',
-                            productCount: totalValidQty, // Only count incremental quantity
-                            amount: totalValidQty * 5000, // Only calculate amount for incremental quantity
+                            productCount: totalValidQty, // Only count delta above baseline
+                            amount: totalValidQty * 5000,
                             timestamp: firebase.database.ServerValue.TIMESTAMP,
                             orderId: window.currentChatOrderData.Id || 'unknown',
                             orderSTT: window.currentChatOrderData.SessionIndex || '',
                             products: productDetails
                         });
-                        console.log(`[CHAT-PRODUCTS] Saved stats: ${totalValidQty} valid incremental items (Total held: ${heldProducts.length})`);
+                        console.log(`[KPI-WATERMARK] Saved stats: ${totalValidQty} incremental items (Total held: ${heldProducts.length})`);
                     }
                 }
             } catch (err) {
                 console.error('[CHAT-PRODUCTS] Error saving held stats:', err);
             }
 
-            // Update kpiQuantity in history for products that were scored
-            // This marks these quantities as "already counted for KPI"
+            // Update watermark history for products that were scored
             const productsToUpdateHistory = [];
             heldProducts.forEach(p => {
                 const productId = String(p.ProductId);
@@ -1713,23 +1775,33 @@
                 const newQuantityInOrder = productInOrder ? (productInOrder.Quantity || 0) : 0;
 
                 // Update both in-memory and prepare for Firebase update
-                const existing = window.originalOrderProductQuantities.get(productId) || { quantity: 0, kpiQuantity: 0 };
+                const existing = window.originalOrderProductQuantities.get(productId) || {
+                    baselineQty: 0,
+                    currentQty: 0,
+                    kpiQty: 0
+                };
+
+                const baselineQty = existing.baselineQty || 0;
+                const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
+
                 window.originalOrderProductQuantities.set(productId, {
-                    quantity: Math.max(existing.quantity, newQuantityInOrder),
-                    kpiQuantity: newQuantityInOrder // Update KPI quantity to current quantity
+                    baselineQty: baselineQty,
+                    currentQty: newQuantityInOrder,
+                    kpiQty: newKpiQty
                 });
 
                 productsToUpdateHistory.push({
                     productId: productId,
-                    quantity: Math.max(existing.quantity, newQuantityInOrder),
-                    kpiQuantity: newQuantityInOrder
+                    baselineQty: baselineQty,
+                    currentQty: newQuantityInOrder,
+                    kpiQty: newKpiQty
                 });
             });
 
-            // Save updated KPI quantities to Firebase
+            // Save updated watermark to Firebase
             if (productsToUpdateHistory.length > 0) {
                 await updateOrderProductHistory(window.currentChatOrderData.Id, productsToUpdateHistory);
-                console.log('[KPI-FRAUD] Updated KPI quantities for', productsToUpdateHistory.length, 'products');
+                console.log('[KPI-WATERMARK] Updated watermark for', productsToUpdateHistory.length, 'products');
             }
 
             // SAVE ORDER SNAPSHOT for statistics page

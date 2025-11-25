@@ -4,11 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thống kê sản phẩm đang giữ</title>
+    <title>Thống kê KPI - Watermark Method</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="tab1-orders.css">
     <link rel="stylesheet" href="report-modern.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body {
             background-color: #f8fafc;
@@ -28,6 +30,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         .stats-title {
@@ -37,6 +41,52 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .stats-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-refresh {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-refresh:hover {
+            background: #2563eb;
+        }
+
+        .btn-export {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-export:hover {
+            background: #059669;
+        }
+
+        .btn-timeline {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .btn-timeline:hover {
+            background: #7c3aed;
         }
 
         .table-container {
@@ -52,6 +102,7 @@
             color: #475569;
             font-size: 13px;
             padding: 12px 16px;
+            white-space: nowrap;
         }
 
         .table td {
@@ -66,26 +117,6 @@
             font-weight: 600;
         }
 
-        .refresh-btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-        }
-
-        .refresh-btn:hover {
-            background: #2563eb;
-        }
-
-        /* Clickable row */
         .clickable-row {
             cursor: pointer;
             transition: background-color 0.2s;
@@ -95,9 +126,44 @@
             background-color: #f1f5f9;
         }
 
-        /* Fullscreen modal styles - Override Bootstrap and report-modern.css */
-        /* Important: report-modern.css has .modal-content { max-width: 600px } that needs to be overridden */
+        .badge-fraud {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
 
+        .badge-warning {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #059669;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        /* Fullscreen modal */
         .modal.fade .modal-dialog.modal-fullscreen {
             max-width: 100vw !important;
             width: 100vw !important;
@@ -113,11 +179,8 @@
             padding: 0 !important;
         }
 
-        /* Override the max-width: 600px from report-modern.css */
         .modal-dialog.modal-fullscreen .modal-content,
-        .modal .modal-dialog.modal-fullscreen .modal-content,
-        #ordersModal .modal-content,
-        #orderDetailsModal .modal-content {
+        .modal .modal-dialog.modal-fullscreen .modal-content {
             max-width: 100vw !important;
             width: 100vw !important;
             height: 100vh !important;
@@ -132,23 +195,163 @@
             overflow-y: auto !important;
         }
 
-        .modal-dialog.modal-fullscreen .modal-header,
-        .modal-dialog.modal-fullscreen .modal-footer {
-            flex-shrink: 0 !important;
+        /* Watermark badges */
+        .watermark-info {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .watermark-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+            margin-right: 4px;
+        }
+
+        .watermark-baseline {
+            background: #e5e7eb;
+            color: #4b5563;
+        }
+
+        .watermark-current {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .watermark-kpi {
+            background: #d1fae5;
+            color: #059669;
+            font-weight: 600;
+        }
+
+        /* Fraud warning */
+        .fraud-warning-row {
+            background: #fef2f2 !important;
+        }
+
+        .fraud-warning-icon {
+            color: #dc2626;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Summary cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+        }
+
+        .summary-card-title {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .summary-card-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .summary-card-subtitle {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .summary-card-blue {
+            border-left-color: #3b82f6;
+        }
+
+        .summary-card-blue .summary-card-value {
+            color: #3b82f6;
+        }
+
+        .summary-card-green {
+            border-left-color: #10b981;
+        }
+
+        .summary-card-green .summary-card-value {
+            color: #10b981;
+        }
+
+        .summary-card-purple {
+            border-left-color: #8b5cf6;
+        }
+
+        .summary-card-purple .summary-card-value {
+            color: #8b5cf6;
+        }
+
+        .summary-card-red {
+            border-left-color: #ef4444;
+        }
+
+        .summary-card-red .summary-card-value {
+            color: #ef4444;
         }
     </style>
 </head>
 
 <body>
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card summary-card-blue">
+            <div class="summary-card-title"><i class="fas fa-users"></i> Tổng người dùng</div>
+            <div class="summary-card-value" id="totalUsers">0</div>
+            <div class="summary-card-subtitle">Đang hoạt động</div>
+        </div>
+        <div class="summary-card summary-card-green">
+            <div class="summary-card-title"><i class="fas fa-shopping-cart"></i> Tổng đơn hàng</div>
+            <div class="summary-card-value" id="totalOrders">0</div>
+            <div class="summary-card-subtitle">Có sản phẩm KPI</div>
+        </div>
+        <div class="summary-card summary-card-purple">
+            <div class="summary-card-title"><i class="fas fa-box"></i> Tổng sản phẩm</div>
+            <div class="summary-card-value" id="totalProducts">0</div>
+            <div class="summary-card-subtitle">Tính KPI</div>
+        </div>
+        <div class="summary-card summary-card-red">
+            <div class="summary-card-title"><i class="fas fa-exclamation-triangle"></i> Cảnh báo</div>
+            <div class="summary-card-value" id="totalFraudWarnings">0</div>
+            <div class="summary-card-subtitle">Nghi ngờ gian lận</div>
+        </div>
+    </div>
+
+    <!-- Main Stats Card -->
     <div class="stats-card">
         <div class="stats-header">
             <div class="stats-title">
                 <i class="fas fa-chart-bar" style="color: #3b82f6;"></i>
-                Thống kê sản phẩm đang giữ đã lưu vào đơn
+                Thống kê KPI - Watermark Method
             </div>
-            <button class="refresh-btn" onclick="loadStats()">
-                <i class="fas fa-sync-alt"></i> Làm mới
-            </button>
+            <div class="stats-actions">
+                <button class="btn-action btn-timeline" onclick="showTimeline()">
+                    <i class="fas fa-chart-line"></i> Timeline
+                </button>
+                <button class="btn-action btn-export" onclick="exportToExcel()">
+                    <i class="fas fa-file-excel"></i> Export Excel
+                </button>
+                <button class="btn-action btn-refresh" onclick="loadStats()">
+                    <i class="fas fa-sync-alt"></i> Làm mới
+                </button>
+            </div>
         </div>
 
         <div class="table-container">
@@ -160,11 +363,12 @@
                         <th style="text-align: center; width: 100px;">Số đơn</th>
                         <th style="text-align: center;">Tổng số lượng</th>
                         <th style="text-align: right;">Tổng tiền (5.000đ/sp)</th>
+                        <th style="text-align: center; width: 120px;">Trạng thái</th>
                     </tr>
                 </thead>
                 <tbody id="statsTableBody">
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
                         </td>
                     </tr>
@@ -175,9 +379,30 @@
                         <td style="text-align: center;" id="grandTotalOrders">0</td>
                         <td style="text-align: center;" id="grandTotalQty">0</td>
                         <td style="text-align: right; color: #3b82f6;" id="grandTotalAmount">0đ</td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
+        </div>
+    </div>
+
+    <!-- Timeline Modal -->
+    <div class="modal fade" id="timelineModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-chart-line"></i> Timeline KPI</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="chart-container">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -196,7 +421,9 @@
                                 <th style="width: 50px;">#</th>
                                 <th>STT Đơn</th>
                                 <th>Số lượng SP</th>
+                                <th>KPI</th>
                                 <th>Thời gian</th>
+                                <th>Trạng thái</th>
                                 <th style="text-align: center;">Hành động</th>
                             </tr>
                         </thead>
@@ -259,6 +486,7 @@
                                         <th style="width: 50px;">#</th>
                                         <th>Tên sản phẩm</th>
                                         <th style="text-align: center; width: 100px;">Số lượng</th>
+                                        <th style="text-align: center; width: 200px;">Watermark</th>
                                         <th style="text-align: right; width: 150px;">Giá</th>
                                     </tr>
                                 </thead>
@@ -275,8 +503,9 @@
                                     <tr>
                                         <th style="width: 50px;">#</th>
                                         <th>Tên sản phẩm</th>
-                                        <th style="text-align: center; width: 100px;">SL trong đơn</th>
-                                        <th style="text-align: center; width: 100px;">SL tính KPI</th>
+                                        <th style="text-align: center; width: 100px;">Baseline</th>
+                                        <th style="text-align: center; width: 100px;">Current</th>
+                                        <th style="text-align: center; width: 100px;">KPI Qty</th>
                                         <th style="text-align: right; width: 150px;">Giá trị KPI</th>
                                     </tr>
                                 </thead>
@@ -294,6 +523,7 @@
                                         <th style="width: 50px;">#</th>
                                         <th>Tên sản phẩm</th>
                                         <th style="text-align: center; width: 100px;">Số lượng</th>
+                                        <th style="text-align: center; width: 200px;">Watermark</th>
                                         <th>Lý do không tính KPI</th>
                                     </tr>
                                 </thead>
@@ -323,8 +553,6 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -339,8 +567,9 @@
             firebase.initializeApp(firebaseConfig);
         }
 
-        let allStatsData = {}; // Store raw data for modal
-        let allOrderSnapshots = {}; // Store order snapshots
+        let allStatsData = {};
+        let allOrderSnapshots = {};
+        let timelineChart = null;
 
         document.addEventListener('DOMContentLoaded', function () {
             loadStats();
@@ -352,7 +581,7 @@
 
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
+                    <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
                         <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
                     </td>
                 </tr>
@@ -367,26 +596,26 @@
 
                 const data = statsSnapshot.val();
                 const allSnapshots = orderSnapshotsSnapshot.val() || {};
-                allOrderSnapshots = allSnapshots; // Save for modal usage
+                allOrderSnapshots = allSnapshots;
 
                 if (!data) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
                                 <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>Chưa có dữ liệu
                             </td>
                         </tr>
                     `;
                     tfoot.style.display = 'none';
+                    updateSummaryCards(0, 0, 0, 0);
                     return;
                 }
 
-                allStatsData = data; // Save for modal usage
+                allStatsData = data;
 
                 // Aggregate data by user
                 const userStats = {};
 
-                // Data structure: userId -> timestamp -> { userName, productCount, amount, orderId, ... }
                 Object.keys(data).forEach(userId => {
                     const userRecords = data[userId];
                     if (!userRecords) return;
@@ -397,52 +626,56 @@
                                 name: record.userName || 'Unknown',
                                 totalQty: 0,
                                 totalAmount: 0,
-                                orderIds: new Set(), // Track unique order IDs
-                                id: userId, // Store ID for click handler
-                                hasMismatch: false, // Track if any order has mismatch
-                                mismatchDetails: [] // Store details of mismatches
+                                orderIds: new Set(),
+                                id: userId,
+                                hasMismatch: false,
+                                hasNegativeKPI: false,
+                                fraudScore: 0,
+                                mismatchDetails: []
                             };
                         }
 
-                        // Use stored amount or calculate 5000 * qty
                         const qty = parseInt(record.productCount) || 0;
                         const amount = record.amount || (qty * 5000);
 
                         userStats[userId].totalQty += qty;
                         userStats[userId].totalAmount += amount;
 
-                        // Track unique order IDs
+                        // Track negative KPI (reductions)
+                        if (record.isReduction) {
+                            userStats[userId].hasNegativeKPI = true;
+                            userStats[userId].fraudScore += 1;
+                        }
+
                         if (record.orderId) {
                             userStats[userId].orderIds.add(record.orderId);
                         }
 
-                        // Update name if better one found (optional)
                         if (record.userName && record.userName !== 'Unknown') {
                             userStats[userId].name = record.userName;
                         }
                     });
                 });
 
-                // Validate products vs invoice for each user
+                // Validate products vs invoice
                 Object.values(userStats).forEach(stat => {
                     stat.orderIds.forEach(orderId => {
                         const order = allSnapshots[orderId];
                         if (!order) return;
 
-                        // Check if invoice products exist
                         if (order.invoiceProducts && Array.isArray(order.invoiceProducts) && order.invoiceProducts.length > 0) {
                             const orderProducts = order.products || [];
                             const invoiceProducts = order.invoiceProducts;
 
-                            // 1. Check count mismatch
+                            // Check count mismatch
                             if (orderProducts.length !== invoiceProducts.length) {
                                 stat.hasMismatch = true;
+                                stat.fraudScore += 3; // Higher fraud score for mismatch
                                 stat.mismatchDetails.push(`Đơn ${order.orderSTT}: Số lượng mã SP không khớp (${orderProducts.length} vs ${invoiceProducts.length})`);
                                 return;
                             }
 
-                            // 2. Check content mismatch (Name and Quantity)
-                            // Create maps for easier comparison
+                            // Check content mismatch
                             const orderMap = new Map();
                             orderProducts.forEach(p => {
                                 const key = (p.name || '').trim();
@@ -455,7 +688,6 @@
                                 invoiceMap.set(key, (invoiceMap.get(key) || 0) + (p.quantity || 0));
                             });
 
-                            // Compare maps
                             let isMatch = true;
                             if (orderMap.size !== invoiceMap.size) {
                                 isMatch = false;
@@ -470,6 +702,7 @@
 
                             if (!isMatch) {
                                 stat.hasMismatch = true;
+                                stat.fraudScore += 3;
                                 stat.mismatchDetails.push(`Đơn ${order.orderSTT}: Thông tin sản phẩm không khớp với hóa đơn`);
                             }
                         }
@@ -481,32 +714,35 @@
                 let grandTotalQty = 0;
                 let grandTotalAmount = 0;
                 let grandTotalOrders = 0;
+                let totalFraudWarnings = 0;
                 let stt = 1;
 
                 Object.values(userStats).forEach(stat => {
                     const orderCount = stat.orderIds.size;
-                    
-                    // Determine row class and tooltip
+
                     let rowClass = "clickable-row";
-                    let warningIcon = "";
-                    let tooltipAttr = "";
-                    
-                    if (stat.hasMismatch) {
-                        rowClass += " table-danger"; // Bootstrap danger class
-                        const tooltipText = stat.mismatchDetails.join('\\n');
-                        warningIcon = `<i class="fas fa-exclamation-triangle text-danger ms-2" title="${tooltipText}"></i>`;
-                        tooltipAttr = `title="${tooltipText}"`;
+                    let statusHtml = '<span class="badge-success">OK</span>';
+
+                    // Determine fraud level
+                    if (stat.fraudScore >= 3) {
+                        rowClass += " fraud-warning-row";
+                        statusHtml = `<span class="badge-fraud"><i class="fas fa-exclamation-triangle fraud-warning-icon"></i> Nghi ngờ</span>`;
+                        totalFraudWarnings++;
+                    } else if (stat.hasNegativeKPI || stat.hasMismatch) {
+                        statusHtml = '<span class="badge-warning"><i class="fas fa-exclamation-circle"></i> Cảnh báo</span>';
                     }
+
+                    const tooltipText = stat.mismatchDetails.join('\\n');
+                    const tooltipAttr = stat.mismatchDetails.length > 0 ? `title="${tooltipText}"` : '';
 
                     html += `
                         <tr class="${rowClass}" onclick="showOrders('${stat.id}', '${stat.name.replace(/'/g, "\\'")}')" ${tooltipAttr}>
                             <td style="text-align: center;">${stt++}</td>
-                            <td style="font-weight: 500;">
-                                ${stat.name} ${warningIcon}
-                            </td>
+                            <td style="font-weight: 500;">${stat.name}</td>
                             <td style="text-align: center; color: #059669; font-weight: 500;">${orderCount}</td>
                             <td style="text-align: center;">${stat.totalQty.toLocaleString('vi-VN')}</td>
                             <td style="text-align: right; font-weight: 600;">${stat.totalAmount.toLocaleString('vi-VN')}đ</td>
+                            <td style="text-align: center;">${statusHtml}</td>
                         </tr>
                     `;
                     grandTotalQty += stat.totalQty;
@@ -522,16 +758,26 @@
                 document.getElementById('grandTotalAmount').textContent = grandTotalAmount.toLocaleString('vi-VN') + 'đ';
                 tfoot.style.display = 'table-footer-group';
 
+                // Update summary cards
+                updateSummaryCards(Object.keys(userStats).length, grandTotalOrders, grandTotalQty, totalFraudWarnings);
+
             } catch (error) {
                 console.error('Error loading stats:', error);
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 20px; color: #ef4444;">
+                        <td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">
                             <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải dữ liệu: ${error.message}
                         </td>
                     </tr>
                 `;
             }
+        }
+
+        function updateSummaryCards(users, orders, products, warnings) {
+            document.getElementById('totalUsers').textContent = users.toLocaleString('vi-VN');
+            document.getElementById('totalOrders').textContent = orders.toLocaleString('vi-VN');
+            document.getElementById('totalProducts').textContent = products.toLocaleString('vi-VN');
+            document.getElementById('totalFraudWarnings').textContent = warnings.toLocaleString('vi-VN');
         }
 
         // Level 1: Show list of orders for a user
@@ -540,36 +786,18 @@
             const tbody = document.getElementById('ordersTableBody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
+                    <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
                         <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải danh sách đơn...
                     </td>
                 </tr>
             `;
 
-            // Show modal first
             const modal = new bootstrap.Modal(document.getElementById('ordersModal'));
             modal.show();
 
             try {
-                // Fetch order snapshots for this user
-                const snapshotsRef = firebase.database().ref('order_snapshots');
-                const snapshot = await snapshotsRef.once('value');
-                const allSnapshots = snapshot.val();
-
-                if (!allSnapshots) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
-                                <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>Chưa có đơn hàng
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
-
-                // Filter orders for this user
                 const userOrders = [];
-                Object.values(allSnapshots).forEach(order => {
+                Object.values(allOrderSnapshots).forEach(order => {
                     if (order.userId === userId) {
                         userOrders.push(order);
                     }
@@ -578,7 +806,7 @@
                 if (userOrders.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
                                 <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>Chưa có đơn hàng
                             </td>
                         </tr>
@@ -589,24 +817,54 @@
                 // Sort by timestamp desc
                 userOrders.sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
 
-                // Store for later use
-                allOrderSnapshots = allSnapshots;
+                // Calculate KPI for each order
+                const ordersWithKPI = userOrders.map(order => {
+                    const orderId = order.orderId;
+                    let orderKPI = 0;
+                    let hasWarning = false;
+
+                    // Find KPI stats for this order
+                    if (allStatsData[userId]) {
+                        Object.values(allStatsData[userId]).forEach(stat => {
+                            if (stat.orderId === orderId) {
+                                orderKPI += (stat.productCount || 0);
+                                if (stat.isReduction) {
+                                    hasWarning = true;
+                                }
+                            }
+                        });
+                    }
+
+                    // Check invoice mismatch
+                    if (order.invoiceProducts && order.products) {
+                        if (order.invoiceProducts.length !== order.products.length) {
+                            hasWarning = true;
+                        }
+                    }
+
+                    return { ...order, kpi: orderKPI, hasWarning };
+                });
 
                 // Render orders table
                 let html = '';
                 let index = 1;
 
-                userOrders.forEach(order => {
+                ordersWithKPI.forEach(order => {
                     const date = new Date(order.lastUpdated);
                     const timeStr = date.toLocaleString('vi-VN');
                     const productCount = order.products ? order.products.length : 0;
+                    const kpiDisplay = order.kpi !== 0 ? (order.kpi > 0 ? `+${order.kpi}` : order.kpi) : '0';
+                    const kpiColor = order.kpi > 0 ? '#059669' : (order.kpi < 0 ? '#dc2626' : '#6b7280');
+                    const statusBadge = order.hasWarning ? '<span class="badge-warning"><i class="fas fa-exclamation-circle"></i></span>' : '';
 
                     html += `
-                        <tr class="clickable-row" onclick="showOrderDetails('${order.orderId}', '${order.orderSTT}')">
+                        <tr class="clickable-row ${order.hasWarning ? 'table-warning' : ''}" onclick="showOrderDetails('${order.orderId}', '${order.orderSTT}')">
                             <td>${index++}</td>
                             <td style="font-weight: 500;">${order.orderSTT || 'N/A'}</td>
                             <td style="text-align: center;">${productCount}</td>
+                            <td style="text-align: center; font-weight: 600; color: ${kpiColor};">${kpiDisplay}</td>
                             <td style="font-size: 13px;">${timeStr}</td>
+                            <td style="text-align: center;">${statusBadge}</td>
                             <td style="text-align: center;">
                                 <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); showOrderDetails('${order.orderId}', '${order.orderSTT}')">
                                     <i class="fas fa-eye"></i> Xem
@@ -622,7 +880,7 @@
                 console.error('Error loading orders:', error);
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 20px; color: #ef4444;">
+                        <td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">
                             <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải danh sách đơn: ${error.message}
                         </td>
                     </tr>
@@ -634,19 +892,17 @@
         async function showOrderDetails(orderId, orderSTT) {
             document.getElementById('orderDetailsTitle').textContent = orderSTT || orderId;
 
-            // Show modal
             const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
             modal.show();
 
-            // Load products from snapshot
             const order = allOrderSnapshots[orderId];
             if (!order) {
                 console.error('Order not found in snapshots:', orderId);
                 return;
             }
 
-            // Fetch KPI stats for this order from held_product_stats
-            let kpiProductsMap = new Map(); // productId -> kpi data
+            // Fetch KPI stats for this order
+            let kpiProductsMap = new Map();
 
             try {
                 const statsRef = firebase.database().ref('held_product_stats');
@@ -654,13 +910,10 @@
                 const allStats = statsSnapshot.val();
 
                 if (allStats) {
-                    // Search through all users' stats for this orderId
                     Object.values(allStats).forEach(userStats => {
                         Object.values(userStats).forEach(statRecord => {
                             if (statRecord.orderId === orderId && statRecord.products) {
-                                // Found stats for this order
                                 statRecord.products.forEach(p => {
-                                    // Use product name as key since we might not have productId
                                     const key = p.name || 'Unknown';
                                     kpiProductsMap.set(key, p);
                                 });
@@ -679,11 +932,19 @@
 
             if (order.products && order.products.length > 0) {
                 order.products.forEach(p => {
+                    const kpiData = kpiProductsMap.get(p.name);
+                    const watermarkHtml = kpiData ? `
+                        <span class="watermark-badge watermark-baseline">B: ${kpiData.baselineQty || 0}</span>
+                        <span class="watermark-badge watermark-current">C: ${kpiData.newQuantityInOrder || p.quantity}</span>
+                        <span class="watermark-badge watermark-kpi">KPI: ${kpiData.newKpiQty || 0}</span>
+                    ` : '<span style="color: #9ca3af; font-size: 11px;">Không có KPI</span>';
+
                     allHtml += `
                         <tr>
                             <td>${allIndex++}</td>
                             <td>${p.name || 'Unknown Product'}</td>
-                            <td style="text-align: center;">${p.quantity || 0}</td>
+                            <td style="text-align: center; font-weight: 600;">${p.quantity || 0}</td>
+                            <td style="text-align: center;">${watermarkHtml}</td>
                             <td style="text-align: right;">${(p.price || 0).toLocaleString('vi-VN')}đ</td>
                         </tr>
                     `;
@@ -691,7 +952,7 @@
             } else {
                 allHtml = `
                     <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-box-open mb-2"></i><br>Không có sản phẩm
                         </td>
                     </tr>
@@ -715,8 +976,9 @@
                             <tr>
                                 <td>${kpiIndex++}</td>
                                 <td>${p.name || 'Unknown Product'}</td>
-                                <td style="text-align: center;">${kpiData.newQuantityInOrder || 0}</td>
-                                <td style="text-align: center; color: #059669; font-weight: 600;">${kpiData.incrementalQty}</td>
+                                <td style="text-align: center;">${kpiData.baselineQty || 0}</td>
+                                <td style="text-align: center; font-weight: 600;">${kpiData.newQuantityInOrder || 0}</td>
+                                <td style="text-align: center; color: #059669; font-weight: 700;">${kpiData.newKpiQty || 0}</td>
                                 <td style="text-align: right; color: #059669; font-weight: 600;">${kpiValue.toLocaleString('vi-VN')}đ</td>
                             </tr>
                         `;
@@ -727,7 +989,7 @@
             if (!hasKpiProducts) {
                 kpiHtml = `
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-info-circle mb-2"></i><br>Không có sản phẩm được tính KPI
                         </td>
                     </tr>
@@ -748,14 +1010,14 @@
                     let isNonKpi = false;
 
                     if (!kpiData) {
-                        // No KPI data found - likely wasn't in held products
                         isNonKpi = true;
                         reason = 'Sản phẩm không qua "Sản phẩm đang giữ"';
                     } else if (!kpiData.isCounted || kpiData.incrementalQty === 0) {
-                        // Has KPI data but not counted
                         isNonKpi = true;
-                        if (kpiData.newQuantityInOrder <= kpiData.historicalMaxQty) {
-                            reason = `Đã từng có ${kpiData.historicalMaxQty} trong đơn, hiện tại ${kpiData.newQuantityInOrder}`;
+                        if (kpiData.newQuantityInOrder <= kpiData.baselineQty) {
+                            reason = `Không vượt baseline (Baseline: ${kpiData.baselineQty}, Current: ${kpiData.newQuantityInOrder})`;
+                        } else if (kpiData.oldKpiQty >= kpiData.newKpiQty) {
+                            reason = `Không tăng KPI (Old: ${kpiData.oldKpiQty}, New: ${kpiData.newKpiQty})`;
                         } else {
                             reason = 'Không đủ điều kiện tính KPI';
                         }
@@ -763,11 +1025,17 @@
 
                     if (isNonKpi) {
                         hasNonKpiProducts = true;
+                        const watermarkHtml = kpiData ? `
+                            <span class="watermark-badge watermark-baseline">B: ${kpiData.baselineQty || 0}</span>
+                            <span class="watermark-badge watermark-current">C: ${kpiData.newQuantityInOrder || p.quantity}</span>
+                        ` : '<span style="color: #9ca3af; font-size: 11px;">N/A</span>';
+
                         nonKpiHtml += `
                             <tr>
                                 <td>${nonKpiIndex++}</td>
                                 <td>${p.name || 'Unknown Product'}</td>
                                 <td style="text-align: center;">${p.quantity || 0}</td>
+                                <td style="text-align: center;">${watermarkHtml}</td>
                                 <td><span class="badge bg-secondary">${reason}</span></td>
                             </tr>
                         `;
@@ -778,7 +1046,7 @@
             if (!hasNonKpiProducts) {
                 nonKpiHtml = `
                     <tr>
-                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-info-circle mb-2"></i><br>Tất cả sản phẩm đều được tính KPI
                         </td>
                     </tr>
@@ -789,10 +1057,10 @@
             // Load invoice when invoice tab is clicked
             document.getElementById('invoice-tab').addEventListener('click', async function () {
                 await loadInvoice(orderId, order.invoiceId, order.invoiceProducts);
-            }, { once: true }); // Use once: true to prevent multiple listeners
+            }, { once: true });
         }
 
-        // Fetch and display invoice (now supports cached invoice products)
+        // Fetch and display invoice
         async function loadInvoice(orderId, invoiceId, invoiceProducts) {
             const invoiceContent = document.getElementById('invoiceContent');
 
@@ -803,11 +1071,9 @@
             `;
 
             try {
-                // Check if we have cached invoice products
                 if (invoiceProducts && invoiceProducts.length > 0) {
                     console.log('[INVOICE] Using cached invoice products:', invoiceProducts.length);
 
-                    // Render invoice details from cached data
                     let html = `
                         <div style="padding: 20px;">
                             <div class="card mb-3">
@@ -820,7 +1086,6 @@
                             </div>
                     `;
 
-                    // Render products from cached invoiceProducts
                     html += `
                         <div class="card">
                             <div class="card-header bg-light">
@@ -884,10 +1149,6 @@
                     return;
                 }
 
-                // Fallback: No cached products, try to fetch from API
-                console.log('[INVOICE] No cached products, fetching from API...');
-
-                // If no invoice ID, show message
                 if (!invoiceId) {
                     invoiceContent.innerHTML = `
                         <div style="text-align: center; padding: 40px; color: #94a3b8;">
@@ -898,7 +1159,6 @@
                     return;
                 }
 
-                // Fetch invoice data from API
                 const headers = await window.tokenManager.getAuthHeader();
                 const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder(${invoiceId})?$expand=OrderLines`;
 
@@ -915,7 +1175,6 @@
 
                 const invoice = await response.json();
 
-                // Render invoice details
                 let html = `
                     <div style="padding: 20px;">
                         <div class="card mb-3">
@@ -937,7 +1196,6 @@
                         </div>
                 `;
 
-                // Render products from OrderLines
                 if (invoice.OrderLines && invoice.OrderLines.length > 0) {
                     html += `
                         <div class="card">
@@ -995,6 +1253,169 @@
                         <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải hóa đơn: ${error.message}
                     </div>
                 `;
+            }
+        }
+
+        // Show Timeline Chart
+        function showTimeline() {
+            const modal = new bootstrap.Modal(document.getElementById('timelineModal'));
+            modal.show();
+
+            // Aggregate data by date
+            const dateMap = new Map();
+
+            Object.values(allStatsData).forEach(userStats => {
+                Object.values(userStats).forEach(record => {
+                    const timestamp = record.timestamp || 0;
+                    const date = new Date(timestamp).toLocaleDateString('vi-VN');
+                    const qty = parseInt(record.productCount) || 0;
+
+                    if (!dateMap.has(date)) {
+                        dateMap.set(date, { qty: 0, count: 0 });
+                    }
+
+                    dateMap.get(date).qty += qty;
+                    dateMap.get(date).count += 1;
+                });
+            });
+
+            // Sort by date
+            const sortedDates = Array.from(dateMap.keys()).sort((a, b) => {
+                return new Date(a.split('/').reverse().join('/')) - new Date(b.split('/').reverse().join('/'));
+            });
+
+            const labels = sortedDates;
+            const dataQty = sortedDates.map(date => dateMap.get(date).qty);
+            const dataCount = sortedDates.map(date => dateMap.get(date).count);
+
+            // Destroy old chart
+            if (timelineChart) {
+                timelineChart.destroy();
+            }
+
+            // Create new chart
+            const ctx = document.getElementById('timelineChart').getContext('2d');
+            timelineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Tổng số lượng KPI',
+                            data: dataQty,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Số lượt "Lưu vào đơn"',
+                            data: dataCount,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Biểu đồ KPI theo thời gian',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Số lượng KPI'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Số lượt lưu'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Export to Excel
+        function exportToExcel() {
+            try {
+                // Prepare data
+                const data = [];
+
+                // Add summary row
+                data.push(['THỐNG KÊ KPI - WATERMARK METHOD']);
+                data.push(['Xuất ngày:', new Date().toLocaleString('vi-VN')]);
+                data.push([]);
+
+                // Add user stats
+                data.push(['STT', 'Tên người dùng', 'Số đơn', 'Tổng số lượng', 'Tổng tiền (đ)', 'Trạng thái']);
+
+                Object.values(allStatsData).forEach((userStats, userIndex) => {
+                    const userData = Object.values(userStats)[0];
+                    if (!userData) return;
+
+                    let totalQty = 0;
+                    let totalAmount = 0;
+                    const orderIds = new Set();
+
+                    Object.values(userStats).forEach(record => {
+                        const qty = parseInt(record.productCount) || 0;
+                        totalQty += qty;
+                        totalAmount += (record.amount || qty * 5000);
+                        if (record.orderId) orderIds.add(record.orderId);
+                    });
+
+                    data.push([
+                        userIndex + 1,
+                        userData.userName || 'Unknown',
+                        orderIds.size,
+                        totalQty,
+                        totalAmount,
+                        'OK'
+                    ]);
+                });
+
+                // Create workbook
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Thống kê KPI');
+
+                // Save file
+                const fileName = `KPI_Statistics_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+
+                alert('Đã export thành công!');
+            } catch (error) {
+                console.error('Error exporting to Excel:', error);
+                alert('Lỗi export: ' + error.message);
             }
         }
     </script>
