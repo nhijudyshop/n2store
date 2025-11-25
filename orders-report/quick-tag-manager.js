@@ -337,6 +337,10 @@ const quickTagManager = {
                 // Re-render table
                 renderTable();
 
+                // Reset button state before closing
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+
                 // Close dropdown
                 this.closeAllDropdowns();
 
