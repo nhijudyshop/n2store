@@ -3099,27 +3099,42 @@ ${encodedString}
 
             if (selectedUser === 'all') {
                 // Flatten data from all users
-                console.log('[HISTORY] 🔍 Flattening data from all users...', Object.keys(data).length, 'users found');
+                console.log('[HISTORY] 🔍 Flattening data from all users...');
+                console.log('[HISTORY] Total users found:', Object.keys(data).length);
+                console.log('[HISTORY] User keys:', Object.keys(data));
+
                 Object.keys(data).forEach(userId => {
                     const userHistory = data[userId];
-                    console.log(`[HISTORY]   User: ${userId}, type: ${typeof userHistory}, keys:`, userHistory ? Object.keys(userHistory).length : 0);
+                    console.log(`[HISTORY]   User: "${userId}"`);
+                    console.log(`[HISTORY]     Type: ${typeof userHistory}`);
+                    console.log(`[HISTORY]     Is null: ${userHistory === null}`);
+                    console.log(`[HISTORY]     Keys count:`, userHistory ? Object.keys(userHistory).length : 0);
 
                     if (userHistory && typeof userHistory === 'object') {
-                        Object.keys(userHistory).forEach(uploadKey => {
+                        const uploadKeys = Object.keys(userHistory);
+                        console.log(`[HISTORY]     Upload keys:`, uploadKeys);
+
+                        uploadKeys.forEach(uploadKey => {
                             const record = userHistory[uploadKey];
+                            console.log(`[HISTORY]       Record: "${uploadKey}"`);
+                            console.log(`[HISTORY]         Type: ${typeof record}`);
+                            console.log(`[HISTORY]         Has timestamp: ${!!record?.timestamp}`);
+                            console.log(`[HISTORY]         Has uploadId: ${!!record?.uploadId}`);
 
                             // Skip if record is not an object or is null
                             if (!record || typeof record !== 'object') {
-                                console.warn('[HISTORY]     Skipping invalid record:', uploadKey);
+                                console.warn('[HISTORY]         ❌ Skipping invalid record (not object):', uploadKey);
                                 return;
                             }
 
-                            // Skip records that don't look like upload history (missing required fields)
-                            if (!record.timestamp && !record.uploadId) {
-                                console.warn('[HISTORY]     Skipping non-history record:', uploadKey);
+                            // RELAXED validation: Only skip if it's clearly not upload history
+                            // Accept record if it has EITHER timestamp OR uploadId OR uploadStatus
+                            if (!record.timestamp && !record.uploadId && !record.uploadStatus) {
+                                console.warn('[HISTORY]         ❌ Skipping non-history record (no identifying fields):', uploadKey);
                                 return;
                             }
 
+                            console.log(`[HISTORY]         ✅ Adding record to list`);
                             uploadHistoryRecords.push({
                                 uploadId: record.uploadId || uploadKey,
                                 timestamp: record.timestamp || 0,
