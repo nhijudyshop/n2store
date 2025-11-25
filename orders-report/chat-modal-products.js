@@ -1753,16 +1753,23 @@
                             };
 
                             // SPECIAL HANDLING FOR DROPPED PRODUCTS
-                            // If product is from dropped list, use CURRENT quantity as baseline (not historical baseline)
-                            // This allows dropped products to count for KPI when re-added
+                            // If product is from dropped list, distinguish between:
+                            // 1. NEW product (never in this order) → use current qty as baseline
+                            // 2. RE-ADDED product (was in order before) → keep historical baseline to prevent fraud
                             let baselineQty = historical.baselineQty || 0;
                             let oldKpiQty = historical.kpiQty || 0;
 
                             if (p.IsFromDropped === true) {
-                                // Use current quantity in order as baseline
-                                baselineQty = qtyBeforeMerge;
-                                // Old KPI remains the same (historical)
-                                console.log(`[KPI-DROPPED] Product ${productId} from dropped list: Using current qty ${qtyBeforeMerge} as baseline (historical baseline was ${historical.baselineQty})`);
+                                if (historical.baselineQty === 0) {
+                                    // Case 1: Product never in this order before → use current qty as baseline
+                                    baselineQty = qtyBeforeMerge;
+                                    console.log(`[KPI-DROPPED] Product ${productId} from dropped (NEW to order): Using current qty ${qtyBeforeMerge} as baseline`);
+                                } else {
+                                    // Case 2: Product WAS in this order before (baseline > 0) → keep historical baseline
+                                    // This prevents fraud: user can't delete→re-add to get KPI again
+                                    baselineQty = historical.baselineQty;
+                                    console.log(`[KPI-DROPPED] Product ${productId} from dropped (RE-ADDED): Keeping historical baseline ${historical.baselineQty} to prevent fraud`);
+                                }
                             }
 
                             // Calculate NEW KPI quantity using WATERMARK
@@ -1831,9 +1838,15 @@
 
                 // SPECIAL HANDLING FOR DROPPED PRODUCTS (same as stats calculation)
                 if (p.IsFromDropped === true) {
-                    // Use current quantity in order as baseline (not historical baseline)
-                    baselineQty = qtyBeforeMerge;
-                    console.log(`[KPI-HISTORY] Product ${productId} from dropped: Using pre-merge qty ${qtyBeforeMerge} as baseline (historical was ${existing.baselineQty})`);
+                    if (existing.baselineQty === 0) {
+                        // Case 1: Product never in this order before → use current qty as baseline
+                        baselineQty = qtyBeforeMerge;
+                        console.log(`[KPI-HISTORY] Product ${productId} from dropped (NEW to order): Using pre-merge qty ${qtyBeforeMerge} as baseline`);
+                    } else {
+                        // Case 2: Product WAS in this order before (baseline > 0) → keep historical baseline
+                        baselineQty = existing.baselineQty;
+                        console.log(`[KPI-HISTORY] Product ${productId} from dropped (RE-ADDED): Keeping historical baseline ${existing.baselineQty} to prevent fraud`);
+                    }
                 }
 
                 const newKpiQty = Math.max(0, newQuantityInOrder - baselineQty);
