@@ -190,6 +190,37 @@ async function removeProductFromFirebase(database, productId, localProductsObjec
 }
 
 /**
+ * Delete multiple products permanently from Firebase in a single batch operation
+ */
+async function removeProductsFromFirebase(database, productIds, localProductsObject) {
+    if (!productIds || productIds.length === 0) return;
+
+    // Prepare batch updates
+    const updates = {};
+    const idsToRemove = [];
+
+    productIds.forEach(productId => {
+        const productKey = `product_${productId}`;
+        updates[`orderProducts/${productKey}`] = null; // null means remove
+        idsToRemove.push(productId.toString());
+
+        // Remove from local object
+        delete localProductsObject[productKey];
+    });
+
+    // Sync all deletions to Firebase in a single batch
+    await database.ref().update(updates);
+
+    // Update sortedIds metadata
+    await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+        return (currentIds || []).filter(id => !idsToRemove.includes(id));
+    });
+
+    // Update count metadata
+    await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+}
+
+/**
  * Cleanup old products (older than 7 days)
  */
 async function cleanupOldProducts(database, localProductsObject) {
