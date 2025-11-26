@@ -4591,6 +4591,37 @@ window.sendReplyComment = async function () {
             throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
         }
 
+        // Check 24-hour window for INBOX messages only
+        if (isMessage && window.pancakeDataManager) {
+            console.log('[SEND-REPLY] Checking 24-hour messaging window...');
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kiểm tra...';
+
+            const windowCheck = await window.pancakeDataManager.check24HourWindow(
+                currentChatChannelId,
+                currentConversationId
+            );
+
+            console.log('[SEND-REPLY] 24-hour check result:', windowCheck);
+
+            if (!windowCheck.canSend) {
+                const hours = windowCheck.hoursSinceLastMessage;
+                const hoursText = hours ? `${hours.toFixed(1)} giờ` : 'không xác định';
+                const confirmMsg = `⚠️ CẢNH BÁO: Không thể gửi tin nhắn!\n\n` +
+                    `Lý do: ${windowCheck.reason}\n` +
+                    `Khách gửi tin cuối: ${hoursText} trước\n\n` +
+                    `Facebook chỉ cho phép gửi tin trong vòng 24 giờ kể từ khi khách gửi tin cuối.\n\n` +
+                    `Bạn vẫn muốn thử gửi không? (Có thể sẽ bị lỗi)`;
+
+                if (!confirm(confirmMsg)) {
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = originalBtnText;
+                    return;
+                }
+            } else {
+                console.log(`[SEND-REPLY] ✅ OK to send - within 24h window (${windowCheck.hoursSinceLastMessage} hours)`);
+            }
+        }
+
         // Step 0: Upload image if exists
         let imageUrl = null;
         if (currentPastedImage) {
