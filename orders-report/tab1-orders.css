@@ -724,6 +724,11 @@ body {
     font-size: 13px;
     font-weight: 500;
     color: white;
+    transition: all 0.15s ease-in-out;
+}
+
+.selected-tag-pill.deletion-pending {
+    transform: scale(0.95);
 }
 
 .selected-tag-pill .selected-tag-remove {

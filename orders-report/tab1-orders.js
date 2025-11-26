@@ -22,6 +22,7 @@ let currentChatOrderDetails = [];
 let currentChatOrderId = null;
 let currentChatProductsRef = null;
 let currentOrderTags = [];
+let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backspace
 
 // =====================================================
 // FIREBASE CONFIGURATION FOR NOTE TRACKING
@@ -481,6 +482,7 @@ function closeTagModal() {
     document.getElementById("tagSearchInput").value = "";
     currentEditingOrderId = null;
     currentOrderTags = [];
+    pendingDeleteTagIndex = -1;
 }
 
 function renderTagList(searchQuery = "") {
@@ -540,17 +542,22 @@ function updateSelectedTagsDisplay() {
     const container = document.getElementById("selectedTagsPills");
     if (currentOrderTags.length === 0) {
         container.innerHTML = '';
+        pendingDeleteTagIndex = -1;
         return;
     }
     container.innerHTML = currentOrderTags
         .map(
-            (tag) => `
-        <span class="selected-tag-pill" style="background-color: ${tag.Color}">
+            (tag, index) => {
+                const isPendingDelete = index === pendingDeleteTagIndex;
+                const bgColor = isPendingDelete ? '#ef4444' : '#3b82f6'; // Red if pending delete, blue otherwise
+                return `
+        <span class="selected-tag-pill ${isPendingDelete ? 'deletion-pending' : ''}" style="background-color: ${bgColor}" data-tag-index="${index}">
             ${tag.Name}
-            <button class="selected-tag-remove" onclick="event.stopPropagation(); toggleTag(${tag.Id})" title="Xóa tag">
+            <button class="selected-tag-remove" onclick="event.stopPropagation(); removeTag(${index})" title="Xóa tag">
                 ✕
             </button>
-        </span>`,
+        </span>`;
+            }
         )
         .join("");
 }
@@ -559,7 +566,18 @@ function filterTags() {
     renderTagList(document.getElementById("tagSearchInput").value);
 }
 
+function removeTag(index) {
+    if (index >= 0 && index < currentOrderTags.length) {
+        currentOrderTags.splice(index, 1);
+        pendingDeleteTagIndex = -1;
+        updateSelectedTagsDisplay();
+        renderTagList(document.getElementById("tagSearchInput").value);
+    }
+}
+
 function handleTagInputKeydown(event) {
+    const inputValue = document.getElementById("tagSearchInput").value;
+
     if (event.key === 'Enter') {
         event.preventDefault();
 
@@ -573,7 +591,27 @@ function handleTagInputKeydown(event) {
                 document.getElementById("tagSearchInput").value = "";
                 // Re-render to show all available tags again
                 renderTagList("");
+                pendingDeleteTagIndex = -1;
             }
+        }
+    } else if (event.key === 'Backspace' && inputValue === '') {
+        event.preventDefault();
+
+        if (currentOrderTags.length === 0) return;
+
+        if (pendingDeleteTagIndex >= 0) {
+            // Second backspace - delete the tag
+            removeTag(pendingDeleteTagIndex);
+        } else {
+            // First backspace - mark last tag for deletion
+            pendingDeleteTagIndex = currentOrderTags.length - 1;
+            updateSelectedTagsDisplay();
+        }
+    } else {
+        // Any other key resets the pending delete
+        if (pendingDeleteTagIndex >= 0) {
+            pendingDeleteTagIndex = -1;
+            updateSelectedTagsDisplay();
         }
     }
 }
