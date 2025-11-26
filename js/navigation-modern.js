@@ -1047,66 +1047,125 @@ class UnifiedNavigationManager {
         const userInfo = authManager.getUserInfo();
         const currentDisplayName = userInfo?.displayName || "";
 
-        const modal = document.createElement("div");
-        modal.className = "settings-modal-overlay";
-        modal.innerHTML = `
-            <div class="settings-modal" style="max-width: 450px;">
-                <div class="settings-header">
-                    <h2>
-                        <i data-lucide="edit-2"></i>
-                        Chỉnh Sửa Tên Hiển Thị
-                    </h2>
-                    <button class="settings-close" id="closeEditModal">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
+        // For mobile: show modal
+        if (this.isMobile) {
+            const modal = document.createElement("div");
+            modal.className = "settings-modal-overlay";
+            modal.innerHTML = `
+                <div class="settings-modal" style="max-width: 450px;">
+                    <div class="settings-header">
+                        <h2>
+                            <i data-lucide="edit-2"></i>
+                            Chỉnh Sửa Tên Hiển Thị
+                        </h2>
+                        <button class="settings-close" id="closeEditModal">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
 
-                <div class="settings-content">
-                    <div class="setting-group">
-                        <label class="setting-label">
-                            <i data-lucide="user"></i>
-                            Tên hiển thị hiện tại
-                        </label>
-                        <div style="padding: 12px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; color: #6366f1; font-weight: 600; margin-bottom: 16px;">
-                            ${currentDisplayName}
-                        </div>
+                    <div class="settings-content">
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <i data-lucide="user"></i>
+                                Tên hiển thị hiện tại
+                            </label>
+                            <div style="padding: 12px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; color: #6366f1; font-weight: 600; margin-bottom: 16px;">
+                                ${currentDisplayName}
+                            </div>
 
-                        <label class="setting-label" style="margin-top: 16px;">
-                            <i data-lucide="edit"></i>
-                            Tên hiển thị mới
-                        </label>
-                        <input
-                            type="text"
-                            id="newDisplayNameInput"
-                            class="displayname-input"
-                            placeholder="Nhập tên hiển thị mới..."
-                            value="${currentDisplayName}"
-                            maxlength="50"
-                        >
-                        <div class="input-hint">
-                            <i data-lucide="info"></i>
-                            <span>Tên hiển thị sẽ được cập nhật trên tất cả các trang</span>
+                            <label class="setting-label" style="margin-top: 16px;">
+                                <i data-lucide="edit"></i>
+                                Tên hiển thị mới
+                            </label>
+                            <input
+                                type="text"
+                                id="newDisplayNameInput"
+                                class="displayname-input"
+                                placeholder="Nhập tên hiển thị mới..."
+                                value="${currentDisplayName}"
+                                maxlength="50"
+                            >
                         </div>
                     </div>
+
+                    <div class="settings-footer">
+                        <button class="btn-reset" id="cancelEditBtn">
+                            <i data-lucide="x"></i>
+                            Hủy
+                        </button>
+                        <button class="btn-save" id="saveDisplayNameBtn">
+                            <i data-lucide="check"></i>
+                            Lưu
+                        </button>
+                    </div>
                 </div>
+            `;
 
-                <div class="settings-footer">
-                    <button class="btn-reset" id="cancelEditBtn">
-                        <i data-lucide="x"></i>
-                        Hủy
-                    </button>
-                    <button class="btn-save" id="saveDisplayNameBtn">
-                        <i data-lucide="check"></i>
-                        Lưu Thay Đổi
-                    </button>
-                </div>
-            </div>
-        `;
+            document.body.appendChild(modal);
 
-        document.body.appendChild(modal);
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
 
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
+            const input = modal.querySelector("#newDisplayNameInput");
+            const closeBtn = modal.querySelector("#closeEditModal");
+            const cancelBtn = modal.querySelector("#cancelEditBtn");
+            const saveBtn = modal.querySelector("#saveDisplayNameBtn");
+
+            const closeModal = () => modal.remove();
+
+            closeBtn.addEventListener("click", closeModal);
+            cancelBtn.addEventListener("click", closeModal);
+            modal.addEventListener("click", (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            saveBtn.addEventListener("click", async () => {
+                const newDisplayName = input.value.trim();
+
+                if (!newDisplayName) {
+                    this.showToast("Vui lòng nhập tên hiển thị!", "error");
+                    input.focus();
+                    return;
+                }
+
+                if (newDisplayName === currentDisplayName) {
+                    this.showToast("Tên hiển thị không thay đổi!", "error");
+                    return;
+                }
+
+                if (newDisplayName.length < 2) {
+                    this.showToast("Tên hiển thị phải có ít nhất 2 ký tự!", "error");
+                    input.focus();
+                    return;
+                }
+
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+
+                const success = await this.updateDisplayName(newDisplayName);
+
+                if (success) {
+                    closeModal();
+                    this.showToast("Đã cập nhật tên hiển thị thành công!", "success");
+                    this.refreshUserInfo();
+                } else {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu';
+                    if (typeof lucide !== "undefined") {
+                        lucide.createIcons();
+                    }
+                }
+            });
+
+            input.focus();
+            input.select();
+        } else {
+            // For desktop: inline editing on sidebar
+            this.showInlineEditDisplayName();
         }
 
         // Add styles for input
@@ -1116,58 +1175,46 @@ class UnifiedNavigationManager {
             style.textContent = `
                 .displayname-input {
                     width: 100%;
-                    padding: 12px 16px;
-                    border: 2px solid var(--border-color);
-                    border-radius: 8px;
-                    font-size: 14px;
+                    padding: 8px 12px;
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 6px;
+                    font-size: 13px;
                     font-weight: 500;
-                    color: var(--text-primary);
-                    background: var(--bg-primary);
+                    color: white;
+                    background: rgba(255, 255, 255, 0.1);
                     transition: all 0.2s;
                     outline: none;
                     box-sizing: border-box;
                 }
 
                 .displayname-input:focus {
-                    border-color: var(--accent-color);
-                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-                }
-
-                .input-hint {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    margin-top: 8px;
-                    font-size: 12px;
-                    color: var(--text-tertiary);
-                }
-
-                .input-hint i {
-                    width: 14px;
-                    height: 14px;
+                    border-color: #00bcd4;
+                    background: rgba(255, 255, 255, 0.15);
+                    box-shadow: 0 0 0 2px rgba(0, 188, 212, 0.2);
                 }
 
                 .edit-displayname-btn {
                     background: transparent;
                     border: none;
-                    padding: 4px;
+                    padding: 2px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    border-radius: 4px;
+                    border-radius: 3px;
                     transition: all 0.2s;
-                    color: rgba(255, 255, 255, 0.7);
+                    color: #00bcd4;
+                    flex-shrink: 0;
                 }
 
                 .edit-displayname-btn:hover {
-                    background: rgba(255, 255, 255, 0.15);
-                    color: white;
+                    background: rgba(0, 188, 212, 0.15);
+                    transform: scale(1.1);
                 }
 
                 .edit-displayname-btn i {
-                    width: 14px;
-                    height: 14px;
+                    width: 12px;
+                    height: 12px;
                 }
 
                 .mobile-user-name-wrapper {
@@ -1176,33 +1223,141 @@ class UnifiedNavigationManager {
                     gap: 6px;
                 }
 
+                /* Inline edit form on sidebar */
+                .displayname-edit-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    padding: 8px;
+                    background: rgba(0, 0, 0, 0.2);
+                    border-radius: 6px;
+                    margin-top: 4px;
+                }
+
+                .displayname-edit-actions {
+                    display: flex;
+                    gap: 6px;
+                }
+
+                .displayname-edit-actions button {
+                    flex: 1;
+                    padding: 6px 12px;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 4px;
+                }
+
+                .displayname-edit-actions button i {
+                    width: 14px;
+                    height: 14px;
+                }
+
+                .btn-save-inline {
+                    background: #00bcd4;
+                    color: white;
+                }
+
+                .btn-save-inline:hover {
+                    background: #00a5bb;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 4px rgba(0, 188, 212, 0.3);
+                }
+
+                .btn-cancel-inline {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: rgba(255, 255, 255, 0.8);
+                }
+
+                .btn-cancel-inline:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                    color: white;
+                }
+
                 /* Desktop sidebar edit button */
                 #sidebar .edit-displayname-btn {
-                    color: rgba(255, 255, 255, 0.7);
+                    color: #00bcd4;
                 }
 
                 #sidebar .edit-displayname-btn:hover {
-                    background: rgba(255, 255, 255, 0.15);
-                    color: white;
+                    background: rgba(0, 188, 212, 0.15);
+                    color: #00e5ff;
                 }
             `;
             document.head.appendChild(style);
         }
+    }
 
-        const input = modal.querySelector("#newDisplayNameInput");
-        const closeBtn = modal.querySelector("#closeEditModal");
-        const cancelBtn = modal.querySelector("#cancelEditBtn");
-        const saveBtn = modal.querySelector("#saveDisplayNameBtn");
+    showInlineEditDisplayName() {
+        const userInfo = authManager.getUserInfo();
+        const currentDisplayName = userInfo?.displayName || "";
 
-        const closeModal = () => modal.remove();
+        // Find the user info container
+        const userInfoContainer = document.querySelector('.user-info');
+        if (!userInfoContainer) return;
 
-        closeBtn.addEventListener("click", closeModal);
-        cancelBtn.addEventListener("click", closeModal);
-        modal.addEventListener("click", (e) => {
-            if (e.target === modal) closeModal();
-        });
+        // Check if already editing
+        if (userInfoContainer.querySelector('.displayname-edit-form')) {
+            return;
+        }
 
-        saveBtn.addEventListener("click", async () => {
+        // Hide the userName display and edit button
+        const userName = document.getElementById("userName");
+        const editBtn = document.getElementById("editDisplayNameDesktop");
+        if (userName) userName.style.display = 'none';
+        if (editBtn) editBtn.style.display = 'none';
+
+        // Create inline edit form
+        const editForm = document.createElement('div');
+        editForm.className = 'displayname-edit-form';
+        editForm.innerHTML = `
+            <input
+                type="text"
+                id="inlineDisplayNameInput"
+                class="displayname-input"
+                placeholder="Nhập tên..."
+                value="${currentDisplayName}"
+                maxlength="50"
+            >
+            <div class="displayname-edit-actions">
+                <button class="btn-cancel-inline" id="cancelInlineEdit">
+                    <i data-lucide="x"></i>
+                    Hủy
+                </button>
+                <button class="btn-save-inline" id="saveInlineEdit">
+                    <i data-lucide="check"></i>
+                    Lưu
+                </button>
+            </div>
+        `;
+
+        // Insert form after userName's parent
+        const nameWrapper = userName?.parentElement || userInfoContainer;
+        nameWrapper.appendChild(editForm);
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        const input = editForm.querySelector('#inlineDisplayNameInput');
+        const cancelBtn = editForm.querySelector('#cancelInlineEdit');
+        const saveBtn = editForm.querySelector('#saveInlineEdit');
+
+        const closeEdit = () => {
+            editForm.remove();
+            if (userName) userName.style.display = '';
+            if (editBtn) editBtn.style.display = '';
+        };
+
+        cancelBtn.addEventListener('click', closeEdit);
+
+        saveBtn.addEventListener('click', async () => {
             const newDisplayName = input.value.trim();
 
             if (!newDisplayName) {
@@ -1213,6 +1368,7 @@ class UnifiedNavigationManager {
 
             if (newDisplayName === currentDisplayName) {
                 this.showToast("Tên hiển thị không thay đổi!", "error");
+                closeEdit();
                 return;
             }
 
@@ -1222,7 +1378,6 @@ class UnifiedNavigationManager {
                 return;
             }
 
-            // Show loading
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
             if (typeof lucide !== "undefined") {
@@ -1232,21 +1387,29 @@ class UnifiedNavigationManager {
             const success = await this.updateDisplayName(newDisplayName);
 
             if (success) {
-                closeModal();
-                this.showToast("Đã cập nhật tên hiển thị thành công!", "success");
-
-                // Refresh user info in navigation
+                closeEdit();
+                this.showToast("Đã cập nhật tên hiển thị!", "success");
                 this.refreshUserInfo();
             } else {
                 saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu Thay Đổi';
+                saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu';
                 if (typeof lucide !== "undefined") {
                     lucide.createIcons();
                 }
             }
         });
 
-        // Auto select all text on focus
+        // Enter to save, Escape to cancel
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveBtn.click();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeEdit();
+            }
+        });
+
         input.focus();
         input.select();
     }
