@@ -4965,16 +4965,8 @@ async function sendReplyCommentInternal(messageData) {
             if (chatType === 'message' && currentChatPSID) {
                 const response = await window.chatDataManager.fetchMessages(channelId, currentChatPSID);
                 if (response.messages && response.messages.length > 0) {
-                    // Remove temp messages before replacing
-                    allChatMessages = allChatMessages.filter(m => !m.is_temp);
-
-                    // Merge with new messages from API
-                    response.messages.forEach(newMsg => {
-                        const exists = allChatMessages.some(m => m.Id === newMsg.Id || m.id === newMsg.id);
-                        if (!exists) {
-                            allChatMessages.unshift(newMsg);
-                        }
-                    });
+                    // Replace entire array with fresh data from API (simpler and more reliable)
+                    allChatMessages = response.messages;
 
                     // Don't force scroll to bottom - let wasAtBottom logic decide
                     renderChatMessages(allChatMessages, false);
