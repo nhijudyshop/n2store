@@ -538,8 +538,14 @@
                                     <li>Paste vào ô "Nhập note đã mã hóa"</li>
                                     <li>Hỗ trợ nhiều dòng - mỗi dòng một chuỗi encode</li>
                                     <li>Nhấn nút "Giải Mã" để xem kết quả</li>
-                                    <li>Kết quả sẽ hiển thị thông tin: Mã SP, Số lượng, Giá, Thời gian</li>
                                 </ul>
+                                <div style="margin-top: var(--spacing-md); padding: var(--spacing-md); background: rgba(255,255,255,0.2); border-radius: var(--radius-md);">
+                                    <strong>Hỗ trợ 2 loại mã hóa:</strong>
+                                    <ul style="margin: 8px 0 0 var(--spacing-xl); line-height: 1.8;">
+                                        <li>🟡 <strong>Full Note</strong>: Toàn bộ note (text + sản phẩm)</li>
+                                        <li>🟢 <strong>Product Line</strong>: Từng sản phẩm riêng lẻ (Mã SP, SL, Giá, Thời gian)</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -695,13 +701,60 @@
                     let failCount = 0;
 
                     lines.forEach((line, index) => {
-                        // Try to decode
-                        const decoded = window.DecodingUtility.decodeProductLine(line);
+                        // Try to decode - attempt Full Note first, then Product Line
+                        let decodedText = null;
+                        let decodedProduct = null;
+                        let decodeType = null;
 
-                        if (decoded) {
+                        // Method 1: Try Full Note decode (NEW format)
+                        decodedText = window.DecodingUtility.decodeFullNote(line);
+                        if (decodedText) {
+                            decodeType = 'FULL_NOTE';
+                        } else {
+                            // Method 2: Try Product Line decode (OLD format)
+                            decodedProduct = window.DecodingUtility.decodeProductLine(line);
+                            if (decodedProduct) {
+                                decodeType = 'PRODUCT_LINE';
+                            }
+                        }
+
+                        if (decodeType === 'FULL_NOTE') {
+                            // Display full note text
                             successCount++;
-                            const timeStr = decoded.timestamp ? new Date(decoded.timestamp).toLocaleString('vi-VN') : 'N/A';
-                            const priceStr = (decoded.price || 0).toLocaleString('vi-VN') + 'đ';
+                            const escapeHtml = (text) => {
+                                const div = document.createElement('div');
+                                div.textContent = text;
+                                return div.innerHTML;
+                            };
+
+                            resultHtml += `
+                                <div style="
+                                    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                                    border: 2px solid #f59e0b;
+                                    border-radius: var(--radius-lg);
+                                    padding: var(--spacing-lg);
+                                    margin-bottom: var(--spacing-md);
+                                    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+                                ">
+                                    <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-sm); color: #92400e; font-weight: 700; font-size: 16px;">
+                                        <i data-lucide="file-text" style="width: 20px; height: 20px;"></i>
+                                        <span>Dòng ${index + 1} - Full Note Decoded</span>
+                                    </div>
+                                    <div style="background: white; border-radius: var(--radius-md); padding: var(--spacing-md); margin-top: var(--spacing-sm);">
+                                        <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Nội dung note</div>
+                                        <div style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #1f2937; background: #f9fafb; padding: 10px; border-radius: 4px;">${escapeHtml(decodedText)}</div>
+                                        <div style="margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px dashed #e5e7eb;">
+                                            <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Chuỗi mã hóa</div>
+                                            <div style="font-family: monospace; font-size: 11px; color: #9ca3af; word-break: break-all; background: #f9fafb; padding: 6px 10px; border-radius: 4px;">${line}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (decodeType === 'PRODUCT_LINE') {
+                            // Display product line info
+                            successCount++;
+                            const timeStr = decodedProduct.timestamp ? new Date(decodedProduct.timestamp).toLocaleString('vi-VN') : 'N/A';
+                            const priceStr = (decodedProduct.price || 0).toLocaleString('vi-VN') + 'đ';
 
                             resultHtml += `
                                 <div style="
@@ -714,17 +767,17 @@
                                 ">
                                     <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-sm); color: #047857; font-weight: 700; font-size: 16px;">
                                         <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
-                                        <span>Dòng ${index + 1} - Giải mã thành công</span>
+                                        <span>Dòng ${index + 1} - Product Line Decoded</span>
                                     </div>
                                     <div style="background: white; border-radius: var(--radius-md); padding: var(--spacing-md); margin-top: var(--spacing-sm);">
                                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
                                             <div>
                                                 <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Mã sản phẩm</div>
-                                                <div style="font-weight: 600; font-size: 16px; color: #1f2937;">${decoded.productCode}</div>
+                                                <div style="font-weight: 600; font-size: 16px; color: #1f2937;">${decodedProduct.productCode}</div>
                                             </div>
                                             <div>
                                                 <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Số lượng</div>
-                                                <div style="font-weight: 600; font-size: 16px; color: #0ea5e9;">x${decoded.quantity}</div>
+                                                <div style="font-weight: 600; font-size: 16px; color: #0ea5e9;">x${decodedProduct.quantity}</div>
                                             </div>
                                             <div>
                                                 <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Giá</div>
@@ -735,10 +788,10 @@
                                                 <div style="font-weight: 600; font-size: 14px; color: #6b7280;">${timeStr}</div>
                                             </div>
                                         </div>
-                                        ${decoded.orderId ? `
+                                        ${decodedProduct.orderId ? `
                                             <div style="margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px dashed #e5e7eb;">
                                                 <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Order ID</div>
-                                                <div style="font-family: monospace; font-size: 13px; color: #4b5563; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">${decoded.orderId}</div>
+                                                <div style="font-family: monospace; font-size: 13px; color: #4b5563; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">${decodedProduct.orderId}</div>
                                             </div>
                                         ` : ''}
                                         <div style="margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px dashed #e5e7eb;">
