@@ -2143,11 +2143,11 @@ function createRowHTML(order) {
                         <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
                             <i class="fas fa-tags"></i>
                         </button>
-                        <button class="tag-rect-btn-o" onclick="event.stopPropagation();" title="Nút O">
-                            O
+                        <button class="tag-icon-btn-green" onclick="event.stopPropagation();" title="Icon xanh lá" style="padding: 2px 6px;">
+                            <i class="fas fa-check-circle"></i>
                         </button>
-                        <button class="tag-rect-btn-x" onclick="event.stopPropagation();" title="Nút X">
-                            X
+                        <button class="tag-icon-btn-red" onclick="event.stopPropagation();" title="Icon đỏ" style="padding: 2px 6px;">
+                            <i class="fas fa-times-circle"></i>
                         </button>
                     </div>
                     ${tagsHTML}
