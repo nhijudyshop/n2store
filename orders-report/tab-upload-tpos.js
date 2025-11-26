@@ -283,6 +283,126 @@
             .filter(p => p !== null);
     }
 
+    // =====================================================
+    // FULL NOTE ENCODING/DECODING (New approach)
+    // =====================================================
+
+    /**
+     * Encode full note text (including newlines)
+     * @param {string} text - Full note text to encode
+     * @returns {string} Base64URL encoded string
+     */
+    function encodeFullNote(text) {
+        if (!text || text.trim() === '') return '';
+
+        // XOR encrypt the full text
+        const encrypted = xorEncrypt(text, ENCODE_KEY);
+
+        // Base64URL encode (no padding, URL-safe)
+        return base64UrlEncode(encrypted);
+    }
+
+    /**
+     * Decode full note text
+     * @param {string} encoded - Base64URL encoded string
+     * @returns {string|null} Decoded text or null if invalid
+     */
+    function decodeFullNote(encoded) {
+        if (!encoded || encoded.trim() === '') return null;
+
+        try {
+            // Base64URL decode
+            const decrypted = base64UrlDecode(encoded);
+
+            // XOR decrypt
+            const text = xorDecrypt(decrypted, ENCODE_KEY);
+
+            return text;
+        } catch (error) {
+            console.error('Decode full note error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Check if note is encoded (full note encoding format)
+     * @param {string} note - Note text to check
+     * @returns {boolean} true if note appears to be encoded
+     */
+    function isNoteEncoded(note) {
+        if (!note || note.trim() === '') return false;
+
+        // Check if it's a single line of Base64URL characters (no newlines, no spaces)
+        const trimmed = note.trim();
+        const lines = trimmed.split('\n');
+
+        // If multiple lines, it's not encoded
+        if (lines.length > 1) return false;
+
+        // If contains normal readable text patterns, it's not encoded
+        if (/[a-zA-Z]{3,}\s+[a-zA-Z]{3,}/.test(trimmed)) return false;
+
+        // Try to decode
+        const decoded = decodeFullNote(trimmed);
+        return decoded !== null;
+    }
+
+    /**
+     * Build product info lines to append to note
+     * @param {array} products - Array of { productCode, quantity, price }
+     * @returns {string} Formatted product lines
+     */
+    function buildProductNoteLines(products) {
+        if (!products || products.length === 0) return '';
+
+        return products.map(p =>
+            `Product: ${p.productCode} - Quantity: ${p.quantity} - Price: ${p.price}`
+        ).join('\n');
+    }
+
+    /**
+     * Process note when uploading: decode if needed, append products, encode
+     * @param {string} currentNote - Current order note (may be encoded or plain text)
+     * @param {array} products - Array of { productCode, quantity, price } to append
+     * @returns {string} Final encoded note
+     */
+    function processNoteForUpload(currentNote, products) {
+        // Step 1: Decode current note if it's encoded
+        let plainNote = '';
+        if (currentNote && currentNote.trim() !== '') {
+            if (isNoteEncoded(currentNote)) {
+                console.log('[NOTE] Current note is encoded, decoding...');
+                plainNote = decodeFullNote(currentNote) || '';
+            } else {
+                console.log('[NOTE] Current note is plain text');
+                plainNote = currentNote;
+            }
+        }
+
+        // Step 2: Build product lines
+        const productLines = buildProductNoteLines(products);
+
+        // Step 3: Combine note + product info
+        let fullNote = '';
+        if (plainNote.trim() !== '' && productLines !== '') {
+            fullNote = `${plainNote}\n${productLines}`;
+        } else if (plainNote.trim() !== '') {
+            fullNote = plainNote;
+        } else if (productLines !== '') {
+            fullNote = productLines;
+        }
+
+        console.log('[NOTE] Plain note content:\n', fullNote);
+
+        // Step 4: Encode full note
+        if (fullNote.trim() === '') return '';
+
+        const encoded = encodeFullNote(fullNote);
+        console.log('[NOTE] Encoded note length:', encoded.length);
+
+        return encoded;
+    }
+
     /**
      * Check if current user is admin
      * @returns {boolean} true if user has admin privileges
@@ -1672,16 +1792,14 @@ ${encodedString}
                     orderData.Details = mergedDetails;
 
                     // ============================================
-                    // ENCODE PRODUCTS and APPEND to Order Note - DISABLED
-                    // NOTE: Encoding functions are kept but not used during upload
-                    // Products will not be encoded into Note anymore
+                    // PROCESS NOTE: Decode if needed, Append products, Encode full note
                     // ============================================
-                    // if (productsToEncode.length > 0) {
-                    //     console.log(`[UPLOAD] 🔐 Encoding ${productsToEncode.length} products to Note...`);
-                    //     const currentNote = orderData.Note || '';
-                    //     orderData.Note = appendEncodedProducts(orderId, currentNote, productsToEncode);
-                    //     console.log(`[UPLOAD] ✅ Updated order Note with encoded products`);
-                    // }
+                    if (productsToEncode.length > 0) {
+                        console.log(`[UPLOAD] 📝 Processing note with ${productsToEncode.length} products...`);
+                        const currentNote = orderData.Note || '';
+                        orderData.Note = processNoteForUpload(currentNote, productsToEncode);
+                        console.log(`[UPLOAD] ✅ Updated order Note (encoded)`);
+                    }
 
                     // Recalculate totals
                     let totalQty = 0;
@@ -4072,8 +4190,68 @@ ${encodedString}
         return products;
     };
 
+    // =====================================================
+    // TEST FULL NOTE ENCODING (NEW APPROACH)
+    // =====================================================
+    window.testFullNoteEncoding = function () {
+        console.log('=== Testing Full Note Encoding (NEW APPROACH) ===\n');
+
+        // Test 1: Plain note + products
+        console.log('=== Test 1: Plain Note + Products ===\n');
+        const plainNote = 'Note1\nNote2\nNote3';
+        const products = [
+            { productCode: 'SP1', quantity: 2, price: 30000 },
+            { productCode: 'SP2', quantity: 6, price: 80000 }
+        ];
+
+        console.log('Original Note:\n', plainNote);
+        console.log('\nProducts to add:', products);
+
+        const encodedNote = processNoteForUpload(plainNote, products);
+        console.log('\nEncoded Note:', encodedNote);
+        console.log('Length:', encodedNote.length);
+
+        // Decode to verify
+        const decodedNote = decodeFullNote(encodedNote);
+        console.log('\nDecoded Note:\n', decodedNote);
+
+        // Test 2: Already encoded note + more products
+        console.log('\n\n=== Test 2: Encoded Note + More Products ===\n');
+        const moreProducts = [
+            { productCode: 'SP3', quantity: 1, price: 50000 }
+        ];
+
+        console.log('Previous Encoded Note:', encodedNote);
+        console.log('\nMore Products to add:', moreProducts);
+
+        const reEncodedNote = processNoteForUpload(encodedNote, moreProducts);
+        console.log('\nRe-encoded Note:', reEncodedNote);
+
+        const finalDecoded = decodeFullNote(reEncodedNote);
+        console.log('\nFinal Decoded Note:\n', finalDecoded);
+
+        // Test 3: Empty note + products
+        console.log('\n\n=== Test 3: Empty Note + Products ===\n');
+        const emptyNote = '';
+        const productsOnly = [
+            { productCode: 'SP100', quantity: 10, price: 100000 }
+        ];
+
+        console.log('Empty Note:', emptyNote || '(empty)');
+        console.log('Products:', productsOnly);
+
+        const encodedOnly = processNoteForUpload(emptyNote, productsOnly);
+        console.log('\nEncoded:', encodedOnly);
+
+        const decodedOnly = decodeFullNote(encodedOnly);
+        console.log('Decoded:\n', decodedOnly);
+
+        console.log('\n=== Test Complete ===');
+    };
+
     console.log('💡 Test functions available:');
-    console.log('  - window.testProductEncoding() : Test encode/decode functionality');
+    console.log('  - window.testProductEncoding() : Test encode/decode per-product functionality (old)');
+    console.log('  - window.testFullNoteEncoding() : Test full note encoding (new approach)');
     console.log('  - window.decodeOrderNote(note) : Decode products from order note');
 
     // =====================================================
