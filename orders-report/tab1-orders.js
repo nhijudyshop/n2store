@@ -1966,13 +1966,11 @@ function renderByEmployee() {
 
 function createRowHTML(order) {
     if (!order || !order.Id) return "";
-    let tagsCount = 0;
     let tagsHTML = "";
     if (order.Tags) {
         try {
             const tags = JSON.parse(order.Tags);
             if (Array.isArray(tags)) {
-                tagsCount = tags.length;
                 tagsHTML = parseOrderTags(order.Tags);
             }
         } catch (e) { }
@@ -2008,13 +2006,8 @@ function createRowHTML(order) {
                 </div>
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
-            <td data-column="tag">
+            <td data-column="tag" onclick="openTagModal('${order.Id}', '${order.Code}')" style="cursor: pointer;" title="Quản lý tag">
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
-                    <div class="tag-btn-container" style="position: relative;">
-                        <button class="tag-icon-btn" onclick="quickTagManager.openDropdown('${order.Id}', '${order.Code}', this); event.stopPropagation();" title="Chọn nhanh tag" style="padding: 2px 6px;">
-                            <i class="fas fa-tags"></i>
-                        </button>
-                    </div>
                     ${tagsHTML}
                 </div>
             </td>
