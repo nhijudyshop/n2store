@@ -446,7 +446,7 @@
     /**
      * Update order product history in Firebase (DUAL TRACKING METHOD)
      * @param {string} orderId - The order ID
-     * @param {Array<{productId: string, baseProduct: number, baseline: number, currentQty: number, kpiQty: number}>} products
+     * @param {Array<{productId: string, productName: string, baseProduct: number, baseline: number, currentQty: number, kpiQty: number}>} products
      */
     async function updateOrderProductHistory(orderId, products) {
         if (!window.firebase || !orderId || !products || products.length === 0) return;
@@ -458,6 +458,7 @@
             const updates = {};
             products.forEach(p => {
                 updates[String(p.productId)] = {
+                    productName: p.productName || `Product ${p.productId}`,  // Store product name
                     baseProduct: p.baseProduct || 0,    // Immutable - số lượng ban đầu
                     baseline: p.baseline || 0,          // High water mark
                     currentQty: p.currentQty || 0,
@@ -1127,6 +1128,7 @@
 
                         const newEntry = {
                             productId: productId,
+                            productName: product.ProductNameGet || product.ProductName || `Product ${productId}`,
                             baseProduct: initialQty,        // IMMUTABLE - from snapshot
                             baseline: currentQty,           // High water mark - initially = currentQty
                             currentQty: currentQty,
@@ -1236,6 +1238,7 @@
 
                         const newEntry = {
                             productId: productId,
+                            productName: product ? (product.ProductNameGet || product.ProductName) : `Product ${productId}`,
                             baseProduct: initialQty,        // IMMUTABLE - from snapshot
                             baseline: initialQty,           // Set to base for compatibility
                             currentQty: currentQty,
@@ -1316,6 +1319,7 @@
                     // Prepare history update
                     productsToUpdate.push({
                         productId: productId,
+                        productName: p.ProductNameGet || p.ProductName || historical.productName || `Product ${productId}`,
                         baseProduct: baseProduct,      // UNCHANGED
                         baseline: baseProduct,         // Deprecated, keep for compatibility
                         currentQty: newQuantity,
@@ -1324,6 +1328,7 @@
 
                     // Update in-memory tracking
                     window.originalOrderProductQuantities.set(productId, {
+                        productName: p.ProductNameGet || p.ProductName || historical.productName || `Product ${productId}`,
                         baseProduct: baseProduct,
                         baseline: baseProduct,
                         currentQty: newQuantity,
@@ -1346,7 +1351,7 @@
                     if (oldCurrentQty > 0) {
                         reductions.push({
                             productId: productId,
-                            productName: `Product ${productId}`, // We don't have full name anymore
+                            productName: historical.productName || `Product ${productId}`, // Get name from history
                             baseProduct: baseProduct,
                             oldKpiQty: oldKpiQty,
                             newQuantity: 0,
@@ -1360,18 +1365,20 @@
                     // Update history: set currentQty = 0, KEEP baseline (high water mark never decreases)
                     productsToUpdate.push({
                         productId: productId,
+                        productName: historical.productName || `Product ${productId}`,
                         baseProduct: historical.baseProduct || 0,  // UNCHANGED
                         baseline: historical.baseline || 0,        // KEEP high water mark
                         currentQty: 0,
-                        kpiQty: historical.kpiQty || 0             // KEEP cumulative KPI
+                        kpiQty: newKpiQty                          // BUGFIX: Reset to 0 when deleted
                     });
 
                     // Update in-memory tracking
                     window.originalOrderProductQuantities.set(productId, {
+                        productName: historical.productName || `Product ${productId}`,
                         baseProduct: historical.baseProduct || 0,
                         baseline: historical.baseline || 0,
                         currentQty: 0,
-                        kpiQty: historical.kpiQty || 0
+                        kpiQty: newKpiQty  // BUGFIX: Reset to 0 when deleted
                     });
                 }
             });
@@ -1981,6 +1988,7 @@
 
                         const newEntry = {
                             productId: productId,
+                            productName: product.ProductNameGet || product.ProductName || `Product ${productId}`,
                             baseProduct: initialQty,        // IMMUTABLE - from snapshot
                             baseline: currentQty,           // High water mark - initially = currentQty
                             currentQty: currentQty,
@@ -2127,6 +2135,7 @@
                 if (!existing) {
                     // NEW product: Set baseProduct=0, baseline=newQty (first record)
                     const newEntry = {
+                        productName: p.ProductNameGet || p.ProductName || `Product ${productId}`,
                         baseProduct: 0,                 // New product
                         baseline: newQuantityInOrder,   // High water mark = first qty
                         currentQty: newQuantityInOrder,
@@ -2150,6 +2159,7 @@
                     const newKpiQty = Math.max(0, newQuantityInOrder - baseProduct);
 
                     const newEntry = {
+                        productName: p.ProductNameGet || p.ProductName || existing.productName || `Product ${productId}`,
                         baseProduct: baseProduct,       // UNCHANGED
                         baseline: baseProduct,          // Deprecated, keep for compatibility
                         currentQty: newQuantityInOrder,
