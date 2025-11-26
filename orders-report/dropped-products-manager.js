@@ -16,6 +16,8 @@
     let historyItems = [];
     let isInitialized = false;
     let firebaseDb = null;
+    let droppedProductsRef = null;
+    let historyRef = null;
 
     /**
      * Initialize the dropped products manager
@@ -52,59 +54,83 @@
     };
 
     /**
-     * Load dropped products from Firebase
+     * Load dropped products from Firebase with realtime listener
      */
-    async function loadDroppedProductsFromFirebase() {
+    function loadDroppedProductsFromFirebase() {
         if (!firebaseDb) return;
 
         try {
-            const snapshot = await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).once('value');
-            const data = snapshot.val();
+            console.log('[DROPPED-PRODUCTS] Setting up realtime listener for dropped_products');
 
-            if (data) {
-                droppedProducts = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                }));
-            } else {
+            droppedProductsRef = firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION);
+            droppedProductsRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+
+                if (data) {
+                    droppedProducts = Object.keys(data).map(key => ({
+                        id: key,
+                        ...data[key]
+                    }));
+                } else {
+                    droppedProducts = [];
+                }
+
+                console.log('[DROPPED-PRODUCTS] Realtime update from Firebase:', droppedProducts.length, 'items');
+
+                // Update UI when data changes
+                renderDroppedProductsTable();
+                updateDroppedCounts();
+                saveToLocalStorage();
+
+            }, (error) => {
+                console.error('[DROPPED-PRODUCTS] Realtime listener error:', error);
                 droppedProducts = [];
-            }
-
-            console.log('[DROPPED-PRODUCTS] Loaded from Firebase:', droppedProducts.length, 'items');
+            });
 
         } catch (error) {
-            console.error('[DROPPED-PRODUCTS] Error loading from Firebase:', error);
+            console.error('[DROPPED-PRODUCTS] Error setting up listener:', error);
             droppedProducts = [];
         }
     }
 
     /**
-     * Load history from Firebase
+     * Load history from Firebase with realtime listener
      */
-    async function loadHistoryFromFirebase() {
+    function loadHistoryFromFirebase() {
         if (!firebaseDb) return;
 
         try {
-            const snapshot = await firebaseDb.ref(HISTORY_COLLECTION)
+            console.log('[DROPPED-PRODUCTS] Setting up realtime listener for dropped_products_history');
+
+            historyRef = firebaseDb.ref(HISTORY_COLLECTION)
                 .orderByChild('timestamp')
-                .limitToLast(100)
-                .once('value');
+                .limitToLast(100);
 
-            const data = snapshot.val();
+            historyRef.on('value', (snapshot) => {
+                const data = snapshot.val();
 
-            if (data) {
-                historyItems = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                })).sort((a, b) => b.timestamp - a.timestamp);
-            } else {
+                if (data) {
+                    historyItems = Object.keys(data).map(key => ({
+                        id: key,
+                        ...data[key]
+                    })).sort((a, b) => b.timestamp - a.timestamp);
+                } else {
+                    historyItems = [];
+                }
+
+                console.log('[DROPPED-PRODUCTS] Realtime history update:', historyItems.length, 'items');
+
+                // Update UI when data changes
+                renderHistoryList();
+                saveToLocalStorage();
+
+            }, (error) => {
+                console.error('[DROPPED-PRODUCTS] History listener error:', error);
                 historyItems = [];
-            }
-
-            console.log('[DROPPED-PRODUCTS] Loaded history:', historyItems.length, 'items');
+            });
 
         } catch (error) {
-            console.error('[DROPPED-PRODUCTS] Error loading history:', error);
+            console.error('[DROPPED-PRODUCTS] Error setting up history listener:', error);
             historyItems = [];
         }
     }
@@ -127,6 +153,26 @@
             historyItems = [];
         }
     }
+
+    /**
+     * Cleanup Firebase listeners
+     */
+    window.cleanupDroppedProductsManager = function() {
+        console.log('[DROPPED-PRODUCTS] Cleaning up listeners...');
+
+        if (droppedProductsRef) {
+            droppedProductsRef.off();
+            droppedProductsRef = null;
+        }
+
+        if (historyRef) {
+            historyRef.off();
+            historyRef = null;
+        }
+
+        isInitialized = false;
+        console.log('[DROPPED-PRODUCTS] Cleanup complete');
+    };
 
     /**
      * Save to localStorage as backup
