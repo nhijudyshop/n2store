@@ -48,7 +48,28 @@
     }
 
     /**
-     * Decode product line
+     * Decode full note text (NEW format - encodes entire note as one string)
+     * @param {string} encoded - Base64URL encoded string
+     * @returns {string|null} Decoded text or null if invalid
+     */
+    function decodeFullNote(encoded) {
+        if (!encoded || encoded.trim() === '') return null;
+
+        try {
+            // Base64URL decode
+            const decrypted = base64UrlDecode(encoded);
+
+            // XOR decrypt
+            const text = xorDecrypt(decrypted, ENCODE_KEY);
+
+            return text;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
+     * Decode product line (OLD format - each product line encoded separately)
      */
     function decodeProductLine(encoded) {
         try {
@@ -171,6 +192,7 @@
     // Expose to window
     window.DecodingUtility = {
         decodeProductLine,
+        decodeFullNote,
         formatNoteWithDecodedData
     };
 
