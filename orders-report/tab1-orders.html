@@ -496,6 +496,20 @@
                             <span id="chatQueueCount" style="display: none; background: rgba(0, 132, 255, 0.2); color: #0084ff; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"></span>
                         </div>
                     </div>
+                    <!-- Reply Preview Container -->
+                    <div id="chatReplyPreviewContainer" style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                        <div style="display: flex; align-items: start; gap: 8px;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px; font-weight: 600;">
+                                    <i class="fas fa-reply" style="margin-right: 4px;"></i>Đang trả lời
+                                </div>
+                                <div id="chatReplyPreviewText" style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;"></div>
+                            </div>
+                            <button onclick="cancelReplyMessage()" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.background='#e5e7eb';" onmouseout="this.style.background='none';">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                     <!-- Image Preview Container -->
                     <div id="chatImagePreviewContainer"
                         style="display: none; padding: 8px 16px; border-bottom: 1px solid #f0f0f0;"></div>
@@ -504,8 +518,7 @@
                         <input type="text" id="chatReplyInput" placeholder="Nhập tin nhắn trả lời..."
                             style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 14px; background: #f9fafb; transition: all 0.2s;"
                             onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
-                            onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';"
-                            onkeypress="if(event.key==='Enter') sendReplyComment();" />
+                            onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';" />
                         <button class="chat-btn-send" id="chatSendBtn" onclick="sendReplyComment()"
                             style="padding: 10px 24px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0, 132, 255, 0.3);"
                             onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.4)';"

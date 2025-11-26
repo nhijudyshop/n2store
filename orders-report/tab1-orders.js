@@ -4343,6 +4343,10 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     chatInput.removeEventListener('paste', handleChatInputPaste);
     chatInput.addEventListener('paste', handleChatInputPaste);
 
+    // Remove old Enter key listener and add new one with proper event handling
+    chatInput.removeEventListener('keydown', handleChatInputKeyDown);
+    chatInput.addEventListener('keydown', handleChatInputKeyDown);
+
     if (type === 'comment') {
         markReadBtn.style.display = 'none';
     } else {
@@ -4551,6 +4555,80 @@ window.clearPastedImage = function () {
 window.chatMessageQueue = window.chatMessageQueue || [];
 window.chatIsProcessingQueue = false;
 
+// Reply Message State
+window.currentReplyingToMessage = null; // Stores the message being replied to
+
+/**
+ * Handle Enter key in chat input - prevent double submission
+ */
+function handleChatInputKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault(); // Prevent default form submission and double trigger
+        event.stopPropagation(); // Stop event bubbling
+
+        // Call sendReplyComment only once
+        window.sendReplyComment();
+    }
+}
+
+/**
+ * Set a message to reply to
+ */
+window.setReplyMessage = function(message) {
+    window.currentReplyingToMessage = message;
+
+    // Show reply preview
+    const previewContainer = document.getElementById('chatReplyPreviewContainer');
+    const previewText = document.getElementById('chatReplyPreviewText');
+
+    if (previewContainer && previewText) {
+        // Extract text from message (handle both text and HTML)
+        const messageText = extractMessageText(message);
+        const truncated = messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText;
+
+        previewText.textContent = truncated;
+        previewContainer.style.display = 'block';
+    }
+
+    // Focus input
+    const input = document.getElementById('chatReplyInput');
+    if (input) input.focus();
+
+    console.log('[REPLY] Set reply to message:', message.id || message.Id);
+};
+
+/**
+ * Cancel replying to a message
+ */
+window.cancelReplyMessage = function() {
+    window.currentReplyingToMessage = null;
+
+    // Hide reply preview
+    const previewContainer = document.getElementById('chatReplyPreviewContainer');
+    if (previewContainer) {
+        previewContainer.style.display = 'none';
+    }
+
+    console.log('[REPLY] Cancelled reply');
+};
+
+/**
+ * Extract text from message object (handles both text and HTML)
+ */
+function extractMessageText(message) {
+    // Try different message fields
+    let text = message.message || message.Message || message.text || '';
+
+    // If HTML, extract text
+    if (text.includes('<')) {
+        const div = document.createElement('div');
+        div.innerHTML = text;
+        text = div.textContent || div.innerText || '';
+    }
+
+    return text.trim();
+}
+
 /**
  * Show/Hide sending indicator in chat modal
  */
@@ -4643,8 +4721,12 @@ window.sendReplyComment = async function () {
         return;
     }
 
+    // Capture replied message ID before clearing state
+    const repliedMessageId = window.currentReplyingToMessage ?
+        (window.currentReplyingToMessage.id || window.currentReplyingToMessage.Id || null) : null;
+
     // Add message to queue
-    console.log('[QUEUE] Adding message to queue');
+    console.log('[QUEUE] Adding message to queue', { repliedMessageId });
     window.chatMessageQueue.push({
         message,
         pastedImage: currentPastedImage,
@@ -4653,7 +4735,8 @@ window.sendReplyComment = async function () {
         channelId: currentChatChannelId,
         chatType: currentChatType,
         parentCommentId: currentParentCommentId,
-        postId: currentPostId || currentOrder.Facebook_PostId
+        postId: currentPostId || currentOrder.Facebook_PostId,
+        repliedMessageId: repliedMessageId  // Add replied message ID
     });
 
     // Clear input immediately for next message
@@ -4665,6 +4748,9 @@ window.sendReplyComment = async function () {
         previewContainer.style.display = 'none';
     }
 
+    // Clear reply state
+    window.cancelReplyMessage();
+
     // Process queue
     processChatMessageQueue();
 };
@@ -4673,7 +4759,7 @@ window.sendReplyComment = async function () {
  * Internal function to actually send the message (called by queue processor)
  */
 async function sendReplyCommentInternal(messageData) {
-    const { message, pastedImage, order, conversationId, channelId, chatType, parentCommentId, postId } = messageData;
+    const { message, pastedImage, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
 
     const isMessage = chatType === 'message';
 
@@ -4735,6 +4821,12 @@ async function sendReplyCommentInternal(messageData) {
                 customer_id: customerId,  // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
                 send_by_platform: "web"
             };
+
+            // Add replied_message_id if replying to specific message
+            if (repliedMessageId) {
+                replyBody.replied_message_id = repliedMessageId;
+                console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
+            }
 
             // Add image content_url if available
             if (imageUrl) {
@@ -5015,11 +5107,28 @@ function renderChatMessages(messages, scrollToBottom = false) {
             });
         }
 
+        // Get message ID for reply
+        const messageId = msg.id || msg.Id || null;
+        const messageJSON = JSON.stringify(msg).replace(/"/g, '&quot;');
+
+        // Add reply button for customer messages (not owner)
+        const replyButton = !isOwner && messageId ? `
+            <button onclick='window.setReplyMessage(JSON.parse(this.getAttribute("data-message")))'
+                    data-message='${messageJSON}'
+                    class="chat-message-reply-btn"
+                    style="position: absolute; top: 4px; right: 4px; background: rgba(255, 255, 255, 0.9); border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s;"
+                    onmouseover="this.style.background='white'; this.style.transform='scale(1.1)';"
+                    onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.transform='scale(1)';">
+                <i class="fas fa-reply" style="font-size: 11px; color: #6b7280;"></i>
+            </button>
+        ` : '';
+
         return `
-            <div class="chat-message ${alignClass}">
-                <div class="chat-bubble ${bgClass}">
+            <div class="chat-message ${alignClass}" onmouseenter="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'flex')" onmouseleave="this.querySelector('.chat-message-reply-btn')?.style.setProperty('display', 'none')">
+                <div class="chat-bubble ${bgClass}" style="position: relative;">
                     ${content}
                     <p class="chat-message-time">${formatTime(msg.CreatedTime)}</p>
+                    ${replyButton}
                 </div>
             </div>`;
     }).join('');
