@@ -4671,9 +4671,16 @@ window.sendReplyComment = async function () {
         if (currentChatType === 'message') {
             // Payload for sending a message (reply_inbox)
             // Based on fetch1.txt
+            // Get customer_id from order (required by backend API)
+            const customerId = currentOrder.PartnerId || (currentOrder.Partner && currentOrder.Partner.Id);
+            if (!customerId) {
+                throw new Error('Không tìm thấy mã khách hàng (PartnerId) trong đơn hàng');
+            }
+
             replyBody = {
                 action: "reply_inbox",
                 message: message,
+                customer_id: customerId,  // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
                 send_by_platform: "web"
             };
 
