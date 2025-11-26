@@ -1690,7 +1690,10 @@
                         </label>
                         <textarea id="newAccountTokenInput"
                             placeholder="Nhập JWT token từ cookie pancake.vn..."
-                            style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                            style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"
+                            oninput="validateTokenInput()"></textarea>
+                        <div id="tokenValidationMessage" style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none;">
+                        </div>
                         <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
                             💡 Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
                         </div>
@@ -1714,6 +1717,9 @@
                     <div style="display: flex; gap: 8px;">
                         <button class="tag-btn-save" onclick="addAccountFromCookie()" style="flex: 1; background: #10b981; font-size: 13px;">
                             <i class="fas fa-sync"></i> Lấy từ Cookie
+                        </button>
+                        <button onclick="debugTokenInput()" style="flex: 1; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                            <i class="fas fa-bug"></i> Debug
                         </button>
                         <button class="tag-btn-save" onclick="addAccountManual()" style="flex: 1; background: #3b82f6; font-size: 13px;">
                             <i class="fas fa-save"></i> Thêm Token
@@ -1762,6 +1768,136 @@
         function hideAddAccountForm() {
             document.getElementById('addAccountForm').style.display = 'none';
             document.getElementById('newAccountTokenInput').value = '';
+            document.getElementById('tokenValidationMessage').style.display = 'none';
+        }
+
+        // Validate Token Input (real-time)
+        function validateTokenInput() {
+            const input = document.getElementById('newAccountTokenInput').value;
+            const messageDiv = document.getElementById('tokenValidationMessage');
+
+            if (!input || input.trim() === '') {
+                messageDiv.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Clean token
+                let cleanedToken = input.trim();
+                if (cleanedToken.toLowerCase().startsWith('jwt=')) {
+                    cleanedToken = cleanedToken.substring(4).trim();
+                }
+                cleanedToken = cleanedToken.replace(/^["']|["']$/g, '');
+                cleanedToken = cleanedToken.replace(/\s+/g, '');
+                cleanedToken = cleanedToken.replace(/[;,]+$/g, '');
+
+                // Check format
+                const parts = cleanedToken.split('.');
+                if (parts.length !== 3) {
+                    messageDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Token có ${parts.length} phần, cần 3 phần (header.payload.signature)</span>`;
+                    messageDiv.style.display = 'block';
+                    return;
+                }
+
+                // Check each part
+                if (!parts[0] || !parts[1] || !parts[2]) {
+                    messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Token có phần trống</span>';
+                    messageDiv.style.display = 'block';
+                    return;
+                }
+
+                // Try to decode (basic check)
+                if (window.pancakeTokenManager) {
+                    const payload = window.pancakeTokenManager.decodeToken(cleanedToken);
+                    if (payload) {
+                        const isExpired = window.pancakeTokenManager.isTokenExpired(payload.exp);
+                        if (isExpired) {
+                            const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
+                            messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Token đã hết hạn: ${expiryDate}</span>`;
+                        } else {
+                            const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
+                            messageDiv.innerHTML = `<span style="color: #10b981;">✅ Token hợp lệ - ${payload.name || 'N/A'} - Hết hạn: ${expiryDate}</span>`;
+                        }
+                        messageDiv.style.display = 'block';
+                        return;
+                    }
+                }
+
+                messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Không thể giải mã token, vui lòng kiểm tra lại</span>';
+                messageDiv.style.display = 'block';
+
+            } catch (error) {
+                messageDiv.innerHTML = '<span style="color: #ef4444;">❌ Lỗi: ' + error.message + '</span>';
+                messageDiv.style.display = 'block';
+            }
+        }
+
+        // Debug Token Input
+        function debugTokenInput() {
+            const input = document.getElementById('newAccountTokenInput').value;
+
+            if (!input || input.trim() === '') {
+                alert('Vui lòng nhập token vào ô trên trước khi debug');
+                return;
+            }
+
+            if (!window.pancakeTokenManager) {
+                alert('PancakeTokenManager not available');
+                return;
+            }
+
+            console.log('='.repeat(80));
+            console.log('🔍 DEBUG TOKEN ANALYSIS');
+            console.log('='.repeat(80));
+
+            const result = window.pancakeTokenManager.debugToken(input);
+
+            console.log('📊 THÔNG TIN CƠ BẢN:');
+            console.log('  - Độ dài gốc:', result.info.originalLength);
+            console.log('  - Có khoảng trắng:', result.info.hasSpaces ? 'Có ⚠️' : 'Không');
+            console.log('  - Có newline:', result.info.hasNewlines ? 'Có ⚠️' : 'Không');
+            console.log('  - Có prefix jwt=:', result.info.hasPrefix ? 'Có' : 'Không');
+            console.log('  - Độ dài sau làm sạch:', result.info.cleanedLength);
+            console.log('  - Số phần:', result.info.parts);
+            if (result.info.partLengths) {
+                console.log('  - Độ dài từng phần:', result.info.partLengths.join(', '));
+            }
+
+            if (result.valid) {
+                console.log('\n✅ TOKEN HỢP LỆ:');
+                console.log('  - Tên:', result.info.name);
+                console.log('  - UID:', result.info.uid);
+                console.log('  - Hết hạn:', result.info.expiryDate);
+                console.log('  - Đã hết hạn:', result.info.isExpired ? 'Có ❌' : 'Không ✅');
+            } else {
+                console.log('\n❌ TOKEN KHÔNG HỢP LỆ:');
+                result.issues.forEach((issue, index) => {
+                    console.log(`  ${index + 1}. ${issue}`);
+                });
+            }
+
+            console.log('='.repeat(80));
+
+            // Show alert with summary
+            let message = '🔍 KẾT QUẢ DEBUG:\n\n';
+            message += `Độ dài token: ${result.info.originalLength} → ${result.info.cleanedLength} (sau làm sạch)\n`;
+            message += `Số phần: ${result.info.parts}\n\n`;
+
+            if (result.valid) {
+                message += `✅ Token hợp lệ!\n\n`;
+                message += `Tên: ${result.info.name}\n`;
+                message += `Hết hạn: ${result.info.expiryDate}\n`;
+                message += `Trạng thái: ${result.info.isExpired ? 'Đã hết hạn ❌' : 'Còn hạn ✅'}`;
+            } else {
+                message += '❌ Token không hợp lệ!\n\n';
+                message += 'Vấn đề:\n';
+                result.issues.forEach((issue, index) => {
+                    message += `${index + 1}. ${issue}\n`;
+                });
+                message += '\n📋 Chi tiết đã được in ra console (F12)';
+            }
+
+            alert(message);
         }
 
         // Refresh Accounts List
