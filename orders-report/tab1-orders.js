@@ -2224,9 +2224,11 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
     const unreadBadge = isUnread ? `<span class="unread-badge"></span>` : '';
 
     // Click handler
+    // For merged orders, use the TargetOrderId (order with largest STT) instead of the combined Id
+    const orderIdToUse = order.IsMerged && order.TargetOrderId ? order.TargetOrderId : order.Id;
     const clickHandler = columnType === 'messages'
-        ? `openChatModal('${order.Id}', '${channelId}', '${psid}')`
-        : `openChatModal('${order.Id}', '${channelId}', '${psid}', 'comment')`;
+        ? `openChatModal('${orderIdToUse}', '${channelId}', '${psid}')`
+        : `openChatModal('${orderIdToUse}', '${channelId}', '${psid}', 'comment')`;
 
     const tooltipText = columnType === 'comments'
         ? 'Click để xem bình luận'
@@ -4005,7 +4007,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     currentPostId = null;
 
     // Get order info
-    const order = allData.find(o => o.Id === orderId);
+    // First try to find order by exact ID match
+    let order = allData.find(o => o.Id === orderId);
+    // If not found, check if this orderId is in a merged order's OriginalIds
+    if (!order) {
+        order = allData.find(o => o.IsMerged && o.OriginalIds && o.OriginalIds.includes(orderId));
+    }
     if (!order) {
         alert('Không tìm thấy đơn hàng');
         return;
