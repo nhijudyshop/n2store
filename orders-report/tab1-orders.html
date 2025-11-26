@@ -480,12 +480,6 @@
                     </button>
                 </div>
                 <div class="chat-modal-body" id="chatModalBody" style="position: relative;">
-                    <!-- Sending Indicator (góc trái) -->
-                    <div id="chatSendingIndicator" style="display: none; position: absolute; top: 12px; left: 12px; z-index: 100; background: rgba(0, 132, 255, 0.95); color: white; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <span id="chatSendingText">Đang gửi...</span>
-                        <span id="chatQueueCount" style="display: none; background: rgba(255, 255, 255, 0.2); padding: 2px 6px; border-radius: 4px; font-size: 11px;">+0</span>
-                    </div>
                     <div class="chat-loading">
                         <i class="fas fa-spinner fa-spin"></i>
                         <p>Đang tải tin nhắn...</p>
@@ -494,6 +488,14 @@
                 <!-- Reply Input (chỉ hiển thị cho comments) -->
                 <div class="chat-reply-container" id="chatReplyContainer"
                     style="display: none; background: white; border-top: 1px solid #e5e7eb;">
+                    <!-- Sending Status Bar (visible and centered) -->
+                    <div id="chatSendingIndicator" style="display: none; padding: 10px 16px; background: linear-gradient(135deg, rgba(0, 132, 255, 0.1) 0%, rgba(0, 132, 255, 0.05) 100%); border-bottom: 1px solid rgba(0, 132, 255, 0.2);">
+                        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                            <i class="fas fa-spinner fa-spin" style="color: #0084ff; font-size: 14px;"></i>
+                            <span id="chatSendingText" style="color: #0084ff; font-weight: 600; font-size: 13px;">Đang gửi...</span>
+                            <span id="chatQueueCount" style="display: none; background: rgba(0, 132, 255, 0.2); color: #0084ff; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"></span>
+                        </div>
+                    </div>
                     <!-- Image Preview Container -->
                     <div id="chatImagePreviewContainer"
                         style="display: none; padding: 8px 16px; border-bottom: 1px solid #f0f0f0;"></div>
