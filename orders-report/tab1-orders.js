@@ -2013,7 +2013,6 @@ function createRowHTML(order) {
                     <div class="tag-btn-container" style="position: relative;">
                         <button class="tag-icon-btn" onclick="quickTagManager.openDropdown('${order.Id}', '${order.Code}', this); event.stopPropagation();" title="Chọn nhanh tag" style="padding: 2px 6px;">
                             <i class="fas fa-tags"></i>
-                            ${tagsCount > 0 ? `<span class="tag-count">${tagsCount}</span>` : ""}
                         </button>
                     </div>
                     ${tagsHTML}
