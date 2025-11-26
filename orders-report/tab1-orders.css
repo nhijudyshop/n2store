@@ -3000,19 +3000,7 @@ button[onclick*="showAddProductForm"] {
     padding: 12px 16px;
     border-radius: 16px;
     word-wrap: break-word;
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    /* Animation removed to prevent flashing when messages re-render */
 }
 
 .chat-bubble-customer {
