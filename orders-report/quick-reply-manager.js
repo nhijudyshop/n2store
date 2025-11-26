@@ -167,7 +167,7 @@ class QuickReplyManager {
     async loadReplies() {
         console.log('[QUICK-REPLY] 📥 Loading replies...');
 
-        // Try load from Firebase first
+        // Only read from Firebase
         if (this.db) {
             try {
                 console.log('[QUICK-REPLY] 🔄 Loading from Firebase...');
@@ -181,40 +181,22 @@ class QuickReplyManager {
                         docId: doc.id // Keep Firestore doc ID for updates
                     }));
 
-                    // Save to localStorage as cache
-                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
-
                     console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase');
                     return;
                 } else {
-                    console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, creating defaults...');
-                    // No data in Firebase, create defaults
+                    console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, using defaults...');
+                    // No data in Firebase, just use defaults (don't save yet)
                     this.replies = this.getDefaultReplies();
-                    await this.saveReplies(); // Save to Firebase
                     return;
                 }
             } catch (error) {
                 console.error('[QUICK-REPLY] ❌ Firebase load error:', error);
-                // Fallback to localStorage
-            }
-        }
-
-        // Fallback: Try to load from localStorage
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-
-        if (stored) {
-            try {
-                this.replies = JSON.parse(stored);
-                console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from localStorage');
-            } catch (e) {
-                console.error('[QUICK-REPLY] ❌ Error parsing stored replies:', e);
+                // Use default replies if Firebase fails
                 this.replies = this.getDefaultReplies();
             }
         } else {
-            // Use default replies
+            console.log('[QUICK-REPLY] ⚠️ Firebase not available, using default replies');
             this.replies = this.getDefaultReplies();
-            await this.saveReplies();
-            console.log('[QUICK-REPLY] ✅ Loaded default replies');
         }
     }
 
@@ -308,17 +290,9 @@ class QuickReplyManager {
     }
 
     async saveReplies() {
-        console.log('[QUICK-REPLY] 💾 Saving replies...');
+        console.log('[QUICK-REPLY] 💾 Saving replies to Firebase...');
 
-        // Save to localStorage as cache
-        try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
-            console.log('[QUICK-REPLY] ✅ Saved to localStorage');
-        } catch (e) {
-            console.error('[QUICK-REPLY] ❌ localStorage save error:', e);
-        }
-
-        // Save to Firebase
+        // Only save to Firebase (no localStorage)
         if (this.db) {
             try {
                 console.log('[QUICK-REPLY] 🔄 Syncing to Firebase...');
@@ -344,10 +318,11 @@ class QuickReplyManager {
                 console.log('[QUICK-REPLY] ✅ Synced', this.replies.length, 'replies to Firebase');
             } catch (error) {
                 console.error('[QUICK-REPLY] ❌ Firebase save error:', error);
-                // Continue even if Firebase save fails
+                throw error; // Throw error so user knows save failed
             }
         } else {
-            console.log('[QUICK-REPLY] ⚠️ Firebase not available, saved to localStorage only');
+            console.error('[QUICK-REPLY] ❌ Firebase not available, cannot save');
+            throw new Error('Firebase không khả dụng');
         }
     }
 
@@ -779,19 +754,38 @@ class QuickReplyManager {
         };
 
         this.replies.push(newReply);
-        await this.saveReplies();
-        this.renderSettingsList();
 
-        if (window.notificationManager) {
-            window.notificationManager.success('Đã thêm mẫu tin nhắn mới!');
+        try {
+            await this.saveReplies();
+            this.renderSettingsList();
+
+            if (window.notificationManager) {
+                window.notificationManager.success('Đã thêm mẫu tin nhắn mới!');
+            }
+
+            console.log('[QUICK-REPLY] ✅ Added new template:', shortcut);
+        } catch (error) {
+            // Rollback if save failed
+            this.replies = this.replies.filter(r => r.id !== newReply.id);
+
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi khi lưu vào Firebase!');
+            }
+            console.error('[QUICK-REPLY] ❌ Failed to add template:', error);
         }
-
-        console.log('[QUICK-REPLY] ✅ Added new template:', shortcut);
     }
 
     async editTemplate(id) {
         const reply = this.replies.find(r => r.id === id);
         if (!reply) return;
+
+        // Backup old values for rollback
+        const oldValues = {
+            shortcut: reply.shortcut,
+            topic: reply.topic,
+            topicColor: reply.topicColor,
+            message: reply.message
+        };
 
         const shortcut = prompt('Ký tự tắt:', reply.shortcut) || reply.shortcut;
         const topic = prompt('Chủ đề:', reply.topic) || reply.topic;
@@ -808,14 +802,27 @@ class QuickReplyManager {
         reply.topicColor = topicColor;
         reply.message = message;
 
-        await this.saveReplies();
-        this.renderSettingsList();
+        try {
+            await this.saveReplies();
+            this.renderSettingsList();
 
-        if (window.notificationManager) {
-            window.notificationManager.success('Đã cập nhật mẫu tin nhắn!');
+            if (window.notificationManager) {
+                window.notificationManager.success('Đã cập nhật mẫu tin nhắn!');
+            }
+
+            console.log('[QUICK-REPLY] ✅ Updated template:', id);
+        } catch (error) {
+            // Rollback if save failed
+            reply.shortcut = oldValues.shortcut;
+            reply.topic = oldValues.topic;
+            reply.topicColor = oldValues.topicColor;
+            reply.message = oldValues.message;
+
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi khi lưu vào Firebase!');
+            }
+            console.error('[QUICK-REPLY] ❌ Failed to update template:', error);
         }
-
-        console.log('[QUICK-REPLY] ✅ Updated template:', id);
     }
 
     async deleteTemplate(id) {
@@ -826,15 +833,30 @@ class QuickReplyManager {
             return;
         }
 
+        // Backup for rollback
+        const deletedReply = { ...reply };
+        const oldReplies = [...this.replies];
+
         this.replies = this.replies.filter(r => r.id !== id);
-        await this.saveReplies();
-        this.renderSettingsList();
 
-        if (window.notificationManager) {
-            window.notificationManager.success('Đã xóa mẫu tin nhắn!');
+        try {
+            await this.saveReplies();
+            this.renderSettingsList();
+
+            if (window.notificationManager) {
+                window.notificationManager.success('Đã xóa mẫu tin nhắn!');
+            }
+
+            console.log('[QUICK-REPLY] ✅ Deleted template:', id);
+        } catch (error) {
+            // Rollback if save failed
+            this.replies = oldReplies;
+
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi khi lưu vào Firebase!');
+            }
+            console.error('[QUICK-REPLY] ❌ Failed to delete template:', error);
         }
-
-        console.log('[QUICK-REPLY] ✅ Deleted template:', id);
     }
 }
 
