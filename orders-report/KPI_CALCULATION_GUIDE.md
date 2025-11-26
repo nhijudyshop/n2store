@@ -1,13 +1,13 @@
-# Hướng dẫn Tính KPI - Hệ thống Sản phẩm Đang Giữ
+# Hướng dẫn Tính KPI - Base Product Anchor Method
 
 ## 📊 Tổng quan
 
 Hệ thống tính KPI cho nhân viên dựa trên việc thêm sản phẩm vào đơn hàng thông qua tính năng "Sản phẩm đang giữ".
 
 **Nguyên tắc cơ bản:**
-- **+5,000đ** cho mỗi sản phẩm MỚI được thêm vào đơn
-- **-5,000đ** khi giảm số lượng sản phẩm đã tính KPI
-- **0đ** khi thêm lại sản phẩm đã từng có trong đơn
+- **+5,000đ** cho mỗi sản phẩm được thêm vào đơn (vượt quá số lượng ban đầu)
+- **-5,000đ** khi giảm số lượng sản phẩm
+- **0đ** cho các sản phẩm ban đầu (Base Product)
 
 ---
 
@@ -18,15 +18,18 @@ Hệ thống tính KPI cho nhân viên dựa trên việc thêm sản phẩm và
 order_product_history/
   {orderId}/
     {productId}: {
-      quantity: 5,           // MAX quantity từng có trong order
-      kpiQuantity: 3,        // Quantity ĐÃ ĐƯỢC TÍNH KPI
+      baseProduct: 5,        // SỐ LƯỢNG BAN ĐẦU (IMMUTABLE - không đổi)
+      baseline: 5,           // Deprecated (giữ cho tương thích)
+      currentQty: 7,         // Số lượng hiện tại
+      kpiQty: 2,             // KPI = Max(0, currentQty - baseProduct)
       lastUpdated: 1732454123456
     }
 ```
 
 **Vai trò:**
-- `quantity`: Track số lượng MAX từng có → Ngăn chặn "trừ rồi thêm lại"
-- `kpiQuantity`: Track số lượng đã tính KPI → Tính toán giảm KPI khi trừ số lượng
+- `baseProduct`: Số lượng ban đầu khi đơn được mở lần đầu (KHÔNG BAO GIỜ THAY ĐỔI)
+- `currentQty`: Số lượng hiện tại trong đơn
+- `kpiQty`: KPI hiện tại = Max(0, currentQty - baseProduct)
 
 ### 2. Stats Node (KPI logs)
 ```
@@ -34,25 +37,31 @@ held_product_stats/
   {userId}/
     {timestamp1}: {
       userName: "Nguyen Van A",
-      productCount: 3,           // Số lượng (có thể âm nếu là reduction)
+      productCount: 3,           // Số lượng thay đổi (có thể âm)
       amount: 15000,             // Tiền (có thể âm)
       timestamp: 1732454123456,
       orderId: "12345",
       orderSTT: "ĐH001",
-      isReduction: false,        // true nếu là giảm số lượng
-      products: [
-        {
-          name: "Product A",
-          quantity: 3,
-          newQuantityInOrder: 5,
-          historicalMaxQty: 2,
-          historicalKpiQty: 2,
-          incrementalQty: 3,
-          isCounted: true
-        }
-      ]
+      isReduction: false,
+      products: [...]
     }
 ```
+
+---
+
+## 📋 Công thức tính KPI
+
+### Công thức chính
+```
+KPI = Max(0, Số lượng hiện tại - Base Product)
+Delta KPI = KPI mới - KPI cũ
+```
+
+### Ý nghĩa
+- **Base Product (số lượng ban đầu):** KHÔNG tính KPI
+- **Thêm sản phẩm:** Tăng KPI theo số lượng thêm
+- **Xóa sản phẩm:** Giảm KPI theo số lượng xóa
+- **Xóa rồi thêm lại:** KPI được tính lại chính xác
 
 ---
 
@@ -66,24 +75,13 @@ held_product_stats/
 
 **Tính toán:**
 ```
-Firebase history TRƯỚC: Không có
-Order sau khi lưu: Product A qty=3
+Base Product = 0 (sản phẩm mới)
+Số lượng hiện tại = 3
 
-Logic:
-- newQuantityInOrder = 3
-- historicalMaxQty = 0
-- incrementalQty = max(0, 3 - 0) = 3
+KPI = Max(0, 3 - 0) = 3
+Delta = 3 - 0 = +3
 
-KPI: +3 × 5,000đ = +15,000đ ✅
-```
-
-**Firebase update:**
-```json
-{
-  "quantity": 3,
-  "kpiQuantity": 3,
-  "lastUpdated": 1732454123456
-}
+→ Tính KPI: +3 × 5,000đ = +15,000đ ✅
 ```
 
 ---
@@ -91,42 +89,26 @@ KPI: +3 × 5,000đ = +15,000đ ✅
 ### ✅ Case 2: Thêm số lượng cho sản phẩm ĐÃ CÓ
 
 **Tình huống:**
-- Order có Product A qty=2 (sản phẩm ban đầu, chưa tính KPI)
-- User thêm thêm 3 cái Product A → Total qty=5
+- Order có Product A qty=5 (ban đầu)
+- User thêm thêm 3 cái Product A → Total qty=8
 
 **Tính toán:**
 ```
-Firebase history TRƯỚC:
-{
-  quantity: 2,
-  kpiQuantity: 0  // Chưa tính KPI
-}
+Base Product = 5
+Số lượng cũ = 5 → KPI cũ = Max(0, 5-5) = 0
+Số lượng mới = 8 → KPI mới = Max(0, 8-5) = 3
 
-Order sau khi lưu: Product A qty=5
+Delta = 3 - 0 = +3
 
-Logic:
-- newQuantityInOrder = 5
-- historicalMaxQty = 2
-- incrementalQty = max(0, 5 - 2) = 3
-
-KPI: +3 × 5,000đ = +15,000đ ✅
-```
-
-**Firebase update:**
-```json
-{
-  "quantity": 5,        // MAX updated
-  "kpiQuantity": 5,     // KPI updated to current
-  "lastUpdated": 1732454123456
-}
+→ Tính KPI: +3 × 5,000đ = +15,000đ ✅
 ```
 
 ---
 
-### ❌ Case 3: Trừ rồi thêm lại (KHÔNG tính)
+### ✅ Case 3: Trừ rồi thêm lại (TÍNH LẠI)
 
 **Tình huống:**
-- Order có Product A qty=5 (ban đầu, chưa tính KPI)
+- Order có Product A qty=5 (ban đầu)
 - User trừ 3 cái → qty=2
 - User thêm lại 3 cái → qty=5
 
@@ -134,41 +116,24 @@ KPI: +3 × 5,000đ = +15,000đ ✅
 
 **Bước 1: Trừ số lượng**
 ```
-Firebase history TRƯỚC:
-{
-  quantity: 5,
-  kpiQuantity: 0  // Chưa tính KPI
-}
+Base Product = 5
+Số lượng cũ = 5 → KPI cũ = 0
+Số lượng mới = 2 → KPI mới = Max(0, 2-5) = 0
 
-Order sau save: Product A qty=2
+Delta = 0 - 0 = 0
 
-Logic:
-- newQuantity = 2
-- kpiQuantity = 0
-- Không có reduction vì chưa tính KPI
-
-KPI: 0đ (không thay đổi)
-
-Firebase update:
-{
-  quantity: 5,      // MAX giữ nguyên
-  kpiQuantity: 2,   // Update to current
-  lastUpdated: ...
-}
+→ KPI: 0đ (không thay đổi vì vẫn trong base)
 ```
 
 **Bước 2: Thêm lại**
 ```
-User thêm 3 cái qua "Sản phẩm đang giữ" → Lưu vào đơn
+Base Product = 5
+Số lượng cũ = 2 → KPI cũ = 0
+Số lượng mới = 5 → KPI mới = Max(0, 5-5) = 0
 
-Order sau khi lưu: Product A qty=5
+Delta = 0 - 0 = 0
 
-Logic:
-- newQuantityInOrder = 5
-- historicalMaxQty = 5  (đã từng có 5)
-- incrementalQty = max(0, 5 - 5) = 0
-
-KPI: 0đ ❌ (KHÔNG tính vì không vượt quá MAX)
+→ KPI: 0đ (vẫn trong base, không tính)
 ```
 
 ---
@@ -182,91 +147,65 @@ KPI: 0đ ❌ (KHÔNG tính vì không vượt quá MAX)
 
 **Tính toán:**
 ```
+Base Product = 5
+
 Sau khi trừ:
-Firebase: {quantity: 5, kpiQuantity: 2}
+Số lượng = 2 → KPI = Max(0, 2-5) = 0
 
 Sau khi thêm 7:
-Order: Product A qty=9
+Số lượng = 9 → KPI = Max(0, 9-5) = 4
 
-Logic:
-- newQuantityInOrder = 9
-- historicalMaxQty = 5
-- incrementalQty = max(0, 9 - 5) = 4
+Delta = 4 - 0 = +4
 
-KPI: +4 × 5,000đ = +20,000đ ✅
-(Chỉ tính 4 cái VƯỢT QUÁ số ban đầu)
+→ Tính KPI: +4 × 5,000đ = +20,000đ ✅
+(Chỉ tính 4 cái VƯỢT QUÁ base)
 ```
 
 ---
 
-### ⚠️ Case 5: Giảm số lượng đã tính KPI (TRỪ KPI)
+### ⚠️ Case 5: Giảm số lượng (TRỪ KPI)
 
 **Tình huống:**
-- User đã thêm Product A (qty=5) và được +25,000đ
-- Khách không nhận, user giảm xuống qty=2
+- Order có Product A qty=5 (ban đầu)
+- User thêm 3 cái → qty=8 (đã được +15,000đ)
+- Khách không nhận, user giảm xuống qty=6
 
 **Tính toán:**
 ```
-Firebase history TRƯỚC:
-{
-  quantity: 5,
-  kpiQuantity: 5  // Đã tính KPI cho 5
-}
+Base Product = 5
 
-User giảm xuống qty=2 trong "Danh sách sản phẩm của đơn hàng"
+Sau khi thêm:
+Số lượng = 8 → KPI = Max(0, 8-5) = 3
 
-Logic trong saveChatOrderChanges():
-- newQuantity = 2
-- kpiQuantity = 5
-- reductionQty = 5 - 2 = 3
+Sau khi giảm:
+Số lượng = 6 → KPI = Max(0, 6-5) = 1
 
-Save NEGATIVE stats:
-{
-  productCount: -3,
-  amount: -15000,
-  isReduction: true,
-  products: [{
-    quantity: -3,
-    oldQuantity: 5,
-    newQuantity: 2
-  }]
-}
+Delta = 1 - 3 = -2
 
-KPI: -3 × 5,000đ = -15,000đ ⚠️
-```
-
-**Firebase update:**
-```json
-{
-  "quantity": 5,        // MAX giữ nguyên
-  "kpiQuantity": 2,     // Update to current
-  "lastUpdated": 1732454123456
-}
+→ Trừ KPI: -2 × 5,000đ = -10,000đ ⚠️
 ```
 
 ---
 
-### ❌ Case 6: Delete rồi thêm lại (KHÔNG tính)
+### ❌ Case 6: Xóa base product (KHÔNG ẢNH HƯỞNG KPI)
 
 **Tình huống:**
-- Order có Product A qty=3
-- User xóa Product A khỏi đơn
-- Sau 1 ngày, user mở lại và thêm Product A qty=3
+- Order có Product A qty=5 (ban đầu, chưa tính KPI)
+- User xóa hết Product A
 
 **Tính toán:**
 ```
-Khi xóa:
-Firebase vẫn giữ: {quantity: 3, kpiQuantity: 0}
+Base Product = 5
 
-Sau 1 ngày, thêm lại:
-Order: Product A qty=3
+Trước khi xóa:
+Số lượng = 5 → KPI = Max(0, 5-5) = 0
 
-Logic:
-- newQuantityInOrder = 3
-- historicalMaxQty = 3  (vẫn track trong Firebase)
-- incrementalQty = max(0, 3 - 3) = 0
+Sau khi xóa:
+Số lượng = 0 → KPI = Max(0, 0-5) = 0
 
-KPI: 0đ ❌ (KHÔNG tính vì đã từng có)
+Delta = 0 - 0 = 0
+
+→ KPI: 0đ (không ảnh hưởng vì chưa vượt base)
 ```
 
 ---
@@ -279,49 +218,56 @@ KPI: 0đ ❌ (KHÔNG tính vì đã từng có)
 FOR EACH held product:
   1. Merge vào order (tăng quantity nếu đã tồn tại)
   2. Get historical data from Firebase:
-     - historicalMaxQty = history.quantity
-     - historicalKpiQty = history.kpiQuantity
+     - baseProduct (immutable)
+     - oldKpiQty
 
-  3. Calculate incremental:
-     incrementalQty = max(0, newQuantityInOrder - historicalMaxQty)
+  3. Calculate new KPI:
+     newKpiQty = Max(0, newQuantityInOrder - baseProduct)
+     kpiDelta = newKpiQty - oldKpiQty
 
-  4. IF incrementalQty > 0:
-       Save stats: +incrementalQty × 5,000đ
+  4. IF kpiDelta != 0:
+       Save stats: kpiDelta × 5,000đ
 
   5. Update Firebase:
-     - quantity = max(old quantity, newQuantityInOrder)
-     - kpiQuantity = newQuantityInOrder
+     - baseProduct (unchanged)
+     - currentQty = newQuantityInOrder
+     - kpiQty = newKpiQty
 ```
 
-### Khi giảm số lượng (saveChatOrderChanges)
+### Khi giảm/tăng số lượng (saveChatOrderChanges)
 
 ```javascript
 FOR EACH product in order:
   1. Get historical data:
-     - kpiQuantity = history.kpiQuantity
+     - baseProduct (immutable)
+     - oldKpiQty
 
-  2. IF newQuantity < kpiQuantity:
-       reductionQty = kpiQuantity - newQuantity
-       Save NEGATIVE stats: -reductionQty × 5,000đ
+  2. Calculate new KPI:
+     newKpiQty = Max(0, newQuantity - baseProduct)
+     kpiDelta = newKpiQty - oldKpiQty
 
-  3. Update Firebase:
-     - quantity = max(old quantity, newQuantity)
-     - kpiQuantity = newQuantity
+  3. IF kpiDelta != 0:
+       Save stats: kpiDelta × 5,000đ (có thể âm)
+
+  4. Update Firebase:
+     - baseProduct (unchanged)
+     - currentQty = newQuantity
+     - kpiQty = newKpiQty
 ```
 
 ---
 
 ## 🧪 Test Cases
 
-| # | Tình huống | Qty ban đầu | Hành động | Qty cuối | KPI |
-|---|------------|-------------|-----------|----------|-----|
-| 1 | Thêm mới | 0 | +5 held | 5 | +25,000đ |
-| 2 | Thêm vào có sẵn | 2 | +3 held | 5 | +15,000đ |
-| 3 | Trừ rồi thêm lại bằng | 5 | -3, +3 held | 5 | 0đ |
-| 4 | Trừ rồi thêm vượt | 5 | -3, +7 held | 9 | +20,000đ |
-| 5 | Giảm sau khi tính | 5 (KPI'd) | -3 order | 2 | -15,000đ |
-| 6 | Delete-wait-readd | 3 | Delete, +3 held | 3 | 0đ |
-| 7 | Tăng dần | 0 | +2,+3,+1 held | 6 | +30,000đ |
+| # | Tình huống | Base | Qty cũ | Hành động | Qty mới | KPI cũ | KPI mới | Delta | Tiền |
+|---|------------|------|--------|-----------|---------|--------|---------|-------|------|
+| 1 | Thêm mới | 0 | 0 | +5 held | 5 | 0 | 5 | +5 | +25,000đ |
+| 2 | Thêm vào base | 5 | 5 | +3 held | 8 | 0 | 3 | +3 | +15,000đ |
+| 3 | Trừ trong base | 5 | 5 | -3 | 2 | 0 | 0 | 0 | 0đ |
+| 4 | Thêm lại trong base | 5 | 2 | +3 held | 5 | 0 | 0 | 0 | 0đ |
+| 5 | Vượt base | 5 | 2 | +7 held | 9 | 0 | 4 | +4 | +20,000đ |
+| 6 | Giảm sau vượt | 5 | 9 | -3 | 6 | 4 | 1 | -3 | -15,000đ |
+| 7 | Xóa base | 5 | 5 | Delete | 0 | 0 | 0 | 0 | 0đ |
 
 ---
 
@@ -347,67 +293,62 @@ orders-report/tab2-statistics.html
 
 ## 🐛 Troubleshooting
 
-### Vấn đề: KPI không tăng khi thêm sản phẩm
+### Vấn đề: KPI không tăng khi thêm base product
 
 **Kiểm tra:**
-1. Mở Console (F12) → Tìm log `[KPI-FRAUD]`
-2. Xem message: `No score (Historical Max: X, New: Y)`
-3. Nếu X ≥ Y → Sản phẩm đã từng có, không tính
+1. Mở Console (F12) → Tìm log `[BASE-PRODUCT]`
+2. Xem message: `base=X, new=Y, KPI=Z`
+3. Nếu Y ≤ X → Đang trong base, không tính KPI
 
-**Giải pháp:** Đây là behavior đúng để chống fraud
+**Giải pháp:** Đây là behavior đúng. Chỉ tính KPI khi vượt base.
 
-### Vấn đề: KPI không giảm khi trừ số lượng
-
-**Kiểm tra:**
-1. Mở Console → Tìm log `[KPI-REDUCTION]`
-2. Kiểm tra `kpiQuantity` trong Firebase history
-3. Nếu `kpiQuantity = 0` → Chưa từng tính KPI cho sản phẩm này
-
-**Giải pháp:** Chỉ trừ KPI nếu sản phẩm đã từng được tính KPI
-
-### Vấn đề: Firebase không update
+### Vấn đề: KPI không giảm khi xóa base product
 
 **Kiểm tra:**
-1. Console → Network tab → Xem requests đến Firebase
-2. Console → `[KPI-FRAUD] Updated history in Firebase`
-3. Firebase Console → `order_product_history/{orderId}`
+1. Mở Console → Tìm log `[BASE-PRODUCT]`
+2. Kiểm tra `oldKPI` và `newKPI`
+3. Nếu cả 2 đều = 0 → Chưa vượt base
 
-**Giải pháp:** Check Firebase permissions và connection
+**Giải pháp:** Đúng. Xóa base không ảnh hưởng KPI.
 
 ---
 
 ## 📚 Code References
 
-| Chức năng | File | Line |
-|-----------|------|------|
-| Load history | chat-modal-products.js | 382-411 |
-| Update history | chat-modal-products.js | 419-440 |
-| Scoring logic | chat-modal-products.js | 1651-1689 |
-| Reduction logic | chat-modal-products.js | 1100-1179 |
-| Display stats | tab2-statistics.html | 196-310 |
+| Chức năng | File | Function |
+|-----------|------|----------|
+| Load history | chat-modal-products.js | loadOrderProductHistory |
+| Update history | chat-modal-products.js | updateOrderProductHistory |
+| KPI calculation (held) | chat-modal-products.js | confirmHeldProducts |
+| KPI calculation (edit) | chat-modal-products.js | saveChatOrderChanges |
+| Display stats | tab2-statistics.html | loadStats |
 
 ---
 
 ## ⚠️ Lưu ý quan trọng
 
-1. **History là vĩnh viễn:** Không bao giờ xóa `order_product_history` trừ khi order bị xóa
-2. **kpiQuantity ≠ quantity:** Phải phân biệt rõ 2 giá trị này
-3. **Compare đúng field:** Scoring dùng `quantity`, Reduction dùng `kpiQuantity`
-4. **Negative stats:** Phải set `isReduction: true` để phân biệt
+1. **baseProduct là bất biến:** Không bao giờ thay đổi sau khi được set lần đầu
+2. **KPI = Max(0, currentQty - baseProduct):** Công thức đơn giản, dễ hiểu
+3. **Delta có thể âm:** Khi giảm số lượng, delta âm = trừ tiền
+4. **Base không tính KPI:** Chỉ tính phần vượt quá base
 
 ---
 
 ## 🔄 Changelog
 
-- **2024-11-24:** Initial implementation
+- **2024-11-25:** Refactored to Base Product Anchor Method
+  - Simplified KPI calculation: KPI = Max(0, currentQty - baseProduct)
+  - Removed high water mark (baseline) logic
+  - Base products no longer count for KPI
+  - Adding/removing products correctly adjusts KPI
+  
+- **2024-11-24:** Initial implementation (Watermark Method)
   - Basic fraud prevention with permanent history
-  - Quantity tracking for incremental scoring
+  - High water mark tracking
   - KPI reduction when decreasing quantity
-  - Fixed re-add scoring issue
-  - Added order count column
 
 ---
 
-**Tác giả:** Claude AI Assistant
-**Phiên bản:** 1.0
-**Ngày cập nhật:** 2024-11-24
+**Tác giả:** Claude AI Assistant  
+**Phiên bản:** 2.0 (Base Product Anchor)  
+**Ngày cập nhật:** 2024-11-25
