@@ -47,6 +47,21 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Server time diagnostic endpoint for debugging Facebook 24-hour policy
+app.get('/api/debug/time', (req, res) => {
+    const now = new Date();
+    res.json({
+        utc: now.toISOString(),
+        unix_timestamp: now.getTime(),
+        unix_seconds: Math.floor(now.getTime() / 1000),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone_offset_minutes: now.getTimezoneOffset(),
+        server_time_string: now.toString(),
+        vietnam_time: new Date(now.getTime() + (7 * 60 * 60 * 1000)).toISOString(), // UTC+7
+        note: 'Compare this with your local time to check for clock drift'
+    });
+});
+
 // Import route modules
 const tokenRoutes = require('./routes/token');
 const odataRoutes = require('./routes/odata');
