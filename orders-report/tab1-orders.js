@@ -2679,8 +2679,11 @@ function showSaveIndicator(type, message) {
     document.body.insertAdjacentHTML("beforeend", modalHTML);
 })();
 
+let hasUnsavedOrderChanges = false;
+
 async function openEditModal(orderId) {
     currentEditOrderId = orderId;
+    hasUnsavedOrderChanges = false; // Reset dirty flag
     const modal = document.getElementById("editOrderModal");
     modal.classList.add("show");
     switchEditTab("info");
@@ -2798,6 +2801,7 @@ function renderInfoTab(data) {
 function updateOrderInfo(field, value) {
     if (!currentEditOrderData) return;
     currentEditOrderData[field] = value;
+    hasUnsavedOrderChanges = true; // Set dirty flag
 
     // Show quick feedback
     if (window.showSaveIndicator) {
@@ -3289,9 +3293,31 @@ function showErrorState(message) {
 }
 
 function closeEditModal() {
+    if (hasUnsavedOrderChanges) {
+        const confirmClose = window.CustomPopup ?
+            window.CustomPopup.confirm("Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?", "Cảnh báo") :
+            confirm("Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng không?");
+
+        // Handle promise if CustomPopup returns one, or boolean from native confirm
+        if (confirmClose instanceof Promise) {
+            confirmClose.then(result => {
+                if (result) {
+                    forceCloseEditModal();
+                }
+            });
+            return;
+        } else if (!confirmClose) {
+            return;
+        }
+    }
+    forceCloseEditModal();
+}
+
+function forceCloseEditModal() {
     document.getElementById("editOrderModal").classList.remove("show");
     currentEditOrderData = null;
     currentEditOrderId = null;
+    hasUnsavedOrderChanges = false;
 }
 
 function printOrder() {
@@ -3472,6 +3498,8 @@ async function saveAllOrderChanges() {
             window.notificationManager.remove(notifId);
             window.notificationManager.success("Đã lưu thành công!", 2000);
         }
+
+        hasUnsavedOrderChanges = false; // Reset dirty flag after save
 
         // Clear cache và reload data từ API
         window.cacheManager.clear("orders");
