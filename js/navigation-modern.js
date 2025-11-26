@@ -1081,10 +1081,22 @@ class UnifiedNavigationManager {
                                 type="text"
                                 id="newDisplayNameInput"
                                 class="displayname-input"
-                                placeholder="Nhập tên hiển thị mới..."
+                                placeholder="Nhập tên... (hỗ trợ emoji ☺️)"
                                 value="${currentDisplayName}"
-                                maxlength="50"
+                                maxlength="100"
                             >
+                            <div class="emoji-picker" style="margin-top: 12px;">
+                                <button type="button" class="emoji-btn" data-emoji="😊">😊</button>
+                                <button type="button" class="emoji-btn" data-emoji="🎉">🎉</button>
+                                <button type="button" class="emoji-btn" data-emoji="💖">💖</button>
+                                <button type="button" class="emoji-btn" data-emoji="⭐">⭐</button>
+                                <button type="button" class="emoji-btn" data-emoji="🔥">🔥</button>
+                                <button type="button" class="emoji-btn" data-emoji="✨">✨</button>
+                                <button type="button" class="emoji-btn" data-emoji="🌸">🌸</button>
+                                <button type="button" class="emoji-btn" data-emoji="🎨">🎨</button>
+                                <button type="button" class="emoji-btn" data-emoji="💫">💫</button>
+                                <button type="button" class="emoji-btn" data-emoji="🎯">🎯</button>
+                            </div>
                         </div>
                     </div>
 
@@ -1111,6 +1123,21 @@ class UnifiedNavigationManager {
             const closeBtn = modal.querySelector("#closeEditModal");
             const cancelBtn = modal.querySelector("#cancelEditBtn");
             const saveBtn = modal.querySelector("#saveDisplayNameBtn");
+            const emojiButtons = modal.querySelectorAll('.emoji-btn');
+
+            // Add emoji button listeners
+            emojiButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const emoji = btn.getAttribute('data-emoji');
+                    const cursorPos = input.selectionStart;
+                    const textBefore = input.value.substring(0, cursorPos);
+                    const textAfter = input.value.substring(input.selectionEnd);
+                    input.value = textBefore + emoji + textAfter;
+                    input.focus();
+                    input.selectionStart = input.selectionEnd = cursorPos + emoji.length;
+                });
+            });
 
             const closeModal = () => modal.remove();
 
@@ -1223,6 +1250,37 @@ class UnifiedNavigationManager {
                     gap: 6px;
                 }
 
+                /* Emoji picker */
+                .emoji-picker {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 4px;
+                    padding: 8px;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    border: 1px dashed rgba(255, 255, 255, 0.2);
+                }
+
+                .emoji-btn {
+                    background: rgba(255, 255, 255, 0.1);
+                    border: none;
+                    padding: 6px 8px;
+                    border-radius: 4px;
+                    font-size: 18px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    line-height: 1;
+                }
+
+                .emoji-btn:hover {
+                    background: rgba(0, 188, 212, 0.3);
+                    transform: scale(1.15);
+                }
+
+                .emoji-btn:active {
+                    transform: scale(0.95);
+                }
+
                 /* Inline edit form on sidebar */
                 .displayname-edit-form {
                     display: flex;
@@ -1321,10 +1379,20 @@ class UnifiedNavigationManager {
                 type="text"
                 id="inlineDisplayNameInput"
                 class="displayname-input"
-                placeholder="Nhập tên..."
+                placeholder="Nhập tên... (hỗ trợ emoji ☺️)"
                 value="${currentDisplayName}"
-                maxlength="50"
+                maxlength="100"
             >
+            <div class="emoji-picker">
+                <button type="button" class="emoji-btn" data-emoji="😊">😊</button>
+                <button type="button" class="emoji-btn" data-emoji="🎉">🎉</button>
+                <button type="button" class="emoji-btn" data-emoji="💖">💖</button>
+                <button type="button" class="emoji-btn" data-emoji="⭐">⭐</button>
+                <button type="button" class="emoji-btn" data-emoji="🔥">🔥</button>
+                <button type="button" class="emoji-btn" data-emoji="✨">✨</button>
+                <button type="button" class="emoji-btn" data-emoji="🌸">🌸</button>
+                <button type="button" class="emoji-btn" data-emoji="🎨">🎨</button>
+            </div>
             <div class="displayname-edit-actions">
                 <button class="btn-cancel-inline" id="cancelInlineEdit">
                     <i data-lucide="x"></i>
@@ -1348,6 +1416,21 @@ class UnifiedNavigationManager {
         const input = editForm.querySelector('#inlineDisplayNameInput');
         const cancelBtn = editForm.querySelector('#cancelInlineEdit');
         const saveBtn = editForm.querySelector('#saveInlineEdit');
+        const emojiButtons = editForm.querySelectorAll('.emoji-btn');
+
+        // Add emoji button listeners
+        emojiButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const emoji = btn.getAttribute('data-emoji');
+                const cursorPos = input.selectionStart;
+                const textBefore = input.value.substring(0, cursorPos);
+                const textAfter = input.value.substring(input.selectionEnd);
+                input.value = textBefore + emoji + textAfter;
+                input.focus();
+                input.selectionStart = input.selectionEnd = cursorPos + emoji.length;
+            });
+        });
 
         const closeEdit = () => {
             editForm.remove();
@@ -1416,7 +1499,16 @@ class UnifiedNavigationManager {
 
     async updateDisplayName(newDisplayName) {
         try {
-            const authData = authManager.getAuthData();
+            // Get auth data from storage (supporting both localStorage and sessionStorage)
+            let authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+
+            if (!authDataStr) {
+                this.showToast("Không tìm thấy thông tin người dùng!", "error");
+                return false;
+            }
+
+            const authData = JSON.parse(authDataStr);
+
             if (!authData || !authData.username) {
                 this.showToast("Không tìm thấy thông tin người dùng!", "error");
                 return false;
