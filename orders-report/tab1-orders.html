@@ -1645,73 +1645,88 @@
 
     <!-- Pancake Settings Modal -->
     <div class="tag-modal" id="pancakeSettingsModal" style="display: none;">
-        <div class="tag-modal-content">
+        <div class="tag-modal-content" style="max-width: 800px;">
             <div class="tag-modal-header">
-                <h3><i class="fas fa-cog"></i> Cài đặt Pancake JWT Token</h3>
+                <h3><i class="fas fa-cog"></i> Quản lý Pancake Accounts</h3>
                 <button class="tag-modal-close" onclick="closePancakeSettingsModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="tag-modal-body">
-                <!-- Token Info -->
-                <div style="margin-bottom: 20px; padding: 12px; background: #f3f4f6; border-radius: 8px;">
-                    <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">
-                        <strong>Trạng thái token hiện tại:</strong>
-                    </div>
-                    <div id="pancakeTokenInfo" style="font-size: 13px; color: #374151;">
-                        Đang kiểm tra...
-                    </div>
-                </div>
-
-                <!-- Token Input -->
+                <!-- Accounts List -->
                 <div style="margin-bottom: 20px;">
-                    <label
-                        style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
-                        JWT Token:
-                    </label>
-                    <textarea id="pancakeTokenInput"
-                        placeholder="Nhập JWT token từ cookie pancake.vn hoặc để trống để tự động lấy từ cookie..."
-                        style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
-                    <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-                        💡 Token sẽ được lưu vào Firebase. Nếu để trống, hệ thống tự động lấy từ cookie pancake.vn (cần
-                        đăng nhập trước).
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                            <i class="fas fa-users"></i> Danh sách tài khoản
+                        </h4>
+                        <button onclick="showAddAccountForm()"
+                            style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                            <i class="fas fa-plus"></i> Thêm tài khoản
+                        </button>
+                    </div>
+                    <div id="pancakeAccountsList" style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
+                        <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                            Đang tải...
+                        </div>
                     </div>
                 </div>
 
-                <!-- Instructions -->
-                <div
-                    style="padding: 12px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; margin-bottom: 20px;">
-                    <div style="font-size: 13px; color: #92400e; font-weight: 500; margin-bottom: 8px;">
-                        📋 Cách lấy JWT token:
+                <!-- Add Account Form (Hidden by default) -->
+                <div id="addAccountForm" style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 14px; color: #374151;">
+                            <i class="fas fa-user-plus"></i> Thêm tài khoản mới
+                        </h4>
+                        <button onclick="hideAddAccountForm()"
+                            style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
-                    <ol style="margin: 0; padding-left: 20px; font-size: 12px; color: #92400e;">
-                        <li>Mở tab mới: <a href="https://pancake.vn" target="_blank"
-                                style="color: #d97706;">https://pancake.vn</a></li>
-                        <li>Đăng nhập vào tài khoản Pancake</li>
-                        <li>Mở DevTools (F12) → Console tab</li>
-                        <li>Gõ: <code
-                                style="background: #fff; padding: 2px 6px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code>
-                        </li>
-                        <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
-                    </ol>
-                </div>
 
-                <!-- Actions -->
-                <div style="display: flex; gap: 8px;">
-                    <button class="tag-btn-save" onclick="fetchTokenFromCookie()" style="flex: 1; background: #10b981;">
-                        <i class="fas fa-sync"></i> Lấy từ Cookie
-                    </button>
-                    <button class="tag-btn-cancel" onclick="clearPancakeToken()" style="flex: 1; background: #ef4444;">
-                        <i class="fas fa-trash"></i> Xóa Token
-                    </button>
+                    <!-- Token Input -->
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                            JWT Token:
+                        </label>
+                        <textarea id="newAccountTokenInput"
+                            placeholder="Nhập JWT token từ cookie pancake.vn..."
+                            style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                        <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
+                            💡 Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
+                        </div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
+                            📋 Cách lấy JWT token:
+                        </div>
+                        <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
+                            <li>Mở tab mới: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
+                            <li>Đăng nhập vào tài khoản Pancake</li>
+                            <li>Mở DevTools (F12) → Console tab</li>
+                            <li>Gõ: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
+                            <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
+                        </ol>
+                    </div>
+
+                    <!-- Actions -->
+                    <div style="display: flex; gap: 8px;">
+                        <button class="tag-btn-save" onclick="addAccountFromCookie()" style="flex: 1; background: #10b981; font-size: 13px;">
+                            <i class="fas fa-sync"></i> Lấy từ Cookie
+                        </button>
+                        <button class="tag-btn-save" onclick="addAccountManual()" style="flex: 1; background: #3b82f6; font-size: 13px;">
+                            <i class="fas fa-save"></i> Thêm Token
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="tag-modal-footer">
                 <button class="tag-btn-cancel" onclick="closePancakeSettingsModal()">
                     Đóng
                 </button>
-                <button class="tag-btn-save" onclick="savePancakeToken()">
-                    <i class="fas fa-save"></i> Lưu
+                <button class="tag-btn-cancel" onclick="clearAllPancakeAccounts()" style="background: #ef4444;">
+                    <i class="fas fa-trash"></i> Xóa tất cả
                 </button>
             </div>
         </div>
@@ -1723,43 +1738,119 @@
         async function openPancakeSettingsModal() {
             document.getElementById('pancakeSettingsModal').style.display = 'flex';
 
-            // Load current token info
+            // Load accounts list
             if (window.pancakeTokenManager) {
                 await window.pancakeTokenManager.initialize();
-                const tokenInfo = window.pancakeTokenManager.getTokenInfo();
-                const infoDiv = document.getElementById('pancakeTokenInfo');
-
-                if (tokenInfo) {
-                    const statusColor = tokenInfo.isExpired ? '#ef4444' : '#10b981';
-                    const statusText = tokenInfo.isExpired ? '❌ Hết hạn' : '✅ Còn hạn';
-                    infoDiv.innerHTML = `
-                            <div style="margin-bottom: 4px;">
-                                <strong>Tên:</strong> ${tokenInfo.name || 'N/A'}
-                            </div>
-                            <div style="margin-bottom: 4px;">
-                                <strong>User ID:</strong> ${tokenInfo.uid || 'N/A'}
-                            </div>
-                            <div style="margin-bottom: 4px;">
-                                <strong>Hết hạn:</strong> ${tokenInfo.expiryDate}
-                            </div>
-                            <div style="color: ${statusColor}; font-weight: 500;">
-                                <strong>Trạng thái:</strong> ${statusText}
-                            </div>
-                        `;
-                } else {
-                    infoDiv.innerHTML = '<div style="color: #6b7280;">⚠️ Chưa có token</div>';
-                }
+                await refreshAccountsList();
             }
         }
 
         // Close Pancake Settings Modal
         function closePancakeSettingsModal() {
             document.getElementById('pancakeSettingsModal').style.display = 'none';
-            document.getElementById('pancakeTokenInput').value = '';
+            hideAddAccountForm();
         }
 
-        // Fetch Token From Cookie
-        async function fetchTokenFromCookie() {
+        // Show Add Account Form
+        function showAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'block';
+            document.getElementById('newAccountTokenInput').value = '';
+            document.getElementById('newAccountTokenInput').focus();
+        }
+
+        // Hide Add Account Form
+        function hideAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'none';
+            document.getElementById('newAccountTokenInput').value = '';
+        }
+
+        // Refresh Accounts List
+        async function refreshAccountsList() {
+            try {
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
+                }
+
+                const accounts = window.pancakeTokenManager.getAllAccounts();
+                const activeAccountId = window.pancakeTokenManager.activeAccountId;
+                const listDiv = document.getElementById('pancakeAccountsList');
+
+                if (!accounts || Object.keys(accounts).length === 0) {
+                    listDiv.innerHTML = `
+                        <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                            <i class="fas fa-users" style="font-size: 32px; margin-bottom: 8px;"></i>
+                            <div>Chưa có tài khoản nào</div>
+                            <div style="font-size: 12px; margin-top: 4px;">Bấm "Thêm tài khoản" để bắt đầu</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                for (const [accountId, account] of Object.entries(accounts)) {
+                    const isActive = accountId === activeAccountId;
+                    const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
+                    const statusColor = isExpired ? '#ef4444' : '#10b981';
+                    const statusText = isExpired ? '❌ Hết hạn' : '✅ Còn hạn';
+                    const activeStyle = isActive ? 'border: 2px solid #3b82f6; background: #eff6ff;' : 'border: 1px solid #e5e7eb; background: white;';
+
+                    html += `
+                        <div style="padding: 12px; ${activeStyle} border-radius: 8px; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 14px; font-weight: 500; color: #1f2937; margin-bottom: 4px;">
+                                        ${isActive ? '<i class="fas fa-check-circle" style="color: #3b82f6;"></i> ' : ''}
+                                        ${account.name || 'Unknown User'}
+                                    </div>
+                                    <div style="font-size: 11px; color: #6b7280; font-family: monospace;">
+                                        UID: ${account.uid || 'N/A'}
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 11px; color: ${statusColor}; font-weight: 500;">
+                                        ${statusText}
+                                    </div>
+                                    <div style="font-size: 10px; color: #9ca3af;">
+                                        ${new Date(account.exp * 1000).toLocaleDateString('vi-VN')}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 6px;">
+                                ${!isActive && !isExpired ? `
+                                    <button onclick="selectAccount('${accountId}')"
+                                        style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                                        <i class="fas fa-check"></i> Chọn
+                                    </button>
+                                ` : ''}
+                                ${isActive ? `
+                                    <span style="padding: 4px 10px; background: #3b82f6; color: white; border-radius: 4px; font-size: 11px;">
+                                        <i class="fas fa-star"></i> Đang dùng
+                                    </span>
+                                ` : ''}
+                                <button onclick="deleteAccount('${accountId}')"
+                                    style="padding: 4px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                                    <i class="fas fa-trash"></i> Xóa
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                listDiv.innerHTML = html;
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error refreshing accounts list:', error);
+                document.getElementById('pancakeAccountsList').innerHTML = `
+                    <div style="text-align: center; color: #ef4444; padding: 20px;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 8px;"></i>
+                        <div>Lỗi: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Add Account From Cookie
+        async function addAccountFromCookie() {
             try {
                 if (!window.pancakeTokenManager) {
                     throw new Error('PancakeTokenManager not available');
@@ -1770,23 +1861,30 @@
                     throw new Error('Không tìm thấy JWT token trong cookie. Vui lòng đăng nhập vào pancake.vn trước.');
                 }
 
-                // Show in input
-                document.getElementById('pancakeTokenInput').value = token;
-
                 // Save to Firebase
-                await window.pancakeTokenManager.saveTokenToFirebase(token);
+                const accountId = await window.pancakeTokenManager.saveTokenToFirebase(token);
 
-                if (window.notificationManager) {
-                    window.notificationManager.show('✅ Đã lấy token từ cookie và lưu vào Firebase!', 'success');
-                } else {
-                    alert('✅ Đã lấy token từ cookie và lưu vào Firebase!');
+                if (!accountId) {
+                    throw new Error('Failed to save token');
                 }
 
-                // Refresh token info
-                await openPancakeSettingsModal();
+                if (window.notificationManager) {
+                    window.notificationManager.show('✅ Đã thêm tài khoản từ cookie!', 'success');
+                } else {
+                    alert('✅ Đã thêm tài khoản từ cookie!');
+                }
+
+                // Refresh list and hide form
+                await refreshAccountsList();
+                hideAddAccountForm();
+
+                // Re-initialize PancakeDataManager
+                if (window.pancakeDataManager) {
+                    await window.pancakeDataManager.initialize();
+                }
 
             } catch (error) {
-                console.error('[PANCAKE-SETTINGS] Error fetching token:', error);
+                console.error('[PANCAKE-SETTINGS] Error adding account from cookie:', error);
                 if (window.notificationManager) {
                     window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
                 } else {
@@ -1795,10 +1893,10 @@
             }
         }
 
-        // Save Pancake Token
-        async function savePancakeToken() {
+        // Add Account Manual
+        async function addAccountManual() {
             try {
-                const tokenInput = document.getElementById('pancakeTokenInput').value.trim();
+                const tokenInput = document.getElementById('newAccountTokenInput').value.trim();
 
                 if (!tokenInput) {
                     throw new Error('Vui lòng nhập JWT token hoặc bấm "Lấy từ Cookie"');
@@ -1808,15 +1906,21 @@
                     throw new Error('PancakeTokenManager not available');
                 }
 
-                await window.pancakeTokenManager.setTokenManual(tokenInput);
+                const accountId = await window.pancakeTokenManager.setTokenManual(tokenInput);
 
-                if (window.notificationManager) {
-                    window.notificationManager.show('✅ Đã lưu token vào Firebase!', 'success');
-                } else {
-                    alert('✅ Đã lưu token vào Firebase!');
+                if (!accountId) {
+                    throw new Error('Failed to save token');
                 }
 
-                closePancakeSettingsModal();
+                if (window.notificationManager) {
+                    window.notificationManager.show('✅ Đã thêm tài khoản!', 'success');
+                } else {
+                    alert('✅ Đã thêm tài khoản!');
+                }
+
+                // Refresh list and hide form
+                await refreshAccountsList();
+                hideAddAccountForm();
 
                 // Re-initialize PancakeDataManager
                 if (window.pancakeDataManager) {
@@ -1824,7 +1928,7 @@
                 }
 
             } catch (error) {
-                console.error('[PANCAKE-SETTINGS] Error saving token:', error);
+                console.error('[PANCAKE-SETTINGS] Error adding account manually:', error);
                 if (window.notificationManager) {
                     window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
                 } else {
@@ -1833,9 +1937,82 @@
             }
         }
 
-        // Clear Pancake Token
-        async function clearPancakeToken() {
-            if (!confirm('Bạn có chắc muốn xóa token?')) {
+        // Select Account
+        async function selectAccount(accountId) {
+            try {
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
+                }
+
+                const success = await window.pancakeTokenManager.setActiveAccount(accountId);
+
+                if (!success) {
+                    throw new Error('Failed to set active account');
+                }
+
+                if (window.notificationManager) {
+                    window.notificationManager.show('✅ Đã chọn tài khoản!', 'success');
+                } else {
+                    alert('✅ Đã chọn tài khoản!');
+                }
+
+                // Refresh list
+                await refreshAccountsList();
+
+                // Re-initialize PancakeDataManager
+                if (window.pancakeDataManager) {
+                    await window.pancakeDataManager.initialize();
+                }
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error selecting account:', error);
+                if (window.notificationManager) {
+                    window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+                } else {
+                    alert('❌ Lỗi: ' + error.message);
+                }
+            }
+        }
+
+        // Delete Account
+        async function deleteAccount(accountId) {
+            if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) {
+                return;
+            }
+
+            try {
+                if (!window.pancakeTokenManager) {
+                    throw new Error('PancakeTokenManager not available');
+                }
+
+                const success = await window.pancakeTokenManager.deleteAccount(accountId);
+
+                if (!success) {
+                    throw new Error('Failed to delete account');
+                }
+
+                if (window.notificationManager) {
+                    window.notificationManager.show('✅ Đã xóa tài khoản!', 'success');
+                } else {
+                    alert('✅ Đã xóa tài khoản!');
+                }
+
+                // Refresh list
+                await refreshAccountsList();
+
+            } catch (error) {
+                console.error('[PANCAKE-SETTINGS] Error deleting account:', error);
+                if (window.notificationManager) {
+                    window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+                } else {
+                    alert('❌ Lỗi: ' + error.message);
+                }
+            }
+        }
+
+        // Clear All Accounts
+        async function clearAllPancakeAccounts() {
+            if (!confirm('Bạn có chắc muốn xóa TẤT CẢ tài khoản?')) {
                 return;
             }
 
@@ -1847,15 +2024,16 @@
                 await window.pancakeTokenManager.clearToken();
 
                 if (window.notificationManager) {
-                    window.notificationManager.show('✅ Đã xóa token!', 'success');
+                    window.notificationManager.show('✅ Đã xóa tất cả tài khoản!', 'success');
                 } else {
-                    alert('✅ Đã xóa token!');
+                    alert('✅ Đã xóa tất cả tài khoản!');
                 }
 
-                closePancakeSettingsModal();
+                // Refresh list
+                await refreshAccountsList();
 
             } catch (error) {
-                console.error('[PANCAKE-SETTINGS] Error clearing token:', error);
+                console.error('[PANCAKE-SETTINGS] Error clearing all accounts:', error);
                 if (window.notificationManager) {
                     window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
                 } else {
