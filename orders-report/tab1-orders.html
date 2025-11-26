@@ -479,7 +479,13 @@
                         <i class="fas fa-times" style="color: white; font-size: 16px;"></i>
                     </button>
                 </div>
-                <div class="chat-modal-body" id="chatModalBody">
+                <div class="chat-modal-body" id="chatModalBody" style="position: relative;">
+                    <!-- Sending Indicator (góc trái) -->
+                    <div id="chatSendingIndicator" style="display: none; position: absolute; top: 12px; left: 12px; z-index: 100; background: rgba(0, 132, 255, 0.95); color: white; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span id="chatSendingText">Đang gửi...</span>
+                        <span id="chatQueueCount" style="display: none; background: rgba(255, 255, 255, 0.2); padding: 2px 6px; border-radius: 4px; font-size: 11px;">+0</span>
+                    </div>
                     <div class="chat-loading">
                         <i class="fas fa-spinner fa-spin"></i>
                         <p>Đang tải tin nhắn...</p>
