@@ -465,6 +465,39 @@ class PancakeDataManager {
     }
 
     /**
+     * Tìm tin nhắn cuối cùng TỪ KHÁCH (không phải từ page)
+     * Dùng để kiểm tra Facebook 24-hour messaging policy
+     * @param {Array} messages - Array of messages from fetchMessagesForConversation
+     * @param {string} pageId - Facebook Page ID
+     * @returns {Object|null} Last message from customer, or null
+     */
+    findLastCustomerMessage(messages, pageId) {
+        if (!messages || messages.length === 0) {
+            return null;
+        }
+
+        // Messages are usually sorted newest first, so iterate from start
+        // Find the first message that is NOT from the page (is from customer)
+        for (const msg of messages) {
+            // Check if message is from customer (not from page)
+            const isFromPage = msg.from?.id === pageId;
+            if (!isFromPage) {
+                console.log(`[DEBUG-24H] Found last customer message:`, {
+                    id: msg.id,
+                    from: msg.from,
+                    created_time: msg.created_time,
+                    inserted_at: msg.inserted_at,
+                    message: msg.message?.substring(0, 50)
+                });
+                return msg;
+            }
+        }
+
+        console.warn(`[DEBUG-24H] No customer messages found in conversation - all messages are from page!`);
+        return null;
+    }
+
+    /**
      * Lấy tin nhắn cuối cùng cho order từ Pancake conversation
      * CHỈ LẤY INBOX conversations (type === "INBOX")
      * @param {Object} order - Order object
@@ -541,13 +574,23 @@ class PancakeDataManager {
         console.log(`[DEBUG-DATA] getLastMessageForOrder: Found conversation ${conversation.id} for user ${userIdStr}`);
         console.log(`[DEBUG-DATA] Snippet: "${lastMessage}", Unread: ${conversation.unread_count}`);
 
+        // DEBUG: Log full conversation structure to understand available fields
+        console.log(`[DEBUG-CONVERSATION] Full conversation object:`, conversation);
+
         // DEBUG: Log timestamp information for 24-hour policy diagnosis
         console.log(`[DEBUG-TIMESTAMP] Conversation updated_at: ${conversation.updated_at}`);
         console.log(`[DEBUG-TIMESTAMP] Conversation inserted_at: ${conversation.inserted_at}`);
+        console.log(`[DEBUG-TIMESTAMP] Last message exists: ${!!conversation.last_message}`);
+
         if (conversation.last_message) {
+            console.log(`[DEBUG-TIMESTAMP] Last message object:`, conversation.last_message);
             console.log(`[DEBUG-TIMESTAMP] Last message created_time: ${conversation.last_message.created_time}`);
             console.log(`[DEBUG-TIMESTAMP] Last message inserted_at: ${conversation.last_message.inserted_at}`);
             console.log(`[DEBUG-TIMESTAMP] Last message from.id: ${conversation.last_message.from?.id}`);
+            console.log(`[DEBUG-TIMESTAMP] Last message from.name: ${conversation.last_message.from?.name}`);
+        } else {
+            console.warn(`[DEBUG-TIMESTAMP] ⚠️ conversation.last_message is NULL/UNDEFINED - Cannot determine who sent last message!`);
+            console.warn(`[DEBUG-TIMESTAMP] ⚠️ This is why 24-hour check might be failing!`);
         }
 
         // Calculate time since last message for 24-hour policy check
@@ -681,6 +724,87 @@ class PancakeDataManager {
             conversationId: conversation.id,
             pageId: conversation.page_id
         };
+    }
+
+    /**
+     * Kiểm tra 24-hour messaging window cho một conversation
+     * Fetch messages và tìm tin nhắn cuối từ KHÁCH (không phải từ page)
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} conversationId - Conversation ID
+     * @returns {Promise<Object>} { canSend: boolean, hoursSinceLastMessage: number, lastCustomerMessage: Object|null }
+     */
+    async check24HourWindow(pageId, conversationId) {
+        try {
+            console.log(`[DEBUG-24H] Checking 24-hour window for pageId=${pageId}, conversationId=${conversationId}`);
+
+            // Fetch messages for this conversation
+            const { messages } = await this.fetchMessagesForConversation(pageId, conversationId);
+
+            if (!messages || messages.length === 0) {
+                console.warn(`[DEBUG-24H] No messages found in conversation`);
+                return {
+                    canSend: false,
+                    hoursSinceLastMessage: null,
+                    lastCustomerMessage: null,
+                    reason: 'No messages in conversation'
+                };
+            }
+
+            // Find last message FROM customer (not from page)
+            const lastCustomerMsg = this.findLastCustomerMessage(messages, pageId);
+
+            if (!lastCustomerMsg) {
+                console.warn(`[DEBUG-24H] No customer messages found - all messages are from page`);
+                return {
+                    canSend: false,
+                    hoursSinceLastMessage: null,
+                    lastCustomerMessage: null,
+                    reason: 'No customer messages found - 24-hour window has expired'
+                };
+            }
+
+            // Calculate time since last customer message
+            const lastMsgTime = lastCustomerMsg.created_time || lastCustomerMsg.inserted_at;
+            if (!lastMsgTime) {
+                console.warn(`[DEBUG-24H] Last customer message has no timestamp`);
+                return {
+                    canSend: false,
+                    hoursSinceLastMessage: null,
+                    lastCustomerMessage: lastCustomerMsg,
+                    reason: 'Cannot determine message timestamp'
+                };
+            }
+
+            const lastMsgDate = new Date(lastMsgTime);
+            const now = new Date();
+            const hoursSinceLastMessage = (now - lastMsgDate) / (1000 * 60 * 60);
+            const canSend = hoursSinceLastMessage < 24;
+
+            console.log(`[DEBUG-24H] ✅ Analysis complete:`, {
+                lastMessageTime: lastMsgDate.toISOString(),
+                currentTime: now.toISOString(),
+                hoursSinceLastMessage: hoursSinceLastMessage.toFixed(2),
+                canSend,
+                customerName: lastCustomerMsg.from?.name
+            });
+
+            return {
+                canSend,
+                hoursSinceLastMessage: parseFloat(hoursSinceLastMessage.toFixed(2)),
+                lastCustomerMessage: lastCustomerMsg,
+                lastMessageTime: lastMsgDate.toISOString(),
+                reason: canSend ? 'Within 24-hour window' : `24-hour window expired (${hoursSinceLastMessage.toFixed(1)} hours ago)`
+            };
+
+        } catch (error) {
+            console.error(`[DEBUG-24H] Error checking 24-hour window:`, error);
+            return {
+                canSend: false,
+                hoursSinceLastMessage: null,
+                lastCustomerMessage: null,
+                reason: `Error: ${error.message}`
+            };
+        }
     }
 
     /**
