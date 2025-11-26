@@ -4605,9 +4605,13 @@ window.sendReplyComment = async function () {
             console.log('[SEND-REPLY] Checking 24-hour messaging window...');
             sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kiểm tra...';
 
+            // Get customer_id from order (required by backend API)
+            const customerId = currentOrder.PartnerId || (currentOrder.Partner && currentOrder.Partner.Id);
+
             const windowCheck = await window.pancakeDataManager.check24HourWindow(
                 currentChatChannelId,
-                currentConversationId
+                currentConversationId,
+                customerId  // FIX: Pass customer_id to prevent "Thiếu mã khách hàng" error
             );
 
             console.log('[SEND-REPLY] 24-hour check result:', windowCheck);
