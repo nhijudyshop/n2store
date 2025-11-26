@@ -70,19 +70,37 @@ class PancakeTokenManager {
      * @returns {string} - Decoded string
      */
     base64UrlDecode(str) {
-        // Replace URL-safe characters
-        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-
-        // Add padding if needed
-        const pad = base64.length % 4;
-        if (pad) {
-            if (pad === 1) {
-                throw new Error('Invalid base64 string');
+        try {
+            if (!str || typeof str !== 'string') {
+                throw new Error('Input must be a non-empty string');
             }
-            base64 += new Array(5 - pad).join('=');
-        }
 
-        return atob(base64);
+            // Replace URL-safe characters with standard base64 characters
+            let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+
+            // Add padding if needed
+            const pad = base64.length % 4;
+            if (pad) {
+                if (pad === 1) {
+                    throw new Error('Invalid base64url string length');
+                }
+                base64 += '='.repeat(4 - pad);
+            }
+
+            // Validate base64 characters (should only contain A-Z, a-z, 0-9, +, /, =)
+            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+            if (!base64Regex.test(base64)) {
+                throw new Error('Invalid characters in base64 string');
+            }
+
+            // Try to decode
+            const decoded = atob(base64);
+            return decoded;
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Base64 decode error:', error.message);
+            console.error('[PANCAKE-TOKEN] Input string:', str?.substring(0, 50) + '...');
+            throw error;
+        }
     }
 
     /**
@@ -100,20 +118,47 @@ class PancakeTokenManager {
             const parts = token.split('.');
             if (parts.length !== 3) {
                 console.error('[PANCAKE-TOKEN] Token must have 3 parts, got:', parts.length);
+                console.error('[PANCAKE-TOKEN] Parts:', parts);
                 return null;
             }
 
+            // Log each part for debugging
+            console.log('[PANCAKE-TOKEN] Header length:', parts[0]?.length);
+            console.log('[PANCAKE-TOKEN] Payload length:', parts[1]?.length);
+            console.log('[PANCAKE-TOKEN] Signature length:', parts[2]?.length);
+
             // Decode payload (second part)
             const payloadBase64 = parts[1];
+
+            if (!payloadBase64 || payloadBase64.length === 0) {
+                console.error('[PANCAKE-TOKEN] Payload part is empty');
+                return null;
+            }
+
+            console.log('[PANCAKE-TOKEN] Attempting to decode payload...');
             const payloadJson = this.base64UrlDecode(payloadBase64);
+
+            console.log('[PANCAKE-TOKEN] Payload decoded, parsing JSON...');
             const payload = JSON.parse(payloadJson);
 
             console.log('[PANCAKE-TOKEN] Token decoded successfully');
+            console.log('[PANCAKE-TOKEN] Payload contains:', Object.keys(payload).join(', '));
             return payload;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error decoding token:', error.message);
+            console.error('[PANCAKE-TOKEN] Error type:', error.name);
             console.error('[PANCAKE-TOKEN] Token length:', token?.length);
-            console.error('[PANCAKE-TOKEN] Token preview:', token?.substring(0, 50) + '...');
+            console.error('[PANCAKE-TOKEN] Token starts with:', token?.substring(0, 20));
+            console.error('[PANCAKE-TOKEN] Token ends with:', token?.substring(token.length - 20));
+
+            // Check for common issues
+            if (token.includes(' ')) {
+                console.error('[PANCAKE-TOKEN] ⚠️ Token contains spaces - this should not happen after cleaning');
+            }
+            if (token.includes('\n') || token.includes('\r')) {
+                console.error('[PANCAKE-TOKEN] ⚠️ Token contains newlines - this should not happen after cleaning');
+            }
+
             return null;
         }
     }
@@ -445,7 +490,10 @@ class PancakeTokenManager {
             // Decode and validate
             const payload = this.decodeToken(cleanedToken);
             if (!payload) {
-                throw new Error('Không thể giải mã token. Token có thể bị hỏng hoặc không hợp lệ. Vui lòng lấy token mới từ Pancake.');
+                // Check console for detailed error messages
+                console.error('[PANCAKE-TOKEN] 🔍 Kiểm tra console để xem chi tiết lỗi');
+                console.error('[PANCAKE-TOKEN] 📋 Token đã làm sạch:', cleanedToken.substring(0, 100) + '...');
+                throw new Error('Không thể giải mã token. Vui lòng:\n1. Kiểm tra lại token đã copy đúng chưa\n2. Đăng nhập lại Pancake và lấy token mới\n3. Xem console (F12) để biết lỗi chi tiết');
             }
 
             console.log('[PANCAKE-TOKEN] Token decoded, checking expiry...');
@@ -534,6 +582,74 @@ class PancakeTokenManager {
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error clearing token:', error);
             return false;
+        }
+    }
+
+    /**
+     * Debug function to analyze token format
+     * @param {string} token - JWT token to analyze
+     * @returns {Object} - Analysis results
+     */
+    debugToken(token) {
+        const result = {
+            valid: false,
+            issues: [],
+            info: {}
+        };
+
+        try {
+            result.info.originalLength = token.length;
+            result.info.hasSpaces = token.includes(' ');
+            result.info.hasNewlines = token.includes('\n') || token.includes('\r');
+            result.info.hasPrefix = token.toLowerCase().startsWith('jwt=');
+
+            // Clean token
+            let cleaned = token.trim();
+            if (cleaned.toLowerCase().startsWith('jwt=')) {
+                cleaned = cleaned.substring(4).trim();
+            }
+            cleaned = cleaned.replace(/^["']|["']$/g, '');
+            cleaned = cleaned.replace(/\s+/g, '');
+            cleaned = cleaned.replace(/[;,]+$/g, '');
+
+            result.info.cleanedLength = cleaned.length;
+
+            // Check parts
+            const parts = cleaned.split('.');
+            result.info.parts = parts.length;
+            result.info.partLengths = parts.map(p => p.length);
+
+            if (parts.length !== 3) {
+                result.issues.push(`Token có ${parts.length} phần, cần 3 phần`);
+                return result;
+            }
+
+            if (!parts[0] || !parts[1] || !parts[2]) {
+                result.issues.push('Token có phần trống');
+                return result;
+            }
+
+            // Try to decode
+            try {
+                const payload = this.decodeToken(cleaned);
+                if (payload) {
+                    result.valid = true;
+                    result.info.name = payload.name;
+                    result.info.uid = payload.uid;
+                    result.info.exp = payload.exp;
+                    result.info.expiryDate = new Date(payload.exp * 1000).toLocaleString('vi-VN');
+                    result.info.isExpired = this.isTokenExpired(payload.exp);
+                } else {
+                    result.issues.push('Không thể giải mã payload');
+                }
+            } catch (decodeError) {
+                result.issues.push('Lỗi giải mã: ' + decodeError.message);
+            }
+
+            return result;
+        } catch (error) {
+            result.issues.push('Lỗi phân tích: ' + error.message);
+            return result;
         }
     }
 }

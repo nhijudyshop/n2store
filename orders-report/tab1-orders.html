@@ -1718,6 +1718,9 @@
                         <button class="tag-btn-save" onclick="addAccountFromCookie()" style="flex: 1; background: #10b981; font-size: 13px;">
                             <i class="fas fa-sync"></i> Lấy từ Cookie
                         </button>
+                        <button onclick="debugTokenInput()" style="flex: 1; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                            <i class="fas fa-bug"></i> Debug
+                        </button>
                         <button class="tag-btn-save" onclick="addAccountManual()" style="flex: 1; background: #3b82f6; font-size: 13px;">
                             <i class="fas fa-save"></i> Thêm Token
                         </button>
@@ -1827,6 +1830,74 @@
                 messageDiv.innerHTML = '<span style="color: #ef4444;">❌ Lỗi: ' + error.message + '</span>';
                 messageDiv.style.display = 'block';
             }
+        }
+
+        // Debug Token Input
+        function debugTokenInput() {
+            const input = document.getElementById('newAccountTokenInput').value;
+
+            if (!input || input.trim() === '') {
+                alert('Vui lòng nhập token vào ô trên trước khi debug');
+                return;
+            }
+
+            if (!window.pancakeTokenManager) {
+                alert('PancakeTokenManager not available');
+                return;
+            }
+
+            console.log('='.repeat(80));
+            console.log('🔍 DEBUG TOKEN ANALYSIS');
+            console.log('='.repeat(80));
+
+            const result = window.pancakeTokenManager.debugToken(input);
+
+            console.log('📊 THÔNG TIN CƠ BẢN:');
+            console.log('  - Độ dài gốc:', result.info.originalLength);
+            console.log('  - Có khoảng trắng:', result.info.hasSpaces ? 'Có ⚠️' : 'Không');
+            console.log('  - Có newline:', result.info.hasNewlines ? 'Có ⚠️' : 'Không');
+            console.log('  - Có prefix jwt=:', result.info.hasPrefix ? 'Có' : 'Không');
+            console.log('  - Độ dài sau làm sạch:', result.info.cleanedLength);
+            console.log('  - Số phần:', result.info.parts);
+            if (result.info.partLengths) {
+                console.log('  - Độ dài từng phần:', result.info.partLengths.join(', '));
+            }
+
+            if (result.valid) {
+                console.log('\n✅ TOKEN HỢP LỆ:');
+                console.log('  - Tên:', result.info.name);
+                console.log('  - UID:', result.info.uid);
+                console.log('  - Hết hạn:', result.info.expiryDate);
+                console.log('  - Đã hết hạn:', result.info.isExpired ? 'Có ❌' : 'Không ✅');
+            } else {
+                console.log('\n❌ TOKEN KHÔNG HỢP LỆ:');
+                result.issues.forEach((issue, index) => {
+                    console.log(`  ${index + 1}. ${issue}`);
+                });
+            }
+
+            console.log('='.repeat(80));
+
+            // Show alert with summary
+            let message = '🔍 KẾT QUẢ DEBUG:\n\n';
+            message += `Độ dài token: ${result.info.originalLength} → ${result.info.cleanedLength} (sau làm sạch)\n`;
+            message += `Số phần: ${result.info.parts}\n\n`;
+
+            if (result.valid) {
+                message += `✅ Token hợp lệ!\n\n`;
+                message += `Tên: ${result.info.name}\n`;
+                message += `Hết hạn: ${result.info.expiryDate}\n`;
+                message += `Trạng thái: ${result.info.isExpired ? 'Đã hết hạn ❌' : 'Còn hạn ✅'}`;
+            } else {
+                message += '❌ Token không hợp lệ!\n\n';
+                message += 'Vấn đề:\n';
+                result.issues.forEach((issue, index) => {
+                    message += `${index + 1}. ${issue}\n`;
+                });
+                message += '\n📋 Chi tiết đã được in ra console (F12)';
+            }
+
+            alert(message);
         }
 
         // Refresh Accounts List
