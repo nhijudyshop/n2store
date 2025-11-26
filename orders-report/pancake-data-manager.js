@@ -541,6 +541,30 @@ class PancakeDataManager {
         console.log(`[DEBUG-DATA] getLastMessageForOrder: Found conversation ${conversation.id} for user ${userIdStr}`);
         console.log(`[DEBUG-DATA] Snippet: "${lastMessage}", Unread: ${conversation.unread_count}`);
 
+        // DEBUG: Log timestamp information for 24-hour policy diagnosis
+        console.log(`[DEBUG-TIMESTAMP] Conversation updated_at: ${conversation.updated_at}`);
+        console.log(`[DEBUG-TIMESTAMP] Conversation inserted_at: ${conversation.inserted_at}`);
+        if (conversation.last_message) {
+            console.log(`[DEBUG-TIMESTAMP] Last message created_time: ${conversation.last_message.created_time}`);
+            console.log(`[DEBUG-TIMESTAMP] Last message inserted_at: ${conversation.last_message.inserted_at}`);
+            console.log(`[DEBUG-TIMESTAMP] Last message from.id: ${conversation.last_message.from?.id}`);
+        }
+
+        // Calculate time since last message for 24-hour policy check
+        const lastMessageTime = conversation.last_message?.created_time ||
+                               conversation.last_message?.inserted_at ||
+                               conversation.updated_at;
+
+        if (lastMessageTime) {
+            const lastMsgDate = new Date(lastMessageTime);
+            const now = new Date();
+            const hoursSinceLastMessage = (now - lastMsgDate) / (1000 * 60 * 60);
+            console.log(`[DEBUG-TIMESTAMP] Hours since last message: ${hoursSinceLastMessage.toFixed(2)}`);
+            console.log(`[DEBUG-TIMESTAMP] Can send (within 24h): ${hoursSinceLastMessage < 24}`);
+            console.log(`[DEBUG-TIMESTAMP] Current time: ${now.toISOString()}`);
+            console.log(`[DEBUG-TIMESTAMP] Last message time: ${lastMsgDate.toISOString()}`);
+        }
+
         // Determine message type based on attachments
         let messageType = 'text';
         let attachments = null;
@@ -564,7 +588,10 @@ class PancakeDataManager {
             attachments,
             type: 'message',  // Return 'message' for consistency with UI
             conversationId: conversation.id,
-            pageId: conversation.page_id
+            pageId: conversation.page_id,
+            lastMessageTime: lastMessageTime,  // Add timestamp for 24-hour policy check
+            updatedAt: conversation.updated_at,
+            canSendMessage: lastMessageTime ? ((new Date() - new Date(lastMessageTime)) / (1000 * 60 * 60) < 24) : false
         };
     }
 
