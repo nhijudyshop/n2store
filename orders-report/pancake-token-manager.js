@@ -45,18 +45,22 @@ class PancakeTokenManager {
             const snapshot = await this.accountsRef.once('value');
             this.accounts = snapshot.val() || {};
 
-            // Load active account ID
-            const activeSnapshot = await this.firebaseRef.child('activeAccountId').once('value');
-            this.activeAccountId = activeSnapshot.val();
+            // Load active account ID from localStorage (per-device)
+            this.activeAccountId = localStorage.getItem('pancake_active_account_id');
 
             // If active account is set, load its token
             if (this.activeAccountId && this.accounts[this.activeAccountId]) {
                 const account = this.accounts[this.activeAccountId];
                 this.currentToken = account.token;
                 this.currentTokenExpiry = account.exp;
+            } else if (Object.keys(this.accounts).length > 0) {
+                // Auto-select first account if no active account set
+                const firstAccountId = Object.keys(this.accounts)[0];
+                await this.setActiveAccount(firstAccountId);
             }
 
             console.log('[PANCAKE-TOKEN] Loaded accounts:', Object.keys(this.accounts).length);
+            console.log('[PANCAKE-TOKEN] Active account (local):', this.activeAccountId);
             return true;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error loading accounts:', error);
@@ -197,12 +201,9 @@ class PancakeTokenManager {
                 return null;
             }
 
-            // Reload active account
-            const activeSnapshot = await this.firebaseRef.child('activeAccountId').once('value');
-            this.activeAccountId = activeSnapshot.val();
-
+            // Use local activeAccountId (from localStorage)
             if (!this.activeAccountId) {
-                console.log('[PANCAKE-TOKEN] No active account set');
+                console.log('[PANCAKE-TOKEN] No active account set (local)');
                 return null;
             }
 
@@ -280,8 +281,8 @@ class PancakeTokenManager {
             // Save account
             await this.accountsRef.child(accountId).set(data);
 
-            // Set as active account
-            await this.firebaseRef.child('activeAccountId').set(accountId);
+            // Set as active account (localStorage - per device)
+            localStorage.setItem('pancake_active_account_id', accountId);
 
             // Update local state
             this.accounts[accountId] = data;
@@ -290,6 +291,7 @@ class PancakeTokenManager {
             this.currentTokenExpiry = payload.exp;
 
             console.log('[PANCAKE-TOKEN] ✅ Token saved to Firebase as account:', accountId);
+            console.log('[PANCAKE-TOKEN] ✅ Active account set locally (this device only):', accountId);
             console.log('[PANCAKE-TOKEN] Token expires at:', new Date(payload.exp * 1000).toLocaleString());
 
             return accountId;
@@ -327,12 +329,14 @@ class PancakeTokenManager {
                 return false;
             }
 
-            await this.firebaseRef.child('activeAccountId').set(accountId);
+            // Save to localStorage (per device)
+            localStorage.setItem('pancake_active_account_id', accountId);
+
             this.activeAccountId = accountId;
             this.currentToken = account.token;
             this.currentTokenExpiry = account.exp;
 
-            console.log('[PANCAKE-TOKEN] ✅ Active account set to:', accountId);
+            console.log('[PANCAKE-TOKEN] ✅ Active account set locally (this device only):', accountId);
             return true;
 
         } catch (error) {
@@ -356,9 +360,9 @@ class PancakeTokenManager {
             await this.accountsRef.child(accountId).remove();
             delete this.accounts[accountId];
 
-            // If deleted account was active, clear active account
+            // If deleted account was active, clear local active account
             if (this.activeAccountId === accountId) {
-                await this.firebaseRef.child('activeAccountId').remove();
+                localStorage.removeItem('pancake_active_account_id');
                 this.activeAccountId = null;
                 this.currentToken = null;
                 this.currentTokenExpiry = null;
@@ -585,6 +589,9 @@ class PancakeTokenManager {
                 await this.firebaseRef.remove();
                 console.log('[PANCAKE-TOKEN] All tokens cleared from Firebase');
             }
+            // Clear local active account
+            localStorage.removeItem('pancake_active_account_id');
+
             this.accounts = {};
             this.activeAccountId = null;
             this.currentToken = null;
