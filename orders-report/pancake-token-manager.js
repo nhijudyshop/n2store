@@ -65,20 +65,55 @@ class PancakeTokenManager {
     }
 
     /**
+     * Decode base64url (JWT uses base64url encoding)
+     * @param {string} str - Base64url encoded string
+     * @returns {string} - Decoded string
+     */
+    base64UrlDecode(str) {
+        // Replace URL-safe characters
+        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+
+        // Add padding if needed
+        const pad = base64.length % 4;
+        if (pad) {
+            if (pad === 1) {
+                throw new Error('Invalid base64 string');
+            }
+            base64 += new Array(5 - pad).join('=');
+        }
+
+        return atob(base64);
+    }
+
+    /**
      * Decode JWT token để lấy expiry time
      * @param {string} token - JWT token
      * @returns {Object} { exp, uid, name, ... }
      */
     decodeToken(token) {
         try {
+            if (!token || typeof token !== 'string') {
+                console.error('[PANCAKE-TOKEN] Token must be a string');
+                return null;
+            }
+
             const parts = token.split('.');
             if (parts.length !== 3) {
-                throw new Error('Invalid JWT format');
+                console.error('[PANCAKE-TOKEN] Token must have 3 parts, got:', parts.length);
+                return null;
             }
-            const payload = JSON.parse(atob(parts[1]));
+
+            // Decode payload (second part)
+            const payloadBase64 = parts[1];
+            const payloadJson = this.base64UrlDecode(payloadBase64);
+            const payload = JSON.parse(payloadJson);
+
+            console.log('[PANCAKE-TOKEN] Token decoded successfully');
             return payload;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error decoding token:', error);
+            console.error('[PANCAKE-TOKEN] Error decoding token:', error.message);
+            console.error('[PANCAKE-TOKEN] Token length:', token?.length);
+            console.error('[PANCAKE-TOKEN] Token preview:', token?.substring(0, 50) + '...');
             return null;
         }
     }
@@ -364,37 +399,68 @@ class PancakeTokenManager {
      */
     async setTokenManual(token) {
         try {
+            if (!token) {
+                throw new Error('Token không được để trống');
+            }
+
+            console.log('[PANCAKE-TOKEN] Cleaning token input...');
+
             // Clean token - trim whitespace and newlines
             let cleanedToken = token.trim();
 
-            // Remove jwt= prefix if exists
-            if (cleanedToken.startsWith('jwt=')) {
+            // Remove jwt= prefix if exists (case insensitive)
+            if (cleanedToken.toLowerCase().startsWith('jwt=')) {
                 cleanedToken = cleanedToken.substring(4).trim();
             }
+
+            // Remove quotes if present
+            cleanedToken = cleanedToken.replace(/^["']|["']$/g, '');
 
             // Remove any whitespace, tabs, newlines within the token
             cleanedToken = cleanedToken.replace(/\s+/g, '');
 
+            // Remove trailing semicolons or commas
+            cleanedToken = cleanedToken.replace(/[;,]+$/g, '');
+
+            console.log('[PANCAKE-TOKEN] Cleaned token length:', cleanedToken.length);
+
+            // Validate not empty after cleaning
+            if (!cleanedToken) {
+                throw new Error('Token trống sau khi làm sạch. Vui lòng kiểm tra lại token.');
+            }
+
             // Validate token format (should have 3 parts separated by dots)
             const parts = cleanedToken.split('.');
             if (parts.length !== 3) {
-                throw new Error('Invalid JWT token format (must have 3 parts separated by dots)');
+                throw new Error(`Token không đúng định dạng JWT (có ${parts.length} phần, cần 3 phần cách nhau bởi dấu chấm)`);
             }
+
+            // Check each part is not empty
+            if (!parts[0] || !parts[1] || !parts[2]) {
+                throw new Error('Token có phần trống, vui lòng kiểm tra lại');
+            }
+
+            console.log('[PANCAKE-TOKEN] Token format valid, decoding...');
 
             // Decode and validate
             const payload = this.decodeToken(cleanedToken);
             if (!payload) {
-                throw new Error('Invalid JWT token format (cannot decode payload)');
+                throw new Error('Không thể giải mã token. Token có thể bị hỏng hoặc không hợp lệ. Vui lòng lấy token mới từ Pancake.');
             }
 
+            console.log('[PANCAKE-TOKEN] Token decoded, checking expiry...');
+
             if (this.isTokenExpired(payload.exp)) {
-                throw new Error('Token is expired');
+                const expiryDate = new Date(payload.exp * 1000).toLocaleString('vi-VN');
+                throw new Error(`Token đã hết hạn vào ${expiryDate}. Vui lòng đăng nhập lại Pancake để lấy token mới.`);
             }
+
+            console.log('[PANCAKE-TOKEN] Token valid, saving to Firebase...');
 
             // Save to Firebase
             const accountId = await this.saveTokenToFirebase(cleanedToken);
             if (!accountId) {
-                throw new Error('Failed to save token to Firebase');
+                throw new Error('Không thể lưu token vào Firebase. Vui lòng thử lại.');
             }
 
             console.log('[PANCAKE-TOKEN] ✅ Manual token set successfully');
