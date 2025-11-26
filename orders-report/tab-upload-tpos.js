@@ -43,17 +43,7 @@
     const ENCODE_KEY = 'live';
     const BASE_TIME = 1704067200000; // 2024-01-01 00:00:00 UTC
 
-    /**
-     * Base64URL encode - compact format without padding
-     * @param {string} str - String to encode
-     * @returns {string} Base64URL encoded string
-     */
-    function base64UrlEncode(str) {
-        return btoa(String.fromCharCode(...new TextEncoder().encode(str)))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
-    }
+    // base64UrlEncode function removed - no longer encoding products when uploading
 
     /**
      * Base64URL decode
@@ -83,38 +73,7 @@
         return Math.abs(hash).toString(36).substring(0, 6);
     }
 
-    /**
-     * Encode product info with XOR cipher using key "live"
-     * NEW FORMAT: Includes orderId, compact data, checksum, Base64URL
-     * @param {number} orderId - Order ID
-     * @param {string} productCode - Product code
-     * @param {number} quantity - Quantity
-     * @param {number} price - Price
-     * @param {number} timestamp - Optional timestamp (defaults to current time)
-     * @returns {string} Base64URL encoded string
-     */
-    function encodeProductLine(orderId, productCode, quantity, price, timestamp = null) {
-        // Generate timestamp if not provided
-        const ts = timestamp || Date.now();
-
-        // Use relative timestamp (seconds since BASE_TIME) for compactness
-        const relativeTime = Math.floor((ts - BASE_TIME) / 1000);
-
-        // Compact format: use comma separator (shorter than pipe)
-        const data = `${orderId},${productCode},${quantity},${price},${relativeTime}`;
-
-        // Generate checksum (6 chars)
-        const checksum = shortChecksum(data);
-
-        // Full data with checksum
-        const fullData = `${data},${checksum}`;
-
-        // XOR encrypt
-        const encrypted = xorEncrypt(fullData, ENCODE_KEY);
-
-        // Base64URL encode (no padding, URL-safe)
-        return base64UrlEncode(encrypted);
-    }
+    // encodeProductLine function removed - no longer encoding products when uploading
 
     /**
      * Decode product line - supports both old and new formats
@@ -201,24 +160,7 @@
         }
     }
 
-    /**
-     * XOR encryption with key
-     * @param {string} text - Text to encrypt
-     * @param {string} key - Encryption key
-     * @returns {string} Base64 encoded encrypted text
-     */
-    function xorEncrypt(text, key) {
-        const textBytes = new TextEncoder().encode(text);
-        const keyBytes = new TextEncoder().encode(key);
-        const encrypted = new Uint8Array(textBytes.length);
-
-        for (let i = 0; i < textBytes.length; i++) {
-            encrypted[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
-        }
-
-        // Convert to base64
-        return btoa(String.fromCharCode(...encrypted));
-    }
+    // xorEncrypt function removed - no longer encoding products when uploading
 
     /**
      * XOR decryption with key
@@ -239,27 +181,7 @@
         return new TextDecoder().decode(decrypted);
     }
 
-    /**
-     * Append encoded products to order Note
-     * @param {number} orderId - Order ID
-     * @param {string} currentNote - Current order note (can be null/empty)
-     * @param {array} products - Array of { productCode, quantity, price }
-     * @returns {string} Updated note with encoded products
-     */
-    function appendEncodedProducts(orderId, currentNote, products) {
-        const encodedLines = products.map(p =>
-            encodeProductLine(orderId, p.productCode, p.quantity, p.price)
-        );
-
-        const encodedBlock = encodedLines.join('\n');
-
-        // Append to existing note
-        if (currentNote && currentNote.trim() !== '') {
-            return `${currentNote}\n${encodedBlock}`;
-        } else {
-            return encodedBlock;
-        }
-    }
+    // appendEncodedProducts function removed - no longer encoding products when uploading
 
     /**
      * Extract encoded products from order Note
@@ -1667,19 +1589,12 @@ ${encodedString}
                     })) : [];
                     console.log(`[UPLOAD] 📦 Extracted ${existingProducts.length} existing products for STT ${stt}`);
 
-                    // Prepare merged Details and get products to encode
-                    const { details: mergedDetails, productsToEncode } = await prepareUploadDetails(orderData, sessionData);
+                    // Prepare merged Details (no encoding)
+                    const { details: mergedDetails } = await prepareUploadDetails(orderData, sessionData);
                     orderData.Details = mergedDetails;
 
-                    // ============================================
-                    // ENCODE PRODUCTS and APPEND to Order Note
-                    // ============================================
-                    if (productsToEncode.length > 0) {
-                        console.log(`[UPLOAD] 🔐 Encoding ${productsToEncode.length} products to Note...`);
-                        const currentNote = orderData.Note || '';
-                        orderData.Note = appendEncodedProducts(orderId, currentNote, productsToEncode);
-                        console.log(`[UPLOAD] ✅ Updated order Note with encoded products`);
-                    }
+                    // Note: Product encoding feature has been removed
+                    // Note will remain as-is when uploading
 
                     // Recalculate totals
                     let totalQty = 0;
@@ -3986,70 +3901,9 @@ ${encodedString}
     // =====================================================
     // DEBUG/TEST FUNCTIONS (Exposed to window for testing)
     // =====================================================
-    window.testProductEncoding = function () {
-        console.log('=== Testing Product Encoding (NEW FORMAT) ===\n');
 
-        const testOrderId = 12345; // Test order ID
-
-        // Test 1: Single product
-        const products = [
-            { productCode: 'SP001', quantity: 5, price: 100000 },
-            { productCode: 'SP002', quantity: 3, price: 150000 },
-            { productCode: 'ABC-123', quantity: 10, price: 50000 }
-        ];
-
-        console.log('Test Order ID:', testOrderId);
-        console.log('Original products:', products);
-
-        // Encode
-        console.log('\n=== Testing Encoding ===\n');
-        const encodedLines = products.map(p => {
-            const encoded = encodeProductLine(testOrderId, p.productCode, p.quantity, p.price);
-            console.log(`  Order ${testOrderId}: ${p.productCode}|${p.quantity}|${p.price} → ${encoded} (${encoded.length} chars)`);
-            return encoded;
-        });
-
-        console.log('\n=== Testing Decoding (with correct orderId) ===\n');
-
-        // Decode with correct orderId
-        encodedLines.forEach((encoded, i) => {
-            const decoded = decodeProductLine(encoded, testOrderId);
-            console.log(`  ${encoded} → `, decoded);
-            const original = products[i];
-            const match = decoded &&
-                decoded.orderId === testOrderId &&
-                decoded.productCode === original.productCode &&
-                decoded.quantity === original.quantity &&
-                decoded.price === original.price;
-            console.log(`  Match: ${match ? '✅' : '❌'}`);
-        });
-
-        console.log('\n=== Testing Decoding (with WRONG orderId - should fail) ===\n');
-
-        // Decode with wrong orderId (should return null)
-        const wrongOrderId = 99999;
-        encodedLines.forEach((encoded, i) => {
-            const decoded = decodeProductLine(encoded, wrongOrderId);
-            console.log(`  ${encoded} with orderId=${wrongOrderId} → `, decoded);
-            console.log(`  Expected to fail: ${decoded === null ? '✅' : '❌'}`);
-        });
-
-        console.log('\n=== Testing Note Append ===\n');
-
-        const currentNote = 'Khách VIP - Giao gấp trước 5h';
-        const updatedNote = appendEncodedProducts(testOrderId, currentNote, products);
-        console.log('Original Note:', currentNote);
-        console.log('Updated Note:', updatedNote);
-        console.log('Note length:', updatedNote.length, 'chars');
-
-        console.log('\n=== Testing Extract ===\n');
-
-        const extracted = extractEncodedProducts(updatedNote);
-        console.log('Extracted products:', extracted);
-        console.log('Count matches:', extracted.length === products.length ? '✅' : '❌');
-
-        console.log('\n=== Test Complete ===');
-    };
+    // testProductEncoding function removed - encoding feature has been disabled
+    // Products are no longer encoded when uploading to TPOS
 
     window.decodeOrderNote = function (note) {
         console.log('=== Decoding Order Note ===\n');
