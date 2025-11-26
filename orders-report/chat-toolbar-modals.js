@@ -97,6 +97,106 @@ function searchEmoji(query) {
     });
 }
 
+// =====================================================
+// STICKER PICKER MODAL FUNCTIONS
+// =====================================================
+
+// Open Sticker Picker Modal
+function openStickerPickerModal() {
+    const modal = document.getElementById('stickerPickerModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        console.log('[STICKER-PICKER] Modal opened');
+    }
+}
+
+// Close Sticker Picker Modal
+function closeStickerPickerModal() {
+    const modal = document.getElementById('stickerPickerModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = 'auto';
+        console.log('[STICKER-PICKER] Modal closed');
+    }
+}
+
+// Switch between Emoji and Sticker tabs
+function switchStickerTab(tabName) {
+    console.log('[STICKER-PICKER] Switching to tab:', tabName);
+
+    // Update tab buttons
+    const tabButtons = document.querySelectorAll('.sticker-tab-btn');
+    tabButtons.forEach(btn => {
+        if (btn.dataset.tab === tabName) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update tab content
+    const emojiContent = document.getElementById('emojiTabContent');
+    const stickerContent = document.getElementById('stickerTabContent');
+
+    if (tabName === 'emoji') {
+        emojiContent.classList.add('active');
+        stickerContent.classList.remove('active');
+    } else if (tabName === 'sticker') {
+        emojiContent.classList.remove('active');
+        stickerContent.classList.add('active');
+    }
+}
+
+// Insert Emoji/Sticker into chat input
+function insertStickerEmoji(emoji) {
+    const input = document.getElementById('chatReplyInput');
+    if (input) {
+        const cursorPos = input.selectionStart;
+        const textBefore = input.value.substring(0, cursorPos);
+        const textAfter = input.value.substring(cursorPos);
+        input.value = textBefore + emoji + textAfter;
+
+        // Move cursor after emoji
+        const newCursorPos = cursorPos + emoji.length;
+        input.setSelectionRange(newCursorPos, newCursorPos);
+        input.focus();
+
+        console.log('[STICKER-PICKER] Inserted emoji:', emoji);
+    }
+    // Don't close modal, allow multiple emoji selections
+}
+
+// Search Sticker/Emoji
+function searchSticker(query) {
+    const searchQuery = query.toLowerCase().trim();
+    const emojiItems = document.querySelectorAll('.emoji-item');
+    const categories = document.querySelectorAll('.emoji-category');
+
+    emojiItems.forEach(item => {
+        const emoji = item.textContent.trim();
+        const title = (item.getAttribute('title') || '').toLowerCase();
+
+        if (searchQuery === '' || title.includes(searchQuery)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Hide/show categories based on visible items
+    categories.forEach(category => {
+        const visibleItems = category.querySelectorAll('.emoji-item[style*="display: flex"], .emoji-item:not([style*="display: none"])');
+        if (searchQuery !== '' && visibleItems.length === 0) {
+            category.style.display = 'none';
+        } else {
+            category.style.display = 'block';
+        }
+    });
+
+    console.log('[STICKER-PICKER] Searching for:', searchQuery);
+}
+
 // Initialize modals when DOM is ready
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[TOOLBAR-MODALS] Initializing...');
@@ -107,6 +207,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.target.id === 'emojiPickerModal') closeEmojiPickerModal();
             if (e.target.id === 'photoLibraryModal') closePhotoLibraryModal();
         }
+        if (e.target.classList.contains('sticker-picker-overlay')) {
+            if (e.target.id === 'stickerPickerModal') closeStickerPickerModal();
+        }
     });
 
     // Close modals on Escape key
@@ -114,6 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.key === 'Escape') {
             closeEmojiPickerModal();
             closePhotoLibraryModal();
+            closeStickerPickerModal();
         }
     });
 });

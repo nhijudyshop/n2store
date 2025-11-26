@@ -566,7 +566,7 @@
                                 style="display: none;">
 
                             <!-- Sticker Icon -->
-                            <button class="toolbar-icon-btn" title="Sticker"
+                            <button class="toolbar-icon-btn" title="Sticker" onclick="openStickerPickerModal()"
                                 style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
                                 onmouseover="this.style.background='#f3f4f6';"
                                 onmouseout="this.style.background='none';">
@@ -1332,6 +1332,221 @@
                 color: #94a3b8;
                 font-size: 13px;
             }
+
+            /* ==================== STICKER PICKER MODAL ==================== */
+            .sticker-picker-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(4px);
+                z-index: 100000;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+            .sticker-picker-overlay.active {
+                display: flex;
+                opacity: 1;
+            }
+
+            .sticker-picker-container {
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                width: 90%;
+                max-width: 500px;
+                max-height: 80vh;
+                display: flex;
+                flex-direction: column;
+                animation: slideUp 0.3s ease;
+            }
+
+            @keyframes slideUp {
+                from {
+                    transform: translateY(20px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            .sticker-picker-header {
+                padding: 16px 20px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .sticker-close-btn {
+                background: #f3f4f6;
+                border: none;
+                border-radius: 50%;
+                width: 32px;
+                height: 32px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #6b7280;
+                transition: all 0.2s;
+            }
+
+            .sticker-close-btn:hover {
+                background: #e5e7eb;
+                color: #1f2937;
+            }
+
+            .sticker-picker-tabs {
+                display: flex;
+                border-bottom: 1px solid #e5e7eb;
+                background: #f9fafb;
+            }
+
+            .sticker-tab-btn {
+                flex: 1;
+                padding: 12px 16px;
+                border: none;
+                background: transparent;
+                color: #6b7280;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+                position: relative;
+            }
+
+            .sticker-tab-btn:hover {
+                color: #1f2937;
+                background: #f3f4f6;
+            }
+
+            .sticker-tab-btn.active {
+                color: #667eea;
+                background: white;
+            }
+
+            .sticker-tab-btn.active::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 3px;
+                background: #667eea;
+                border-radius: 3px 3px 0 0;
+            }
+
+            .sticker-search-container {
+                padding: 16px;
+                border-bottom: 1px solid #e5e7eb;
+                position: relative;
+            }
+
+            .sticker-search-input {
+                width: 100%;
+                padding: 10px 40px 10px 14px;
+                border: 1px solid #e5e7eb;
+                border-radius: 20px;
+                font-size: 14px;
+                background: #f9fafb;
+                transition: all 0.2s;
+            }
+
+            .sticker-search-input:focus {
+                outline: none;
+                border-color: #667eea;
+                background: white;
+            }
+
+            .sticker-search-icon {
+                position: absolute;
+                right: 30px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #9ca3af;
+                font-size: 14px;
+            }
+
+            .sticker-tab-content {
+                display: none;
+                flex: 1;
+                overflow-y: auto;
+                padding: 16px;
+            }
+
+            .sticker-tab-content.active {
+                display: block;
+            }
+
+            .sticker-tab-content::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .sticker-tab-content::-webkit-scrollbar-track {
+                background: #f3f4f6;
+            }
+
+            .sticker-tab-content::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 4px;
+            }
+
+            .sticker-tab-content::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+            }
+
+            .emoji-category {
+                margin-bottom: 24px;
+            }
+
+            .emoji-category:last-child {
+                margin-bottom: 0;
+            }
+
+            .emoji-category-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1f2937;
+                margin-bottom: 12px;
+                padding-left: 4px;
+            }
+
+            .emoji-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+                gap: 4px;
+            }
+
+            .emoji-item {
+                width: 44px;
+                height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 28px;
+                cursor: pointer;
+                border-radius: 8px;
+                transition: all 0.2s;
+                background: transparent;
+            }
+
+            .emoji-item:hover {
+                background: #f3f4f6;
+                transform: scale(1.15);
+            }
+
+            .emoji-item:active {
+                transform: scale(1.05);
+            }
         </style>
     </div>
     </div>
@@ -2011,6 +2226,173 @@
                     <button type="button" class="btn btn-secondary" onclick="closeEditModal()">
                         <i class="fas fa-times"></i> Đóng
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sticker/Emoji Picker Modal -->
+    <div id="stickerPickerModal" class="sticker-picker-overlay">
+        <div class="sticker-picker-container">
+            <!-- Header with Close Button -->
+            <div class="sticker-picker-header">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">Chọn Emoji/Sticker</h3>
+                <button onclick="closeStickerPickerModal()" class="sticker-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="sticker-picker-tabs">
+                <button class="sticker-tab-btn active" onclick="switchStickerTab('emoji')" data-tab="emoji">
+                    Emoji
+                </button>
+                <button class="sticker-tab-btn" onclick="switchStickerTab('sticker')" data-tab="sticker">
+                    Sticker
+                </button>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="sticker-search-container">
+                <input type="text" class="sticker-search-input" id="stickerSearchInput"
+                    placeholder="Tìm kiếm..." oninput="searchSticker(this.value)">
+                <i class="fas fa-search sticker-search-icon"></i>
+            </div>
+
+            <!-- Emoji Tab Content -->
+            <div id="emojiTabContent" class="sticker-tab-content active">
+                <!-- Frequently Used -->
+                <div class="emoji-category">
+                    <h4 class="emoji-category-title">Frequently Used</h4>
+                    <div class="emoji-grid" id="frequentlyUsedGrid">
+                        <div class="emoji-item" onclick="insertStickerEmoji('👍')" title="thumbs up">👍</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😊')" title="smiling face">😊</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😘')" title="kissing face">😘</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😍')" title="heart eyes">😍</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😆')" title="laughing">😆</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😜')" title="winking tongue">😜</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤪')" title="zany face">🤪</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😂')" title="tears of joy">😂</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😱')" title="screaming">😱</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😔')" title="pensive">😔</div>
+                    </div>
+                </div>
+
+                <!-- Smileys & People -->
+                <div class="emoji-category">
+                    <h4 class="emoji-category-title">Smileys & People</h4>
+                    <div class="emoji-grid">
+                        <div class="emoji-item" onclick="insertStickerEmoji('😀')" title="grinning face">😀</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😃')" title="grinning face with big eyes">😃</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😄')" title="grinning face with smiling eyes">😄</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😁')" title="beaming face with smiling eyes">😁</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😆')" title="grinning squinting face">😆</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😅')" title="grinning face with sweat">😅</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤣')" title="rolling on the floor laughing">🤣</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😂')" title="face with tears of joy">😂</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙂')" title="slightly smiling face">🙂</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙃')" title="upside-down face">🙃</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😉')" title="winking face">😉</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😊')" title="smiling face with smiling eyes">😊</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😇')" title="smiling face with halo">😇</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🥰')" title="smiling face with hearts">🥰</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😍')" title="smiling face with heart-eyes">😍</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤩')" title="star-struck">🤩</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😘')" title="face blowing a kiss">😘</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😗')" title="kissing face">😗</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😚')" title="kissing face with closed eyes">😚</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😙')" title="kissing face with smiling eyes">😙</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😋')" title="face savoring food">😋</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😛')" title="face with tongue">😛</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😜')" title="winking face with tongue">😜</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤪')" title="zany face">🤪</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😝')" title="squinting face with tongue">😝</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤑')" title="money-mouth face">🤑</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤗')" title="hugging face">🤗</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤭')" title="face with hand over mouth">🤭</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤫')" title="shushing face">🤫</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤔')" title="thinking face">🤔</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤐')" title="zipper-mouth face">🤐</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤨')" title="face with raised eyebrow">🤨</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😐')" title="neutral face">😐</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😑')" title="expressionless face">😑</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😶')" title="face without mouth">😶</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😏')" title="smirking face">😏</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😒')" title="unamused face">😒</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙄')" title="face with rolling eyes">🙄</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😬')" title="grimacing face">😬</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤥')" title="lying face">🤥</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😌')" title="relieved face">😌</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😔')" title="pensive face">😔</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😪')" title="sleepy face">😪</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤤')" title="drooling face">🤤</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😴')" title="sleeping face">😴</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😷')" title="face with medical mask">😷</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤒')" title="face with thermometer">🤒</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤕')" title="face with head-bandage">🤕</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤢')" title="nauseated face">🤢</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤮')" title="face vomiting">🤮</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤧')" title="sneezing face">🤧</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🥵')" title="hot face">🥵</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🥶')" title="cold face">🥶</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😎')" title="smiling face with sunglasses">😎</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤓')" title="nerd face">🤓</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🧐')" title="face with monocle">🧐</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😕')" title="confused face">😕</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😟')" title="worried face">😟</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙁')" title="slightly frowning face">🙁</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😮')" title="face with open mouth">😮</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😯')" title="hushed face">😯</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😲')" title="astonished face">😲</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😳')" title="flushed face">😳</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🥺')" title="pleading face">🥺</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😦')" title="frowning face with open mouth">😦</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😧')" title="anguished face">😧</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😨')" title="fearful face">😨</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😰')" title="anxious face with sweat">😰</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😥')" title="sad but relieved face">😥</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😢')" title="crying face">😢</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😭')" title="loudly crying face">😭</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😱')" title="face screaming in fear">😱</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😖')" title="confounded face">😖</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😣')" title="persevering face">😣</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😞')" title="disappointed face">😞</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😓')" title="downcast face with sweat">😓</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😩')" title="weary face">😩</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😫')" title="tired face">😫</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🥱')" title="yawning face">🥱</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😤')" title="face with steam from nose">😤</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😡')" title="pouting face">😡</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😠')" title="angry face">😠</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤬')" title="face with symbols on mouth">🤬</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('👍')" title="thumbs up">👍</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('👎')" title="thumbs down">👎</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('👏')" title="clapping hands">👏</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙌')" title="raising hands">🙌</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤝')" title="handshake">🤝</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙏')" title="folded hands">🙏</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('❤️')" title="red heart">❤️</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💔')" title="broken heart">💔</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💕')" title="two hearts">💕</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💖')" title="sparkling heart">💖</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💗')" title="growing heart">💗</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💙')" title="blue heart">💙</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💚')" title="green heart">💚</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💛')" title="yellow heart">💛</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🧡')" title="orange heart">🧡</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('💜')" title="purple heart">💜</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🖤')" title="black heart">🖤</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤍')" title="white heart">🤍</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤎')" title="brown heart">🤎</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sticker Tab Content -->
+            <div id="stickerTabContent" class="sticker-tab-content">
+                <div class="emoji-category">
+                    <h4 class="emoji-category-title">Stickers</h4>
+                    <p style="text-align: center; padding: 40px; color: #9ca3af;">Sticker sẽ được cập nhật sớm...</p>
                 </div>
             </div>
         </div>
