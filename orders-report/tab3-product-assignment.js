@@ -518,7 +518,29 @@
             // Render STT chips (with index for duplicate STT)
             const chipsHtml = assignment.sttList.length > 0
                 ? assignment.sttList.map((item, index) => {
-                    const chipText = [item.orderInfo?.customerName, item.orderInfo?.note].filter(Boolean).join(' - ');
+                    // Decode note safely with fallback
+                    let noteText = item.orderInfo?.note || '';
+                    try {
+                        if (noteText && window.DecodingUtility) {
+                            // Try to extract plain text from decoded HTML (remove encoded parts)
+                            const lines = noteText.split('\n');
+                            const plainLines = lines.filter(line => {
+                                const trimmed = line.trim();
+                                // Skip lines that look encoded (long strings without spaces)
+                                if (trimmed.length > 20 && !trimmed.includes(' ')) {
+                                    const decoded = window.DecodingUtility.decodeProductLine(trimmed);
+                                    return !decoded; // Skip if it's encoded
+                                }
+                                return true; // Keep non-encoded lines
+                            });
+                            noteText = plainLines.join(' ').substring(0, 50); // Limit length for chip display
+                        }
+                    } catch (e) {
+                        // Fallback to original note on error
+                        noteText = (item.orderInfo?.note || '').substring(0, 50);
+                    }
+
+                    const chipText = [item.orderInfo?.customerName, noteText].filter(Boolean).join(' - ');
                     return `
                         <div class="stt-chip" onclick="showSTTChipTooltip(event, ${assignment.id}, ${index})">
                             <span class="stt-chip-number">STT ${item.stt}</span>
@@ -648,7 +670,29 @@
         }
 
         suggestionsDiv.innerHTML = filteredOrders.map(order => {
-            const displayText = [order.customerName, order.note].filter(Boolean).join(' - ') || 'N/A';
+            // Decode note safely with fallback
+            let noteText = order.note || '';
+            try {
+                if (noteText && window.DecodingUtility) {
+                    // Try to extract plain text from note (remove encoded parts)
+                    const lines = noteText.split('\n');
+                    const plainLines = lines.filter(line => {
+                        const trimmed = line.trim();
+                        // Skip lines that look encoded (long strings without spaces)
+                        if (trimmed.length > 20 && !trimmed.includes(' ')) {
+                            const decoded = window.DecodingUtility.decodeProductLine(trimmed);
+                            return !decoded; // Skip if it's encoded
+                        }
+                        return true; // Keep non-encoded lines
+                    });
+                    noteText = plainLines.join(' ').substring(0, 50); // Limit length for dropdown
+                }
+            } catch (e) {
+                // Fallback to original note on error
+                noteText = (order.note || '').substring(0, 50);
+            }
+
+            const displayText = [order.customerName, noteText].filter(Boolean).join(' - ') || 'N/A';
             return `
                 <div class="stt-suggestion-item" data-assignment-id="${assignmentId}" data-stt="${order.stt}" data-order='${JSON.stringify(order)}'>
                     <span class="stt-number">${order.stt}</span>
@@ -1416,7 +1460,7 @@
                 ${record.note ? `
                     <div class="history-note">
                         <i class="fas fa-sticky-note"></i>
-                        ${record.note}
+                        ${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(record.note) : record.note}
                     </div>
                 ` : ''}
             </div>
