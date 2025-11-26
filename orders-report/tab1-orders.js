@@ -511,9 +511,10 @@ function renderTagList(searchQuery = "") {
     }
 
     tagList.innerHTML = filteredTags
-        .map((tag) => {
+        .map((tag, index) => {
+            const isFirstItem = index === 0;
             return `
-            <div class="tag-dropdown-item" onclick="toggleTag(${tag.Id})" data-tag-id="${tag.Id}">
+            <div class="tag-dropdown-item ${isFirstItem ? 'highlighted' : ''}" onclick="toggleTag(${tag.Id})" data-tag-id="${tag.Id}">
                 <div class="tag-item-name">${tag.Name}</div>
             </div>`;
         })
@@ -556,6 +557,25 @@ function updateSelectedTagsDisplay() {
 
 function filterTags() {
     renderTagList(document.getElementById("tagSearchInput").value);
+}
+
+function handleTagInputKeydown(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+
+        // Find the highlighted tag (first one in the list)
+        const highlightedTag = document.querySelector('.tag-dropdown-item.highlighted');
+        if (highlightedTag) {
+            const tagId = highlightedTag.getAttribute('data-tag-id');
+            if (tagId) {
+                toggleTag(parseInt(tagId));
+                // Clear search input after selecting
+                document.getElementById("tagSearchInput").value = "";
+                // Re-render to show all available tags again
+                renderTagList("");
+            }
+        }
+    }
 }
 
 function toggleQuickAccess(tagName, buttonElement) {

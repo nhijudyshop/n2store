@@ -298,14 +298,12 @@
                 </button>
             </div>
             <div class="tag-modal-body">
-                <!-- Selected Tags Pills -->
-                <div class="selected-tags-pills" id="selectedTagsPills">
-                    <!-- Selected tags will be rendered here -->
-                </div>
-
-                <!-- Add Tag Input -->
-                <div class="tag-add-input-wrapper">
-                    <input type="text" id="tagSearchInput" class="tag-add-input" placeholder="Add a tag" oninput="filterTags()" />
+                <!-- Add Tag Input with Selected Tags -->
+                <div class="tag-input-container">
+                    <div class="selected-tags-pills" id="selectedTagsPills">
+                        <!-- Selected tags will be rendered here -->
+                    </div>
+                    <input type="text" id="tagSearchInput" class="tag-add-input" placeholder="Add a tag" oninput="filterTags()" onkeydown="handleTagInputKeydown(event)" />
                 </div>
 
                 <!-- Available Tags List -->
