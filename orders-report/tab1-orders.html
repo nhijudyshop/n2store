@@ -290,48 +290,31 @@
     <div class="tag-modal" id="tagModal">
         <div class="tag-modal-content">
             <div class="tag-modal-header">
-                <h3><i class="fas fa-tags"></i> Quản lý Tag</h3>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <button class="tag-settings-btn" onclick="openTagSettingsModal()" title="Cài đặt Tag">
-                        <i class="fas fa-cog"></i>
-                    </button>
-                    <button class="tag-modal-close" onclick="closeTagModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+                <button class="tag-btn-save-header" onclick="saveOrderTags()">
+                    Lưu (Ctrl + Enter)
+                </button>
+                <button class="tag-modal-close" onclick="closeTagModal()">
+                    X
+                </button>
             </div>
             <div class="tag-modal-body">
-                <!-- Search -->
-                <div class="tag-search">
-                    <div class="tag-search-wrapper">
-                        <input type="text" id="tagSearchInput" placeholder="Tìm kiếm tag..." oninput="filterTags()" />
-                        <i class="fas fa-search tag-search-icon"></i>
-                    </div>
+                <!-- Selected Tags Pills -->
+                <div class="selected-tags-pills" id="selectedTagsPills">
+                    <!-- Selected tags will be rendered here -->
                 </div>
-                <!-- Selected Tags -->
-                <div class="selected-tags">
-                    <span class="selected-tags-label">Đã chọn:</span>
-                    <div class="selected-tags-list" id="selectedTagsList">
-                        <span style="color: #9ca3af; font-size: 12px">
-                            Chưa có tag nào được chọn
-                        </span>
-                    </div>
+
+                <!-- Add Tag Input -->
+                <div class="tag-add-input-wrapper">
+                    <input type="text" id="tagSearchInput" class="tag-add-input" placeholder="Add a tag" oninput="filterTags()" />
                 </div>
-                <!-- Tag List -->
-                <div class="tag-list" id="tagList">
+
+                <!-- Available Tags List -->
+                <div class="tag-dropdown-list" id="tagList">
                     <div class="no-tags-message">
                         <i class="fas fa-spinner fa-spin"></i>
                         <p>Đang tải danh sách tag...</p>
                     </div>
                 </div>
-            </div>
-            <div class="tag-modal-footer">
-                <button class="tag-btn-cancel" onclick="closeTagModal()">
-                    Hủy
-                </button>
-                <button class="tag-btn-save" onclick="saveOrderTags()">
-                    <i class="fas fa-save"></i> Lưu
-                </button>
             </div>
         </div>
     </div>
