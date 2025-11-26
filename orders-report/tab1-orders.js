@@ -2006,8 +2006,11 @@ function createRowHTML(order) {
                 </div>
             </td>
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
-            <td data-column="tag" onclick="openTagModal('${order.Id}', '${order.Code}')" style="cursor: pointer;" title="Quản lý tag">
+            <td data-column="tag">
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                    <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
+                        <i class="fas fa-tags"></i>
+                    </button>
                     ${tagsHTML}
                 </div>
             </td>
