@@ -415,6 +415,41 @@ body {
     font-size: 14px;
 }
 
+/* Rectangle buttons O and X */
+.tag-rect-btn-o,
+.tag-rect-btn-x {
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-weight: 600;
+    font-size: 14px;
+    min-width: 48px; /* Double the approximate width of tag-icon-btn */
+    height: 28px; /* Same height as tag-icon-btn */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tag-rect-btn-o {
+    background-color: #d1fae5; /* Light green */
+    color: #10b981;
+}
+
+.tag-rect-btn-o:hover {
+    background-color: #a7f3d0;
+}
+
+.tag-rect-btn-x {
+    background-color: #dbeafe; /* Light blue */
+    color: #3b82f6;
+}
+
+.tag-rect-btn-x:hover {
+    background-color: #bfdbfe;
+}
+
 .tag-count {
     display: inline-block;
     background: #3b82f6;
