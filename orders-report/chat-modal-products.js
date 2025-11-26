@@ -1568,7 +1568,7 @@
         const container = document.getElementById('chatProductsTableContainer');
         if (!container) return;
 
-        const details = window.currentChatOrderData?.Details || [];
+        let details = window.currentChatOrderData?.Details || []; // Changed to 'let' to allow reassignment
 
         if (details.length === 0) {
             container.innerHTML = `
@@ -1724,6 +1724,8 @@
         if (heldProductsRaw.length !== heldProducts.length) {
             console.log(`[MERGE-HELD] Removed ${heldProductsRaw.length - heldProducts.length} duplicate held products`);
             window.currentChatOrderData.Details = [...heldProducts, ...orderProducts];
+            // BUGFIX: Update local details reference after merging
+            details = window.currentChatOrderData.Details;
         }
 
         let tableContent = '';
