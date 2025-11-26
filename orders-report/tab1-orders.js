@@ -192,13 +192,28 @@ window.addEventListener("DOMContentLoaded", async function () {
         }
     });
 
-    // Ctrl+Enter to save tags
+    // Keyboard shortcuts for tag modal
     document.addEventListener('keydown', function(event) {
         const tagModal = document.getElementById('tagModal');
         if (tagModal && tagModal.classList.contains('show')) {
+            // Ctrl+Enter to save tags
             if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
                 event.preventDefault();
                 saveOrderTags();
+            }
+            // ESC to close without saving
+            else if (event.key === 'Escape') {
+                event.preventDefault();
+                closeTagModal();
+            }
+            // Tab to save and close
+            else if (event.key === 'Tab') {
+                const tagSearchInput = document.getElementById('tagSearchInput');
+                // Only trigger if we're at the input and no dropdown is focused
+                if (document.activeElement === tagSearchInput || !document.activeElement || document.activeElement === document.body) {
+                    event.preventDefault();
+                    saveOrderTags();
+                }
             }
         }
     });
@@ -2035,7 +2050,7 @@ function createRowHTML(order) {
         try {
             const tags = JSON.parse(order.Tags);
             if (Array.isArray(tags)) {
-                tagsHTML = parseOrderTags(order.Tags);
+                tagsHTML = parseOrderTags(order.Tags, order.Id, order.Code);
             }
         } catch (e) { }
     }
@@ -2231,14 +2246,14 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
         </td>`;
 }
 
-function parseOrderTags(tagsJson) {
+function parseOrderTags(tagsJson, orderId, orderCode) {
     try {
         const tags = JSON.parse(tagsJson);
         if (!Array.isArray(tags) || tags.length === 0) return "";
         return tags
             .map(
                 (tag) =>
-                    `<div style="margin-bottom: 2px;"><span class="order-tag" style="background-color: ${tag.Color || "#6b7280"};">${tag.Name || ""}</span></div>`,
+                    `<div style="margin-bottom: 2px;"><span class="order-tag" style="background-color: ${tag.Color || "#6b7280"}; cursor: pointer;" onclick="openTagModal('${orderId}', '${orderCode}'); event.stopPropagation();" title="Quản lý tag">${tag.Name || ""}</span></div>`,
             )
             .join("");
     } catch (e) {
