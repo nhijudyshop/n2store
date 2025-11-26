@@ -4554,7 +4554,16 @@ window.clearPastedImage = function () {
 window.sendReplyComment = async function () {
     const messageInput = document.getElementById('chatReplyInput');
     const sendBtn = document.getElementById('chatSendBtn');
-    const message = messageInput.value.trim();
+    let message = messageInput.value.trim();
+
+    // Add signature to message (only for text messages, not images/files)
+    if (message) {
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const displayName = auth && auth.displayName ? auth.displayName : null;
+        if (displayName) {
+            message = message + '\nNv. ' + displayName;
+        }
+    }
 
     // Validate
     if (!message && !currentPastedImage) {
