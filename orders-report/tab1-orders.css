@@ -4096,3 +4096,28 @@ td[data-column].hidden {
 .chat-quantity-input {
     -moz-appearance: textfield;
 }
+/* Multi-customer message/comment rows in merged orders */
+.multi-customer-message-row {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.multi-customer-message-row:hover {
+    background-color: #f9fafb;
+}
+
+.multi-customer-message-row:last-child {
+    border-bottom: none;
+}
+
+/* Unread badge for messages/comments */
+.unread-badge {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #ef4444;
+    flex-shrink: 0;
+}

@@ -815,6 +815,53 @@ function mergeOrdersByPhone(orders) {
                 }
             });
 
+            // Group orders by customer name to handle single vs multi-customer scenarios
+            const customerGroups = new Map();
+            groupOrders.forEach(order => {
+                const name = order.Name?.trim() || 'Unknown';
+                if (!customerGroups.has(name)) {
+                    customerGroups.set(name, []);
+                }
+                customerGroups.get(name).push(order);
+            });
+
+            // Determine if single or multi-customer
+            const uniqueCustomerCount = customerGroups.size;
+            const isSingleCustomer = uniqueCustomerCount === 1;
+
+            // Store original orders with necessary chat info
+            const originalOrders = groupOrders.map(order => ({
+                Id: order.Id,
+                Name: order.Name,
+                Code: order.Code,
+                SessionIndex: order.SessionIndex,
+                Facebook_ASUserId: order.Facebook_ASUserId,
+                Facebook_PostId: order.Facebook_PostId,
+                Telephone: order.Telephone
+            }));
+
+            // Create customer groups info for rendering
+            const customerGroupsInfo = Array.from(customerGroups.entries()).map(([name, orders]) => {
+                // Sort orders by STT to get largest
+                const sortedOrders = [...orders].sort((a, b) => {
+                    const sttA = parseInt(a.SessionIndex) || 0;
+                    const sttB = parseInt(b.SessionIndex) || 0;
+                    return sttB - sttA; // Descending order (largest first)
+                });
+
+                return {
+                    name,
+                    orderCount: orders.length,
+                    orders: sortedOrders.map(o => ({
+                        id: o.Id,
+                        stt: o.SessionIndex,
+                        psid: o.Facebook_ASUserId,
+                        channelId: window.chatDataManager ? window.chatDataManager.parseChannelId(o.Facebook_PostId) : null,
+                        code: o.Code
+                    }))
+                };
+            });
+
             // Create merged order
             const mergedOrder = {
                 ...targetOrder, // Use target order as base
@@ -835,7 +882,12 @@ function mergeOrdersByPhone(orders) {
                 SourceOrderIds: sourceOrders.map(o => o.Id), // Orders with smaller STT (will lose products)
                 TargetSTT: targetOrder.SessionIndex,
                 SourceSTTs: sourceOrders.map(o => o.SessionIndex),
-                IsMerged: true // Flag to identify merged orders
+                IsMerged: true, // Flag to identify merged orders
+                // NEW: Customer grouping info for message/comment rendering
+                OriginalOrders: originalOrders, // Store original orders with chat info
+                IsSingleCustomer: isSingleCustomer, // true if all orders have same customer name
+                UniqueCustomerCount: uniqueCustomerCount, // Number of unique customers
+                CustomerGroups: customerGroupsInfo // Grouped by customer with sorted orders
             };
 
             mergedOrders.push(mergedOrder);
@@ -2115,11 +2167,148 @@ function createRowHTML(order) {
         </tr>`;
 }
 
+// Helper: Format message preview with icon
+function formatMessagePreview(chatInfo) {
+    let displayMessage = '−'; // Default to dash
+    let messageIcon = '';
+
+    if (chatInfo.attachments && chatInfo.attachments.length > 0) {
+        // Has attachments (images, files, etc.)
+        const attachment = chatInfo.attachments[0];
+        if (attachment.Type === 'image' || attachment.Type === 'photo') {
+            displayMessage = 'Đã gửi ảnh';
+            messageIcon = '📷';
+        } else if (attachment.Type === 'video') {
+            displayMessage = 'Đã gửi video';
+            messageIcon = '🎥';
+        } else if (attachment.Type === 'file') {
+            displayMessage = 'Đã gửi file';
+            messageIcon = '📎';
+        } else if (attachment.Type === 'audio') {
+            displayMessage = 'Đã gửi audio';
+            messageIcon = '🎵';
+        } else {
+            displayMessage = 'Đã gửi tệp';
+            messageIcon = '📎';
+        }
+    } else if (chatInfo.message) {
+        // Text message
+        displayMessage = chatInfo.message;
+    }
+
+    // Truncate message
+    if (displayMessage.length > 30) {
+        displayMessage = displayMessage.substring(0, 30) + '...';
+    }
+
+    // Return formatted message with icon
+    return messageIcon ? `${messageIcon} ${displayMessage}` : displayMessage;
+}
+
+// Helper: Render multi-customer messages/comments (merged order with different customers)
+// Shows multiple lines, one per customer with their largest STT
+function renderMultiCustomerMessages(order, columnType = 'messages') {
+    const rows = [];
+
+    // For each customer group, find order with largest STT and get its message
+    order.CustomerGroups.forEach(customerGroup => {
+        // Get the order with largest STT (already sorted in customerGroups)
+        const largestSTTOrder = customerGroup.orders[0]; // First order is largest STT
+
+        // Find full order object from OriginalOrders
+        const fullOrder = order.OriginalOrders.find(o => o.Id === largestSTTOrder.id);
+        if (!fullOrder || !largestSTTOrder.psid || !largestSTTOrder.channelId) {
+            return; // Skip this customer if no valid data
+        }
+
+        // Get message or comment
+        const messageInfo = columnType === 'messages'
+            ? window.chatDataManager.getLastMessageForOrder(fullOrder)
+            : window.chatDataManager.getLastCommentForOrder(largestSTTOrder.channelId, largestSTTOrder.psid, fullOrder);
+
+        // Format message preview
+        const displayMessage = formatMessagePreview(messageInfo);
+        const unreadBadge = messageInfo.hasUnread ? '<span class="unread-badge"></span>' : '';
+        const fontWeight = messageInfo.hasUnread ? '700' : '400';
+        const color = messageInfo.hasUnread ? '#111827' : '#6b7280';
+
+        // Create click handler - use 'message' or 'comment' as type param
+        const typeParam = columnType === 'messages' ? 'message' : 'comment';
+        const clickHandler = `openChatModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}', '${typeParam}')`;
+
+        rows.push(`
+            <div class="multi-customer-message-row" onclick="${clickHandler}" style="border-bottom: 1px solid #e5e7eb; padding: 6px 8px; cursor: pointer; transition: background-color 0.2s;">
+                <div style="font-size: 11px; color: #6b7280; margin-bottom: 3px; font-weight: 500;">
+                    ${customerGroup.name} • STT ${largestSTTOrder.stt}
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    ${unreadBadge}
+                    <span style="font-size: 13px; font-weight: ${fontWeight}; color: ${color};">
+                        ${displayMessage}
+                    </span>
+                </div>
+                ${messageInfo.unreadCount > 0 ? `<div style="font-size: 11px; color: #ef4444; font-weight: 600; margin-top: 2px;">${messageInfo.unreadCount} tin mới</div>` : ''}
+            </div>
+        `);
+    });
+
+    // If no rows, show dash
+    if (rows.length === 0) {
+        return `<td data-column="${columnType}" style="text-align: center; color: #9ca3af;">−</td>`;
+    }
+
+    return `
+        <td data-column="${columnType}" style="padding: 0; vertical-align: top;">
+            <div style="max-height: 200px; overflow-y: auto;">
+                ${rows.join('')}
+            </div>
+        </td>
+    `;
+}
+
+// Helper: Render single customer message/comment (merged order with same customer)
+// Shows only the message/comment from the order with largest STT
+function renderSingleCustomerMessage(order, columnType = 'messages') {
+    // Get the order with largest STT (stored in TargetOrderId)
+    const targetOrder = order.OriginalOrders.find(o => o.Id === order.TargetOrderId);
+
+    if (!targetOrder || !targetOrder.Facebook_ASUserId) {
+        return `<td data-column="${columnType}" style="text-align: center; color: #9ca3af;">−</td>`;
+    }
+
+    // Get chat info for this specific order
+    const chatInfo = window.chatDataManager.getChatInfoForOrder(targetOrder);
+
+    if (!chatInfo.psid || !chatInfo.channelId) {
+        return `<td data-column="${columnType}" style="text-align: center; color: #9ca3af;">−</td>`;
+    }
+
+    // Get message or comment based on type
+    const messageInfo = columnType === 'messages'
+        ? window.chatDataManager.getLastMessageForOrder(targetOrder)
+        : window.chatDataManager.getLastCommentForOrder(chatInfo.channelId, chatInfo.psid, targetOrder);
+
+    // Render using the existing renderChatColumnWithData function
+    // But we need to pass the targetOrder ID for the click handler
+    return renderChatColumnWithData(targetOrder, messageInfo, chatInfo.channelId, chatInfo.psid, columnType);
+}
+
 // Render messages column only (not comments)
 function renderMessagesColumn(order) {
     if (!window.chatDataManager) {
         console.log('[CHAT RENDER] chatDataManager not available');
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    // Check if this is a merged order with customer grouping info
+    if (order.IsMerged && order.CustomerGroups) {
+        if (order.IsSingleCustomer) {
+            // Single customer: show only message from order with largest STT
+            return renderSingleCustomerMessage(order, 'messages');
+        } else {
+            // Multiple customers: show multiple lines
+            return renderMultiCustomerMessages(order, 'messages');
+        }
     }
 
     // Get chat info for order
@@ -2159,6 +2348,17 @@ function renderCommentsColumn(order) {
     if (!window.chatDataManager) {
         console.log('[CHAT RENDER] chatDataManager not available');
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
+    }
+
+    // Check if this is a merged order with customer grouping info
+    if (order.IsMerged && order.CustomerGroups) {
+        if (order.IsSingleCustomer) {
+            // Single customer: show only comment from order with largest STT
+            return renderSingleCustomerMessage(order, 'comments');
+        } else {
+            // Multiple customers: show multiple lines
+            return renderMultiCustomerMessages(order, 'comments');
+        }
     }
 
     // Get chat info for order
