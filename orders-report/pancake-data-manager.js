@@ -413,11 +413,12 @@ class PancakeDataManager {
      * @param {string} pageId - Facebook Page ID
      * @param {string} conversationId - Pancake Conversation ID
      * @param {number} currentCount - Vị trí message (optional, for pagination)
+     * @param {number} customerId - Customer ID (PartnerId) - required by backend API
      * @returns {Promise<Object>} { messages: Array, conversation: Object }
      */
-    async fetchMessagesForConversation(pageId, conversationId, currentCount = null) {
+    async fetchMessagesForConversation(pageId, conversationId, currentCount = null, customerId = null) {
         try {
-            console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}`);
+            console.log(`[PANCAKE] Fetching messages for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
 
             const token = await this.getToken();
             if (!token) {
@@ -428,6 +429,10 @@ class PancakeDataManager {
             let queryString = `access_token=${token}`;
             if (currentCount !== null) {
                 queryString += `&current_count=${currentCount}`;
+            }
+            // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
+            if (customerId !== null) {
+                queryString += `&customer_id=${customerId}`;
             }
 
             const url = window.API_CONFIG.buildUrl.pancake(
@@ -731,14 +736,15 @@ class PancakeDataManager {
      * Fetch messages và tìm tin nhắn cuối từ KHÁCH (không phải từ page)
      * @param {string} pageId - Facebook Page ID
      * @param {string} conversationId - Conversation ID
+     * @param {number} customerId - Customer ID (PartnerId) - required by backend API
      * @returns {Promise<Object>} { canSend: boolean, hoursSinceLastMessage: number, lastCustomerMessage: Object|null }
      */
-    async check24HourWindow(pageId, conversationId) {
+    async check24HourWindow(pageId, conversationId, customerId = null) {
         try {
-            console.log(`[DEBUG-24H] Checking 24-hour window for pageId=${pageId}, conversationId=${conversationId}`);
+            console.log(`[DEBUG-24H] Checking 24-hour window for pageId=${pageId}, conversationId=${conversationId}, customerId=${customerId}`);
 
             // Fetch messages for this conversation
-            const { messages } = await this.fetchMessagesForConversation(pageId, conversationId);
+            const { messages } = await this.fetchMessagesForConversation(pageId, conversationId, null, customerId);
 
             if (!messages || messages.length === 0) {
                 console.warn(`[DEBUG-24H] Cannot fetch messages - skipping 24h check (allow send)`);
