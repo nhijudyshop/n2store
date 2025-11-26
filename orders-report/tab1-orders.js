@@ -190,6 +190,17 @@ window.addEventListener("DOMContentLoaded", async function () {
             }
         }
     });
+
+    // Ctrl+Enter to save tags
+    document.addEventListener('keydown', function(event) {
+        const tagModal = document.getElementById('tagModal');
+        if (tagModal && tagModal.classList.contains('show')) {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                saveOrderTags();
+            }
+        }
+    });
 });
 
 // =====================================================
@@ -455,12 +466,14 @@ function openTagModal(orderId, orderCode) {
     const order = allData.find((o) => o.Id === orderId);
     currentOrderTags = order && order.Tags ? JSON.parse(order.Tags) : [];
 
-    document.querySelector(".tag-modal-header h3").innerHTML =
-        `<i class="fas fa-tags"></i> Quản lý Tag - ${orderCode}`;
-
     renderTagList();
     updateSelectedTagsDisplay();
     document.getElementById("tagModal").classList.add("show");
+
+    // Focus on search input
+    setTimeout(() => {
+        document.getElementById("tagSearchInput").focus();
+    }, 100);
 }
 
 function closeTagModal() {
@@ -477,7 +490,13 @@ function renderTagList(searchQuery = "") {
         return;
     }
 
+    // Filter out selected tags and apply search query
     const filteredTags = availableTags.filter((tag) => {
+        // Don't show already selected tags
+        const isSelected = currentOrderTags.some((t) => t.Id === tag.Id);
+        if (isSelected) return false;
+
+        // Apply search filter
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
         return (
@@ -493,16 +512,9 @@ function renderTagList(searchQuery = "") {
 
     tagList.innerHTML = filteredTags
         .map((tag) => {
-            const isSelected = currentOrderTags.some((t) => t.Id === tag.Id);
-            const isQuickTag = window.quickTagManager ? window.quickTagManager.isQuickTag(tag.Name) : false;
             return `
-            <div class="tag-item ${isSelected ? "selected" : ""}" onclick="toggleTag(${tag.Id})" data-tag-id="${tag.Id}">
-                <input type="checkbox" class="tag-item-checkbox" ${isSelected ? "checked" : ""} onclick="event.stopPropagation(); toggleTag(${tag.Id})">
-                <div class="tag-item-color" style="background-color: ${tag.Color}"></div>
+            <div class="tag-dropdown-item" onclick="toggleTag(${tag.Id})" data-tag-id="${tag.Id}">
                 <div class="tag-item-name">${tag.Name}</div>
-                <button class="tag-item-quick-access ${isQuickTag ? 'active' : ''}" onclick="event.stopPropagation(); toggleQuickAccess('${tag.Name.replace(/'/g, "\\'")}', this)" title="${isQuickTag ? 'Bỏ khỏi chọn nhanh' : 'Thêm vào chọn nhanh'}">
-                    <i class="fas fa-star"></i>
-                </button>
             </div>`;
         })
         .join("");
@@ -520,28 +532,22 @@ function toggleTag(tagId) {
     }
 
     updateSelectedTagsDisplay();
-    const tagItem = document.querySelector(`[data-tag-id="${tagId}"]`);
-    if (tagItem) {
-        tagItem.classList.toggle("selected");
-        const checkbox = tagItem.querySelector(".tag-item-checkbox");
-        if (checkbox) checkbox.checked = !checkbox.checked;
-    }
+    renderTagList(document.getElementById("tagSearchInput").value);
 }
 
 function updateSelectedTagsDisplay() {
-    const container = document.getElementById("selectedTagsList");
+    const container = document.getElementById("selectedTagsPills");
     if (currentOrderTags.length === 0) {
-        container.innerHTML =
-            '<span style="color: #9ca3af; font-size: 12px">Chưa có tag nào được chọn</span>';
+        container.innerHTML = '';
         return;
     }
     container.innerHTML = currentOrderTags
         .map(
             (tag) => `
-        <span class="selected-tag-item" style="background-color: ${tag.Color}">
+        <span class="selected-tag-pill" style="background-color: ${tag.Color}">
             ${tag.Name}
-            <button class="selected-tag-remove" onclick="event.stopPropagation(); toggleTag(${tag.Id})">
-                <i class="fas fa-times"></i>
+            <button class="selected-tag-remove" onclick="event.stopPropagation(); toggleTag(${tag.Id})" title="Xóa tag">
+                ✕
             </button>
         </span>`,
         )
