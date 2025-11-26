@@ -5196,13 +5196,25 @@ function renderChatMessages(messages, scrollToBottom = false) {
             </div>`;
     }
 
+    // Check if user is at bottom before render (within 100px threshold)
+    const wasAtBottom = scrollToBottom || (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
+    const previousScrollHeight = modalBody.scrollHeight;
+    const previousScrollTop = modalBody.scrollTop;
+
     modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${messagesHTML}</div>`;
 
-    // Auto scroll to bottom or preserve scroll position
-    if (scrollToBottom) {
+    // Only auto-scroll if user was already at bottom, otherwise preserve position
+    if (wasAtBottom) {
         setTimeout(() => {
             modalBody.scrollTop = modalBody.scrollHeight;
-        }, 100);
+        }, 50);
+    } else {
+        // Preserve scroll position (adjust for new content added at top)
+        setTimeout(() => {
+            const newScrollHeight = modalBody.scrollHeight;
+            const heightDiff = newScrollHeight - previousScrollHeight;
+            modalBody.scrollTop = previousScrollTop + heightDiff;
+        }, 50);
     }
 }
 
@@ -5415,13 +5427,25 @@ function renderComments(comments, scrollToBottom = false) {
             </div>`;
     }
 
+    // Check if user is at bottom before render (within 100px threshold)
+    const wasAtBottom = scrollToBottom || (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
+    const previousScrollHeight = modalBody.scrollHeight;
+    const previousScrollTop = modalBody.scrollTop;
+
     modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${postContext}${commentsHTML}</div>`;
 
-    // Auto scroll to bottom or preserve scroll position
-    if (scrollToBottom) {
+    // Only auto-scroll if user was already at bottom, otherwise preserve position
+    if (wasAtBottom) {
         setTimeout(() => {
             modalBody.scrollTop = modalBody.scrollHeight;
-        }, 100);
+        }, 50);
+    } else {
+        // Preserve scroll position (adjust for new content added at top)
+        setTimeout(() => {
+            const newScrollHeight = modalBody.scrollHeight;
+            const heightDiff = newScrollHeight - previousScrollHeight;
+            modalBody.scrollTop = previousScrollTop + heightDiff;
+        }, 50);
     }
 }
 
