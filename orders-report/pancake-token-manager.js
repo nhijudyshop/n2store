@@ -67,7 +67,7 @@ class PancakeTokenManager {
     /**
      * Decode base64url (JWT uses base64url encoding)
      * @param {string} str - Base64url encoded string
-     * @returns {string} - Decoded string
+     * @returns {string} - Decoded string with proper UTF-8 handling
      */
     base64UrlDecode(str) {
         try {
@@ -93,8 +93,19 @@ class PancakeTokenManager {
                 throw new Error('Invalid characters in base64 string');
             }
 
-            // Try to decode
-            const decoded = atob(base64);
+            // Decode base64 to binary string
+            const binaryString = atob(base64);
+
+            // Convert binary string to UTF-8 string
+            // atob() returns a string where each character represents a byte
+            // We need to decode it as UTF-8
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Decode UTF-8 bytes to proper string
+            const decoded = new TextDecoder('utf-8').decode(bytes);
             return decoded;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Base64 decode error:', error.message);
