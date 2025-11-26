@@ -4976,7 +4976,8 @@ async function sendReplyCommentInternal(messageData) {
                         }
                     });
 
-                    renderChatMessages(allChatMessages, true);
+                    // Don't force scroll to bottom - let wasAtBottom logic decide
+                    renderChatMessages(allChatMessages, false);
                     console.log('[SEND-REPLY] Replaced temp messages with real messages');
                 }
             } else if (chatType === 'comment' && currentChatPSID) {
@@ -4993,7 +4994,8 @@ async function sendReplyCommentInternal(messageData) {
                         }
                     });
 
-                    renderComments(allChatComments, true);
+                    // Don't force scroll to bottom - let wasAtBottom logic decide
+                    renderComments(allChatComments, false);
                 }
             }
         }, 1000);
@@ -5205,16 +5207,21 @@ function renderChatMessages(messages, scrollToBottom = false) {
 
     // Only auto-scroll if user was already at bottom, otherwise preserve position
     if (wasAtBottom) {
-        setTimeout(() => {
-            modalBody.scrollTop = modalBody.scrollHeight;
-        }, 50);
+        // Use requestAnimationFrame to ensure DOM has updated before scrolling
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                modalBody.scrollTop = modalBody.scrollHeight;
+            });
+        });
     } else {
         // Preserve scroll position (adjust for new content added at top)
-        setTimeout(() => {
-            const newScrollHeight = modalBody.scrollHeight;
-            const heightDiff = newScrollHeight - previousScrollHeight;
-            modalBody.scrollTop = previousScrollTop + heightDiff;
-        }, 50);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const newScrollHeight = modalBody.scrollHeight;
+                const heightDiff = newScrollHeight - previousScrollHeight;
+                modalBody.scrollTop = previousScrollTop + heightDiff;
+            });
+        });
     }
 }
 
@@ -5436,16 +5443,21 @@ function renderComments(comments, scrollToBottom = false) {
 
     // Only auto-scroll if user was already at bottom, otherwise preserve position
     if (wasAtBottom) {
-        setTimeout(() => {
-            modalBody.scrollTop = modalBody.scrollHeight;
-        }, 50);
+        // Use requestAnimationFrame to ensure DOM has updated before scrolling
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                modalBody.scrollTop = modalBody.scrollHeight;
+            });
+        });
     } else {
         // Preserve scroll position (adjust for new content added at top)
-        setTimeout(() => {
-            const newScrollHeight = modalBody.scrollHeight;
-            const heightDiff = newScrollHeight - previousScrollHeight;
-            modalBody.scrollTop = previousScrollTop + heightDiff;
-        }, 50);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const newScrollHeight = modalBody.scrollHeight;
+                const heightDiff = newScrollHeight - previousScrollHeight;
+                modalBody.scrollTop = previousScrollTop + heightDiff;
+            });
+        });
     }
 }
 
