@@ -18,6 +18,8 @@
     let firebaseDb = null;
     let droppedProductsRef = null;
     let historyRef = null;
+    let lastSyncTime = null;
+    let isFirstLoad = true;
 
     /**
      * Initialize the dropped products manager
@@ -28,23 +30,34 @@
         console.log('[DROPPED-PRODUCTS] Initializing...');
 
         try {
+            // SMART CACHING: Load from localStorage FIRST for instant UI
+            const cacheData = loadFromLocalStorage();
+            if (cacheData) {
+                console.log('[DROPPED-PRODUCTS] Loaded from cache, showing cached data first');
+                renderDroppedProductsTable();
+                renderHistoryList();
+                updateDroppedCounts();
+            }
+
             // Get Firebase database reference
             if (window.firebase && window.firebase.database) {
                 firebaseDb = window.firebase.database();
-                await loadDroppedProductsFromFirebase();
-                await loadHistoryFromFirebase();
+                // Setup realtime listeners (will sync in background)
+                loadDroppedProductsFromFirebase();
+                loadHistoryFromFirebase();
                 isInitialized = true;
-                console.log('[DROPPED-PRODUCTS] Initialized successfully');
+                console.log('[DROPPED-PRODUCTS] Initialized with Firebase realtime sync');
             } else {
-                console.warn('[DROPPED-PRODUCTS] Firebase not available, using local storage');
-                loadFromLocalStorage();
+                console.warn('[DROPPED-PRODUCTS] Firebase not available, using local storage only');
                 isInitialized = true;
             }
 
-            // Render initial state
-            renderDroppedProductsTable();
-            renderHistoryList();
-            updateDroppedCounts();
+            // Render initial state if not cached
+            if (!cacheData) {
+                renderDroppedProductsTable();
+                renderHistoryList();
+                updateDroppedCounts();
+            }
 
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Initialization error:', error);
@@ -55,102 +68,254 @@
 
     /**
      * Load dropped products from Firebase with realtime listener
+     * Uses child_added/changed/removed for granular updates (prevents double/lost data)
      */
     function loadDroppedProductsFromFirebase() {
         if (!firebaseDb) return;
 
         try {
-            console.log('[DROPPED-PRODUCTS] Setting up realtime listener for dropped_products');
+            console.log('[DROPPED-PRODUCTS] Setting up granular realtime listeners for dropped_products');
 
             droppedProductsRef = firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION);
-            droppedProductsRef.on('value', (snapshot) => {
-                const data = snapshot.val();
 
-                if (data) {
-                    droppedProducts = Object.keys(data).map(key => ({
-                        id: key,
-                        ...data[key]
-                    }));
+            // Handle new items
+            droppedProductsRef.on('child_added', (snapshot) => {
+                const itemId = snapshot.key;
+                const itemData = snapshot.val();
+
+                // Check if item already exists by ID or ProductId (prevent duplicates from optimistic updates)
+                const existingByIdIndex = droppedProducts.findIndex(p => p.id === itemId);
+                const existingByProductIdIndex = droppedProducts.findIndex(p =>
+                    p.ProductId === itemData.ProductId && p.id && p.id.startsWith('temp_')
+                );
+
+                if (existingByIdIndex > -1) {
+                    // Item already exists with this Firebase ID, skip
+                    if (!isFirstLoad) {
+                        console.warn('[DROPPED-PRODUCTS] Duplicate add detected for ID:', itemId, '- skipped');
+                    }
+                } else if (existingByProductIdIndex > -1) {
+                    // Item exists with temp ID, update to real Firebase ID
+                    console.log('[DROPPED-PRODUCTS] Updating temp ID to Firebase ID:', itemId);
+                    droppedProducts[existingByProductIdIndex] = {
+                        id: itemId,
+                        ...itemData
+                    };
+                    renderDroppedProductsTable();
+                    updateDroppedCounts();
                 } else {
-                    droppedProducts = [];
+                    // Truly new item, add it
+                    droppedProducts.push({
+                        id: itemId,
+                        ...itemData
+                    });
+
+                    // Only log if not first load to avoid spam
+                    if (!isFirstLoad) {
+                        console.log('[DROPPED-PRODUCTS] Item added:', itemId);
+                    }
+
+                    // Update UI
+                    renderDroppedProductsTable();
+                    updateDroppedCounts();
                 }
-
-                console.log('[DROPPED-PRODUCTS] Realtime update from Firebase:', droppedProducts.length, 'items');
-
-                // Update UI when data changes
-                renderDroppedProductsTable();
-                updateDroppedCounts();
-                saveToLocalStorage();
-
             }, (error) => {
-                console.error('[DROPPED-PRODUCTS] Realtime listener error:', error);
-                droppedProducts = [];
+                console.error('[DROPPED-PRODUCTS] child_added error:', error);
             });
 
+            // Handle updated items
+            droppedProductsRef.on('child_changed', (snapshot) => {
+                const itemId = snapshot.key;
+                const itemData = snapshot.val();
+
+                // Find and update existing item
+                const existingIndex = droppedProducts.findIndex(p => p.id === itemId);
+
+                if (existingIndex > -1) {
+                    droppedProducts[existingIndex] = {
+                        id: itemId,
+                        ...itemData
+                    };
+                    console.log('[DROPPED-PRODUCTS] Item updated:', itemId);
+                } else {
+                    console.warn('[DROPPED-PRODUCTS] Update for non-existent item:', itemId);
+                }
+
+                // Update UI
+                renderDroppedProductsTable();
+                updateDroppedCounts();
+            }, (error) => {
+                console.error('[DROPPED-PRODUCTS] child_changed error:', error);
+            });
+
+            // Handle removed items
+            droppedProductsRef.on('child_removed', (snapshot) => {
+                const itemId = snapshot.key;
+
+                // Find and remove item
+                const existingIndex = droppedProducts.findIndex(p => p.id === itemId);
+
+                if (existingIndex > -1) {
+                    droppedProducts.splice(existingIndex, 1);
+                    console.log('[DROPPED-PRODUCTS] Item removed:', itemId);
+                } else {
+                    console.warn('[DROPPED-PRODUCTS] Remove for non-existent item:', itemId);
+                }
+
+                // Update UI
+                renderDroppedProductsTable();
+                updateDroppedCounts();
+            }, (error) => {
+                console.error('[DROPPED-PRODUCTS] child_removed error:', error);
+            });
+
+            // Mark first load complete after initial sync
+            setTimeout(() => {
+                isFirstLoad = false;
+                lastSyncTime = Date.now();
+                console.log('[DROPPED-PRODUCTS] Initial sync complete:', droppedProducts.length, 'items');
+            }, 1000);
+
         } catch (error) {
-            console.error('[DROPPED-PRODUCTS] Error setting up listener:', error);
-            droppedProducts = [];
+            console.error('[DROPPED-PRODUCTS] Error setting up listeners:', error);
         }
     }
 
     /**
      * Load history from Firebase with realtime listener
+     * Uses child_added/changed/removed for granular updates
      */
     function loadHistoryFromFirebase() {
         if (!firebaseDb) return;
 
         try {
-            console.log('[DROPPED-PRODUCTS] Setting up realtime listener for dropped_products_history');
+            console.log('[DROPPED-PRODUCTS] Setting up granular realtime listeners for history');
 
             historyRef = firebaseDb.ref(HISTORY_COLLECTION)
                 .orderByChild('timestamp')
                 .limitToLast(100);
 
-            historyRef.on('value', (snapshot) => {
-                const data = snapshot.val();
+            // Handle new history items
+            historyRef.on('child_added', (snapshot) => {
+                const itemId = snapshot.key;
+                const itemData = snapshot.val();
 
-                if (data) {
-                    historyItems = Object.keys(data).map(key => ({
-                        id: key,
-                        ...data[key]
-                    })).sort((a, b) => b.timestamp - a.timestamp);
-                } else {
-                    historyItems = [];
+                // Check if item already exists (prevent duplicates)
+                const existingIndex = historyItems.findIndex(h => h.id === itemId);
+
+                if (existingIndex === -1) {
+                    // Add new item
+                    const newItem = {
+                        id: itemId,
+                        ...itemData
+                    };
+                    historyItems.push(newItem);
+
+                    // Sort by timestamp (newest first)
+                    historyItems.sort((a, b) => b.timestamp - a.timestamp);
+
+                    // Keep only last 100 items
+                    if (historyItems.length > 100) {
+                        historyItems = historyItems.slice(0, 100);
+                    }
+
+                    if (!isFirstLoad) {
+                        console.log('[DROPPED-PRODUCTS] History item added:', itemId);
+                    }
+                } else if (!isFirstLoad) {
+                    console.warn('[DROPPED-PRODUCTS] Duplicate history add detected for:', itemId, '- skipped');
                 }
 
-                console.log('[DROPPED-PRODUCTS] Realtime history update:', historyItems.length, 'items');
-
-                // Update UI when data changes
+                // Update UI
                 renderHistoryList();
-                saveToLocalStorage();
-
             }, (error) => {
-                console.error('[DROPPED-PRODUCTS] History listener error:', error);
-                historyItems = [];
+                console.error('[DROPPED-PRODUCTS] History child_added error:', error);
+            });
+
+            // Handle updated history items (rare, but possible)
+            historyRef.on('child_changed', (snapshot) => {
+                const itemId = snapshot.key;
+                const itemData = snapshot.val();
+
+                const existingIndex = historyItems.findIndex(h => h.id === itemId);
+
+                if (existingIndex > -1) {
+                    historyItems[existingIndex] = {
+                        id: itemId,
+                        ...itemData
+                    };
+                    // Re-sort
+                    historyItems.sort((a, b) => b.timestamp - a.timestamp);
+                    console.log('[DROPPED-PRODUCTS] History item updated:', itemId);
+                } else {
+                    console.warn('[DROPPED-PRODUCTS] History update for non-existent item:', itemId);
+                }
+
+                // Update UI
+                renderHistoryList();
+            }, (error) => {
+                console.error('[DROPPED-PRODUCTS] History child_changed error:', error);
+            });
+
+            // Handle removed history items
+            historyRef.on('child_removed', (snapshot) => {
+                const itemId = snapshot.key;
+
+                const existingIndex = historyItems.findIndex(h => h.id === itemId);
+
+                if (existingIndex > -1) {
+                    historyItems.splice(existingIndex, 1);
+                    console.log('[DROPPED-PRODUCTS] History item removed:', itemId);
+                } else {
+                    console.warn('[DROPPED-PRODUCTS] History remove for non-existent item:', itemId);
+                }
+
+                // Update UI
+                renderHistoryList();
+            }, (error) => {
+                console.error('[DROPPED-PRODUCTS] History child_removed error:', error);
             });
 
         } catch (error) {
-            console.error('[DROPPED-PRODUCTS] Error setting up history listener:', error);
-            historyItems = [];
+            console.error('[DROPPED-PRODUCTS] Error setting up history listeners:', error);
         }
     }
 
     /**
-     * Load from localStorage as fallback
+     * Load from localStorage with timestamp validation
+     * @returns {boolean} True if valid cache was loaded, false otherwise
      */
     function loadFromLocalStorage() {
         try {
             const savedDropped = localStorage.getItem('droppedProducts');
             const savedHistory = localStorage.getItem('droppedProductsHistory');
+            const savedTimestamp = localStorage.getItem('droppedProductsLastSync');
+
+            if (!savedDropped && !savedHistory) {
+                console.log('[DROPPED-PRODUCTS] No cache found in localStorage');
+                return false;
+            }
+
+            // Parse timestamp
+            const cacheAge = savedTimestamp ? Date.now() - parseInt(savedTimestamp, 10) : Infinity;
+            const cacheAgeMinutes = Math.floor(cacheAge / 60000);
 
             droppedProducts = savedDropped ? JSON.parse(savedDropped) : [];
             historyItems = savedHistory ? JSON.parse(savedHistory) : [];
+            lastSyncTime = savedTimestamp ? parseInt(savedTimestamp, 10) : null;
 
-            console.log('[DROPPED-PRODUCTS] Loaded from localStorage');
+            console.log('[DROPPED-PRODUCTS] Loaded from localStorage:', {
+                products: droppedProducts.length,
+                history: historyItems.length,
+                cacheAge: cacheAgeMinutes > 0 ? `${cacheAgeMinutes}m ago` : 'just now'
+            });
+
+            return true;
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error loading from localStorage:', error);
             droppedProducts = [];
             historyItems = [];
+            return false;
         }
     }
 
@@ -175,12 +340,18 @@
     };
 
     /**
-     * Save to localStorage as backup
+     * Save to localStorage with timestamp
+     * ONLY call this on WRITE operations (add/update/delete), NOT in realtime listeners
      */
     function saveToLocalStorage() {
         try {
+            const timestamp = Date.now();
             localStorage.setItem('droppedProducts', JSON.stringify(droppedProducts));
             localStorage.setItem('droppedProductsHistory', JSON.stringify(historyItems));
+            localStorage.setItem('droppedProductsLastSync', timestamp.toString());
+            lastSyncTime = timestamp;
+
+            console.log('[DROPPED-PRODUCTS] Saved to localStorage (backup after write operation)');
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error saving to localStorage:', error);
         }
@@ -210,29 +381,35 @@
         const existingIndex = droppedProducts.findIndex(p => p.ProductId === product.ProductId);
 
         if (existingIndex > -1) {
-            // Increase quantity
+            // Increase quantity - OPTIMISTIC UPDATE
             droppedProducts[existingIndex].Quantity += quantity;
             droppedProducts[existingIndex].addedAt = Date.now();
             droppedProducts[existingIndex].addedDate = new Date().toLocaleString('vi-VN');
 
-            // Update in Firebase
+            // Sync to Firebase in background
             if (firebaseDb && droppedProducts[existingIndex].id) {
-                await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProducts[existingIndex].id}`).update({
+                firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProducts[existingIndex].id}`).update({
                     Quantity: droppedProducts[existingIndex].Quantity,
                     addedAt: droppedProducts[existingIndex].addedAt,
                     addedDate: droppedProducts[existingIndex].addedDate
+                }).catch(err => {
+                    console.error('[DROPPED-PRODUCTS] Firebase update failed:', err);
                 });
             }
         } else {
-            // Add new item
-            if (firebaseDb) {
-                const newRef = await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(droppedItem);
-                droppedItem.id = newRef.key;
-            } else {
-                droppedItem.id = 'local_' + Date.now();
-            }
-
+            // Add new item - OPTIMISTIC UPDATE with temporary ID
+            droppedItem.id = 'temp_' + Date.now() + '_' + product.ProductId;
             droppedProducts.push(droppedItem);
+
+            // Sync to Firebase in background (realtime listener will update the temp ID)
+            if (firebaseDb) {
+                firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(droppedItem).then(newRef => {
+                    console.log('[DROPPED-PRODUCTS] Created in Firebase with ID:', newRef.key);
+                    // Realtime listener will automatically replace temp ID with real ID
+                }).catch(err => {
+                    console.error('[DROPPED-PRODUCTS] Firebase push failed:', err);
+                });
+            }
         }
 
         // Add to history
@@ -244,8 +421,10 @@
             price: product.Price
         });
 
-        // Save backup
-        saveToLocalStorage();
+        // Save to localStorage only if Firebase is not available
+        if (!firebaseDb) {
+            saveToLocalStorage();
+        }
 
         // Update UI
         renderDroppedProductsTable();
@@ -302,19 +481,30 @@
             return;
         }
 
-        // Remove from Firebase
+        // OPTIMISTIC UPDATE: Remove from local array first for instant UI feedback
+        droppedProducts.splice(index, 1);
+        renderDroppedProductsTable();
+        updateDroppedCounts();
+
+        // Sync to Firebase (realtime listener will handle if this fails)
         if (firebaseDb && product.id) {
             try {
                 await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).remove();
             } catch (error) {
                 console.error('[DROPPED-PRODUCTS] Error removing from Firebase:', error);
+                // Revert optimistic update on error
+                droppedProducts.splice(index, 0, product);
+                renderDroppedProductsTable();
+                updateDroppedCounts();
+                if (window.notificationManager) {
+                    window.notificationManager.show('Lỗi khi xóa khỏi Firebase', 'error');
+                }
+                return;
             }
+        } else {
+            // No Firebase, save to localStorage as backup
+            saveToLocalStorage();
         }
-
-        droppedProducts.splice(index, 1);
-        saveToLocalStorage();
-        renderDroppedProductsTable();
-        updateDroppedCounts();
 
         if (window.notificationManager) {
             window.notificationManager.show('Đã xóa khỏi hàng rớt - xả', 'success');
@@ -326,12 +516,17 @@
      */
     window.updateDroppedProductQuantity = async function (index, change, value = null) {
         const product = droppedProducts[index];
-        let newQty = value !== null ? parseInt(value, 10) : (product.Quantity || 0) + change;
+        const oldQty = product.Quantity || 0;
+        let newQty = value !== null ? parseInt(value, 10) : oldQty + change;
 
         if (newQty < 1) newQty = 1;
-        product.Quantity = newQty;
 
-        // Update in Firebase
+        // OPTIMISTIC UPDATE: Update local state first for instant UI feedback
+        product.Quantity = newQty;
+        renderDroppedProductsTable();
+        updateDroppedCounts();
+
+        // Sync to Firebase
         if (firebaseDb && product.id) {
             try {
                 await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).update({
@@ -339,12 +534,18 @@
                 });
             } catch (error) {
                 console.error('[DROPPED-PRODUCTS] Error updating quantity:', error);
+                // Revert optimistic update on error
+                product.Quantity = oldQty;
+                renderDroppedProductsTable();
+                updateDroppedCounts();
+                if (window.notificationManager) {
+                    window.notificationManager.show('Lỗi khi cập nhật số lượng', 'error');
+                }
             }
+        } else {
+            // No Firebase, save to localStorage as backup
+            saveToLocalStorage();
         }
-
-        saveToLocalStorage();
-        renderDroppedProductsTable();
-        updateDroppedCounts();
     };
 
     /**
@@ -404,19 +605,32 @@
             StockQty: fullProduct ? fullProduct.QtyAvailable : 0
         });
 
-        // Decrease quantity in dropped list
+        // OPTIMISTIC UPDATE: Decrease quantity in dropped list
+        const oldQty = product.Quantity;
         product.Quantity -= 1;
 
         if (product.Quantity <= 0) {
-            // Remove from Firebase if quantity is 0
+            // Remove from local array
+            droppedProducts.splice(index, 1);
+
+            // Remove from Firebase
             if (firebaseDb && product.id) {
                 try {
                     await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).remove();
                 } catch (error) {
                     console.error('[DROPPED-PRODUCTS] Error removing from Firebase:', error);
+                    // Revert optimistic update
+                    product.Quantity = oldQty;
+                    droppedProducts.splice(index, 0, product);
+                    if (window.notificationManager) {
+                        window.notificationManager.show('Lỗi khi đồng bộ Firebase', 'error');
+                    }
+                    return;
                 }
+            } else {
+                // No Firebase, save to localStorage
+                saveToLocalStorage();
             }
-            droppedProducts.splice(index, 1);
         } else {
             // Update quantity in Firebase
             if (firebaseDb && product.id) {
@@ -426,11 +640,18 @@
                     });
                 } catch (error) {
                     console.error('[DROPPED-PRODUCTS] Error updating quantity:', error);
+                    // Revert optimistic update
+                    product.Quantity = oldQty;
+                    if (window.notificationManager) {
+                        window.notificationManager.show('Lỗi khi đồng bộ Firebase', 'error');
+                    }
+                    return;
                 }
+            } else {
+                // No Firebase, save to localStorage
+                saveToLocalStorage();
             }
         }
-
-        saveToLocalStorage();
 
         // Add history
         await addHistoryItem({
@@ -717,24 +938,57 @@
             return;
         }
 
+        // OPTIMISTIC UPDATE: Clear local array first
+        const backup = [...droppedProducts];
+        droppedProducts = [];
+        renderDroppedProductsTable();
+        updateDroppedCounts();
+
         // Remove all from Firebase
         if (firebaseDb) {
             try {
                 await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).remove();
             } catch (error) {
                 console.error('[DROPPED-PRODUCTS] Error clearing from Firebase:', error);
+                // Revert optimistic update
+                droppedProducts = backup;
+                renderDroppedProductsTable();
+                updateDroppedCounts();
+                if (window.notificationManager) {
+                    window.notificationManager.show('Lỗi khi xóa khỏi Firebase', 'error');
+                }
+                return;
             }
+        } else {
+            // No Firebase, save to localStorage
+            saveToLocalStorage();
         }
-
-        droppedProducts = [];
-        saveToLocalStorage();
-        renderDroppedProductsTable();
-        updateDroppedCounts();
 
         if (window.notificationManager) {
             window.notificationManager.show('Đã xóa tất cả hàng rớt - xả', 'success');
         }
     };
+
+    /**
+     * Periodic backup to localStorage (every 2 minutes)
+     * Only saves if Firebase is connected to ensure we have a backup
+     */
+    setInterval(() => {
+        if (isInitialized && firebaseDb) {
+            saveToLocalStorage();
+            console.log('[DROPPED-PRODUCTS] Periodic backup to localStorage');
+        }
+    }, 120000); // 2 minutes
+
+    /**
+     * Save to localStorage before page unload
+     */
+    window.addEventListener('beforeunload', () => {
+        if (isInitialized) {
+            saveToLocalStorage();
+            console.log('[DROPPED-PRODUCTS] Saved to localStorage on beforeunload');
+        }
+    });
 
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {
