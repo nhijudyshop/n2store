@@ -1363,7 +1363,7 @@
                         baseProduct: historical.baseProduct || 0,  // UNCHANGED
                         baseline: historical.baseline || 0,        // KEEP high water mark
                         currentQty: 0,
-                        kpiQty: historical.kpiQty || 0             // KEEP cumulative KPI
+                        kpiQty: newKpiQty                          // BUGFIX: Reset to 0 when deleted
                     });
 
                     // Update in-memory tracking
@@ -1371,7 +1371,7 @@
                         baseProduct: historical.baseProduct || 0,
                         baseline: historical.baseline || 0,
                         currentQty: 0,
-                        kpiQty: historical.kpiQty || 0
+                        kpiQty: newKpiQty  // BUGFIX: Reset to 0 when deleted
                     });
                 }
             });
