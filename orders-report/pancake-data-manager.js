@@ -741,12 +741,14 @@ class PancakeDataManager {
             const { messages } = await this.fetchMessagesForConversation(pageId, conversationId);
 
             if (!messages || messages.length === 0) {
-                console.warn(`[DEBUG-24H] No messages found in conversation`);
+                console.warn(`[DEBUG-24H] Cannot fetch messages - skipping 24h check (allow send)`);
+                // FIX: Don't block user if API fails - let Facebook API handle 24h validation
+                // Return canSend: true to avoid blocking user experience
                 return {
-                    canSend: false,
+                    canSend: true,  // Changed from false to true
                     hoursSinceLastMessage: null,
                     lastCustomerMessage: null,
-                    reason: 'No messages in conversation'
+                    reason: 'Cannot verify 24-hour window - API unavailable (proceeding anyway)'
                 };
             }
 
@@ -754,24 +756,26 @@ class PancakeDataManager {
             const lastCustomerMsg = this.findLastCustomerMessage(messages, pageId);
 
             if (!lastCustomerMsg) {
-                console.warn(`[DEBUG-24H] No customer messages found - all messages are from page`);
+                console.warn(`[DEBUG-24H] No customer messages found - all messages are from page (allow send)`);
+                // FIX: Don't block user - let Facebook API handle validation
                 return {
-                    canSend: false,
+                    canSend: true,  // Changed from false to true
                     hoursSinceLastMessage: null,
                     lastCustomerMessage: null,
-                    reason: 'No customer messages found - 24-hour window has expired'
+                    reason: 'No customer messages found - cannot verify 24-hour window (proceeding anyway)'
                 };
             }
 
             // Calculate time since last customer message
             const lastMsgTime = lastCustomerMsg.created_time || lastCustomerMsg.inserted_at;
             if (!lastMsgTime) {
-                console.warn(`[DEBUG-24H] Last customer message has no timestamp`);
+                console.warn(`[DEBUG-24H] Last customer message has no timestamp (allow send)`);
+                // FIX: Don't block user - let Facebook API handle validation
                 return {
-                    canSend: false,
+                    canSend: true,  // Changed from false to true
                     hoursSinceLastMessage: null,
                     lastCustomerMessage: lastCustomerMsg,
-                    reason: 'Cannot determine message timestamp'
+                    reason: 'Cannot determine message timestamp (proceeding anyway)'
                 };
             }
 
@@ -798,11 +802,12 @@ class PancakeDataManager {
 
         } catch (error) {
             console.error(`[DEBUG-24H] Error checking 24-hour window:`, error);
+            // FIX: Don't block user on error - let Facebook API handle validation
             return {
-                canSend: false,
+                canSend: true,  // Changed from false to true
                 hoursSinceLastMessage: null,
                 lastCustomerMessage: null,
-                reason: `Error: ${error.message}`
+                reason: `Error checking 24h window (proceeding anyway): ${error.message}`
             };
         }
     }
