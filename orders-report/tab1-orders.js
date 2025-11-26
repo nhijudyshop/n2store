@@ -193,7 +193,7 @@ window.addEventListener("DOMContentLoaded", async function () {
     });
 
     // Keyboard shortcuts for tag modal
-    document.addEventListener('keydown', function(event) {
+    document.addEventListener('keydown', function (event) {
         const tagModal = document.getElementById('tagModal');
         if (tagModal && tagModal.classList.contains('show')) {
             // Ctrl+Enter to save tags
@@ -2139,17 +2139,9 @@ function createRowHTML(order) {
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
             <td data-column="tag">
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
-                            <i class="fas fa-tags"></i>
-                        </button>
-                        <button class="tag-rect-btn-o" onclick="event.stopPropagation();" title="Nút O">
-                            O
-                        </button>
-                        <button class="tag-rect-btn-x" onclick="event.stopPropagation();" title="Nút X">
-                            X
-                        </button>
-                    </div>
+                    <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
+                        <i class="fas fa-tags"></i>
+                    </button>
                     ${tagsHTML}
                 </div>
             </td>
@@ -2771,8 +2763,22 @@ function renderInfoTab(data) {
             <h4><i class="fas fa-user"></i> Thông tin khách hàng</h4>
             <div class="info-grid">
                 <div class="info-field"><div class="info-label">Tên khách hàng</div><div class="info-value highlight">${data.Name || ""}</div></div>
-                <div class="info-field"><div class="info-label">Điện thoại</div><div class="info-value highlight"><i class="fas fa-phone"></i> ${data.Telephone || ""}</div></div>
-                <div class="info-field" style="grid-column: 1 / -1;"><div class="info-label">Địa chỉ đầy đủ</div><div class="info-value">${data.Address || ""}</div></div>
+                <div class="info-field">
+                    <div class="info-label">Điện thoại</div>
+                    <div class="info-value">
+                        <input type="text" class="form-control" value="${data.Telephone || ""}" 
+                            onchange="updateOrderInfo('Telephone', this.value)" 
+                            style="width: 100%; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                    </div>
+                </div>
+                <div class="info-field" style="grid-column: 1 / -1;">
+                    <div class="info-label">Địa chỉ đầy đủ</div>
+                    <div class="info-value">
+                        <textarea class="form-control" 
+                            onchange="updateOrderInfo('Address', this.value)" 
+                            style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; min-height: 60px; resize: vertical;">${data.Address || ""}</textarea>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="info-card">
@@ -2787,6 +2793,18 @@ function renderInfoTab(data) {
                 </div>
             </div>
         </div>`;
+}
+
+function updateOrderInfo(field, value) {
+    if (!currentEditOrderData) return;
+    currentEditOrderData[field] = value;
+
+    // Show quick feedback
+    if (window.showSaveIndicator) {
+        showSaveIndicator("success", "Đã cập nhật thông tin (chưa lưu)");
+    } else if (window.notificationManager) {
+        window.notificationManager.show("Đã cập nhật thông tin (chưa lưu)", "info");
+    }
 }
 
 function renderProductsTab(data) {

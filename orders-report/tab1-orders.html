@@ -303,7 +303,8 @@
                     <div class="selected-tags-pills" id="selectedTagsPills">
                         <!-- Selected tags will be rendered here -->
                     </div>
-                    <input type="text" id="tagSearchInput" class="tag-add-input" placeholder="Add a tag" oninput="filterTags()" onkeydown="handleTagInputKeydown(event)" />
+                    <input type="text" id="tagSearchInput" class="tag-add-input" placeholder="Add a tag"
+                        oninput="filterTags()" onkeydown="handleTagInputKeydown(event)" />
                 </div>
 
                 <!-- Available Tags List -->
@@ -1372,6 +1373,7 @@
                     transform: translateY(20px);
                     opacity: 0;
                 }
+
                 to {
                     transform: translateY(0);
                     opacity: 1;
@@ -2255,8 +2257,8 @@
 
             <!-- Search Bar -->
             <div class="sticker-search-container">
-                <input type="text" class="sticker-search-input" id="stickerSearchInput"
-                    placeholder="Tìm kiếm..." oninput="searchSticker(this.value)">
+                <input type="text" class="sticker-search-input" id="stickerSearchInput" placeholder="Tìm kiếm..."
+                    oninput="searchSticker(this.value)">
                 <i class="fas fa-search sticker-search-icon"></i>
             </div>
 
@@ -2284,43 +2286,62 @@
                     <h4 class="emoji-category-title">Smileys & People</h4>
                     <div class="emoji-grid">
                         <div class="emoji-item" onclick="insertStickerEmoji('😀')" title="grinning face">😀</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😃')" title="grinning face with big eyes">😃</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😄')" title="grinning face with smiling eyes">😄</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😁')" title="beaming face with smiling eyes">😁</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😆')" title="grinning squinting face">😆</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😅')" title="grinning face with sweat">😅</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🤣')" title="rolling on the floor laughing">🤣</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😂')" title="face with tears of joy">😂</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🙂')" title="slightly smiling face">🙂</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😃')" title="grinning face with big eyes">
+                            😃</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😄')"
+                            title="grinning face with smiling eyes">😄</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😁')"
+                            title="beaming face with smiling eyes">😁</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😆')" title="grinning squinting face">😆
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😅')" title="grinning face with sweat">😅
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤣')"
+                            title="rolling on the floor laughing">🤣</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😂')" title="face with tears of joy">😂
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙂')" title="slightly smiling face">🙂
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🙃')" title="upside-down face">🙃</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😉')" title="winking face">😉</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😊')" title="smiling face with smiling eyes">😊</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😇')" title="smiling face with halo">😇</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🥰')" title="smiling face with hearts">🥰</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😍')" title="smiling face with heart-eyes">😍</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😊')"
+                            title="smiling face with smiling eyes">😊</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😇')" title="smiling face with halo">😇
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🥰')" title="smiling face with hearts">🥰
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😍')" title="smiling face with heart-eyes">
+                            😍</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤩')" title="star-struck">🤩</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😘')" title="face blowing a kiss">😘</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😗')" title="kissing face">😗</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😚')" title="kissing face with closed eyes">😚</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😙')" title="kissing face with smiling eyes">😙</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😚')"
+                            title="kissing face with closed eyes">😚</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😙')"
+                            title="kissing face with smiling eyes">😙</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😋')" title="face savoring food">😋</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😛')" title="face with tongue">😛</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😜')" title="winking face with tongue">😜</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😜')" title="winking face with tongue">😜
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤪')" title="zany face">🤪</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😝')" title="squinting face with tongue">😝</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😝')" title="squinting face with tongue">😝
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤑')" title="money-mouth face">🤑</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤗')" title="hugging face">🤗</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🤭')" title="face with hand over mouth">🤭</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤭')" title="face with hand over mouth">🤭
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤫')" title="shushing face">🤫</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤔')" title="thinking face">🤔</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤐')" title="zipper-mouth face">🤐</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🤨')" title="face with raised eyebrow">🤨</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤨')" title="face with raised eyebrow">🤨
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😐')" title="neutral face">😐</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😑')" title="expressionless face">😑</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😶')" title="face without mouth">😶</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😏')" title="smirking face">😏</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😒')" title="unamused face">😒</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🙄')" title="face with rolling eyes">🙄</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙄')" title="face with rolling eyes">🙄
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😬')" title="grimacing face">😬</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤥')" title="lying face">🤥</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😌')" title="relieved face">😌</div>
@@ -2328,44 +2349,56 @@
                         <div class="emoji-item" onclick="insertStickerEmoji('😪')" title="sleepy face">😪</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤤')" title="drooling face">🤤</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😴')" title="sleeping face">😴</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😷')" title="face with medical mask">😷</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🤒')" title="face with thermometer">🤒</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🤕')" title="face with head-bandage">🤕</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😷')" title="face with medical mask">😷
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤒')" title="face with thermometer">🤒
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤕')" title="face with head-bandage">🤕
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤢')" title="nauseated face">🤢</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤮')" title="face vomiting">🤮</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤧')" title="sneezing face">🤧</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🥵')" title="hot face">🥵</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🥶')" title="cold face">🥶</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😎')" title="smiling face with sunglasses">😎</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😎')" title="smiling face with sunglasses">
+                            😎</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🤓')" title="nerd face">🤓</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🧐')" title="face with monocle">🧐</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😕')" title="confused face">😕</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😟')" title="worried face">😟</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🙁')" title="slightly frowning face">🙁</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🙁')" title="slightly frowning face">🙁
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😮')" title="face with open mouth">😮</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😯')" title="hushed face">😯</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😲')" title="astonished face">😲</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😳')" title="flushed face">😳</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🥺')" title="pleading face">🥺</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😦')" title="frowning face with open mouth">😦</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😦')"
+                            title="frowning face with open mouth">😦</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😧')" title="anguished face">😧</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😨')" title="fearful face">😨</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😰')" title="anxious face with sweat">😰</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😥')" title="sad but relieved face">😥</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😰')" title="anxious face with sweat">😰
+                        </div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😥')" title="sad but relieved face">😥
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😢')" title="crying face">😢</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😭')" title="loudly crying face">😭</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😱')" title="face screaming in fear">😱</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😱')" title="face screaming in fear">😱
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😖')" title="confounded face">😖</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😣')" title="persevering face">😣</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😞')" title="disappointed face">😞</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😓')" title="downcast face with sweat">😓</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😓')" title="downcast face with sweat">😓
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😩')" title="weary face">😩</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😫')" title="tired face">😫</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('🥱')" title="yawning face">🥱</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('😤')" title="face with steam from nose">😤</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('😤')" title="face with steam from nose">😤
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😡')" title="pouting face">😡</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('😠')" title="angry face">😠</div>
-                        <div class="emoji-item" onclick="insertStickerEmoji('🤬')" title="face with symbols on mouth">🤬</div>
+                        <div class="emoji-item" onclick="insertStickerEmoji('🤬')" title="face with symbols on mouth">🤬
+                        </div>
                         <div class="emoji-item" onclick="insertStickerEmoji('👍')" title="thumbs up">👍</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('👎')" title="thumbs down">👎</div>
                         <div class="emoji-item" onclick="insertStickerEmoji('👏')" title="clapping hands">👏</div>

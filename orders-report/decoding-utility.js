@@ -152,10 +152,11 @@
             // Try to decode each line
             // Check if line looks like it might be encoded (no spaces, reasonable length)
             if (trimmed.length > 20 && !trimmed.includes(' ')) {
-                const decoded = decodeProductLine(trimmed);
-                if (decoded) {
-                    const timeStr = decoded.timestamp ? new Date(decoded.timestamp).toLocaleString('vi-VN') : '';
-                    const priceStr = (decoded.price || 0).toLocaleString('vi-VN') + 'đ';
+                // 1. Try Product Line Decode (Priority)
+                const decodedProduct = decodeProductLine(trimmed);
+                if (decodedProduct) {
+                    const timeStr = decodedProduct.timestamp ? new Date(decodedProduct.timestamp).toLocaleString('vi-VN') : '';
+                    const priceStr = (decodedProduct.price || 0).toLocaleString('vi-VN') + 'đ';
 
                     let decodedHtml = `
                         <div class="decoded-note-block" style="
@@ -169,20 +170,49 @@
                             display: inline-block;
                         ">
                             <div style="font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                <i class="fas fa-box-open"></i> ${decoded.productCode}
-                                <span style="background: #0ea5e9; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px;">x${decoded.quantity}</span>
+                                <i class="fas fa-box-open"></i> ${decodedProduct.productCode}
+                                <span style="background: #0ea5e9; color: white; padding: 1px 6px; border-radius: 10px; font-size: 10px;">x${decodedProduct.quantity}</span>
                             </div>
                             <div style="display: flex; gap: 10px; margin-top: 2px; color: #0284c7;">
                                 <span><i class="fas fa-tag"></i> ${priceStr}</span>
                                 ${timeStr ? `<span><i class="far fa-clock"></i> ${timeStr}</span>` : ''}
                             </div>
-                            ${decoded.orderId ? `
+                            ${decodedProduct.orderId ? `
                             <div style="margin-top: 2px; font-size: 11px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 2px;">
-                                ID: <span style="font-family: monospace;">${decoded.orderId}</span>
+                                ID: <span style="font-family: monospace;">${decodedProduct.orderId}</span>
                             </div>` : ''}
                         </div>
                     `;
                     return `<div class="original-encoded-text" style="color: #94a3b8; font-size: 11px; text-decoration: line-through;">${trimmed}</div>${decodedHtml}`;
+                }
+
+                // 2. Try Full Note Decode (Fallback)
+                // If it's not a product line, it might be a full encoded note
+                const decodedNote = decodeFullNote(trimmed);
+                if (decodedNote) {
+                    // Basic sanity check: ensure it has some readable characters
+                    // This prevents displaying garbage if decryption fails silently
+                    if (/[\x20-\x7E\s\u00A0-\uFFFF]{3,}/.test(decodedNote)) {
+                        return `
+                            <div class="original-encoded-text" style="color: #94a3b8; font-size: 11px; text-decoration: line-through; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;" title="${trimmed}">${trimmed}</div>
+                            <div class="decoded-note-content" style="
+                                color: #334155; 
+                                background: #f8fafc; 
+                                border: 1px solid #e2e8f0; 
+                                border-left: 3px solid #3b82f6;
+                                padding: 8px 12px; 
+                                border-radius: 4px; 
+                                margin-top: 4px;
+                                font-size: 13px;
+                                line-height: 1.5;
+                            ">
+                                <div style="font-weight: 600; color: #3b82f6; font-size: 11px; margin-bottom: 4px; text-transform: uppercase;">
+                                    <i class="fas fa-unlock-alt"></i> Nội dung đã giải mã
+                                </div>
+                                ${escapeHtml(decodedNote).replace(/\n/g, '<br>')}
+                            </div>
+                        `;
+                    }
                 }
             }
             return line;
