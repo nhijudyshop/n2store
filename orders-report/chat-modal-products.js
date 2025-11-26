@@ -1685,7 +1685,7 @@
                 </td>
                 <td style="text-align: center; width: 80px;">
                     ${isHeld ? `
-                        <button onclick="confirmSingleHeldProduct(${details.findIndex(d => d.ProductId === p.ProductId)})" class="chat-btn-product-action" style="
+                        <button onclick="confirmSingleHeldProduct('${p.ProductId}')" class="chat-btn-product-action" style="
                             background: #10b981;
                             color: white;
                             border: none;
@@ -1821,14 +1821,18 @@
 
     /**
      * Save a single held product to order
-     * @param {number} productIndex - Index of the product in Details array
+     * @param {string|number} productId - ProductId of the held product to save
      */
-    window.confirmSingleHeldProduct = async function (productIndex) {
+    window.confirmSingleHeldProduct = async function (productId) {
         if (!window.currentChatOrderData || !window.currentChatOrderData.Details) return;
 
-        const product = window.currentChatOrderData.Details[productIndex];
-        if (!product || !product.IsHeld) {
-            console.error('[SINGLE-HELD] Product not found or not held:', productIndex);
+        // Find product by ProductId instead of index (safer for realtime updates)
+        const product = window.currentChatOrderData.Details.find(p =>
+            String(p.ProductId) === String(productId) && p.IsHeld
+        );
+
+        if (!product) {
+            console.error('[SINGLE-HELD] Product not found or not held:', productId);
             return;
         }
 
@@ -1861,17 +1865,16 @@
             // Call confirmHeldProducts with only this product
             // Temporarily filter to only this product
             const allDetails = [...window.currentChatOrderData.Details];
-            const thisProduct = allDetails[productIndex];
 
             // Create temporary details with only non-held + this one held product
-            window.currentChatOrderData.Details = allDetails.filter(p => !p.IsHeld || p.ProductId === thisProduct.ProductId);
+            window.currentChatOrderData.Details = allDetails.filter(p => !p.IsHeld || String(p.ProductId) === String(productId));
 
             // Call the main function (will save only this product)
             await confirmHeldProducts(false);
 
             // Restore all details (confirmHeldProducts already updated it, but add back other held products)
             const savedDetails = [...window.currentChatOrderData.Details];
-            const otherHeldProducts = allDetails.filter(p => p.IsHeld && p.ProductId !== thisProduct.ProductId);
+            const otherHeldProducts = allDetails.filter(p => p.IsHeld && String(p.ProductId) !== String(productId));
             window.currentChatOrderData.Details = [...savedDetails, ...otherHeldProducts];
 
             // Re-render
