@@ -4904,11 +4904,38 @@ function renderChatMessages(messages, scrollToBottom = false) {
             content = `<p class="chat-message-text">${msg.Message}</p>`;
         }
 
-        // Handle attachments (images)
+        // Handle attachments (images and audio)
         if (msg.Attachments && msg.Attachments.length > 0) {
             msg.Attachments.forEach(att => {
                 if (att.Type === 'image' && att.Payload && att.Payload.Url) {
                     content += `<img src="${att.Payload.Url}" class="chat-message-image" loading="lazy" />`;
+                } else if (att.Type === 'audio' && att.Payload && att.Payload.Url) {
+                    content += `
+                        <div class="chat-audio-message">
+                            <i class="fas fa-microphone" style="color: #3b82f6; margin-right: 8px;"></i>
+                            <audio controls style="max-width: 100%; height: 32px;">
+                                <source src="${att.Payload.Url}" type="audio/mp4">
+                                Trình duyệt không hỗ trợ phát audio
+                            </audio>
+                        </div>`;
+                }
+            });
+        }
+
+        // Handle Pancake API format attachments (lowercase 'attachments' with 'mime_type')
+        if (msg.attachments && msg.attachments.length > 0) {
+            msg.attachments.forEach(att => {
+                if (att.mime_type === 'audio/mp4' && att.file_url) {
+                    content += `
+                        <div class="chat-audio-message">
+                            <i class="fas fa-microphone" style="color: #3b82f6; margin-right: 8px;"></i>
+                            <audio controls style="max-width: 100%; height: 32px;">
+                                <source src="${att.file_url}" type="audio/mp4">
+                                Trình duyệt không hỗ trợ phát audio
+                            </audio>
+                        </div>`;
+                } else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
+                    content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" />`;
                 }
             });
         }
@@ -5007,6 +5034,42 @@ function renderComments(comments, scrollToBottom = false) {
             content = `<p class="chat-message-text">${comment.Message}</p>`;
         }
 
+        // Handle attachments (images and audio) for comments
+        if (comment.Attachments && comment.Attachments.length > 0) {
+            comment.Attachments.forEach(att => {
+                if (att.Type === 'image' && att.Payload && att.Payload.Url) {
+                    content += `<img src="${att.Payload.Url}" class="chat-message-image" loading="lazy" />`;
+                } else if (att.Type === 'audio' && att.Payload && att.Payload.Url) {
+                    content += `
+                        <div class="chat-audio-message">
+                            <i class="fas fa-microphone" style="color: #3b82f6; margin-right: 8px;"></i>
+                            <audio controls style="max-width: 100%; height: 32px;">
+                                <source src="${att.Payload.Url}" type="audio/mp4">
+                                Trình duyệt không hỗ trợ phát audio
+                            </audio>
+                        </div>`;
+                }
+            });
+        }
+
+        // Handle Pancake API format attachments for comments
+        if (comment.attachments && comment.attachments.length > 0) {
+            comment.attachments.forEach(att => {
+                if (att.mime_type === 'audio/mp4' && att.file_url) {
+                    content += `
+                        <div class="chat-audio-message">
+                            <i class="fas fa-microphone" style="color: #3b82f6; margin-right: 8px;"></i>
+                            <audio controls style="max-width: 100%; height: 32px;">
+                                <source src="${att.file_url}" type="audio/mp4">
+                                Trình duyệt không hỗ trợ phát audio
+                            </audio>
+                        </div>`;
+                } else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
+                    content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" />`;
+                }
+            });
+        }
+
         // Status badge for unread comments
         const statusBadge = comment.Status === 30
             ? '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">Mới</span>'
@@ -5020,10 +5083,51 @@ function renderComments(comments, scrollToBottom = false) {
                 const replyAlignClass = replyIsOwner ? 'chat-message-right' : 'chat-message-left';
                 const replyBgClass = replyIsOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
 
+                let replyContent = '';
+                if (reply.Message) {
+                    replyContent = `<p class="chat-message-text">${reply.Message}</p>`;
+                }
+
+                // Handle attachments in replies
+                if (reply.Attachments && reply.Attachments.length > 0) {
+                    reply.Attachments.forEach(att => {
+                        if (att.Type === 'image' && att.Payload && att.Payload.Url) {
+                            replyContent += `<img src="${att.Payload.Url}" class="chat-message-image" loading="lazy" />`;
+                        } else if (att.Type === 'audio' && att.Payload && att.Payload.Url) {
+                            replyContent += `
+                                <div class="chat-audio-message">
+                                    <i class="fas fa-microphone" style="color: #3b82f6; margin-right: 8px;"></i>
+                                    <audio controls style="max-width: 100%; height: 32px;">
+                                        <source src="${att.Payload.Url}" type="audio/mp4">
+                                        Trình duyệt không hỗ trợ phát audio
+                                    </audio>
+                                </div>`;
+                        }
+                    });
+                }
+
+                // Handle Pancake API format in replies
+                if (reply.attachments && reply.attachments.length > 0) {
+                    reply.attachments.forEach(att => {
+                        if (att.mime_type === 'audio/mp4' && att.file_url) {
+                            replyContent += `
+                                <div class="chat-audio-message">
+                                    <i class="fas fa-microphone" style="color: #3b82f6; margin-right: 8px;"></i>
+                                    <audio controls style="max-width: 100%; height: 32px;">
+                                        <source src="${att.file_url}" type="audio/mp4">
+                                        Trình duyệt không hỗ trợ phát audio
+                                    </audio>
+                                </div>`;
+                        } else if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
+                            replyContent += `<img src="${att.file_url}" class="chat-message-image" loading="lazy" />`;
+                        }
+                    });
+                }
+
                 return `
                     <div class="chat-message ${replyAlignClass}" style="margin-left: 24px; margin-top: 8px;">
                         <div class="chat-bubble ${replyBgClass}" style="font-size: 13px;">
-                            <p class="chat-message-text">${reply.Message || ''}</p>
+                            ${replyContent}
                             <p class="chat-message-time">${formatTime(reply.CreatedTime)}</p>
                         </div>
                     </div>`;
