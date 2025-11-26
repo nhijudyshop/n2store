@@ -167,7 +167,20 @@ class QuickReplyManager {
     async loadReplies() {
         console.log('[QUICK-REPLY] 📥 Loading replies...');
 
-        // Only read from Firebase
+        // Try to load from localStorage first (faster)
+        const stored = localStorage.getItem(this.STORAGE_KEY);
+        if (stored) {
+            try {
+                this.replies = JSON.parse(stored);
+                console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from localStorage (cached)');
+                return;
+            } catch (e) {
+                console.error('[QUICK-REPLY] ❌ Error parsing localStorage:', e);
+                // Continue to Firebase if localStorage is corrupted
+            }
+        }
+
+        // If no localStorage, load from Firebase and cache it
         if (this.db) {
             try {
                 console.log('[QUICK-REPLY] 🔄 Loading from Firebase...');
@@ -181,22 +194,27 @@ class QuickReplyManager {
                         docId: doc.id // Keep Firestore doc ID for updates
                     }));
 
+                    // Cache to localStorage
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+
                     console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase');
                     return;
                 } else {
                     console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, using defaults...');
-                    // No data in Firebase, just use defaults (don't save yet)
                     this.replies = this.getDefaultReplies();
+                    // Cache defaults to localStorage
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
                     return;
                 }
             } catch (error) {
                 console.error('[QUICK-REPLY] ❌ Firebase load error:', error);
-                // Use default replies if Firebase fails
                 this.replies = this.getDefaultReplies();
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
             }
         } else {
             console.log('[QUICK-REPLY] ⚠️ Firebase not available, using default replies');
             this.replies = this.getDefaultReplies();
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
         }
     }
 
@@ -292,7 +310,7 @@ class QuickReplyManager {
     async saveReplies() {
         console.log('[QUICK-REPLY] 💾 Saving replies to Firebase...');
 
-        // Only save to Firebase (no localStorage)
+        // Save to Firebase
         if (this.db) {
             try {
                 console.log('[QUICK-REPLY] 🔄 Syncing to Firebase...');
@@ -316,6 +334,14 @@ class QuickReplyManager {
 
                 await batch.commit();
                 console.log('[QUICK-REPLY] ✅ Synced', this.replies.length, 'replies to Firebase');
+
+                // Clear localStorage and reload from Firebase to get fresh data
+                console.log('[QUICK-REPLY] 🗑️ Clearing localStorage cache...');
+                localStorage.removeItem(this.STORAGE_KEY);
+
+                console.log('[QUICK-REPLY] 🔄 Reloading from Firebase...');
+                await this.loadReplies();
+
             } catch (error) {
                 console.error('[QUICK-REPLY] ❌ Firebase save error:', error);
                 throw error; // Throw error so user knows save failed
