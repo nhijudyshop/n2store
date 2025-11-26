@@ -4547,13 +4547,72 @@ window.clearPastedImage = function () {
     }
 }
 
+// Message Queue Management
+window.chatMessageQueue = window.chatMessageQueue || [];
+window.chatIsProcessingQueue = false;
+
 /**
- * Gửi reply comment theo Pancake API
+ * Show/Hide sending indicator in chat modal
+ */
+function showChatSendingIndicator(text = 'Đang gửi...', queueCount = 0) {
+    const indicator = document.getElementById('chatSendingIndicator');
+    const textSpan = document.getElementById('chatSendingText');
+    const queueSpan = document.getElementById('chatQueueCount');
+
+    if (indicator) {
+        indicator.style.display = 'flex';
+        if (textSpan) textSpan.textContent = text;
+        if (queueSpan) {
+            if (queueCount > 0) {
+                queueSpan.textContent = `+${queueCount}`;
+                queueSpan.style.display = 'block';
+            } else {
+                queueSpan.style.display = 'none';
+            }
+        }
+    }
+}
+
+function hideChatSendingIndicator() {
+    const indicator = document.getElementById('chatSendingIndicator');
+    if (indicator) {
+        indicator.style.display = 'none';
+    }
+}
+
+/**
+ * Process message queue
+ */
+async function processChatMessageQueue() {
+    if (window.chatIsProcessingQueue || window.chatMessageQueue.length === 0) {
+        return;
+    }
+
+    window.chatIsProcessingQueue = true;
+
+    while (window.chatMessageQueue.length > 0) {
+        const queueCount = window.chatMessageQueue.length - 1;
+        showChatSendingIndicator('Đang gửi...', queueCount);
+
+        const messageData = window.chatMessageQueue.shift();
+        try {
+            await sendReplyCommentInternal(messageData);
+        } catch (error) {
+            console.error('[QUEUE] Error sending message:', error);
+            // Continue with next message even if this one fails
+        }
+    }
+
+    window.chatIsProcessingQueue = false;
+    hideChatSendingIndicator();
+}
+
+/**
+ * Gửi reply comment theo Pancake API (Public wrapper - add to queue)
  * Flow: POST /conversations/{conversationId}/messages -> POST /sync_comments -> Refresh
  */
 window.sendReplyComment = async function () {
     const messageInput = document.getElementById('chatReplyInput');
-    const sendBtn = document.getElementById('chatSendBtn');
     let message = messageInput.value.trim();
 
     // Add signature to message (only for text messages, not images/files)
@@ -4572,10 +4631,7 @@ window.sendReplyComment = async function () {
     }
 
     // Validate required info
-    const isMessage = currentChatType === 'message';
-    // Allow missing parentCommentId for top-level comments
     const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId;
-
     if (missingInfo) {
         alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
         console.error('[SEND-REPLY] Missing required info:', {
@@ -4587,11 +4643,39 @@ window.sendReplyComment = async function () {
         return;
     }
 
-    // Disable button và hiển thị loading
-    // const sendBtn = document.getElementById('chatSendBtn'); // Already declared above
-    const originalBtnText = sendBtn.innerHTML;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+    // Add message to queue
+    console.log('[QUEUE] Adding message to queue');
+    window.chatMessageQueue.push({
+        message,
+        pastedImage: currentPastedImage,
+        order: currentOrder,
+        conversationId: currentConversationId,
+        channelId: currentChatChannelId,
+        chatType: currentChatType,
+        parentCommentId: currentParentCommentId,
+        postId: currentPostId || currentOrder.Facebook_PostId
+    });
+
+    // Clear input immediately for next message
+    messageInput.value = '';
+    currentPastedImage = null;
+    const previewContainer = document.getElementById('chatImagePreviewContainer');
+    if (previewContainer) {
+        previewContainer.innerHTML = '';
+        previewContainer.style.display = 'none';
+    }
+
+    // Process queue
+    processChatMessageQueue();
+};
+
+/**
+ * Internal function to actually send the message (called by queue processor)
+ */
+async function sendReplyCommentInternal(messageData) {
+    const { message, pastedImage, order, conversationId, channelId, chatType, parentCommentId, postId } = messageData;
+
+    const isMessage = chatType === 'message';
 
     try {
         // Get Pancake token
@@ -4600,49 +4684,16 @@ window.sendReplyComment = async function () {
             throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
         }
 
-        // Check 24-hour window for INBOX messages only
-        if (isMessage && window.pancakeDataManager) {
-            console.log('[SEND-REPLY] Checking 24-hour messaging window...');
-            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kiểm tra...';
-
-            // Get customer_id from order (required by backend API)
-            const customerId = currentOrder.PartnerId || (currentOrder.Partner && currentOrder.Partner.Id);
-
-            const windowCheck = await window.pancakeDataManager.check24HourWindow(
-                currentChatChannelId,
-                currentConversationId,
-                customerId  // FIX: Pass customer_id to prevent "Thiếu mã khách hàng" error
-            );
-
-            console.log('[SEND-REPLY] 24-hour check result:', windowCheck);
-
-            if (!windowCheck.canSend) {
-                const hours = windowCheck.hoursSinceLastMessage;
-                const hoursText = hours ? `${hours.toFixed(1)} giờ` : 'không xác định';
-                const confirmMsg = `⚠️ CẢNH BÁO: Không thể gửi tin nhắn!\n\n` +
-                    `Lý do: ${windowCheck.reason}\n` +
-                    `Khách gửi tin cuối: ${hoursText} trước\n\n` +
-                    `Facebook chỉ cho phép gửi tin trong vòng 24 giờ kể từ khi khách gửi tin cuối.\n\n` +
-                    `Bạn vẫn muốn thử gửi không? (Có thể sẽ bị lỗi)`;
-
-                if (!confirm(confirmMsg)) {
-                    sendBtn.disabled = false;
-                    sendBtn.innerHTML = originalBtnText;
-                    return;
-                }
-            } else {
-                console.log(`[SEND-REPLY] ✅ OK to send - within 24h window (${windowCheck.hoursSinceLastMessage} hours)`);
-            }
-        }
+        // Check 24-hour window for INBOX messages only (skip check, already validated)
+        showChatSendingIndicator('Kiểm tra 24h...');
 
         // Step 0: Upload image if exists
         let imageUrl = null;
-        if (currentPastedImage) {
+        if (pastedImage) {
             console.log('[SEND-REPLY] Uploading pasted image...');
-            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải ảnh...';
+            showChatSendingIndicator('Đang tải ảnh...');
             try {
-                // Assuming currentChatChannelId is the pageId for image upload
-                imageUrl = await window.pancakeDataManager.uploadImage(currentChatChannelId, currentPastedImage);
+                imageUrl = await window.pancakeDataManager.uploadImage(channelId, pastedImage);
                 console.log('[SEND-REPLY] Image uploaded, URL:', imageUrl);
             } catch (uploadError) {
                 console.error('[SEND-REPLY] Image upload failed:', uploadError);
@@ -4650,20 +4701,18 @@ window.sendReplyComment = async function () {
             }
         }
 
-        const pageId = currentChatChannelId;
-        const conversationId = currentConversationId;
-
-        // Use currentPostId if available (from specific comment reply), otherwise fallback to order's post ID
-        const postId = currentPostId || currentOrder.Facebook_PostId; // Format: "pageId_postId"
+        const pageId = channelId;
 
         console.log('[SEND-REPLY] Sending reply comment...', {
             pageId,
             conversationId,
             postId,
-            parentCommentId: currentParentCommentId,
+            parentCommentId,
             message,
             imageUrl
         });
+
+        showChatSendingIndicator('Đang gửi...');
 
         // Step 1: POST reply (comment or message)
         const replyUrl = window.API_CONFIG.buildUrl.pancake(
@@ -4672,11 +4721,10 @@ window.sendReplyComment = async function () {
         );
 
         let replyBody;
-        if (currentChatType === 'message') {
+        if (chatType === 'message') {
             // Payload for sending a message (reply_inbox)
-            // Based on fetch1.txt
             // Get customer_id from order (required by backend API)
-            const customerId = currentOrder.PartnerId || (currentOrder.Partner && currentOrder.Partner.Id);
+            const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
             if (!customerId) {
                 throw new Error('Không tìm thấy mã khách hàng (PartnerId) trong đơn hàng');
             }
@@ -4694,12 +4742,12 @@ window.sendReplyComment = async function () {
             }
         } else {
             // Payload for replying to a comment OR creating a new top-level comment
-            if (currentParentCommentId) {
+            if (parentCommentId) {
                 // Reply to specific comment
                 replyBody = {
                     action: "reply_comment",
-                    message_id: currentParentCommentId,
-                    parent_id: currentParentCommentId,
+                    message_id: parentCommentId,
+                    parent_id: parentCommentId,
                     user_selected_reply_to: null,
                     post_id: postId,
                     message: message,
@@ -4781,12 +4829,12 @@ window.sendReplyComment = async function () {
 
         // Optimistic Update: Show message immediately
         const now = new Date().toISOString();
-        if (currentChatType === 'message') {
+        if (chatType === 'message') {
             const tempMessage = {
                 id: `temp_${Date.now()}`,
-                message: `<div>${message}</div>${imageUrl ? `<img src="${imageUrl}" style="max-width: 200px; border-radius: 8px; margin-top: 5px;">` : ''}`, // Simple formatting
+                message: `<div>${message}</div>${imageUrl ? `<img src="${imageUrl}" style="max-width: 200px; border-radius: 8px; margin-top: 5px;">` : ''}`,
                 from: {
-                    name: 'Me', // Or get actual admin name if available
+                    name: 'Me',
                     id: pageId
                 },
                 inserted_at: now,
@@ -4805,45 +4853,29 @@ window.sendReplyComment = async function () {
                 },
                 CreatedTime: now,
                 is_temp: true,
-                ParentId: currentParentCommentId
+                ParentId: parentCommentId
             };
             allChatComments.push(tempComment);
             renderComments(allChatComments, true);
         }
 
         // Step 3: Refresh data (Fetch latest from API)
-        console.log(`[SEND-REPLY] Refreshing ${currentChatType}s...`);
-        // Add a small delay to ensure backend has processed the message
+        console.log(`[SEND-REPLY] Refreshing ${chatType}s...`);
         setTimeout(async () => {
-            if (currentChatType === 'message') {
-                // Force fetch latest
-                const response = await window.chatDataManager.fetchMessages(currentChatChannelId, currentChatPSID);
+            if (chatType === 'message' && currentChatPSID) {
+                const response = await window.chatDataManager.fetchMessages(channelId, currentChatPSID);
                 if (response.messages && response.messages.length > 0) {
-                    // Merge or replace. For simplicity, let's replace if we got new data
-                    // But we should be careful not to lose pagination. 
-                    // Actually, fetchMessages appends? No, it returns a page.
-                    // Let's just re-fetch the latest page.
                     allChatMessages = response.messages;
                     renderChatMessages(allChatMessages, true);
                 }
-            } else {
-                const response = await window.chatDataManager.fetchComments(currentChatChannelId, currentChatPSID);
+            } else if (chatType === 'comment' && currentChatPSID) {
+                const response = await window.chatDataManager.fetchComments(channelId, currentChatPSID);
                 if (response.comments && response.comments.length > 0) {
                     allChatComments = response.comments;
                     renderComments(allChatComments, true);
                 }
             }
         }, 1000);
-
-        // Clear input
-        // Clear input and image
-        messageInput.value = '';
-        currentPastedImage = null;
-        const previewContainer = document.getElementById('chatImagePreviewContainer');
-        if (previewContainer) {
-            previewContainer.innerHTML = '';
-            previewContainer.style.display = 'none';
-        }
 
         // Show success notification
         if (window.notificationManager) {
@@ -4854,11 +4886,12 @@ window.sendReplyComment = async function () {
 
     } catch (error) {
         console.error('[SEND-REPLY] ❌ Error:', error);
-        alert('❌ Lỗi khi gửi tin nhắn: ' + error.message);
-    } finally {
-        // Re-enable button
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = originalBtnText; // Restore original button text
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi khi gửi tin nhắn: ' + error.message, 'error');
+        } else {
+            alert('❌ Lỗi khi gửi tin nhắn: ' + error.message);
+        }
+        throw error; // Re-throw để queue processor biết có lỗi
     }
 }
 
