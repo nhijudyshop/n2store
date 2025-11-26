@@ -19,6 +19,7 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] 🚀 Initializing...');
         this.createModalDOM();
         this.createSettingsModalDOM();
+        this.createTemplateInputModalDOM();
         this.createAutocompleteDOM();
         this.initFirebase();
         this.loadReplies();
@@ -87,6 +88,93 @@ class QuickReplyManager {
 
         document.body.insertAdjacentHTML('beforeend', settingsHTML);
         console.log('[QUICK-REPLY] ✅ Settings modal DOM created');
+    }
+
+    createTemplateInputModalDOM() {
+        if (document.getElementById('templateInputModal')) {
+            return;
+        }
+
+        const inputModalHTML = `
+            <div class="quick-reply-overlay" id="templateInputModal" style="display: none;">
+                <div class="quick-reply-modal" style="max-width: 600px;">
+                    <!-- Header -->
+                    <div class="quick-reply-header">
+                        <h3 id="templateInputModalTitle">
+                            <i class="fas fa-edit"></i>
+                            Thêm mẫu tin nhắn
+                        </h3>
+                        <button class="quick-reply-close" onclick="quickReplyManager.closeTemplateInputModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="quick-reply-body" style="padding: 20px;">
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">
+                                Ký tự tắt <span style="color: #ef4444;">*</span>
+                            </label>
+                            <input type="text" id="templateInputShortcut" placeholder="VD: CÁMƠN, STK"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s;"
+                                onfocus="this.style.borderColor='#667eea';"
+                                onblur="this.style.borderColor='#e5e7eb';" />
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">
+                                Chủ đề
+                            </label>
+                            <input type="text" id="templateInputTopic" placeholder="Có thể bỏ trống"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s;"
+                                onfocus="this.style.borderColor='#667eea';"
+                                onblur="this.style.borderColor='#e5e7eb';" />
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">
+                                Mã màu
+                            </label>
+                            <input type="text" id="templateInputColor" placeholder="VD: #3add99"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s;"
+                                onfocus="this.style.borderColor='#667eea';"
+                                onblur="this.style.borderColor='#e5e7eb';" />
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">
+                                Nội dung tin nhắn <span style="color: #ef4444;">*</span>
+                            </label>
+                            <textarea id="templateInputMessage" placeholder="Nhập nội dung tin nhắn (Shift+Enter để xuống dòng)" rows="6"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s; resize: vertical; font-family: inherit; line-height: 1.5;"
+                                onfocus="this.style.borderColor='#667eea';"
+                                onblur="this.style.borderColor='#e5e7eb';"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="quick-reply-footer">
+                        <div class="quick-reply-footer-actions" style="width: 100%; display: flex; gap: 8px; justify-content: flex-end;">
+                            <button onclick="quickReplyManager.closeTemplateInputModal()"
+                                style="padding: 10px 20px; background: #f3f4f6; color: #374151; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                onmouseover="this.style.background='#e5e7eb';"
+                                onmouseout="this.style.background='#f3f4f6';">
+                                <i class="fas fa-times"></i> Hủy
+                            </button>
+                            <button id="templateInputSaveBtn" onclick="quickReplyManager.saveTemplateInput()"
+                                style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)';"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                                <i class="fas fa-check"></i> Lưu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', inputModalHTML);
+        console.log('[QUICK-REPLY] ✅ Template input modal DOM created');
     }
 
     createModalDOM() {
@@ -755,100 +843,178 @@ class QuickReplyManager {
         listEl.innerHTML = itemsHTML;
     }
 
-    async addNewTemplate() {
-        const shortcut = prompt('Nhập ký tự tắt (VD: CÁMƠN, STK):');
-        if (!shortcut) return;
+    addNewTemplate() {
+        // Open modal for adding new template
+        this.currentEditingTemplateId = null; // null means adding new
+        this.openTemplateInputModal('Thêm mẫu tin nhắn', '', '', '', '');
+    }
 
-        const topic = prompt('Nhập chủ đề (có thể bỏ trống):') || '';
-        const topicColor = topic ? prompt('Nhập mã màu (VD: #3add99):') || '#6b7280' : '';
-        const message = prompt('Nhập nội dung tin nhắn:');
+    openTemplateInputModal(title, shortcut = '', topic = '', topicColor = '', message = '') {
+        const modal = document.getElementById('templateInputModal');
+        const modalTitle = document.getElementById('templateInputModalTitle');
+        const shortcutInput = document.getElementById('templateInputShortcut');
+        const topicInput = document.getElementById('templateInputTopic');
+        const colorInput = document.getElementById('templateInputColor');
+        const messageInput = document.getElementById('templateInputMessage');
 
-        if (!message) {
-            alert('Nội dung tin nhắn không được để trống!');
+        if (!modal) {
+            console.error('[QUICK-REPLY] Template input modal not found');
             return;
         }
 
-        // Find max ID
-        const maxId = this.replies.length > 0 ? Math.max(...this.replies.map(r => r.id)) : 0;
+        // Set values
+        modalTitle.innerHTML = `<i class="fas fa-edit"></i> ${title}`;
+        shortcutInput.value = shortcut;
+        topicInput.value = topic;
+        colorInput.value = topicColor;
+        messageInput.value = message;
 
-        const newReply = {
-            id: maxId + 1,
-            shortcut: shortcut,
-            topic: topic,
-            topicColor: topicColor,
-            message: message
+        // Add keyboard event listener
+        const handleKeyDown = (e) => {
+            // Escape to close
+            if (e.key === 'Escape') {
+                this.closeTemplateInputModal();
+            }
+            // Ctrl+Enter or Cmd+Enter to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                this.saveTemplateInput();
+            }
         };
 
-        this.replies.push(newReply);
+        // Remove old listener if exists and add new one
+        modal.removeEventListener('keydown', this._templateInputKeyHandler);
+        this._templateInputKeyHandler = handleKeyDown;
+        modal.addEventListener('keydown', this._templateInputKeyHandler);
+
+        // Show modal
+        modal.style.display = 'flex';
+
+        // Focus on first input
+        setTimeout(() => shortcutInput.focus(), 100);
+    }
+
+    closeTemplateInputModal() {
+        const modal = document.getElementById('templateInputModal');
+        if (modal) {
+            modal.style.display = 'none';
+            // Remove keyboard event listener
+            if (this._templateInputKeyHandler) {
+                modal.removeEventListener('keydown', this._templateInputKeyHandler);
+            }
+        }
+        this.currentEditingTemplateId = null;
+    }
+
+    async saveTemplateInput() {
+        const shortcutInput = document.getElementById('templateInputShortcut');
+        const topicInput = document.getElementById('templateInputTopic');
+        const colorInput = document.getElementById('templateInputColor');
+        const messageInput = document.getElementById('templateInputMessage');
+
+        const shortcut = shortcutInput.value.trim();
+        const topic = topicInput.value.trim();
+        const topicColor = colorInput.value.trim() || '#6b7280';
+        const message = messageInput.value.trim();
+
+        // Validation
+        if (!shortcut) {
+            alert('Vui lòng nhập ký tự tắt!');
+            shortcutInput.focus();
+            return;
+        }
+
+        if (!message) {
+            alert('Vui lòng nhập nội dung tin nhắn!');
+            messageInput.focus();
+            return;
+        }
 
         try {
-            await this.saveReplies();
-            this.renderSettingsList();
+            if (this.currentEditingTemplateId === null) {
+                // Adding new template
+                const maxId = this.replies.length > 0 ? Math.max(...this.replies.map(r => r.id)) : 0;
 
-            if (window.notificationManager) {
-                window.notificationManager.success('Đã thêm mẫu tin nhắn mới!');
+                const newReply = {
+                    id: maxId + 1,
+                    shortcut: shortcut,
+                    topic: topic,
+                    topicColor: topicColor,
+                    message: message
+                };
+
+                this.replies.push(newReply);
+                await this.saveReplies();
+                this.renderSettingsList();
+
+                if (window.notificationManager) {
+                    window.notificationManager.success('Đã thêm mẫu tin nhắn mới!');
+                }
+
+                console.log('[QUICK-REPLY] ✅ Added new template:', shortcut);
+            } else {
+                // Editing existing template
+                const reply = this.replies.find(r => r.id === this.currentEditingTemplateId);
+                if (!reply) {
+                    alert('Không tìm thấy mẫu tin nhắn!');
+                    return;
+                }
+
+                // Backup old values for rollback
+                const oldValues = {
+                    shortcut: reply.shortcut,
+                    topic: reply.topic,
+                    topicColor: reply.topicColor,
+                    message: reply.message
+                };
+
+                reply.shortcut = shortcut;
+                reply.topic = topic;
+                reply.topicColor = topicColor;
+                reply.message = message;
+
+                try {
+                    await this.saveReplies();
+                    this.renderSettingsList();
+
+                    if (window.notificationManager) {
+                        window.notificationManager.success('Đã cập nhật mẫu tin nhắn!');
+                    }
+
+                    console.log('[QUICK-REPLY] ✅ Updated template:', this.currentEditingTemplateId);
+                } catch (error) {
+                    // Rollback if save failed
+                    reply.shortcut = oldValues.shortcut;
+                    reply.topic = oldValues.topic;
+                    reply.topicColor = oldValues.topicColor;
+                    reply.message = oldValues.message;
+                    throw error;
+                }
             }
 
-            console.log('[QUICK-REPLY] ✅ Added new template:', shortcut);
+            // Close modal on success
+            this.closeTemplateInputModal();
         } catch (error) {
-            // Rollback if save failed
-            this.replies = this.replies.filter(r => r.id !== newReply.id);
-
             if (window.notificationManager) {
                 window.notificationManager.error('Lỗi khi lưu vào Firebase!');
             }
-            console.error('[QUICK-REPLY] ❌ Failed to add template:', error);
+            console.error('[QUICK-REPLY] ❌ Failed to save template:', error);
         }
     }
 
-    async editTemplate(id) {
+    editTemplate(id) {
         const reply = this.replies.find(r => r.id === id);
         if (!reply) return;
 
-        // Backup old values for rollback
-        const oldValues = {
-            shortcut: reply.shortcut,
-            topic: reply.topic,
-            topicColor: reply.topicColor,
-            message: reply.message
-        };
-
-        const shortcut = prompt('Ký tự tắt:', reply.shortcut) || reply.shortcut;
-        const topic = prompt('Chủ đề:', reply.topic) || reply.topic;
-        const topicColor = prompt('Mã màu:', reply.topicColor) || reply.topicColor;
-        const message = prompt('Nội dung:', reply.message);
-
-        if (!message) {
-            alert('Nội dung tin nhắn không được để trống!');
-            return;
-        }
-
-        reply.shortcut = shortcut;
-        reply.topic = topic;
-        reply.topicColor = topicColor;
-        reply.message = message;
-
-        try {
-            await this.saveReplies();
-            this.renderSettingsList();
-
-            if (window.notificationManager) {
-                window.notificationManager.success('Đã cập nhật mẫu tin nhắn!');
-            }
-
-            console.log('[QUICK-REPLY] ✅ Updated template:', id);
-        } catch (error) {
-            // Rollback if save failed
-            reply.shortcut = oldValues.shortcut;
-            reply.topic = oldValues.topic;
-            reply.topicColor = oldValues.topicColor;
-            reply.message = oldValues.message;
-
-            if (window.notificationManager) {
-                window.notificationManager.error('Lỗi khi lưu vào Firebase!');
-            }
-            console.error('[QUICK-REPLY] ❌ Failed to update template:', error);
-        }
+        // Set current editing ID and open modal with template data
+        this.currentEditingTemplateId = id;
+        this.openTemplateInputModal(
+            'Chỉnh sửa mẫu tin nhắn',
+            reply.shortcut,
+            reply.topic,
+            reply.topicColor,
+            reply.message
+        );
     }
 
     async deleteTemplate(id) {
