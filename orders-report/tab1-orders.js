@@ -4919,22 +4919,30 @@ async function sendReplyCommentInternal(messageData) {
             console.log('[SEND-REPLY] Sync response:', syncData);
         }
 
-        // Optimistic Update: Show message immediately
+        // Optimistic Update: Show message immediately with correct format
         const now = new Date().toISOString();
         if (chatType === 'message') {
             const tempMessage = {
-                id: `temp_${Date.now()}`,
-                message: `<div>${message}</div>${imageUrl ? `<img src="${imageUrl}" style="max-width: 200px; border-radius: 8px; margin-top: 5px;">` : ''}`,
-                from: {
-                    name: 'Me',
-                    id: pageId
-                },
-                inserted_at: now,
-                created_time: now,
+                Id: `temp_${Date.now()}`,
+                id: `temp_${Date.now()}`, // Both formats for compatibility
+                Message: message,
+                CreatedTime: now,
+                IsOwner: true,
                 is_temp: true
             };
+
+            // Add image attachment if exists
+            if (imageUrl) {
+                tempMessage.Attachments = [{
+                    Type: 'image',
+                    Payload: { Url: imageUrl }
+                }];
+            }
+
             allChatMessages.push(tempMessage);
             renderChatMessages(allChatMessages, true);
+
+            console.log('[SEND-REPLY] Added optimistic message to UI');
         } else {
             const tempComment = {
                 Id: `temp_${Date.now()}`,
@@ -4951,19 +4959,40 @@ async function sendReplyCommentInternal(messageData) {
             renderComments(allChatComments, true);
         }
 
-        // Step 3: Refresh data (Fetch latest from API)
+        // Step 3: Refresh data (Fetch latest from API) and replace temp messages
         console.log(`[SEND-REPLY] Refreshing ${chatType}s...`);
         setTimeout(async () => {
             if (chatType === 'message' && currentChatPSID) {
                 const response = await window.chatDataManager.fetchMessages(channelId, currentChatPSID);
                 if (response.messages && response.messages.length > 0) {
-                    allChatMessages = response.messages;
+                    // Remove temp messages before replacing
+                    allChatMessages = allChatMessages.filter(m => !m.is_temp);
+
+                    // Merge with new messages from API
+                    response.messages.forEach(newMsg => {
+                        const exists = allChatMessages.some(m => m.Id === newMsg.Id || m.id === newMsg.id);
+                        if (!exists) {
+                            allChatMessages.unshift(newMsg);
+                        }
+                    });
+
                     renderChatMessages(allChatMessages, true);
+                    console.log('[SEND-REPLY] Replaced temp messages with real messages');
                 }
             } else if (chatType === 'comment' && currentChatPSID) {
                 const response = await window.chatDataManager.fetchComments(channelId, currentChatPSID);
                 if (response.comments && response.comments.length > 0) {
-                    allChatComments = response.comments;
+                    // Remove temp comments before replacing
+                    allChatComments = allChatComments.filter(c => !c.is_temp);
+
+                    // Merge with new comments from API
+                    response.comments.forEach(newComment => {
+                        const exists = allChatComments.some(c => c.Id === newComment.Id);
+                        if (!exists) {
+                            allChatComments.push(newComment);
+                        }
+                    });
+
                     renderComments(allChatComments, true);
                 }
             }
@@ -6175,23 +6204,23 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                     const newestMessage = response.messages[0];
 
                     // Check if we already have this message to avoid duplicates
-                    const exists = allChatMessages.some(m => m.Id === newestMessage.Id);
+                    const exists = allChatMessages.some(m =>
+                        (m.Id === newestMessage.Id || m.id === newestMessage.id) && !m.is_temp
+                    );
 
                     if (!exists) {
                         console.log('[CHAT MODAL] Appending new message:', newestMessage);
 
+                        // Remove any temp messages (will be replaced by real message)
+                        allChatMessages = allChatMessages.filter(m => !m.is_temp);
+
                         // Add to beginning of array (since renderChatMessages reverses it)
-                        // Wait, renderChatMessages reverses the array passed to it.
-                        // allChatMessages usually stores newest first (index 0).
-                        // So we unshift it to the front.
                         allChatMessages.unshift(newestMessage);
 
                         // Re-render the chat
-                        // Pass true to scrollToBottom
                         renderChatMessages(allChatMessages, true);
 
-                        // Mark as read if needed (optional, but good UX)
-                        // markAsRead(pageId, psid); 
+                        console.log('[CHAT MODAL] Added realtime message to UI');
                     } else {
                         console.log('[CHAT MODAL] Message already exists in view.');
                     }
