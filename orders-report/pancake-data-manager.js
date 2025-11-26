@@ -694,6 +694,119 @@ class PancakeDataManager {
             return false;
         }
     }
+    /**
+     * Calculate SHA-1 hash of a file
+     * @param {File} file 
+     * @returns {Promise<string>}
+     */
+    async calculateSHA1(file) {
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-1', buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
+    }
+
+    /**
+     * Upload image to Pancake API (2-step process)
+     * 1. Listing: Check if file exists/needs upload
+     * 2. Uploading: Upload file content if needed
+     * @param {string} pageId 
+     * @param {File} file 
+     * @returns {Promise<string>} content_url
+     */
+    async uploadImage(pageId, file) {
+        try {
+            console.log(`[PANCAKE] Uploading image: ${file.name}, size: ${file.size}`);
+            const token = await this.getToken();
+            if (!token) throw new Error('No Pancake token available');
+
+            // Step 1: Calculate SHA-1
+            const sha = await this.calculateSHA1(file);
+            console.log(`[PANCAKE] File SHA-1: ${sha}`);
+
+            // Step 2: Listing request
+            const url = window.API_CONFIG.buildUrl.pancake(`pages/${pageId}/contents`, `access_token=${token}`);
+
+            // Boundary for multipart/form-data is handled automatically by browser if we use FormData,
+            // but for "listing" action with specific boundary in fetch.txt, it seems they use FormData manually or just standard FormData.
+            // Let's use standard FormData for simplicity and browser compatibility.
+
+            const listingFormData = new FormData();
+            listingFormData.append('action', 'listing');
+            listingFormData.append('contents', JSON.stringify([{
+                sha: sha,
+                needsCompress: true,
+                name: file.name
+            }]));
+
+            console.log('[PANCAKE] Step 1: Listing...');
+            const listingResponse = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                body: listingFormData
+            });
+
+            if (!listingResponse.ok) {
+                throw new Error(`Listing failed: ${listingResponse.statusText}`);
+            }
+
+            const listingData = await listingResponse.json();
+            console.log('[PANCAKE] Listing response:', listingData);
+
+            if (!listingData.success || !listingData.data || listingData.data.length === 0) {
+                throw new Error('Invalid listing response');
+            }
+
+            const fileInfo = listingData.data[0];
+
+            // If content_url is already available (file exists), return it
+            if (fileInfo.content_url) {
+                console.log('[PANCAKE] File already exists, returning content_url');
+                return fileInfo.content_url;
+            }
+
+            // Step 3: Uploading if needed
+            if (fileInfo.need_create) {
+                console.log('[PANCAKE] Step 2: Uploading file content...');
+                const uploadFormData = new FormData();
+                // Based on fetch.txt, it seems we just send the file. 
+                // The "action" might not be needed or is implied? 
+                // fetch2 in fetch.txt shows: Content-Disposition: form-data; name="file"; filename="image.png"
+                // It does NOT show "action" field in fetch2 body in the snippet I saw (it was truncated but usually file is enough).
+                // However, usually "action" is not needed if "file" is present for this endpoint, OR "action" is "uploading".
+                // Let's try sending just the file first as per fetch2 snippet.
+                uploadFormData.append('file', file);
+
+                const uploadResponse = await API_CONFIG.smartFetch(url, {
+                    method: 'POST',
+                    body: uploadFormData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+                }
+
+                const uploadData = await uploadResponse.json();
+                console.log('[PANCAKE] Upload response:', uploadData);
+
+                if (uploadData.content_url) {
+                    return uploadData.content_url;
+                } else if (uploadData.data && uploadData.data.content_url) {
+                    return uploadData.data.content_url;
+                } else {
+                    // Fallback: sometimes response is just the object
+                    return uploadData.content_url || (uploadData[0] && uploadData[0].content_url);
+                }
+            } else {
+                // Should have content_url if need_create is false
+                return fileInfo.content_url;
+            }
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error uploading image:', error);
+            throw error;
+        }
+    }
 }
 
 // Create global instance

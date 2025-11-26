@@ -23,9 +23,10 @@ let currentChatOrderId = null;
 let currentChatProductsRef = null;
 let currentOrderTags = [];
 let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backspace
+let currentPastedImage = null; // Track pasted image for chat reply
 
 // =====================================================
-// FIREBASE CONFIGURATION FOR NOTE TRACKING & CHAT UPLOAD
+// FIREBASE CONFIGURATION FOR NOTE TRACKING
 // =====================================================
 const firebaseConfig = {
     apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
@@ -40,16 +41,14 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let database = null;
-let storage = null;
 try {
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
-        console.log('[FIREBASE] Firebase initialized successfully');
+        console.log('[NOTE-TRACKER] Firebase initialized successfully');
     }
     database = firebase.database();
-    storage = firebase.storage();
 } catch (error) {
-    console.error('[FIREBASE] Firebase initialization error:', error);
+    console.error('[NOTE-TRACKER] Firebase initialization error:', error);
 }
 
 // =====================================================
@@ -219,12 +218,6 @@ window.addEventListener("DOMContentLoaded", async function () {
             }
         }
     });
-
-    // Chat Input Paste Handler
-    const chatInput = document.getElementById('chatReplyInput');
-    if (chatInput) {
-        chatInput.addEventListener('paste', handleChatInputPaste);
-    }
 });
 
 // =====================================================
@@ -4335,7 +4328,20 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
     // Always show reply container for both comment and message
     replyContainer.style.display = 'block';
-    document.getElementById('chatReplyInput').value = '';
+    const chatInput = document.getElementById('chatReplyInput');
+    chatInput.value = '';
+
+    // Reset pasted image
+    currentPastedImage = null;
+    const previewContainer = document.getElementById('chatImagePreviewContainer');
+    if (previewContainer) {
+        previewContainer.innerHTML = '';
+        previewContainer.style.display = 'none';
+    }
+
+    // Remove old listener to avoid duplicates (if any) and add new one
+    chatInput.removeEventListener('paste', handleChatInputPaste);
+    chatInput.addEventListener('paste', handleChatInputPaste);
 
     if (type === 'comment') {
         markReadBtn.style.display = 'none';
@@ -4493,148 +4499,66 @@ window.closeChatModal = async function () {
 }
 
 /**
- * Gửi reply comment theo Pancake API
- * Flow: POST /conversations/{conversationId}/messages -> POST /sync_comments -> Refresh
+ * Handle paste event on chat input
  */
-// =====================================================
-// CHAT IMAGE UPLOAD & SEND LOGIC
-// =====================================================
-let currentAttachedImage = null; // { url, width, height, file, id }
-
-async function handleChatInputPaste(event) {
+function handleChatInputPaste(event) {
     const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-    let file = null;
 
     for (let index in items) {
         const item = items[index];
-        if (item.kind === 'file' && item.type.indexOf('image/') !== -1) {
-            file = item.getAsFile();
-            break;
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const blob = item.getAsFile();
+            currentPastedImage = blob;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const previewContainer = document.getElementById('chatImagePreviewContainer');
+                if (previewContainer) {
+                    previewContainer.style.display = 'flex';
+                    previewContainer.style.alignItems = 'center';
+                    previewContainer.style.justifyContent = 'space-between';
+
+                    previewContainer.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <img src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd;">
+                            <span style="font-size: 12px; color: #666;">${blob.name} (${Math.round(blob.size / 1024)} KB)</span>
+                        </div>
+                        <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                }
+            };
+            reader.readAsDataURL(blob);
         }
     }
+}
 
-    if (file) {
-        event.preventDefault(); // Prevent default paste behavior if it's an image
-        console.log('[CHAT-UPLOAD] Image pasted:', file.name);
-        await uploadImageToFirebase(file);
+/**
+ * Clear pasted image
+ */
+window.clearPastedImage = function () {
+    currentPastedImage = null;
+    const previewContainer = document.getElementById('chatImagePreviewContainer');
+    if (previewContainer) {
+        previewContainer.innerHTML = '';
+        previewContainer.style.display = 'none';
     }
 }
 
-async function uploadImageToFirebase(file) {
-    if (!storage) {
-        alert('Lỗi: Firebase Storage chưa được khởi tạo.');
-        return;
-    }
-
-    // Show loading preview
-    showImagePreview(null, true);
-
-    try {
-        const timestamp = Date.now();
-        const filename = `chat_upload_${timestamp}_${file.name}`;
-        const storageRef = storage.ref(`chat_uploads/${filename}`);
-
-        console.log('[CHAT-UPLOAD] Uploading to:', `chat_uploads/${filename}`);
-
-        const uploadTask = storageRef.put(file);
-
-        uploadTask.on('state_changed',
-            (snapshot) => {
-                // Progress (optional: update UI)
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                console.log('[CHAT-UPLOAD] Upload is ' + progress + '% done');
-            },
-            (error) => {
-                // Handle unsuccessful uploads
-                console.error('[CHAT-UPLOAD] Upload failed:', error);
-                alert('Lỗi khi upload ảnh: ' + error.message);
-                clearImagePreview();
-            },
-            async () => {
-                // Handle successful uploads on complete
-                const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
-                console.log('[CHAT-UPLOAD] File available at', downloadURL);
-
-                // Get image dimensions
-                const img = new Image();
-                img.onload = function () {
-                    currentAttachedImage = {
-                        url: downloadURL,
-                        width: this.width,
-                        height: this.height,
-                        file: file,
-                        id: `img_${timestamp}` // Temp ID
-                    };
-                    showImagePreview(downloadURL, false);
-                };
-                img.src = downloadURL;
-            }
-        );
-
-    } catch (error) {
-        console.error('[CHAT-UPLOAD] Error:', error);
-        alert('Lỗi: ' + error.message);
-        clearImagePreview();
-    }
-}
-
-function showImagePreview(url, isLoading) {
-    const container = document.getElementById('chatImagePreview');
-    if (!container) return;
-
-    container.style.display = 'flex';
-
-    if (isLoading) {
-        container.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 13px;">
-                <i class="fas fa-spinner fa-spin"></i> Đang tải ảnh lên...
-            </div>
-        `;
-    } else {
-        container.innerHTML = `
-            <div style="position: relative; display: inline-block;">
-                <img src="${url}" style="height: 80px; border-radius: 8px; border: 1px solid #e5e7eb; object-fit: cover;">
-                <button onclick="clearImagePreview()" style="
-                    position: absolute;
-                    top: -8px;
-                    right: -8px;
-                    background: #ef4444;
-                    color: white;
-                    border: none;
-                    border-radius: 50%;
-                    width: 20px;
-                    height: 20px;
-                    font-size: 12px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                ">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-    }
-}
-
-function clearImagePreview() {
-    const container = document.getElementById('chatImagePreview');
-    if (container) {
-        container.style.display = 'none';
-        container.innerHTML = '';
-    }
-    currentAttachedImage = null;
-}
-
+/**
+ * Gửi reply comment theo Pancake API
+ * Flow: POST /conversations/{conversationId}/messages -> POST /sync_comments -> Refresh
+ */
 window.sendReplyComment = async function () {
     const messageInput = document.getElementById('chatReplyInput');
     const sendBtn = document.getElementById('chatSendBtn');
     const message = messageInput.value.trim();
 
     // Validate
-    if (!message && !currentAttachedImage) {
-        alert('Vui lòng nhập tin nhắn hoặc dán ảnh');
+    if (!message && !currentPastedImage) {
+        alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
         return;
     }
 
@@ -4655,6 +4579,8 @@ window.sendReplyComment = async function () {
     }
 
     // Disable button và hiển thị loading
+    // const sendBtn = document.getElementById('chatSendBtn'); // Already declared above
+    const originalBtnText = sendBtn.innerHTML;
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
 
@@ -4663,6 +4589,21 @@ window.sendReplyComment = async function () {
         const token = await window.pancakeTokenManager.getToken();
         if (!token) {
             throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
+        }
+
+        // Step 0: Upload image if exists
+        let imageUrl = null;
+        if (currentPastedImage) {
+            console.log('[SEND-REPLY] Uploading pasted image...');
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải ảnh...';
+            try {
+                // Assuming currentChatChannelId is the pageId for image upload
+                imageUrl = await window.pancakeDataManager.uploadImage(currentChatChannelId, currentPastedImage);
+                console.log('[SEND-REPLY] Image uploaded, URL:', imageUrl);
+            } catch (uploadError) {
+                console.error('[SEND-REPLY] Image upload failed:', uploadError);
+                throw new Error('Tải ảnh thất bại: ' + uploadError.message);
+            }
         }
 
         const pageId = currentChatChannelId;
@@ -4677,7 +4618,7 @@ window.sendReplyComment = async function () {
             postId,
             parentCommentId: currentParentCommentId,
             message,
-            hasImage: !!currentAttachedImage
+            imageUrl
         });
 
         // Step 1: POST reply (comment or message)
@@ -4687,90 +4628,60 @@ window.sendReplyComment = async function () {
         );
 
         let replyBody;
-
-        // Construct payload
-        if (currentAttachedImage) {
-            // If image is attached, we MUST use FormData (or JSON with content_url if supported, but FormData is safer for attachments)
-            // However, the user request specifically asked to use "link thay vào content_url"
-            // So we will stick to JSON payload but add content_url
-
-            // Generate a random UUID for content_id
-            const contentId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-
-            const commonFields = {
-                message: message || " ", // Message cannot be empty if just sending image? Let's assume space if empty.
-                send_by_platform: "web",
-                content_url: currentAttachedImage.url,
-                width: currentAttachedImage.width,
-                height: currentAttachedImage.height,
-                content_id: contentId,
-                // attachment_id is required by some endpoints but we don't have a real FB attachment ID.
-                // We can try omitting it or sending a dummy.
-                // Based on user request: "dùng link thay vào content_url"
+        if (currentChatType === 'message') {
+            // Payload for sending a message (reply_inbox)
+            // Based on fetch1.txt
+            replyBody = {
+                action: "reply_inbox",
+                message: message,
+                send_by_platform: "web"
             };
 
-            if (currentChatType === 'message') {
-                replyBody = {
-                    action: "reply_inbox",
-                    ...commonFields
-                };
-            } else {
-                if (currentParentCommentId) {
-                    replyBody = {
-                        action: "reply_comment",
-                        message_id: currentParentCommentId,
-                        parent_id: currentParentCommentId,
-                        user_selected_reply_to: null,
-                        post_id: postId,
-                        ...commonFields
-                    };
-                } else {
-                    replyBody = {
-                        action: "reply_comment",
-                        post_id: postId,
-                        ...commonFields
-                    };
-                }
+            // Add image content_url if available
+            if (imageUrl) {
+                replyBody.content_url = imageUrl;
             }
         } else {
-            // Text only
-            if (currentChatType === 'message') {
+            // Payload for replying to a comment OR creating a new top-level comment
+            if (currentParentCommentId) {
+                // Reply to specific comment
                 replyBody = {
-                    action: "reply_inbox",
+                    action: "reply_comment",
+                    message_id: currentParentCommentId,
+                    parent_id: currentParentCommentId,
+                    user_selected_reply_to: null,
+                    post_id: postId,
                     message: message,
                     send_by_platform: "web"
                 };
-            } else {
-                if (currentParentCommentId) {
-                    replyBody = {
-                        action: "reply_comment",
-                        message_id: currentParentCommentId,
-                        parent_id: currentParentCommentId,
-                        user_selected_reply_to: null,
-                        post_id: postId,
-                        message: message,
-                        send_by_platform: "web"
-                    };
-                } else {
-                    replyBody = {
-                        action: "reply_comment",
-                        post_id: postId,
-                        message: message,
-                        send_by_platform: "web"
-                    };
+
+                // Add image content_url if available
+                if (imageUrl) {
+                    replyBody.content_url = imageUrl;
                 }
+            } else {
+                // Top-level comment (no parent)
+                // Based on typical Pancake/Facebook API behavior for new comments on a post
+                replyBody = {
+                    action: "reply_comment", // Still use reply_comment action? Or maybe just "comment"? 
+                    // Usually for top level, we just need post_id. 
+                    // If Pancake requires "reply_comment" action even for new comments, we might need to omit parent_id.
+                    // Let's assume we omit parent_id/message_id.
+                    post_id: postId,
+                    message: message,
+                    send_by_platform: "web"
+                };
+
+                // Add image content_url if available
+                if (imageUrl) {
+                    replyBody.content_url = imageUrl;
+                }
+                console.log('[SEND-REPLY] Sending top-level comment (no parent_id)');
             }
         }
 
         console.log('[SEND-REPLY] POST URL:', replyUrl);
         console.log('[SEND-REPLY] Request body:', replyBody);
-
-        // Note: If using content_url, we are sending JSON. 
-        // If we were uploading a raw file to Pancake, we would use FormData.
-        // Since we already uploaded to Firebase and have a URL, JSON is correct.
 
         const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
             method: 'POST',
@@ -4822,7 +4733,7 @@ window.sendReplyComment = async function () {
         if (currentChatType === 'message') {
             const tempMessage = {
                 id: `temp_${Date.now()}`,
-                message: `<div>${message}</div>`, // Simple formatting
+                message: `<div>${message}</div>${imageUrl ? `<img src="${imageUrl}" style="max-width: 200px; border-radius: 8px; margin-top: 5px;">` : ''}`, // Simple formatting
                 from: {
                     name: 'Me', // Or get actual admin name if available
                     id: pageId
@@ -4874,7 +4785,14 @@ window.sendReplyComment = async function () {
         }, 1000);
 
         // Clear input
+        // Clear input and image
         messageInput.value = '';
+        currentPastedImage = null;
+        const previewContainer = document.getElementById('chatImagePreviewContainer');
+        if (previewContainer) {
+            previewContainer.innerHTML = '';
+            previewContainer.style.display = 'none';
+        }
 
         // Show success notification
         if (window.notificationManager) {
@@ -4889,7 +4807,7 @@ window.sendReplyComment = async function () {
     } finally {
         // Re-enable button
         sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi';
+        sendBtn.innerHTML = originalBtnText; // Restore original button text
     }
 }
 
