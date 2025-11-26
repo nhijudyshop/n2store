@@ -4234,6 +4234,7 @@ let currentChatType = null;
 let currentChatCursor = null;
 let allChatMessages = [];
 let skipWebhookUpdate = false; // Flag to skip webhook updates right after sending message
+let isSendingMessage = false; // Flag to prevent double message sending
 let allChatComments = [];
 let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
@@ -4691,69 +4692,83 @@ async function processChatMessageQueue() {
  * Flow: POST /conversations/{conversationId}/messages -> POST /sync_comments -> Refresh
  */
 window.sendReplyComment = async function () {
-    const messageInput = document.getElementById('chatReplyInput');
-    let message = messageInput.value.trim();
+    // Prevent double sending (e.g., from Enter key + button click)
+    if (isSendingMessage) {
+        console.log('[SEND-REPLY] Already sending, skipping duplicate call');
+        return;
+    }
+    isSendingMessage = true;
 
-    // Add signature to message (only for text messages, not images/files)
-    if (message) {
-        const auth = window.authManager ? window.authManager.getAuthState() : null;
-        const displayName = auth && auth.displayName ? auth.displayName : null;
-        if (displayName) {
-            message = message + '\nNv. ' + displayName;
+    try {
+        const messageInput = document.getElementById('chatReplyInput');
+        let message = messageInput.value.trim();
+
+        // Add signature to message (only for text messages, not images/files)
+        if (message) {
+            const auth = window.authManager ? window.authManager.getAuthState() : null;
+            const displayName = auth && auth.displayName ? auth.displayName : null;
+            if (displayName) {
+                message = message + '\nNv. ' + displayName;
+            }
         }
-    }
 
-    // Validate
-    if (!message && !currentPastedImage) {
-        alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
-        return;
-    }
+        // Validate
+        if (!message && !currentPastedImage) {
+            alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
+            return;
+        }
 
-    // Validate required info
-    const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId;
-    if (missingInfo) {
-        alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
-        console.error('[SEND-REPLY] Missing required info:', {
-            currentOrder: !!currentOrder,
-            currentConversationId: !!currentConversationId,
-            currentChatChannelId: !!currentChatChannelId,
-            currentChatType
+        // Validate required info
+        const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId;
+        if (missingInfo) {
+            alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
+            console.error('[SEND-REPLY] Missing required info:', {
+                currentOrder: !!currentOrder,
+                currentConversationId: !!currentConversationId,
+                currentChatChannelId: !!currentChatChannelId,
+                currentChatType
+            });
+            return;
+        }
+
+        // Capture replied message ID before clearing state
+        const repliedMessageId = window.currentReplyingToMessage ?
+            (window.currentReplyingToMessage.id || window.currentReplyingToMessage.Id || null) : null;
+
+        // Add message to queue
+        console.log('[QUEUE] Adding message to queue', { repliedMessageId });
+        window.chatMessageQueue.push({
+            message,
+            pastedImage: currentPastedImage,
+            order: currentOrder,
+            conversationId: currentConversationId,
+            channelId: currentChatChannelId,
+            chatType: currentChatType,
+            parentCommentId: currentParentCommentId,
+            postId: currentPostId || currentOrder.Facebook_PostId,
+            repliedMessageId: repliedMessageId  // Add replied message ID
         });
-        return;
+
+        // Clear input immediately for next message
+        messageInput.value = '';
+        currentPastedImage = null;
+        const previewContainer = document.getElementById('chatImagePreviewContainer');
+        if (previewContainer) {
+            previewContainer.innerHTML = '';
+            previewContainer.style.display = 'none';
+        }
+
+        // Clear reply state
+        window.cancelReplyMessage();
+
+        // Process queue
+        processChatMessageQueue();
+    } finally {
+        // Reset flag after a short delay to allow the function to complete
+        setTimeout(() => {
+            isSendingMessage = false;
+        }, 100);
     }
-
-    // Capture replied message ID before clearing state
-    const repliedMessageId = window.currentReplyingToMessage ?
-        (window.currentReplyingToMessage.id || window.currentReplyingToMessage.Id || null) : null;
-
-    // Add message to queue
-    console.log('[QUEUE] Adding message to queue', { repliedMessageId });
-    window.chatMessageQueue.push({
-        message,
-        pastedImage: currentPastedImage,
-        order: currentOrder,
-        conversationId: currentConversationId,
-        channelId: currentChatChannelId,
-        chatType: currentChatType,
-        parentCommentId: currentParentCommentId,
-        postId: currentPostId || currentOrder.Facebook_PostId,
-        repliedMessageId: repliedMessageId  // Add replied message ID
-    });
-
-    // Clear input immediately for next message
-    messageInput.value = '';
-    currentPastedImage = null;
-    const previewContainer = document.getElementById('chatImagePreviewContainer');
-    if (previewContainer) {
-        previewContainer.innerHTML = '';
-        previewContainer.style.display = 'none';
-    }
-
-    // Clear reply state
-    window.cancelReplyMessage();
-
-    // Process queue
-    processChatMessageQueue();
 };
 
 /**
