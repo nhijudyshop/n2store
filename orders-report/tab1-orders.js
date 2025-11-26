@@ -4233,6 +4233,7 @@ let currentChatPSID = null;
 let currentChatType = null;
 let currentChatCursor = null;
 let allChatMessages = [];
+let skipWebhookUpdate = false; // Flag to skip webhook updates right after sending message
 let allChatComments = [];
 let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
@@ -4921,6 +4922,10 @@ async function sendReplyCommentInternal(messageData) {
 
         // Optimistic Update: Show message immediately with correct format
         const now = new Date().toISOString();
+
+        // Set flag to skip webhook updates (will be reset after refetch)
+        skipWebhookUpdate = true;
+
         if (chatType === 'message') {
             const tempMessage = {
                 Id: `temp_${Date.now()}`,
@@ -4962,35 +4967,40 @@ async function sendReplyCommentInternal(messageData) {
         // Step 3: Refresh data (Fetch latest from API) and replace temp messages
         console.log(`[SEND-REPLY] Refreshing ${chatType}s...`);
         setTimeout(async () => {
-            if (chatType === 'message' && currentChatPSID) {
-                const response = await window.chatDataManager.fetchMessages(channelId, currentChatPSID);
-                if (response.messages && response.messages.length > 0) {
-                    // Replace entire array with fresh data from API (simpler and more reliable)
-                    allChatMessages = response.messages;
+            try {
+                if (chatType === 'message' && currentChatPSID) {
+                    const response = await window.chatDataManager.fetchMessages(channelId, currentChatPSID);
+                    if (response.messages && response.messages.length > 0) {
+                        // Replace entire array with fresh data from API (simpler and more reliable)
+                        allChatMessages = response.messages;
 
-                    // Don't force scroll to bottom - let wasAtBottom logic decide
-                    renderChatMessages(allChatMessages, false);
-                    console.log('[SEND-REPLY] Replaced temp messages with real messages');
+                        // Don't force scroll to bottom - let wasAtBottom logic decide
+                        renderChatMessages(allChatMessages, false);
+                        console.log('[SEND-REPLY] Replaced temp messages with real messages');
+                    }
+                } else if (chatType === 'comment' && currentChatPSID) {
+                    const response = await window.chatDataManager.fetchComments(channelId, currentChatPSID);
+                    if (response.comments && response.comments.length > 0) {
+                        // Remove temp comments before replacing
+                        allChatComments = allChatComments.filter(c => !c.is_temp);
+
+                        // Merge with new comments from API
+                        response.comments.forEach(newComment => {
+                            const exists = allChatComments.some(c => c.Id === newComment.Id);
+                            if (!exists) {
+                                allChatComments.push(newComment);
+                            }
+                        });
+
+                        // Don't force scroll to bottom - let wasAtBottom logic decide
+                        renderComments(allChatComments, false);
+                    }
                 }
-            } else if (chatType === 'comment' && currentChatPSID) {
-                const response = await window.chatDataManager.fetchComments(channelId, currentChatPSID);
-                if (response.comments && response.comments.length > 0) {
-                    // Remove temp comments before replacing
-                    allChatComments = allChatComments.filter(c => !c.is_temp);
-
-                    // Merge with new comments from API
-                    response.comments.forEach(newComment => {
-                        const exists = allChatComments.some(c => c.Id === newComment.Id);
-                        if (!exists) {
-                            allChatComments.push(newComment);
-                        }
-                    });
-
-                    // Don't force scroll to bottom - let wasAtBottom logic decide
-                    renderComments(allChatComments, false);
-                }
+            } finally {
+                // Reset flag to allow webhook updates again
+                skipWebhookUpdate = false;
             }
-        }, 1000);
+        }, 300); // Reduced delay for faster update
 
         // Show success notification
         if (window.notificationManager) {
@@ -6223,6 +6233,12 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
         const isMatchingType = currentChatType === incomingType;
 
         if (isMatchingPsid && isMatchingChannel && isMatchingType) {
+            // Skip webhook update if we just sent a message (flag will be reset after refetch)
+            if (skipWebhookUpdate) {
+                console.log('[CHAT MODAL] Skipping webhook update (message just sent, waiting for refetch)');
+                return;
+            }
+
             console.log('[CHAT MODAL] Realtime update matches open chat. Fetching new message...');
 
             // Fetch latest messages to get the full message object
