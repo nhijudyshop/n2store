@@ -2139,9 +2139,17 @@ function createRowHTML(order) {
             <td data-column="employee" style="text-align: center;">${employeeHTML}</td>
             <td data-column="tag">
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
-                    <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
-                        <i class="fas fa-tags"></i>
-                    </button>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button class="tag-icon-btn" onclick="openTagModal('${order.Id}', '${order.Code}'); event.stopPropagation();" title="Quản lý tag" style="padding: 2px 6px;">
+                            <i class="fas fa-tags"></i>
+                        </button>
+                        <button class="tag-icon-btn-green" onclick="event.stopPropagation();" title="Icon xanh lá">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="tag-icon-btn-red" onclick="event.stopPropagation();" title="Icon đỏ">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                     ${tagsHTML}
                 </div>
             </td>
