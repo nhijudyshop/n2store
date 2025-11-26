@@ -4257,9 +4257,18 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentChatOrderId = null;
-    currentConversationId = null;
     currentParentCommentId = null;
     currentPostId = null;
+
+    // Set conversationId IMMEDIATELY to avoid "missing info" error
+    // This will be updated later if we get better info from Pancake
+    if (type === 'message') {
+        currentConversationId = `${channelId}_${psid}`;
+        console.log(`[CHAT] Pre-set conversationId for message: ${currentConversationId}`);
+    } else {
+        // For comments, try to get from Pancake first, otherwise set temporary
+        currentConversationId = null; // Will be set from Pancake below
+    }
 
     // Get order info
     // First try to find order by exact ID match
@@ -4330,6 +4339,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     replyContainer.style.display = 'block';
     const chatInput = document.getElementById('chatReplyInput');
     chatInput.value = '';
+
+    // Disable send button while loading to prevent premature sends
+    const sendBtn = document.getElementById('chatSendBtn');
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+    }
 
     // Reset pasted image
     currentPastedImage = null;
@@ -4415,6 +4431,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             setupChatInfiniteScroll();
         }
 
+        // Re-enable send button after loading complete
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi';
+        }
+
         /* LEGACY CODE REMOVED
         // Initialize Chat Product State
         initChatProductSearch();
@@ -4461,6 +4483,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 <p>${errorText}</p>
                 <p style="font-size: 12px; color: #9ca3af;">${error.message}</p>
             </div>`;
+
+        // Re-enable send button even on error (user might want to send anyway)
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi';
+        }
     }
 }
 
@@ -4568,12 +4596,18 @@ window.sendReplyComment = async function () {
     const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId;
 
     if (missingInfo) {
-        alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
+        const missingFields = [];
+        if (!currentOrder) missingFields.push('Thông tin đơn hàng');
+        if (!currentConversationId) missingFields.push('ID cuộc hội thoại');
+        if (!currentChatChannelId) missingFields.push('ID kênh');
+
+        alert(`Thiếu thông tin để gửi tin nhắn:\n- ${missingFields.join('\n- ')}\n\nVui lòng đóng modal và mở lại.`);
         console.error('[SEND-REPLY] Missing required info:', {
             currentOrder: !!currentOrder,
-            currentConversationId: !!currentConversationId,
-            currentChatChannelId: !!currentChatChannelId,
-            currentChatType
+            currentConversationId: currentConversationId,
+            currentChatChannelId: currentChatChannelId,
+            currentChatType: currentChatType,
+            missingFields
         });
         return;
     }
