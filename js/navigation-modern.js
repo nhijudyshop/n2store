@@ -491,7 +491,12 @@ class UnifiedNavigationManager {
                         <i data-lucide="user"></i>
                     </div>
                     <div class="mobile-user-details">
-                        <div class="mobile-user-name">${userInfo?.displayName || "User"}</div>
+                        <div class="mobile-user-name-wrapper">
+                            <div class="mobile-user-name">${userInfo?.displayName || "User"}</div>
+                            <button class="edit-displayname-btn" id="editDisplayNameMobile" title="Chỉnh sửa tên hiển thị">
+                                <i data-lucide="edit-2"></i>
+                            </button>
+                        </div>
                         <div class="mobile-user-role">${roleName}</div>
                     </div>
                 </div>
@@ -505,6 +510,15 @@ class UnifiedNavigationManager {
 
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
+        }
+
+        // Add event listener for edit button
+        const editBtn = topBar.querySelector("#editDisplayNameMobile");
+        if (editBtn) {
+            editBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.showEditDisplayNameModal();
+            });
         }
     }
 
@@ -903,8 +917,42 @@ class UnifiedNavigationManager {
 
         const userName = document.getElementById("userName");
         if (userName) {
-            userName.textContent =
-                userInfo.displayName || "User";
+            // Check if edit button already exists
+            const existingEditBtn = userName.parentElement.querySelector('.edit-displayname-btn');
+            if (!existingEditBtn) {
+                // Create wrapper for name + edit button
+                const nameWrapper = document.createElement('div');
+                nameWrapper.style.display = 'flex';
+                nameWrapper.style.alignItems = 'center';
+                nameWrapper.style.gap = '8px';
+
+                // Create name span
+                const nameSpan = document.createElement('span');
+                nameSpan.id = 'userName';
+                nameSpan.textContent = userInfo.displayName || "User";
+
+                // Create edit button
+                const editBtn = document.createElement('button');
+                editBtn.className = 'edit-displayname-btn';
+                editBtn.id = 'editDisplayNameDesktop';
+                editBtn.title = 'Chỉnh sửa tên hiển thị';
+                editBtn.innerHTML = '<i data-lucide="edit-2"></i>';
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.showEditDisplayNameModal();
+                });
+
+                // Replace userName with wrapper
+                userName.replaceWith(nameWrapper);
+                nameWrapper.appendChild(nameSpan);
+                nameWrapper.appendChild(editBtn);
+
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            } else {
+                userName.textContent = userInfo.displayName || "User";
+            }
         }
 
         const userRole = document.querySelector(".user-role");
@@ -989,6 +1037,286 @@ class UnifiedNavigationManager {
             "accessible pages",
         );
         return accessible;
+    }
+
+    // =====================================================
+    // EDIT DISPLAY NAME FUNCTIONALITY
+    // =====================================================
+
+    showEditDisplayNameModal() {
+        const userInfo = authManager.getUserInfo();
+        const currentDisplayName = userInfo?.displayName || "";
+
+        const modal = document.createElement("div");
+        modal.className = "settings-modal-overlay";
+        modal.innerHTML = `
+            <div class="settings-modal" style="max-width: 450px;">
+                <div class="settings-header">
+                    <h2>
+                        <i data-lucide="edit-2"></i>
+                        Chỉnh Sửa Tên Hiển Thị
+                    </h2>
+                    <button class="settings-close" id="closeEditModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i data-lucide="user"></i>
+                            Tên hiển thị hiện tại
+                        </label>
+                        <div style="padding: 12px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; color: #6366f1; font-weight: 600; margin-bottom: 16px;">
+                            ${currentDisplayName}
+                        </div>
+
+                        <label class="setting-label" style="margin-top: 16px;">
+                            <i data-lucide="edit"></i>
+                            Tên hiển thị mới
+                        </label>
+                        <input
+                            type="text"
+                            id="newDisplayNameInput"
+                            class="displayname-input"
+                            placeholder="Nhập tên hiển thị mới..."
+                            value="${currentDisplayName}"
+                            maxlength="50"
+                        >
+                        <div class="input-hint">
+                            <i data-lucide="info"></i>
+                            <span>Tên hiển thị sẽ được cập nhật trên tất cả các trang</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-footer">
+                    <button class="btn-reset" id="cancelEditBtn">
+                        <i data-lucide="x"></i>
+                        Hủy
+                    </button>
+                    <button class="btn-save" id="saveDisplayNameBtn">
+                        <i data-lucide="check"></i>
+                        Lưu Thay Đổi
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+        }
+
+        // Add styles for input
+        if (!document.getElementById("editDisplayNameStyles")) {
+            const style = document.createElement("style");
+            style.id = "editDisplayNameStyles";
+            style.textContent = `
+                .displayname-input {
+                    width: 100%;
+                    padding: 12px 16px;
+                    border: 2px solid var(--border-color);
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: var(--text-primary);
+                    background: var(--bg-primary);
+                    transition: all 0.2s;
+                    outline: none;
+                    box-sizing: border-box;
+                }
+
+                .displayname-input:focus {
+                    border-color: var(--accent-color);
+                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+                }
+
+                .input-hint {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-top: 8px;
+                    font-size: 12px;
+                    color: var(--text-tertiary);
+                }
+
+                .input-hint i {
+                    width: 14px;
+                    height: 14px;
+                }
+
+                .edit-displayname-btn {
+                    background: transparent;
+                    border: none;
+                    padding: 4px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px;
+                    transition: all 0.2s;
+                    color: rgba(255, 255, 255, 0.7);
+                }
+
+                .edit-displayname-btn:hover {
+                    background: rgba(255, 255, 255, 0.15);
+                    color: white;
+                }
+
+                .edit-displayname-btn i {
+                    width: 14px;
+                    height: 14px;
+                }
+
+                .mobile-user-name-wrapper {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                /* Desktop sidebar edit button */
+                #sidebar .edit-displayname-btn {
+                    color: rgba(255, 255, 255, 0.7);
+                }
+
+                #sidebar .edit-displayname-btn:hover {
+                    background: rgba(255, 255, 255, 0.15);
+                    color: white;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const input = modal.querySelector("#newDisplayNameInput");
+        const closeBtn = modal.querySelector("#closeEditModal");
+        const cancelBtn = modal.querySelector("#cancelEditBtn");
+        const saveBtn = modal.querySelector("#saveDisplayNameBtn");
+
+        const closeModal = () => modal.remove();
+
+        closeBtn.addEventListener("click", closeModal);
+        cancelBtn.addEventListener("click", closeModal);
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        saveBtn.addEventListener("click", async () => {
+            const newDisplayName = input.value.trim();
+
+            if (!newDisplayName) {
+                this.showToast("Vui lòng nhập tên hiển thị!", "error");
+                input.focus();
+                return;
+            }
+
+            if (newDisplayName === currentDisplayName) {
+                this.showToast("Tên hiển thị không thay đổi!", "error");
+                return;
+            }
+
+            if (newDisplayName.length < 2) {
+                this.showToast("Tên hiển thị phải có ít nhất 2 ký tự!", "error");
+                input.focus();
+                return;
+            }
+
+            // Show loading
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i data-lucide="loader"></i> Đang lưu...';
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
+
+            const success = await this.updateDisplayName(newDisplayName);
+
+            if (success) {
+                closeModal();
+                this.showToast("Đã cập nhật tên hiển thị thành công!", "success");
+
+                // Refresh user info in navigation
+                this.refreshUserInfo();
+            } else {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i data-lucide="check"></i> Lưu Thay Đổi';
+                if (typeof lucide !== "undefined") {
+                    lucide.createIcons();
+                }
+            }
+        });
+
+        // Auto select all text on focus
+        input.focus();
+        input.select();
+    }
+
+    async updateDisplayName(newDisplayName) {
+        try {
+            const authData = authManager.getAuthData();
+            if (!authData || !authData.username) {
+                this.showToast("Không tìm thấy thông tin người dùng!", "error");
+                return false;
+            }
+
+            const username = authData.username;
+
+            // Update Firebase
+            if (typeof firebase !== "undefined" && firebase.firestore) {
+                const db = firebase.firestore();
+                await db.collection("users").doc(username).update({
+                    displayName: newDisplayName,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                console.log("[Edit DisplayName] Updated Firebase successfully");
+            } else {
+                this.showToast("Không thể kết nối Firebase!", "error");
+                return false;
+            }
+
+            // Update storage (both localStorage and sessionStorage)
+            authData.displayName = newDisplayName;
+
+            const authDataString = JSON.stringify(authData);
+
+            // Update localStorage if exists
+            if (localStorage.getItem("loginindex_auth")) {
+                localStorage.setItem("loginindex_auth", authDataString);
+                console.log("[Edit DisplayName] Updated localStorage");
+            }
+
+            // Update sessionStorage if exists
+            if (sessionStorage.getItem("loginindex_auth")) {
+                sessionStorage.setItem("loginindex_auth", authDataString);
+                console.log("[Edit DisplayName] Updated sessionStorage");
+            }
+
+            return true;
+        } catch (error) {
+            console.error("[Edit DisplayName] Error:", error);
+            this.showToast("Có lỗi xảy ra khi cập nhật. Vui lòng thử lại!", "error");
+            return false;
+        }
+    }
+
+    refreshUserInfo() {
+        const userInfo = authManager.getUserInfo();
+        if (!userInfo) return;
+
+        // Update mobile top bar
+        const mobileUserName = document.querySelector(".mobile-user-name");
+        if (mobileUserName) {
+            mobileUserName.textContent = userInfo.displayName || "User";
+        }
+
+        // Update desktop sidebar
+        const userName = document.getElementById("userName");
+        if (userName) {
+            userName.textContent = userInfo.displayName || "User";
+        }
+
+        console.log("[Unified Nav] User info refreshed");
     }
 
     // =====================================================
@@ -1565,10 +1893,40 @@ class UnifiedNavigationManager {
                 border-left: 4px solid #10b981;
             }
 
-            .toast-notification i {
+            .toast-notification.success i {
                 width: 20px;
                 height: 20px;
                 color: #10b981;
+            }
+
+            .toast-notification.error {
+                border-left: 4px solid #ef4444;
+            }
+
+            .toast-notification.error i {
+                width: 20px;
+                height: 20px;
+                color: #ef4444;
+            }
+
+            .toast-notification.warning {
+                border-left: 4px solid #f59e0b;
+            }
+
+            .toast-notification.warning i {
+                width: 20px;
+                height: 20px;
+                color: #f59e0b;
+            }
+
+            .toast-notification.info {
+                border-left: 4px solid #3b82f6;
+            }
+
+            .toast-notification.info i {
+                width: 20px;
+                height: 20px;
+                color: #3b82f6;
             }
 
             .toast-notification span {
@@ -1602,8 +1960,18 @@ class UnifiedNavigationManager {
     showToast(message, type = "success") {
         const toast = document.createElement("div");
         toast.className = `toast-notification ${type}`;
+
+        const iconMap = {
+            success: "check-circle",
+            error: "alert-circle",
+            warning: "alert-triangle",
+            info: "info"
+        };
+
+        const icon = iconMap[type] || "check-circle";
+
         toast.innerHTML = `
-            <i data-lucide="check-circle"></i>
+            <i data-lucide="${icon}"></i>
             <span>${message}</span>
         `;
 
