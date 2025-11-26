@@ -144,6 +144,10 @@
                                 <i data-lucide="shield-check"></i>
                                 Quyền Truy Cập
                             </button>
+                            <button class="tab-btn" data-tab="decode-tool">
+                                <i data-lucide="lock-keyhole"></i>
+                                Giải Mã
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -443,10 +447,108 @@
                         </div>
                     </section>
                 </div>
+
+                <!-- Tab: Decode Tool -->
+                <div id="decode-tool" class="tab-content">
+                    <section class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i data-lucide="lock-keyhole"></i>
+                                <h2>Công Cụ Giải Mã Note</h2>
+                            </div>
+                            <div class="card-actions">
+                                <button
+                                    class="btn btn-secondary"
+                                    onclick="clearDecodeForm()"
+                                >
+                                    <i data-lucide="refresh-cw"></i>
+                                    Làm Mới
+                                </button>
+                                <button
+                                    class="btn btn-primary"
+                                    onclick="decodeNote()"
+                                >
+                                    <i data-lucide="unlock"></i>
+                                    Giải Mã
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="file-text"></i>
+                                    Nhập note đã mã hóa (mỗi dòng một chuỗi encode)
+                                </label>
+                                <textarea
+                                    id="encodeInput"
+                                    placeholder="Nhập note đã encode... (hỗ trợ nhiều dòng)"
+                                    rows="8"
+                                    style="font-family: monospace; font-size: 13px;"
+                                ></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    <i data-lucide="check-circle"></i>
+                                    Kết quả giải mã
+                                </label>
+                                <div
+                                    id="decodeOutput"
+                                    style="
+                                        min-height: 200px;
+                                        padding: var(--spacing-lg);
+                                        background: var(--gray-50);
+                                        border: 1px solid var(--gray-200);
+                                        border-radius: var(--radius-md);
+                                        font-size: 14px;
+                                        line-height: 1.8;
+                                    "
+                                >
+                                    <div class="empty-state show">
+                                        <i data-lucide="lock-keyhole"></i>
+                                        <h3>Chưa có kết quả</h3>
+                                        <p>Nhập note và nhấn "Giải Mã" để xem kết quả</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Usage Guide -->
+                    <section class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i data-lucide="info"></i>
+                                <h2>Hướng Dẫn Sử Dụng</h2>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div style="
+                                padding: var(--spacing-lg);
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                border-radius: var(--radius-lg);
+                                color: white;
+                            ">
+                                <h3 style="margin-bottom: var(--spacing-md); font-size: 18px;">
+                                    <i data-lucide="lightbulb"></i>
+                                    Cách sử dụng công cụ giải mã
+                                </h3>
+                                <ul style="margin: 0; padding-left: var(--spacing-xl); line-height: 2;">
+                                    <li>Copy chuỗi note đã encode từ đơn hàng TPOS</li>
+                                    <li>Paste vào ô "Nhập note đã mã hóa"</li>
+                                    <li>Hỗ trợ nhiều dòng - mỗi dòng một chuỗi encode</li>
+                                    <li>Nhấn nút "Giải Mã" để xem kết quả</li>
+                                    <li>Kết quả sẽ hiển thị thông tin: Mã SP, Số lượng, Giá, Thời gian</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </main>
         </div>
 
         <!-- Scripts -->
+        <script src="../orders-report/decoding-utility.js"></script>
         <script src="notification-system.js"></script>
         <script src="page-permissions-ui.js"></script>
 
@@ -560,6 +662,162 @@
                             .getElementById("sidebar")
                             ?.classList.toggle("active");
                     });
+
+                // Decode Tool Functions
+                window.decodeNote = function() {
+                    const input = document.getElementById('encodeInput').value.trim();
+                    const output = document.getElementById('decodeOutput');
+
+                    if (!input) {
+                        output.innerHTML = `
+                            <div class="empty-state show">
+                                <i data-lucide="alert-circle"></i>
+                                <h3>Chưa có dữ liệu</h3>
+                                <p style="color: #ef4444;">Vui lòng nhập note cần giải mã</p>
+                            </div>
+                        `;
+                        lucide.createIcons();
+                        return;
+                    }
+
+                    if (!window.DecodingUtility) {
+                        output.innerHTML = `
+                            <div style="padding: var(--spacing-lg); background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-md); color: #b91c1c;">
+                                <strong>❌ Lỗi:</strong> Không thể load DecodingUtility. Vui lòng refresh trang.
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const lines = input.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                    let resultHtml = '';
+                    let successCount = 0;
+                    let failCount = 0;
+
+                    lines.forEach((line, index) => {
+                        // Try to decode
+                        const decoded = window.DecodingUtility.decodeProductLine(line);
+
+                        if (decoded) {
+                            successCount++;
+                            const timeStr = decoded.timestamp ? new Date(decoded.timestamp).toLocaleString('vi-VN') : 'N/A';
+                            const priceStr = (decoded.price || 0).toLocaleString('vi-VN') + 'đ';
+
+                            resultHtml += `
+                                <div style="
+                                    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+                                    border: 2px solid #10b981;
+                                    border-radius: var(--radius-lg);
+                                    padding: var(--spacing-lg);
+                                    margin-bottom: var(--spacing-md);
+                                    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+                                ">
+                                    <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-sm); color: #047857; font-weight: 700; font-size: 16px;">
+                                        <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
+                                        <span>Dòng ${index + 1} - Giải mã thành công</span>
+                                    </div>
+                                    <div style="background: white; border-radius: var(--radius-md); padding: var(--spacing-md); margin-top: var(--spacing-sm);">
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+                                            <div>
+                                                <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Mã sản phẩm</div>
+                                                <div style="font-weight: 600; font-size: 16px; color: #1f2937;">${decoded.productCode}</div>
+                                            </div>
+                                            <div>
+                                                <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Số lượng</div>
+                                                <div style="font-weight: 600; font-size: 16px; color: #0ea5e9;">x${decoded.quantity}</div>
+                                            </div>
+                                            <div>
+                                                <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Giá</div>
+                                                <div style="font-weight: 600; font-size: 16px; color: #10b981;">${priceStr}</div>
+                                            </div>
+                                            <div>
+                                                <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Thời gian</div>
+                                                <div style="font-weight: 600; font-size: 14px; color: #6b7280;">${timeStr}</div>
+                                            </div>
+                                        </div>
+                                        ${decoded.orderId ? `
+                                            <div style="margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px dashed #e5e7eb;">
+                                                <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Order ID</div>
+                                                <div style="font-family: monospace; font-size: 13px; color: #4b5563; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">${decoded.orderId}</div>
+                                            </div>
+                                        ` : ''}
+                                        <div style="margin-top: var(--spacing-md); padding-top: var(--spacing-md); border-top: 1px dashed #e5e7eb;">
+                                            <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Chuỗi mã hóa</div>
+                                            <div style="font-family: monospace; font-size: 11px; color: #9ca3af; word-break: break-all; background: #f9fafb; padding: 6px 10px; border-radius: 4px;">${line}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            failCount++;
+                            resultHtml += `
+                                <div style="
+                                    background: #fef2f2;
+                                    border: 1px solid #fecaca;
+                                    border-radius: var(--radius-md);
+                                    padding: var(--spacing-md);
+                                    margin-bottom: var(--spacing-md);
+                                ">
+                                    <div style="display: flex; align-items: center; gap: var(--spacing-sm); color: #dc2626; font-weight: 600;">
+                                        <i data-lucide="x-circle" style="width: 18px; height: 18px;"></i>
+                                        <span>Dòng ${index + 1} - Không giải mã được</span>
+                                    </div>
+                                    <div style="margin-top: var(--spacing-sm); font-family: monospace; font-size: 11px; color: #7f1d1d; word-break: break-all; background: white; padding: 6px 10px; border-radius: 4px;">${line}</div>
+                                </div>
+                            `;
+                        }
+                    });
+
+                    // Summary
+                    const summaryHtml = `
+                        <div style="
+                            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+                            border: 2px solid #6366f1;
+                            border-radius: var(--radius-lg);
+                            padding: var(--spacing-lg);
+                            margin-bottom: var(--spacing-lg);
+                        ">
+                            <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); color: #4338ca; font-weight: 700; font-size: 18px;">
+                                <i data-lucide="bar-chart-3" style="width: 24px; height: 24px;"></i>
+                                <span>Tổng Kết</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md);">
+                                <div style="background: white; padding: var(--spacing-md); border-radius: var(--radius-md); text-align: center;">
+                                    <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Tổng dòng</div>
+                                    <div style="font-weight: 700; font-size: 24px; color: #4338ca;">${lines.length}</div>
+                                </div>
+                                <div style="background: white; padding: var(--spacing-md); border-radius: var(--radius-md); text-align: center;">
+                                    <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Thành công</div>
+                                    <div style="font-weight: 700; font-size: 24px; color: #10b981;">${successCount}</div>
+                                </div>
+                                <div style="background: white; padding: var(--spacing-md); border-radius: var(--radius-md); text-align: center;">
+                                    <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">Thất bại</div>
+                                    <div style="font-weight: 700; font-size: 24px; color: #ef4444;">${failCount}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    output.innerHTML = summaryHtml + resultHtml;
+                    lucide.createIcons();
+
+                    // Show notification
+                    if (window.notify) {
+                        window.notify.success(`Giải mã thành công ${successCount}/${lines.length} dòng`);
+                    }
+                };
+
+                window.clearDecodeForm = function() {
+                    document.getElementById('encodeInput').value = '';
+                    document.getElementById('decodeOutput').innerHTML = `
+                        <div class="empty-state show">
+                            <i data-lucide="lock-keyhole"></i>
+                            <h3>Chưa có kết quả</h3>
+                            <p>Nhập note và nhấn "Giải Mã" để xem kết quả</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                };
             });
         </script>
     </body>
