@@ -4349,6 +4349,10 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     chatInput.removeEventListener('keydown', handleChatInputKeyDown);
     chatInput.addEventListener('keydown', handleChatInputKeyDown);
 
+    // Add input event listener for auto-resize
+    chatInput.removeEventListener('input', handleChatInputInput);
+    chatInput.addEventListener('input', handleChatInputInput);
+
     if (type === 'comment') {
         markReadBtn.style.display = 'none';
     } else {
@@ -4561,7 +4565,19 @@ window.chatIsProcessingQueue = false;
 window.currentReplyingToMessage = null; // Stores the message being replied to
 
 /**
- * Handle Enter key in chat input - prevent double submission
+ * Auto-resize textarea based on content
+ */
+function autoResizeTextarea(textarea) {
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    // Set height based on scrollHeight, but don't exceed max-height
+    const maxHeight = 120; // matches max-height in CSS
+    const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = newHeight + 'px';
+}
+
+/**
+ * Handle Enter key in chat input - prevent double submission, allow Shift+Enter for newlines
  */
 function handleChatInputKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -4571,6 +4587,15 @@ function handleChatInputKeyDown(event) {
         // Call sendReplyComment only once
         window.sendReplyComment();
     }
+    // Shift+Enter will use default behavior (insert newline)
+    // After newline is inserted, resize will happen via input event
+}
+
+/**
+ * Handle input event for auto-resize
+ */
+function handleChatInputInput(event) {
+    autoResizeTextarea(event.target);
 }
 
 /**
@@ -4751,6 +4776,8 @@ window.sendReplyComment = async function () {
 
         // Clear input immediately for next message
         messageInput.value = '';
+        // Reset textarea height to default
+        messageInput.style.height = 'auto';
         currentPastedImage = null;
         const previewContainer = document.getElementById('chatImagePreviewContainer');
         if (previewContainer) {
