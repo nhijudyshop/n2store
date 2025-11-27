@@ -153,6 +153,82 @@ export default {
         }
       }
 
+      // ========== IMAGE PROXY ENDPOINT ==========
+      if (pathname === '/api/image-proxy' && request.method === 'GET') {
+        const imageUrl = url.searchParams.get('url');
+
+        if (!imageUrl) {
+          return new Response(JSON.stringify({
+            error: 'Missing url parameter',
+            usage: '/api/image-proxy?url=<encoded_url>'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+
+        console.log('[IMAGE-PROXY] Fetching:', imageUrl);
+
+        try {
+          // Fetch image from external source
+          const imageResponse = await fetch(imageUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'image/*,*/*',
+              'Referer': 'https://tomato.tpos.vn/'
+            }
+          });
+
+          if (!imageResponse.ok) {
+            console.error('[IMAGE-PROXY] Failed:', imageResponse.status, imageResponse.statusText);
+            return new Response(JSON.stringify({
+              error: `Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`
+            }), {
+              status: imageResponse.status,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+
+          // Get content type
+          const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+
+          // Create response with CORS headers
+          const newResponse = new Response(imageResponse.body, {
+            status: 200,
+            headers: {
+              'Content-Type': contentType,
+              'Cache-Control': 'public, max-age=86400', // Cache for 1 day
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Accept',
+            },
+          });
+
+          console.log('[IMAGE-PROXY] Success:', contentType);
+          return newResponse;
+
+        } catch (error) {
+          console.error('[IMAGE-PROXY] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to proxy image',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
 

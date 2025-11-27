@@ -40,6 +40,7 @@ https://chatomni-proxy.nhijudyshop.workers.dev
 
 Mở terminal và test:
 
+### Test API Proxy:
 ```bash
 curl "https://YOUR-WORKER-URL.workers.dev/api/api-ms/chatomni/v1/conversations/search" \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -49,6 +50,12 @@ curl "https://YOUR-WORKER-URL.workers.dev/api/api-ms/chatomni/v1/conversations/s
     "Channels": [{"Id": "270136663390370", "Type": 4}],
     "Type": "message"
   }'
+```
+
+### Test Image Proxy:
+```bash
+curl "https://YOUR-WORKER-URL.workers.dev/api/image-proxy?url=https://img1.tpos.vn/img/abc123.jpg" \
+  --output test-image.jpg
 ```
 
 Nếu trả về dữ liệu → **THÀNH CÔNG!**

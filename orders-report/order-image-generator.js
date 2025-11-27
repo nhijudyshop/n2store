@@ -89,14 +89,10 @@ class OrderImageGenerator {
                 }
 
                 try {
-                    // TEMPORARY: Use corsproxy.io until render.com is deployed
-                    // TODO: Switch back to render.com after deployment
-                    const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(product.imageUrl)}`;
+                    // Use Cloudflare Worker for CORS proxy
+                    const proxiedUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`;
 
-                    // Final URL after render.com deploy:
-                    // const proxiedUrl = `https://n2store-api-fallback.onrender.com/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`;
-
-                    this.log('🔄 Fetching via CORS proxy:', product.name.substring(0, 30));
+                    this.log('🔄 Fetching via Cloudflare Worker:', product.name.substring(0, 30));
 
                     const response = await fetch(proxiedUrl, {
                         method: 'GET',
