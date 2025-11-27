@@ -627,16 +627,25 @@
                             const holders = currentOrderHeldData[productId];
                             let hasValidHolders = false;
                             let totalHeldQty = 0;
+                            let hasDraftHolder = false; // IMPORTANT: Only add if has draft holder
                             if (holders) {
                                 Object.values(holders).forEach(h => {
                                     if ((parseInt(h.quantity) || 0) > 0) {
                                         hasValidHolders = true;
                                         totalHeldQty += (parseInt(h.quantity) || 0);
                                     }
+                                    if (h.isDraft) {
+                                        hasDraftHolder = true;
+                                    }
                                 });
                             }
 
-                            if (!hasValidHolders) continue;
+                            // ONLY add if has draft holder (saved draft)
+                            // Non-draft products will be removed on disconnect, so don't restore them
+                            if (!hasValidHolders || !hasDraftHolder) {
+                                console.log('[HELD-DEBUG] Skipping product without draft:', productId);
+                                continue;
+                            }
 
                             // Fetch full details
                             if (window.productSearchManager) {
@@ -666,7 +675,7 @@
                                     };
 
                                     window.currentChatOrderData.Details.push(newProduct);
-                                    console.log('[HELD-DEBUG] Added missing held product to local list:', newProduct.ProductNameGet, 'qty:', totalHeldQty);
+                                    console.log('[HELD-DEBUG] Added missing DRAFT product to local list:', newProduct.ProductNameGet, 'qty:', totalHeldQty);
                                 }
                             }
                         } catch (err) {
