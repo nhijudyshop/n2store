@@ -3334,6 +3334,30 @@ function renderInfoTab(data) {
                             style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; min-height: 60px; resize: vertical;">${data.Address || ""}</textarea>
                     </div>
                 </div>
+                <div class="info-field" style="grid-column: 1 / -1; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+                    <div class="info-label" style="color: #2563eb; font-weight: 600;">Tra cứu địa chỉ</div>
+                    <div class="info-value">
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <input type="text" id="addressLookupInput" class="form-control" placeholder="Nhập xã/phường, quận/huyện, tỉnh/tp..." 
+                                style="flex: 1; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px;"
+                                onkeydown="if(event.key === 'Enter') handleAddressLookup()">
+                            <button type="button" class="btn-primary" onclick="handleAddressLookup()" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-search"></i> Tìm
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <input type="text" id="fullAddressLookupInput" class="form-control" placeholder="Nhập địa chỉ đầy đủ (VD: 28/6 phạm văn chiêu...)" 
+                                style="flex: 1; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px;"
+                                onkeydown="if(event.key === 'Enter') handleFullAddressLookup()">
+                            <button type="button" class="btn-primary" onclick="handleFullAddressLookup()" style="padding: 6px 12px; background: #059669; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-magic"></i> Tìm Full
+                            </button>
+                        </div>
+                        <div id="addressLookupResults" style="display: none; border: 1px solid #e5e7eb; border-radius: 4px; max-height: 400px; overflow-y: auto; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <!-- Results will be populated here -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="info-card">
@@ -7956,3 +7980,191 @@ window.executeBulkMergeOrderProducts = executeBulkMergeOrderProducts;
 
 
 
+
+// =====================================================
+// ADDRESS LOOKUP LOGIC
+// =====================================================
+async function handleAddressLookup() {
+    const input = document.getElementById('addressLookupInput');
+    const resultsContainer = document.getElementById('addressLookupResults');
+    const keyword = input.value.trim();
+
+    if (!keyword) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Vui lòng nhập từ khóa tìm kiếm', 'warning');
+        } else {
+            alert('Vui lòng nhập từ khóa tìm kiếm');
+        }
+        return;
+    }
+
+    resultsContainer.style.display = 'block';
+    resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang tìm kiếm...</div>';
+
+    try {
+        // Use the global searchByName function from api-handler.js which returns data without DOM manipulation
+        if (typeof window.searchByName !== 'function') {
+            throw new Error('Hàm tìm kiếm không khả dụng (api-handler.js chưa được tải)');
+        }
+
+        const items = await window.searchByName(keyword);
+
+        if (!items || items.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">Không tìm thấy kết quả phù hợp</div>';
+            return;
+        }
+
+        resultsContainer.innerHTML = items.map(item => {
+            // Determine display name and type label
+            let displayName = item.name || item.ward_name || item.district_name || '';
+            let typeLabel = '';
+            let fullAddress = displayName; // Default to display name
+            let subText = '';
+
+            if (item.type === 'province') {
+                typeLabel = 'Tỉnh/Thành phố';
+            } else if (item.type === 'district') {
+                typeLabel = 'Quận/Huyện';
+                if (item.province_name) {
+                    fullAddress = `${displayName}, ${item.province_name}`;
+                }
+            } else if (item.type === 'ward') {
+                typeLabel = 'Phường/Xã';
+                // Try to construct better address if fields exist
+                if (item.district_name && item.province_name) {
+                    fullAddress = `${displayName}, ${item.district_name}, ${item.province_name}`;
+                } else if (item.merger_details) {
+                    // Use merger details as context since district_name is missing
+                    subText = `<div style="font-size: 10px; color: #9ca3af; font-style: italic;">${item.merger_details}</div>`;
+                    // Construct full address with province
+                    if (item.province_name) {
+                        fullAddress = `${displayName}, ${item.province_name}`;
+                        // Append district info from merger details if possible (simple heuristic)
+                        // This is optional, but helps if the user wants the "old" district name in the text
+                        fullAddress += ` (${item.merger_details})`;
+                    }
+                } else if (item.address) {
+                    fullAddress = item.address;
+                }
+            }
+
+            return `
+            <div class="address-result-item" 
+                 onclick="selectAddress('${fullAddress.replace(/'/g, "\\'")}', '${item.type}')"
+                 style="padding: 10px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 500; color: #374151;">${displayName}</div>
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${typeLabel}</div>
+                    ${subText}
+                </div>
+                <i class="fas fa-chevron-right" style="font-size: 12px; color: #d1d5db;"></i>
+            </div>
+            `;
+        }).join('');
+
+        // Add hover effect via JS since we are injecting HTML
+        const resultItems = resultsContainer.querySelectorAll('.address-result-item');
+        resultItems.forEach(item => {
+            item.onmouseover = () => item.style.backgroundColor = '#f9fafb';
+            item.onmouseout = () => item.style.backgroundColor = 'white';
+        });
+
+    } catch (error) {
+        console.error('Address lookup error:', error);
+        resultsContainer.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444;">Lỗi: ${error.message}</div>`;
+    }
+}
+
+async function handleFullAddressLookup() {
+    const input = document.getElementById('fullAddressLookupInput');
+    const resultsContainer = document.getElementById('addressLookupResults');
+
+    if (!input || !resultsContainer) return;
+
+    const keyword = input.value.trim();
+    if (!keyword) {
+        alert('Vui lòng nhập địa chỉ đầy đủ');
+        return;
+    }
+
+    resultsContainer.style.display = 'block';
+    resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Đang phân tích địa chỉ...</div>';
+
+    try {
+        if (typeof window.searchFullAddress !== 'function') {
+            throw new Error('Hàm tìm kiếm không khả dụng (api-handler.js chưa được tải)');
+        }
+
+        const response = await window.searchFullAddress(keyword);
+
+        if (!response || !response.data || response.data.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444;">Không tìm thấy kết quả phù hợp</div>';
+            return;
+        }
+
+        // The API returns data in a simple format: { address: "...", note: "..." }
+
+        const items = response.data;
+        resultsContainer.innerHTML = items.map(item => {
+            const fullAddress = item.address;
+
+            return `
+            <div class="address-result-item" 
+                 onclick="selectAddress('${fullAddress.replace(/'/g, "\\'")}', 'full')"
+                 style="padding: 10px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 500; color: #374151;">${item.address}</div>
+                    ${item.note ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${item.note}</div>` : ''}
+                </div>
+                <i class="fas fa-check" style="font-size: 12px; color: #059669;"></i>
+            </div>
+            `;
+        }).join('');
+
+        const resultItems = resultsContainer.querySelectorAll('.address-result-item');
+        resultItems.forEach(item => {
+            item.onmouseover = () => item.style.backgroundColor = '#f9fafb';
+            item.onmouseout = () => item.style.backgroundColor = 'white';
+        });
+
+    } catch (error) {
+        console.error('Full address lookup error:', error);
+        resultsContainer.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444;">Lỗi: ${error.message}</div>`;
+    }
+}
+
+function selectAddress(fullAddress, type) {
+    const addressTextarea = document.querySelector('textarea[onchange*="updateOrderInfo(\'Address\'"]');
+    if (addressTextarea) {
+        let newAddress = fullAddress;
+
+        // Logic to append or replace
+        if (addressTextarea.value && addressTextarea.value.trim() !== '') {
+            // Simple heuristic: if the current value is short, maybe replace. If long, maybe append.
+            // Or just ask the user via a simple confirm/prompt logic?
+            // "Bạn muốn THAY THẾ (OK) hay NỐI THÊM (Cancel)?" -> confusing.
+            // Let's just append if it's not empty, but add a separator.
+
+            // Actually, let's try to be smart. If the textarea contains the new address already, don't do anything.
+            if (!addressTextarea.value.includes(fullAddress)) {
+                // Confirm with user
+                if (confirm('Bạn có muốn thay thế địa chỉ hiện tại không?\nOK: Thay thế\nCancel: Nối thêm vào sau')) {
+                    newAddress = fullAddress;
+                } else {
+                    newAddress = addressTextarea.value + ', ' + fullAddress;
+                }
+            }
+        }
+
+        addressTextarea.value = newAddress;
+        updateOrderInfo('Address', newAddress);
+
+        // Hide results and clear input
+        document.getElementById('addressLookupResults').style.display = 'none';
+        document.getElementById('addressLookupInput').value = '';
+
+        if (window.notificationManager) {
+            window.notificationManager.show('Đã cập nhật địa chỉ', 'success');
+        }
+    }
+}

@@ -229,6 +229,74 @@ export default {
         }
       }
 
+      // ========== GENERIC PROXY ENDPOINT (For TinhThanhPho, etc.) ==========
+      if (pathname === '/api/proxy') {
+        const targetUrl = url.searchParams.get('url');
+
+        if (!targetUrl) {
+          return new Response(JSON.stringify({
+            error: 'Missing url parameter',
+            usage: '/api/proxy?url=<encoded_url>'
+          }), {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+
+        console.log('[PROXY] Fetching:', targetUrl);
+
+        try {
+          // Forward request
+          const fetchOptions = {
+            method: request.method,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/json, text/plain, */*',
+            },
+            body: request.method !== 'GET' && request.method !== 'HEAD'
+              ? await request.arrayBuffer()
+              : null,
+          };
+
+          // Check for custom headers passed via query param 'headers' (JSON string)
+          const customHeadersStr = url.searchParams.get('headers');
+          if (customHeadersStr) {
+            try {
+              const customHeaders = JSON.parse(customHeadersStr);
+              Object.assign(fetchOptions.headers, customHeaders);
+            } catch (e) {
+              console.error('[PROXY] Failed to parse custom headers:', e);
+            }
+          }
+
+          const proxyResponse = await fetch(targetUrl, fetchOptions);
+
+          // Clone response and add CORS headers
+          const newResponse = new Response(proxyResponse.body, proxyResponse);
+          newResponse.headers.set('Access-Control-Allow-Origin', '*');
+          newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+          newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+
+          return newResponse;
+
+        } catch (error) {
+          console.error('[PROXY] Error:', error.message);
+          return new Response(JSON.stringify({
+            error: 'Failed to proxy request',
+            message: error.message
+          }), {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+      }
+
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
 
