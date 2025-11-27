@@ -67,12 +67,14 @@ const tokenRoutes = require('./routes/token');
 const odataRoutes = require('./routes/odata');
 const chatomniRoutes = require('./routes/chatomni');
 const pancakeRoutes = require('./routes/pancake');
+const imageProxyRoutes = require('./routes/image-proxy');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
 app.use('/api/odata', odataRoutes);
 app.use('/api/api-ms/chatomni', chatomniRoutes);
 app.use('/api/pancake', pancakeRoutes);
+app.use('/api/image-proxy', imageProxyRoutes);
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
@@ -259,6 +261,7 @@ app.get('/', (req, res) => {
             'GET /api/odata/*',
             'GET /api/api-ms/chatomni/*',
             'GET /api/pancake/*',
+            'GET /api/image-proxy?url=<encoded_url>',
             'GET /health'
         ]
     });

@@ -23,6 +23,7 @@ POST /api/token
 GET  /api/odata/*
 GET  /api/api-ms/chatomni/*
 GET  /api/pancake/*
+GET  /api/image-proxy?url=<encoded_url>
 ```
 
 ## 🚀 Deploy to Render.com
