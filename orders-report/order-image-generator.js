@@ -89,10 +89,10 @@ class OrderImageGenerator {
                 }
 
                 try {
-                    // Use our own render.com server to proxy images (bypass CORS)
-                    const proxiedUrl = `https://n2store-api-fallback.onrender.com/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`;
+                    // Use Cloudflare Worker for CORS proxy
+                    const proxiedUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`;
 
-                    this.log('🔄 Fetching via Render proxy:', product.name.substring(0, 30));
+                    this.log('🔄 Fetching via Cloudflare Worker:', product.name.substring(0, 30));
 
                     const response = await fetch(proxiedUrl, {
                         method: 'GET',
