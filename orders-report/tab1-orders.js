@@ -3338,14 +3338,6 @@ function renderInfoTab(data) {
                     <div class="info-label" style="color: #2563eb; font-weight: 600;">Tra cứu địa chỉ</div>
                     <div class="info-value">
                         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                            <input type="text" id="addressLookupInput" class="form-control" placeholder="Nhập xã/phường, quận/huyện, tỉnh/tp..." 
-                                style="flex: 1; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px;"
-                                onkeydown="if(event.key === 'Enter') handleAddressLookup()">
-                            <button type="button" class="btn-primary" onclick="handleAddressLookup()" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                <i class="fas fa-search"></i> Tìm
-                            </button>
-                        </div>
-                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                             <input type="text" id="fullAddressLookupInput" class="form-control" placeholder="Nhập địa chỉ đầy đủ (VD: 28/6 phạm văn chiêu...)" 
                                 style="flex: 1; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px;"
                                 onkeydown="if(event.key === 'Enter') handleFullAddressLookup()">
