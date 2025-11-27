@@ -1947,8 +1947,9 @@ function updateOrderInTable(orderId, updatedOrderData) {
         console.log('[UPDATE] Updated in displayedData at index:', indexInDisplayed);
     }
 
-    // 4. Re-render bảng để hiển thị thay đổi
-    renderTable();
+    // 4. Re-apply all filters and re-render table
+    // This ensures realtime filter updates (e.g., removing a tag will hide the order if filtering by that tag)
+    performTableSearch();
 
     // 5. Cập nhật stats (nếu tổng tiền thay đổi)
     updateStats();
