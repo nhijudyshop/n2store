@@ -53,7 +53,6 @@ const searchInput = document.getElementById("searchInput");
 
 // Global variables
 let editingRow;
-let statusFilter = "all";
 let searchFilter = "";
 let filterTimeout = null;
 let currentLoadingNotification = null;
@@ -335,6 +334,9 @@ function applyFiltersToData(dataArray) {
         const scenarioFilter = document
             .getElementById("scenarioFilter")
             .value.toLowerCase();
+        const statusFilterValue = document
+            .getElementById("statusFilter")
+            .value.toLowerCase();
         const startDate = document.getElementById("startDate").value;
         const endDate = document.getElementById("endDate").value;
 
@@ -364,9 +366,9 @@ function applyFiltersToData(dataArray) {
                     timestamp / 1000 <= timestampEndDate);
 
             const statusMatch =
-                statusFilter === "all" ||
-                (statusFilter === "active" && !item.muted) ||
-                (statusFilter === "completed" && item.muted);
+                statusFilterValue === "all" ||
+                (statusFilterValue === "active" && !item.muted) ||
+                (statusFilterValue === "completed" && item.muted);
 
             const searchMatch =
                 !searchFilter ||
