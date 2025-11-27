@@ -1206,12 +1206,12 @@
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Ngày tạo:</strong> ${invoice.Created ? new Date(invoice.Created).toLocaleString('vi-VN') : 'N/A'}</p>
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Trạng thái:</strong> ${invoice.Status || 'N/A'}</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Ngày tạo:</strong> ${invoice.DateInvoice ? new Date(invoice.DateInvoice).toLocaleString('vi-VN') : 'N/A'}</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Trạng thái:</strong> ${invoice.ShowState || invoice.State || 'N/A'}</p>
                                     </div>
                                     <div class="col-md-6">
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Tổng tiền:</strong> ${(invoice.TotalAmount || 0).toLocaleString('vi-VN')}đ</p>
-                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Đã thanh toán:</strong> ${(invoice.PaidAmount || 0).toLocaleString('vi-VN')}đ</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Tổng tiền:</strong> ${(invoice.AmountTotal || 0).toLocaleString('vi-VN')}đ</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Đã thanh toán:</strong> ${(invoice.PaymentAmount || 0).toLocaleString('vi-VN')}đ</p>
                                     </div>
                                 </div>
 
