@@ -401,8 +401,11 @@ function renderSingleRow(item, sttNumber) {
         const newRow = document.createElement("tr");
         newRow.style.opacity = item.muted ? "0.5" : "1.0";
 
+        // Ensure duyetHoanValue exists, use current timestamp as fallback
+        const rowId = item.duyetHoanValue || Date.now().toString();
+
         const cells = [
-            { content: sttNumber, id: item.duyetHoanValue },
+            { content: sttNumber, id: rowId },
             { content: sanitizeInput(item.shipValue || "") },
             { content: sanitizeInput(item.scenarioValue || "") },
             { content: sanitizeInput(item.customerInfoValue || "") },
@@ -436,6 +439,7 @@ function renderSingleRow(item, sttNumber) {
                 cell.appendChild(deleteButton);
             } else {
                 cell.textContent = cellData.content;
+                // Always set id if provided (cellData.id is now guaranteed to exist for first cell)
                 if (cellData.id) cell.id = cellData.id;
             }
 
