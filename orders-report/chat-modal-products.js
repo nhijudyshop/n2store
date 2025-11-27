@@ -2350,8 +2350,14 @@
                 // For drafts, include holder name so others know who is holding it
                 await window.addToDroppedProducts(p, p.Quantity, isDraft ? 'draft_held' : 'unsaved_exit', holderName);
 
-                // Remove from Firebase held_products
-                updateHeldStatus(p.ProductId, false);
+                // ONLY remove non-draft products from Firebase
+                // Draft products should persist in Firebase for later retrieval
+                if (!isDraft) {
+                    updateHeldStatus(p.ProductId, false);
+                    console.log('[CHAT-PRODUCTS] Removed non-draft held product from Firebase:', p.ProductId);
+                } else {
+                    console.log('[CHAT-PRODUCTS] Keeping draft product in Firebase:', p.ProductId);
+                }
             }
         }
 
