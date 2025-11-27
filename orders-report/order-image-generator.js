@@ -34,12 +34,19 @@ class OrderImageGenerator {
         this.log('  - Products:', orderData.products?.length);
 
         try {
-            // Create container
-            const container = this.createImageContainer(orderData, messageText);
+            // Step 1: Fetch all product images as base64 (bypass CORS)
+            this.log('⬇️ Fetching product images...');
+            const productsWithBase64 = await this.fetchProductImagesAsBase64(orderData.products);
+
+            // Step 2: Create container with base64 images
+            const container = this.createImageContainer(
+                { ...orderData, products: productsWithBase64 },
+                messageText
+            );
             document.body.appendChild(container);
 
-            // Wait for images to load
-            await this.waitForImages(container);
+            // Wait a bit for rendering
+            await new Promise(resolve => setTimeout(resolve, 100));
 
             // Generate image using html2canvas
             this.log('🎨 Rendering with html2canvas...');
@@ -47,8 +54,8 @@ class OrderImageGenerator {
                 backgroundColor: '#ffffff',
                 scale: 2, // High quality
                 logging: false,
-                useCORS: false, // Disable CORS to avoid blocking
-                allowTaint: true, // Allow tainted canvas
+                useCORS: false,
+                allowTaint: true,
                 proxy: null
             });
 
@@ -67,6 +74,58 @@ class OrderImageGenerator {
             this.log('❌ Error generating image:', error);
             throw error;
         }
+    }
+
+    /**
+     * Fetch product images as base64 to bypass CORS
+     */
+    async fetchProductImagesAsBase64(products) {
+        if (!products || products.length === 0) return products;
+
+        const results = await Promise.all(
+            products.map(async (product) => {
+                if (!product.imageUrl) {
+                    return { ...product, imageBase64: null };
+                }
+
+                try {
+                    // Fetch image via fetch API (may still have CORS issues)
+                    // So we'll try, but if it fails, we'll use placeholder
+                    const response = await fetch(product.imageUrl, {
+                        mode: 'cors',
+                        credentials: 'omit'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch');
+                    }
+
+                    const blob = await response.blob();
+                    const base64 = await this.blobToBase64(blob);
+
+                    this.log('✅ Fetched image:', product.name.substring(0, 30));
+                    return { ...product, imageBase64: base64 };
+
+                } catch (error) {
+                    this.log('⚠️ Failed to fetch image for:', product.name);
+                    return { ...product, imageBase64: null };
+                }
+            })
+        );
+
+        return results;
+    }
+
+    /**
+     * Convert blob to base64
+     */
+    blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     }
 
     /**
@@ -157,7 +216,7 @@ class OrderImageGenerator {
         }
 
         const productsHTML = products.map((product, index) => {
-            const imageUrl = product.imageUrl || '';
+            const imageBase64 = product.imageBase64; // Use base64 instead of URL
             const productName = product.name || 'Sản phẩm';
             const quantity = product.quantity || 0;
             const total = product.total || 0;
@@ -173,10 +232,9 @@ class OrderImageGenerator {
                     background: white;
                     gap: 15px;
                 ">
-                    ${imageUrl ? `
+                    ${imageBase64 ? `
                         <img
-                            src="${imageUrl}"
-                            crossorigin="anonymous"
+                            src="${imageBase64}"
                             style="
                                 width: ${this.PRODUCT_IMAGE_SIZE}px;
                                 height: ${this.PRODUCT_IMAGE_SIZE}px;
