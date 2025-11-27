@@ -593,6 +593,30 @@
 
                 const missingProductIds = heldProductIds.filter(id => !localProductIds.includes(id));
 
+                // IMPORTANT: Also update IsHeld for draft products already in Details
+                heldProductIds.forEach(productId => {
+                    const holders = currentOrderHeldData[productId];
+                    if (!holders) return;
+
+                    // Check if this is a draft (any holder has isDraft = true)
+                    let isDraft = false;
+                    let totalHeldQty = 0;
+                    Object.values(holders).forEach(h => {
+                        if (h.isDraft) isDraft = true;
+                        totalHeldQty += (parseInt(h.quantity) || 0);
+                    });
+
+                    // Find product in local Details
+                    const localProduct = window.currentChatOrderData.Details.find(p => String(p.ProductId) === productId);
+
+                    if (localProduct && isDraft && totalHeldQty > 0) {
+                        // Update IsHeld and quantity for draft products
+                        localProduct.IsHeld = true;
+                        localProduct.Quantity = totalHeldQty;
+                        console.log('[HELD-DEBUG] Updated draft product in Details:', productId, 'qty:', totalHeldQty);
+                    }
+                });
+
                 if (missingProductIds.length > 0) {
                     console.log('[HELD-DEBUG] Found missing held products for CURRENT order:', missingProductIds);
 
@@ -602,9 +626,13 @@
                             // Check if we have valid holders for this product in CURRENT order
                             const holders = currentOrderHeldData[productId];
                             let hasValidHolders = false;
+                            let totalHeldQty = 0;
                             if (holders) {
                                 Object.values(holders).forEach(h => {
-                                    if ((parseInt(h.quantity) || 0) > 0) hasValidHolders = true;
+                                    if ((parseInt(h.quantity) || 0) > 0) {
+                                        hasValidHolders = true;
+                                        totalHeldQty += (parseInt(h.quantity) || 0);
+                                    }
                                 });
                             }
 
@@ -618,7 +646,7 @@
                                     // Add to local details as HELD
                                     const newProduct = {
                                         ProductId: fullProduct.Id,
-                                        Quantity: 1, // Default, will be visual only as quantity comes from holders
+                                        Quantity: totalHeldQty, // Use total held quantity from Firebase
                                         Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
                                         Note: null,
                                         UOMId: fullProduct.UOM?.Id || 1,
@@ -638,7 +666,7 @@
                                     };
 
                                     window.currentChatOrderData.Details.push(newProduct);
-                                    console.log('[HELD-DEBUG] Added missing held product to local list:', newProduct.ProductNameGet);
+                                    console.log('[HELD-DEBUG] Added missing held product to local list:', newProduct.ProductNameGet, 'qty:', totalHeldQty);
                                 }
                             }
                         } catch (err) {
