@@ -1077,7 +1077,8 @@
             startDate.setDate(startDate.getDate() - 30);
 
             const formatDate = (date) => {
-                return date.toISOString().split('T')[0]; // YYYY-MM-DD
+                // OData requires datetime format: 2025-10-28T00:00:00Z
+                return date.toISOString();
             };
 
             const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=PartnerId eq ${partnerId} and Created ge ${formatDate(startDate)} and Created le ${formatDate(endDate)}&$orderby=Created desc`;
