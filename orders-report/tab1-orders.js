@@ -2493,7 +2493,7 @@ function createRowHTML(order) {
             <td data-column="total">${(order.TotalAmount || 0).toLocaleString("vi-VN")}đ</td>
             <td data-column="quantity">${order.TotalQuantity || 0}</td>
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
-            <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}">${highlight(order.StatusText || order.Status)}</span></td>
+            <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}" style="cursor: pointer;" onclick="openOrderStatusModal('${order.Id}', '${order.Status}')" data-order-id="${order.Id}" title="Click để thay đổi trạng thái">${highlight(order.StatusText || order.Status)}</span></td>
             <td data-column="actions">
                 <button class="btn-edit-icon" onclick="openEditModal('${order.TargetOrderId || order.Id}')" title="Chỉnh sửa đơn hàng ${isMerged ? '(STT ' + order.TargetSTT + ')' : ''}">
                     <i class="fas fa-edit"></i>
@@ -2904,6 +2904,95 @@ async function updatePartnerStatus(partnerId, color, text) {
 
     } catch (error) {
         console.error('[PARTNER] Update status failed:', error);
+        window.notificationManager.show('Cập nhật trạng thái thất bại: ' + error.message, 'error');
+    }
+}
+
+// --- Order Status Modal Logic ---
+
+const ORDER_STATUS_OPTIONS = [
+    { value: "Đơn hàng", text: "Đơn hàng", color: "#5cb85c" },
+    { value: "Hủy", text: "Huỷ bỏ", color: "#d1332e" },
+    { value: "Nháp", text: "Nháp", color: "#f0ad4e" }
+];
+
+function openOrderStatusModal(orderId, currentStatus) {
+    const modal = document.getElementById('orderStatusModal');
+    const container = document.getElementById('orderStatusOptions');
+    if (!modal || !container) return;
+
+    // Populate options
+    container.innerHTML = '';
+    ORDER_STATUS_OPTIONS.forEach(option => {
+        const btn = document.createElement('div');
+        btn.className = 'status-btn';
+        if (option.value === currentStatus) btn.classList.add('selected');
+
+        btn.innerHTML = `
+            <span class="status-color-dot" style="background-color: ${option.color};"></span>
+            <span class="status-text">${option.text}</span>
+        `;
+        btn.onclick = () => updateOrderStatus(orderId, option.value, option.text, option.color);
+        container.appendChild(btn);
+    });
+
+    modal.classList.add('show');
+}
+
+function closeOrderStatusModal() {
+    const modal = document.getElementById('orderStatusModal');
+    if (modal) modal.classList.remove('show');
+}
+
+async function updateOrderStatus(orderId, newValue, newText, newColor) {
+    closeOrderStatusModal();
+
+    try {
+        const url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/OdataService.UpdateStatusSaleOnline?Id=${orderId}&Status=${encodeURIComponent(newValue)}`;
+        const headers = await window.tokenManager.getAuthHeader();
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'content-type': 'application/json;charset=utf-8',
+                'accept': '*/*'
+            },
+            body: null
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        // Success
+        window.notificationManager.show('Cập nhật trạng thái đơn hàng thành công', 'success');
+
+        // Update local data
+        allData.forEach(order => {
+            if (String(order.Id) === String(orderId)) {
+                order.Status = newValue;
+                order.StatusText = newText;
+            }
+        });
+
+        // Inline UI Update
+        const badges = document.querySelectorAll(`.status-badge[data-order-id="${orderId}"]`);
+        badges.forEach(badge => {
+            badge.className = `status-badge ${newValue === "Draft" ? "status-draft" : "status-order"}`;
+            // Update color manually if needed, or rely on class. 
+            // The existing logic uses classes, but we might want to force the color if it's custom.
+            // For now, let's just update the text and rely on re-render or class.
+            // Actually, the user provided specific colors for the options.
+            // Let's apply the color directly for immediate feedback.
+            badge.style.backgroundColor = newColor; // This might override class styles
+            badge.innerText = newText || newValue;
+            badge.setAttribute('onclick', `openOrderStatusModal('${orderId}', '${newValue}')`);
+        });
+
+        // If we want to be safe and consistent with filters:
+        // performTableSearch(); // Optional, but inline is faster.
+
+    } catch (error) {
+        console.error('[ORDER] Update status failed:', error);
         window.notificationManager.show('Cập nhật trạng thái thất bại: ' + error.message, 'error');
     }
 }
