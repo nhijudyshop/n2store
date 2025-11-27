@@ -544,7 +544,7 @@
                             <div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
                                 <div>
                                     <i class="fas fa-info-circle"></i>
-                                    <strong>Hóa đơn:</strong> Danh sách 20 hóa đơn gần nhất của khách hàng này, được tải từ API.
+                                    <strong>Hóa đơn:</strong> Danh sách hóa đơn (30 ngày gần nhất) của khách hàng này, được tải từ API.
                                 </div>
                                 <button class="btn btn-sm btn-primary" id="refreshInvoiceBtn" style="display: none;">
                                     <i class="fas fa-sync-alt"></i> Làm mới
@@ -605,6 +605,7 @@
     <script src="config.js"></script>
     <script src="auth.js"></script>
     <script src="token-manager.js"></script>
+    <script src="api-config.js"></script>
 
     <script>
         // Initialize Firebase
@@ -1071,25 +1072,31 @@
                 throw new Error('No partnerId provided');
             }
 
-            // Simplified filter - only by PartnerId, ordered by Created desc
-            // Note: Date filtering removed due to API compatibility issues
-            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=PartnerId eq ${partnerId}&$orderby=Created desc&$top=20`;
+            // Calculate date range (last 30 days)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+
+            const formatDate = (date) => {
+                return date.toISOString().split('T')[0]; // YYYY-MM-DD
+            };
+
+            // Use same endpoint as chat-product-manager.js
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetOrdersByPartnerId?partnerId=${partnerId}&fromDate=${formatDate(startDate)}&toDate=${formatDate(endDate)}`;
 
             console.log('[INVOICE-FETCH] Fetching invoices for partnerId:', partnerId);
 
             try {
                 const headers = await window.tokenManager.getAuthHeader();
-                const response = await fetch(apiUrl, {
+                const response = await API_CONFIG.smartFetch(apiUrl, {
                     headers: {
                         ...headers,
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                        "x-tpos-lang": "vi"
+                        "Content-Type": "application/json"
                     }
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    throw new Error(`HTTP ${response.status}`);
                 }
 
                 const data = await response.json();
@@ -1126,12 +1133,11 @@
 
             try {
                 const headers = await window.tokenManager.getAuthHeader();
-                const response = await fetch(apiUrl, {
+                const response = await API_CONFIG.smartFetch(apiUrl, {
                     headers: {
                         ...headers,
                         "Content-Type": "application/json",
-                        "Accept": "application/json",
-                        "x-tpos-lang": "vi"
+                        "Accept": "application/json"
                     }
                 });
 
@@ -1177,7 +1183,7 @@
                     invoiceContent.innerHTML = `
                         <div style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-file-invoice mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
-                            Không tìm thấy hóa đơn nào
+                            Không tìm thấy hóa đơn nào (30 ngày gần nhất)
                         </div>
                     `;
                     return;
