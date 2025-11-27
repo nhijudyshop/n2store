@@ -480,6 +480,12 @@
                                 <i class="fas fa-lock text-primary"></i> Baseline
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="compare-tab" data-bs-toggle="tab" data-bs-target="#compare"
+                                type="button" role="tab">
+                                <i class="fas fa-exchange-alt text-success"></i> So sánh với hóa đơn
+                            </button>
+                        </li>
                     </ul>
 
                     <!-- Tab content -->
@@ -583,6 +589,99 @@
                                 <i class="fas fa-lock-open fa-3x mb-3"></i>
                                 <p>Chưa có baseline cho đơn hàng này</p>
                                 <small>Baseline sẽ được tạo khi thực hiện hành động đầu tiên trên đơn hàng</small>
+                            </div>
+                        </div>
+
+                        <!-- Compare with Invoice Tab -->
+                        <div class="tab-pane fade" id="compare" role="tabpanel">
+                            <div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-exchange-alt"></i>
+                                    <strong>So sánh:</strong> Kiểm tra sản phẩm trong đơn hàng có khớp với hóa đơn không
+                                </div>
+                                <div style="min-width: 300px;">
+                                    <label style="font-size: 12px; margin-bottom: 4px;">Chọn hóa đơn:</label>
+                                    <select class="form-select form-select-sm" id="invoiceSelector">
+                                        <option value="">Đang tải...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <!-- Left Table: Order Products -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-primary text-white">
+                                            <h6 class="mb-0"><i class="fas fa-box"></i> Sản phẩm trong đơn hàng</h6>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div style="max-height: 600px; overflow-y: auto;">
+                                                <table class="table table-sm table-hover mb-0">
+                                                    <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                                                        <tr>
+                                                            <th style="width: 40px;">#</th>
+                                                            <th>Tên sản phẩm</th>
+                                                            <th style="text-align: center; width: 80px;">SL</th>
+                                                            <th style="text-align: center; width: 100px;">Trạng thái</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="compareOrderProductsBody">
+                                                        <tr>
+                                                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                                                <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải...
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Table: Invoice Products -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="mb-0"><i class="fas fa-file-invoice"></i> Sản phẩm trong hóa đơn</h6>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div style="max-height: 600px; overflow-y: auto;">
+                                                <table class="table table-sm table-hover mb-0">
+                                                    <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                                                        <tr>
+                                                            <th style="width: 40px;">#</th>
+                                                            <th>Tên sản phẩm</th>
+                                                            <th style="text-align: center; width: 80px;">SL</th>
+                                                            <th style="text-align: right; width: 120px;">Thành tiền</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="compareInvoiceProductsBody">
+                                                        <tr>
+                                                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                                                <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải...
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Summary Section -->
+                            <div class="alert alert-secondary mt-3" id="compareSummary" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>Tổng SP trong đơn:</strong> <span id="totalOrderProducts">0</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Tổng SP trong hóa đơn:</strong> <span id="totalInvoiceProducts">0</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>SP khớp (có KPI):</strong> <span id="totalMatchedProducts" class="text-success">0</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1064,6 +1163,11 @@
             document.getElementById('baseline-tab').addEventListener('click', async function () {
                 await loadBaseline(orderId, order.products);
             }, { once: true });
+
+            // Load comparison when compare tab is clicked
+            document.getElementById('compare-tab').addEventListener('click', async function () {
+                await loadComparison(orderId, order.partnerId, order.products);
+            }, { once: true });
         }
 
         // Fetch invoice history from API using partnerId
@@ -1373,6 +1477,208 @@
                 `;
                 baselineEmpty.style.display = 'none';
             }
+        }
+
+        // Load and compare products with invoice
+        let currentInvoicesForComparison = [];
+        let currentOrderProductsForComparison = [];
+
+        async function loadComparison(orderId, partnerId, orderProducts) {
+            const invoiceSelector = document.getElementById('invoiceSelector');
+            const orderProductsBody = document.getElementById('compareOrderProductsBody');
+            const invoiceProductsBody = document.getElementById('compareInvoiceProductsBody');
+            const compareSummary = document.getElementById('compareSummary');
+
+            // Reset
+            invoiceSelector.innerHTML = '<option value="">Đang tải hóa đơn...</option>';
+            currentOrderProductsForComparison = orderProducts || [];
+
+            if (!partnerId) {
+                invoiceSelector.innerHTML = '<option value="">Không có partnerId</option>';
+                orderProductsBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Không có thông tin khách hàng
+                        </td>
+                    </tr>
+                `;
+                invoiceProductsBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Không có thông tin khách hàng
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            try {
+                // Fetch invoices
+                const invoices = await fetchInvoiceHistory(partnerId);
+                currentInvoicesForComparison = invoices || [];
+
+                if (!invoices || invoices.length === 0) {
+                    invoiceSelector.innerHTML = '<option value="">Không có hóa đơn</option>';
+                    orderProductsBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-info-circle mb-2"></i><br>Không tìm thấy hóa đơn
+                            </td>
+                        </tr>
+                    `;
+                    invoiceProductsBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                <i class="fas fa-info-circle mb-2"></i><br>Không tìm thấy hóa đơn
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                // Sort invoices by date (newest first)
+                invoices.sort((a, b) => {
+                    const dateA = new Date(a.DateInvoice || a.Created || 0);
+                    const dateB = new Date(b.DateInvoice || b.Created || 0);
+                    return dateB - dateA;
+                });
+
+                // Populate invoice selector
+                let optionsHtml = '';
+                invoices.forEach((invoice, idx) => {
+                    const date = invoice.DateInvoice ? new Date(invoice.DateInvoice).toLocaleDateString('vi-VN') : 'N/A';
+                    const label = `#${invoice.Id} - ${date} - ${(invoice.AmountTotal || 0).toLocaleString('vi-VN')}đ`;
+                    optionsHtml += `<option value="${idx}">${label}</option>`;
+                });
+                invoiceSelector.innerHTML = optionsHtml;
+
+                // Add change event listener
+                invoiceSelector.onchange = function() {
+                    const selectedIdx = parseInt(this.value);
+                    if (selectedIdx >= 0 && selectedIdx < currentInvoicesForComparison.length) {
+                        compareProducts(currentOrderProductsForComparison, currentInvoicesForComparison[selectedIdx]);
+                    }
+                };
+
+                // Auto-select first invoice (newest)
+                if (invoices.length > 0) {
+                    invoiceSelector.value = "0";
+                    compareProducts(currentOrderProductsForComparison, invoices[0]);
+                }
+
+            } catch (error) {
+                console.error('[COMPARE] Error loading invoices:', error);
+                invoiceSelector.innerHTML = '<option value="">Lỗi tải hóa đơn</option>';
+                orderProductsBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #ef4444;">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi: ${error.message}
+                        </td>
+                    </tr>
+                `;
+                invoiceProductsBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #ef4444;">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Compare order products with invoice products
+        function compareProducts(orderProducts, invoice) {
+            const orderProductsBody = document.getElementById('compareOrderProductsBody');
+            const invoiceProductsBody = document.getElementById('compareInvoiceProductsBody');
+            const compareSummary = document.getElementById('compareSummary');
+
+            const invoiceProducts = invoice.OrderLines || [];
+
+            // Create a map of invoice products by name (normalized for comparison)
+            const invoiceProductMap = new Map();
+            invoiceProducts.forEach(line => {
+                const productName = (line.Product?.NameGet || line.ProductName || '').trim().toLowerCase();
+                if (productName) {
+                    invoiceProductMap.set(productName, line);
+                }
+            });
+
+            // Render order products table with match status
+            let orderHtml = '';
+            let matchedCount = 0;
+
+            if (orderProducts && orderProducts.length > 0) {
+                orderProducts.forEach((p, idx) => {
+                    const orderProductName = (p.name || '').trim().toLowerCase();
+                    const isMatched = invoiceProductMap.has(orderProductName);
+
+                    if (isMatched) matchedCount++;
+
+                    const statusBadge = isMatched
+                        ? '<span class="badge bg-success"><i class="fas fa-check"></i> Có KPI</span>'
+                        : '<span class="badge bg-secondary">Không có</span>';
+
+                    const rowClass = isMatched ? 'table-success' : '';
+
+                    orderHtml += `
+                        <tr class="${rowClass}">
+                            <td>${idx + 1}</td>
+                            <td style="font-size: 12px;">${p.name || 'Unknown Product'}</td>
+                            <td style="text-align: center; font-weight: 600;">${p.quantity || 0}</td>
+                            <td style="text-align: center;">${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                orderHtml = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-box-open mb-2"></i><br>Không có sản phẩm
+                        </td>
+                    </tr>
+                `;
+            }
+            orderProductsBody.innerHTML = orderHtml;
+
+            // Render invoice products table
+            let invoiceHtml = '';
+            if (invoiceProducts.length > 0) {
+                invoiceProducts.forEach((line, idx) => {
+                    const productName = line.Product?.NameGet || line.ProductName || 'Unknown Product';
+                    const quantity = line.ProductUOMQty || line.Quantity || 0;
+                    const total = line.PriceTotal || 0;
+
+                    invoiceHtml += `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td style="font-size: 12px;">${productName}</td>
+                            <td style="text-align: center; font-weight: 600;">${quantity}</td>
+                            <td style="text-align: right; color: #059669; font-weight: 600;">${total.toLocaleString('vi-VN')}đ</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                invoiceHtml = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-file-invoice mb-2"></i><br>Hóa đơn không có sản phẩm
+                        </td>
+                    </tr>
+                `;
+            }
+            invoiceProductsBody.innerHTML = invoiceHtml;
+
+            // Update summary
+            document.getElementById('totalOrderProducts').textContent = orderProducts?.length || 0;
+            document.getElementById('totalInvoiceProducts').textContent = invoiceProducts.length;
+            document.getElementById('totalMatchedProducts').textContent = matchedCount;
+            compareSummary.style.display = 'block';
+
+            console.log('[COMPARE] Compared products:', {
+                orderProducts: orderProducts?.length || 0,
+                invoiceProducts: invoiceProducts.length,
+                matched: matchedCount
+            });
         }
 
         // Show Timeline Chart
