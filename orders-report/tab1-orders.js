@@ -1048,7 +1048,8 @@ function performTableSearch() {
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
 
                 // Check if the order has the selected tag
-                return orderTags.some(tag => tag.Id === tagFilter);
+                // Convert both to string to handle type mismatch (tagFilter is string, tag.Id might be number)
+                return orderTags.some(tag => String(tag.Id) === String(tagFilter));
             } catch (e) {
                 return false;
             }
