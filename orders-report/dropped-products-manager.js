@@ -391,6 +391,95 @@
     };
 
     /**
+     * Check if a product is still being held by anyone in Firebase
+     * Scans all orders to see if product has any active holders
+     * @param {number|string} productId - Product ID to check
+     * @returns {Promise<boolean>} True if still held, false otherwise
+     */
+    async function isProductStillHeld(productId) {
+        if (!firebaseDb) return false;
+
+        try {
+            console.log('[DROPPED-PRODUCTS] Checking if product is still held:', productId);
+
+            const heldProductsRef = firebaseDb.ref('held_products');
+            const snapshot = await heldProductsRef.once('value');
+            const allOrders = snapshot.val() || {};
+
+            // Scan all orders for this product
+            for (const orderId in allOrders) {
+                const orderProducts = allOrders[orderId];
+                if (!orderProducts) continue;
+
+                const productHolders = orderProducts[String(productId)];
+                if (!productHolders) continue;
+
+                // Check if any holder has quantity > 0
+                for (const userId in productHolders) {
+                    const holderData = productHolders[userId];
+                    if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
+                        console.log('[DROPPED-PRODUCTS] Product still held by:', holderData.displayName, 'in order:', orderId);
+                        return true;
+                    }
+                }
+            }
+
+            console.log('[DROPPED-PRODUCTS] Product no longer held by anyone');
+            return false;
+
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] Error checking held status:', error);
+            return false; // Assume not held on error
+        }
+    }
+
+    /**
+     * Clear heldBy field from dropped product if no one is holding it anymore
+     * @param {number|string} productId - Product ID to check and update
+     */
+    window.clearHeldByIfNotHeld = async function (productId) {
+        if (!firebaseDb) return;
+
+        try {
+            console.log('[DROPPED-PRODUCTS] Checking to clear heldBy for product:', productId);
+
+            // Check if still held in Firebase
+            const stillHeld = await isProductStillHeld(productId);
+
+            if (!stillHeld) {
+                // Find the dropped product in Firebase
+                const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
+
+                if (droppedProduct && droppedProduct.id && droppedProduct.heldBy) {
+                    console.log('[DROPPED-PRODUCTS] Clearing heldBy from dropped product:', productId);
+
+                    // Remove heldBy field using transaction
+                    const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProduct.id}`);
+
+                    await itemRef.transaction((current) => {
+                        if (current === null) return current; // Item was deleted, abort
+
+                        // Remove heldBy field
+                        const updated = { ...current };
+                        delete updated.heldBy;
+
+                        return updated;
+                    });
+
+                    console.log('[DROPPED-PRODUCTS] ✓ Cleared heldBy field');
+                } else {
+                    console.log('[DROPPED-PRODUCTS] Product not in dropped list or no heldBy field');
+                }
+            } else {
+                console.log('[DROPPED-PRODUCTS] Product still held, keeping heldBy field');
+            }
+
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] ❌ Error clearing heldBy:', error);
+        }
+    };
+
+    /**
      * Add history item
      * FIREBASE-ONLY: Listener will update UI automatically
      */
@@ -653,6 +742,9 @@
                 quantity: 1,
                 price: product.Price
             });
+
+            // Clear heldBy if no one is holding this product anymore
+            await window.clearHeldByIfNotHeld(productId);
 
             // Re-render orders table (not managed by Firebase)
             if (typeof window.renderChatProductsTable === 'function') {

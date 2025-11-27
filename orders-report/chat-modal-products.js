@@ -1120,6 +1120,11 @@
             // Remove from Firebase
             updateHeldStatus(product.ProductId, false);
 
+            // Clear heldBy from dropped products if no one is holding anymore
+            if (typeof window.clearHeldByIfNotHeld === 'function') {
+                await window.clearHeldByIfNotHeld(product.ProductId);
+            }
+
             if (window.notificationManager) {
                 window.notificationManager.show('Đã xóa sản phẩm đang giữ', 'success');
             }
@@ -2060,7 +2065,8 @@
                 }
             });
 
-            heldProducts.forEach(heldProduct => {
+            // Process each held product
+            for (const heldProduct of heldProducts) {
                 // Find if exists in non-held (newDetails)
                 const existingProduct = newDetails.find(p => p.ProductId === heldProduct.ProductId);
 
@@ -2076,7 +2082,12 @@
 
                 // Remove from Firebase
                 updateHeldStatus(heldProduct.ProductId, false);
-            });
+
+                // Clear heldBy from dropped products if no one is holding anymore
+                if (typeof window.clearHeldByIfNotHeld === 'function') {
+                    await window.clearHeldByIfNotHeld(heldProduct.ProductId);
+                }
+            }
 
             // SAVE STATS TO FIREBASE
             try {
