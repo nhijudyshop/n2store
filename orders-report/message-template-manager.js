@@ -89,14 +89,30 @@ class MessageTemplateManager {
                         <div class="message-result-count" id="messageResultCount">
                             <strong>0</strong> template
                         </div>
-                        <div class="message-modal-actions">
-                            <button class="message-btn-cancel" id="messageBtnCancel">
-                                Đóng
-                            </button>
-                            <button class="message-btn-send" id="messageBtnSend" disabled>
-                                <i class="fas fa-paper-plane"></i>
-                                Gửi tin nhắn
-                            </button>
+                        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                            <!-- Send Mode Toggle -->
+                            <div style="display: flex; gap: 15px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                                    <input type="radio" name="sendMode" value="text" checked id="sendModeText" style="cursor: pointer;">
+                                    <i class="fas fa-align-left" style="color: #6366f1;"></i>
+                                    <span>Gửi text</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+                                    <input type="radio" name="sendMode" value="image" id="sendModeImage" style="cursor: pointer;">
+                                    <i class="fas fa-image" style="color: #8b5cf6;"></i>
+                                    <span>Gửi ảnh</span>
+                                </label>
+                            </div>
+                            <!-- Actions -->
+                            <div class="message-modal-actions">
+                                <button class="message-btn-cancel" id="messageBtnCancel">
+                                    Đóng
+                                </button>
+                                <button class="message-btn-send" id="messageBtnSend" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                    Gửi tin nhắn
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -569,6 +585,10 @@ class MessageTemplateManager {
             return;
         }
 
+        // Get send mode (text or image)
+        const sendMode = document.querySelector('input[name="sendMode"]:checked')?.value || 'text';
+        this.log('📮 Send mode:', sendMode);
+
         // SEND MODE - send via Pancake API
         try {
             const ordersCount = this.selectedOrders.length;
@@ -604,6 +624,19 @@ class MessageTemplateManager {
 
                     // Fetch full order data with products
                     const fullOrderData = await this.fetchFullOrderData(order.Id);
+
+                    // Prepare order data for image generation (add imageUrl to products)
+                    const orderDataWithImages = {
+                        ...fullOrderData.converted,
+                        products: fullOrderData.raw.Details?.map(detail => ({
+                            name: detail.ProductNameGet || detail.ProductName,
+                            quantity: detail.Quantity || 0,
+                            price: detail.Price || 0,
+                            total: (detail.Quantity || 0) * (detail.Price || 0),
+                            imageUrl: detail.ImageUrl || ''
+                        })) || []
+                    };
+
                     let messageContent = this.replacePlaceholders(templateContent, fullOrderData.converted);
 
                     // Add signature
@@ -637,7 +670,8 @@ class MessageTemplateManager {
                         channelId: channelId + ' (Facebook Page ID)',
                         psid,
                         conversationId,
-                        customerId
+                        customerId,
+                        sendMode
                     });
 
                     // Send via Pancake API
@@ -646,24 +680,71 @@ class MessageTemplateManager {
                         `access_token=${token}`
                     );
 
-                    const requestBody = {
-                        action: "reply_inbox",
-                        message: messageContent,
-                        customer_id: customerId,
-                        send_by_platform: "web"
-                    };
+                    let requestBody;
+                    let fetchOptions;
+
+                    if (sendMode === 'image') {
+                        // IMAGE MODE - Generate and send image
+                        this.log('🎨 Generating order image...');
+
+                        if (!window.orderImageGenerator) {
+                            throw new Error('OrderImageGenerator không có sẵn');
+                        }
+
+                        const imageBlob = await window.orderImageGenerator.generateOrderImage(
+                            orderDataWithImages,
+                            messageContent
+                        );
+
+                        // Convert blob to base64
+                        const base64Image = await this.blobToBase64(imageBlob);
+
+                        // Send image as attachment
+                        requestBody = {
+                            action: "reply_inbox",
+                            message: "", // Empty message for image only
+                            customer_id: customerId,
+                            send_by_platform: "web",
+                            attachment: {
+                                type: "image",
+                                payload: {
+                                    url: base64Image
+                                }
+                            }
+                        };
+
+                        fetchOptions = {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(requestBody)
+                        };
+
+                    } else {
+                        // TEXT MODE - Send text message (original behavior)
+                        requestBody = {
+                            action: "reply_inbox",
+                            message: messageContent,
+                            customer_id: customerId,
+                            send_by_platform: "web"
+                        };
+
+                        fetchOptions = {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(requestBody)
+                        };
+                    }
 
                     this.log('📡 POST URL:', apiUrl);
                     this.log('📦 Request body:', requestBody);
 
-                    const response = await API_CONFIG.smartFetch(apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
+                    const response = await API_CONFIG.smartFetch(apiUrl, fetchOptions);
 
                     if (!response.ok) {
                         const errorText = await response.text();
@@ -1095,7 +1176,7 @@ class MessageTemplateManager {
     }
 
     formatCurrency(amount) {
-        const numericAmount = typeof amount === 'string' 
+        const numericAmount = typeof amount === 'string'
             ? parseFloat(amount.replace(/[^\d.-]/g, ''))
             : amount;
 
@@ -1105,6 +1186,18 @@ class MessageTemplateManager {
             style: 'currency',
             currency: 'VND'
         }).format(numericAmount);
+    }
+
+    /**
+     * Convert blob to base64
+     */
+    async blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     }
 
     async refresh() {
