@@ -1,12 +1,18 @@
 // =====================================================
 // GLOBAL VARIABLES
-// =====================================================
+// =====================================================// Global variables
 let allData = [];
 let filteredData = [];
 let displayedData = [];
-let totalCount = 0;
-let selectedCampaign = null;
+let currentPage = 1;
+const itemsPerPage = 50;
+let selectedOrderIds = new Set();
+let isLoading = false;
+let loadingAborted = false;
 let employeeRanges = []; // Employee STT ranges
+
+// Expose data for other modules
+window.getAllOrders = () => allData;
 
 // Search State
 let searchQuery = "";
@@ -82,9 +88,7 @@ window.addEventListener("DOMContentLoaded", async function () {
     document
         .getElementById("campaignFilter")
         .addEventListener("change", handleCampaignChange);
-    document
-        .getElementById("assignEmptyCartTagBtn")
-        .addEventListener("click", assignEmptyCartTagToSelected);
+
 
     // Initialize TPOS Token Manager Firebase connection
     if (window.tokenManager) {
@@ -1226,12 +1230,14 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             const startDate = convertToUTC(startDateLocal);
             const endDate = convertToUTC(endDateLocal);
             const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate})`;
-            url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            // OPTIMIZATION: Only fetch necessary fields for campaign list
+            url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true&$select=LiveCampaignId,LiveCampaignName,DateCreated`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}, autoLoad=${autoLoad}`);
         } else {
             // Fallback: không có date filter - Tải 3000 đơn hàng
-            url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true`;
+            // OPTIMIZATION: Only fetch necessary fields for campaign list
+            url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true&$select=LiveCampaignId,LiveCampaignName,DateCreated`;
 
             console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter, autoLoad=${autoLoad}`);
         }
@@ -1505,7 +1511,7 @@ async function handleSearch() {
 
 // Progressive loading state
 let isLoadingInBackground = false;
-let loadingAborted = false;
+
 
 async function fetchOrders() {
     try {
@@ -1533,7 +1539,8 @@ async function fetchOrders() {
         const filter = `(DateCreated ge ${startDate} and DateCreated le ${endDate}) and ${campaignFilter}`;
         console.log(`[FETCH] Fetching orders for ${campaignIds.length} campaign(s): ${campaignIds.join(', ')}`);
 
-        const PAGE_SIZE = 1000; // API fetch size
+        const PAGE_SIZE = 1000; // API fetch size for background loading
+        const INITIAL_PAGE_SIZE = 50; // Smaller size for instant first load
         const UPDATE_EVERY = 200; // Update UI every 200 orders
         let skip = 0;
         let hasMore = true;
@@ -1542,7 +1549,7 @@ async function fetchOrders() {
 
         // ===== PHASE 1: Load first batch and show immediately =====
         console.log('[PROGRESSIVE] Loading first batch...');
-        const firstUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+        const firstUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${INITIAL_PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
         const firstResponse = await fetch(firstUrl, {
             headers: { ...headers, accept: "application/json" },
         });
@@ -1604,8 +1611,8 @@ async function fetchOrders() {
         showLoading(false);
 
         // ===== PHASE 2: Continue loading remaining orders in background =====
-        hasMore = firstOrders.length === PAGE_SIZE;
-        skip += PAGE_SIZE;
+        hasMore = firstOrders.length === INITIAL_PAGE_SIZE;
+        skip += INITIAL_PAGE_SIZE;
 
         if (hasMore) {
             isLoadingInBackground = true;
@@ -2031,8 +2038,86 @@ function renderAllOrders() {
     existingSections.forEach(section => section.remove());
 
     // Render all orders in the default table
+    // Render all orders in the default table
     const tbody = document.getElementById("tableBody");
-    tbody.innerHTML = displayedData.map(createRowHTML).join("");
+
+    // INFINITE SCROLL: Render only first batch
+    renderedCount = INITIAL_RENDER_COUNT;
+    const initialData = displayedData.slice(0, renderedCount);
+    tbody.innerHTML = initialData.map(createRowHTML).join("");
+
+    // Add spacer if there are more items
+    if (displayedData.length > renderedCount) {
+        const spacer = document.createElement('tr');
+        spacer.id = 'table-spacer';
+        spacer.innerHTML = `<td colspan="16" style="text-align: center; padding: 20px; color: #6b7280;">
+            <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
+        </td>`;
+        tbody.appendChild(spacer);
+    }
+}
+
+// =====================================================
+// INFINITE SCROLL LOGIC
+// =====================================================
+const INITIAL_RENDER_COUNT = 50;
+const LOAD_MORE_COUNT = 50;
+let renderedCount = 0;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const tableWrapper = document.getElementById("tableWrapper");
+    if (tableWrapper) {
+        tableWrapper.addEventListener('scroll', handleTableScroll);
+    }
+});
+
+function handleTableScroll(e) {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+
+    // Check if scrolled near bottom (within 200px)
+    if (scrollTop + clientHeight >= scrollHeight - 200) {
+        loadMoreRows();
+    }
+}
+
+function loadMoreRows() {
+    // Check if we have more data to render
+    if (renderedCount >= displayedData.length) return;
+
+    const tbody = document.getElementById("tableBody");
+    const spacer = document.getElementById("table-spacer");
+
+    // Remove spacer temporarily
+    if (spacer) spacer.remove();
+
+    // Calculate next batch
+    const nextBatch = displayedData.slice(renderedCount, renderedCount + LOAD_MORE_COUNT);
+    renderedCount += nextBatch.length;
+
+    // Append new rows
+    const fragment = document.createDocumentFragment();
+    nextBatch.forEach(order => {
+        const tr = document.createElement('tr');
+        // Use a temporary container to parse HTML string
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = `<table><tbody>${createRowHTML(order)}</tbody></table>`;
+        const newRow = tempDiv.querySelector('tr');
+        if (newRow) {
+            fragment.appendChild(newRow);
+        }
+    });
+
+    tbody.appendChild(fragment);
+
+    // Add spacer back if still have more
+    if (renderedCount < displayedData.length) {
+        const newSpacer = document.createElement('tr');
+        newSpacer.id = 'table-spacer';
+        newSpacer.innerHTML = `<td colspan="16" style="text-align: center; padding: 20px; color: #6b7280;">
+            <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
+        </td>`;
+        tbody.appendChild(newSpacer);
+    }
 }
 
 function renderByEmployee() {
@@ -2178,7 +2263,7 @@ function createRowHTML(order) {
 
     return `
         <tr class="${rowClass} ${mergedClass}">
-            <td><input type="checkbox" value="${order.Id}" /></td>
+            <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             <td data-column="stt">
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
@@ -2595,8 +2680,14 @@ function sendDataToTab2() {
 // =====================================================
 // HELPER: CHECK IF ORDER SHOULD BE SELECTABLE
 // =====================================================
+// =====================================================
+// HELPER: CHECK IF ORDER SHOULD BE SELECTABLE
+// =====================================================
+// SELECTION MANAGEMENT (STATE-BASED)
+// =====================================================
+
+
 function isOrderSelectable(orderId) {
-    // Tìm order trong data
     const order = allData.find(o => o.Id === orderId);
     if (!order) return true; // Nếu không tìm thấy, cho phép select
 
@@ -2628,13 +2719,27 @@ function isOrderSelectable(orderId) {
 }
 
 function handleSelectAll() {
-    const checkboxes = document.querySelectorAll(
-        '#tableBody input[type="checkbox"]',
-    );
     const isChecked = document.getElementById("selectAll").checked;
 
-    // Check/uncheck TẤT CẢ checkbox
+    if (isChecked) {
+        // Select ALL displayed data (not just visible rows)
+        displayedData.forEach(order => {
+            selectedOrderIds.add(order.Id);
+        });
+    } else {
+        // Deselect ALL
+        selectedOrderIds.clear();
+    }
+
+    // Update visible checkboxes
+    const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
     checkboxes.forEach((cb) => {
+        cb.checked = isChecked;
+    });
+
+    // Also update employee select all checkboxes
+    const employeeSelectAlls = document.querySelectorAll('.employee-select-all');
+    employeeSelectAlls.forEach(cb => {
         cb.checked = isChecked;
     });
 
@@ -2642,18 +2747,32 @@ function handleSelectAll() {
     updateActionButtons();
 }
 
+// Global event listener for checkbox changes (Delegation)
+document.addEventListener('change', function (e) {
+    if (e.target.matches('tbody input[type="checkbox"]')) {
+        const orderId = e.target.value;
+        if (e.target.checked) {
+            selectedOrderIds.add(orderId);
+        } else {
+            selectedOrderIds.delete(orderId);
+            // Uncheck "Select All" if one is unchecked
+            document.getElementById("selectAll").checked = false;
+        }
+        updateActionButtons();
+    }
+});
+
 // =====================================================
 // UPDATE ACTION BUTTONS VISIBILITY
 // =====================================================
 function updateActionButtons() {
     const actionButtonsSection = document.getElementById('actionButtonsSection');
     const selectedCountSpan = document.getElementById('selectedOrdersCount');
-    const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
-    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    const checkedCount = selectedOrderIds.size;
 
     if (checkedCount > 0) {
         actionButtonsSection.style.display = 'flex';
-        selectedCountSpan.textContent = checkedCount;
+        selectedCountSpan.textContent = checkedCount.toLocaleString('vi-VN');
     } else {
         actionButtonsSection.style.display = 'none';
     }
@@ -4476,13 +4595,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         /* LEGACY CODE REMOVED
         // Initialize Chat Product State
         initChatProductSearch();
-
+ 
         // Initialize ChatProductManager for history tracking
         if (window.chatProductManager) {
             await window.chatProductManager.init('shared');
             console.log('[CHAT] ChatProductManager initialized');
         }
-
+ 
         // Firebase Sync Logic - Shared products across all orders
         if (database) {
             currentChatProductsRef = database.ref('order_products/shared');
@@ -4649,7 +4768,7 @@ function handleChatInputInput(event) {
 /**
  * Set a message to reply to
  */
-window.setReplyMessage = function(message) {
+window.setReplyMessage = function (message) {
     window.currentReplyingToMessage = message;
 
     // Show reply preview
@@ -4675,7 +4794,7 @@ window.setReplyMessage = function(message) {
 /**
  * Cancel replying to a message
  */
-window.cancelReplyMessage = function() {
+window.cancelReplyMessage = function () {
     window.currentReplyingToMessage = null;
 
     // Hide reply preview
@@ -4984,7 +5103,10 @@ async function sendReplyCommentInternal(messageData) {
         console.log('[SEND-REPLY] Reply response:', replyData);
 
         if (!replyData.success) {
-            throw new Error('Gửi tin nhắn thất bại: ' + (replyData.error || 'Unknown error'));
+            console.error('[SEND-REPLY] API Error Data:', replyData);
+            const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
+            throw new Error('Gửi tin nhắn thất bại: ' + errorMessage + ' (Success: false)');
+
         }
 
         // Step 2: Sync comments (fetch3.txt)
@@ -6675,16 +6797,16 @@ function renderChatProductsPanel() {
     const listContainer = document.getElementById("chatProductList");
     const countBadge = document.getElementById("chatProductCountBadge");
     const totalEl = document.getElementById("chatOrderTotal");
-
+ 
     if (!listContainer) return;
-
+ 
     // Update Count & Total
     const totalQty = currentChatOrderDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
     const totalAmount = currentChatOrderDetails.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
-
+ 
     if (countBadge) countBadge.textContent = `${totalQty} sản phẩm`;
     if (totalEl) totalEl.textContent = `${totalAmount.toLocaleString("vi-VN")}đ`;
-
+ 
     // Empty State
     if (currentChatOrderDetails.length === 0) {
         listContainer.innerHTML = `
@@ -6695,7 +6817,7 @@ function renderChatProductsPanel() {
             </div>`;
         return;
     }
-
+ 
     // Render List
     listContainer.innerHTML = currentChatOrderDetails.map((p, index) => `
         <div class="chat-product-card" style="
@@ -6723,7 +6845,7 @@ function renderChatProductsPanel() {
             ? `<img src="${p.ImageUrl}" style="width: 100%; height: 100%; object-fit: cover;">`
             : `<i class="fas fa-image" style="color: #cbd5e1;"></i>`}
             </div>
-
+ 
             <!-- Content -->
             <div style="flex: 1; min-width: 0;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
@@ -6748,7 +6870,7 @@ function renderChatProductsPanel() {
                 <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
                     Mã: ${p.ProductCode || p.Code || 'N/A'}
                 </div>
-
+ 
                 <!-- Controls -->
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <div style="font-size: 13px; font-weight: 700; color: #3b82f6;">
@@ -7066,12 +7188,12 @@ async function addChatProductFromSearch(productId) {
         searchItem.innerHTML = `<div style="text-align: center; width: 100%; color: #6366f1;"><i class="fas fa-spinner fa-spin"></i> Đang tải thông tin...</div>`;
         searchItem.style.pointerEvents = 'none';
     }
-
+ 
     try {
         // 1. Fetch full details from TPOS (Required)
         const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
         if (!fullProduct) throw new Error("Không tìm thấy thông tin sản phẩm");
-
+ 
         // Logic to inherit image from Product Template if missing (Variant logic)
         if ((!fullProduct.ImageUrl || fullProduct.ImageUrl === "") && (!fullProduct.Thumbnails || fullProduct.Thumbnails.length === 0)) {
             if (fullProduct.ProductTmplId) {
@@ -7080,13 +7202,13 @@ async function addChatProductFromSearch(productId) {
                     // Construct Template URL
                     const templateApiUrl = window.productSearchManager.PRODUCT_API_BASE.replace('/Product', '/ProductTemplate');
                     const url = `${templateApiUrl}(${fullProduct.ProductTmplId})?$expand=Images`;
-
+ 
                     const headers = await window.tokenManager.getAuthHeader();
                     const response = await fetch(url, {
                         method: "GET",
                         headers: headers,
                     });
-
+ 
                     if (response.ok) {
                         const templateData = await response.json();
                         if (templateData.ImageUrl) fullProduct.ImageUrl = templateData.ImageUrl;
@@ -7096,10 +7218,10 @@ async function addChatProductFromSearch(productId) {
                 }
             }
         }
-
+ 
         // 2. Check if already exists
         const existingIndex = currentChatOrderDetails.findIndex(p => p.ProductId === productId);
-
+ 
         if (existingIndex >= 0) {
             // Increase quantity
             currentChatOrderDetails[existingIndex].Quantity = (currentChatOrderDetails[existingIndex].Quantity || 0) + 1;
@@ -7116,7 +7238,7 @@ async function addChatProductFromSearch(productId) {
                 OrderId: currentChatOrderId, // Use current chat order ID
                 LiveCampaign_DetailId: null,
                 ProductWeight: 0,
-
+ 
                 // COMPUTED FIELDS
                 ProductName: fullProduct.Name || fullProduct.NameTemplate,
                 ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
@@ -7126,28 +7248,28 @@ async function addChatProductFromSearch(productId) {
                 IsOrderPriority: null,
                 QuantityRegex: null,
                 IsDisabledLiveCampaignDetail: false,
-
+ 
                 // Additional fields for chat UI compatibility if needed
                 Name: fullProduct.Name,
                 Code: fullProduct.DefaultCode || fullProduct.Barcode
             };
-
+ 
             currentChatOrderDetails.push(newProduct);
         }
-
+ 
         renderChatProductsPanel();
         saveChatProductsToFirebase('shared', currentChatOrderDetails);
-
+ 
         // Update UI for the added item
         updateChatProductItemUI(productId);
-
+ 
         // Clear search input and keep focus
         const searchInput = document.getElementById("chatProductSearchInput");
         if (searchInput) {
             searchInput.value = ''; // Clear input
             searchInput.focus();
         }
-
+ 
     } catch (error) {
         console.error("Error adding product:", error);
         if (searchItem) {
@@ -7164,7 +7286,7 @@ async function addChatProductFromSearch(productId) {
 /* LEGACY CODE REMOVED
 function updateChatProductQuantity(index, delta, specificValue = null) {
     if (index < 0 || index >= currentChatOrderDetails.length) return;
-
+ 
     if (specificValue !== null) {
         const val = parseInt(specificValue);
         if (val > 0) currentChatOrderDetails[index].Quantity = val;
@@ -7172,7 +7294,7 @@ function updateChatProductQuantity(index, delta, specificValue = null) {
         const newQty = (currentChatOrderDetails[index].Quantity || 0) + delta;
         if (newQty > 0) currentChatOrderDetails[index].Quantity = newQty;
     }
-
+ 
     renderChatProductsPanel();
     saveChatProductsToFirebase('shared', currentChatOrderDetails);
 }
@@ -7425,5 +7547,7 @@ async function executeBulkMergeOrderProducts() {
 // Make function globally accessible
 window.executeMergeOrderProducts = executeMergeOrderProducts;
 window.executeBulkMergeOrderProducts = executeBulkMergeOrderProducts;
+
+
 
 

@@ -14,6 +14,14 @@ class MessageTemplateManager {
         this.DEBUG_MODE = true; // Enable debug logging
         this.mode = 'send'; // 'send' or 'insert'
         this.targetInputId = null; // Input element to insert text into
+        this.sendingState = {
+            isRunning: false,
+            total: 0,
+            completed: 0,
+            success: 0,
+            error: 0,
+            errors: []
+        };
         this.init();
     }
 
@@ -38,6 +46,12 @@ class MessageTemplateManager {
         }
 
         this.log('📝 Creating modal DOM...');
+
+        // Check if we need to restore progress UI state
+        const isRunning = this.sendingState && this.sendingState.isRunning;
+        const progressDisplay = isRunning ? 'block' : 'none';
+        const btnText = isRunning ? '<i class="fas fa-spinner fa-spin"></i> Đang gửi...' : '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+        const btnDisabled = isRunning ? 'disabled' : '';
 
         const modalHTML = `
             <div class="message-modal-overlay" id="messageTemplateModal">
@@ -90,6 +104,20 @@ class MessageTemplateManager {
                             <strong>0</strong> template
                         </div>
                         <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                            <!-- Thread Input -->
+                            <div style="display: flex; align-items: center; gap: 6px;" title="Số nhân viên gửi đồng thời (Max 5)">
+                                <i class="fas fa-users" style="color: #6b7280;"></i>
+                                <input type="number" id="messageThreadCount" value="1" min="1" max="5" onkeydown="return false" style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+                                <span style="font-size: 13px; color: #6b7280;">người</span>
+                            </div>
+
+                            <!-- Delay Input -->
+                            <div style="display: flex; align-items: center; gap: 6px;" title="Thời gian nghỉ giữa các tin nhắn (giây)">
+                                <i class="fas fa-clock" style="color: #6b7280;"></i>
+                                <input type="number" id="messageSendDelay" value="1" min="0" step="0.5" onkeydown="return false" style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+                                <span style="font-size: 13px; color: #6b7280;">s</span>
+                            </div>
+
                             <!-- Send Mode Toggle -->
                             <div style="display: flex; gap: 15px; align-items: center;">
                                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
@@ -99,20 +127,27 @@ class MessageTemplateManager {
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
                                     <input type="radio" name="sendMode" value="image" id="sendModeImage" style="cursor: pointer;">
-                                    <i class="fas fa-image" style="color: #8b5cf6;"></i>
+                                    <i class="fas fa-image" style="color: #ec4899;"></i>
                                     <span>Gửi ảnh</span>
                                 </label>
                             </div>
-                            <!-- Actions -->
-                            <div class="message-modal-actions">
-                                <button class="message-btn-cancel" id="messageBtnCancel">
-                                    Đóng
-                                </button>
-                                <button class="message-btn-send" id="messageBtnSend" disabled>
-                                    <i class="fas fa-paper-plane"></i>
-                                    Gửi tin nhắn
-                                </button>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div id="messageProgressContainer" style="display: none; flex: 1; min-width: 200px; margin-right: 10px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; color: #6b7280;">
+                                    <span id="messageProgressText">Đang gửi...</span>
+                                    <span id="messageProgressPercent">0%</span>
+                                </div>
+                                <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                                    <div id="messageProgressBar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
+                                </div>
                             </div>
+                            <button class="message-btn-cancel" id="messageBtnCancel">Hủy</button>
+                            <button class="message-btn-send" id="messageBtnSend">
+                                <i class="fas fa-paper-plane"></i>
+                                Gửi tin nhắn
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -342,14 +377,14 @@ class MessageTemplateManager {
             this.log('');
             this.log('✅ SUCCESS! Templates loaded:');
             this.log('  - Total templates:', this.templates.length);
-            
+
             if (this.templates.length > 0) {
                 this.log('  - Sample template names:');
                 this.templates.slice(0, 3).forEach((t, i) => {
                     this.log(`    ${i + 1}. ${t.Name} (${t.TypeId})`);
                 });
             }
-            
+
             this.log('='.repeat(60));
             this.log('');
 
@@ -373,7 +408,7 @@ class MessageTemplateManager {
             this.log('Error stack:', error.stack);
             this.log('='.repeat(60));
             this.log('');
-            
+
             // Show error in modal
             bodyEl.innerHTML = `
                 <div class="message-no-results">
@@ -448,10 +483,10 @@ class MessageTemplateManager {
             // CHỈ LẤY BodyPlain, không lấy BodyHtml
             const content = template.BodyPlain || 'Không có nội dung';
             const date = new Date(template.DateCreated).toLocaleDateString('vi-VN');
-            
+
             // Convert \n thành <br> để giữ line breaks
             const contentWithBreaks = this.escapeHtml(content).replace(/\n/g, '<br>');
-            
+
             // Kiểm tra nếu content dài (nhiều hơn 8 dòng ~ 200 chars)
             // để hiển thị nút "Xem thêm"
             const needsExpand = content.length > 200;
@@ -522,7 +557,7 @@ class MessageTemplateManager {
         const expandBtn = item.querySelector('.message-expand-btn');
         const expandText = expandBtn?.querySelector('.expand-text');
         const expandIcon = expandBtn?.querySelector('i');
-        
+
         // Get original content with line breaks preserved
         const fullContent = contentEl.dataset.fullContent;
         const fullContentWithBreaks = this.escapeHtml(fullContent).replace(/\n/g, '<br>');
@@ -544,7 +579,7 @@ class MessageTemplateManager {
 
     handleSearch(query) {
         const clearBtn = document.getElementById('messageClearSearch');
-        
+
         if (query.length > 0) {
             clearBtn?.classList.add('show');
         } else {
@@ -560,10 +595,10 @@ class MessageTemplateManager {
                 // CHỈ TÌM TRONG BodyPlain
                 const content = (template.BodyPlain || '').toLowerCase();
                 const type = (template.TypeId || '').toLowerCase();
-                
-                return name.includes(searchLower) || 
-                       content.includes(searchLower) || 
-                       type.includes(searchLower);
+
+                return name.includes(searchLower) ||
+                    content.includes(searchLower) ||
+                    type.includes(searchLower);
             });
         }
 
@@ -587,220 +622,134 @@ class MessageTemplateManager {
 
         // Get send mode (text or image)
         const sendMode = document.querySelector('input[name="sendMode"]:checked')?.value || 'text';
-        this.log('📮 Send mode:', sendMode);
+
+        // Get delay (seconds -> ms)
+        const delayInput = document.getElementById('messageSendDelay');
+        const delaySeconds = delayInput ? parseFloat(delayInput.value) || 1 : 1;
+        const delay = delaySeconds * 1000;
+
+        // Get concurrency
+        const threadInput = document.getElementById('messageThreadCount');
+        let concurrency = threadInput ? parseInt(threadInput.value) || 1 : 1;
+        if (concurrency > 5) concurrency = 5;
+        if (concurrency < 1) concurrency = 1;
+
+        this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Threads:', concurrency);
 
         // SEND MODE - send via Pancake API
         try {
             const ordersCount = this.selectedOrders.length;
-            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API');
-            this.log('🔄 Will fetch full data for each order...');
+            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API (Parallel Mode)');
 
-            // Get Pancake token first
+            // Get Pancake token first (ONE TIME)
             const token = await window.pancakeTokenManager.getToken();
             if (!token) {
                 throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
             }
 
-            // Get employee signature
+            // Get employee signature (ONE TIME)
             const auth = window.authManager ? window.authManager.getAuthState() : null;
             const displayName = auth && auth.displayName ? auth.displayName : null;
 
-            // Get template content
+            // Get template content (ONE TIME)
             const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
 
-            // Counters
-            let successCount = 0;
-            let errorCount = 0;
+            // Initialize State
+            this.sendingState = {
+                isRunning: true,
+                total: ordersCount,
+                completed: 0,
+                success: 0,
+                error: 0,
+                errors: []
+            };
 
-            // Send message to EACH order individually via Pancake API
-            for (let i = 0; i < this.selectedOrders.length; i++) {
-                const order = this.selectedOrders[i];
-                this.log(`\n📦 Processing order ${i + 1}/${ordersCount}: ${order.code || order.Id}`);
+            // Update UI
+            this.updateProgressUI();
+            const sendBtn = document.getElementById('messageBtnSend');
+            if (sendBtn) {
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang gửi...`;
+            }
 
-                try {
-                    if (!order.Id) {
-                        throw new Error('Order không có ID');
-                    }
+            // Context object to pass to workers
+            const context = {
+                token,
+                displayName,
+                templateContent,
+                sendMode
+            };
 
-                    // Fetch full order data with products
-                    const fullOrderData = await this.fetchFullOrderData(order.Id);
-
-                    // Prepare order data for image generation (add imageUrl to products)
-                    const orderDataWithImages = {
-                        ...fullOrderData.converted,
-                        products: fullOrderData.raw.Details?.map(detail => ({
-                            name: detail.ProductNameGet || detail.ProductName,
-                            quantity: detail.Quantity || 0,
-                            price: detail.Price || 0,
-                            total: (detail.Quantity || 0) * (detail.Price || 0),
-                            imageUrl: detail.ImageUrl || ''
-                        })) || []
-                    };
-
-                    let messageContent = this.replacePlaceholders(templateContent, fullOrderData.converted);
-
-                    // Add signature
-                    if (displayName) {
-                        messageContent = messageContent + '\nNv. ' + displayName;
-                    }
-
-                    // Get chat info to extract correct channelId (Facebook Page ID)
-                    if (!window.chatDataManager) {
-                        throw new Error('chatDataManager không có sẵn');
-                    }
-
-                    const chatInfo = window.chatDataManager.getChatInfoForOrder(fullOrderData.raw);
-                    const channelId = chatInfo.channelId; // This is the real Facebook Page ID
-                    const psid = chatInfo.psid;
-                    const customerId = fullOrderData.raw.PartnerId;
-
-                    if (!channelId || !psid) {
-                        throw new Error(`Thiếu thông tin channelId hoặc PSID. Order: ${order.code}`);
-                    }
-
-                    if (!customerId) {
-                        throw new Error(`Thiếu thông tin PartnerId (customer_id). Order: ${order.code}`);
-                    }
-
-                    // Construct conversationId
-                    const conversationId = `${channelId}_${psid}`;
-
-                    this.log('🚀 Sending to Pancake API:', {
-                        orderCode: fullOrderData.converted.code,
-                        channelId: channelId + ' (Facebook Page ID)',
-                        psid,
-                        conversationId,
-                        customerId,
-                        sendMode
-                    });
-
-                    // Send via Pancake API
-                    const apiUrl = window.API_CONFIG.buildUrl.pancake(
-                        `pages/${channelId}/conversations/${conversationId}/messages`,
-                        `access_token=${token}`
-                    );
-
-                    let requestBody;
-                    let fetchOptions;
-
-                    if (sendMode === 'image') {
-                        // IMAGE MODE - Generate and upload image to Pancake
-                        this.log('🎨 Generating order image...');
-
-                        if (!window.orderImageGenerator) {
-                            throw new Error('OrderImageGenerator không có sẵn');
+            // Concurrency Control
+            const CONCURRENCY_LIMIT = concurrency; // User defined limit
+            const queue = [...this.selectedOrders];
+            const total = queue.length;
+            // Worker Function
+            const worker = async () => {
+                while (queue.length > 0) {
+                    const order = queue.shift();
+                    try {
+                        // Delay before processing
+                        if (delay > 0) {
+                            await new Promise(r => setTimeout(r, delay));
                         }
 
-                        const imageBlob = await window.orderImageGenerator.generateOrderImage(
-                            orderDataWithImages,
-                            messageContent
-                        );
-
-                        // Convert blob to File for Pancake upload
-                        const imageFile = new File(
-                            [imageBlob],
-                            `order_${fullOrderData.converted.code}_${Date.now()}.png`,
-                            { type: 'image/png' }
-                        );
-
-                        // Upload to Pancake and get content_url
-                        this.log('📤 Uploading image to Pancake...');
-                        if (!window.pancakeDataManager) {
-                            throw new Error('pancakeDataManager không có sẵn');
-                        }
-
-                        const contentUrl = await window.pancakeDataManager.uploadImage(channelId, imageFile);
-                        this.log('✅ Image uploaded to Pancake:', contentUrl);
-
-                        // Send message with image content_url
-                        requestBody = {
-                            action: "reply_inbox",
-                            message: messageContent, // Send full message text
-                            customer_id: customerId,
-                            send_by_platform: "web",
-                            content_url: contentUrl // Add image URL
-                        };
-
-                        fetchOptions = {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(requestBody)
-                        };
-
-                    } else {
-                        // TEXT MODE - Send text message (original behavior)
-                        requestBody = {
-                            action: "reply_inbox",
-                            message: messageContent,
-                            customer_id: customerId,
-                            send_by_platform: "web"
-                        };
-
-                        fetchOptions = {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(requestBody)
-                        };
-                    }
-
-                    this.log('📡 POST URL:', apiUrl);
-                    this.log('📦 Request body:', requestBody);
-
-                    const response = await API_CONFIG.smartFetch(apiUrl, fetchOptions);
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${errorText}`);
-                    }
-
-                    const responseData = await response.json();
-                    this.log('✅ Response:', responseData);
-
-                    if (!responseData.success) {
-                        throw new Error(responseData.error || 'API returned success: false');
-                    }
-
-                    successCount++;
-                    this.log(`✅ Sent successfully to order ${fullOrderData.converted.code}`);
-
-                } catch (orderError) {
-                    errorCount++;
-                    this.log(`❌ Error sending to order ${order.code}:`, orderError);
-
-                    // Show individual error notification
-                    if (window.notificationManager) {
-                        window.notificationManager.error(
-                            `Lỗi gửi đơn ${order.code}: ${orderError.message}`,
-                            4000
-                        );
+                        await this._processSingleOrder(order, context);
+                        this.sendingState.success++;
+                        this.log(`✅ Sent successfully to order ${order.code || order.Id}`);
+                    } catch (err) {
+                        this.sendingState.error++;
+                        this.sendingState.errors.push({ order: order.code || order.Id, error: err.message });
+                        this.log(`❌ Error sending to order ${order.code}:`, err);
+                    } finally {
+                        this.sendingState.completed++;
+                        this.updateProgressUI();
                     }
                 }
+            };
+
+            // Start Workers
+            const workers = [];
+            for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, ordersCount); i++) {
+                workers.push(worker());
             }
+
+            // Wait for all workers to finish
+            await Promise.all(workers);
+
+            // Finished
+            this.sendingState.isRunning = false;
+
+            // Restore UI
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+            }
+
+            // Hide progress after short delay
+            setTimeout(() => {
+                const container = document.getElementById('messageProgressContainer');
+                if (container) container.style.display = 'none';
+            }, 3000);
 
             // Show final summary
             this.log('\n📊 Summary:');
-            this.log(`  ✅ Success: ${successCount}/${ordersCount}`);
-            this.log(`  ❌ Errors: ${errorCount}/${ordersCount}`);
+            this.log(`  ✅ Success: ${this.sendingState.success}/${ordersCount}`);
+            this.log(`  ❌ Errors: ${this.sendingState.error}/${ordersCount}`);
 
             if (window.notificationManager) {
-                if (successCount > 0) {
+                if (this.sendingState.success > 0) {
                     window.notificationManager.success(
-                        `Đã gửi thành công ${successCount}/${ordersCount} tin nhắn!`,
+                        `Đã gửi thành công ${this.sendingState.success}/${ordersCount} tin nhắn!`,
                         3000,
                         `Template: ${this.selectedTemplate.Name}`
                     );
                 }
 
-                if (errorCount > 0 && successCount === 0) {
-                    window.notificationManager.error(
-                        `Gửi thất bại tất cả ${errorCount} tin nhắn`,
-                        4000
+                if (this.sendingState.error > 0) {
+                    window.notificationManager.warning(
+                        `Gửi hoàn tất: ${this.sendingState.success} thành công, ${this.sendingState.error} thất bại`,
+                        5000
                     );
                 }
             }
@@ -808,6 +757,7 @@ class MessageTemplateManager {
             this.closeModal();
 
         } catch (error) {
+            this.sendingState.isRunning = false;
             this.log('❌ Error sending messages:', error);
             if (window.notificationManager) {
                 window.notificationManager.error(
@@ -815,7 +765,195 @@ class MessageTemplateManager {
                     4000
                 );
             }
+            // Restore UI
+            const sendBtn = document.getElementById('messageBtnSend');
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+            }
         }
+    }
+
+    updateProgressUI() {
+        const container = document.getElementById('messageProgressContainer');
+        const bar = document.getElementById('messageProgressBar');
+        const text = document.getElementById('messageProgressText');
+        const percentText = document.getElementById('messageProgressPercent');
+        const sendBtn = document.getElementById('messageBtnSend');
+
+        if (!container || !this.sendingState.isRunning) return;
+
+        container.style.display = 'block';
+
+        const percent = Math.round((this.sendingState.completed / this.sendingState.total) * 100) || 0;
+
+        if (bar) bar.style.width = `${percent}%`;
+        if (percentText) percentText.textContent = `${percent}%`;
+        if (text) text.textContent = `Đang gửi ${this.sendingState.completed}/${this.sendingState.total}...`;
+
+        if (sendBtn) {
+            sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${this.sendingState.completed}/${this.sendingState.total}`;
+        }
+    }
+
+    async _processSingleOrder(order, context) {
+        const { token, displayName, templateContent, sendMode } = context;
+
+        if (!order.Id) {
+            throw new Error('Order không có ID');
+        }
+
+        // SMART OPTIMIZATION:
+        // Check if we need full data (products)
+        const needsProductDetails = templateContent.includes('{order.details}') || sendMode === 'image';
+
+        // Check if we already have PartnerId (customer_id)
+        const hasPartnerId = !!order.PartnerId;
+
+        let fullOrderData;
+        let orderDataForTemplate;
+
+        if (!needsProductDetails && hasPartnerId) {
+            this.log(`⚡ [OPTIMIZATION] Skipping fetch for order ${order.code} (Text mode, no products needed)`);
+            // Use existing data
+            orderDataForTemplate = {
+                Id: order.Id,
+                code: order.code,
+                customerName: order.customerName,
+                phone: order.phone,
+                address: order.address,
+                totalAmount: order.totalAmount,
+                products: [] // Empty products
+            };
+            // Mock fullOrderData.raw for getChatInfoForOrder
+            fullOrderData = {
+                raw: {
+                    ...order.raw, // Use raw data if available from getAllOrders
+                    PartnerId: order.PartnerId
+                },
+                converted: orderDataForTemplate
+            };
+        } else {
+            // Fetch full data
+            fullOrderData = await this.fetchFullOrderData(order.Id);
+            orderDataForTemplate = fullOrderData.converted;
+        }
+
+        // Prepare order data for image generation (only if needed)
+        let orderDataWithImages = null;
+        if (sendMode === 'image') {
+            orderDataWithImages = {
+                ...fullOrderData.converted,
+                products: fullOrderData.raw.Details?.map(detail => ({
+                    name: detail.ProductNameGet || detail.ProductName,
+                    quantity: detail.Quantity || 0,
+                    price: detail.Price || 0,
+                    total: (detail.Quantity || 0) * (detail.Price || 0),
+                    imageUrl: detail.ImageUrl || ''
+                })) || []
+            };
+        }
+
+        let messageContent = this.replacePlaceholders(templateContent, orderDataForTemplate);
+
+        // Add signature
+        if (displayName) {
+            messageContent = messageContent + '\nNv. ' + displayName;
+        }
+
+        // Get chat info
+        if (!window.chatDataManager) {
+            throw new Error('chatDataManager không có sẵn');
+        }
+
+        const chatInfo = window.chatDataManager.getChatInfoForOrder(fullOrderData.raw);
+        const channelId = chatInfo.channelId;
+        const psid = chatInfo.psid;
+        const customerId = fullOrderData.raw.PartnerId;
+
+        if (!channelId || !psid) {
+            throw new Error(`Thiếu thông tin channelId hoặc PSID. Order: ${order.code}`);
+        }
+
+        if (!customerId) {
+            throw new Error(`Thiếu thông tin PartnerId (customer_id). Order: ${order.code}`);
+        }
+
+        // Construct conversationId
+        const conversationId = `${channelId}_${psid}`;
+
+        // Send via Pancake API
+        const apiUrl = window.API_CONFIG.buildUrl.pancake(
+            `pages/${channelId}/conversations/${conversationId}/messages`,
+            `access_token=${token}`
+        );
+
+        let requestBody;
+        let fetchOptions;
+
+        if (sendMode === 'image') {
+            // IMAGE MODE
+            if (!window.orderImageGenerator) {
+                throw new Error('OrderImageGenerator không có sẵn');
+            }
+
+            const imageBlob = await window.orderImageGenerator.generateOrderImage(
+                orderDataWithImages,
+                messageContent
+            );
+
+            const imageFile = new File(
+                [imageBlob],
+                `order_${orderDataForTemplate.code}_${Date.now()}.png`,
+                { type: 'image/png' }
+            );
+
+            if (!window.pancakeDataManager) {
+                throw new Error('pancakeDataManager không có sẵn');
+            }
+
+            const contentUrl = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+
+            requestBody = {
+                action: "reply_inbox",
+                message: messageContent,
+                customer_id: customerId,
+                send_by_platform: "web",
+                content_url: contentUrl
+            };
+        } else {
+            // TEXT MODE
+            requestBody = {
+                action: "reply_inbox",
+                message: messageContent,
+                customer_id: customerId,
+                send_by_platform: "web"
+            };
+        }
+
+        fetchOptions = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        };
+
+        const response = await API_CONFIG.smartFetch(apiUrl, fetchOptions);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const responseData = await response.json();
+
+        if (!responseData.success) {
+            throw new Error(responseData.error || 'API returned success: false');
+        }
+
+        return true;
     }
 
     async fetchCRMTeam(teamId) {
@@ -1132,24 +1270,44 @@ class MessageTemplateManager {
         this.log('📋 Getting selected orders from table...');
         this.log('  - Checkboxes checked:', checkboxes.length);
 
+        const allOrders = window.getAllOrders ? window.getAllOrders() : [];
+
         checkboxes.forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            if (row) {
-                // Lấy Order ID từ checkbox value
-                const orderId = checkbox.value;
+            const orderId = checkbox.value;
 
-                // Lấy thông tin cơ bản từ table (để hiển thị nhanh)
-                const orderData = {
-                    Id: orderId, // ⭐ QUAN TRỌNG: Lưu ID để fetch full data sau
-                    code: row.querySelector('td:nth-child(3)')?.textContent?.trim().split('\n')[0]?.trim(),
-                    customerName: row.querySelector('td:nth-child(4)')?.textContent?.trim().split('\n')[0]?.trim(),
-                    phone: row.querySelector('td:nth-child(5)')?.textContent?.trim(),
-                    address: row.querySelector('td:nth-child(6)')?.textContent?.trim(),
-                    totalAmount: row.querySelector('td:nth-child(8)')?.textContent?.replace(/[^\d]/g, ''),
-                };
+            // Try to find full order data from global state
+            const fullOrder = allOrders.find(o => o.Id === orderId);
 
-                this.log('  - Order:', orderData.code, '(ID:', orderId, ')');
-                selectedOrders.push(orderData);
+            if (fullOrder) {
+                // Use full data
+                selectedOrders.push({
+                    Id: fullOrder.Id,
+                    code: fullOrder.Code,
+                    customerName: fullOrder.Name, // Or Partner.Name if available
+                    phone: fullOrder.Telephone,
+                    address: fullOrder.Address,
+                    totalAmount: fullOrder.TotalAmount,
+                    PartnerId: fullOrder.PartnerId || (fullOrder.Partner && fullOrder.Partner.Id),
+                    // Keep other fields if needed
+                    raw: fullOrder
+                });
+                this.log('  - Found full order:', fullOrder.Code);
+            } else {
+                // Fallback to DOM scraping (should rarely happen if allData is synced)
+                const row = checkbox.closest('tr');
+                if (row) {
+                    const orderData = {
+                        Id: orderId,
+                        code: row.querySelector('td:nth-child(3)')?.textContent?.trim().split('\n')[0]?.trim(),
+                        customerName: row.querySelector('td:nth-child(4)')?.textContent?.trim().split('\n')[0]?.trim(),
+                        phone: row.querySelector('td:nth-child(5)')?.textContent?.trim(),
+                        address: row.querySelector('td:nth-child(6)')?.textContent?.trim(),
+                        totalAmount: row.querySelector('td:nth-child(8)')?.textContent?.replace(/[^\d]/g, ''),
+                        // PartnerId is missing here, will fail optimization check
+                    };
+                    selectedOrders.push(orderData);
+                    this.log('  - Scraped order (fallback):', orderData.code);
+                }
             }
         });
 
@@ -1168,11 +1326,11 @@ class MessageTemplateManager {
 
     getTypeClass(typeId) {
         const normalizedType = (typeId || '').toLowerCase();
-        
+
         if (normalizedType.includes('messenger')) return 'type-messenger';
         if (normalizedType.includes('general')) return 'type-general';
         if (normalizedType.includes('email')) return 'type-email';
-        
+
         return 'type-general';
     }
 

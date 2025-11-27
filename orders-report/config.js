@@ -22,11 +22,38 @@ const APP_CONFIG = {
 };
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storageRef = firebase.storage().ref();
-const collectionRef = db.collection("livestream_reports");
-const historyCollectionRef = db.collection("edit_history");
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const app = firebase.app(); // Get the default app
+
+// Safely initialize services
+const db = (function () {
+    try {
+        if (firebase.firestore) {
+            return firebase.firestore();
+        }
+        console.warn("Firestore SDK not loaded");
+        return null;
+    } catch (e) {
+        console.warn("Error initializing Firestore:", e);
+        return null;
+    }
+})();
+
+const storageRef = (function () {
+    try {
+        if (firebase.storage) {
+            return firebase.storage().ref();
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+})();
+
+const collectionRef = db ? db.collection("livestream_reports") : null;
+const historyCollectionRef = db ? db.collection("edit_history") : null;
 
 // DOM Elements - Safely get elements if they exist
 const livestreamForm = document.getElementById("livestreamForm");
