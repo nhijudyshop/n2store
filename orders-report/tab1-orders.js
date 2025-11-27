@@ -552,29 +552,119 @@ async function refreshTags() {
 }
 
 function populateTagFilter() {
-    const tagFilterSelect = document.getElementById('tagFilter');
-    if (!tagFilterSelect) {
-        console.log('[TAG-FILTER] tagFilter element not found');
+    const tagFilterOptions = document.getElementById('tagFilterOptions');
+    if (!tagFilterOptions) {
+        console.log('[TAG-FILTER] tagFilterOptions element not found');
         return;
     }
 
-    // Clear existing options except "Tất cả"
-    tagFilterSelect.innerHTML = '<option value="all" selected>Tất cả</option>';
+    // Clear existing options
+    tagFilterOptions.innerHTML = '';
+
+    // Add "Tất cả" option
+    const allOption = document.createElement('div');
+    allOption.className = 'dropdown-option selected';
+    allOption.dataset.value = 'all';
+    allOption.innerHTML = '<span>Tất cả</span>';
+    allOption.onclick = () => selectTagFilter('all', 'Tất cả');
+    tagFilterOptions.appendChild(allOption);
 
     // Add tag options
     if (availableTags && availableTags.length > 0) {
         availableTags.forEach(tag => {
-            const option = document.createElement('option');
-            option.value = tag.Id;
-            option.textContent = tag.Name || 'Unnamed Tag';
-            option.style.color = tag.Color || '#6b7280';
-            tagFilterSelect.appendChild(option);
+            const option = document.createElement('div');
+            option.className = 'dropdown-option';
+            option.dataset.value = tag.Id;
+
+            // Create color dot
+            const colorDot = tag.Color ? `<span style="width: 10px; height: 10px; background-color: ${tag.Color}; border-radius: 50%; display: inline-block;"></span>` : '';
+
+            option.innerHTML = `${colorDot} <span>${tag.Name || 'Unnamed Tag'}</span>`;
+            option.onclick = () => selectTagFilter(tag.Id, tag.Name);
+            tagFilterOptions.appendChild(option);
         });
         console.log(`[TAG-FILTER] Populated ${availableTags.length} tags in filter dropdown`);
     } else {
         console.log('[TAG-FILTER] No tags available to populate');
     }
 }
+
+// --- Searchable Dropdown Functions ---
+
+function toggleTagDropdown() {
+    const container = document.getElementById('tagFilterContainer');
+    const input = document.getElementById('tagFilterInput');
+    if (container) {
+        container.classList.toggle('show');
+        if (container.classList.contains('show') && input) {
+            input.focus();
+        }
+    }
+}
+
+function showTagDropdown() {
+    const container = document.getElementById('tagFilterContainer');
+    if (container) container.classList.add('show');
+}
+
+function hideTagDropdown() {
+    const container = document.getElementById('tagFilterContainer');
+    if (container) container.classList.remove('show');
+}
+
+function filterTagDropdown() {
+    const input = document.getElementById('tagFilterInput');
+    const filter = input.value.toLowerCase();
+    const options = document.getElementById('tagFilterOptions').getElementsByClassName('dropdown-option');
+
+    for (let i = 0; i < options.length; i++) {
+        const span = options[i].getElementsByTagName("span")[0];
+        if (span) {
+            const txtValue = span.textContent || span.innerText;
+            if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                options[i].style.display = "";
+            } else {
+                options[i].style.display = "none";
+            }
+        }
+    }
+}
+
+function selectTagFilter(value, name) {
+    // Update hidden input
+    const hiddenInput = document.getElementById('tagFilter');
+    if (hiddenInput) hiddenInput.value = value;
+
+    // Update selected display
+    const selectedDisplay = document.getElementById('tagFilterSelected');
+    if (selectedDisplay) {
+        selectedDisplay.innerHTML = `<span>${name || 'Tất cả'}</span> <i class="fas fa-chevron-down"></i>`;
+    }
+
+    // Update selected class in options
+    const options = document.getElementById('tagFilterOptions').getElementsByClassName('dropdown-option');
+    for (let i = 0; i < options.length; i++) {
+        if (options[i].dataset.value == value) {
+            options[i].classList.add('selected');
+        } else {
+            options[i].classList.remove('selected');
+        }
+    }
+
+    // Hide dropdown
+    hideTagDropdown();
+
+    // Trigger search
+    performTableSearch();
+}
+
+// Close dropdown when clicking outside
+window.addEventListener('click', function (e) {
+    const dropdown = document.getElementById('tagFilterDropdown');
+    if (dropdown && !dropdown.contains(e.target)) {
+        hideTagDropdown();
+    }
+});
 
 function openTagModal(orderId, orderCode) {
     currentEditingOrderId = orderId;
@@ -1096,12 +1186,22 @@ function performTableSearch() {
             const hasUnreadComment = cmmUnread.hasUnread;
 
             if (conversationFilter === 'unread') {
-                // Show if EITHER has unread
                 return hasUnreadMessage || hasUnreadComment;
             } else if (conversationFilter === 'read') {
-                // Show if BOTH are read (or no unread)
-                // Note: We consider "read" as NOT having unread.
                 return !hasUnreadMessage && !hasUnreadComment;
+            }
+            return true;
+        });
+    }
+
+    // Apply Status Filter
+    const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+    if (statusFilter !== 'all') {
+        tempData = tempData.filter(order => {
+            if (statusFilter === 'Draft') {
+                return order.Status === 'Draft';
+            } else if (statusFilter === 'Confirmed') {
+                return order.Status !== 'Draft';
             }
             return true;
         });
@@ -6382,6 +6482,27 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
     }
 
     if (!psid) return;
+
+    // 1. UPDATE DATA MANAGERS (Crucial for filters to work)
+    if (window.pancakeDataManager) {
+        const convType = conversation.type || 'INBOX';
+        if (convType === 'INBOX') {
+            if (psid) window.pancakeDataManager.inboxMapByPSID.set(psid, conversation);
+            if (conversation.from && conversation.from.id) window.pancakeDataManager.inboxMapByFBID.set(conversation.from.id, conversation);
+        } else if (convType === 'COMMENT') {
+            if (psid) window.pancakeDataManager.commentMapByPSID.set(psid, conversation);
+            if (conversation.from && conversation.from.id) window.pancakeDataManager.commentMapByFBID.set(conversation.from.id, conversation);
+        }
+    }
+
+    // 2. CHECK FILTER
+    // If filtering by read/unread, we MUST re-run search to show/hide rows
+    const currentFilter = document.getElementById('conversationFilter') ? document.getElementById('conversationFilter').value : 'all';
+    if (currentFilter === 'unread' || currentFilter === 'read') {
+        console.log(`[TAB1] Realtime update with filter '${currentFilter}' - Triggering re-search`);
+        performTableSearch();
+        return; // Stop here, let search handle the rendering
+    }
 
     const message = conversation.snippet || '';
     const unreadCount = conversation.unread_count || 0;

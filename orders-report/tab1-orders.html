@@ -13,6 +13,112 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="decoding-utility.js"></script>
+    <style>
+        /* Custom Dropdown Styles */
+        .custom-dropdown {
+            position: relative;
+            font-size: 11px;
+            color: #374151;
+        }
+
+        .dropdown-selected {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 24px;
+        }
+
+        .dropdown-selected:hover {
+            border-color: #9ca3af;
+        }
+
+        .dropdown-container {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 200px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            z-index: 50;
+            margin-top: 4px;
+        }
+
+        .dropdown-container.show {
+            display: block;
+        }
+
+        .dropdown-container input {
+            width: 100%;
+            padding: 6px 8px;
+            border: none;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 11px;
+            outline: none;
+        }
+
+        .dropdown-options {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .dropdown-option {
+            padding: 6px 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dropdown-option:hover {
+            background-color: #f3f4f6;
+        }
+
+        .dropdown-option.selected {
+            background-color: #eff6ff;
+            color: #3b82f6;
+        }
+
+        /* Header Filter Styles */
+        .th-header-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .th-header-label {
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .th-filter-input {
+            flex: 1;
+            min-width: 0;
+            /* Allow shrinking */
+            height: 28px;
+            /* Fixed height */
+            font-size: 11px;
+            padding: 0 4px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+        }
+
+        /* Update custom dropdown to match */
+        .custom-dropdown .dropdown-selected {
+            height: 28px;
+            min-height: 28px;
+            padding: 0 8px;
+        }
+    </style>
 </head>
 
 <body>
@@ -72,16 +178,8 @@
             <input type="datetime-local" id="startDate" />
             <label>Đến ngày:</label>
             <input type="datetime-local" id="endDate" />
-            <label>Trạng thái hội thoại:</label>
-            <select id="conversationFilter" style="min-width: 150px" onchange="performTableSearch()">
-                <option value="all" selected>Tất cả</option>
-                <option value="unread">Chưa đọc</option>
-                <option value="read">Đã đọc</option>
-            </select>
-            <label>Lọc theo TAG:</label>
-            <select id="tagFilter" style="min-width: 200px" onchange="performTableSearch()">
-                <option value="all" selected>Tất cả</option>
-            </select>
+
+
             <button class="btn-primary" id="clearCacheBtn" style="background: #ef4444">
                 <i class="fas fa-trash"></i>
                 Xóa Cache
@@ -245,10 +343,39 @@
                             </th>
                             <th data-column="stt">STT</th>
                             <th data-column="employee" style="width: 90px;">Nhân viên</th>
-                            <th data-column="tag">TAG</th>
+                            <th data-column="tag" style="min-width: 150px;">
+                                <div class="th-header-container">
+                                    <span class="th-header-label">TAG</span>
+                                    <div class="custom-dropdown" id="tagFilterDropdown" style="flex: 1;">
+                                        <div class="dropdown-selected" onclick="toggleTagDropdown()"
+                                            id="tagFilterSelected">
+                                            <span>Tất cả</span>
+                                            <i class="fas fa-chevron-down"></i>
+                                        </div>
+                                        <div class="dropdown-container" id="tagFilterContainer">
+                                            <input type="text" id="tagFilterInput" placeholder="Tìm tag..."
+                                                onkeyup="filterTagDropdown()" onclick="event.stopPropagation()">
+                                            <div id="tagFilterOptions" class="dropdown-options">
+                                                <!-- Options populated by JS -->
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="tagFilter" value="all">
+                                    </div>
+                                </div>
+                            </th>
                             <th data-column="order-code">Mã ĐH</th>
                             <th data-column="customer">Khách hàng</th>
-                            <th data-column="messages">Tin nhắn</th>
+                            <th data-column="messages" style="min-width: 150px;">
+                                <div class="th-header-container">
+                                    <span class="th-header-label">Tin nhắn</span>
+                                    <select id="conversationFilter" class="th-filter-input"
+                                        onchange="performTableSearch()">
+                                        <option value="all" selected>Tất cả</option>
+                                        <option value="unread">Chưa đọc</option>
+                                        <option value="read">Đã đọc</option>
+                                    </select>
+                                </div>
+                            </th>
                             <th data-column="comments">Bình luận</th>
                             <th data-column="phone">SĐT</th>
                             <th data-column="address">Địa chỉ</th>
@@ -256,7 +383,16 @@
                             <th data-column="total">Tổng tiền</th>
                             <th data-column="quantity">SL</th>
                             <th data-column="created-date">Ngày tạo</th>
-                            <th data-column="status">Trạng thái</th>
+                            <th data-column="status" style="min-width: 140px;">
+                                <div class="th-header-container">
+                                    <span class="th-header-label">Trạng thái</span>
+                                    <select id="statusFilter" class="th-filter-input" onchange="performTableSearch()">
+                                        <option value="all" selected>Tất cả</option>
+                                        <option value="Draft">Nháp</option>
+                                        <option value="Confirmed">Đơn hàng</option>
+                                    </select>
+                                </div>
+                            </th>
                             <th data-column="actions">Thao tác</th>
                         </tr>
                     </thead>
