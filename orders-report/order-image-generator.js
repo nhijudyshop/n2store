@@ -89,15 +89,20 @@ class OrderImageGenerator {
                 }
 
                 try {
-                    // Fetch image via fetch API (may still have CORS issues)
-                    // So we'll try, but if it fails, we'll use placeholder
-                    const response = await fetch(product.imageUrl, {
-                        mode: 'cors',
-                        credentials: 'omit'
+                    // Try CORS proxy first to bypass CORS restrictions
+                    const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(product.imageUrl)}`;
+
+                    this.log('🔄 Fetching via CORS proxy:', product.name.substring(0, 30));
+
+                    const response = await fetch(proxiedUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'image/*'
+                        }
                     });
 
                     if (!response.ok) {
-                        throw new Error('Failed to fetch');
+                        throw new Error(`Failed to fetch: ${response.status}`);
                     }
 
                     const blob = await response.blob();
@@ -107,7 +112,7 @@ class OrderImageGenerator {
                     return { ...product, imageBase64: base64 };
 
                 } catch (error) {
-                    this.log('⚠️ Failed to fetch image for:', product.name);
+                    this.log('⚠️ Failed to fetch image for:', product.name, error.message);
                     return { ...product, imageBase64: null };
                 }
             })
