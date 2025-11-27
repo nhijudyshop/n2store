@@ -684,7 +684,7 @@ class MessageTemplateManager {
                     let fetchOptions;
 
                     if (sendMode === 'image') {
-                        // IMAGE MODE - Generate and send image
+                        // IMAGE MODE - Generate and upload image to Imgur, then send URL
                         this.log('🎨 Generating order image...');
 
                         if (!window.orderImageGenerator) {
@@ -696,21 +696,16 @@ class MessageTemplateManager {
                             messageContent
                         );
 
-                        // Convert blob to base64
-                        const base64Image = await this.blobToBase64(imageBlob);
+                        // Upload to Imgur and get URL
+                        this.log('📤 Uploading image to Imgur...');
+                        const imageUrl = await this.uploadImageToImgur(imageBlob);
 
-                        // Send image as attachment
+                        // Send image URL as text message
                         requestBody = {
                             action: "reply_inbox",
-                            message: "", // Empty message for image only
+                            message: imageUrl, // Send image URL
                             customer_id: customerId,
-                            send_by_platform: "web",
-                            attachment: {
-                                type: "image",
-                                payload: {
-                                    url: base64Image
-                                }
-                            }
+                            send_by_platform: "web"
                         };
 
                         fetchOptions = {
@@ -1198,6 +1193,50 @@ class MessageTemplateManager {
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
+    }
+
+    /**
+     * Upload image to Imgur and return URL
+     */
+    async uploadImageToImgur(blob) {
+        this.log('📤 Uploading to Imgur...');
+
+        try {
+            // Convert blob to base64 (remove data:image/png;base64, prefix)
+            const base64 = await this.blobToBase64(blob);
+            const base64Data = base64.split(',')[1];
+
+            // Imgur anonymous upload
+            const formData = new FormData();
+            formData.append('image', base64Data);
+            formData.append('type', 'base64');
+
+            const response = await fetch('https://api.imgur.com/3/image', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Client-ID 546c25a59c58ad7' // Public Imgur client ID
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Imgur upload failed: ${errorData.data?.error || response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.success || !data.data.link) {
+                throw new Error('Imgur upload failed: no link returned');
+            }
+
+            this.log('✅ Imgur upload success:', data.data.link);
+            return data.data.link;
+
+        } catch (error) {
+            this.log('❌ Imgur upload error:', error);
+            throw new Error(`Không thể upload ảnh: ${error.message}`);
+        }
     }
 
     async refresh() {
