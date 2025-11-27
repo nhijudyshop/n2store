@@ -561,109 +561,145 @@ class MessageTemplateManager {
             return;
         }
 
-        // SEND MODE - continue with normal flow
+        // SEND MODE - send via Pancake API
         try {
             const ordersCount = this.selectedOrders.length;
-            this.log('📤 Sending message to', ordersCount, 'order(s)');
+            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API');
             this.log('🔄 Will fetch full data for each order...');
+
+            // Get Pancake token first
+            const token = await window.pancakeTokenManager.getToken();
+            if (!token) {
+                throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
+            }
+
+            // Get employee signature
+            const auth = window.authManager ? window.authManager.getAuthState() : null;
+            const displayName = auth && auth.displayName ? auth.displayName : null;
 
             // Get template content
             const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
 
-            // Array to store all generated messages and order data for POST
-            const allMessages = [];
-            const orderCampaignDetails = [];
+            // Counters
+            let successCount = 0;
+            let errorCount = 0;
 
-            // Fetch full data and generate message for EACH order
+            // Send message to EACH order individually via Pancake API
             for (let i = 0; i < this.selectedOrders.length; i++) {
                 const order = this.selectedOrders[i];
                 this.log(`\n📦 Processing order ${i + 1}/${ordersCount}: ${order.code || order.Id}`);
 
                 try {
-                    if (order.Id) {
-                        // Fetch full order data with products
-                        const fullOrderData = await this.fetchFullOrderData(order.Id);
-                        const messageContent = this.replacePlaceholders(templateContent, fullOrderData.converted);
-
-                        allMessages.push({
-                            orderCode: fullOrderData.converted.code,
-                            customerName: fullOrderData.converted.customerName,
-                            phone: fullOrderData.converted.phone,
-                            message: messageContent
-                        });
-
-                        // Fetch CRMTeam info for POST
-                        const crmTeam = await this.fetchCRMTeam(fullOrderData.raw.CRMTeamId);
-
-                        // Prepare detail for POST
-                        orderCampaignDetails.push({
-                            rawOrder: fullOrderData.raw,
-                            crmTeam: crmTeam,
-                            message: messageContent
-                        });
-
-                        this.log(`✅ Generated message for order ${fullOrderData.converted.code}`);
-                    } else {
-                        // Fallback: use existing data (without products)
-                        const messageContent = this.replacePlaceholders(templateContent, order);
-
-                        allMessages.push({
-                            orderCode: order.code,
-                            customerName: order.customerName,
-                            phone: order.phone,
-                            message: messageContent
-                        });
-
-                        this.log(`⚠️ Generated message for order ${order.code} (no full data)`);
+                    if (!order.Id) {
+                        throw new Error('Order không có ID');
                     }
-                } catch (orderError) {
-                    this.log(`❌ Error processing order ${order.code}:`, orderError);
-                    // Continue with next order even if one fails
-                    allMessages.push({
-                        orderCode: order.code,
-                        customerName: order.customerName,
-                        phone: order.phone,
-                        message: `[Lỗi: Không thể tải dữ liệu đơn hàng ${order.code}]`
+
+                    // Fetch full order data with products
+                    const fullOrderData = await this.fetchFullOrderData(order.Id);
+                    let messageContent = this.replacePlaceholders(templateContent, fullOrderData.converted);
+
+                    // Add signature
+                    if (displayName) {
+                        messageContent = messageContent + '\nNv. ' + displayName;
+                    }
+
+                    // Get required info for Pancake API
+                    const channelId = fullOrderData.raw.CRMTeamId;
+                    const psid = fullOrderData.raw.Facebook_ASUserId;
+                    const customerId = fullOrderData.raw.PartnerId;
+
+                    if (!channelId || !psid) {
+                        throw new Error('Thiếu thông tin channelId hoặc PSID');
+                    }
+
+                    if (!customerId) {
+                        throw new Error('Thiếu thông tin PartnerId (customer_id)');
+                    }
+
+                    // Construct conversationId
+                    const conversationId = `${channelId}_${psid}`;
+
+                    this.log('🚀 Sending to Pancake API:', {
+                        channelId,
+                        psid,
+                        conversationId,
+                        customerId
                     });
+
+                    // Send via Pancake API
+                    const apiUrl = window.API_CONFIG.buildUrl.pancake(
+                        `pages/${channelId}/conversations/${conversationId}/messages`,
+                        `access_token=${token}`
+                    );
+
+                    const requestBody = {
+                        action: "reply_inbox",
+                        message: messageContent,
+                        customer_id: customerId,
+                        send_by_platform: "web"
+                    };
+
+                    this.log('📡 POST URL:', apiUrl);
+                    this.log('📦 Request body:', requestBody);
+
+                    const response = await API_CONFIG.smartFetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+
+                    const responseData = await response.json();
+                    this.log('✅ Response:', responseData);
+
+                    if (!responseData.success) {
+                        throw new Error(responseData.error || 'API returned success: false');
+                    }
+
+                    successCount++;
+                    this.log(`✅ Sent successfully to order ${fullOrderData.converted.code}`);
+
+                } catch (orderError) {
+                    errorCount++;
+                    this.log(`❌ Error sending to order ${order.code}:`, orderError);
+
+                    // Show individual error notification
+                    if (window.notificationManager) {
+                        window.notificationManager.error(
+                            `Lỗi gửi đơn ${order.code}: ${orderError.message}`,
+                            4000
+                        );
+                    }
                 }
             }
 
-            // Combine all messages with separator
-            const separator = '\n\n' + '='.repeat(50) + '\n\n';
-            const combinedMessage = allMessages
-                .map((msg, index) => {
-                    // Format: "1. Thu Huyên\n251000775\n\n[message]"
-                    const customerName = (msg.customerName && msg.customerName.trim()) ? msg.customerName : '(Khách hàng)';
-                    const orderCode = (msg.orderCode && msg.orderCode.trim()) ? msg.orderCode : '(Không có mã)';
-                    const header = `${index + 1}. ${customerName}\n${orderCode}\n\n`;
-                    return header + msg.message;
-                })
-                .join(separator);
-
-            this.log('\n📋 Total messages generated:', allMessages.length);
-            this.log('📋 Combined message length:', combinedMessage.length, 'chars');
-
-            // POST to campaign API if we have order data
-            if (orderCampaignDetails.length > 0) {
-                this.log('🚀 Posting to order campaign API...');
-                try {
-                    await this.postOrderCampaign(orderCampaignDetails);
-                    this.log('✅ Posted to campaign API successfully');
-                } catch (postError) {
-                    this.log('❌ Failed to post to campaign API:', postError);
-                    // Don't block the flow, just log error
-                }
-            }
-
-            // Copy to clipboard
-            await this.copyToClipboard(combinedMessage);
+            // Show final summary
+            this.log('\n📊 Summary:');
+            this.log(`  ✅ Success: ${successCount}/${ordersCount}`);
+            this.log(`  ❌ Errors: ${errorCount}/${ordersCount}`);
 
             if (window.notificationManager) {
-                window.notificationManager.success(
-                    `Đã copy ${allMessages.length} tin nhắn vào clipboard!`,
-                    3000,
-                    `Template: ${this.selectedTemplate.Name}`
-                );
+                if (successCount > 0) {
+                    window.notificationManager.success(
+                        `Đã gửi thành công ${successCount}/${ordersCount} tin nhắn!`,
+                        3000,
+                        `Template: ${this.selectedTemplate.Name}`
+                    );
+                }
+
+                if (errorCount > 0 && successCount === 0) {
+                    window.notificationManager.error(
+                        `Gửi thất bại tất cả ${errorCount} tin nhắn`,
+                        4000
+                    );
+                }
             }
 
             this.closeModal();
