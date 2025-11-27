@@ -363,12 +363,13 @@
                         <th style="text-align: center; width: 100px;">Số đơn</th>
                         <th style="text-align: center;">Tổng số lượng</th>
                         <th style="text-align: right;">Tổng tiền (5.000đ/sp)</th>
+                        <th style="text-align: right;">Tổng tiền hóa đơn</th>
                         <th style="text-align: center; width: 120px;">Trạng thái</th>
                     </tr>
                 </thead>
                 <tbody id="statsTableBody">
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
                         </td>
                     </tr>
@@ -379,6 +380,7 @@
                         <td style="text-align: center;" id="grandTotalOrders">0</td>
                         <td style="text-align: center;" id="grandTotalQty">0</td>
                         <td style="text-align: right; color: #3b82f6;" id="grandTotalAmount">0đ</td>
+                        <td style="text-align: right; color: #059669;" id="grandTotalInvoiceAmount">0đ</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -726,7 +728,7 @@
 
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                    <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
                         <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải dữ liệu...
                     </td>
                 </tr>
@@ -746,7 +748,7 @@
                 if (!data) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8;">
                                 <i class="fas fa-box-open mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>Chưa có dữ liệu
                             </td>
                         </tr>
@@ -772,11 +774,13 @@
                                 totalQty: 0,
                                 totalAmount: 0,
                                 orderIds: new Set(),
+                                partnerIds: new Set(),
                                 id: userId,
                                 hasMismatch: false,
                                 hasNegativeKPI: false,
                                 fraudScore: 0,
-                                mismatchDetails: []
+                                mismatchDetails: [],
+                                totalInvoiceAmount: 0
                             };
                         }
 
@@ -802,19 +806,61 @@
                     });
                 });
 
-                // NOTE: Invoice validation removed - invoiceProducts no longer stored in snapshot
-                // Invoice data will be loaded on-demand from API using partnerId
+                // Collect partnerIds for each user from order_snapshots
+                Object.values(allSnapshots).forEach(order => {
+                    const userId = order.userId;
+                    if (userStats[userId] && order.partnerId) {
+                        userStats[userId].partnerIds.add(order.partnerId);
+                    }
+                });
+
+                // Fetch invoice totals for each user
+                console.log('[STATS] Fetching invoice data for users...');
+                const invoiceFetchPromises = Object.values(userStats).map(async (stat) => {
+                    if (stat.partnerIds.size === 0) {
+                        stat.totalInvoiceAmount = 0;
+                        return;
+                    }
+
+                    try {
+                        let total = 0;
+                        // Fetch invoices for all partnerIds of this user
+                        for (const partnerId of stat.partnerIds) {
+                            try {
+                                const invoices = await fetchInvoiceHistory(partnerId);
+                                if (invoices && invoices.length > 0) {
+                                    // Sum up all invoice totals
+                                    invoices.forEach(inv => {
+                                        total += (inv.AmountTotal || 0);
+                                    });
+                                }
+                            } catch (error) {
+                                console.error(`[STATS] Error fetching invoices for partnerId ${partnerId}:`, error);
+                            }
+                        }
+                        stat.totalInvoiceAmount = total;
+                    } catch (error) {
+                        console.error('[STATS] Error calculating invoice total:', error);
+                        stat.totalInvoiceAmount = 0;
+                    }
+                });
+
+                // Wait for all invoice fetches to complete
+                await Promise.all(invoiceFetchPromises);
+                console.log('[STATS] Finished fetching invoice data')
 
                 // Render table
                 let html = '';
                 let grandTotalQty = 0;
                 let grandTotalAmount = 0;
+                let grandTotalInvoiceAmount = 0;
                 let grandTotalOrders = 0;
                 let totalFraudWarnings = 0;
                 let stt = 1;
 
                 Object.values(userStats).forEach(stat => {
                     const orderCount = stat.orderIds.size;
+                    const invoiceAmount = stat.totalInvoiceAmount || 0;
 
                     let rowClass = "clickable-row";
                     let statusHtml = '<span class="badge-success">OK</span>';
@@ -831,6 +877,10 @@
                     const tooltipText = stat.mismatchDetails.join('\\n');
                     const tooltipAttr = stat.mismatchDetails.length > 0 ? `title="${tooltipText}"` : '';
 
+                    const invoiceDisplay = invoiceAmount > 0
+                        ? `${invoiceAmount.toLocaleString('vi-VN')}đ`
+                        : '<span style="color: #94a3b8; font-size: 12px;">Chưa có</span>';
+
                     html += `
                         <tr class="${rowClass}" onclick="showOrders('${stat.id}', '${stat.name.replace(/'/g, "\\'")}')" ${tooltipAttr}>
                             <td style="text-align: center;">${stt++}</td>
@@ -838,11 +888,13 @@
                             <td style="text-align: center; color: #059669; font-weight: 500;">${orderCount}</td>
                             <td style="text-align: center;">${stat.totalQty.toLocaleString('vi-VN')}</td>
                             <td style="text-align: right; font-weight: 600;">${stat.totalAmount.toLocaleString('vi-VN')}đ</td>
+                            <td style="text-align: right; font-weight: 600; color: #059669;">${invoiceDisplay}</td>
                             <td style="text-align: center;">${statusHtml}</td>
                         </tr>
                     `;
                     grandTotalQty += stat.totalQty;
                     grandTotalAmount += stat.totalAmount;
+                    grandTotalInvoiceAmount += invoiceAmount;
                     grandTotalOrders += orderCount;
                 });
 
@@ -852,6 +904,7 @@
                 document.getElementById('grandTotalOrders').textContent = grandTotalOrders.toLocaleString('vi-VN');
                 document.getElementById('grandTotalQty').textContent = grandTotalQty.toLocaleString('vi-VN');
                 document.getElementById('grandTotalAmount').textContent = grandTotalAmount.toLocaleString('vi-VN') + 'đ';
+                document.getElementById('grandTotalInvoiceAmount').textContent = grandTotalInvoiceAmount.toLocaleString('vi-VN') + 'đ';
                 tfoot.style.display = 'table-footer-group';
 
                 // Update summary cards
@@ -861,7 +914,7 @@
                 console.error('Error loading stats:', error);
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">
+                        <td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">
                             <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải dữ liệu: ${error.message}
                         </td>
                     </tr>
