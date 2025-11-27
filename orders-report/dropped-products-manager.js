@@ -484,81 +484,140 @@
 
     /**
      * Move product back to order
+     * Syncs to Firebase held_products for multi-user collaboration
      */
     window.moveDroppedToOrder = async function (index) {
         const product = droppedProducts[index];
 
         if (!window.currentChatOrderData) {
-            if (window.notificationManager) {
-                window.notificationManager.show('Vui lòng mở một đơn hàng trước', 'warning');
-            }
+            showError('Vui lòng mở một đơn hàng trước');
             return;
         }
+
+        // Confirm action
+        const confirmMsg = `Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`;
+        let confirmed = false;
 
         if (window.CustomPopup) {
-            const confirmed = await window.CustomPopup.confirm(
-                `Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`,
-                'Xác nhận chuyển'
-            );
-            if (!confirmed) return;
-        } else if (!confirm(`Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`)) {
-            return;
+            confirmed = await window.CustomPopup.confirm(confirmMsg, 'Xác nhận chuyển');
+        } else {
+            confirmed = confirm(confirmMsg);
         }
 
-        // Fetch full details to ensure correct payload structure
-        // CRITICAL: Must match payload_chinh_xac.json structure. Do NOT remove fields.
-        let fullProduct = null;
-        if (window.productSearchManager) {
-            try {
-                // Force refresh to get latest stock/details
-                fullProduct = await window.productSearchManager.getFullProductDetails(product.ProductId, true);
-            } catch (e) {
-                console.error('[DROPPED-PRODUCTS] Failed to fetch full details:', e);
-            }
-        }
-
-        // Always add as new held item (will be merged on save)
-        window.currentChatOrderData.Details.push({
-            ProductId: product.ProductId,
-            ProductName: fullProduct ? (fullProduct.Name || fullProduct.NameTemplate) : product.ProductName,
-            ProductNameGet: fullProduct ? (fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`) : product.ProductNameGet,
-            ProductCode: fullProduct ? (fullProduct.DefaultCode || fullProduct.Barcode) : product.ProductCode,
-            ImageUrl: fullProduct ? fullProduct.ImageUrl : product.ImageUrl,
-            Price: product.Price,
-            Quantity: 1, // Always 1
-            UOMId: fullProduct ? (fullProduct.UOM?.Id || 1) : 1,
-            UOMName: fullProduct ? (fullProduct.UOM?.Name || 'Cái') : product.UOMName,
-            Factor: 1,
-            Priority: 0,
-            OrderId: window.currentChatOrderData.Id,
-            LiveCampaign_DetailId: null,
-            ProductWeight: 0,
-            Note: null,
-            IsHeld: true, // Always mark as held
-            IsFromDropped: true, // Mark as from dropped list
-            StockQty: fullProduct ? fullProduct.QtyAvailable : 0
-        });
-
-        // Decrease quantity using TRANSACTION (atomic for multi-user)
-        if (!firebaseDb || !product.id) {
-            showError('Firebase không khả dụng');
-            return;
-        }
+        if (!confirmed) return;
 
         try {
+            // Fetch full product details for complete payload
+            let fullProduct = null;
+            if (window.productSearchManager) {
+                try {
+                    fullProduct = await window.productSearchManager.getFullProductDetails(product.ProductId, true);
+                } catch (e) {
+                    console.error('[DROPPED-PRODUCTS] Failed to fetch full details:', e);
+                }
+            }
+
+            // Check if product already exists in held list (merge quantity)
+            const existingHeldIndex = window.currentChatOrderData.Details.findIndex(
+                p => p.ProductId === product.ProductId && p.IsHeld
+            );
+
+            if (existingHeldIndex > -1) {
+                // Product already in held list - increment quantity
+                window.currentChatOrderData.Details[existingHeldIndex].Quantity += 1;
+                console.log('[DROPPED-PRODUCTS] Merged with existing held product, new qty:',
+                    window.currentChatOrderData.Details[existingHeldIndex].Quantity);
+            } else {
+                // Add as NEW held item
+                window.currentChatOrderData.Details.push({
+                    ProductId: product.ProductId,
+                    ProductName: fullProduct ? (fullProduct.Name || fullProduct.NameTemplate) : product.ProductName,
+                    ProductNameGet: fullProduct ? (fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`) : product.ProductNameGet,
+                    ProductCode: fullProduct ? (fullProduct.DefaultCode || fullProduct.Barcode) : product.ProductCode,
+                    ImageUrl: fullProduct ? fullProduct.ImageUrl : product.ImageUrl,
+                    Price: product.Price,
+                    Quantity: 1,
+                    UOMId: fullProduct ? (fullProduct.UOM?.Id || 1) : 1,
+                    UOMName: fullProduct ? (fullProduct.UOM?.Name || 'Cái') : product.UOMName,
+                    Factor: 1,
+                    Priority: 0,
+                    OrderId: window.currentChatOrderData.Id,
+                    LiveCampaign_DetailId: null,
+                    ProductWeight: 0,
+                    Note: null,
+                    IsHeld: true,
+                    IsFromDropped: true,
+                    StockQty: fullProduct ? fullProduct.QtyAvailable : 0
+                });
+            }
+
+            // CRITICAL: Sync to Firebase held_products for multi-user collaboration
+            const orderId = window.currentChatOrderData.Id;
+            const productId = product.ProductId;
+
+            if (window.firebase && window.authManager && orderId) {
+                const auth = window.authManager.getAuthState();
+
+                if (auth) {
+                    // Get userId (same logic as updateHeldStatus)
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+
+                    if (!userId && auth.displayName) {
+                        userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+                    }
+
+                    if (userId) {
+                        // Get current held quantity for this user
+                        const currentHeldProduct = window.currentChatOrderData.Details.find(
+                            p => p.ProductId === productId && p.IsHeld
+                        );
+                        const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
+
+                        // Sync to Firebase
+                        const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
+
+                        await ref.set({
+                            displayName: auth.displayName || auth.userType || 'Unknown',
+                            quantity: heldQuantity,
+                            isDraft: false,  // Not a draft, will be removed on disconnect
+                            timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                        });
+
+                        // Remove on disconnect (not a saved draft)
+                        ref.onDisconnect().remove();
+
+                        console.log('[DROPPED-PRODUCTS] ✓ Synced to Firebase held_products:', {
+                            orderId,
+                            productId,
+                            userId,
+                            quantity: heldQuantity
+                        });
+                    } else {
+                        console.warn('[DROPPED-PRODUCTS] No userId found, cannot sync to Firebase held_products');
+                    }
+                } else {
+                    console.warn('[DROPPED-PRODUCTS] No auth state, cannot sync to Firebase held_products');
+                }
+            } else {
+                console.warn('[DROPPED-PRODUCTS] Firebase/AuthManager not available, cannot sync held_products');
+            }
+
+            // Decrease quantity in dropped list using TRANSACTION
+            if (!firebaseDb || !product.id) {
+                showError('Firebase không khả dụng');
+                return;
+            }
+
             const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`);
 
-            // Use transaction to safely decrement
             const result = await itemRef.transaction((current) => {
                 if (current === null) return current; // Item was deleted, abort
 
                 const newQty = (current.Quantity || 1) - 1;
 
                 if (newQty <= 0) {
-                    // Mark for deletion by returning null
-                    return null;
+                    return null; // Delete if quantity reaches 0
                 } else {
-                    // Decrease quantity
                     return {
                         ...current,
                         Quantity: newQty
@@ -568,33 +627,31 @@
 
             if (result.committed) {
                 console.log('[DROPPED-PRODUCTS] ✓ Quantity decremented via transaction');
-                // Listener will update UI automatically
             }
 
+            // Add to history
+            await addHistoryItem({
+                action: 'Chuyển về đơn hàng',
+                productName: product.ProductNameGet || product.ProductName,
+                productCode: product.ProductCode,
+                quantity: 1,
+                price: product.Price
+            });
+
+            // Re-render orders table (not managed by Firebase)
+            if (typeof window.renderChatProductsTable === 'function') {
+                window.renderChatProductsTable();
+            }
+
+            // Switch to orders tab
+            switchChatPanelTab('orders');
+
+            showSuccess('Đã chuyển 1 sản phẩm về đơn hàng');
+
         } catch (error) {
-            console.error('[DROPPED-PRODUCTS] ❌ Error decreasing quantity:', error);
-            showError('Lỗi khi cập nhật số lượng: ' + error.message);
-            return;
+            console.error('[DROPPED-PRODUCTS] ❌ Error moving to order:', error);
+            showError('Lỗi khi chuyển sản phẩm: ' + error.message);
         }
-
-        // Add history
-        await addHistoryItem({
-            action: 'Chuyển về đơn hàng',
-            productName: product.ProductNameGet || product.ProductName,
-            productCode: product.ProductCode,
-            quantity: 1,
-            price: product.Price
-        });
-
-        // Re-render orders table (not managed by Firebase)
-        if (typeof window.renderChatProductsTable === 'function') {
-            window.renderChatProductsTable();
-        }
-
-        // Switch to orders tab
-        switchChatPanelTab('orders');
-
-        showSuccess('Đã chuyển 1 sản phẩm về đơn hàng');
     };
 
     /**
