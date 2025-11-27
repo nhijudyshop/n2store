@@ -2442,7 +2442,7 @@ function createRowHTML(order) {
             }
         } catch (e) { }
     }
-    const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText);
+    const partnerStatusHTML = formatPartnerStatus(order.PartnerStatusText, order.PartnerId);
     const highlight = (text) => highlightSearchText(text || "", searchQuery);
 
     // Get messages and comments columns
@@ -2799,7 +2799,7 @@ function parseOrderTags(tagsJson, orderId, orderCode) {
     }
 }
 
-function formatPartnerStatus(statusText) {
+function formatPartnerStatus(statusText, partnerId) {
     if (!statusText) return "";
     const statusColors = {
         "Bình thường": "#5cb85c",
@@ -2812,7 +2812,100 @@ function formatPartnerStatus(statusText) {
         VIP: "#5bc0deff",
     };
     const color = statusColors[statusText] || "#6b7280";
-    return `<span class="partner-status" style="background-color: ${color};">${statusText}</span>`;
+    const cursorStyle = partnerId ? 'cursor: pointer;' : '';
+    const onclickAttr = partnerId ? `onclick="openPartnerStatusModal('${partnerId}', '${statusText}')"` : '';
+    const titleAttr = partnerId ? 'title="Click để thay đổi trạng thái"' : '';
+    const dataAttr = partnerId ? `data-partner-id="${partnerId}"` : '';
+
+    return `<span class="partner-status" style="background-color: ${color}; ${cursorStyle}" ${onclickAttr} ${titleAttr} ${dataAttr}>${statusText}</span>`;
+}
+
+// --- Partner Status Modal Logic ---
+
+const PARTNER_STATUS_OPTIONS = [
+    { value: "#5cb85c", text: "Bình thường" },
+    { value: "#d1332e", text: "Bom hàng" },
+    { value: "#f0ad4e", text: "Cảnh báo" },
+    { value: "#5cb85c", text: "Khách sỉ" },
+    { value: "#d9534f", text: "Nguy hiểm" },
+    { value: "#5bc0de", text: "Thân thiết" },
+    { value: "#337ab7", text: "Vip" },
+    { value: "#5bc0deff", text: "VIP" }
+];
+
+function openPartnerStatusModal(partnerId, currentStatus) {
+    const modal = document.getElementById('partnerStatusModal');
+    const container = document.getElementById('partnerStatusOptions');
+    if (!modal || !container) return;
+
+    // Populate options
+    container.innerHTML = '';
+    PARTNER_STATUS_OPTIONS.forEach(option => {
+        const btn = document.createElement('div');
+        btn.className = 'status-btn';
+        if (option.text === currentStatus) btn.classList.add('selected');
+
+        btn.innerHTML = `
+            <span class="status-color-dot" style="background-color: ${option.value};"></span>
+            <span class="status-text">${option.text}</span>
+        `;
+        btn.onclick = () => updatePartnerStatus(partnerId, option.value, option.text);
+        container.appendChild(btn);
+    });
+
+    modal.classList.add('show');
+}
+
+function closePartnerStatusModal() {
+    const modal = document.getElementById('partnerStatusModal');
+    if (modal) modal.classList.remove('show');
+}
+
+async function updatePartnerStatus(partnerId, color, text) {
+    closePartnerStatusModal();
+
+    // Optimistic update (optional, but good for UX)
+    // For now, we'll wait for API success to ensure consistency
+
+    try {
+        const url = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${partnerId})/ODataService.UpdateStatus`;
+        const headers = await window.tokenManager.getAuthHeader();
+
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'content-type': 'application/json;charset=UTF-8',
+                'accept': 'application/json, text/plain, */*'
+            },
+            body: JSON.stringify({ status: `${color}_${text}` })
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        // Success
+        window.notificationManager.show('Cập nhật trạng thái thành công', 'success');
+
+        // Update local data
+        allData.forEach(order => {
+            if (String(order.PartnerId) === String(partnerId)) {
+                order.PartnerStatus = text;
+                order.PartnerStatusText = text;
+            }
+        });
+
+        // Inline UI Update
+        const badges = document.querySelectorAll(`.partner-status[data-partner-id="${partnerId}"]`);
+        badges.forEach(badge => {
+            badge.style.backgroundColor = color;
+            badge.innerText = text;
+            badge.setAttribute('onclick', `openPartnerStatusModal('${partnerId}', '${text}')`);
+        });
+
+    } catch (error) {
+        console.error('[PARTNER] Update status failed:', error);
+        window.notificationManager.show('Cập nhật trạng thái thất bại: ' + error.message, 'error');
+    }
 }
 
 function updateStats() {

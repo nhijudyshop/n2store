@@ -435,3 +435,6 @@ const notificationStyles = `
 
 // Inject styles
 document.head.insertAdjacentHTML("beforeend", notificationStyles);
+
+// Initialize Notification Manager
+window.notificationManager = new NotificationManager();
