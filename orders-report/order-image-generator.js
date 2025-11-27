@@ -89,10 +89,14 @@ class OrderImageGenerator {
                 }
 
                 try {
-                    // Use our own render.com server to proxy images (bypass CORS)
-                    const proxiedUrl = `https://n2store-api-fallback.onrender.com/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`;
+                    // TEMPORARY: Use corsproxy.io until render.com is deployed
+                    // TODO: Switch back to render.com after deployment
+                    const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(product.imageUrl)}`;
 
-                    this.log('🔄 Fetching via Render proxy:', product.name.substring(0, 30));
+                    // Final URL after render.com deploy:
+                    // const proxiedUrl = `https://n2store-api-fallback.onrender.com/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`;
+
+                    this.log('🔄 Fetching via CORS proxy:', product.name.substring(0, 30));
 
                     const response = await fetch(proxiedUrl, {
                         method: 'GET',
