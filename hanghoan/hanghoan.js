@@ -674,12 +674,16 @@ function handleEditButton(e) {
             return;
         }
 
-        document.getElementById("editDelivery").value = row.cells[1].innerText;
-        document.getElementById("eidtScenario").value = row.cells[2].innerText;
-        document.getElementById("editInfo").value = row.cells[3].innerText;
-        document.getElementById("editAmount").value = row.cells[4].innerText;
-        document.getElementById("editNote").value = row.cells[5].innerText;
-        document.getElementById("editDate").value = row.cells[7].innerText;
+        // Check if trash-integration added an extra column (row-select-checkbox)
+        const hasExtraColumn = row.cells[0]?.querySelector('.row-select-checkbox') !== null;
+        const offset = hasExtraColumn ? 1 : 0;
+
+        document.getElementById("editDelivery").value = row.cells[1 + offset].innerText;
+        document.getElementById("eidtScenario").value = row.cells[2 + offset].innerText;
+        document.getElementById("editInfo").value = row.cells[3 + offset].innerText;
+        document.getElementById("editAmount").value = row.cells[4 + offset].innerText;
+        document.getElementById("editNote").value = row.cells[5 + offset].innerText;
+        document.getElementById("editDate").value = row.cells[7 + offset].innerText;
 
         editingRow = row;
 
@@ -703,7 +707,8 @@ function handleDeleteButton(e) {
 
         const button = e.target.closest("button");
         const row = button.closest("tr");
-        const tdRow = row.querySelector("td");
+        // Find the TD with id attribute (handles extra columns from trash-integration)
+        const tdRow = row.querySelector("td[id]");
 
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng cần xóa");
@@ -712,12 +717,16 @@ function handleDeleteButton(e) {
 
         showLoading("Đang xóa đơn hàng...");
 
+        // Check if trash-integration added an extra column
+        const hasExtraColumn = row.cells[0]?.querySelector('.row-select-checkbox') !== null;
+        const offset = hasExtraColumn ? 1 : 0;
+
         const deleteData = {
-            shipValue: row.cells[1].innerText,
-            scenarioValue: row.cells[2].innerText,
-            customerInfoValue: row.cells[3].innerText,
-            totalAmountValue: row.cells[4].innerText,
-            causeValue: row.cells[5].innerText,
+            shipValue: row.cells[1 + offset].innerText,
+            scenarioValue: row.cells[2 + offset].innerText,
+            customerInfoValue: row.cells[3 + offset].innerText,
+            totalAmountValue: row.cells[4 + offset].innerText,
+            causeValue: row.cells[5 + offset].innerText,
             duyetHoanValue: tdRow.id,
         };
 
@@ -780,7 +789,8 @@ function handleCheckboxClick(e) {
         showLoading("Đang cập nhật trạng thái...");
         row.style.opacity = isChecked ? "0.5" : "1.0";
 
-        const tdRow = row.querySelector("td");
+        // Find the TD with id attribute (handles extra columns from trash-integration)
+        const tdRow = row.querySelector("td[id]");
 
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng");
@@ -813,7 +823,10 @@ function handleCheckboxClick(e) {
                 const actionDesc = isChecked
                     ? "Đánh dấu đã nhận hàng hoàn"
                     : "Hủy đánh dấu đã nhận hàng hoàn";
-                logAction("update", `${actionDesc}: ${row.cells[3].innerText}`);
+                // Check if trash-integration added an extra column
+                const hasExtraColumn = row.cells[0]?.querySelector('.row-select-checkbox') !== null;
+                const offset = hasExtraColumn ? 1 : 0;
+                logAction("update", `${actionDesc}: ${row.cells[3 + offset].innerText}`);
 
                 invalidateCache();
                 showSuccess("Đã cập nhật trạng thái thành công!");
@@ -890,7 +903,8 @@ function saveChanges() {
             return;
         }
 
-        const tdRow = editingRow.querySelector("td");
+        // Find the TD with id attribute (handles extra columns from trash-integration)
+        const tdRow = editingRow.querySelector("td[id]");
         if (!tdRow || !tdRow.id) {
             showError("Không thể xác định đơn hàng cần chỉnh sửa");
             return;
@@ -900,12 +914,16 @@ function saveChanges() {
 
         const editDateTimestamp = convertToTimestamp(dateValue);
 
+        // Check if trash-integration added an extra column
+        const hasExtraColumn = editingRow.cells[0]?.querySelector('.row-select-checkbox') !== null;
+        const offset = hasExtraColumn ? 1 : 0;
+
         const oldData = {
-            shipValue: editingRow.cells[1].innerText,
-            scenarioValue: editingRow.cells[2].innerText,
-            customerInfoValue: editingRow.cells[3].innerText,
-            totalAmountValue: editingRow.cells[4].innerText,
-            causeValue: editingRow.cells[5].innerText,
+            shipValue: editingRow.cells[1 + offset].innerText,
+            scenarioValue: editingRow.cells[2 + offset].innerText,
+            customerInfoValue: editingRow.cells[3 + offset].innerText,
+            totalAmountValue: editingRow.cells[4 + offset].innerText,
+            causeValue: editingRow.cells[5 + offset].innerText,
             duyetHoanValue: tdRow.id,
         };
 
@@ -949,12 +967,14 @@ function saveChanges() {
                     .update({ data: dataArray });
             })
             .then(() => {
-                editingRow.cells[1].innerText = deliveryValue;
-                editingRow.cells[2].innerText = scenarioValue;
-                editingRow.cells[3].innerText = infoValue;
-                editingRow.cells[4].innerText = amountValue;
-                editingRow.cells[5].innerText = noteValue;
-                editingRow.cells[7].innerText = dateValue;
+                // Update UI cells with offset for extra column
+                const offset = hasExtraColumn ? 1 : 0;
+                editingRow.cells[1 + offset].innerText = deliveryValue;
+                editingRow.cells[2 + offset].innerText = scenarioValue;
+                editingRow.cells[3 + offset].innerText = infoValue;
+                editingRow.cells[4 + offset].innerText = amountValue;
+                editingRow.cells[5 + offset].innerText = noteValue;
+                editingRow.cells[7 + offset].innerText = dateValue;
 
                 logAction(
                     "edit",
