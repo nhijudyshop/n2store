@@ -235,7 +235,7 @@ class MessageTemplateManager {
         this.log('='.repeat(60));
         this.log('🔄 LOADING TEMPLATES FROM API');
         this.log('='.repeat(60));
-        
+
         this.isLoading = true;
         const bodyEl = document.getElementById('messageModalBody');
 
@@ -253,14 +253,14 @@ class MessageTemplateManager {
         try {
             this.log('🌐 API URL:', this.API_URL);
             this.log('🔑 TokenManager:', window.tokenManager ? 'Available' : 'NOT FOUND');
-            
+
             let response;
             let fetchMethod = 'unknown';
 
             if (window.tokenManager && typeof window.tokenManager.authenticatedFetch === 'function') {
                 this.log('✅ Using TokenManager.authenticatedFetch()');
                 fetchMethod = 'TokenManager';
-                
+
                 try {
                     this.log('📡 Calling API with Bearer token...');
                     response = await window.tokenManager.authenticatedFetch(this.API_URL, {
@@ -278,7 +278,7 @@ class MessageTemplateManager {
                 this.log('⚠️ TokenManager not available');
                 this.log('⚠️ Trying direct fetch (will likely fail due to CORS/Auth)...');
                 fetchMethod = 'Direct Fetch';
-                
+
                 response = await fetch(this.API_URL, {
                     method: 'GET',
                     headers: {
@@ -300,7 +300,7 @@ class MessageTemplateManager {
 
             this.log('📄 Parsing JSON response...');
             const data = await response.json();
-            
+
             this.log('📊 Response data structure:');
             this.log('  - @odata.context:', data['@odata.context'] ? 'Present' : 'Missing');
             this.log('  - value:', Array.isArray(data.value) ? `Array[${data.value.length}]` : typeof data.value);
@@ -312,8 +312,16 @@ class MessageTemplateManager {
                 throw new Error('Invalid API response: expected data.value array');
             }
 
-            this.templates = data.value;
+            // Filter to only include Messenger templates
+            const allTemplates = data.value;
+            this.templates = allTemplates.filter(t => {
+                const typeId = (t.TypeId || '').toLowerCase();
+                return typeId.includes('messenger');
+            });
             this.filteredTemplates = [...this.templates];
+
+            this.log('📊 Total templates from API:', allTemplates.length);
+            this.log('📊 Messenger templates only:', this.templates.length);
 
             this.log('');
             this.log('✅ SUCCESS! Templates loaded:');
@@ -603,24 +611,30 @@ class MessageTemplateManager {
                         messageContent = messageContent + '\nNv. ' + displayName;
                     }
 
-                    // Get required info for Pancake API
-                    const channelId = fullOrderData.raw.CRMTeamId;
-                    const psid = fullOrderData.raw.Facebook_ASUserId;
+                    // Get chat info to extract correct channelId (Facebook Page ID)
+                    if (!window.chatDataManager) {
+                        throw new Error('chatDataManager không có sẵn');
+                    }
+
+                    const chatInfo = window.chatDataManager.getChatInfoForOrder(fullOrderData.raw);
+                    const channelId = chatInfo.channelId; // This is the real Facebook Page ID
+                    const psid = chatInfo.psid;
                     const customerId = fullOrderData.raw.PartnerId;
 
                     if (!channelId || !psid) {
-                        throw new Error('Thiếu thông tin channelId hoặc PSID');
+                        throw new Error(`Thiếu thông tin channelId hoặc PSID. Order: ${order.code}`);
                     }
 
                     if (!customerId) {
-                        throw new Error('Thiếu thông tin PartnerId (customer_id)');
+                        throw new Error(`Thiếu thông tin PartnerId (customer_id). Order: ${order.code}`);
                     }
 
                     // Construct conversationId
                     const conversationId = `${channelId}_${psid}`;
 
                     this.log('🚀 Sending to Pancake API:', {
-                        channelId,
+                        orderCode: fullOrderData.converted.code,
+                        channelId: channelId + ' (Facebook Page ID)',
                         psid,
                         conversationId,
                         customerId
