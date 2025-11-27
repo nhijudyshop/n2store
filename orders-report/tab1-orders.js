@@ -444,6 +444,7 @@ async function loadAvailableTags() {
             console.log("[TAG] Using cached tags");
             availableTags = cached;
             window.availableTags = availableTags; // Export to window
+            populateTagFilter(); // Populate filter dropdown
             return;
         }
 
@@ -471,10 +472,36 @@ async function loadAvailableTags() {
         window.availableTags = availableTags; // Export to window
         window.cacheManager.set("tags", availableTags, "tags");
         console.log(`[TAG] Loaded ${availableTags.length} tags from API`);
+        populateTagFilter(); // Populate filter dropdown
     } catch (error) {
         console.error("[TAG] Error loading tags:", error);
         availableTags = [];
         window.availableTags = availableTags; // Export to window
+    }
+}
+
+function populateTagFilter() {
+    const tagFilterSelect = document.getElementById('tagFilter');
+    if (!tagFilterSelect) {
+        console.log('[TAG-FILTER] tagFilter element not found');
+        return;
+    }
+
+    // Clear existing options except "Tất cả"
+    tagFilterSelect.innerHTML = '<option value="all" selected>Tất cả</option>';
+
+    // Add tag options
+    if (availableTags && availableTags.length > 0) {
+        availableTags.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag.Id;
+            option.textContent = tag.Name || 'Unnamed Tag';
+            option.style.color = tag.Color || '#6b7280';
+            tagFilterSelect.appendChild(option);
+        });
+        console.log(`[TAG-FILTER] Populated ${availableTags.length} tags in filter dropdown`);
+    } else {
+        console.log('[TAG-FILTER] No tags available to populate');
     }
 }
 
@@ -1006,6 +1033,25 @@ function performTableSearch() {
                 return !hasUnreadMessage && !hasUnreadComment;
             }
             return true;
+        });
+    }
+
+    // Apply TAG filter
+    const tagFilter = document.getElementById('tagFilter')?.value || 'all';
+
+    if (tagFilter !== 'all') {
+        tempData = tempData.filter(order => {
+            if (!order.Tags) return false;
+
+            try {
+                const orderTags = JSON.parse(order.Tags);
+                if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
+
+                // Check if the order has the selected tag
+                return orderTags.some(tag => tag.Id === tagFilter);
+            } catch (e) {
+                return false;
+            }
         });
     }
 
