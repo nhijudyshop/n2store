@@ -2328,40 +2328,29 @@
 
         console.log('[CHAT-PRODUCTS] Cleaning up held products:', heldProducts.length);
 
-        // Move to dropped products
-        if (typeof window.addToDroppedProducts === 'function') {
+        // Move to dropped products (including drafts with holder info)
+        if (typeof window.addToDroppedProducts === 'function' && window.authManager) {
+            const auth = window.authManager.getAuthState();
+            const holderName = auth.displayName || auth.userType || 'Unknown';
+
             for (const p of heldProducts) {
                 // CHECK DRAFT STATUS
                 let isDraft = false;
                 if (window.currentHeldStatus && window.currentHeldStatus[p.ProductId]) {
                     const holders = window.currentHeldStatus[p.ProductId];
-                    // Check if CURRENT user has it marked as draft
-                    // We need current user ID logic again here, or just check all holders?
-                    // Ideally check if *I* am holding it as draft.
-                    // But for simplicity, if ANYONE holds it as draft, we shouldn't delete?
-                    // No, only if *I* hold it.
-                    // Re-using auth logic from updateHeldStatus is hard here without duplicating.
-                    // Let's assume if it's in the list, I am holding it.
-                    // We need to check the Firebase data for MY entry.
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
 
-                    if (window.authManager) {
-                        const auth = window.authManager.getAuthState();
-                        let userId = auth.id || auth.Id || auth.username || auth.userType;
-                        if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
-
-                        if (userId && holders[userId] && holders[userId].isDraft) {
-                            isDraft = true;
-                        }
+                    if (userId && holders[userId] && holders[userId].isDraft) {
+                        isDraft = true;
                     }
                 }
 
-                if (isDraft) {
-                    console.log(`[CHAT-PRODUCTS] Product ${p.ProductId} is DRAFT. Skipping removal.`);
-                    continue;
-                }
+                // Move ALL held products back to dropped (both draft and non-draft)
+                // For drafts, include holder name so others know who is holding it
+                await window.addToDroppedProducts(p, p.Quantity, isDraft ? 'draft_held' : 'unsaved_exit', holderName);
 
-                await window.addToDroppedProducts(p, p.Quantity, 'unsaved_exit');
-                // Remove from Firebase
+                // Remove from Firebase held_products
                 updateHeldStatus(p.ProductId, false);
             }
         }

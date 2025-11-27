@@ -312,13 +312,13 @@
      * Add product to dropped list
      * FIREBASE-ONLY: Uses transaction for atomic quantity updates in multi-user environment
      */
-    window.addToDroppedProducts = async function (product, quantity, reason = 'removed') {
+    window.addToDroppedProducts = async function (product, quantity, reason = 'removed', holderName = null) {
         if (!firebaseDb) {
             showError('Firebase không khả dụng');
             return;
         }
 
-        console.log('[DROPPED-PRODUCTS] Adding product:', product.ProductNameGet, 'qty:', quantity);
+        console.log('[DROPPED-PRODUCTS] Adding product:', product.ProductNameGet, 'qty:', quantity, 'holder:', holderName);
 
         try {
             // Check if product already exists
@@ -331,13 +331,20 @@
                 await itemRef.transaction((current) => {
                     if (current === null) return current; // Item was deleted, abort
 
-                    // Atomic increment
-                    return {
+                    // Atomic increment and update holder info
+                    const updates = {
                         ...current,
                         Quantity: (current.Quantity || 0) + quantity,
                         addedAt: window.firebase.database.ServerValue.TIMESTAMP,
                         addedDate: new Date().toLocaleString('vi-VN')
                     };
+
+                    // Add holder name if provided (for draft products)
+                    if (holderName) {
+                        updates.heldBy = holderName;
+                    }
+
+                    return updates;
                 });
 
                 console.log('[DROPPED-PRODUCTS] ✓ Quantity updated via transaction');
@@ -356,6 +363,11 @@
                     addedAt: window.firebase.database.ServerValue.TIMESTAMP,
                     addedDate: new Date().toLocaleString('vi-VN')
                 };
+
+                // Add holder name if provided (for draft products)
+                if (holderName) {
+                    newItem.heldBy = holderName;
+                }
 
                 const newRef = await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(newItem);
                 console.log('[DROPPED-PRODUCTS] ✓ New item created:', newRef.key);
@@ -696,6 +708,7 @@
                         ${isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
                     </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
+                    ${p.heldBy ? `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> Người giữ: <strong>${p.heldBy}</strong></div>` : ''}
                     <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">${p.addedDate || ''}</div>
                 </td>
                 <td style="text-align: center; width: 140px;">
