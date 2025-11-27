@@ -201,16 +201,17 @@
     // Extract Hanghoan row data
     function extractHangHoanRowData(row) {
         const cells = row.cells;
-        if (!cells || cells.length < 8) return {};
+        if (!cells || cells.length < 9) return {};
 
+        // Note: cells[0] is the row-select-checkbox we added, so data starts at cells[1]
         return {
-            duyetHoanValue: cells[0]?.id || '',
-            shipValue: cells[1]?.textContent || '',
-            scenarioValue: cells[2]?.textContent || '',
-            customerInfoValue: cells[3]?.textContent || '',
-            totalAmountValue: cells[4]?.textContent || '',
-            causeValue: cells[5]?.textContent || '',
-            muted: cells[6]?.querySelector('input[type="checkbox"]')?.checked || false,
+            duyetHoanValue: cells[1]?.id || '',
+            shipValue: cells[2]?.textContent || '',
+            scenarioValue: cells[3]?.textContent || '',
+            customerInfoValue: cells[4]?.textContent || '',
+            totalAmountValue: cells[5]?.textContent || '',
+            causeValue: cells[6]?.textContent || '',
+            muted: cells[7]?.querySelector('input[type="checkbox"]')?.checked || false,
             user: row.querySelector('.delete-button')?.id || 'Unknown'
         };
     }
