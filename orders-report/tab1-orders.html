@@ -78,6 +78,10 @@
                 <option value="unread">Chưa đọc</option>
                 <option value="read">Đã đọc</option>
             </select>
+            <label>Lọc theo TAG:</label>
+            <select id="tagFilter" style="min-width: 200px" onchange="performTableSearch()">
+                <option value="all" selected>Tất cả</option>
+            </select>
             <button class="btn-primary" id="clearCacheBtn" style="background: #ef4444">
                 <i class="fas fa-trash"></i>
                 Xóa Cache
