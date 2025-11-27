@@ -541,6 +541,15 @@
 
                         <!-- Invoice Tab -->
                         <div class="tab-pane fade" id="invoice" role="tabpanel">
+                            <div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Hóa đơn:</strong> Danh sách hóa đơn (30 ngày gần nhất) của khách hàng này, được tải từ API.
+                                </div>
+                                <button class="btn btn-sm btn-primary" id="refreshInvoiceBtn" style="display: none;">
+                                    <i class="fas fa-sync-alt"></i> Làm mới
+                                </button>
+                            </div>
                             <div id="invoiceContent">
                                 <div style="text-align: center; padding: 40px; color: #94a3b8;">
                                     <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải hóa đơn...
@@ -692,57 +701,8 @@
                     });
                 });
 
-                // Validate products vs invoice
-                Object.values(userStats).forEach(stat => {
-                    stat.orderIds.forEach(orderId => {
-                        const order = allSnapshots[orderId];
-                        if (!order) return;
-
-                        if (order.invoiceProducts && Array.isArray(order.invoiceProducts) && order.invoiceProducts.length > 0) {
-                            const orderProducts = order.products || [];
-                            const invoiceProducts = order.invoiceProducts;
-
-                            // Check count mismatch
-                            if (orderProducts.length !== invoiceProducts.length) {
-                                stat.hasMismatch = true;
-                                stat.fraudScore += 3; // Higher fraud score for mismatch
-                                stat.mismatchDetails.push(`Đơn ${order.orderSTT}: Số lượng mã SP không khớp (${orderProducts.length} vs ${invoiceProducts.length})`);
-                                return;
-                            }
-
-                            // Check content mismatch
-                            const orderMap = new Map();
-                            orderProducts.forEach(p => {
-                                const key = (p.name || '').trim();
-                                orderMap.set(key, (orderMap.get(key) || 0) + (p.quantity || 0));
-                            });
-
-                            const invoiceMap = new Map();
-                            invoiceProducts.forEach(p => {
-                                const key = (p.name || '').trim();
-                                invoiceMap.set(key, (invoiceMap.get(key) || 0) + (p.quantity || 0));
-                            });
-
-                            let isMatch = true;
-                            if (orderMap.size !== invoiceMap.size) {
-                                isMatch = false;
-                            } else {
-                                for (const [name, qty] of orderMap) {
-                                    if (!invoiceMap.has(name) || invoiceMap.get(name) !== qty) {
-                                        isMatch = false;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (!isMatch) {
-                                stat.hasMismatch = true;
-                                stat.fraudScore += 3;
-                                stat.mismatchDetails.push(`Đơn ${order.orderSTT}: Thông tin sản phẩm không khớp với hóa đơn`);
-                            }
-                        }
-                    });
-                });
+                // NOTE: Invoice validation removed - invoiceProducts no longer stored in snapshot
+                // Invoice data will be loaded on-demand from API using partnerId
 
                 // Render table
                 let html = '';
@@ -870,12 +830,7 @@
                         });
                     }
 
-                    // Check invoice mismatch
-                    if (order.invoiceProducts && order.products) {
-                        if (order.invoiceProducts.length !== order.products.length) {
-                            hasWarning = true;
-                        }
-                    }
+                    // NOTE: Invoice mismatch check removed - invoiceProducts no longer in snapshot
 
                     return { ...order, kpi: orderKPI, hasWarning };
                 });
@@ -1091,7 +1046,16 @@
 
             // Load invoice when invoice tab is clicked
             document.getElementById('invoice-tab').addEventListener('click', async function () {
-                await loadInvoice(orderId, order.invoiceId, order.invoiceProducts);
+                await loadInvoice(orderId, order.partnerId);
+                // Show refresh button after loading
+                const refreshBtn = document.getElementById('refreshInvoiceBtn');
+                if (refreshBtn) {
+                    refreshBtn.style.display = 'inline-block';
+                    // Add click handler for refresh button
+                    refreshBtn.onclick = async () => {
+                        await loadInvoice(orderId, order.partnerId);
+                    };
+                }
             }, { once: true });
 
             // Load baseline when baseline tab is clicked
@@ -1100,112 +1064,32 @@
             }, { once: true });
         }
 
-        // Fetch and display invoice
-        async function loadInvoice(orderId, invoiceId, invoiceProducts) {
-            const invoiceContent = document.getElementById('invoiceContent');
+        // Fetch invoice history from API using partnerId
+        async function fetchInvoiceHistory(partnerId) {
+            if (!partnerId) {
+                throw new Error('No partnerId provided');
+            }
 
-            invoiceContent.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #94a3b8;">
-                    <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải hóa đơn...
-                </div>
-            `;
+            // Calculate date range (last 30 days)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+
+            const formatDate = (date) => {
+                return date.toISOString().split('T')[0]; // YYYY-MM-DD
+            };
+
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=PartnerId eq ${partnerId} and Created ge ${formatDate(startDate)} and Created le ${formatDate(endDate)}&$orderby=Created desc`;
+
+            console.log('[INVOICE-FETCH] Fetching invoices for partnerId:', partnerId);
 
             try {
-                if (invoiceProducts && invoiceProducts.length > 0) {
-                    console.log('[INVOICE] Using cached invoice products:', invoiceProducts.length);
-
-                    let html = `
-                        <div style="padding: 20px;">
-                            <div class="card mb-3">
-                                <div class="card-header bg-success text-white">
-                                    <h6 class="mb-0"><i class="fas fa-file-invoice"></i> Thông tin hóa đơn #${invoiceId || 'N/A'} <span class="badge bg-light text-success" style="font-size: 10px;">Từ Cache</span></h6>
-                                </div>
-                                <div class="card-body">
-                                    <p class="mb-0"><i class="fas fa-info-circle"></i> Đang hiển thị dữ liệu sản phẩm từ snapshot (không cần fetch API)</p>
-                                </div>
-                            </div>
-                    `;
-
-                    html += `
-                        <div class="card">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0"><i class="fas fa-box"></i> Danh sách sản phẩm (${invoiceProducts.length})</h6>
-                            </div>
-                            <div class="card-body p-0">
-                                <table class="table table-hover mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width: 50px;">#</th>
-                                            <th style="width: 80px;">Hình</th>
-                                            <th>Tên sản phẩm</th>
-                                            <th style="text-align: center; width: 100px;">Số lượng</th>
-                                            <th style="text-align: right; width: 120px;">Đơn giá</th>
-                                            <th style="text-align: right; width: 120px;">Thành tiền</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                    `;
-
-                    invoiceProducts.forEach((product, index) => {
-                        const imageHtml = product.imageUrl
-                            ? `<img src="${product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
-                            : '<div style="width: 50px; height: 50px; background: #e5e7eb; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: #9ca3af;"></i></div>';
-
-                        const noteHtml = product.note ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">Ghi chú: ${product.note}</div>` : '';
-
-                        html += `
-                            <tr>
-                                <td>${index + 1}</td>
-                                <td>${imageHtml}</td>
-                                <td>
-                                    <div style="font-weight: 500;">${product.name || 'Unknown Product'}</div>
-                                    ${product.barcode ? `<div style="font-size: 11px; color: #6b7280;">Mã: ${product.barcode}</div>` : ''}
-                                    ${noteHtml}
-                                </td>
-                                <td style="text-align: center; font-weight: 600;">${product.quantity || 0}</td>
-                                <td style="text-align: right;">${(product.price || 0).toLocaleString('vi-VN')}đ</td>
-                                <td style="text-align: right; font-weight: 600; color: #059669;">${(product.total || 0).toLocaleString('vi-VN')}đ</td>
-                            </tr>
-                        `;
-                    });
-
-                    html += `
-                                    </tbody>
-                                    <tfoot style="background: #f9fafb;">
-                                        <tr>
-                                            <td colspan="5" style="text-align: right; font-weight: 600; padding: 12px;">Tổng cộng:</td>
-                                            <td style="text-align: right; font-weight: 700; color: #059669; font-size: 16px; padding: 12px;">
-                                                ${invoiceProducts.reduce((sum, p) => sum + (p.total || 0), 0).toLocaleString('vi-VN')}đ
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-                    `;
-
-                    html += `</div>`;
-                    invoiceContent.innerHTML = html;
-                    return;
-                }
-
-                if (!invoiceId) {
-                    invoiceContent.innerHTML = `
-                        <div style="text-align: center; padding: 40px; color: #94a3b8;">
-                            <i class="fas fa-file-invoice mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
-                            Đơn hàng chưa có hóa đơn
-                        </div>
-                    `;
-                    return;
-                }
-
                 const headers = await window.tokenManager.getAuthHeader();
-                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder(${invoiceId})?$expand=OrderLines`;
-
                 const response = await fetch(apiUrl, {
                     headers: {
                         ...headers,
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
                     }
                 });
 
@@ -1213,84 +1097,184 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                const invoice = await response.json();
+                const data = await response.json();
+                const invoices = data.value || [];
 
-                let html = `
-                    <div style="padding: 20px;">
-                        <div class="card mb-3">
+                console.log(`[INVOICE-FETCH] Fetched ${invoices.length} invoices`);
+
+                // Fetch details for each invoice (with OrderLines)
+                const detailedInvoices = [];
+                for (const invoice of invoices) {
+                    try {
+                        const details = await fetchInvoiceDetails(invoice.Id);
+                        if (details) {
+                            detailedInvoices.push(details);
+                        }
+                    } catch (error) {
+                        console.error(`[INVOICE-FETCH] Error fetching details for invoice ${invoice.Id}:`, error);
+                        // Still add basic invoice without details
+                        detailedInvoices.push(invoice);
+                    }
+                }
+
+                console.log(`[INVOICE-FETCH] Fetched ${detailedInvoices.length} invoices with details`);
+                return detailedInvoices;
+            } catch (error) {
+                console.error('[INVOICE-FETCH] API Error:', error);
+                throw error;
+            }
+        }
+
+        // Fetch invoice details with OrderLines
+        async function fetchInvoiceDetails(invoiceId) {
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder(${invoiceId})?$expand=OrderLines($expand=Product,ProductUOM,User)`;
+
+            try {
+                const headers = await window.tokenManager.getAuthHeader();
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        ...headers,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log(`[INVOICE-FETCH] Fetched details for invoice ${invoiceId} with ${data.OrderLines?.length || 0} products`);
+                return data;
+            } catch (error) {
+                console.error(`[INVOICE-FETCH] Error fetching invoice ${invoiceId} details:`, error);
+                throw error;
+            }
+        }
+
+        // Fetch and display invoice using partnerId
+        async function loadInvoice(orderId, partnerId) {
+            const invoiceContent = document.getElementById('invoiceContent');
+
+            if (!partnerId) {
+                invoiceContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-file-invoice mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                        Không có thông tin khách hàng (partnerId)
+                        <p style="font-size: 12px; margin-top: 8px; color: #6b7280;">Không thể tải hóa đơn</p>
+                    </div>
+                `;
+                return;
+            }
+
+            invoiceContent.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                    <i class="fas fa-spinner fa-spin mb-2"></i><br>Đang tải hóa đơn từ API...
+                </div>
+            `;
+
+            try {
+                // Fetch invoices using partnerId
+                const invoices = await fetchInvoiceHistory(partnerId);
+
+                if (!invoices || invoices.length === 0) {
+                    invoiceContent.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                            <i class="fas fa-file-invoice mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
+                            Không tìm thấy hóa đơn nào (30 ngày gần nhất)
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Render all invoices with their OrderLines
+                let html = `<div style="padding: 20px;">`;
+
+                invoices.forEach((invoice, idx) => {
+                    const invoiceProducts = invoice.OrderLines || [];
+
+                    html += `
+                        <div class="card mb-3" style="border-left: 4px solid #3b82f6;">
                             <div class="card-header bg-primary text-white">
-                                <h6 class="mb-0"><i class="fas fa-file-invoice"></i> Thông tin hóa đơn #${invoiceId} <span class="badge bg-light text-primary" style="font-size: 10px;">Từ API</span></h6>
+                                <h6 class="mb-0">
+                                    <i class="fas fa-file-invoice"></i> Hóa đơn #${invoice.Id}
+                                    <span class="badge bg-light text-primary" style="font-size: 10px;">Từ API</span>
+                                </h6>
                             </div>
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <p><strong>Ngày tạo:</strong> ${invoice.Created ? new Date(invoice.Created).toLocaleString('vi-VN') : 'N/A'}</p>
-                                        <p><strong>Trạng thái:</strong> ${invoice.Status || 'N/A'}</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Ngày tạo:</strong> ${invoice.Created ? new Date(invoice.Created).toLocaleString('vi-VN') : 'N/A'}</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Trạng thái:</strong> ${invoice.Status || 'N/A'}</p>
                                     </div>
                                     <div class="col-md-6">
-                                        <p><strong>Tổng tiền:</strong> ${(invoice.TotalAmount || 0).toLocaleString('vi-VN')}đ</p>
-                                        <p><strong>Đã thanh toán:</strong> ${(invoice.PaidAmount || 0).toLocaleString('vi-VN')}đ</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Tổng tiền:</strong> ${(invoice.TotalAmount || 0).toLocaleString('vi-VN')}đ</p>
+                                        <p style="font-size: 13px; margin-bottom: 4px;"><strong>Đã thanh toán:</strong> ${(invoice.PaidAmount || 0).toLocaleString('vi-VN')}đ</p>
                                     </div>
                                 </div>
+
+                                ${invoiceProducts.length > 0 ? `
+                                    <div class="table-responsive mt-3">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width: 40px;">#</th>
+                                                    <th>Sản phẩm</th>
+                                                    <th style="text-align: center; width: 80px;">SL</th>
+                                                    <th style="text-align: right; width: 120px;">Đơn giá</th>
+                                                    <th style="text-align: right; width: 120px;">Thành tiền</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${invoiceProducts.map((line, idx) => {
+                                                    const productName = line.Product?.NameGet || line.ProductName || 'Unknown Product';
+                                                    const quantity = line.ProductUOMQty || line.Quantity || 0;
+                                                    const price = line.PriceUnit || line.Price || 0;
+                                                    const total = line.PriceTotal || (quantity * price);
+
+                                                    return `
+                                                        <tr>
+                                                            <td>${idx + 1}</td>
+                                                            <td style="font-size: 12px;">${productName}</td>
+                                                            <td style="text-align: center; font-weight: 600;">${quantity}</td>
+                                                            <td style="text-align: right;">${price.toLocaleString('vi-VN')}đ</td>
+                                                            <td style="text-align: right; font-weight: 600; color: #059669;">${total.toLocaleString('vi-VN')}đ</td>
+                                                        </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                            <tfoot style="background: #f9fafb;">
+                                                <tr>
+                                                    <td colspan="4" style="text-align: right; font-weight: 600; font-size: 13px;">Tổng:</td>
+                                                    <td style="text-align: right; font-weight: 700; color: #059669; font-size: 14px;">
+                                                        ${invoiceProducts.reduce((sum, p) => sum + (p.PriceTotal || 0), 0).toLocaleString('vi-VN')}đ
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                ` : `
+                                    <div class="alert alert-warning mb-0 mt-2" style="font-size: 12px;">
+                                        <i class="fas fa-exclamation-circle"></i> Hóa đơn không có sản phẩm
+                                    </div>
+                                `}
                             </div>
                         </div>
-                `;
-
-                if (invoice.OrderLines && invoice.OrderLines.length > 0) {
-                    html += `
-                        <div class="card">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0"><i class="fas fa-box"></i> Danh sách sản phẩm (${invoice.OrderLines.length})</h6>
-                            </div>
-                            <div class="card-body p-0">
-                                <table class="table table-hover mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width: 50px;">#</th>
-                                            <th>Tên sản phẩm</th>
-                                            <th style="text-align: center; width: 100px;">Số lượng</th>
-                                            <th style="text-align: right; width: 150px;">Đơn giá</th>
-                                            <th style="text-align: right; width: 150px;">Thành tiền</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
                     `;
-
-                    invoice.OrderLines.forEach((line, index) => {
-                        const subtotal = (line.Quantity || 0) * (line.Price || 0);
-                        html += `
-                            <tr>
-                                <td>${index + 1}</td>
-                                <td>${line.ProductName || 'Unknown Product'}</td>
-                                <td style="text-align: center;">${line.Quantity || 0}</td>
-                                <td style="text-align: right;">${(line.Price || 0).toLocaleString('vi-VN')}đ</td>
-                                <td style="text-align: right; font-weight: 500;">${subtotal.toLocaleString('vi-VN')}đ</td>
-                            </tr>
-                        `;
-                    });
-
-                    html += `
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-circle"></i> Hóa đơn không có sản phẩm
-                        </div>
-                    `;
-                }
+                });
 
                 html += `</div>`;
                 invoiceContent.innerHTML = html;
 
+                console.log('[INVOICE] Loaded', invoices.length, 'invoices for partnerId:', partnerId);
+
             } catch (error) {
-                console.error('Error loading invoice:', error);
+                console.error('[INVOICE] Error loading invoices:', error);
                 invoiceContent.innerHTML = `
                     <div style="text-align: center; padding: 40px; color: #ef4444;">
-                        <i class="fas fa-exclamation-triangle mb-2"></i><br>Lỗi tải hóa đơn: ${error.message}
+                        <i class="fas fa-exclamation-triangle mb-2"></i><br>
+                        Lỗi tải hóa đơn: ${error.message}
+                        <p style="font-size: 12px; margin-top: 8px;">Vui lòng thử lại sau</p>
                     </div>
                 `;
             }
