@@ -494,6 +494,12 @@
             return;
         }
 
+        // Check if product has quantity > 0
+        if (!product.Quantity || product.Quantity <= 0) {
+            showError('Không thể chuyển sản phẩm có số lượng = 0. Sản phẩm này đang được giữ.');
+            return;
+        }
+
         // Confirm action
         const confirmMsg = `Chuyển 1 sản phẩm "${product.ProductNameGet || product.ProductName}" về đơn hàng?`;
         let confirmed = false;
@@ -615,14 +621,12 @@
 
                 const newQty = (current.Quantity || 1) - 1;
 
-                if (newQty <= 0) {
-                    return null; // Delete if quantity reaches 0
-                } else {
-                    return {
-                        ...current,
-                        Quantity: newQty
-                    };
-                }
+                // Keep product with quantity 0 instead of deleting
+                // This allows tracking which products are being held
+                return {
+                    ...current,
+                    Quantity: Math.max(0, newQty)
+                };
             });
 
             if (result.committed) {
@@ -676,24 +680,31 @@
 
         const productsHTML = products.map((p, i) => {
             const actualIndex = droppedProducts.indexOf(p);
+            const isOutOfStock = (p.Quantity || 0) === 0;
+            const rowOpacity = isOutOfStock ? '0.6' : '1';
+            const nameColor = isOutOfStock ? '#94a3b8' : '#1e293b';
+
             return `
-            <tr class="chat-product-row" data-index="${actualIndex}">
+            <tr class="chat-product-row" data-index="${actualIndex}" style="opacity: ${rowOpacity};">
                 <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
-                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
+                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="opacity: ${isOutOfStock ? '0.7' : '1'};">` : `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`}
                 </td>
                 <td>
-                    <div style="font-weight: 600; margin-bottom: 2px;">${p.ProductNameGet || p.ProductName}</div>
+                    <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">
+                        ${p.ProductNameGet || p.ProductName}
+                        ${isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
+                    </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
                     <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">${p.addedDate || ''}</div>
                 </td>
                 <td style="text-align: center; width: 140px;">
                     <div class="chat-quantity-controls">
-                        <button onclick="updateDroppedProductQuantity(${actualIndex}, -1)" class="chat-qty-btn">
+                        <button onclick="updateDroppedProductQuantity(${actualIndex}, -1)" class="chat-qty-btn" ${isOutOfStock ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>
                             <i class="fas fa-minus"></i>
                         </button>
-                        <input type="number" class="chat-quantity-input" value="${p.Quantity || 1}"
-                            onchange="updateDroppedProductQuantity(${actualIndex}, 0, this.value)" min="1">
+                        <input type="number" class="chat-quantity-input" value="${p.Quantity || 0}"
+                            onchange="updateDroppedProductQuantity(${actualIndex}, 0, this.value)" min="0" ${isOutOfStock ? 'readonly style="background: #f1f5f9; color: #94a3b8;"' : ''}>
                         <button onclick="updateDroppedProductQuantity(${actualIndex}, 1)" class="chat-qty-btn">
                             <i class="fas fa-plus"></i>
                         </button>
@@ -702,7 +713,7 @@
                 <td style="text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
                 <td style="text-align: right; font-weight: 600; width: 120px; color: #ef4444;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
                 <td style="text-align: center; width: 100px;">
-                    <button onclick="moveDroppedToOrder(${actualIndex})" class="chat-btn-product-action" title="Chuyển về đơn hàng" style="margin-right: 4px; color: #10b981;">
+                    <button onclick="moveDroppedToOrder(${actualIndex})" class="chat-btn-product-action" title="${isOutOfStock ? 'Không thể chuyển (số lượng = 0)' : 'Chuyển về đơn hàng'}" style="margin-right: 4px; color: ${isOutOfStock ? '#cbd5e1' : '#10b981'}; ${isOutOfStock ? 'cursor: not-allowed; opacity: 0.5;' : ''}" ${isOutOfStock ? 'disabled' : ''}>
                         <i class="fas fa-undo"></i>
                     </button>
                     <button onclick="removeFromDroppedProducts(${actualIndex})" class="chat-btn-product-action chat-btn-delete-item" title="Xóa vĩnh viễn">
