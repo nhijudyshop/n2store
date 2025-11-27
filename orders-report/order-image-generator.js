@@ -47,8 +47,9 @@ class OrderImageGenerator {
                 backgroundColor: '#ffffff',
                 scale: 2, // High quality
                 logging: false,
-                useCORS: true,
-                allowTaint: true
+                useCORS: false, // Disable CORS to avoid blocking
+                allowTaint: true, // Allow tainted canvas
+                proxy: null
             });
 
             // Remove container
