@@ -684,7 +684,7 @@ class MessageTemplateManager {
                     let fetchOptions;
 
                     if (sendMode === 'image') {
-                        // IMAGE MODE - Generate and upload image to Imgur, then send URL
+                        // IMAGE MODE - Generate and upload image to Pancake
                         this.log('🎨 Generating order image...');
 
                         if (!window.orderImageGenerator) {
@@ -696,16 +696,29 @@ class MessageTemplateManager {
                             messageContent
                         );
 
-                        // Upload to Imgur and get URL
-                        this.log('📤 Uploading image to Imgur...');
-                        const imageUrl = await this.uploadImageToImgur(imageBlob);
+                        // Convert blob to File for Pancake upload
+                        const imageFile = new File(
+                            [imageBlob],
+                            `order_${fullOrderData.converted.code}_${Date.now()}.png`,
+                            { type: 'image/png' }
+                        );
 
-                        // Send image URL as text message
+                        // Upload to Pancake and get content_url
+                        this.log('📤 Uploading image to Pancake...');
+                        if (!window.pancakeDataManager) {
+                            throw new Error('pancakeDataManager không có sẵn');
+                        }
+
+                        const contentUrl = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+                        this.log('✅ Image uploaded to Pancake:', contentUrl);
+
+                        // Send message with image content_url
                         requestBody = {
                             action: "reply_inbox",
-                            message: imageUrl, // Send image URL
+                            message: messageContent, // Send full message text
                             customer_id: customerId,
-                            send_by_platform: "web"
+                            send_by_platform: "web",
+                            content_url: contentUrl // Add image URL
                         };
 
                         fetchOptions = {
@@ -1181,62 +1194,6 @@ class MessageTemplateManager {
             style: 'currency',
             currency: 'VND'
         }).format(numericAmount);
-    }
-
-    /**
-     * Convert blob to base64
-     */
-    async blobToBase64(blob) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    }
-
-    /**
-     * Upload image to Imgur and return URL
-     */
-    async uploadImageToImgur(blob) {
-        this.log('📤 Uploading to Imgur...');
-
-        try {
-            // Convert blob to base64 (remove data:image/png;base64, prefix)
-            const base64 = await this.blobToBase64(blob);
-            const base64Data = base64.split(',')[1];
-
-            // Imgur anonymous upload
-            const formData = new FormData();
-            formData.append('image', base64Data);
-            formData.append('type', 'base64');
-
-            const response = await fetch('https://api.imgur.com/3/image', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Client-ID 546c25a59c58ad7' // Public Imgur client ID
-                },
-                body: formData
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`Imgur upload failed: ${errorData.data?.error || response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            if (!data.success || !data.data.link) {
-                throw new Error('Imgur upload failed: no link returned');
-            }
-
-            this.log('✅ Imgur upload success:', data.data.link);
-            return data.data.link;
-
-        } catch (error) {
-            this.log('❌ Imgur upload error:', error);
-            throw new Error(`Không thể upload ảnh: ${error.message}`);
-        }
     }
 
     async refresh() {
