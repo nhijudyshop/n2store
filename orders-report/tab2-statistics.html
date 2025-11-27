@@ -544,7 +544,7 @@
                             <div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
                                 <div>
                                     <i class="fas fa-info-circle"></i>
-                                    <strong>Hóa đơn:</strong> Danh sách hóa đơn (30 ngày gần nhất) của khách hàng này, được tải từ API.
+                                    <strong>Hóa đơn:</strong> Danh sách 20 hóa đơn gần nhất của khách hàng này, được tải từ API.
                                 </div>
                                 <button class="btn btn-sm btn-primary" id="refreshInvoiceBtn" style="display: none;">
                                     <i class="fas fa-sync-alt"></i> Làm mới
@@ -1071,17 +1071,9 @@
                 throw new Error('No partnerId provided');
             }
 
-            // Calculate date range (last 30 days)
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - 30);
-
-            const formatDate = (date) => {
-                // OData requires datetime format: 2025-10-28T00:00:00Z
-                return date.toISOString();
-            };
-
-            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=PartnerId eq ${partnerId} and Created ge ${formatDate(startDate)} and Created le ${formatDate(endDate)}&$orderby=Created desc`;
+            // Simplified filter - only by PartnerId, ordered by Created desc
+            // Note: Date filtering removed due to API compatibility issues
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=PartnerId eq ${partnerId}&$orderby=Created desc&$top=20`;
 
             console.log('[INVOICE-FETCH] Fetching invoices for partnerId:', partnerId);
 
@@ -1183,7 +1175,7 @@
                     invoiceContent.innerHTML = `
                         <div style="text-align: center; padding: 40px; color: #94a3b8;">
                             <i class="fas fa-file-invoice mb-2" style="font-size: 24px; opacity: 0.5;"></i><br>
-                            Không tìm thấy hóa đơn nào (30 ngày gần nhất)
+                            Không tìm thấy hóa đơn nào
                         </div>
                     `;
                     return;
