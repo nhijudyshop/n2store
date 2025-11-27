@@ -15,9 +15,15 @@
 5. Đặt tên: `chatomni-proxy` (hoặc tên bạn thích)
 6. Click **Deploy**
 
-## Bước 3: Edit Worker Code
+## Bước 3: Deploy Worker Code
 
-1. Sau khi deploy, click **Edit code**
+### Cách 1: Tự động (Đã cấu hình)
+1. Push code lên GitHub
+2. Cloudflare Workers tự động deploy khi có thay đổi
+3. File `wrangler.jsonc` đã được cấu hình sẵn
+
+### Cách 2: Manual (qua Dashboard)
+1. Sau khi tạo worker, click **Edit code**
 2. **XÓA HẾT** code mặc định
 3. **DÁN** nội dung file `worker.js` vào
 4. Click **Save and Deploy**
