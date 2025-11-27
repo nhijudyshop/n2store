@@ -600,8 +600,8 @@ class PancakeDataManager {
 
         // Calculate time since last message for 24-hour policy check
         const lastMessageTime = conversation.last_message?.created_time ||
-                               conversation.last_message?.inserted_at ||
-                               conversation.updated_at;
+            conversation.last_message?.inserted_at ||
+            conversation.updated_at;
 
         if (lastMessageTime) {
             const lastMsgDate = new Date(lastMessageTime);
@@ -924,19 +924,26 @@ class PancakeDataManager {
             // If content_url is already available (file exists), return it
             if (fileInfo.content_url) {
                 console.log('[PANCAKE] File already exists, returning content_url');
-                return fileInfo.content_url;
+                return {
+                    content_url: fileInfo.content_url,
+                    id: fileInfo.id
+                };
             }
+
+            // Helper to extract ID and URL
+            const extractResult = (data) => {
+                // Try to find ID
+                const id = data.id || (data.data && data.data.id) || (Array.isArray(data) && data[0] ? data[0].id : null);
+                // Try to find URL
+                const url = data.content_url || (data.data && data.data.content_url) || (Array.isArray(data) && data[0] ? data[0].content_url : null);
+
+                return { content_url: url, id: id };
+            };
 
             // Step 3: Uploading if needed
             if (fileInfo.need_create) {
                 console.log('[PANCAKE] Step 2: Uploading file content...');
                 const uploadFormData = new FormData();
-                // Based on fetch.txt, it seems we just send the file. 
-                // The "action" might not be needed or is implied? 
-                // fetch2 in fetch.txt shows: Content-Disposition: form-data; name="file"; filename="image.png"
-                // It does NOT show "action" field in fetch2 body in the snippet I saw (it was truncated but usually file is enough).
-                // However, usually "action" is not needed if "file" is present for this endpoint, OR "action" is "uploading".
-                // Let's try sending just the file first as per fetch2 snippet.
                 uploadFormData.append('file', file);
 
                 const uploadResponse = await API_CONFIG.smartFetch(url, {
@@ -951,22 +958,68 @@ class PancakeDataManager {
                 const uploadData = await uploadResponse.json();
                 console.log('[PANCAKE] Upload response:', uploadData);
 
-                if (uploadData.content_url) {
-                    return uploadData.content_url;
-                } else if (uploadData.data && uploadData.data.content_url) {
-                    return uploadData.data.content_url;
-                } else {
-                    // Fallback: sometimes response is just the object
-                    return uploadData.content_url || (uploadData[0] && uploadData[0].content_url);
-                }
+                return extractResult(uploadData);
             } else {
                 // Should have content_url if need_create is false
-                return fileInfo.content_url;
+                // fileInfo usually has 'id' as well
+                return {
+                    content_url: fileInfo.content_url,
+                    id: fileInfo.id
+                };
             }
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error uploading image:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Xóa ảnh trên Pancake server
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} contentId - ID của ảnh (content ID)
+     * @returns {Promise<boolean>}
+     */
+    async deleteImage(pageId, contentId) {
+        try {
+            console.log(`[PANCAKE] Deleting image ID: ${contentId} on page ${pageId}`);
+
+            if (!contentId) {
+                console.warn('[PANCAKE] No contentId provided for deletion');
+                return false;
+            }
+
+            const token = await this.getToken();
+            if (!token) throw new Error('No Pancake token available');
+
+            // URL: https://pancake.vn/api/v1/pages/{pageId}/contents?ids={contentId}&access_token={token}
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/contents`,
+                `ids=${contentId}&access_token=${token}`
+            );
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`[PANCAKE] Delete failed: ${response.status} ${response.statusText}`, errorText);
+                return false;
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] Delete response:', data);
+
+            return data.success || false;
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error deleting image:', error);
+            return false;
         }
     }
 }

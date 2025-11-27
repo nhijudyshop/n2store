@@ -484,6 +484,73 @@ async function loadAvailableTags() {
     }
 }
 
+async function refreshTags() {
+    const btn = document.querySelector('.tag-btn-refresh');
+    const icon = btn ? btn.querySelector('i') : null;
+
+    try {
+        if (btn) btn.disabled = true;
+        if (icon) icon.classList.add('fa-spin');
+
+        console.log("[TAG] Refreshing tags from TPOS...");
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Use $top=1000 to ensure we get all tags (current count ~302)
+        const response = await API_CONFIG.smartFetch(
+            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000",
+            {
+                method: "GET",
+                headers: {
+                    ...headers,
+                    accept: "application/json",
+                    "content-type": "application/json",
+                },
+            },
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const newTags = data.value || [];
+
+        console.log(`[TAG] Fetched ${newTags.length} tags from TPOS`);
+
+        // Save to Firebase
+        if (database) {
+            await database.ref('settings/tags').set(newTags);
+            console.log('[TAG] Saved tags to Firebase settings/tags');
+        }
+
+        // Update local state
+        availableTags = newTags;
+        window.availableTags = availableTags;
+        window.cacheManager.set("tags", availableTags, "tags");
+
+        // Update UI
+        populateTagFilter();
+        renderTagList(document.getElementById("tagSearchInput").value);
+
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã cập nhật ${newTags.length} tags thành công!`);
+        } else {
+            alert(`✅ Đã cập nhật ${newTags.length} tags thành công!`);
+        }
+
+    } catch (error) {
+        console.error("[TAG] Error refreshing tags:", error);
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi cập nhật tags: ${error.message}`);
+        } else {
+            alert(`❌ Lỗi cập nhật tags: ${error.message}`);
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('fa-spin');
+    }
+}
+
 function populateTagFilter() {
     const tagFilterSelect = document.getElementById('tagFilter');
     if (!tagFilterSelect) {
@@ -1475,6 +1542,41 @@ async function handleCampaignChange() {
             console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
             window.realtimeManager.connectServerMode();
         }
+    }
+}
+
+async function reloadTableData() {
+    const btn = document.getElementById('reloadTableBtn');
+    const icon = btn ? btn.querySelector('i') : null;
+
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add('fa-spin');
+
+    try {
+        if (!selectedCampaign?.campaignId && !selectedCampaign?.campaignIds) {
+            if (window.notificationManager) {
+                window.notificationManager.warning("Vui lòng chọn chiến dịch trước khi tải lại");
+            } else {
+                alert("Vui lòng chọn chiến dịch trước khi tải lại");
+            }
+            return;
+        }
+
+        await handleSearch();
+
+        if (window.notificationManager) {
+            window.notificationManager.success("Đã tải lại dữ liệu bảng thành công");
+        }
+    } catch (error) {
+        console.error("Error reloading table:", error);
+        if (window.notificationManager) {
+            window.notificationManager.error("Lỗi khi tải lại dữ liệu: " + error.message);
+        } else {
+            alert("Lỗi khi tải lại dữ liệu: " + error.message);
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('fa-spin');
     }
 }
 

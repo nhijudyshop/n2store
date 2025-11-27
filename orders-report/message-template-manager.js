@@ -912,7 +912,11 @@ class MessageTemplateManager {
                 throw new Error('pancakeDataManager không có sẵn');
             }
 
-            const contentUrl = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+            const uploadResult = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+
+            // Handle both old (string) and new (object) return formats for compatibility
+            const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+            const contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
 
             requestBody = {
                 action: "reply_inbox",
@@ -921,6 +925,12 @@ class MessageTemplateManager {
                 send_by_platform: "web",
                 content_url: contentUrl
             };
+
+            // Store contentId for cleanup
+            if (contentId) {
+                context.cleanupImageId = contentId;
+                context.cleanupPageId = channelId;
+            }
         } else {
             // TEXT MODE
             requestBody = {
@@ -940,20 +950,32 @@ class MessageTemplateManager {
             body: JSON.stringify(requestBody)
         };
 
-        const response = await API_CONFIG.smartFetch(apiUrl, fetchOptions);
+        try {
+            const response = await API_CONFIG.smartFetch(apiUrl, fetchOptions);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const responseData = await response.json();
+
+            if (!responseData.success) {
+                throw new Error(responseData.error || 'API returned success: false');
+            }
+
+            return true;
+        } finally {
+            // CLEANUP IMAGE IF NEEDED
+            if (context.cleanupImageId && context.cleanupPageId) {
+                // Run in background, don't await
+                window.pancakeDataManager.deleteImage(context.cleanupPageId, context.cleanupImageId)
+                    .then(success => {
+                        if (success) console.log(`[CLEANUP] Deleted image ${context.cleanupImageId}`);
+                    })
+                    .catch(err => console.error('[CLEANUP] Failed to delete image:', err));
+            }
         }
-
-        const responseData = await response.json();
-
-        if (!responseData.success) {
-            throw new Error(responseData.error || 'API returned success: false');
-        }
-
-        return true;
     }
 
     async fetchCRMTeam(teamId) {

@@ -224,6 +224,10 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div class="search-tips">💡 Gõ để tìm kiếm nhanh</div>
+                    <button class="btn-primary" id="reloadTableBtn" onclick="reloadTableData()"
+                        style="background: #10b981; padding: 6px 12px; font-size: 13px;">
+                        <i class="fas fa-sync"></i> Tải lại
+                    </button>
                     <button class="btn-column-settings" id="columnSettingsBtn" onclick="openColumnSettingsModal()">
                         <i class="fas fa-columns"></i> Cài đặt cột
                     </button>
@@ -278,6 +282,10 @@
             <div class="tag-modal-header">
                 <button class="tag-btn-save-header" onclick="saveOrderTags()">
                     Lưu (Ctrl + Enter)
+                </button>
+                <button class="tag-btn-refresh" onclick="refreshTags()" title="Tải lại từ TPOS"
+                    style="margin-left: 8px; padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    <i class="fas fa-sync"></i>
                 </button>
                 <button class="tag-modal-close" onclick="closeTagModal()">
                     X
@@ -475,23 +483,32 @@
                 <div class="chat-reply-container" id="chatReplyContainer"
                     style="display: none; background: white; border-top: 1px solid #e5e7eb;">
                     <!-- Sending Status Bar (visible and centered) -->
-                    <div id="chatSendingIndicator" style="display: none; padding: 10px 16px; background: linear-gradient(135deg, rgba(0, 132, 255, 0.1) 0%, rgba(0, 132, 255, 0.05) 100%); border-bottom: 1px solid rgba(0, 132, 255, 0.2);">
+                    <div id="chatSendingIndicator"
+                        style="display: none; padding: 10px 16px; background: linear-gradient(135deg, rgba(0, 132, 255, 0.1) 0%, rgba(0, 132, 255, 0.05) 100%); border-bottom: 1px solid rgba(0, 132, 255, 0.2);">
                         <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
                             <i class="fas fa-spinner fa-spin" style="color: #0084ff; font-size: 14px;"></i>
-                            <span id="chatSendingText" style="color: #0084ff; font-weight: 600; font-size: 13px;">Đang gửi...</span>
-                            <span id="chatQueueCount" style="display: none; background: rgba(0, 132, 255, 0.2); color: #0084ff; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"></span>
+                            <span id="chatSendingText" style="color: #0084ff; font-weight: 600; font-size: 13px;">Đang
+                                gửi...</span>
+                            <span id="chatQueueCount"
+                                style="display: none; background: rgba(0, 132, 255, 0.2); color: #0084ff; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"></span>
                         </div>
                     </div>
                     <!-- Reply Preview Container -->
-                    <div id="chatReplyPreviewContainer" style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                    <div id="chatReplyPreviewContainer"
+                        style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
                         <div style="display: flex; align-items: start; gap: 8px;">
                             <div style="flex: 1;">
                                 <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px; font-weight: 600;">
                                     <i class="fas fa-reply" style="margin-right: 4px;"></i>Đang trả lời
                                 </div>
-                                <div id="chatReplyPreviewText" style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;"></div>
+                                <div id="chatReplyPreviewText"
+                                    style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
+                                </div>
                             </div>
-                            <button onclick="cancelReplyMessage()" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.background='#e5e7eb';" onmouseout="this.style.background='none';">
+                            <button onclick="cancelReplyMessage()"
+                                style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;"
+                                onmouseover="this.style.background='#e5e7eb';"
+                                onmouseout="this.style.background='none';">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -501,7 +518,8 @@
                         style="display: none; padding: 8px 16px; border-bottom: 1px solid #f0f0f0;"></div>
                     <!-- Input Row -->
                     <div style="display: flex; gap: 8px; align-items: flex-end; padding: 12px 16px;">
-                        <textarea id="chatReplyInput" placeholder="Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)" rows="1"
+                        <textarea id="chatReplyInput" placeholder="Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)"
+                            rows="1"
                             style="flex: 1; min-width: 0; width: 0; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 14px; background: #f9fafb; transition: all 0.2s; resize: none; overflow-y: auto; overflow-x: hidden; max-height: 120px; font-family: inherit; line-height: 1.5; word-wrap: break-word; word-break: break-word;"
                             onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
                             onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';"></textarea>
@@ -1665,7 +1683,8 @@
             <div class="tag-modal-body">
                 <!-- Accounts List -->
                 <div style="margin-bottom: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h4 style="margin: 0; font-size: 15px; color: #374151;">
                             <i class="fas fa-users"></i> Danh sách tài khoản
                         </h4>
@@ -1674,7 +1693,8 @@
                             <i class="fas fa-plus"></i> Thêm tài khoản
                         </button>
                     </div>
-                    <div id="pancakeAccountsList" style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
+                    <div id="pancakeAccountsList"
+                        style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
                         <div style="text-align: center; color: #9ca3af; padding: 20px;">
                             Đang tải...
                         </div>
@@ -1682,8 +1702,10 @@
                 </div>
 
                 <!-- Add Account Form (Hidden by default) -->
-                <div id="addAccountForm" style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div id="addAccountForm"
+                    style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <h4 style="margin: 0; font-size: 14px; color: #374151;">
                             <i class="fas fa-user-plus"></i> Thêm tài khoản mới
                         </h4>
@@ -1695,14 +1717,15 @@
 
                     <!-- Token Input -->
                     <div style="margin-bottom: 12px;">
-                        <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                        <label
+                            style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
                             JWT Token:
                         </label>
-                        <textarea id="newAccountTokenInput"
-                            placeholder="Nhập JWT token từ cookie pancake.vn..."
+                        <textarea id="newAccountTokenInput" placeholder="Nhập JWT token từ cookie pancake.vn..."
                             style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"
                             oninput="validateTokenInput()"></textarea>
-                        <div id="tokenValidationMessage" style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none;">
+                        <div id="tokenValidationMessage"
+                            style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none;">
                         </div>
                         <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
                             💡 Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
@@ -1710,28 +1733,35 @@
                     </div>
 
                     <!-- Instructions -->
-                    <div style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
+                    <div
+                        style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
                         <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
                             📋 Cách lấy JWT token:
                         </div>
                         <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
-                            <li>Mở tab mới: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
+                            <li>Mở tab mới: <a href="https://pancake.vn" target="_blank"
+                                    style="color: #d97706;">https://pancake.vn</a></li>
                             <li>Đăng nhập vào tài khoản Pancake</li>
                             <li>Mở DevTools (F12) → Console tab</li>
-                            <li>Gõ: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
+                            <li>Gõ: <code
+                                    style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code>
+                            </li>
                             <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
                         </ol>
                     </div>
 
                     <!-- Actions -->
                     <div style="display: flex; gap: 8px;">
-                        <button class="tag-btn-save" onclick="addAccountFromCookie()" style="flex: 1; background: #10b981; font-size: 13px;">
+                        <button class="tag-btn-save" onclick="addAccountFromCookie()"
+                            style="flex: 1; background: #10b981; font-size: 13px;">
                             <i class="fas fa-sync"></i> Lấy từ Cookie
                         </button>
-                        <button onclick="debugTokenInput()" style="flex: 1; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                        <button onclick="debugTokenInput()"
+                            style="flex: 1; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
                             <i class="fas fa-bug"></i> Debug
                         </button>
-                        <button class="tag-btn-save" onclick="addAccountManual()" style="flex: 1; background: #3b82f6; font-size: 13px;">
+                        <button class="tag-btn-save" onclick="addAccountManual()"
+                            style="flex: 1; background: #3b82f6; font-size: 13px;">
                             <i class="fas fa-save"></i> Thêm Token
                         </button>
                     </div>
