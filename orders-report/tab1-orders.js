@@ -4969,6 +4969,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Setup infinite scroll for comments
             setupChatInfiniteScroll();
+
+            // Setup new message indicator listener
+            setupNewMessageIndicatorListener();
         } else {
             // Fetch messages
             const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
@@ -4997,6 +5000,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Setup infinite scroll for messages
             setupChatInfiniteScroll();
+
+            // Setup new message indicator listener
+            setupNewMessageIndicatorListener();
         }
 
         /* LEGACY CODE REMOVED
@@ -5894,18 +5900,22 @@ function renderChatMessages(messages, scrollToBottom = false) {
     }
 
     // Check if user is at bottom before render (within 100px threshold)
+    // CHANGED: Check scrollToBottom parameter OR current position
     const wasAtBottom = scrollToBottom || (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
     const previousScrollHeight = modalBody.scrollHeight;
     const previousScrollTop = modalBody.scrollTop;
 
     modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${messagesHTML}</div>`;
 
-    // Only auto-scroll if user was already at bottom, otherwise preserve position
+    // Only auto-scroll if explicitly requested OR user was already at bottom
     if (wasAtBottom) {
         // Use requestAnimationFrame to ensure DOM has updated before scrolling
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 modalBody.scrollTop = modalBody.scrollHeight;
+                // Hide new message indicator when scrolled to bottom
+                const indicator = document.getElementById('chatNewMessageIndicator');
+                if (indicator) indicator.style.display = 'none';
             });
         });
     } else {
@@ -5915,6 +5925,11 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 const newScrollHeight = modalBody.scrollHeight;
                 const heightDiff = newScrollHeight - previousScrollHeight;
                 modalBody.scrollTop = previousScrollTop + heightDiff;
+
+                // Show new message indicator if there's new content at bottom
+                if (heightDiff > 0) {
+                    showNewMessageIndicator();
+                }
             });
         });
     }
@@ -6130,18 +6145,22 @@ function renderComments(comments, scrollToBottom = false) {
     }
 
     // Check if user is at bottom before render (within 100px threshold)
+    // CHANGED: Check scrollToBottom parameter OR current position
     const wasAtBottom = scrollToBottom || (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
     const previousScrollHeight = modalBody.scrollHeight;
     const previousScrollTop = modalBody.scrollTop;
 
     modalBody.innerHTML = `<div class="chat-messages-container">${loadingIndicator}${postContext}${commentsHTML}</div>`;
 
-    // Only auto-scroll if user was already at bottom, otherwise preserve position
+    // Only auto-scroll if explicitly requested OR user was already at bottom
     if (wasAtBottom) {
         // Use requestAnimationFrame to ensure DOM has updated before scrolling
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 modalBody.scrollTop = modalBody.scrollHeight;
+                // Hide new message indicator when scrolled to bottom
+                const indicator = document.getElementById('chatNewMessageIndicator');
+                if (indicator) indicator.style.display = 'none';
             });
         });
     } else {
@@ -6151,9 +6170,103 @@ function renderComments(comments, scrollToBottom = false) {
                 const newScrollHeight = modalBody.scrollHeight;
                 const heightDiff = newScrollHeight - previousScrollHeight;
                 modalBody.scrollTop = previousScrollTop + heightDiff;
+
+                // Show new message indicator if there's new content at bottom
+                if (heightDiff > 0) {
+                    showNewMessageIndicator();
+                }
             });
         });
     }
+}
+
+// =====================================================
+// NEW MESSAGE INDICATOR
+// =====================================================
+
+/**
+ * Show visual indicator for new messages (without flash animation)
+ */
+function showNewMessageIndicator() {
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) return;
+
+    // Check if indicator already exists
+    let indicator = document.getElementById('chatNewMessageIndicator');
+
+    if (!indicator) {
+        // Create indicator element
+        indicator = document.createElement('div');
+        indicator.id = 'chatNewMessageIndicator';
+        indicator.innerHTML = `
+            <div style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 10px 20px;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                border-radius: 24px;
+                font-size: 13px;
+                font-weight: 500;
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(59, 130, 246, 0.5)';"
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.4)';">
+                <i class="fas fa-arrow-down" style="font-size: 12px;"></i>
+                <span>Tin nhắn mới</span>
+            </div>
+        `;
+
+        // Position indicator at bottom center
+        indicator.style.cssText = `
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: none;
+        `;
+
+        // Scroll to bottom when clicked
+        indicator.onclick = () => {
+            modalBody.scrollTo({
+                top: modalBody.scrollHeight,
+                behavior: 'smooth'
+            });
+            indicator.style.display = 'none';
+        };
+
+        // Append to modal body's parent to position it correctly
+        const chatModal = document.getElementById('chatModal');
+        const modalContent = chatModal?.querySelector('.modal-body');
+        if (modalContent) {
+            modalContent.style.position = 'relative';
+            modalContent.appendChild(indicator);
+        }
+    }
+
+    // Show indicator with smooth appearance (no flash)
+    indicator.style.display = 'block';
+}
+
+/**
+ * Setup scroll listener to auto-hide indicator when user scrolls to bottom
+ */
+function setupNewMessageIndicatorListener() {
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) return;
+
+    modalBody.addEventListener('scroll', () => {
+        const isAtBottom = (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
+        const indicator = document.getElementById('chatNewMessageIndicator');
+
+        if (indicator && isAtBottom) {
+            indicator.style.display = 'none';
+        }
+    });
 }
 
 // =====================================================
@@ -6977,8 +7090,8 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                             // Add to beginning of array (since renderComments reverses it)
                             allChatComments.unshift(newestComment);
 
-                            // Re-render the chat
-                            renderComments(allChatComments, true);
+                            // Re-render the chat (without forcing scroll)
+                            renderComments(allChatComments, false);
 
                             console.log('[CHAT MODAL] Added realtime comment to UI');
                         } else {
@@ -7009,8 +7122,8 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                             // Add to beginning of array (since renderChatMessages reverses it)
                             allChatMessages.unshift(newestMessage);
 
-                            // Re-render the chat
-                            renderChatMessages(allChatMessages, true);
+                            // Re-render the chat (without forcing scroll)
+                            renderChatMessages(allChatMessages, false);
 
                             console.log('[CHAT MODAL] Added realtime message to UI');
                         } else {
