@@ -7067,7 +7067,7 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
             // Check if user was at bottom (100px threshold)
             const wasAtBottom = (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight) < 100;
 
-            // Fetch ONLY the latest message/comment to update UI
+            // Fetch ALL new messages/comments to update UI
             if (currentChatType === 'comment') {
                 window.chatDataManager.fetchComments(pageId, psid, null).then(response => {
                     if (!response || !response.comments || response.comments.length === 0) {
@@ -7075,23 +7075,25 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                         return;
                     }
 
-                    // Get the most recent comment (first in array)
-                    const latestComment = response.comments[0];
-                    const latestId = latestComment.Id || latestComment.id;
+                    // Remove temp comments first
+                    allChatComments = allChatComments.filter(c => !c.is_temp);
 
-                    // Check if this comment already exists
-                    const alreadyExists = allChatComments.some(c =>
-                        (c.Id === latestId || c.id === latestId) && !c.is_temp
-                    );
+                    // Get ALL new comments that don't exist yet
+                    const newComments = response.comments.filter(newComment => {
+                        const newId = newComment.Id || newComment.id;
+                        return !allChatComments.some(existing =>
+                            (existing.Id === newId || existing.id === newId)
+                        );
+                    });
 
-                    if (!alreadyExists) {
-                        console.log('[CHAT MODAL] ✅ New comment detected, adding to UI');
+                    if (newComments.length > 0) {
+                        console.log(`[CHAT MODAL] ✅ ${newComments.length} new comment(s) detected, adding to UI`);
 
-                        // Remove temp comments
-                        allChatComments = allChatComments.filter(c => !c.is_temp);
-
-                        // Add to beginning (renderComments reverses the array)
-                        allChatComments.unshift(latestComment);
+                        // Add all new comments to beginning (renderComments reverses the array)
+                        // Add in reverse order so newest appears first after unshift
+                        newComments.reverse().forEach(comment => {
+                            allChatComments.unshift(comment);
+                        });
 
                         // Re-render with smart scroll
                         renderComments(allChatComments, wasAtBottom);
@@ -7101,7 +7103,7 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                             showNewMessageIndicator();
                         }
                     } else {
-                        console.log('[CHAT MODAL] ℹ️ Comment already exists');
+                        console.log('[CHAT MODAL] ℹ️ No new comments');
                     }
                 }).catch(err => {
                     console.error('[CHAT MODAL] ❌ Error fetching comment:', err);
@@ -7113,23 +7115,25 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                         return;
                     }
 
-                    // Get the most recent message (first in array)
-                    const latestMessage = response.messages[0];
-                    const latestId = latestMessage.Id || latestMessage.id;
+                    // Remove temp messages first
+                    allChatMessages = allChatMessages.filter(m => !m.is_temp);
 
-                    // Check if this message already exists
-                    const alreadyExists = allChatMessages.some(m =>
-                        (m.Id === latestId || m.id === latestId) && !m.is_temp
-                    );
+                    // Get ALL new messages that don't exist yet
+                    const newMessages = response.messages.filter(newMsg => {
+                        const newId = newMsg.Id || newMsg.id;
+                        return !allChatMessages.some(existing =>
+                            (existing.Id === newId || existing.id === newId)
+                        );
+                    });
 
-                    if (!alreadyExists) {
-                        console.log('[CHAT MODAL] ✅ New message detected, adding to UI');
+                    if (newMessages.length > 0) {
+                        console.log(`[CHAT MODAL] ✅ ${newMessages.length} new message(s) detected, adding to UI`);
 
-                        // Remove temp messages
-                        allChatMessages = allChatMessages.filter(m => !m.is_temp);
-
-                        // Add to beginning (renderChatMessages reverses the array)
-                        allChatMessages.unshift(latestMessage);
+                        // Add all new messages to beginning (renderChatMessages reverses the array)
+                        // Add in reverse order so newest appears first after unshift
+                        newMessages.reverse().forEach(msg => {
+                            allChatMessages.unshift(msg);
+                        });
 
                         // Re-render with smart scroll
                         renderChatMessages(allChatMessages, wasAtBottom);
@@ -7139,7 +7143,7 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                             showNewMessageIndicator();
                         }
                     } else {
-                        console.log('[CHAT MODAL] ℹ️ Message already exists');
+                        console.log('[CHAT MODAL] ℹ️ No new messages');
                     }
                 }).catch(err => {
                     console.error('[CHAT MODAL] ❌ Error fetching message:', err);
