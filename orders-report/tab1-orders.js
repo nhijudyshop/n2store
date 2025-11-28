@@ -1840,8 +1840,6 @@ async function fetchOrders() {
 
                         if (orders.length > 0) {
                             allData = allData.concat(orders);
-                            filteredData = allData.filter((order) => order && order.Id);
-                            displayedData = filteredData;
 
                             // Update table every UPDATE_EVERY orders OR if this is the last batch
                             const shouldUpdate =
@@ -1850,7 +1848,7 @@ async function fetchOrders() {
 
                             if (shouldUpdate) {
                                 console.log(`[PROGRESSIVE] Updating table: ${allData.length}/${totalCount} orders`);
-                                performTableSearch(); // Apply merging and filters
+                                performTableSearch(); // Apply merging, employee filtering, and all other filters
                                 updateSearchResultCount();
                                 showInfoBanner(
                                     `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
