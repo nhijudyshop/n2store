@@ -2595,10 +2595,10 @@
         };
 
         try {
-            // Get token
-            const token = await window.tokenManager.getToken();
+            // Get Pancake token (not TPOS token!)
+            const token = await window.pancakeDataManager.getToken();
             if (!token) {
-                throw new Error('Không có token xác thực');
+                throw new Error('Không có Pancake token');
             }
 
             let requestBody;
