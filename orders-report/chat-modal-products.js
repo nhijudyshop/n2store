@@ -2520,24 +2520,21 @@
     }
 
     /**
-     * Send Product to Chat
-     * Sends product image + name to the current chat conversation
-     * SAFETY: Only works if inside chat modal context (window.currentChatOrderData exists)
-     * Flow: Fetch image -> Upload to Pancake -> Send message -> Delete from Pancake
+     * Current product to send (stores product info for preview before sending)
+     */
+    window.currentProductToSend = null;
+
+    /**
+     * Set Product to Send (Show preview in chat input area)
+     * Instead of sending immediately, show preview like pasted images
+     * User can then send via Send button or clear via X button
      */
     window.sendProductToChat = async function(productId, productName, productImageUrl) {
-        console.log('[SEND-PRODUCT] Attempting to send product:', { productId, productName, productImageUrl });
-
-        // Show confirmation dialog
-        const confirmed = confirm(`Bạn có chắc muốn gửi sản phẩm "${productName}" vào chat không?`);
-        if (!confirmed) {
-            console.log('[SEND-PRODUCT] User cancelled sending product');
-            return;
-        }
+        console.log('[SET-PRODUCT] Setting product to send:', { productId, productName, productImageUrl });
 
         // SAFETY CHECK: Only work in chat modal context
         if (!window.currentChatOrderData) {
-            console.error('[SEND-PRODUCT] Not in chat modal context - aborting');
+            console.error('[SET-PRODUCT] Not in chat modal context - aborting');
             if (window.notificationManager) {
                 window.notificationManager.show('❌ Chỉ có thể gửi sản phẩm trong chat modal', 'error');
             }
@@ -2547,191 +2544,80 @@
         // SAFETY CHECK: Verify we have required global chat variables from tab1-orders.js
         if (typeof window.currentChatChannelId === 'undefined' ||
             typeof window.currentConversationId === 'undefined') {
-            console.error('[SEND-PRODUCT] Missing chat context variables - aborting');
+            console.error('[SET-PRODUCT] Missing chat context variables - aborting');
             if (window.notificationManager) {
                 window.notificationManager.show('❌ Không tìm thấy thông tin chat', 'error');
             }
             return;
         }
 
-        // SAFETY CHECK: Verify pancakeDataManager is available
-        if (!window.pancakeDataManager) {
-            console.error('[SEND-PRODUCT] pancakeDataManager not available - aborting');
-            if (window.notificationManager) {
-                window.notificationManager.show('❌ Không tìm thấy pancakeDataManager', 'error');
-            }
-            return;
-        }
-
-        // Get required IDs
-        const pageId = window.currentChatChannelId;
-        const conversationId = window.currentConversationId;
-        const customerId = window.currentChatOrderData.PartnerId ||
-                          (window.currentChatOrderData.Partner && window.currentChatOrderData.Partner.Id);
-
-        if (!pageId || !conversationId || !customerId) {
-            console.error('[SEND-PRODUCT] Missing required IDs:', { pageId, conversationId, customerId });
-            if (window.notificationManager) {
-                window.notificationManager.show('❌ Thiếu thông tin cần thiết để gửi', 'error');
-            }
-            return;
-        }
-
-        // Show sending indicator (like chat modal)
-        if (window.showChatSendingIndicator) {
-            window.showChatSendingIndicator('Đang gửi sản phẩm...');
-        }
-
-        // Context for cleanup
-        const context = {
-            cleanupImageId: null,
-            cleanupPageId: null
+        // Store product info for later sending
+        window.currentProductToSend = {
+            productId,
+            productName,
+            productImageUrl
         };
 
-        try {
-            // Get Pancake token (not TPOS token!)
-            const token = await window.pancakeDataManager.getToken();
-            if (!token) {
-                throw new Error('Không có Pancake token');
-            }
+        // Show preview in chat input area (like pasted images)
+        const previewContainer = document.getElementById('chatImagePreviewContainer');
+        if (previewContainer) {
+            previewContainer.style.display = 'flex';
+            previewContainer.style.alignItems = 'center';
+            previewContainer.style.justifyContent = 'space-between';
 
-            let requestBody;
-
+            // Show product preview with image thumbnail
             if (productImageUrl) {
-                // Step 1: Fetch image as Blob
-                if (window.showChatSendingIndicator) {
-                    window.showChatSendingIndicator('Đang tải ảnh...');
-                }
-                console.log('[SEND-PRODUCT] Fetching image from URL...');
-                const imageBlob = await fetchImageAsBlob(productImageUrl);
-
-                // Step 2: Convert Blob to File
-                const imageFile = new File(
-                    [imageBlob],
-                    `product_${productId}_${Date.now()}.jpg`,
-                    { type: imageBlob.type || 'image/jpeg' }
-                );
-
-                // Step 3: Upload to Pancake
-                if (window.showChatSendingIndicator) {
-                    window.showChatSendingIndicator('Đang upload ảnh...');
-                }
-                console.log('[SEND-PRODUCT] Uploading image to Pancake...');
-                const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
-
-                // Handle both old (string) and new (object) return formats
-                const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
-                const contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
-
-                console.log('[SEND-PRODUCT] Image uploaded to Pancake:', { contentUrl, contentId });
-
-                // Build request body with content_url
-                requestBody = {
-                    action: "reply_inbox",
-                    message: productName,
-                    customer_id: customerId,
-                    send_by_platform: "web",
-                    content_url: contentUrl
-                };
-
-                // Store contentId for cleanup
-                if (contentId) {
-                    context.cleanupImageId = contentId;
-                    context.cleanupPageId = pageId;
-                    console.log('[SEND-PRODUCT] Will cleanup image after send:', contentId);
-                }
+                previewContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="${productImageUrl}" style="height: 50px; width: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-size: 12px; color: #666; font-weight: 600;">Sản phẩm</span>
+                            <span style="font-size: 12px; color: #333;">${productName}</span>
+                        </div>
+                    </div>
+                    <button onclick="window.clearProductToSend()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
             } else {
-                // TEXT MODE - no image
-                requestBody = {
-                    action: "reply_inbox",
-                    message: productName,
-                    customer_id: customerId,
-                    send_by_platform: "web"
-                };
-            }
-
-            // Build API URL
-            const apiUrl = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/conversations/${conversationId}/messages`,
-                `access_token=${token}`
-            );
-
-            const fetchOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            };
-
-            // Update indicator to "Đang gửi..."
-            if (window.showChatSendingIndicator) {
-                window.showChatSendingIndicator('Đang gửi...');
-            }
-            console.log('[SEND-PRODUCT] Sending message to Pancake...');
-
-            // Send to Pancake API
-            const response = await window.API_CONFIG.smartFetch(apiUrl, fetchOptions);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[SEND-PRODUCT] API error:', errorText);
-                throw new Error(`API trả về lỗi: ${response.status}`);
-            }
-
-            const result = await response.json();
-            console.log('[SEND-PRODUCT] API Response:', result);
-
-            // Check if API returned an error (even with HTTP 200 OK)
-            if (result.success === false || result.error_code) {
-                throw new Error(result.message || `Lỗi API: ${result.error_code}`);
-            }
-
-            // Hide sending indicator
-            if (window.hideChatSendingIndicator) {
-                window.hideChatSendingIndicator();
-            }
-
-            // Show success notification
-            if (window.notificationManager) {
-                window.notificationManager.show(
-                    `✅ Đã gửi sản phẩm: ${productName}`,
-                    'success'
-                );
-            }
-
-        } catch (error) {
-            console.error('[SEND-PRODUCT] Error:', error);
-
-            // Hide sending indicator
-            if (window.hideChatSendingIndicator) {
-                window.hideChatSendingIndicator();
-            }
-
-            // Show error notification
-            if (window.notificationManager) {
-                window.notificationManager.show(
-                    `❌ Lỗi khi gửi sản phẩm: ${error.message}`,
-                    'error'
-                );
-            }
-        } finally {
-            // CLEANUP IMAGE IF NEEDED
-            if (context.cleanupImageId && context.cleanupPageId) {
-                console.log('[SEND-PRODUCT] Cleaning up uploaded image:', context.cleanupImageId);
-                // Run in background, don't await
-                window.pancakeDataManager.deleteImage(context.cleanupPageId, context.cleanupImageId)
-                    .then(success => {
-                        if (success) {
-                            console.log(`[SEND-PRODUCT] ✅ Deleted image ${context.cleanupImageId} from Pancake`);
-                        } else {
-                            console.warn(`[SEND-PRODUCT] ⚠️ Failed to delete image ${context.cleanupImageId} from Pancake`);
-                        }
-                    })
-                    .catch(err => console.error('[SEND-PRODUCT] ❌ Error deleting image:', err));
+                // Text only (no image)
+                previewContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="height: 50px; width: 50px; background: #f3f4f6; border-radius: 4px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-cube" style="color: #9ca3af; font-size: 20px;"></i>
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-size: 12px; color: #666; font-weight: 600;">Sản phẩm</span>
+                            <span style="font-size: 12px; color: #333;">${productName}</span>
+                        </div>
+                    </div>
+                    <button onclick="window.clearProductToSend()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
             }
         }
+
+        // Focus on chat input
+        const chatInput = document.getElementById('chatReplyInput');
+        if (chatInput) {
+            chatInput.focus();
+        }
+
+        console.log('[SET-PRODUCT] Product preview shown, ready to send');
+    };
+
+    /**
+     * Clear product to send preview
+     */
+    window.clearProductToSend = function() {
+        window.currentProductToSend = null;
+        const previewContainer = document.getElementById('chatImagePreviewContainer');
+        if (previewContainer) {
+            previewContainer.innerHTML = '';
+            previewContainer.style.display = 'none';
+        }
+        console.log('[SET-PRODUCT] Product preview cleared');
     };
 
     console.log('[CHAT-PRODUCTS] Chat modal products manager loaded');
