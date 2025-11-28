@@ -5323,8 +5323,8 @@ window.sendReplyComment = async function () {
             alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
             console.error('[SEND-REPLY] Missing required info:', {
                 currentOrder: !!currentOrder,
-                window.currentConversationId: !!window.currentConversationId,
-                window.currentChatChannelId: !!window.currentChatChannelId,
+                currentConversationId: !!window.currentConversationId,
+                currentChatChannelId: !!window.currentChatChannelId,
                 currentChatType
             });
             return;
