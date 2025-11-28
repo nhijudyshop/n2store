@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Nội Bộ - N2 Shop</title>
 
-    <!-- Feather Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Styles -->
     <link rel="stylesheet" href="chat.css">
@@ -16,11 +16,11 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="logo">
-                <i data-feather="zap"></i>
+                <i data-lucide="zap"></i>
                 <span>N2Shop</span>
             </div>
             <button class="sidebar-toggle" id="sidebarToggle">
-                <i data-feather="panel-left-close"></i>
+                <i data-lucide="panel-left-close"></i>
             </button>
         </div>
 
@@ -31,15 +31,20 @@
         <div class="sidebar-footer">
             <div class="user-info">
                 <div class="user-avatar">
-                    <i data-feather="user-circle"></i>
+                    <i data-lucide="user-circle"></i>
                 </div>
                 <div class="user-details">
                     <div class="user-name" id="userName">Admin</div>
-                    <div class="user-role" id="userRole">Administrator</div>
+                    <div class="user-role">Quản trị viên</div>
                 </div>
             </div>
-            <button class="logout-btn" id="logoutBtn">
-                <i data-feather="log-out"></i>
+            <button class="btn-permissions" id="btnPermissions">
+                <i data-lucide="shield-check"></i>
+                <span>Xem Quyền Của Tôi</span>
+            </button>
+            <button class="btn-logout" id="btnLogout">
+                <i data-lucide="log-out"></i>
+                <span>Đăng xuất</span>
             </button>
         </div>
     </aside>
@@ -47,12 +52,12 @@
     <main class="main-content">
         <div class="page-header">
             <h1>
-                <i data-feather="message-square"></i>
+                <i data-lucide="message-square"></i>
                 Chat Nội Bộ
             </h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="newChatBtn">
-                    <i data-feather="plus"></i>
+                    <i data-lucide="plus"></i>
                     Chat Mới
                 </button>
             </div>
@@ -65,13 +70,13 @@
                     <h3>Hội Thoại</h3>
                     <div class="sidebar-actions">
                         <button class="btn-icon" id="refreshBtn" title="Làm mới">
-                            <i data-feather="refresh-cw"></i>
+                            <i data-lucide="refresh-cw"></i>
                         </button>
                     </div>
                 </div>
 
                 <div class="search-box">
-                    <i data-feather="search"></i>
+                    <i data-lucide="search"></i>
                     <input type="text" id="searchConversations" placeholder="Tìm kiếm hội thoại...">
                 </div>
 
@@ -90,7 +95,7 @@
             <!-- Main Chat Area -->
             <div class="chat-main" id="chatMain">
                 <div class="empty-state" id="emptyState">
-                    <i data-feather="message-circle"></i>
+                    <i data-lucide="message-circle"></i>
                     <h3>Chào mừng đến với Chat Nội Bộ</h3>
                     <p>Chọn một hội thoại hoặc tạo chat mới để bắt đầu</p>
                 </div>
@@ -100,7 +105,7 @@
                     <div class="chat-header" id="chatHeader">
                         <div class="chat-info">
                             <div class="avatar">
-                                <i data-feather="user"></i>
+                                <i data-lucide="user"></i>
                             </div>
                             <div class="chat-details">
                                 <h3 id="chatName">Tên người dùng</h3>
@@ -112,7 +117,7 @@
                         </div>
                         <div class="chat-actions">
                             <button class="btn-icon" id="chatInfoBtn" title="Thông tin">
-                                <i data-feather="info"></i>
+                                <i data-lucide="info"></i>
                             </button>
                         </div>
                     </div>
@@ -137,10 +142,10 @@
                     <!-- Input Area -->
                     <div class="input-area">
                         <button class="btn-icon" id="attachBtn" title="Đính kèm file">
-                            <i data-feather="paperclip"></i>
+                            <i data-lucide="paperclip"></i>
                         </button>
                         <button class="btn-icon" id="imageBtn" title="Gửi hình ảnh">
-                            <i data-feather="image"></i>
+                            <i data-lucide="image"></i>
                         </button>
                         <div class="input-wrapper">
                             <textarea
@@ -151,7 +156,7 @@
                             ></textarea>
                         </div>
                         <button class="btn-send" id="sendBtn" disabled>
-                            <i data-feather="send"></i>
+                            <i data-lucide="send"></i>
                         </button>
                     </div>
 
@@ -169,7 +174,7 @@
             <div class="modal-header">
                 <h3>Tạo Chat Mới</h3>
                 <button class="btn-close" id="closeModalBtn">
-                    <i data-feather="x"></i>
+                    <i data-lucide="x"></i>
                 </button>
             </div>
             <div class="modal-body">
@@ -195,7 +200,7 @@
                 <div class="form-group">
                     <label>Chọn người tham gia</label>
                     <div class="search-box">
-                        <i data-feather="search"></i>
+                        <i data-lucide="search"></i>
                         <input type="text" id="searchUsers" placeholder="Tìm người dùng...">
                     </div>
                     <div class="users-select-list" id="usersSelectList">
@@ -218,7 +223,7 @@
     <!-- Toast Notification -->
     <div class="toast" id="toast" style="display: none;">
         <div class="toast-content">
-            <i data-feather="check-circle"></i>
+            <i data-lucide="check-circle"></i>
             <span id="toastMessage"></span>
         </div>
     </div>
@@ -237,8 +242,8 @@
     <script src="chat.js"></script>
 
     <script>
-        // Initialize Feather Icons
-        feather.replace();
+        // Initialize Lucide Icons
+        lucide.createIcons();
     </script>
 </body>
 </html>
