@@ -2539,8 +2539,10 @@
         try {
             // If image URL exists, download and set as pasted image
             if (productImageUrl) {
-                // Download image
-                const response = await fetch(productImageUrl);
+                // Download image via Cloudflare proxy to bypass CORS
+                const proxiedUrl = `${window.API_CONFIG.WORKER_URL}/api/image-proxy?url=${encodeURIComponent(productImageUrl)}`;
+                console.log('[SEND-PRODUCT] Fetching image via proxy:', proxiedUrl);
+                const response = await fetch(proxiedUrl);
                 const blob = await response.blob();
 
                 // Set to currentPastedImage (global variable from tab1-orders.js)
