@@ -1725,7 +1725,7 @@
                     <input type="text" class="chat-note-input" value="${p.Note || ''}"
                         onchange="updateChatProductNote(${i}, this.value)" placeholder="Ghi chú...">
                 </td>
-                <td style="text-align: center; width: 80px;">
+                <td style="text-align: center; width: 120px;">
                     ${isHeld ? `
                         <button onclick="confirmSingleHeldProduct('${p.ProductId}')" class="chat-btn-product-action" style="
                             background: #10b981;
@@ -1741,6 +1741,19 @@
                             <i class="fas fa-check"></i>
                         </button>
                     ` : ''}
+                    <button onclick="sendProductToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}', '${p.ImageUrl || ''}')" class="chat-btn-product-action" style="
+                        background: #3b82f6;
+                        color: white;
+                        border: none;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        margin-right: 4px;
+                    " title="Gửi sản phẩm vào chat">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
                     <button onclick="removeChatProduct(${details.findIndex(d => d.ProductId === p.ProductId)})" class="chat-btn-product-action chat-btn-delete-item" title="Xóa">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -2442,6 +2455,144 @@
     } else {
         initImageZoom();
     }
+
+    /**
+     * Send Product to Chat
+     * Sends product image + name to the current chat conversation
+     * SAFETY: Only works if inside chat modal context (window.currentChatOrderData exists)
+     */
+    window.sendProductToChat = async function(productId, productName, productImageUrl) {
+        console.log('[SEND-PRODUCT] Attempting to send product:', { productId, productName, productImageUrl });
+
+        // SAFETY CHECK: Only work in chat modal context
+        if (!window.currentChatOrderData) {
+            console.error('[SEND-PRODUCT] Not in chat modal context - aborting');
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Chỉ có thể gửi sản phẩm trong chat modal', 'error');
+            }
+            return;
+        }
+
+        // SAFETY CHECK: Verify we have required global chat variables from tab1-orders.js
+        if (typeof window.currentChatChannelId === 'undefined' ||
+            typeof window.currentConversationId === 'undefined') {
+            console.error('[SEND-PRODUCT] Missing chat context variables - aborting');
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Không tìm thấy thông tin chat', 'error');
+            }
+            return;
+        }
+
+        // Get required IDs
+        const pageId = window.currentChatChannelId;
+        const conversationId = window.currentConversationId;
+        const customerId = window.currentChatOrderData.PartnerId ||
+                          (window.currentChatOrderData.Partner && window.currentChatOrderData.Partner.Id);
+
+        if (!pageId || !conversationId || !customerId) {
+            console.error('[SEND-PRODUCT] Missing required IDs:', { pageId, conversationId, customerId });
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Thiếu thông tin cần thiết để gửi', 'error');
+            }
+            return;
+        }
+
+        // Show loading notification
+        let loadingNotifId = null;
+        if (window.notificationManager) {
+            loadingNotifId = window.notificationManager.show(
+                `Đang gửi ${productName}...`,
+                'info',
+                0,
+                { showOverlay: true, persistent: true }
+            );
+        }
+
+        try {
+            // Get token
+            const token = await window.tokenManager.getToken();
+            if (!token) {
+                throw new Error('Không có token xác thực');
+            }
+
+            // Build API URL
+            const apiUrl = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/conversations/${conversationId}/messages`,
+                `access_token=${token}`
+            );
+
+            // Prepare request body
+            let requestBody;
+
+            if (productImageUrl) {
+                // Send with image
+                requestBody = {
+                    action: "reply_inbox",
+                    message: productName,  // Product name as message text
+                    customer_id: customerId,
+                    send_by_platform: "web",
+                    content_url: productImageUrl  // Product image URL
+                };
+            } else {
+                // Send text only (if no image)
+                requestBody = {
+                    action: "reply_inbox",
+                    message: productName,
+                    customer_id: customerId,
+                    send_by_platform: "web"
+                };
+            }
+
+            console.log('[SEND-PRODUCT] Sending request:', { apiUrl, requestBody });
+
+            // Send to Pancake API
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[SEND-PRODUCT] API error:', errorText);
+                throw new Error(`API trả về lỗi: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('[SEND-PRODUCT] Success:', result);
+
+            // Remove loading notification
+            if (window.notificationManager && loadingNotifId) {
+                window.notificationManager.remove(loadingNotifId);
+            }
+
+            // Show success notification
+            if (window.notificationManager) {
+                window.notificationManager.show(
+                    `✅ Đã gửi sản phẩm: ${productName}`,
+                    'success'
+                );
+            }
+
+        } catch (error) {
+            console.error('[SEND-PRODUCT] Error:', error);
+
+            // Remove loading notification
+            if (window.notificationManager && loadingNotifId) {
+                window.notificationManager.remove(loadingNotifId);
+            }
+
+            // Show error notification
+            if (window.notificationManager) {
+                window.notificationManager.show(
+                    `❌ Lỗi khi gửi sản phẩm: ${error.message}`,
+                    'error'
+                );
+            }
+        }
+    };
 
     console.log('[CHAT-PRODUCTS] Chat modal products manager loaded');
 
