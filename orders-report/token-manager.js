@@ -224,10 +224,16 @@ class TokenManager {
                 token_type: tokenData.token_type || 'Bearer',
                 expires_in: tokenData.expires_in || Math.floor((expiresAt - Date.now()) / 1000),
                 expires_at: expiresAt,
-                issued_at: tokenData.issued_at || Date.now(),
-                userName: tokenData.userName,
-                userId: tokenData.userId
+                issued_at: tokenData.issued_at || Date.now()
             };
+
+            // Only include userName and userId if they exist (they won't be in new API tokens)
+            if (tokenData.userName !== undefined) {
+                dataToSave.userName = tokenData.userName;
+            }
+            if (tokenData.userId !== undefined) {
+                dataToSave.userId = tokenData.userId;
+            }
 
             // Save to localStorage
             localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
