@@ -68,6 +68,7 @@ const odataRoutes = require('./routes/odata');
 const chatomniRoutes = require('./routes/chatomni');
 const pancakeRoutes = require('./routes/pancake');
 const imageProxyRoutes = require('./routes/image-proxy');
+const chatRoutes = require('./routes/chat'); // 🆕 NEW - Chat routes
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -75,6 +76,7 @@ app.use('/api/odata', odataRoutes);
 app.use('/api/api-ms/chatomni', chatomniRoutes);
 app.use('/api/pancake', pancakeRoutes);
 app.use('/api/image-proxy', imageProxyRoutes);
+app.use('/api/chat', chatRoutes); // 🆕 NEW - Chat endpoints
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
@@ -315,14 +317,22 @@ const interval = setInterval(function ping() {
     });
 }, 30000);
 
-wss.on('connection', (ws) => {
-    console.log('[WSS] Client connected');
-    ws.isAlive = true;
-    ws.on('pong', () => { ws.isAlive = true; });
+// 🆕 NEW - Initialize Chat WebSocket Handler
+const ChatWebSocketHandler = require('./chat-server/websocket-handler');
+const chatWSHandler = new ChatWebSocketHandler(wss);
 
-    ws.on('close', () => console.log('[WSS] Client disconnected'));
+// Store chatWSHandler in app for access in routes
+app.set('chatWSHandler', chatWSHandler);
 
-    ws.on('error', (err) => console.error('[WSS] Client error:', err));
+console.log('[CHAT-WS] ✅ Chat WebSocket handler initialized');
+
+// OLD WebSocket connection handler (kept for compatibility)
+// Note: Chat connections are handled by ChatWebSocketHandler
+// This is for any other WebSocket connections if needed
+wss.on('connection', (ws, req) => {
+    // Check if this is a chat connection (will be handled by ChatWebSocketHandler)
+    // For now, all connections go through ChatWebSocketHandler
+    console.log('[WSS] Legacy connection handler - delegating to ChatWebSocketHandler');
 });
 
 wss.on('close', function close() {

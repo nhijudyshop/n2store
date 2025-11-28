@@ -100,6 +100,12 @@ class AuthManager {
         return this.getAuthState();
     }
 
+    // 🆕 NEW - Get userId for chat system
+    getUserId() {
+        const auth = this.getAuthState();
+        return auth ? auth.userId : null;
+    }
+
     clearAuth() {
         this.currentUser = null;
         // Clear from both storage locations

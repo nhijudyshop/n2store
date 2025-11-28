@@ -436,6 +436,29 @@ document.addEventListener("DOMContentLoaded", function () {
                 ? AUTH_CONFIG.REMEMBER_DURATION
                 : AUTH_CONFIG.SESSION_DURATION;
 
+            // Get or create persistent userId for chat system
+            // Check if user already has userId from Firestore
+            let userId = userData.userId || null;
+
+            // If no userId exists, create one and save to Firestore
+            if (!userId) {
+                userId = `user_${username}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                console.log('🆕 Creating new userId for chat system:', userId);
+
+                // Save userId to Firestore for future logins
+                try {
+                    await db.collection('users').doc(username).update({
+                        userId: userId,
+                        userIdCreatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log('✅ userId saved to Firestore');
+                } catch (error) {
+                    console.warn('⚠️ Could not save userId to Firestore:', error);
+                }
+            } else {
+                console.log('✔️ Using existing userId:', userId);
+            }
+
             const authData = {
                 isLoggedIn: "true",
                 userType: `${username}-${userInfo.password}`,
@@ -447,6 +470,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 loginTime: new Date().toISOString(),
                 username: username,
                 uid: userInfo.uid,
+                userId: userId, // 🆕 NEW - Persistent chat system user ID
                 pagePermissions: userPermissions,
                 isRemembered: rememberMe,
             };
