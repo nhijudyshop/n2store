@@ -58,8 +58,13 @@ class ChatClient {
                 userName: this.authData.username
             });
 
-            // Sync user to Firestore
-            await this.syncUser();
+            // Sync user to Firestore (non-blocking - continues even if fails)
+            const syncResult = await this.syncUser();
+            if (syncResult) {
+                console.log('[CHAT-CLIENT] ✅ User sync successful');
+            } else {
+                console.warn('[CHAT-CLIENT] ⚠️ User sync skipped - continuing with limited functionality');
+            }
 
             // Connect WebSocket
             this.connectWebSocket();
@@ -74,6 +79,7 @@ class ChatClient {
 
     /**
      * Sync user to Firestore (first time or on login)
+     * Non-blocking: Returns null if sync fails to allow app to continue
      */
     async syncUser() {
         try {
@@ -81,11 +87,13 @@ class ChatClient {
                 method: 'POST'
             });
 
-            console.log('[CHAT-CLIENT] User synced:', response.user);
+            console.log('[CHAT-CLIENT] ✅ User synced:', response.user);
             return response.user;
         } catch (error) {
-            console.error('[CHAT-CLIENT] Failed to sync user:', error);
-            throw error;
+            console.warn('[CHAT-CLIENT] ⚠️ Failed to sync user (backend may not be available):', error.message);
+            console.warn('[CHAT-CLIENT] ⚠️ Continuing without user sync - some features may be limited');
+            // Don't throw - allow app to continue even if backend is not ready
+            return null;
         }
     }
 
