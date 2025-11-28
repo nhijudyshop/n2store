@@ -14,113 +14,65 @@ class ChatPage {
     }
 
     async init() {
-        console.log('[CHAT-PAGE] Initializing...');
+        console.log('[CHAT-PAGE] Initializing in OFFLINE MODE...');
 
-        // Wait for chat client to initialize
-        if (!window.chatClient) {
-            console.error('[CHAT-PAGE] Chat client not found');
-            this.showToast('Lỗi: Chat client không khả dụng', 'error');
-            return;
-        }
+        // ⚠️ OFFLINE MODE - Backend not ready
+        // Chat UI will display but without real-time functionality
 
         // Setup event listeners
         this.setupEventListeners();
 
-        // Setup chat client callbacks
-        this.setupChatClientCallbacks();
+        // Show offline mode message
+        this.showOfflineMode();
 
-        // Try to initialize chat client
-        try {
-            if (!chatClient.isConnected()) {
-                await chatClient.init();
-            }
+        console.log('[CHAT-PAGE] ✅ Initialized in offline mode');
+    }
 
-            // Load initial data
-            await this.loadConversations();
-            await this.loadOnlineUsers();
-        } catch (error) {
-            console.error('[CHAT-PAGE] Initialization failed:', error);
-            this.showToast('Không thể kết nối chat server: ' + error.message, 'error');
+    showOfflineMode() {
+        // Show message in conversations list
+        document.getElementById('conversationsList').innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #666;">
+                <i data-lucide="wifi-off" style="width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5;"></i>
+                <h4 style="margin: 8px 0; font-size: 16px; color: #333;">Chat Offline</h4>
+                <p style="font-size: 13px; margin: 0; line-height: 1.5;">
+                    Chức năng chat đang được phát triển.<br>
+                    Backend server chưa sẵn sàng.
+                </p>
+            </div>
+        `;
+
+        // Show message in online users
+        document.getElementById('onlineUsersList').innerHTML = `
+            <div style="padding: 12px; text-align: center; color: #999; font-size: 13px;">
+                Offline
+            </div>
+        `;
+
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
         }
     }
 
     setupEventListeners() {
-        // New chat button
+        // New chat button - DISABLED in offline mode
         document.getElementById('newChatBtn').addEventListener('click', () => {
-            this.openNewChatModal();
+            this.showToast('⚠️ Chat đang ở chế độ offline - Backend chưa sẵn sàng', 'warning');
         });
 
-        // Refresh button
-        document.getElementById('refreshBtn').addEventListener('click', async () => {
-            await this.loadConversations();
-            await this.loadOnlineUsers();
+        // Refresh button - DISABLED in offline mode
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            this.showToast('⚠️ Chat đang ở chế độ offline - Không thể làm mới', 'warning');
         });
 
-        // Search conversations
+        // Search conversations - keep as is (local filtering only)
         document.getElementById('searchConversations').addEventListener('input', (e) => {
-            this.filterConversations(e.target.value);
+            // Disabled in offline mode - no conversations to filter
         });
 
-        // Message input
-        const messageInput = document.getElementById('messageInput');
-        messageInput.addEventListener('input', () => {
-            this.handleMessageInput();
-        });
-
-        messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
-
-        // Send button
-        document.getElementById('sendBtn').addEventListener('click', () => {
-            this.sendMessage();
-        });
-
-        // Attach buttons
-        document.getElementById('attachBtn').addEventListener('click', () => {
-            document.getElementById('fileInput').click();
-        });
-
-        document.getElementById('imageBtn').addEventListener('click', () => {
-            document.getElementById('imageInput').click();
-        });
-
-        // File inputs
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            this.handleFileUpload(e.target.files[0]);
-        });
-
-        document.getElementById('imageInput').addEventListener('change', (e) => {
-            this.handleFileUpload(e.target.files[0]);
-        });
-
-        // Modal
-        document.getElementById('closeModalBtn').addEventListener('click', () => {
-            this.closeNewChatModal();
-        });
-
-        document.getElementById('cancelModalBtn').addEventListener('click', () => {
-            this.closeNewChatModal();
-        });
-
-        document.getElementById('createChatBtn').addEventListener('click', () => {
-            this.createChat();
-        });
-
-        // Chat type radio
-        document.querySelectorAll('input[name="chatType"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                this.toggleGroupNameInput(e.target.value === 'group');
-            });
-        });
-
-        // Search users in modal
-        document.getElementById('searchUsers').addEventListener('input', (e) => {
-            this.filterUsersInModal(e.target.value);
-        });
+        // ALL OTHER EVENT LISTENERS DISABLED IN OFFLINE MODE
+        // Message input, send, attach, modal - all require backend
+        console.log('[CHAT-PAGE] ℹ️ Event listeners limited in offline mode');
     }
 
     setupChatClientCallbacks() {

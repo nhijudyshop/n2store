@@ -480,17 +480,18 @@ class ChatClient {
 const chatClient = new ChatClient();
 window.chatClient = chatClient;
 
-// Auto-initialize after page load if user is authenticated
-window.addEventListener('DOMContentLoaded', () => {
-    // Wait a bit for authManager to initialize
-    setTimeout(() => {
-        if (window.authManager && authManager.isAuthenticated()) {
-            console.log('[CHAT-CLIENT] Auto-initializing...');
-            chatClient.init().catch(error => {
-                console.error('[CHAT-CLIENT] Auto-init failed:', error);
-            });
-        }
-    }, 1000);
-});
+// Auto-initialize DISABLED - Backend not ready yet
+// Chat page will handle initialization manually
+// window.addEventListener('DOMContentLoaded', () => {
+//     // Wait a bit for authManager to initialize
+//     setTimeout(() => {
+//         if (window.authManager && authManager.isAuthenticated()) {
+//             console.log('[CHAT-CLIENT] Auto-initializing...');
+//             chatClient.init().catch(error => {
+//                 console.error('[CHAT-CLIENT] Auto-init failed:', error);
+//             });
+//         }
+//     }, 1000);
+// });
 
 console.log('[CHAT-CLIENT] Module loaded');
