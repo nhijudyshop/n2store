@@ -309,11 +309,9 @@ export default {
         // Realtime Server (Render)
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
       } else if (pathname.startsWith('/api/chat/')) {
-        // Chat Server (Render) - UPDATE THIS URL after deploying backend!
-        // Replace with your actual Render service URL
+        // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
-        targetUrl = `https://YOUR-RENDER-SERVICE-NAME.onrender.com/api/chat/${chatPath}${url.search}`;
-        // Example: https://n2store-chat-api.onrender.com/api/chat/${chatPath}${url.search}
+        targetUrl = `https://n2store-fallback.onrender.com/api/chat/${chatPath}${url.search}`;
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all)
         const apiPath = pathname.replace(/^\/api\//, '');
