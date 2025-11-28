@@ -5,7 +5,7 @@
 
 const CONFIG = {
     // API Base URL - Thay đổi theo môi trường triển khai
-    API_BASE_URL: 'https://your-cloudflare-worker.workers.dev',
+    API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
     // Hoặc sử dụng Render.com trực tiếp
     // API_BASE_URL: 'https://n2store-fallback.onrender.com',
