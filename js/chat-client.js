@@ -5,8 +5,8 @@
 
 class ChatClient {
     constructor(config = {}) {
-        // Server URLs
-        this.serverUrl = config.serverUrl || 'https://n2store-api-fallback.onrender.com';
+        // Server URLs - Use Cloudflare Worker proxy for CORS bypass
+        this.serverUrl = config.serverUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.wsUrl = config.wsUrl || 'wss://n2store-api-fallback.onrender.com';
 
         // State
