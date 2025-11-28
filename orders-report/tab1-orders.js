@@ -2309,6 +2309,12 @@ function loadMoreRows() {
 
     tbody.appendChild(fragment);
 
+    // Apply column visibility to newly added rows
+    if (window.columnVisibility) {
+        const settings = window.columnVisibility.load();
+        window.columnVisibility.apply(settings);
+    }
+
     // Add spacer back if still have more
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
