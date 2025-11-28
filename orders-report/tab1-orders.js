@@ -5312,7 +5312,7 @@ window.sendReplyComment = async function () {
         }
 
         // Validate
-        if (!message && !currentPastedImage) {
+        if (!message && !currentPastedImage && !window.currentProductToSend) {
             alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
             return;
         }
@@ -5339,6 +5339,7 @@ window.sendReplyComment = async function () {
         window.chatMessageQueue.push({
             message,
             pastedImage: currentPastedImage,
+            productToSend: window.currentProductToSend,  // Add product to send
             order: currentOrder,
             conversationId: window.currentConversationId,
             channelId: window.currentChatChannelId,
@@ -5353,6 +5354,7 @@ window.sendReplyComment = async function () {
         // Reset textarea height to default
         messageInput.style.height = 'auto';
         currentPastedImage = null;
+        window.currentProductToSend = null;  // Clear product to send
         const previewContainer = document.getElementById('chatImagePreviewContainer');
         if (previewContainer) {
             previewContainer.innerHTML = '';
@@ -5403,7 +5405,7 @@ function getImageDimensions(blob) {
  * Internal function to actually send the message (called by queue processor)
  */
 async function sendReplyCommentInternal(messageData) {
-    const { message, pastedImage, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
+    const { message, pastedImage, productToSend, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
 
     const isMessage = chatType === 'message';
 
@@ -5417,9 +5419,59 @@ async function sendReplyCommentInternal(messageData) {
         // Check 24-hour window for INBOX messages only (skip check, already validated)
         showChatSendingIndicator('Kiểm tra 24h...');
 
-        // Step 0: Upload image if exists
+        // Step 0: Upload image if exists (pasted image or product image)
         let imageData = null;
-        if (pastedImage) {
+        let finalMessage = message;
+
+        // Handle product to send
+        if (productToSend) {
+            console.log('[SEND-REPLY] Processing product to send:', productToSend);
+            showChatSendingIndicator('Đang tải ảnh sản phẩm...');
+
+            // Use product name as message if no text message provided
+            if (!finalMessage) {
+                finalMessage = productToSend.productName;
+            }
+
+            // If product has image, fetch and upload it
+            if (productToSend.productImageUrl) {
+                try {
+                    // Fetch image as Blob
+                    const response = await fetch(productToSend.productImageUrl);
+                    if (!response.ok) throw new Error('Failed to fetch product image');
+                    const imageBlob = await response.blob();
+
+                    // Convert to File
+                    const imageFile = new File(
+                        [imageBlob],
+                        `product_${productToSend.productId}_${Date.now()}.jpg`,
+                        { type: imageBlob.type || 'image/jpeg' }
+                    );
+
+                    showChatSendingIndicator('Đang upload ảnh...');
+
+                    // Upload image and get dimensions in parallel
+                    const [uploadResult, dimensions] = await Promise.all([
+                        window.pancakeDataManager.uploadImage(channelId, imageFile),
+                        getImageDimensions(imageFile)
+                    ]);
+
+                    imageData = {
+                        content_url: uploadResult.content_url,
+                        content_id: uploadResult.id,
+                        width: dimensions.width,
+                        height: dimensions.height
+                    };
+
+                    console.log('[SEND-REPLY] Product image uploaded:', imageData);
+                } catch (uploadError) {
+                    console.error('[SEND-REPLY] Product image upload failed:', uploadError);
+                    throw new Error('Tải ảnh sản phẩm thất bại: ' + uploadError.message);
+                }
+            }
+        }
+        // Handle pasted image
+        else if (pastedImage) {
             console.log('[SEND-REPLY] Uploading pasted image...');
             showChatSendingIndicator('Đang tải ảnh...');
             try {
@@ -5450,7 +5502,7 @@ async function sendReplyCommentInternal(messageData) {
             conversationId,
             postId,
             parentCommentId,
-            message,
+            message: finalMessage,
             imageData
         });
 
@@ -5477,7 +5529,7 @@ async function sendReplyCommentInternal(messageData) {
             if (imageData) {
                 const formData = new FormData();
                 formData.append('action', 'reply_inbox');
-                formData.append('message', message);
+                formData.append('message', finalMessage);
                 formData.append('customer_id', customerId);
                 formData.append('send_by_platform', 'web');
                 formData.append('content_url', imageData.content_url);
@@ -5499,7 +5551,7 @@ async function sendReplyCommentInternal(messageData) {
             } else {
                 const replyBody = {
                     action: "reply_inbox",
-                    message: message,
+                    message: finalMessage,
                     customer_id: customerId,
                     send_by_platform: "web"
                 };
@@ -5532,7 +5584,7 @@ async function sendReplyCommentInternal(messageData) {
                     parent_id: parentCommentId,
                     user_selected_reply_to: null,
                     post_id: postId,
-                    message: message,
+                    message: finalMessage,
                     send_by_platform: "web"
                 };
 
@@ -5545,7 +5597,7 @@ async function sendReplyCommentInternal(messageData) {
                 replyBody = {
                     action: "reply_comment",
                     post_id: postId,
-                    message: message,
+                    message: finalMessage,
                     send_by_platform: "web"
                 };
 
