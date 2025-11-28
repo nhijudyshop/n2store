@@ -5373,6 +5373,33 @@ window.sendReplyComment = async function () {
 };
 
 /**
+ * Get image dimensions from blob/file
+ * @param {Blob|File} blob
+ * @returns {Promise<{width: number, height: number}>}
+ */
+function getImageDimensions(blob) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+
+        img.onload = function() {
+            URL.revokeObjectURL(url);
+            resolve({
+                width: img.naturalWidth,
+                height: img.naturalHeight
+            });
+        };
+
+        img.onerror = function() {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image'));
+        };
+
+        img.src = url;
+    });
+}
+
+/**
  * Internal function to actually send the message (called by queue processor)
  */
 async function sendReplyCommentInternal(messageData) {
@@ -5391,13 +5418,25 @@ async function sendReplyCommentInternal(messageData) {
         showChatSendingIndicator('Kiểm tra 24h...');
 
         // Step 0: Upload image if exists
-        let imageUrl = null;
+        let imageData = null;
         if (pastedImage) {
             console.log('[SEND-REPLY] Uploading pasted image...');
             showChatSendingIndicator('Đang tải ảnh...');
             try {
-                imageUrl = await window.pancakeDataManager.uploadImage(channelId, pastedImage);
-                console.log('[SEND-REPLY] Image uploaded, URL:', imageUrl);
+                // Upload image and get dimensions in parallel
+                const [uploadResult, dimensions] = await Promise.all([
+                    window.pancakeDataManager.uploadImage(channelId, pastedImage),
+                    getImageDimensions(pastedImage)
+                ]);
+
+                imageData = {
+                    content_url: uploadResult.content_url,
+                    content_id: uploadResult.id,
+                    width: dimensions.width,
+                    height: dimensions.height
+                };
+
+                console.log('[SEND-REPLY] Image uploaded:', imageData);
             } catch (uploadError) {
                 console.error('[SEND-REPLY] Image upload failed:', uploadError);
                 throw new Error('Tải ảnh thất bại: ' + uploadError.message);
@@ -5412,7 +5451,7 @@ async function sendReplyCommentInternal(messageData) {
             postId,
             parentCommentId,
             message,
-            imageUrl
+            imageData
         });
 
         showChatSendingIndicator('Đang gửi...');
@@ -5423,7 +5462,8 @@ async function sendReplyCommentInternal(messageData) {
             `access_token=${token}`
         );
 
-        let replyBody;
+        let fetchOptions;
+
         if (chatType === 'message') {
             // Payload for sending a message (reply_inbox)
             // Get customer_id from order (required by backend API)
@@ -5432,25 +5472,58 @@ async function sendReplyCommentInternal(messageData) {
                 throw new Error('Không tìm thấy mã khách hàng (PartnerId) trong đơn hàng');
             }
 
-            replyBody = {
-                action: "reply_inbox",
-                message: message,
-                customer_id: customerId,  // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
-                send_by_platform: "web"
-            };
+            // When sending with image, use FormData (multipart/form-data)
+            // When sending text only, use JSON
+            if (imageData) {
+                const formData = new FormData();
+                formData.append('action', 'reply_inbox');
+                formData.append('message', message);
+                formData.append('customer_id', customerId);
+                formData.append('send_by_platform', 'web');
+                formData.append('content_url', imageData.content_url);
+                formData.append('content_id', imageData.content_id);
+                formData.append('width', imageData.width.toString());
+                formData.append('height', imageData.height.toString());
 
-            // Add replied_message_id if replying to specific message
-            if (repliedMessageId) {
-                replyBody.replied_message_id = repliedMessageId;
-                console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
-            }
+                if (repliedMessageId) {
+                    formData.append('replied_message_id', repliedMessageId);
+                    console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
+                }
 
-            // Add image content_url if available
-            if (imageUrl) {
-                replyBody.content_url = imageUrl;
+                fetchOptions = {
+                    method: 'POST',
+                    body: formData
+                };
+
+                console.log('[SEND-REPLY] Using FormData (multipart) for image message');
+            } else {
+                const replyBody = {
+                    action: "reply_inbox",
+                    message: message,
+                    customer_id: customerId,
+                    send_by_platform: "web"
+                };
+
+                if (repliedMessageId) {
+                    replyBody.replied_message_id = repliedMessageId;
+                    console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
+                }
+
+                fetchOptions = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(replyBody)
+                };
+
+                console.log('[SEND-REPLY] Using JSON for text-only message');
             }
         } else {
             // Payload for replying to a comment OR creating a new top-level comment
+            let replyBody;
+
             if (parentCommentId) {
                 // Reply to specific comment
                 replyBody = {
@@ -5464,41 +5537,39 @@ async function sendReplyCommentInternal(messageData) {
                 };
 
                 // Add image content_url if available
-                if (imageUrl) {
-                    replyBody.content_url = imageUrl;
+                if (imageData) {
+                    replyBody.content_url = imageData.content_url;
                 }
             } else {
                 // Top-level comment (no parent)
-                // Based on typical Pancake/Facebook API behavior for new comments on a post
                 replyBody = {
-                    action: "reply_comment", // Still use reply_comment action? Or maybe just "comment"? 
-                    // Usually for top level, we just need post_id. 
-                    // If Pancake requires "reply_comment" action even for new comments, we might need to omit parent_id.
-                    // Let's assume we omit parent_id/message_id.
+                    action: "reply_comment",
                     post_id: postId,
                     message: message,
                     send_by_platform: "web"
                 };
 
                 // Add image content_url if available
-                if (imageUrl) {
-                    replyBody.content_url = imageUrl;
+                if (imageData) {
+                    replyBody.content_url = imageData.content_url;
                 }
                 console.log('[SEND-REPLY] Sending top-level comment (no parent_id)');
             }
+
+            fetchOptions = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(replyBody)
+            };
         }
 
         console.log('[SEND-REPLY] POST URL:', replyUrl);
-        console.log('[SEND-REPLY] Request body:', replyBody);
+        console.log('[SEND-REPLY] Request options:', fetchOptions);
 
-        const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(replyBody)
-        });
+        const replyResponse = await API_CONFIG.smartFetch(replyUrl, fetchOptions);
 
         if (!replyResponse.ok) {
             const errorText = await replyResponse.text();
@@ -5556,10 +5627,10 @@ async function sendReplyCommentInternal(messageData) {
             };
 
             // Add image attachment if exists
-            if (imageUrl) {
+            if (imageData) {
                 tempMessage.Attachments = [{
                     Type: 'image',
-                    Payload: { Url: imageUrl }
+                    Payload: { Url: imageData.content_url }
                 }];
             }
 
