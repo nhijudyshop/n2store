@@ -10,6 +10,8 @@ const { verifyN2StoreAuth, verifyParticipant } = require('../chat-server/auth-mi
 const {
     db,
     admin,
+    isInitialized,
+    getInitializationError,
     getOrCreateUser,
     getOrCreateDirectChat,
     sendMessage,
@@ -25,8 +27,22 @@ const upload = multer({
     }
 });
 
-// Apply auth middleware to all chat routes
-router.use(verifyN2StoreAuth);
+// Middleware to check Firebase initialization
+function checkFirebaseInit(req, res, next) {
+    if (!isInitialized()) {
+        const error = getInitializationError();
+        return res.status(503).json({
+            error: 'Chat service unavailable',
+            message: 'Firebase is not initialized. Please contact administrator to configure Firebase credentials.',
+            details: error ? error.message : 'Unknown error'
+        });
+    }
+    next();
+}
+
+// Apply middlewares to all chat routes
+router.use(checkFirebaseInit); // Check Firebase first
+router.use(verifyN2StoreAuth); // Then verify auth
 
 // =====================================================
 // USER ENDPOINTS

@@ -5,11 +5,17 @@ const admin = require('firebase-admin');
 
 // Initialize Firebase Admin SDK
 let initialized = false;
+let initializationError = null;
 
 function initializeFirebase() {
     if (initialized) {
         console.log('[FIREBASE] Already initialized');
-        return;
+        return true;
+    }
+
+    if (initializationError) {
+        // Already tried and failed
+        return false;
     }
 
     try {
@@ -17,7 +23,7 @@ function initializeFirebase() {
         if (admin.apps.length > 0) {
             console.log('[FIREBASE] Using existing Firebase app');
             initialized = true;
-            return;
+            return true;
         }
 
         // Get credentials from environment variables
@@ -26,11 +32,17 @@ function initializeFirebase() {
         const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
         if (!projectId || !clientEmail || !privateKey) {
-            console.error('[FIREBASE] Missing environment variables:');
-            console.error('- FIREBASE_PROJECT_ID:', !!projectId);
-            console.error('- FIREBASE_CLIENT_EMAIL:', !!clientEmail);
-            console.error('- FIREBASE_PRIVATE_KEY:', !!privateKey);
-            throw new Error('Missing Firebase credentials in environment variables');
+            const errorMsg = 'Missing Firebase credentials - Chat features disabled';
+            console.warn('[FIREBASE] ⚠️', errorMsg);
+            console.warn('[FIREBASE] Missing environment variables:');
+            console.warn('  - FIREBASE_PROJECT_ID:', !!projectId);
+            console.warn('  - FIREBASE_CLIENT_EMAIL:', !!clientEmail);
+            console.warn('  - FIREBASE_PRIVATE_KEY:', !!privateKey);
+            console.warn('[FIREBASE] Add credentials to enable chat features');
+            console.warn('[FIREBASE] Server will continue without chat functionality');
+
+            initializationError = new Error(errorMsg);
+            return false;
         }
 
         // Initialize with service account
@@ -46,24 +58,64 @@ function initializeFirebase() {
         initialized = true;
         console.log('[FIREBASE] ✅ Initialized successfully');
         console.log('[FIREBASE] Project ID:', projectId);
+        return true;
     } catch (error) {
         console.error('[FIREBASE] ❌ Initialization failed:', error.message);
-        throw error;
+        console.error('[FIREBASE] Server will continue without chat functionality');
+        initializationError = error;
+        return false;
     }
 }
 
-// Initialize on module load
+// Try to initialize on module load (non-blocking)
 initializeFirebase();
 
-// Get Firestore instance
-const db = admin.firestore();
+// Get Firestore instance (lazy)
+function getDb() {
+    if (!initialized) {
+        throw new Error('Firebase not initialized. Please add Firebase credentials to environment variables.');
+    }
+    return admin.firestore();
+}
 
-// Get Storage instance
-const storage = admin.storage();
+// Get Storage instance (lazy)
+function getStorage() {
+    if (!initialized) {
+        throw new Error('Firebase not initialized. Please add Firebase credentials to environment variables.');
+    }
+    return admin.storage();
+}
+
+// Backward compatibility
+const db = new Proxy({}, {
+    get(target, prop) {
+        return getDb()[prop];
+    }
+});
+
+const storage = new Proxy({}, {
+    get(target, prop) {
+        return getStorage()[prop];
+    }
+});
 
 // =====================================================
 // HELPER FUNCTIONS
 // =====================================================
+
+/**
+ * Check if Firebase is initialized
+ */
+function isInitialized() {
+    return initialized;
+}
+
+/**
+ * Get initialization error
+ */
+function getInitializationError() {
+    return initializationError;
+}
 
 /**
  * Verify auth data format
@@ -320,6 +372,8 @@ module.exports = {
     admin,
     db,
     storage,
+    isInitialized,
+    getInitializationError,
     verifyAuthData,
     getOrCreateUser,
     getOrCreateDirectChat,

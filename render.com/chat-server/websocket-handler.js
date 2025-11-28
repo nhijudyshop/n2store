@@ -3,18 +3,36 @@
 // Handles realtime chat functionality
 // =====================================================
 
-const { db, verifyAuthData, updateUserOnlineStatus } = require('./firebase-service');
+const { db, verifyAuthData, updateUserOnlineStatus, isInitialized } = require('./firebase-service');
 
 class ChatWebSocketHandler {
     constructor(wss) {
         this.wss = wss;
         this.clients = new Map(); // userId -> ws connection
         this.typingTimers = new Map(); // chatId_userId -> timer
+        this.firebaseReady = isInitialized();
 
         console.log('[CHAT-WS] Initializing WebSocket handler...');
 
+        if (!this.firebaseReady) {
+            console.warn('[CHAT-WS] ⚠️ Firebase not initialized - Chat WebSocket disabled');
+            console.warn('[CHAT-WS] Add Firebase credentials to enable realtime chat');
+        }
+
         wss.on('connection', (ws, req) => {
             console.log('[CHAT-WS] New client connected from:', req.socket.remoteAddress);
+
+            // Check if Firebase is ready
+            if (!isInitialized()) {
+                console.warn('[CHAT-WS] Rejecting connection - Firebase not initialized');
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: 'Chat service unavailable. Firebase not configured.'
+                }));
+                setTimeout(() => ws.close(), 1000);
+                return;
+            }
+
             this.handleConnection(ws, req);
         });
 
