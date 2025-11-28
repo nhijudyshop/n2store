@@ -68,7 +68,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-Auth-Data',
           'Access-Control-Max-Age': '86400',
         },
       });
@@ -299,6 +299,7 @@ export default {
 
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
+      let isTPOSRequest = false;
 
       if (pathname.startsWith('/api/pancake/')) {
         // Pancake API
@@ -307,10 +308,15 @@ export default {
       } else if (pathname === '/api/realtime/start') {
         // Realtime Server (Render)
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
+      } else if (pathname.startsWith('/api/chat/')) {
+        // Chat Server (Render)
+        const chatPath = pathname.replace(/^\/api\/chat\//, '');
+        targetUrl = `https://n2store-api-fallback.onrender.com/api/chat/${chatPath}${url.search}`;
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all)
         const apiPath = pathname.replace(/^\/api\//, '');
         targetUrl = `https://tomato.tpos.vn/${apiPath}${url.search}`;
+        isTPOSRequest = true;
       } else {
         // Unknown route
         return new Response(JSON.stringify({
@@ -325,10 +331,14 @@ export default {
         });
       }
 
-      // Get request headers (simple approach)
+      // Get request headers
       const headers = new Headers(request.headers);
-      headers.set('Origin', 'https://tomato.tpos.vn/');
-      headers.set('Referer', 'https://tomato.tpos.vn/');
+
+      // Only set Origin/Referer for TPOS requests
+      if (isTPOSRequest) {
+        headers.set('Origin', 'https://tomato.tpos.vn/');
+        headers.set('Referer', 'https://tomato.tpos.vn/');
+      }
 
       // Forward request
       const response = await fetch(targetUrl, {
@@ -343,7 +353,7 @@ export default {
       const newResponse = new Response(response.body, response);
       newResponse.headers.set('Access-Control-Allow-Origin', '*');
       newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Auth-Data');
 
       return newResponse;
 
