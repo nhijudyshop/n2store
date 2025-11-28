@@ -22,6 +22,41 @@ router.post('/webhook', async (req, res) => {
         body: req.body
     });
 
+    // ============================================
+    // AUTHENTICATION - Verify API Key (if enabled)
+    // ============================================
+    const SEPAY_API_KEY = process.env.SEPAY_API_KEY;
+
+    if (SEPAY_API_KEY) {
+        // API Key authentication is enabled
+        const authHeader = req.headers['authorization'];
+
+        if (!authHeader) {
+            console.error('[SEPAY-WEBHOOK] Missing Authorization header');
+            await logWebhook(db, null, req, 401, { error: 'Missing Authorization header' }, 'Unauthorized - Missing auth header');
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized - Missing Authorization header'
+            });
+        }
+
+        // Sepay sends: "Authorization: Apikey YOUR_API_KEY"
+        const apiKey = authHeader.replace(/^Apikey\s+/i, '').trim();
+
+        if (apiKey !== SEPAY_API_KEY) {
+            console.error('[SEPAY-WEBHOOK] Invalid API Key');
+            await logWebhook(db, null, req, 401, { error: 'Invalid API Key' }, 'Unauthorized - Invalid API key');
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized - Invalid API Key'
+            });
+        }
+
+        console.log('[SEPAY-WEBHOOK] ✅ API Key validated');
+    } else {
+        console.warn('[SEPAY-WEBHOOK] ⚠️  Running without API Key authentication (not recommended for production)');
+    }
+
     try {
         const webhookData = req.body;
 

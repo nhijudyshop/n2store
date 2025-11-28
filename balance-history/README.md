@@ -37,14 +37,42 @@ balance-history/
 
 ### 1. Setup Database
 
-Chạy migration SQL trên PostgreSQL database của Render.com:
+**Lấy Database URL từ Render.com:**
+
+1. Vào [Render Dashboard](https://dashboard.render.com/)
+2. Click vào PostgreSQL database của bạn
+3. Copy **Internal Database URL** hoặc **External Database URL**:
+   - **Internal**: Nếu chạy migration từ Render Web Service
+   - **External**: Nếu chạy từ máy local
+
+**Chạy migration:**
 
 ```bash
-# Connect to your Render PostgreSQL database
-psql "postgresql://user:password@host:port/database"
+# Option 1: Từ máy local (dùng External Database URL)
+psql "postgresql://user:password@host:port/database" -f render.com/migrations/create_balance_history.sql
 
-# Run migration
+# Option 2: Hoặc connect rồi run
+psql "postgresql://user:password@host:port/database"
 \i render.com/migrations/create_balance_history.sql
+
+# Option 3: Từ Render Shell (dùng Internal Database URL)
+# Vào Render Dashboard → Your Service → Shell
+psql $DATABASE_URL -f render.com/migrations/create_balance_history.sql
+```
+
+**Verify migration thành công:**
+
+```sql
+-- Check tables created
+\dt
+
+-- Should see:
+-- balance_history
+-- sepay_webhook_logs
+
+-- Check view
+\dv
+-- Should see: balance_statistics
 ```
 
 ### 2. Deploy Backend
@@ -81,8 +109,20 @@ https://your-worker.your-subdomain.workers.dev/api/sepay/webhook
 ```
 
 **Authentication Method:**
-- Chọn "API Key" hoặc "No Authentication"
-- Nếu dùng API Key, cần thêm xác thực vào `sepay-webhook.js`
+
+⭐ **KHUYẾN NGHỊ: Chọn "API Key"** (bảo mật hơn)
+
+1. Chọn authentication method: **"API Key"**
+2. Sepay sẽ tạo API key cho bạn, ví dụ: `sepay_sk_abc123xyz456`
+3. Copy API key và thêm vào **Render.com Environment Variables**:
+   - Vào Render Dashboard → Your Service → Environment
+   - Add variable: `SEPAY_API_KEY=sepay_sk_abc123xyz456`
+4. Webhook header format: `"Authorization": "Apikey YOUR_API_KEY"`
+
+**Nếu chọn "No Authentication":**
+- Đơn giản hơn nhưng **KHÔNG AN TOÀN**
+- Code vẫn hoạt động (sẽ skip authentication check)
+- Chỉ nên dùng cho testing/development
 
 **Expected Response:**
 - Status Code: `200`
