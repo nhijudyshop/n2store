@@ -7074,28 +7074,30 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                 // Fetch latest comments
                 window.chatDataManager.fetchComments(pageId, psid).then(response => {
                     if (response && response.comments && response.comments.length > 0) {
-                        const newestComment = response.comments[0];
+                        const fetchedComments = response.comments;
 
-                        // Check if we already have this comment to avoid duplicates
-                        const exists = allChatComments.some(c =>
-                            (c.Id === newestComment.Id || c.id === newestComment.id) && !c.is_temp
-                        );
+                        // Find new comments that don't exist in allChatComments
+                        const newComments = fetchedComments.filter(fetched => {
+                            return !allChatComments.some(existing =>
+                                (existing.Id === fetched.Id || existing.id === fetched.id) && !existing.is_temp
+                            );
+                        });
 
-                        if (!exists) {
-                            console.log('[CHAT MODAL] Appending new comment:', newestComment);
+                        if (newComments.length > 0) {
+                            console.log(`[CHAT MODAL] Found ${newComments.length} new comment(s):`, newComments);
 
-                            // Remove any temp comments (will be replaced by real comment)
+                            // Remove any temp comments (will be replaced by real comments)
                             allChatComments = allChatComments.filter(c => !c.is_temp);
 
-                            // Add to beginning of array (since renderComments reverses it)
-                            allChatComments.unshift(newestComment);
+                            // Add new comments to beginning of array (since renderComments reverses it)
+                            allChatComments.unshift(...newComments);
 
                             // Re-render the chat (without forcing scroll)
                             renderComments(allChatComments, false);
 
-                            console.log('[CHAT MODAL] Added realtime comment to UI');
+                            console.log('[CHAT MODAL] Added realtime comment(s) to UI');
                         } else {
-                            console.log('[CHAT MODAL] Comment already exists in view.');
+                            console.log('[CHAT MODAL] No new comments found.');
                         }
                     }
                 }).catch(err => {
@@ -7106,28 +7108,30 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
                 // We use the existing fetchMessages function which handles API calls
                 window.chatDataManager.fetchMessages(pageId, psid).then(response => {
                     if (response && response.messages && response.messages.length > 0) {
-                        const newestMessage = response.messages[0];
+                        const fetchedMessages = response.messages;
 
-                        // Check if we already have this message to avoid duplicates
-                        const exists = allChatMessages.some(m =>
-                            (m.Id === newestMessage.Id || m.id === newestMessage.id) && !m.is_temp
-                        );
+                        // Find new messages that don't exist in allChatMessages
+                        const newMessages = fetchedMessages.filter(fetched => {
+                            return !allChatMessages.some(existing =>
+                                (existing.Id === fetched.Id || existing.id === fetched.id) && !existing.is_temp
+                            );
+                        });
 
-                        if (!exists) {
-                            console.log('[CHAT MODAL] Appending new message:', newestMessage);
+                        if (newMessages.length > 0) {
+                            console.log(`[CHAT MODAL] Found ${newMessages.length} new message(s):`, newMessages);
 
-                            // Remove any temp messages (will be replaced by real message)
+                            // Remove any temp messages (will be replaced by real messages)
                             allChatMessages = allChatMessages.filter(m => !m.is_temp);
 
-                            // Add to beginning of array (since renderChatMessages reverses it)
-                            allChatMessages.unshift(newestMessage);
+                            // Add new messages to beginning of array (since renderChatMessages reverses it)
+                            allChatMessages.unshift(...newMessages);
 
                             // Re-render the chat (without forcing scroll)
                             renderChatMessages(allChatMessages, false);
 
-                            console.log('[CHAT MODAL] Added realtime message to UI');
+                            console.log('[CHAT MODAL] Added realtime message(s) to UI');
                         } else {
-                            console.log('[CHAT MODAL] Message already exists in view.');
+                            console.log('[CHAT MODAL] No new messages found.');
                         }
                     }
                 }).catch(err => {
