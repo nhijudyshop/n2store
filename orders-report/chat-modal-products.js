@@ -2520,104 +2520,76 @@
     }
 
     /**
-     * Current product to send (stores product info for preview before sending)
-     */
-    window.currentProductToSend = null;
-
-    /**
-     * Set Product to Send (Show preview in chat input area)
-     * Instead of sending immediately, show preview like pasted images
-     * User can then send via Send button or clear via X button
+     * Send product to chat
+     * Downloads image and pastes to chat input like clipboard paste
+     * Sets product name in chat input
      */
     window.sendProductToChat = async function(productId, productName, productImageUrl) {
-        console.log('[SET-PRODUCT] Setting product to send:', { productId, productName, productImageUrl });
+        console.log('[SEND-PRODUCT] Sending product to chat:', { productId, productName, productImageUrl });
 
         // SAFETY CHECK: Only work in chat modal context
         if (!window.currentChatOrderData) {
-            console.error('[SET-PRODUCT] Not in chat modal context - aborting');
+            console.error('[SEND-PRODUCT] Not in chat modal context - aborting');
             if (window.notificationManager) {
                 window.notificationManager.show('❌ Chỉ có thể gửi sản phẩm trong chat modal', 'error');
             }
             return;
         }
 
-        // SAFETY CHECK: Verify we have required global chat variables from tab1-orders.js
-        if (typeof window.currentChatChannelId === 'undefined' ||
-            typeof window.currentConversationId === 'undefined') {
-            console.error('[SET-PRODUCT] Missing chat context variables - aborting');
-            if (window.notificationManager) {
-                window.notificationManager.show('❌ Không tìm thấy thông tin chat', 'error');
-            }
-            return;
-        }
-
-        // Store product info for later sending
-        window.currentProductToSend = {
-            productId,
-            productName,
-            productImageUrl
-        };
-
-        // Show preview in chat input area (like pasted images)
-        const previewContainer = document.getElementById('chatImagePreviewContainer');
-        if (previewContainer) {
-            previewContainer.style.display = 'flex';
-            previewContainer.style.alignItems = 'center';
-            previewContainer.style.justifyContent = 'space-between';
-
-            // Show product preview with image thumbnail
+        try {
+            // If image URL exists, download and set as pasted image
             if (productImageUrl) {
-                previewContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <img src="${productImageUrl}" style="height: 50px; width: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
-                        <div style="display: flex; flex-direction: column;">
-                            <span style="font-size: 12px; color: #666; font-weight: 600;">Sản phẩm</span>
-                            <span style="font-size: 12px; color: #333;">${productName}</span>
-                        </div>
-                    </div>
-                    <button onclick="window.clearProductToSend()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-            } else {
-                // Text only (no image)
-                previewContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="height: 50px; width: 50px; background: #f3f4f6; border-radius: 4px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-cube" style="color: #9ca3af; font-size: 20px;"></i>
-                        </div>
-                        <div style="display: flex; flex-direction: column;">
-                            <span style="font-size: 12px; color: #666; font-weight: 600;">Sản phẩm</span>
-                            <span style="font-size: 12px; color: #333;">${productName}</span>
-                        </div>
-                    </div>
-                    <button onclick="window.clearProductToSend()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
+                // Download image
+                const response = await fetch(productImageUrl);
+                const blob = await response.blob();
+
+                // Set to currentPastedImage (global variable from tab1-orders.js)
+                window.currentPastedImage = blob;
+
+                // Show preview like pasted image
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const previewContainer = document.getElementById('chatImagePreviewContainer');
+                    if (previewContainer) {
+                        previewContainer.style.display = 'flex';
+                        previewContainer.style.alignItems = 'center';
+                        previewContainer.style.justifyContent = 'space-between';
+
+                        previewContainer.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <img src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd;">
+                                <span style="font-size: 12px; color: #666;">${Math.round(blob.size / 1024)} KB</span>
+                            </div>
+                            <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        `;
+                    }
+                };
+                reader.readAsDataURL(blob);
+
+                console.log('[SEND-PRODUCT] Image downloaded and set to clipboard');
+            }
+
+            // Set product name in chat input
+            const chatInput = document.getElementById('chatReplyInput');
+            if (chatInput) {
+                chatInput.value = productName;
+                chatInput.focus();
+
+                // Trigger input event to auto-resize textarea
+                const event = new Event('input', { bubbles: true });
+                chatInput.dispatchEvent(event);
+            }
+
+            console.log('[SEND-PRODUCT] Product name set in chat input');
+
+        } catch (error) {
+            console.error('[SEND-PRODUCT] Error processing product:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Lỗi khi tải ảnh sản phẩm', 'error');
             }
         }
-
-        // Focus on chat input
-        const chatInput = document.getElementById('chatReplyInput');
-        if (chatInput) {
-            chatInput.focus();
-        }
-
-        console.log('[SET-PRODUCT] Product preview shown, ready to send');
-    };
-
-    /**
-     * Clear product to send preview
-     */
-    window.clearProductToSend = function() {
-        window.currentProductToSend = null;
-        const previewContainer = document.getElementById('chatImagePreviewContainer');
-        if (previewContainer) {
-            previewContainer.innerHTML = '';
-            previewContainer.style.display = 'none';
-        }
-        console.log('[SET-PRODUCT] Product preview cleared');
     };
 
     console.log('[CHAT-PRODUCTS] Chat modal products manager loaded');
