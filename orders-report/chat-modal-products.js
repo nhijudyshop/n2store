@@ -2486,23 +2486,31 @@
     }
 
     /**
-     * Helper: Fetch image from URL as Blob
+     * Helper: Fetch image from URL as Blob (via Cloudflare Worker proxy)
      */
     async function fetchImageAsBlob(imageUrl) {
-        console.log('[SEND-PRODUCT] Fetching image as Blob:', imageUrl);
+        console.log('[SEND-PRODUCT] Fetching image as Blob via proxy:', imageUrl);
 
         try {
-            const response = await fetch(imageUrl, {
-                mode: 'cors',
-                credentials: 'omit'
+            // Use Cloudflare Worker image proxy to avoid CORS
+            const proxyUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+
+            console.log('[SEND-PRODUCT] Proxy URL:', proxyUrl);
+
+            const response = await fetch(proxyUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8'
+                }
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to fetch image via proxy: ${response.status} ${response.statusText}`);
             }
 
             const blob = await response.blob();
-            console.log('[SEND-PRODUCT] Image blob fetched, size:', blob.size, 'type:', blob.type);
+            console.log('[SEND-PRODUCT] Image blob fetched via proxy, size:', blob.size, 'type:', blob.type);
 
             return blob;
         } catch (error) {
