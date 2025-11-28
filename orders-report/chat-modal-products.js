@@ -2577,15 +2577,9 @@
             return;
         }
 
-        // Show loading notification
-        let loadingNotifId = null;
-        if (window.notificationManager) {
-            loadingNotifId = window.notificationManager.show(
-                `Đang gửi ${productName}...`,
-                'info',
-                0,
-                { showOverlay: true, persistent: true }
-            );
+        // Show sending indicator (like chat modal)
+        if (window.showChatSendingIndicator) {
+            window.showChatSendingIndicator('Đang gửi sản phẩm...');
         }
 
         // Context for cleanup
@@ -2604,9 +2598,11 @@
             let requestBody;
 
             if (productImageUrl) {
-                console.log('[SEND-PRODUCT] Fetching image from URL...');
-
                 // Step 1: Fetch image as Blob
+                if (window.showChatSendingIndicator) {
+                    window.showChatSendingIndicator('Đang tải ảnh...');
+                }
+                console.log('[SEND-PRODUCT] Fetching image from URL...');
                 const imageBlob = await fetchImageAsBlob(productImageUrl);
 
                 // Step 2: Convert Blob to File
@@ -2616,9 +2612,11 @@
                     { type: imageBlob.type || 'image/jpeg' }
                 );
 
-                console.log('[SEND-PRODUCT] Uploading image to Pancake...');
-
                 // Step 3: Upload to Pancake
+                if (window.showChatSendingIndicator) {
+                    window.showChatSendingIndicator('Đang upload ảnh...');
+                }
+                console.log('[SEND-PRODUCT] Uploading image to Pancake...');
                 const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
 
                 // Handle both old (string) and new (object) return formats
@@ -2667,6 +2665,10 @@
                 body: JSON.stringify(requestBody)
             };
 
+            // Update indicator to "Đang gửi..."
+            if (window.showChatSendingIndicator) {
+                window.showChatSendingIndicator('Đang gửi...');
+            }
             console.log('[SEND-PRODUCT] Sending message to Pancake...');
 
             // Send to Pancake API
@@ -2686,9 +2688,9 @@
                 throw new Error(result.message || `Lỗi API: ${result.error_code}`);
             }
 
-            // Remove loading notification
-            if (window.notificationManager && loadingNotifId) {
-                window.notificationManager.remove(loadingNotifId);
+            // Hide sending indicator
+            if (window.hideChatSendingIndicator) {
+                window.hideChatSendingIndicator();
             }
 
             // Show success notification
@@ -2702,9 +2704,9 @@
         } catch (error) {
             console.error('[SEND-PRODUCT] Error:', error);
 
-            // Remove loading notification
-            if (window.notificationManager && loadingNotifId) {
-                window.notificationManager.remove(loadingNotifId);
+            // Hide sending indicator
+            if (window.hideChatSendingIndicator) {
+                window.hideChatSendingIndicator();
             }
 
             // Show error notification
