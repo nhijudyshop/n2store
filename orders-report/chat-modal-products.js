@@ -2457,9 +2457,39 @@
     }
 
     /**
+     * Helper: Get image dimensions from URL
+     */
+    function getImageDimensionsFromUrl(imageUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+
+            img.onload = function() {
+                resolve({
+                    width: img.naturalWidth,
+                    height: img.naturalHeight
+                });
+            };
+
+            img.onerror = function() {
+                // If image fails to load, return default dimensions
+                console.warn('[SEND-PRODUCT] Failed to load image dimensions, using defaults');
+                resolve({
+                    width: 800,
+                    height: 800
+                });
+            };
+
+            // Set crossOrigin to handle CORS issues
+            img.crossOrigin = 'anonymous';
+            img.src = imageUrl;
+        });
+    }
+
+    /**
      * Send Product to Chat
      * Sends product image + name to the current chat conversation
      * SAFETY: Only works if inside chat modal context (window.currentChatOrderData exists)
+     * Uses FormData (multipart) exactly like the modal chat send function
      */
     window.sendProductToChat = async function(productId, productName, productImageUrl) {
         console.log('[SEND-PRODUCT] Attempting to send product:', { productId, productName, productImageUrl });
@@ -2528,38 +2558,56 @@
                 `access_token=${token}`
             );
 
-            // Prepare request body
-            let requestBody;
+            let fetchOptions;
 
             if (productImageUrl) {
-                // Send with image
-                requestBody = {
-                    action: "reply_inbox",
-                    message: productName,  // Product name as message text
-                    customer_id: customerId,
-                    send_by_platform: "web",
-                    content_url: productImageUrl  // Product image URL
+                // Get image dimensions first
+                console.log('[SEND-PRODUCT] Getting image dimensions...');
+                const dimensions = await getImageDimensionsFromUrl(productImageUrl);
+                console.log('[SEND-PRODUCT] Image dimensions:', dimensions);
+
+                // Use FormData (multipart/form-data) exactly like modal chat
+                const formData = new FormData();
+                formData.append('action', 'reply_inbox');
+                formData.append('message', productName);
+                formData.append('customer_id', customerId);
+                formData.append('send_by_platform', 'web');
+                formData.append('content_url', productImageUrl);
+                // Use productId as content_id since we don't have a real uploaded image ID
+                formData.append('content_id', `product_${productId}`);
+                formData.append('width', dimensions.width.toString());
+                formData.append('height', dimensions.height.toString());
+
+                fetchOptions = {
+                    method: 'POST',
+                    body: formData
                 };
+
+                console.log('[SEND-PRODUCT] Using FormData (multipart) for product with image');
             } else {
-                // Send text only (if no image)
-                requestBody = {
+                // Send text only (if no image) - use JSON
+                const requestBody = {
                     action: "reply_inbox",
                     message: productName,
                     customer_id: customerId,
                     send_by_platform: "web"
                 };
+
+                fetchOptions = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                };
+
+                console.log('[SEND-PRODUCT] Using JSON for text-only product');
             }
 
-            console.log('[SEND-PRODUCT] Sending request:', { apiUrl, requestBody });
+            console.log('[SEND-PRODUCT] Sending request to:', apiUrl);
 
             // Send to Pancake API
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
+            const response = await fetch(apiUrl, fetchOptions);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -2590,14 +2638,29 @@
 
                     console.log('[SEND-PRODUCT] Retrying with new token...');
 
-                    // Retry the request with new token
-                    const retryResponse = await fetch(retryApiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
+                    // Retry the request with new token (rebuild fetchOptions with new FormData)
+                    let retryFetchOptions;
+                    if (productImageUrl) {
+                        const dimensions = await getImageDimensionsFromUrl(productImageUrl);
+                        const retryFormData = new FormData();
+                        retryFormData.append('action', 'reply_inbox');
+                        retryFormData.append('message', productName);
+                        retryFormData.append('customer_id', customerId);
+                        retryFormData.append('send_by_platform', 'web');
+                        retryFormData.append('content_url', productImageUrl);
+                        retryFormData.append('content_id', `product_${productId}`);
+                        retryFormData.append('width', dimensions.width.toString());
+                        retryFormData.append('height', dimensions.height.toString());
+
+                        retryFetchOptions = {
+                            method: 'POST',
+                            body: retryFormData
+                        };
+                    } else {
+                        retryFetchOptions = fetchOptions; // Reuse JSON options
+                    }
+
+                    const retryResponse = await fetch(retryApiUrl, retryFetchOptions);
 
                     if (!retryResponse.ok) {
                         const errorText = await retryResponse.text();
