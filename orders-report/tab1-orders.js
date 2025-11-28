@@ -5233,7 +5233,7 @@ function extractMessageText(message) {
 /**
  * Show/Hide sending indicator in chat modal
  */
-function showChatSendingIndicator(text = 'Đang gửi...', queueCount = 0) {
+window.showChatSendingIndicator = function(text = 'Đang gửi...', queueCount = 0) {
     const indicator = document.getElementById('chatSendingIndicator');
     const textSpan = document.getElementById('chatSendingText');
     const queueSpan = document.getElementById('chatQueueCount');
@@ -5252,7 +5252,7 @@ function showChatSendingIndicator(text = 'Đang gửi...', queueCount = 0) {
     }
 }
 
-function hideChatSendingIndicator() {
+window.hideChatSendingIndicator = function() {
     const indicator = document.getElementById('chatSendingIndicator');
     if (indicator) {
         indicator.style.display = 'none';
