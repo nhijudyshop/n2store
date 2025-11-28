@@ -199,6 +199,7 @@ const chatAuthRoutes = require('./routes/chat-auth'); // 🆕 PostgreSQL chat - 
 const chatUsersRoutes = require('./routes/chat-users'); // 🆕 PostgreSQL chat - Users
 const chatConversationsRoutes = require('./routes/chat-conversations'); // 🆕 PostgreSQL chat - Conversations
 const chatMessagesRoutes = require('./routes/chat-messages'); // 🆕 PostgreSQL chat - Messages
+const sepayWebhookRoutes = require('./routes/sepay-webhook'); // 🆕 Sepay webhook & balance history
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -210,7 +211,8 @@ app.use('/api/chat', chatRoutes); // Firebase chat (old) - keep for compatibilit
 app.use('/api/chat', chatAuthRoutes); // 🆕 PostgreSQL chat routes
 app.use('/api/chat', chatUsersRoutes);
 app.use('/api/chat', chatConversationsRoutes);
-app.use('/api/chat', chatMessagesRoutes)
+app.use('/api/chat', chatMessagesRoutes);
+app.use('/api/sepay', sepayWebhookRoutes); // 🆕 Sepay webhook & balance history
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================
