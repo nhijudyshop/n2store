@@ -4799,8 +4799,12 @@ function sendOrdersDataToTab3() {
 // =====================================================
 // CHAT MODAL FUNCTIONS
 // =====================================================
-let currentChatChannelId = null;
-let currentChatPSID = null;
+// Make these global so they can be accessed from other modules (e.g., chat-modal-products.js)
+window.currentChatChannelId = null;
+window.currentChatPSID = null;
+window.currentConversationId = null;  // Lưu conversation ID cho reply
+
+// Module-scoped variables (not needed externally)
 let currentChatType = null;
 let currentChatCursor = null;
 let allChatMessages = [];
@@ -4809,7 +4813,6 @@ let isSendingMessage = false; // Flag to prevent double message sending
 let allChatComments = [];
 let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
-let currentConversationId = null;  // Lưu conversation ID cho reply
 let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
 
@@ -4821,8 +4824,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     }
 
     // Reset pagination state
-    currentChatChannelId = channelId;
-    currentChatPSID = psid;
+    window.currentChatChannelId = channelId;
+    window.currentChatPSID = psid;
     currentChatType = type;
     currentChatCursor = null;
     allChatMessages = [];
@@ -4830,7 +4833,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentChatOrderId = null;
-    currentConversationId = null;
+    window.currentConversationId = null;
     currentParentCommentId = null;
     currentPostId = null;
 
@@ -4937,8 +4940,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             if (window.pancakeDataManager) {
                 const pancakeCommentInfo = window.pancakeDataManager.getLastCommentForOrder(order);
                 if (pancakeCommentInfo.conversationId) {
-                    currentConversationId = pancakeCommentInfo.conversationId;
-                    console.log(`[CHAT] Got conversationId from Pancake: ${currentConversationId}`);
+                    window.currentConversationId = pancakeCommentInfo.conversationId;
+                    console.log(`[CHAT] Got conversationId from Pancake: ${window.currentConversationId}`);
                 }
             }
 
@@ -4975,8 +4978,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 // We might need a method to get conversation ID for messages too
                 // For now, let's try to construct it or find it in chatInfo
                 // Usually conversationId is pageId_psid
-                currentConversationId = `${channelId}_${psid}`;
-                console.log(`[CHAT] Constructed conversationId: ${currentConversationId}`);
+                window.currentConversationId = `${channelId}_${psid}`;
+                console.log(`[CHAT] Constructed conversationId: ${window.currentConversationId}`);
             }
 
             if (chatInfo.hasUnread) {
@@ -5060,8 +5063,8 @@ window.closeChatModal = async function () {
     }
 
     // Reset pagination state
-    currentChatChannelId = null;
-    currentChatPSID = null;
+    window.currentChatChannelId = null;
+    window.currentChatPSID = null;
     currentChatType = null;
     currentChatCursor = null;
     allChatMessages = [];
@@ -5069,7 +5072,7 @@ window.closeChatModal = async function () {
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentChatOrderId = null;
-    currentConversationId = null;
+    window.currentConversationId = null;
     currentParentCommentId = null;
 
     // Detach Firebase listener
@@ -5315,13 +5318,13 @@ window.sendReplyComment = async function () {
         }
 
         // Validate required info
-        const missingInfo = !currentOrder || !currentConversationId || !currentChatChannelId;
+        const missingInfo = !currentOrder || !window.currentConversationId || !window.currentChatChannelId;
         if (missingInfo) {
             alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
             console.error('[SEND-REPLY] Missing required info:', {
                 currentOrder: !!currentOrder,
-                currentConversationId: !!currentConversationId,
-                currentChatChannelId: !!currentChatChannelId,
+                window.currentConversationId: !!window.currentConversationId,
+                window.currentChatChannelId: !!window.currentChatChannelId,
                 currentChatType
             });
             return;
@@ -5337,8 +5340,8 @@ window.sendReplyComment = async function () {
             message,
             pastedImage: currentPastedImage,
             order: currentOrder,
-            conversationId: currentConversationId,
-            channelId: currentChatChannelId,
+            conversationId: window.currentConversationId,
+            channelId: window.currentChatChannelId,
             chatType: currentChatType,
             parentCommentId: currentParentCommentId,
             postId: currentPostId || currentOrder.Facebook_PostId,
@@ -5584,8 +5587,8 @@ async function sendReplyCommentInternal(messageData) {
         console.log(`[SEND-REPLY] Refreshing ${chatType}s...`);
         setTimeout(async () => {
             try {
-                if (chatType === 'message' && currentChatPSID) {
-                    const response = await window.chatDataManager.fetchMessages(channelId, currentChatPSID);
+                if (chatType === 'message' && window.currentChatPSID) {
+                    const response = await window.chatDataManager.fetchMessages(channelId, window.currentChatPSID);
                     if (response.messages && response.messages.length > 0) {
                         // Replace entire array with fresh data from API (simpler and more reliable)
                         allChatMessages = response.messages;
@@ -5594,8 +5597,8 @@ async function sendReplyCommentInternal(messageData) {
                         renderChatMessages(allChatMessages, false);
                         console.log('[SEND-REPLY] Replaced temp messages with real messages');
                     }
-                } else if (chatType === 'comment' && currentChatPSID) {
-                    const response = await window.chatDataManager.fetchComments(channelId, currentChatPSID);
+                } else if (chatType === 'comment' && window.currentChatPSID) {
+                    const response = await window.chatDataManager.fetchComments(channelId, window.currentChatPSID);
                     if (response.comments && response.comments.length > 0) {
                         // Remove temp comments before replacing
                         allChatComments = allChatComments.filter(c => !c.is_temp);
@@ -6114,7 +6117,7 @@ async function handleChatScroll(event) {
 }
 
 async function loadMoreMessages() {
-    if (!currentChatChannelId || !currentChatPSID || !currentChatCursor) {
+    if (!window.currentChatChannelId || !window.currentChatPSID || !currentChatCursor) {
         return;
     }
 
@@ -6137,8 +6140,8 @@ async function loadMoreMessages() {
 
         // Fetch more messages using the cursor
         const response = await window.chatDataManager.fetchMessages(
-            currentChatChannelId,
-            currentChatPSID,
+            window.currentChatChannelId,
+            window.currentChatPSID,
             currentChatCursor
         );
 
@@ -6181,7 +6184,7 @@ async function loadMoreMessages() {
 }
 
 async function loadMoreComments() {
-    if (!currentChatChannelId || !currentChatPSID || !currentChatCursor) {
+    if (!window.currentChatChannelId || !window.currentChatPSID || !currentChatCursor) {
         return;
     }
 
@@ -6204,8 +6207,8 @@ async function loadMoreComments() {
 
         // Fetch more comments using the cursor
         const response = await window.chatDataManager.fetchComments(
-            currentChatChannelId,
-            currentChatPSID,
+            window.currentChatChannelId,
+            window.currentChatPSID,
             currentChatCursor
         );
 
@@ -6248,14 +6251,14 @@ async function loadMoreComments() {
 }
 
 window.markChatAsRead = async function () {
-    if (!currentChatChannelId || !currentChatPSID) return;
+    if (!window.currentChatChannelId || !window.currentChatPSID) return;
 
     try {
         const markReadBtn = document.getElementById('chatMarkReadBtn');
         markReadBtn.disabled = true;
         markReadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
 
-        await window.chatDataManager.markAsSeen(currentChatChannelId, currentChatPSID);
+        await window.chatDataManager.markAsSeen(window.currentChatChannelId, window.currentChatPSID);
 
         // Hide button
         markReadBtn.style.display = 'none';
@@ -6857,11 +6860,11 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
     if (isChatModalOpen) {
         // Check if current chat matches the incoming update
         // We need to match PSID and PageID (channelId)
-        // currentChatPSID and currentChatChannelId are global variables set when opening modal
+        // window.currentChatPSID and window.currentChatChannelId are global variables set when opening modal
 
         // Normalize IDs for comparison (handle string/number differences)
-        const isMatchingPsid = String(currentChatPSID) === String(psid);
-        const isMatchingChannel = String(currentChatChannelId) === String(pageId);
+        const isMatchingPsid = String(window.currentChatPSID) === String(psid);
+        const isMatchingChannel = String(window.currentChatChannelId) === String(pageId);
 
         // Also check if the type matches (INBOX vs COMMENT)
         // currentChatType is 'message' or 'comment'
