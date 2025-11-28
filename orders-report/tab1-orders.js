@@ -183,10 +183,8 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Check admin permission
     checkAdminPermission();
 
-    // Sync employee ranges from Firebase (WAIT for initial load)
-    console.log('[EMPLOYEE] Waiting for employee ranges to load...');
-    await syncEmployeeRanges();
-    console.log('[EMPLOYEE] Employee ranges loaded, continuing initialization...');
+    // Sync employee ranges from Firebase
+    syncEmployeeRanges();
 
     // Close modals when clicking outside
     window.addEventListener('click', function (event) {
@@ -427,46 +425,16 @@ function checkAdminPermission() {
 }
 
 function syncEmployeeRanges() {
-    return new Promise((resolve) => {
-        if (!database) {
-            console.warn('[EMPLOYEE] Firebase not available');
-            resolve();
-            return;
-        }
+    if (!database) return;
 
-        const rangesRef = database.ref('settings/employee_ranges');
+    const rangesRef = database.ref('settings/employee_ranges');
+    rangesRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        employeeRanges = data || [];
+        console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firebase`);
 
-        // First, wait for initial data load using .once()
-        rangesRef.once('value', (snapshot) => {
-            const data = snapshot.val();
-            employeeRanges = data || [];
-            console.log(`[EMPLOYEE] ✅ Initial sync: ${employeeRanges.length} ranges loaded from Firebase`);
-
-            // If we have data AND table is already rendered, re-render to show employee names
-            if (employeeRanges.length > 0 && allData.length > 0) {
-                console.log('[EMPLOYEE] Re-rendering table with employee names...');
-                performTableSearch();
-            }
-
-            // Then, set up ongoing listener for future updates
-            rangesRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                const previousCount = employeeRanges.length;
-                employeeRanges = data || [];
-
-                if (employeeRanges.length !== previousCount) {
-                    console.log(`[EMPLOYEE] 🔄 Ranges updated: ${employeeRanges.length} ranges`);
-                    // Re-apply filter to current view
-                    performTableSearch();
-                }
-            });
-
-            // Resolve promise after initial load completes
-            resolve();
-        }, (error) => {
-            console.error('[EMPLOYEE] Error loading employee ranges:', error);
-            resolve(); // Resolve anyway to not block initialization
-        });
+        // Re-apply filter to current view
+        performTableSearch();
     });
 }
 
