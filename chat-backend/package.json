@@ -1,28 +1,21 @@
 {
-  "name": "n2store-api-fallback",
+  "name": "n2store-chat-backend",
   "version": "1.0.0",
-  "description": "Fallback API server for N2Store (deployed on Render.com)",
+  "description": "Chat backend for N2Store - Internal team communication",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
-  "keywords": [
-    "api",
-    "proxy",
-    "fallback"
-  ],
-  "author": "",
+  "keywords": ["chat", "realtime", "sse"],
+  "author": "N2Store Team",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "node-fetch": "^2.7.0",
-    "dotenv": "^16.3.1",
-    "ws": "^8.16.0",
-    "firebase-admin": "^12.0.0",
-    "multer": "^1.4.5-lts.1",
     "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "body-parser": "^1.20.2",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

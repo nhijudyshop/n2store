@@ -68,7 +68,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-Auth-Data',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-Auth-Data, X-User-Id',
           'Access-Control-Max-Age': '86400',
         },
       });
@@ -309,9 +309,9 @@ export default {
         // Realtime Server (Render)
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
       } else if (pathname.startsWith('/api/chat/')) {
-        // Chat Server (Render)
+        // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
-        targetUrl = `https://n2store-api-fallback.onrender.com/api/chat/${chatPath}${url.search}`;
+        targetUrl = `https://n2store-fallback.onrender.com/api/chat/${chatPath}${url.search}`;
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all)
         const apiPath = pathname.replace(/^\/api\//, '');
@@ -353,7 +353,7 @@ export default {
       const newResponse = new Response(response.body, response);
       newResponse.headers.set('Access-Control-Allow-Origin', '*');
       newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Auth-Data');
+      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Auth-Data, X-User-Id');
 
       return newResponse;
 
