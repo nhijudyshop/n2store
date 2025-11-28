@@ -47,33 +47,47 @@ balance-history/
 
 **Chạy migration:**
 
+⭐ **KHUYẾN NGHỊ: Dùng script tự động**
+
 ```bash
-# Option 1: Từ máy local (dùng External Database URL)
+# Cách 1: Script tự động (dễ nhất) ✅
+./render.com/migrations/migrate.sh "postgresql://user:password@host:port/database"
+
+# Script sẽ tự động:
+# - Test connection
+# - Chạy migration
+# - Verify kết quả
+# - Hiển thị báo cáo đầy đủ
+```
+
+**Hoặc chạy thủ công:**
+
+```bash
+# Cách 2: Từ máy local (dùng External Database URL)
 psql "postgresql://user:password@host:port/database" -f render.com/migrations/create_balance_history.sql
 
-# Option 2: Hoặc connect rồi run
+# Cách 3: Connect rồi run
 psql "postgresql://user:password@host:port/database"
 \i render.com/migrations/create_balance_history.sql
 
-# Option 3: Từ Render Shell (dùng Internal Database URL)
-# Vào Render Dashboard → Your Service → Shell
+# Cách 4: Từ Render Shell (dùng Internal Database URL)
 psql $DATABASE_URL -f render.com/migrations/create_balance_history.sql
 ```
 
 **Verify migration thành công:**
 
-```sql
--- Check tables created
-\dt
+```bash
+# Option 1: Script tự động verify (khuyến nghị) ✅
+node render.com/migrations/verify-migration.js "postgresql://user:password@host:port/database"
 
--- Should see:
--- balance_history
--- sepay_webhook_logs
-
--- Check view
-\dv
--- Should see: balance_statistics
+# Option 2: Kiểm tra thủ công
+psql "postgresql://user:password@host:port/database"
+\dt  -- Check tables (balance_history, sepay_webhook_logs)
+\dv  -- Check view (balance_statistics)
+\di  -- Check indexes
 ```
+
+**Chi tiết về migration scripts:** Xem `render.com/migrations/README.md`
 
 ### 2. Deploy Backend
 
