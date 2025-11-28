@@ -2486,10 +2486,36 @@
     }
 
     /**
+     * Helper: Fetch image from URL as Blob
+     */
+    async function fetchImageAsBlob(imageUrl) {
+        console.log('[SEND-PRODUCT] Fetching image as Blob:', imageUrl);
+
+        try {
+            const response = await fetch(imageUrl, {
+                mode: 'cors',
+                credentials: 'omit'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            console.log('[SEND-PRODUCT] Image blob fetched, size:', blob.size, 'type:', blob.type);
+
+            return blob;
+        } catch (error) {
+            console.error('[SEND-PRODUCT] Error fetching image as blob:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Send Product to Chat
      * Sends product image + name to the current chat conversation
      * SAFETY: Only works if inside chat modal context (window.currentChatOrderData exists)
-     * Uses FormData (multipart) exactly like the modal chat send function
+     * Flow: Fetch image -> Upload to Pancake -> Send message -> Delete from Pancake
      */
     window.sendProductToChat = async function(productId, productName, productImageUrl) {
         console.log('[SEND-PRODUCT] Attempting to send product:', { productId, productName, productImageUrl });
@@ -2520,6 +2546,15 @@
             return;
         }
 
+        // SAFETY CHECK: Verify pancakeDataManager is available
+        if (!window.pancakeDataManager) {
+            console.error('[SEND-PRODUCT] pancakeDataManager not available - aborting');
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Không tìm thấy pancakeDataManager', 'error');
+            }
+            return;
+        }
+
         // Get required IDs
         const pageId = window.currentChatChannelId;
         const conversationId = window.currentConversationId;
@@ -2545,11 +2580,68 @@
             );
         }
 
+        // Context for cleanup
+        const context = {
+            cleanupImageId: null,
+            cleanupPageId: null
+        };
+
         try {
             // Get token
             const token = await window.tokenManager.getToken();
             if (!token) {
                 throw new Error('Không có token xác thực');
+            }
+
+            let requestBody;
+
+            if (productImageUrl) {
+                console.log('[SEND-PRODUCT] Fetching image from URL...');
+
+                // Step 1: Fetch image as Blob
+                const imageBlob = await fetchImageAsBlob(productImageUrl);
+
+                // Step 2: Convert Blob to File
+                const imageFile = new File(
+                    [imageBlob],
+                    `product_${productId}_${Date.now()}.jpg`,
+                    { type: imageBlob.type || 'image/jpeg' }
+                );
+
+                console.log('[SEND-PRODUCT] Uploading image to Pancake...');
+
+                // Step 3: Upload to Pancake
+                const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
+
+                // Handle both old (string) and new (object) return formats
+                const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                const contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
+
+                console.log('[SEND-PRODUCT] Image uploaded to Pancake:', { contentUrl, contentId });
+
+                // Build request body with content_url
+                requestBody = {
+                    action: "reply_inbox",
+                    message: productName,
+                    customer_id: customerId,
+                    send_by_platform: "web",
+                    content_url: contentUrl
+                };
+
+                // Store contentId for cleanup
+                if (contentId) {
+                    context.cleanupImageId = contentId;
+                    context.cleanupPageId = pageId;
+                    console.log('[SEND-PRODUCT] Will cleanup image after send:', contentId);
+                }
+            } else {
+                // TEXT MODE - no image
+                requestBody = {
+                    action: "reply_inbox",
+                    message: productName,
+                    customer_id: customerId,
+                    send_by_platform: "web"
+                };
             }
 
             // Build API URL
@@ -2558,56 +2650,19 @@
                 `access_token=${token}`
             );
 
-            let fetchOptions;
+            const fetchOptions = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            };
 
-            if (productImageUrl) {
-                // Get image dimensions first
-                console.log('[SEND-PRODUCT] Getting image dimensions...');
-                const dimensions = await getImageDimensionsFromUrl(productImageUrl);
-                console.log('[SEND-PRODUCT] Image dimensions:', dimensions);
-
-                // Use FormData (multipart/form-data) exactly like modal chat
-                const formData = new FormData();
-                formData.append('action', 'reply_inbox');
-                formData.append('message', productName);
-                formData.append('customer_id', customerId);
-                formData.append('send_by_platform', 'web');
-                formData.append('content_url', productImageUrl);
-                // Use productId as content_id since we don't have a real uploaded image ID
-                formData.append('content_id', `product_${productId}`);
-                formData.append('width', dimensions.width.toString());
-                formData.append('height', dimensions.height.toString());
-
-                fetchOptions = {
-                    method: 'POST',
-                    body: formData
-                };
-
-                console.log('[SEND-PRODUCT] Using FormData (multipart) for product with image');
-            } else {
-                // Send text only (if no image) - use JSON
-                const requestBody = {
-                    action: "reply_inbox",
-                    message: productName,
-                    customer_id: customerId,
-                    send_by_platform: "web"
-                };
-
-                fetchOptions = {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                };
-
-                console.log('[SEND-PRODUCT] Using JSON for text-only product');
-            }
-
-            console.log('[SEND-PRODUCT] Sending request to:', apiUrl);
+            console.log('[SEND-PRODUCT] Sending message to Pancake...');
 
             // Send to Pancake API
-            const response = await fetch(apiUrl, fetchOptions);
+            const response = await window.API_CONFIG.smartFetch(apiUrl, fetchOptions);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -2620,68 +2675,7 @@
 
             // Check if API returned an error (even with HTTP 200 OK)
             if (result.success === false || result.error_code) {
-                console.error('[SEND-PRODUCT] API returned error:', result);
-
-                // Handle invalid access token error (error_code 102)
-                if (result.error_code === 102) {
-                    console.log('[SEND-PRODUCT] Invalid access token, refreshing and retrying...');
-
-                    // Clear the invalid token and get a fresh one
-                    await window.tokenManager.clearToken();
-                    const newToken = await window.tokenManager.getToken();
-
-                    // Rebuild API URL with new token
-                    const retryApiUrl = window.API_CONFIG.buildUrl.pancake(
-                        `pages/${pageId}/conversations/${conversationId}/messages`,
-                        `access_token=${newToken}`
-                    );
-
-                    console.log('[SEND-PRODUCT] Retrying with new token...');
-
-                    // Retry the request with new token (rebuild fetchOptions with new FormData)
-                    let retryFetchOptions;
-                    if (productImageUrl) {
-                        const dimensions = await getImageDimensionsFromUrl(productImageUrl);
-                        const retryFormData = new FormData();
-                        retryFormData.append('action', 'reply_inbox');
-                        retryFormData.append('message', productName);
-                        retryFormData.append('customer_id', customerId);
-                        retryFormData.append('send_by_platform', 'web');
-                        retryFormData.append('content_url', productImageUrl);
-                        retryFormData.append('content_id', `product_${productId}`);
-                        retryFormData.append('width', dimensions.width.toString());
-                        retryFormData.append('height', dimensions.height.toString());
-
-                        retryFetchOptions = {
-                            method: 'POST',
-                            body: retryFormData
-                        };
-                    } else {
-                        retryFetchOptions = fetchOptions; // Reuse JSON options
-                    }
-
-                    const retryResponse = await fetch(retryApiUrl, retryFetchOptions);
-
-                    if (!retryResponse.ok) {
-                        const errorText = await retryResponse.text();
-                        console.error('[SEND-PRODUCT] Retry API error:', errorText);
-                        throw new Error(`API trả về lỗi: ${retryResponse.status}`);
-                    }
-
-                    const retryResult = await retryResponse.json();
-                    console.log('[SEND-PRODUCT] Retry response:', retryResult);
-
-                    // Check retry result
-                    if (retryResult.success === false || retryResult.error_code) {
-                        throw new Error(retryResult.message || `Lỗi API: ${retryResult.error_code}`);
-                    }
-
-                    // Retry succeeded
-                    console.log('[SEND-PRODUCT] Retry successful');
-                } else {
-                    // Other API errors
-                    throw new Error(result.message || `Lỗi API: ${result.error_code}`);
-                }
+                throw new Error(result.message || `Lỗi API: ${result.error_code}`);
             }
 
             // Remove loading notification
@@ -2711,6 +2705,21 @@
                     `❌ Lỗi khi gửi sản phẩm: ${error.message}`,
                     'error'
                 );
+            }
+        } finally {
+            // CLEANUP IMAGE IF NEEDED
+            if (context.cleanupImageId && context.cleanupPageId) {
+                console.log('[SEND-PRODUCT] Cleaning up uploaded image:', context.cleanupImageId);
+                // Run in background, don't await
+                window.pancakeDataManager.deleteImage(context.cleanupPageId, context.cleanupImageId)
+                    .then(success => {
+                        if (success) {
+                            console.log(`[SEND-PRODUCT] ✅ Deleted image ${context.cleanupImageId} from Pancake`);
+                        } else {
+                            console.warn(`[SEND-PRODUCT] ⚠️ Failed to delete image ${context.cleanupImageId} from Pancake`);
+                        }
+                    })
+                    .catch(err => console.error('[SEND-PRODUCT] ❌ Error deleting image:', err));
             }
         }
     };
