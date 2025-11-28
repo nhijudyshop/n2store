@@ -5,9 +5,9 @@
 
 class ChatClient {
     constructor(config = {}) {
-        // Server URLs (update these after deployment)
-        this.serverUrl = config.serverUrl || 'https://your-render-app.onrender.com';
-        this.wsUrl = config.wsUrl || 'wss://your-render-app.onrender.com';
+        // Server URLs
+        this.serverUrl = config.serverUrl || 'https://n2store-api-fallback.onrender.com';
+        this.wsUrl = config.wsUrl || 'wss://n2store-api-fallback.onrender.com';
 
         // State
         this.ws = null;

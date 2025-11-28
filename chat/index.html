@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Nội Bộ - N2 Shop</title>
+
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/common-styles.css">
+    <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+    <!-- Navigation will be injected here -->
+    <div id="navigation-container"></div>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1>
+                <i data-feather="message-square"></i>
+                Chat Nội Bộ
+            </h1>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="newChatBtn">
+                    <i data-feather="plus"></i>
+                    Chat Mới
+                </button>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <!-- Sidebar: Conversations List -->
+            <div class="chat-sidebar" id="chatSidebar">
+                <div class="sidebar-header">
+                    <h3>Hội Thoại</h3>
+                    <div class="sidebar-actions">
+                        <button class="btn-icon" id="refreshBtn" title="Làm mới">
+                            <i data-feather="refresh-cw"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="search-box">
+                    <i data-feather="search"></i>
+                    <input type="text" id="searchConversations" placeholder="Tìm kiếm hội thoại...">
+                </div>
+
+                <div class="online-users" id="onlineUsers">
+                    <h4>Đang online</h4>
+                    <div class="users-list" id="onlineUsersList">
+                        <div class="loading">Đang tải...</div>
+                    </div>
+                </div>
+
+                <div class="conversations-list" id="conversationsList">
+                    <div class="loading">Đang tải hội thoại...</div>
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="chat-main" id="chatMain">
+                <div class="empty-state" id="emptyState">
+                    <i data-feather="message-circle"></i>
+                    <h3>Chào mừng đến với Chat Nội Bộ</h3>
+                    <p>Chọn một hội thoại hoặc tạo chat mới để bắt đầu</p>
+                </div>
+
+                <div class="chat-window" id="chatWindow" style="display: none;">
+                    <!-- Chat Header -->
+                    <div class="chat-header" id="chatHeader">
+                        <div class="chat-info">
+                            <div class="avatar">
+                                <i data-feather="user"></i>
+                            </div>
+                            <div class="chat-details">
+                                <h3 id="chatName">Tên người dùng</h3>
+                                <span class="status" id="chatStatus">
+                                    <span class="status-dot"></span>
+                                    <span id="statusText">Offline</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="chat-actions">
+                            <button class="btn-icon" id="chatInfoBtn" title="Thông tin">
+                                <i data-feather="info"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div class="messages-area" id="messagesArea">
+                        <div class="loading-messages">
+                            <div class="spinner"></div>
+                            <p>Đang tải tin nhắn...</p>
+                        </div>
+                        <div class="messages-container" id="messagesContainer">
+                            <!-- Messages will be inserted here -->
+                        </div>
+                        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <span id="typingText">đang nhập...</span>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="input-area">
+                        <button class="btn-icon" id="attachBtn" title="Đính kèm file">
+                            <i data-feather="paperclip"></i>
+                        </button>
+                        <button class="btn-icon" id="imageBtn" title="Gửi hình ảnh">
+                            <i data-feather="image"></i>
+                        </button>
+                        <div class="input-wrapper">
+                            <textarea
+                                id="messageInput"
+                                placeholder="Nhập tin nhắn..."
+                                rows="1"
+                                maxlength="2000"
+                            ></textarea>
+                        </div>
+                        <button class="btn-send" id="sendBtn" disabled>
+                            <i data-feather="send"></i>
+                        </button>
+                    </div>
+
+                    <!-- File upload (hidden) -->
+                    <input type="file" id="fileInput" style="display: none;" accept="*/*">
+                    <input type="file" id="imageInput" style="display: none;" accept="image/*">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- New Chat Modal -->
+    <div class="modal" id="newChatModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tạo Chat Mới</h3>
+                <button class="btn-close" id="closeModalBtn">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Loại chat</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="chatType" value="direct" checked>
+                            <span>Chat 1-1</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="chatType" value="group">
+                            <span>Nhóm chat</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="groupNameGroup" style="display: none;">
+                    <label for="groupName">Tên nhóm</label>
+                    <input type="text" id="groupName" placeholder="Nhập tên nhóm...">
+                </div>
+
+                <div class="form-group">
+                    <label>Chọn người tham gia</label>
+                    <div class="search-box">
+                        <i data-feather="search"></i>
+                        <input type="text" id="searchUsers" placeholder="Tìm người dùng...">
+                    </div>
+                    <div class="users-select-list" id="usersSelectList">
+                        <div class="loading">Đang tải danh sách...</div>
+                    </div>
+                </div>
+
+                <div class="selected-users" id="selectedUsers" style="display: none;">
+                    <h4>Đã chọn:</h4>
+                    <div class="selected-users-list" id="selectedUsersList"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelModalBtn">Hủy</button>
+                <button class="btn btn-primary" id="createChatBtn" disabled>Tạo Chat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast" style="display: none;">
+        <div class="toast-content">
+            <i data-feather="check-circle"></i>
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/navigation-modern.js"></script>
+    <script src="../js/chat-client.js"></script>
+    <script src="chat.js"></script>
+
+    <script>
+        // Initialize Feather Icons
+        feather.replace();
+    </script>
+</body>
+</html>
