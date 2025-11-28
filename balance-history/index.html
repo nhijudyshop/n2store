@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử biến động số dư - Sepay</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-wallet"></i> Lịch sử biến động số dư</h1>
+                <div class="header-actions">
+                    <button id="refreshBtn" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Làm mới
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Statistics Cards -->
+        <div class="stats-container" id="statsContainer">
+            <div class="stat-card">
+                <div class="stat-icon stat-blue">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Tổng tiền vào</h3>
+                    <p class="stat-value" id="totalIn">0 ₫</p>
+                    <small id="totalInCount">0 giao dịch</small>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon stat-red">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Tổng tiền ra</h3>
+                    <p class="stat-value" id="totalOut">0 ₫</p>
+                    <small id="totalOutCount">0 giao dịch</small>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon stat-green">
+                    <i class="fas fa-balance-scale"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Biến động ròng</h3>
+                    <p class="stat-value" id="netChange">0 ₫</p>
+                    <small id="totalTransactions">0 giao dịch</small>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon stat-purple">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Số dư hiện tại</h3>
+                    <p class="stat-value" id="latestBalance">0 ₫</p>
+                    <small>Cập nhật mới nhất</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <div class="filter-group">
+                <label><i class="fas fa-filter"></i> Loại giao dịch:</label>
+                <select id="filterType" class="filter-select">
+                    <option value="">Tất cả</option>
+                    <option value="in">Tiền vào</option>
+                    <option value="out">Tiền ra</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label><i class="fas fa-university"></i> Ngân hàng:</label>
+                <input type="text" id="filterGateway" class="filter-input" placeholder="VD: Vietcombank">
+            </div>
+
+            <div class="filter-group">
+                <label><i class="fas fa-calendar"></i> Từ ngày:</label>
+                <input type="date" id="filterStartDate" class="filter-input">
+            </div>
+
+            <div class="filter-group">
+                <label><i class="fas fa-calendar"></i> Đến ngày:</label>
+                <input type="date" id="filterEndDate" class="filter-input">
+            </div>
+
+            <div class="filter-group">
+                <label><i class="fas fa-search"></i> Tìm kiếm:</label>
+                <input type="text" id="filterSearch" class="filter-input" placeholder="Nội dung, mã giao dịch...">
+            </div>
+
+            <button id="applyFiltersBtn" class="btn btn-success">
+                <i class="fas fa-check"></i> Áp dụng
+            </button>
+
+            <button id="resetFiltersBtn" class="btn btn-secondary">
+                <i class="fas fa-undo"></i> Đặt lại
+            </button>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="loading" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Ngày giờ</th>
+                        <th>Ngân hàng</th>
+                        <th>Loại</th>
+                        <th>Số tiền</th>
+                        <th>Số dư</th>
+                        <th>Nội dung</th>
+                        <th>Mã tham chiếu</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Data will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <button id="prevPageBtn" class="btn btn-secondary" disabled>
+                <i class="fas fa-chevron-left"></i> Trước
+            </button>
+            <span id="pageInfo">Trang 1 / 1</span>
+            <button id="nextPageBtn" class="btn btn-secondary" disabled>
+                Sau <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-info-circle"></i> Chi tiết giao dịch</h2>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Detail will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

@@ -312,6 +312,10 @@ export default {
         // Chat Server (Render) - Using same server as realtime
         const chatPath = pathname.replace(/^\/api\/chat\//, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/chat/${chatPath}${url.search}`;
+      } else if (pathname.startsWith('/api/sepay/')) {
+        // Sepay Webhook & Balance History (Render)
+        const sepayPath = pathname.replace(/^\/api\/sepay\//, '');
+        targetUrl = `https://n2store-fallback.onrender.com/api/sepay/${sepayPath}${url.search}`;
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all)
         const apiPath = pathname.replace(/^\/api\//, '');
