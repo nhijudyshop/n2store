@@ -1686,7 +1686,7 @@
             <tr class="chat-product-row" data-index="${i}">
                 <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
-                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
+                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
                 </td>
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">${p.ProductNameGet || p.ProductName}</div>
@@ -2368,6 +2368,79 @@
         if (productCount) {
             productCount.textContent = totalQuantity;
         }
+    }
+
+    /**
+     * Image Zoom Functionality
+     * Creates and shows a zoom overlay when clicking on product images
+     */
+    function initImageZoom() {
+        // Create zoom overlay if it doesn't exist
+        if (!document.getElementById('imageZoomOverlay')) {
+            const overlay = document.createElement('div');
+            overlay.id = 'imageZoomOverlay';
+            overlay.className = 'image-zoom-overlay';
+            overlay.innerHTML = `
+                <div class="image-zoom-container">
+                    <button class="image-zoom-close" onclick="closeImageZoom()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <img id="zoomedImage" src="" alt="Zoomed Image">
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    closeImageZoom();
+                }
+            });
+
+            // Close on ESC key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeImageZoom();
+                }
+            });
+        }
+    }
+
+    /**
+     * Show image zoom overlay
+     */
+    window.showImageZoom = function(imageSrc, productName = '') {
+        initImageZoom();
+
+        const overlay = document.getElementById('imageZoomOverlay');
+        const zoomedImage = document.getElementById('zoomedImage');
+
+        if (overlay && zoomedImage && imageSrc) {
+            zoomedImage.src = imageSrc;
+            zoomedImage.alt = productName || 'Product Image';
+
+            // Show overlay with animation
+            setTimeout(() => {
+                overlay.classList.add('show');
+            }, 10);
+        }
+    };
+
+    /**
+     * Close image zoom overlay
+     */
+    window.closeImageZoom = function() {
+        const overlay = document.getElementById('imageZoomOverlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+        }
+    };
+
+    // Initialize zoom functionality when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initImageZoom);
+    } else {
+        initImageZoom();
     }
 
     console.log('[CHAT-PRODUCTS] Chat modal products manager loaded');
