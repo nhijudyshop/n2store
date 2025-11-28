@@ -311,6 +311,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     checkLogin: userData.checkLogin,
                     password: password,
                     uid: authResult.user.uid,
+                    userId: userData.userId || null, // 🆕 Pass existing userId if available
                 },
                 rememberMe,
             );
@@ -437,8 +438,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 : AUTH_CONFIG.SESSION_DURATION;
 
             // Get or create persistent userId for chat system
-            // Check if user already has userId from Firestore
-            let userId = userData.userId || null;
+            // Check if user already has userId (from userInfo passed in)
+            let userId = userInfo.userId || null;
 
             // If no userId exists, create one and save to Firestore
             if (!userId) {
