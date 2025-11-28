@@ -1,467 +1,298 @@
 // =====================================================
-// N2STORE CHAT CLIENT
-// Frontend client for internal chat system
+// N2STORE CHAT CLIENT - REBUILT FROM SCRATCH
+// Clean, simple API client with SSE for realtime updates
 // =====================================================
 
 class ChatClient {
-    constructor(config = {}) {
-        // Server URLs - Use Cloudflare Worker proxy for CORS bypass
-        this.serverUrl = config.serverUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        this.wsUrl = config.wsUrl || 'wss://n2store-api-fallback.onrender.com';
+    constructor() {
+        // API Configuration
+        this.apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev'; // Cloudflare Worker proxy
 
-        // State
-        this.ws = null;
-        this.authData = null;
+        // Auth state
         this.userId = null;
-        this.connected = false;
+        this.username = null;
         this.authenticated = false;
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 3000;
 
-        // Callbacks (can be overridden)
-        this.onNewMessage = null;
-        this.onUserTyping = null;
-        this.onUserStoppedTyping = null;
-        this.onUserStatus = null;
-        this.onConnected = null;
-        this.onDisconnected = null;
-        this.onError = null;
+        // SSE connection
+        this.eventSource = null;
+        this.connected = false;
 
-        console.log('[CHAT-CLIENT] Initialized');
+        // Callbacks for realtime events
+        this.onMessage = null;          // (message) => {}
+        this.onUserStatus = null;       // (userId, status) => {}
+        this.onConnected = null;        // () => {}
+        this.onDisconnected = null;     // () => {}
+        this.onError = null;            // (error) => {}
+
+        console.log('[CHAT-CLIENT] ✅ Initialized');
     }
 
     // =====================================================
-    // INITIALIZATION & CONNECTION
+    // INITIALIZATION & AUTHENTICATION
     // =====================================================
 
     /**
-     * Initialize chat client
-     * Must be called after user is authenticated
+     * Initialize chat client with authenticated user
      */
     async init() {
-        try {
-            // Get auth data from authManager
-            if (!window.authManager || !authManager.isAuthenticated()) {
-                throw new Error('User not authenticated. Please login first.');
-            }
+        console.log('[CHAT-CLIENT] 🚀 Initializing...');
 
-            this.authData = authManager.getUserInfo();
-            this.userId = authManager.getUserId();
-
-            if (!this.userId) {
-                throw new Error('No userId found. Please re-login to generate userId.');
-            }
-
-            console.log('[CHAT-CLIENT] Auth data loaded:', {
-                userId: this.userId,
-                userName: this.authData.username
-            });
-
-            // Sync user to Firestore (non-blocking - continues even if fails)
-            const syncResult = await this.syncUser();
-            if (syncResult) {
-                console.log('[CHAT-CLIENT] ✅ User sync successful');
-            } else {
-                console.warn('[CHAT-CLIENT] ⚠️ User sync skipped - continuing with limited functionality');
-            }
-
-            // Connect WebSocket
-            this.connectWebSocket();
-
-            return true;
-        } catch (error) {
-            console.error('[CHAT-CLIENT] Initialization failed:', error);
-            if (this.onError) this.onError(error);
-            throw error;
+        // Get auth from global authManager
+        if (!window.authManager || !authManager.isAuthenticated()) {
+            throw new Error('User not authenticated');
         }
+
+        const userInfo = authManager.getUserInfo();
+        this.userId = authManager.getUserId();
+        this.username = userInfo.username;
+
+        if (!this.userId || !this.username) {
+            throw new Error('Invalid user info');
+        }
+
+        console.log('[CHAT-CLIENT] 👤 User:', this.username, `(${this.userId})`);
+
+        // Sync user to backend
+        await this.syncUser();
+
+        // Connect to SSE stream
+        this.connectSSE();
+
+        this.authenticated = true;
+        console.log('[CHAT-CLIENT] ✅ Initialization complete');
     }
 
     /**
-     * Sync user to Firestore (first time or on login)
-     * Non-blocking: Returns null if sync fails to allow app to continue
+     * Sync user to backend database
      */
     async syncUser() {
         try {
             const response = await this._fetch('/api/chat/sync-user', {
-                method: 'POST'
+                method: 'POST',
+                body: JSON.stringify({
+                    userId: this.userId,
+                    username: this.username,
+                    displayName: this.username
+                })
             });
 
-            console.log('[CHAT-CLIENT] ✅ User synced:', response.user);
-            return response.user;
+            console.log('[CHAT-CLIENT] ✅ User synced');
+            return response;
         } catch (error) {
-            console.warn('[CHAT-CLIENT] ⚠️ Failed to sync user (backend may not be available):', error.message);
-            console.warn('[CHAT-CLIENT] ⚠️ Continuing without user sync - some features may be limited');
-            // Don't throw - allow app to continue even if backend is not ready
+            console.error('[CHAT-CLIENT] ⚠️ Failed to sync user:', error.message);
+            // Non-fatal - continue anyway
             return null;
         }
     }
 
     /**
-     * Connect to WebSocket server
+     * Connect to Server-Sent Events stream for realtime updates
      */
-    connectWebSocket() {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            console.log('[CHAT-CLIENT] Already connected');
+    connectSSE() {
+        if (this.eventSource) {
+            console.warn('[CHAT-CLIENT] SSE already connected');
             return;
         }
 
-        console.log('[CHAT-CLIENT] Connecting to WebSocket...', this.wsUrl);
+        // EventSource doesn't support custom headers, so pass userId via query parameter
+        const sseUrl = `${this.apiUrl}/api/chat/stream?userId=${encodeURIComponent(this.userId)}`;
+        console.log('[CHAT-CLIENT] 📡 Connecting to SSE:', sseUrl);
 
-        this.ws = new WebSocket(this.wsUrl);
+        this.eventSource = new EventSource(sseUrl, {
+            withCredentials: false
+        });
 
-        this.ws.onopen = () => {
-            console.log('[CHAT-CLIENT] ✅ WebSocket connected');
+        this.eventSource.addEventListener('connected', (e) => {
+            const data = JSON.parse(e.data);
+            console.log('[CHAT-CLIENT] ✅ SSE Connected:', data);
             this.connected = true;
-            this.reconnectAttempts = 0;
-
-            // Authenticate
-            this.authenticateWebSocket();
 
             if (this.onConnected) this.onConnected();
-        };
+        });
 
-        this.ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                this.handleWebSocketMessage(data);
-            } catch (error) {
-                console.error('[CHAT-CLIENT] Error parsing WebSocket message:', error);
-            }
-        };
+        this.eventSource.addEventListener('new-message', (e) => {
+            const message = JSON.parse(e.data);
+            console.log('[CHAT-CLIENT] 📨 New message:', message);
 
-        this.ws.onerror = (error) => {
-            console.error('[CHAT-CLIENT] WebSocket error:', error);
-            if (this.onError) this.onError(error);
-        };
+            if (this.onMessage) this.onMessage(message);
+        });
 
-        this.ws.onclose = () => {
-            console.log('[CHAT-CLIENT] WebSocket closed');
+        this.eventSource.addEventListener('user-status', (e) => {
+            const data = JSON.parse(e.data);
+            console.log('[CHAT-CLIENT] 👤 User status:', data);
+
+            if (this.onUserStatus) this.onUserStatus(data.userId, data.status);
+        });
+
+        this.eventSource.onerror = (error) => {
+            console.error('[CHAT-CLIENT] ❌ SSE error:', error);
             this.connected = false;
-            this.authenticated = false;
 
             if (this.onDisconnected) this.onDisconnected();
+            if (this.onError) this.onError(error);
 
-            // Attempt reconnection
-            if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                this.reconnectAttempts++;
-                console.log(`[CHAT-CLIENT] Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-                setTimeout(() => this.connectWebSocket(), this.reconnectDelay);
-            } else {
-                console.error('[CHAT-CLIENT] Max reconnection attempts reached');
-            }
+            // Auto-reconnect after 3 seconds
+            setTimeout(() => {
+                if (!this.connected && this.authenticated) {
+                    console.log('[CHAT-CLIENT] 🔄 Reconnecting SSE...');
+                    this.eventSource.close();
+                    this.eventSource = null;
+                    this.connectSSE();
+                }
+            }, 3000);
         };
     }
 
     /**
-     * Authenticate WebSocket connection
-     */
-    authenticateWebSocket() {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.warn('[CHAT-CLIENT] Cannot authenticate - WebSocket not open');
-            return;
-        }
-
-        this.ws.send(JSON.stringify({
-            type: 'auth',
-            payload: {
-                userId: this.userId,
-                authData: this.authData
-            }
-        }));
-
-        console.log('[CHAT-CLIENT] Authentication request sent');
-    }
-
-    /**
-     * Handle incoming WebSocket messages
-     */
-    handleWebSocketMessage(data) {
-        const { type } = data;
-
-        switch (type) {
-            case 'connected':
-                console.log('[CHAT-CLIENT] Server connection acknowledged');
-                break;
-
-            case 'authenticated':
-                console.log('[CHAT-CLIENT] ✅ Authenticated');
-                this.authenticated = true;
-                break;
-
-            case 'auth_error':
-                console.error('[CHAT-CLIENT] Authentication failed:', data.message);
-                if (this.onError) this.onError(new Error(data.message));
-                break;
-
-            case 'new_message':
-                console.log('[CHAT-CLIENT] New message:', data.chatId);
-                if (this.onNewMessage) this.onNewMessage(data.chatId, data.message);
-                break;
-
-            case 'user_typing':
-                if (this.onUserTyping) this.onUserTyping(data.chatId, data.userId);
-                break;
-
-            case 'user_stopped_typing':
-                if (this.onUserStoppedTyping) this.onUserStoppedTyping(data.chatId, data.userId);
-                break;
-
-            case 'user_status':
-                if (this.onUserStatus) this.onUserStatus(data.userId, data.online);
-                break;
-
-            case 'pong':
-                // Keep-alive response
-                break;
-
-            case 'error':
-                console.error('[CHAT-CLIENT] Server error:', data.message);
-                if (this.onError) this.onError(new Error(data.message));
-                break;
-
-            default:
-                console.warn('[CHAT-CLIENT] Unknown message type:', type);
-        }
-    }
-
-    /**
-     * Disconnect WebSocket
+     * Disconnect from SSE
      */
     disconnect() {
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+            this.connected = false;
+            console.log('[CHAT-CLIENT] 🔌 Disconnected');
         }
-        this.connected = false;
-        this.authenticated = false;
     }
 
     // =====================================================
-    // REST API METHODS
+    // API METHODS - CONVERSATIONS
     // =====================================================
 
     /**
-     * Get list of users
+     * Get list of conversations for current user
      */
-    async getUsers(options = {}) {
-        const { online, search, limit = 50 } = options;
-        const params = new URLSearchParams();
-
-        if (online !== undefined) params.append('online', online);
-        if (search) params.append('search', search);
-        params.append('limit', limit);
-
-        const response = await this._fetch(`/api/chat/users?${params}`);
-        return response.users;
+    async getConversations(limit = 50) {
+        const response = await this._fetch(`/api/chat/conversations?limit=${limit}`, {
+            method: 'GET'
+        });
+        return response.conversations || [];
     }
 
     /**
-     * Create new chat (direct or group)
+     * Create new conversation
      */
-    async createChat(participants, type = 'direct', groupName = null) {
-        const response = await this._fetch('/api/chat/create', {
+    async createConversation(participants, type = 'direct', groupName = null) {
+        const response = await this._fetch('/api/chat/conversations', {
             method: 'POST',
             body: JSON.stringify({ participants, type, groupName })
         });
-
-        return {
-            chatId: response.chatId,
-            existing: response.existing,
-            chat: response.chat
-        };
-    }
-
-    /**
-     * Get conversations list
-     */
-    async getConversations(limit = 50) {
-        const response = await this._fetch(`/api/chat/conversations?limit=${limit}`);
-        return response.chats;
-    }
-
-    /**
-     * Get chat details
-     */
-    async getChat(chatId) {
-        const response = await this._fetch(`/api/chat/${chatId}`);
-        return response.chat;
-    }
-
-    /**
-     * Get messages from a chat
-     */
-    async getMessages(chatId, options = {}) {
-        const { limit = 50, before, after } = options;
-        const params = new URLSearchParams({ limit });
-
-        if (before) params.append('before', before);
-        if (after) params.append('after', after);
-
-        const response = await this._fetch(`/api/chat/${chatId}/messages?${params}`);
-        return response.messages;
-    }
-
-    /**
-     * Send a text message
-     */
-    async sendMessage(chatId, text) {
-        const response = await this._fetch(`/api/chat/${chatId}/send`, {
-            method: 'POST',
-            body: JSON.stringify({ text, type: 'text' })
-        });
-
-        return response.message;
-    }
-
-    /**
-     * Send an image message
-     */
-    async sendImage(chatId, fileUrl, fileName) {
-        const response = await this._fetch(`/api/chat/${chatId}/send`, {
-            method: 'POST',
-            body: JSON.stringify({
-                type: 'image',
-                fileUrl,
-                fileName,
-                text: null
-            })
-        });
-
-        return response.message;
-    }
-
-    /**
-     * Send a file message
-     */
-    async sendFile(chatId, fileUrl, fileName) {
-        const response = await this._fetch(`/api/chat/${chatId}/send`, {
-            method: 'POST',
-            body: JSON.stringify({
-                type: 'file',
-                fileUrl,
-                fileName,
-                text: null
-            })
-        });
-
-        return response.message;
-    }
-
-    /**
-     * Upload a file
-     */
-    async uploadFile(chatId, file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('chatId', chatId);
-
-        const response = await fetch(`${this.serverUrl}/api/chat/upload`, {
-            method: 'POST',
-            headers: {
-                'X-Auth-Data': JSON.stringify(this.authData)
-            },
-            body: formData
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Upload failed');
-        }
-
-        return await response.json();
-    }
-
-    /**
-     * Mark messages as read
-     */
-    async markAsRead(chatId, messageIds) {
-        const response = await this._fetch(`/api/chat/${chatId}/mark-read`, {
-            method: 'POST',
-            body: JSON.stringify({ messageIds })
-        });
-
         return response;
     }
 
     // =====================================================
-    // WEBSOCKET METHODS
+    // API METHODS - MESSAGES
     // =====================================================
 
     /**
-     * Send typing indicator
+     * Get messages for a conversation
      */
-    sendTyping(chatId) {
-        if (!this.authenticated) {
-            console.warn('[CHAT-CLIENT] Not authenticated');
-            return;
-        }
+    async getMessages(conversationId, limit = 50, before = null) {
+        let url = `/api/chat/messages/${conversationId}?limit=${limit}`;
+        if (before) url += `&before=${before}`;
 
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-                type: 'typing',
-                payload: { chatId }
-            }));
-        }
+        const response = await this._fetch(url, {
+            method: 'GET'
+        });
+        return response.messages || [];
     }
 
     /**
-     * Stop typing indicator
+     * Send a message
      */
-    stopTyping(chatId) {
-        if (!this.authenticated) return;
-
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-                type: 'stop_typing',
-                payload: { chatId }
-            }));
-        }
+    async sendMessage(conversationId, text, type = 'text', fileUrl = null, fileName = null, fileSize = null) {
+        const response = await this._fetch('/api/chat/messages', {
+            method: 'POST',
+            body: JSON.stringify({
+                conversationId,
+                text,
+                type,
+                fileUrl,
+                fileName,
+                fileSize
+            })
+        });
+        return response.message;
     }
 
     /**
-     * Send ping (keep-alive)
+     * Mark conversation as read
      */
-    ping() {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ type: 'ping' }));
-        }
+    async markAsRead(conversationId) {
+        await this._fetch('/api/chat/messages/read', {
+            method: 'POST',
+            body: JSON.stringify({ conversationId })
+        });
     }
 
     // =====================================================
-    // HELPER METHODS
+    // API METHODS - USERS
     // =====================================================
 
     /**
-     * Internal fetch wrapper with auth
+     * Get users list
+     */
+    async getUsers(online = false, limit = 50) {
+        let url = `/api/chat/users?limit=${limit}`;
+        if (online) url += '&online=true';
+
+        const response = await this._fetch(url, {
+            method: 'GET'
+        });
+        return response.users || [];
+    }
+
+    /**
+     * Get specific user
+     */
+    async getUser(userId) {
+        const response = await this._fetch(`/api/chat/users/${userId}`, {
+            method: 'GET'
+        });
+        return response.user;
+    }
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+
+    /**
+     * Internal fetch wrapper with auth headers
      */
     async _fetch(endpoint, options = {}) {
-        const url = `${this.serverUrl}${endpoint}`;
+        const url = `${this.apiUrl}${endpoint}`;
 
         const headers = {
             'Content-Type': 'application/json',
-            'X-Auth-Data': JSON.stringify(this.authData),
+            'X-User-Id': this.userId,
             ...options.headers
         };
 
-        const response = await fetch(url, {
+        const config = {
             ...options,
             headers
-        });
+        };
+
+        console.log(`[CHAT-CLIENT] 📤 ${options.method || 'GET'} ${endpoint}`);
+
+        const response = await fetch(url, config);
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || error.error || 'Request failed');
+            const errorText = await response.text();
+            console.error(`[CHAT-CLIENT] ❌ ${response.status}:`, errorText);
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
         }
 
-        return await response.json();
+        const data = await response.json();
+        console.log(`[CHAT-CLIENT] ✅ Response:`, data);
+        return data;
     }
 
     /**
-     * Check if connected
+     * Check if client is connected
      */
     isConnected() {
-        return this.connected && this.authenticated;
+        return this.connected;
     }
 
     /**
@@ -470,28 +301,21 @@ class ChatClient {
     getUserId() {
         return this.userId;
     }
+
+    /**
+     * Get current username
+     */
+    getUsername() {
+        return this.username;
+    }
 }
 
 // =====================================================
-// AUTO-INITIALIZATION
+// GLOBAL INSTANCE
 // =====================================================
 
-// Create global instance
+// Create global instance (but don't auto-init)
 const chatClient = new ChatClient();
 window.chatClient = chatClient;
 
-// Auto-initialize DISABLED - Backend not ready yet
-// Chat page will handle initialization manually
-// window.addEventListener('DOMContentLoaded', () => {
-//     // Wait a bit for authManager to initialize
-//     setTimeout(() => {
-//         if (window.authManager && authManager.isAuthenticated()) {
-//             console.log('[CHAT-CLIENT] Auto-initializing...');
-//             chatClient.init().catch(error => {
-//                 console.error('[CHAT-CLIENT] Auto-init failed:', error);
-//             });
-//         }
-//     }, 1000);
-// });
-
-console.log('[CHAT-CLIENT] Module loaded');
+console.log('[CHAT-CLIENT] 📦 Module loaded - call chatClient.init() to start');
