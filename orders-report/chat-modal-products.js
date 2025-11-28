@@ -2464,6 +2464,13 @@
     window.sendProductToChat = async function(productId, productName, productImageUrl) {
         console.log('[SEND-PRODUCT] Attempting to send product:', { productId, productName, productImageUrl });
 
+        // Show confirmation dialog
+        const confirmed = confirm(`Bạn có chắc muốn gửi sản phẩm "${productName}" vào chat không?`);
+        if (!confirmed) {
+            console.log('[SEND-PRODUCT] User cancelled sending product');
+            return;
+        }
+
         // SAFETY CHECK: Only work in chat modal context
         if (!window.currentChatOrderData) {
             console.error('[SEND-PRODUCT] Not in chat modal context - aborting');
@@ -2561,7 +2568,58 @@
             }
 
             const result = await response.json();
-            console.log('[SEND-PRODUCT] Success:', result);
+            console.log('[SEND-PRODUCT] API Response:', result);
+
+            // Check if API returned an error (even with HTTP 200 OK)
+            if (result.success === false || result.error_code) {
+                console.error('[SEND-PRODUCT] API returned error:', result);
+
+                // Handle invalid access token error (error_code 102)
+                if (result.error_code === 102) {
+                    console.log('[SEND-PRODUCT] Invalid access token, refreshing and retrying...');
+
+                    // Clear the invalid token and get a fresh one
+                    await window.tokenManager.clearToken();
+                    const newToken = await window.tokenManager.getToken();
+
+                    // Rebuild API URL with new token
+                    const retryApiUrl = window.API_CONFIG.buildUrl.pancake(
+                        `pages/${pageId}/conversations/${conversationId}/messages`,
+                        `access_token=${newToken}`
+                    );
+
+                    console.log('[SEND-PRODUCT] Retrying with new token...');
+
+                    // Retry the request with new token
+                    const retryResponse = await fetch(retryApiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    if (!retryResponse.ok) {
+                        const errorText = await retryResponse.text();
+                        console.error('[SEND-PRODUCT] Retry API error:', errorText);
+                        throw new Error(`API trả về lỗi: ${retryResponse.status}`);
+                    }
+
+                    const retryResult = await retryResponse.json();
+                    console.log('[SEND-PRODUCT] Retry response:', retryResult);
+
+                    // Check retry result
+                    if (retryResult.success === false || retryResult.error_code) {
+                        throw new Error(retryResult.message || `Lỗi API: ${retryResult.error_code}`);
+                    }
+
+                    // Retry succeeded
+                    console.log('[SEND-PRODUCT] Retry successful');
+                } else {
+                    // Other API errors
+                    throw new Error(result.message || `Lỗi API: ${result.error_code}`);
+                }
+            }
 
             // Remove loading notification
             if (window.notificationManager && loadingNotifId) {
