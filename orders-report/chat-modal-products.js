@@ -2268,6 +2268,9 @@
                                 price: p.Price || 0
                             })),
                             partnerId: window.currentChatOrderData.PartnerId || null, // NEW: Save partnerId instead of invoiceProducts
+                            Phone: window.currentChatOrderData.Telephone || window.currentChatOrderData.PartnerPhone || '',
+                            Code: window.currentChatOrderData.Code || '',
+                            Facebook_ASUserId: window.currentChatOrderData.Facebook_ASUserId || '',
                             userId: userId,
                             userName: auth.displayName || auth.userType || 'Unknown',
                             lastUpdated: firebase.database.ServerValue.TIMESTAMP
