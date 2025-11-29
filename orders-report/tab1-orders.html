@@ -299,6 +299,43 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Table Filters Row -->
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid #e5e7eb; margin-top: 8px;">
+                <!-- TAG Filter -->
+                <label>TAG:</label>
+                <div class="custom-dropdown" id="tagFilterDropdown" style="min-width: 200px;">
+                    <div class="dropdown-selected" onclick="toggleTagDropdown()"
+                        id="tagFilterSelected">
+                        <span>Tất cả</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="dropdown-container" id="tagFilterContainer">
+                        <input type="text" id="tagFilterInput" placeholder="Tìm tag..."
+                            onkeyup="filterTagDropdown()" onclick="event.stopPropagation()">
+                        <div id="tagFilterOptions" class="dropdown-options">
+                            <!-- Options populated by JS -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="tagFilter" value="all">
+                </div>
+
+                <!-- Messages Filter -->
+                <label>Tin nhắn:</label>
+                <select id="conversationFilter" onchange="performTableSearch()" style="min-width: 150px;">
+                    <option value="all" selected>Tất cả</option>
+                    <option value="unread">Chưa đọc</option>
+                    <option value="read">Đã đọc</option>
+                </select>
+
+                <!-- Status Filter -->
+                <label>Trạng thái:</label>
+                <select id="statusFilter" onchange="performTableSearch()" style="min-width: 150px;">
+                    <option value="all" selected>Tất cả</option>
+                    <option value="Draft">Nháp</option>
+                    <option value="Confirmed">Đơn hàng</option>
+                </select>
+            </div>
         </div>
 
         <!-- Action Buttons Section (New) -->
@@ -415,39 +452,10 @@
                             </th>
                             <th data-column="stt">STT</th>
                             <th data-column="employee" style="width: 90px;">Nhân viên</th>
-                            <th data-column="tag" style="min-width: 150px;">
-                                <div class="th-header-container">
-                                    <span class="th-header-label">TAG</span>
-                                    <div class="custom-dropdown" id="tagFilterDropdown" style="flex: 1;">
-                                        <div class="dropdown-selected" onclick="toggleTagDropdown()"
-                                            id="tagFilterSelected">
-                                            <span>Tất cả</span>
-                                            <i class="fas fa-chevron-down"></i>
-                                        </div>
-                                        <div class="dropdown-container" id="tagFilterContainer">
-                                            <input type="text" id="tagFilterInput" placeholder="Tìm tag..."
-                                                onkeyup="filterTagDropdown()" onclick="event.stopPropagation()">
-                                            <div id="tagFilterOptions" class="dropdown-options">
-                                                <!-- Options populated by JS -->
-                                            </div>
-                                        </div>
-                                        <input type="hidden" id="tagFilter" value="all">
-                                    </div>
-                                </div>
-                            </th>
+                            <th data-column="tag">TAG</th>
                             <th data-column="order-code">Mã ĐH</th>
                             <th data-column="customer">Khách hàng</th>
-                            <th data-column="messages" style="min-width: 150px;">
-                                <div class="th-header-container">
-                                    <span class="th-header-label">Tin nhắn</span>
-                                    <select id="conversationFilter" class="th-filter-input"
-                                        onchange="performTableSearch()">
-                                        <option value="all" selected>Tất cả</option>
-                                        <option value="unread">Chưa đọc</option>
-                                        <option value="read">Đã đọc</option>
-                                    </select>
-                                </div>
-                            </th>
+                            <th data-column="messages">Tin nhắn</th>
                             <th data-column="comments">Bình luận</th>
                             <th data-column="phone">SĐT</th>
                             <th data-column="address">Địa chỉ</th>
@@ -455,16 +463,7 @@
                             <th data-column="total">Tổng tiền</th>
                             <th data-column="quantity">SL</th>
                             <th data-column="created-date">Ngày tạo</th>
-                            <th data-column="status" style="min-width: 140px;">
-                                <div class="th-header-container">
-                                    <span class="th-header-label">Trạng thái</span>
-                                    <select id="statusFilter" class="th-filter-input" onchange="performTableSearch()">
-                                        <option value="all" selected>Tất cả</option>
-                                        <option value="Draft">Nháp</option>
-                                        <option value="Confirmed">Đơn hàng</option>
-                                    </select>
-                                </div>
-                            </th>
+                            <th data-column="status">Trạng thái</th>
                             <th data-column="actions">Thao tác</th>
                         </tr>
                     </thead>
