@@ -241,9 +241,9 @@ function renderTable(data) {
             <td>${formatCurrency(row.accumulated)}</td>
             <td>${truncateText(row.content || 'N/A', 50)}</td>
             <td>${row.reference_code || 'N/A'}</td>
-            <td>
+            <td class="text-center">
                 <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
-                    <i class="fas fa-eye"></i><br>Chi tiết
+                    Chi tiết
                 </button>
             </td>
         </tr>
