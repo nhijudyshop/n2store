@@ -103,25 +103,8 @@ router.post('/webhook', async (req, res) => {
             });
         }
 
-        // Kiểm tra duplicate transaction bằng sepay_id
-        const existingCheck = await db.query(
-            'SELECT id FROM balance_history WHERE sepay_id = $1',
-            [webhookData.id]
-        );
-
-        if (existingCheck.rows.length > 0) {
-            console.log('[SEPAY-WEBHOOK] Duplicate transaction ignored:', webhookData.id);
-            await logWebhook(db, webhookData.id, req, 200,
-                { success: true, message: 'Duplicate transaction ignored' },
-                null
-            );
-            return res.status(200).json({
-                success: true,
-                message: 'Duplicate transaction - already processed'
-            });
-        }
-
-        // Insert vào database
+        // Insert vào database với atomic duplicate handling
+        // Sử dụng ON CONFLICT để tránh race condition
         const insertQuery = `
             INSERT INTO balance_history (
                 sepay_id, gateway, transaction_date, account_number,
@@ -130,7 +113,9 @@ router.post('/webhook', async (req, res) => {
                 raw_data, webhook_received_at
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP
-            ) RETURNING id
+            )
+            ON CONFLICT (sepay_id) DO NOTHING
+            RETURNING id
         `;
 
         const values = [
@@ -150,6 +135,21 @@ router.post('/webhook', async (req, res) => {
         ];
 
         const result = await db.query(insertQuery, values);
+
+        // Check if insert was successful or skipped due to duplicate
+        if (result.rows.length === 0) {
+            // Duplicate transaction - ON CONFLICT triggered
+            console.log('[SEPAY-WEBHOOK] Duplicate transaction ignored (atomic check):', webhookData.id);
+            await logWebhook(db, webhookData.id, req, 200,
+                { success: true, message: 'Duplicate transaction ignored' },
+                null
+            );
+            return res.status(200).json({
+                success: true,
+                message: 'Duplicate transaction - already processed'
+            });
+        }
+
         const insertedId = result.rows[0].id;
 
         console.log('[SEPAY-WEBHOOK] ✅ Transaction saved:', {
