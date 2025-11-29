@@ -73,7 +73,9 @@ router.post('/webhook', async (req, res) => {
         // Validate required fields
         const requiredFields = ['id', 'gateway', 'transactionDate', 'accountNumber',
                                'transferType', 'transferAmount', 'accumulated'];
-        const missingFields = requiredFields.filter(field => !webhookData[field]);
+        const missingFields = requiredFields.filter(field =>
+            webhookData[field] === undefined || webhookData[field] === null
+        );
 
         if (missingFields.length > 0) {
             console.error('[SEPAY-WEBHOOK] Missing required fields:', missingFields);
