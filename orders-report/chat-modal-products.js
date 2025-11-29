@@ -2596,6 +2596,18 @@
             // Set to currentPastedImage (global variable from tab1-orders.js)
             window.currentPastedImage = blob;
 
+            // Clear chat input text
+            const chatInput = document.getElementById('chatReplyInput');
+            if (chatInput) {
+                chatInput.value = '';
+
+                // Disable text input when image is present (same as paste behavior)
+                chatInput.disabled = true;
+                chatInput.style.opacity = '0.6';
+                chatInput.style.cursor = 'not-allowed';
+                chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
+            }
+
             // Show preview like pasted image
             const reader = new FileReader();
             reader.onload = function (e) {
