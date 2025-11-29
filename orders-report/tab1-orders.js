@@ -5093,12 +5093,25 @@ window.closeChatModal = async function () {
  */
 function handleChatInputPaste(event) {
     const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+    let hasImage = false;
 
     for (let index in items) {
         const item = items[index];
         if (item.kind === 'file' && item.type.startsWith('image/')) {
+            hasImage = true;
+            event.preventDefault(); // Prevent default paste to avoid clearing text input
+
             const blob = item.getAsFile();
             currentPastedImage = blob;
+
+            // Disable text input when image is present
+            const chatInput = document.getElementById('chatReplyInput');
+            if (chatInput) {
+                chatInput.disabled = true;
+                chatInput.style.opacity = '0.6';
+                chatInput.style.cursor = 'not-allowed';
+                chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
+            }
 
             // Show preview
             const reader = new FileReader();
@@ -5112,7 +5125,7 @@ function handleChatInputPaste(event) {
                     previewContainer.innerHTML = `
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <img src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd;">
-                            <span style="font-size: 12px; color: #666;">${blob.name} (${Math.round(blob.size / 1024)} KB)</span>
+                            <span style="font-size: 12px; color: #666;">${blob.name || 'Image'} (${Math.round(blob.size / 1024)} KB)</span>
                         </div>
                         <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
                             <i class="fas fa-times"></i>
@@ -5121,6 +5134,7 @@ function handleChatInputPaste(event) {
                 }
             };
             reader.readAsDataURL(blob);
+            break; // Only handle first image
         }
     }
 }
@@ -5134,6 +5148,16 @@ window.clearPastedImage = function () {
     if (previewContainer) {
         previewContainer.innerHTML = '';
         previewContainer.style.display = 'none';
+    }
+
+    // Re-enable text input when image is cleared
+    const chatInput = document.getElementById('chatReplyInput');
+    if (chatInput) {
+        chatInput.disabled = false;
+        chatInput.style.opacity = '1';
+        chatInput.style.cursor = 'text';
+        chatInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
+        chatInput.focus();
     }
 }
 
@@ -5363,6 +5387,14 @@ window.sendReplyComment = async function () {
         if (previewContainer) {
             previewContainer.innerHTML = '';
             previewContainer.style.display = 'none';
+        }
+
+        // Re-enable text input when image is sent
+        if (messageInput) {
+            messageInput.disabled = false;
+            messageInput.style.opacity = '1';
+            messageInput.style.cursor = 'text';
+            messageInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
         }
 
         // Clear reply state
