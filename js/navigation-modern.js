@@ -127,6 +127,24 @@ const MENU_CONFIG = [
         adminOnly: true,
         permissionRequired: "user-management",
     },
+    {
+        href: "../balance-history/index.html",
+        icon: "wallet",
+        text: "Lịch Sử Biến Động Số Dư",
+        shortText: "Số Dư",
+        pageIdentifier: "balance-history",
+        adminOnly: true,
+        permissionRequired: "balance-history",
+    },
+    {
+        href: "../lichsuchinhsua/index.html",
+        icon: "bar-chart-2",
+        text: "Lịch Sử Chỉnh Sửa",
+        shortText: "Lịch Sử",
+        pageIdentifier: "lichsuchinhsua",
+        adminOnly: true,
+        permissionRequired: "lichsuchinhsua",
+    },
 ];
 
 class UnifiedNavigationManager {

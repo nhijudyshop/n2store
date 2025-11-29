@@ -23,9 +23,26 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gray-50, #f9fafb);
     min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+.main-content {
+    margin-left: 280px;
     padding: 20px;
+    transition: margin-left 0.3s ease;
+}
+
+.sidebar.collapsed + .main-content {
+    margin-left: 80px;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+    }
 }
 
 .container {
