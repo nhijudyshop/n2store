@@ -7,6 +7,55 @@
 (function () {
     'use strict';
 
+    // Add CSS styles for search suggestions
+    const style = document.createElement('style');
+    style.textContent = `
+        #droppedProductSearchSuggestions.show {
+            display: block !important;
+        }
+
+        #droppedProductSearchSuggestions .suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background-color 0.15s;
+            font-size: 13px;
+            color: #1e293b;
+        }
+
+        #droppedProductSearchSuggestions .suggestion-item:hover {
+            background-color: #f8fafc;
+        }
+
+        #droppedProductSearchSuggestions .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        #droppedProductSearchSuggestions .suggestion-item strong {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        #droppedProductSearchSuggestions::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #droppedProductSearchSuggestions::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+
+        #droppedProductSearchSuggestions::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        #droppedProductSearchSuggestions::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    `;
+    document.head.appendChild(style);
+
     // Firebase collection path for dropped products
     const DROPPED_PRODUCTS_COLLECTION = 'dropped_products';
     const HISTORY_COLLECTION = 'dropped_products_history';
@@ -22,6 +71,10 @@
 
     // Loading states for better UX during multi-user operations
     let operationsInProgress = new Set();
+
+    // Product search state
+    let productSearchInitialized = false;
+    let searchSuggestionsVisible = false;
 
     /**
      * Initialize the dropped products manager
@@ -322,6 +375,146 @@
         isInitialized = false;
         console.log('[DROPPED-PRODUCTS] Cleanup complete');
     };
+
+    /**
+     * Initialize product search functionality
+     */
+    async function initializeProductSearch() {
+        if (productSearchInitialized) return;
+
+        if (!window.ProductSearchModule) {
+            console.error('[DROPPED-PRODUCTS] ProductSearchModule not found');
+            return;
+        }
+
+        try {
+            console.log('[DROPPED-PRODUCTS] Initializing product search...');
+
+            // Load Excel data for search
+            await window.ProductSearchModule.loadExcelData(
+                () => {
+                    console.log('[DROPPED-PRODUCTS] Loading product data...');
+                },
+                () => {
+                    console.log('[DROPPED-PRODUCTS] Product data loaded');
+                }
+            );
+
+            productSearchInitialized = true;
+            console.log('[DROPPED-PRODUCTS] ✓ Product search initialized');
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] Error initializing product search:', error);
+            showError('Lỗi khởi tạo tìm kiếm sản phẩm: ' + error.message);
+        }
+    }
+
+    /**
+     * Handle product search input
+     */
+    window.handleProductSearchInput = async function (searchText) {
+        if (!productSearchInitialized) {
+            await initializeProductSearch();
+        }
+
+        if (!window.ProductSearchModule) return;
+
+        const input = document.getElementById('droppedProductSearchInput');
+        const suggestionsDiv = document.getElementById('droppedProductSearchSuggestions');
+
+        if (!input || !suggestionsDiv) return;
+
+        if (!searchText || searchText.trim().length < 2) {
+            suggestionsDiv.classList.remove('show');
+            searchSuggestionsVisible = false;
+            return;
+        }
+
+        // Search for products
+        const results = window.ProductSearchModule.searchProducts(searchText);
+
+        if (results.length === 0) {
+            suggestionsDiv.classList.remove('show');
+            searchSuggestionsVisible = false;
+            return;
+        }
+
+        // Display suggestions
+        suggestionsDiv.innerHTML = results.map(product => `
+            <div class="suggestion-item" data-id="${product.id}">
+                <strong>${product.code || ''}</strong> - ${product.name}
+            </div>
+        `).join('');
+
+        suggestionsDiv.classList.add('show');
+        searchSuggestionsVisible = true;
+
+        // Add click handlers
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const productId = item.dataset.id;
+                addProductFromSearch(productId);
+                suggestionsDiv.classList.remove('show');
+                searchSuggestionsVisible = false;
+                if (input) input.value = '';
+            });
+        });
+    };
+
+    /**
+     * Add product from search to dropped list
+     */
+    async function addProductFromSearch(productId) {
+        if (!window.ProductSearchModule) {
+            showError('ProductSearchModule không khả dụng');
+            return;
+        }
+
+        try {
+            console.log('[DROPPED-PRODUCTS] Loading product details for:', productId);
+
+            // Load full product details
+            const result = await window.ProductSearchModule.loadProductDetails(productId, {
+                autoAddVariants: false // Don't auto-add variants for dropped products
+            });
+
+            const productData = result.productData;
+
+            // Create product object for dropped list
+            const product = {
+                ProductId: productData.Id,
+                ProductName: productData.Name || productData.NameTemplate,
+                ProductNameGet: productData.NameGet || `[${productData.DefaultCode}] ${productData.Name}`,
+                ProductCode: productData.DefaultCode || productData.Barcode,
+                ImageUrl: result.imageUrl,
+                Price: productData.ListPrice || 0,
+                UOMName: productData.UOM?.Name || 'Cái'
+            };
+
+            // Add to dropped products with quantity 1
+            await window.addToDroppedProducts(product, 1, 'manual_add');
+
+            showSuccess(`Đã thêm sản phẩm: ${product.ProductNameGet}`);
+
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] Error adding product from search:', error);
+            showError('Lỗi khi thêm sản phẩm: ' + error.message);
+        }
+    }
+
+    /**
+     * Close search suggestions when clicking outside
+     */
+    document.addEventListener('click', (e) => {
+        const searchContainer = document.getElementById('droppedProductSearchContainer');
+        const suggestionsDiv = document.getElementById('droppedProductSearchSuggestions');
+
+        if (searchContainer && suggestionsDiv && searchSuggestionsVisible) {
+            if (!searchContainer.contains(e.target)) {
+                suggestionsDiv.classList.remove('show');
+                searchSuggestionsVisible = false;
+            }
+        }
+    });
 
 
     /**
@@ -787,12 +980,66 @@
 
         const products = filteredProducts || droppedProducts;
 
+        // Add search UI at the top
+        const searchUI = `
+            <div id="droppedProductSearchContainer" style="
+                padding: 12px 16px;
+                border-bottom: 2px solid #f1f5f9;
+                background: #f8fafc;
+                position: relative;
+            ">
+                <div style="position: relative;">
+                    <input
+                        type="text"
+                        id="droppedProductSearchInput"
+                        placeholder="🔍 Tìm kiếm sản phẩm để thêm vào hàng rớt..."
+                        oninput="handleProductSearchInput(this.value)"
+                        style="
+                            width: 100%;
+                            padding: 10px 40px 10px 12px;
+                            border: 2px solid #e2e8f0;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            outline: none;
+                            transition: all 0.2s;
+                            box-sizing: border-box;
+                        "
+                        onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)';"
+                        onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';"
+                    />
+                    <i class="fas fa-search" style="
+                        position: absolute;
+                        right: 14px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        color: #94a3b8;
+                        pointer-events: none;
+                    "></i>
+                </div>
+                <div id="droppedProductSearchSuggestions" class="suggestions-dropdown" style="
+                    position: absolute;
+                    top: 100%;
+                    left: 16px;
+                    right: 16px;
+                    background: white;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                    max-height: 300px;
+                    overflow-y: auto;
+                    z-index: 1000;
+                    display: none;
+                    margin-top: 4px;
+                "></div>
+            </div>
+        `;
+
         if (products.length === 0) {
-            container.innerHTML = `
+            container.innerHTML = searchUI + `
                 <div class="chat-empty-products" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
                     <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
                     <p style="font-size: 14px; margin: 0;">Chưa có hàng rớt - xả</p>
-                    <p style="font-size: 12px; margin-top: 4px;">Sản phẩm bị xóa hoặc giảm số lượng sẽ hiển thị ở đây</p>
+                    <p style="font-size: 12px; margin-top: 4px;">Sử dụng thanh tìm kiếm để thêm sản phẩm</p>
                 </div>
             `;
             return;
@@ -861,7 +1108,7 @@
         const totalQuantity = products.reduce((sum, p) => sum + (p.Quantity || 0), 0);
         const totalAmount = products.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
 
-        container.innerHTML = `
+        container.innerHTML = searchUI + `
             <table class="chat-products-table">
                 <thead>
                     <tr>
