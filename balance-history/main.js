@@ -243,7 +243,7 @@ function renderTable(data) {
             <td>${row.reference_code || 'N/A'}</td>
             <td>
                 <button class="btn btn-primary btn-sm" onclick="showDetail(${row.id})">
-                    <i class="fas fa-eye"></i> Chi tiết
+                    <i class="fas fa-eye"></i><br>Chi tiết
                 </button>
             </td>
         </tr>
