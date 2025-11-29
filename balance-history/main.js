@@ -33,8 +33,31 @@ const detailModal = document.getElementById('detailModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const modalBody = document.getElementById('modalBody');
 
+// Set Default Current Month
+function setDefaultCurrentMonth() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+
+    // First day of current month
+    const firstDay = `${year}-${month}-01`;
+
+    // Last day of current month
+    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+    const lastDayFormatted = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+
+    // Set input values
+    document.getElementById('filterStartDate').value = firstDay;
+    document.getElementById('filterEndDate').value = lastDayFormatted;
+
+    // Update filters state
+    filters.startDate = firstDay;
+    filters.endDate = lastDayFormatted;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    setDefaultCurrentMonth();
     loadData();
     loadStatistics();
     setupEventListeners();
@@ -110,16 +133,15 @@ function applyFilters() {
 function resetFilters() {
     document.getElementById('filterType').value = '';
     document.getElementById('filterGateway').value = '';
-    document.getElementById('filterStartDate').value = '';
-    document.getElementById('filterEndDate').value = '';
     document.getElementById('filterSearch').value = '';
-    filters = {
-        type: '',
-        gateway: '',
-        startDate: '',
-        endDate: '',
-        search: ''
-    };
+
+    // Reset dates to current month
+    setDefaultCurrentMonth();
+
+    filters.type = '';
+    filters.gateway = '';
+    filters.search = '';
+    // startDate and endDate are already set by setDefaultCurrentMonth()
 }
 
 // Load Data
