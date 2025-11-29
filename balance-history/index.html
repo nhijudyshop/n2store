@@ -58,6 +58,9 @@
                 <div class="header-content">
                     <h1><i data-lucide="wallet"></i> Lịch sử biến động số dư</h1>
                     <div class="header-actions">
+                        <button id="viewRawDataBtn" class="btn btn-secondary">
+                            <i data-lucide="database"></i> Xem Raw Data
+                        </button>
                         <button id="refreshBtn" class="btn btn-primary">
                             <i data-lucide="refresh-cw"></i> Làm mới
                         </button>
@@ -201,6 +204,30 @@
             </div>
             <div class="modal-body" id="modalBody">
                 <!-- Detail will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Raw Data Modal -->
+    <div id="rawDataModal" class="modal">
+        <div class="modal-content" style="max-width: 90%; max-height: 90vh;">
+            <div class="modal-header">
+                <h2><i data-lucide="database"></i> Raw Data - Toàn bộ dữ liệu SQL</h2>
+                <button class="modal-close" id="closeRawDataModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+                    <button id="copyRawDataBtn" class="btn btn-primary btn-sm">
+                        <i data-lucide="copy"></i> Copy JSON
+                    </button>
+                    <button id="downloadRawDataBtn" class="btn btn-success btn-sm">
+                        <i data-lucide="download"></i> Download JSON
+                    </button>
+                    <span id="rawDataCount" style="margin-left: auto; color: #666;"></span>
+                </div>
+                <div id="rawDataContent" style="max-height: 70vh; overflow: auto; background: #f5f5f5; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;">
+                    <!-- Raw data will be inserted here -->
+                </div>
             </div>
         </div>
     </div>
