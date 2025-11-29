@@ -2268,6 +2268,12 @@
                                 price: p.Price || 0
                             })),
                             partnerId: window.currentChatOrderData.PartnerId || null, // NEW: Save partnerId instead of invoiceProducts
+                            Phone: window.currentChatOrderData.Telephone || window.currentChatOrderData.PartnerPhone || '',
+                            Code: window.currentChatOrderData.Code || '',
+                            Facebook_ASUserId: window.currentChatOrderData.Facebook_ASUserId || '',
+                            Facebook_UserName: window.currentChatOrderData.Facebook_UserName || '',
+                            LiveCampaignId: window.currentChatOrderData.LiveCampaignId || '',
+                            LiveCampaignName: window.currentChatOrderData.LiveCampaignName || '',
                             userId: userId,
                             userName: auth.displayName || auth.userType || 'Unknown',
                             lastUpdated: firebase.database.ServerValue.TIMESTAMP
