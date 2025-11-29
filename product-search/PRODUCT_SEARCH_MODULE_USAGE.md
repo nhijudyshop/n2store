@@ -2,6 +2,8 @@
 
 Module tách riêng các hàm search, suggestion, và xử lý sản phẩm để có thể tái sử dụng ở các trang khác.
 
+**Lưu ý:** Module này sử dụng Cloudflare Worker proxy (`https://chatomni-proxy.nhijudyshop.workers.dev/api`) thay vì gọi trực tiếp `tomato.tpos.vn` để tránh CORS và cải thiện hiệu suất với token caching.
+
 ## Cài Đặt
 
 ### 1. Import các thư viện cần thiết
@@ -436,17 +438,48 @@ setAutoAddVariants(false);
 
 ## Configuration
 
+### Cloudflare Worker Proxy
+
+Module sử dụng Cloudflare Worker làm proxy để:
+- **Tránh CORS**: Bypass CORS restrictions khi gọi API từ browser
+- **Token Caching**: Cache token ở Worker để giảm số lần gọi API lấy token
+- **Performance**: Cải thiện tốc độ và độ tin cậy
+
+**Default Configuration:**
+```javascript
+{
+    apiBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
+    auth: {
+        username: 'nvkt',
+        password: 'Aa@123456789',
+        clientId: 'tmtWebApp'
+    }
+}
+```
+
+**Proxy Mapping:**
+- `/api/token` → `https://tomato.tpos.vn/token` (with caching)
+- `/api/*` → `https://tomato.tpos.vn/*`
+
 ### Thay đổi cấu hình API
+
+Nếu bạn muốn dùng proxy khác hoặc gọi trực tiếp (không khuyến khích):
 
 ```javascript
 const { configure } = window.ProductSearchModule;
 
+// Sử dụng custom Cloudflare Worker
 configure({
-    apiBaseUrl: 'https://custom-api.example.com',
+    apiBaseUrl: 'https://your-worker.workers.dev/api'
+});
+
+// Hoặc gọi trực tiếp (sẽ gặp CORS issue)
+configure({
+    apiBaseUrl: 'https://tomato.tpos.vn',
     auth: {
-        username: 'custom_user',
-        password: 'custom_pass',
-        clientId: 'custom_client'
+        username: 'your_username',
+        password: 'your_password',
+        clientId: 'tmtWebApp'
     }
 });
 ```

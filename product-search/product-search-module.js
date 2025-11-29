@@ -17,7 +17,8 @@ let tokenExpiry = null;
 // CONFIGURATION
 // ============================================
 const config = {
-    apiBaseUrl: 'https://tomato.tpos.vn',
+    // Sử dụng Cloudflare Worker proxy thay vì gọi trực tiếp tomato.tpos.vn
+    apiBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
     auth: {
         username: 'nvkt',
         password: 'Aa@123456789',
