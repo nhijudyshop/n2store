@@ -414,13 +414,8 @@ function toggleControlBar() {
 function checkAdminPermission() {
     const btn = document.getElementById('employeeSettingsBtn');
     if (btn) {
-        // Check if user is admin (checkLogin === 0)
-        const isAdmin = window.authManager && window.authManager.hasPermission(0);
-        if (!isAdmin) {
-            btn.style.display = 'none';
-        } else {
-            btn.style.display = 'inline-flex';
-        }
+        // Make employee settings button visible to all users
+        btn.style.display = 'inline-flex';
     }
 }
 
