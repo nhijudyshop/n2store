@@ -4909,6 +4909,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
     // Reset pasted image
     currentPastedImage = null;
+    window.currentPastedImage = null;
     const previewContainer = document.getElementById('chatImagePreviewContainer');
     if (previewContainer) {
         previewContainer.innerHTML = '';
@@ -5144,6 +5145,7 @@ function handleChatInputPaste(event) {
  */
 window.clearPastedImage = function () {
     currentPastedImage = null;
+    window.currentPastedImage = null;
     const previewContainer = document.getElementById('chatImagePreviewContainer');
     if (previewContainer) {
         previewContainer.innerHTML = '';
@@ -5342,7 +5344,7 @@ window.sendReplyComment = async function () {
         }
 
         // Validate
-        if (!message && !currentPastedImage) {
+        if (!message && !currentPastedImage && !window.currentPastedImage) {
             alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
             return;
         }
@@ -5368,7 +5370,7 @@ window.sendReplyComment = async function () {
         console.log('[QUEUE] Adding message to queue', { repliedMessageId });
         window.chatMessageQueue.push({
             message,
-            pastedImage: currentPastedImage,
+            pastedImage: currentPastedImage || window.currentPastedImage,
             order: currentOrder,
             conversationId: window.currentConversationId,
             channelId: window.currentChatChannelId,
@@ -5383,6 +5385,7 @@ window.sendReplyComment = async function () {
         // Reset textarea height to default
         messageInput.style.height = 'auto';
         currentPastedImage = null;
+        window.currentPastedImage = null;
         const previewContainer = document.getElementById('chatImagePreviewContainer');
         if (previewContainer) {
             previewContainer.innerHTML = '';
