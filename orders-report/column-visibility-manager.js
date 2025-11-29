@@ -61,16 +61,10 @@ function saveColumnVisibilityToStorage(settings) {
 function applyColumnVisibility(settings) {
     console.log('[COLUMN] Applying column visibility:', settings);
 
-    // Columns with filters that should ALWAYS be visible
-    const columnsWithFilters = ['tag', 'messages', 'status'];
-
     // Apply to table headers
     document.querySelectorAll('th[data-column]').forEach(th => {
         const column = th.getAttribute('data-column');
-        // Force columns with filters to always be visible
-        if (columnsWithFilters.includes(column)) {
-            th.classList.remove('hidden');
-        } else if (settings[column] === false) {
+        if (settings[column] === false) {
             th.classList.add('hidden');
         } else {
             th.classList.remove('hidden');
@@ -80,10 +74,7 @@ function applyColumnVisibility(settings) {
     // Apply to table cells
     document.querySelectorAll('td[data-column]').forEach(td => {
         const column = td.getAttribute('data-column');
-        // Force columns with filters to always be visible
-        if (columnsWithFilters.includes(column)) {
-            td.classList.remove('hidden');
-        } else if (settings[column] === false) {
+        if (settings[column] === false) {
             td.classList.add('hidden');
         } else {
             td.classList.remove('hidden');
