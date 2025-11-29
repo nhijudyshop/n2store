@@ -1686,7 +1686,7 @@
             <tr class="chat-product-row" data-index="${i}">
                 <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
-                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
+                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
                 </td>
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">${p.ProductNameGet || p.ProductName}</div>
@@ -1741,7 +1741,7 @@
                             <i class="fas fa-check"></i>
                         </button>
                     ` : ''}
-                    <button onclick="sendProductToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}', '${p.ImageUrl || ''}')" class="chat-btn-product-action" style="
+                    <button onclick="sendProductToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" class="chat-btn-product-action" style="
                         background: #3b82f6;
                         color: white;
                         border: none;
@@ -1751,7 +1751,7 @@
                         font-weight: 600;
                         cursor: pointer;
                         margin-right: 4px;
-                    " title="Gửi sản phẩm vào chat">
+                    " title="Gửi tên sản phẩm vào chat">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                     <button onclick="removeChatProduct(${details.findIndex(d => d.ProductId === p.ProductId)})" class="chat-btn-product-action chat-btn-delete-item" title="Xóa">
@@ -2526,12 +2526,10 @@
     }
 
     /**
-     * Send product to chat
-     * Downloads image and pastes to chat input like clipboard paste
-     * Sets product name in chat input
+     * Send product name to chat input (without image)
      */
-    window.sendProductToChat = async function(productId, productName, productImageUrl) {
-        console.log('[SEND-PRODUCT] Sending product to chat:', { productId, productName, productImageUrl });
+    window.sendProductToChat = async function(productId, productName) {
+        console.log('[SEND-PRODUCT] Sending product name to chat:', { productId, productName });
 
         // SAFETY CHECK: Only work in chat modal context
         if (!window.currentChatOrderData) {
@@ -2543,42 +2541,6 @@
         }
 
         try {
-            // If image URL exists, download and set as pasted image
-            if (productImageUrl) {
-                // Download image via Cloudflare proxy to bypass CORS
-                const proxiedUrl = `${window.API_CONFIG.WORKER_URL}/api/image-proxy?url=${encodeURIComponent(productImageUrl)}`;
-                console.log('[SEND-PRODUCT] Fetching image via proxy:', proxiedUrl);
-                const response = await fetch(proxiedUrl);
-                const blob = await response.blob();
-
-                // Set to currentPastedImage (global variable from tab1-orders.js)
-                window.currentPastedImage = blob;
-
-                // Show preview like pasted image
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const previewContainer = document.getElementById('chatImagePreviewContainer');
-                    if (previewContainer) {
-                        previewContainer.style.display = 'flex';
-                        previewContainer.style.alignItems = 'center';
-                        previewContainer.style.justifyContent = 'space-between';
-
-                        previewContainer.innerHTML = `
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <img src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd;">
-                                <span style="font-size: 12px; color: #666;">${Math.round(blob.size / 1024)} KB</span>
-                            </div>
-                            <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        `;
-                    }
-                };
-                reader.readAsDataURL(blob);
-
-                console.log('[SEND-PRODUCT] Image downloaded and set to clipboard');
-            }
-
             // Set product name in chat input
             const chatInput = document.getElementById('chatReplyInput');
             if (chatInput) {
@@ -2593,7 +2555,77 @@
             console.log('[SEND-PRODUCT] Product name set in chat input');
 
         } catch (error) {
-            console.error('[SEND-PRODUCT] Error processing product:', error);
+            console.error('[SEND-PRODUCT] Error setting product name:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Lỗi khi gửi tên sản phẩm', 'error');
+            }
+        }
+    };
+
+    /**
+     * Send product image to chat input (triggered by right-click)
+     * Downloads image and pastes to chat input like clipboard paste
+     */
+    window.sendImageToChat = async function(productImageUrl, productName) {
+        console.log('[SEND-IMAGE] Sending image to chat:', { productImageUrl, productName });
+
+        // SAFETY CHECK: Only work in chat modal context
+        if (!window.currentChatOrderData) {
+            console.error('[SEND-IMAGE] Not in chat modal context - aborting');
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Chỉ có thể gửi ảnh trong chat modal', 'error');
+            }
+            return;
+        }
+
+        // No image URL provided
+        if (!productImageUrl) {
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Sản phẩm không có ảnh', 'error');
+            }
+            return;
+        }
+
+        try {
+            // Download image via Cloudflare proxy to bypass CORS
+            const proxiedUrl = `${window.API_CONFIG.WORKER_URL}/api/image-proxy?url=${encodeURIComponent(productImageUrl)}`;
+            console.log('[SEND-IMAGE] Fetching image via proxy:', proxiedUrl);
+            const response = await fetch(proxiedUrl);
+            const blob = await response.blob();
+
+            // Set to currentPastedImage (global variable from tab1-orders.js)
+            window.currentPastedImage = blob;
+
+            // Show preview like pasted image
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const previewContainer = document.getElementById('chatImagePreviewContainer');
+                if (previewContainer) {
+                    previewContainer.style.display = 'flex';
+                    previewContainer.style.alignItems = 'center';
+                    previewContainer.style.justifyContent = 'space-between';
+
+                    previewContainer.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <img src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd;">
+                            <span style="font-size: 12px; color: #666;">${Math.round(blob.size / 1024)} KB</span>
+                        </div>
+                        <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                }
+            };
+            reader.readAsDataURL(blob);
+
+            console.log('[SEND-IMAGE] Image downloaded and set to clipboard');
+
+            if (window.notificationManager) {
+                window.notificationManager.show('✓ Đã thêm ảnh vào chat', 'success');
+            }
+
+        } catch (error) {
+            console.error('[SEND-IMAGE] Error processing image:', error);
             if (window.notificationManager) {
                 window.notificationManager.show('❌ Lỗi khi tải ảnh sản phẩm', 'error');
             }

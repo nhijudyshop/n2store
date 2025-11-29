@@ -808,7 +808,7 @@
             <tr class="chat-product-row" data-index="${actualIndex}" style="opacity: ${rowOpacity};">
                 <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
-                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="opacity: ${isOutOfStock ? '0.7' : '1'};" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')">` : `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`}
+                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="opacity: ${isOutOfStock ? '0.7' : '1'}; cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`}
                 </td>
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">
@@ -837,7 +837,7 @@
                     <button onclick="moveDroppedToOrder(${actualIndex})" class="chat-btn-product-action" title="${isOutOfStock ? 'Không thể chuyển (số lượng = 0)' : 'Chuyển về đơn hàng'}" style="margin-right: 4px; color: ${isOutOfStock ? '#cbd5e1' : '#10b981'}; ${isOutOfStock ? 'cursor: not-allowed; opacity: 0.5;' : ''}" ${isOutOfStock ? 'disabled' : ''}>
                         <i class="fas fa-undo"></i>
                     </button>
-                    <button onclick="sendProductToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}', '${p.ImageUrl || ''}')" class="chat-btn-product-action" style="
+                    <button onclick="sendProductToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" class="chat-btn-product-action" style="
                         background: #3b82f6;
                         color: white;
                         border: none;
@@ -847,7 +847,7 @@
                         font-weight: 600;
                         cursor: pointer;
                         margin-right: 4px;
-                    " title="Gửi sản phẩm vào chat">
+                    " title="Gửi tên sản phẩm vào chat">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                     <button onclick="removeFromDroppedProducts(${actualIndex})" class="chat-btn-product-action chat-btn-delete-item" title="Xóa vĩnh viễn">
