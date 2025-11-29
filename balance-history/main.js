@@ -502,3 +502,235 @@ rawDataModal?.addEventListener('click', (e) => {
 
 // Export for use in HTML onclick
 window.showDetail = showDetail;
+
+// =====================================================
+// REALTIME UPDATES (SSE)
+// =====================================================
+
+let eventSource = null;
+let reconnectTimeout = null;
+let isManualClose = false;
+
+// Connect to SSE endpoint for realtime updates
+function connectRealtimeUpdates() {
+    if (eventSource) return; // Already connected
+
+    try {
+        console.log('[REALTIME] Connecting to SSE endpoint...');
+        eventSource = new EventSource(`${API_BASE_URL}/api/sepay/stream`);
+
+        // Connection established
+        eventSource.addEventListener('connected', (e) => {
+            console.log('[REALTIME] Connected to SSE:', JSON.parse(e.data));
+            showRealtimeStatus('connected');
+        });
+
+        // New transaction received
+        eventSource.addEventListener('new-transaction', (e) => {
+            const transaction = JSON.parse(e.data);
+            console.log('[REALTIME] New transaction received:', transaction);
+
+            handleNewTransaction(transaction);
+        });
+
+        // Connection error
+        eventSource.onerror = (error) => {
+            console.error('[REALTIME] SSE Error:', error);
+            showRealtimeStatus('error');
+
+            // Close current connection
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+
+            // Attempt to reconnect after 5 seconds (if not manually closed)
+            if (!isManualClose) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = setTimeout(() => {
+                    console.log('[REALTIME] Attempting to reconnect...');
+                    connectRealtimeUpdates();
+                }, 5000);
+            }
+        };
+
+    } catch (error) {
+        console.error('[REALTIME] Failed to connect:', error);
+        showRealtimeStatus('error');
+    }
+}
+
+// Disconnect from SSE
+function disconnectRealtimeUpdates() {
+    isManualClose = true;
+    clearTimeout(reconnectTimeout);
+
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+        console.log('[REALTIME] Disconnected from SSE');
+    }
+
+    showRealtimeStatus('disconnected');
+}
+
+// Handle new transaction from SSE
+function handleNewTransaction(transaction) {
+    // Show notification
+    showNotification(transaction);
+
+    // Check if transaction matches current filters
+    if (!transactionMatchesFilters(transaction)) {
+        console.log('[REALTIME] Transaction does not match current filters, skipping UI update');
+        return;
+    }
+
+    // If on first page, reload data to show new transaction
+    if (currentPage === 1) {
+        loadData();
+        loadStatistics();
+    } else {
+        // Show a notification that there's new data
+        showNewDataBanner();
+    }
+}
+
+// Check if transaction matches current filters
+function transactionMatchesFilters(transaction) {
+    // Type filter
+    if (filters.type && transaction.transfer_type !== filters.type) {
+        return false;
+    }
+
+    // Gateway filter
+    if (filters.gateway && !transaction.gateway.toLowerCase().includes(filters.gateway.toLowerCase())) {
+        return false;
+    }
+
+    // Date range filter
+    const transactionDate = new Date(transaction.transaction_date);
+    if (filters.startDate && transactionDate < new Date(filters.startDate)) {
+        return false;
+    }
+    if (filters.endDate && transactionDate > new Date(filters.endDate)) {
+        return false;
+    }
+
+    // Search filter
+    if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const content = (transaction.content || '').toLowerCase();
+        const refCode = (transaction.reference_code || '').toLowerCase();
+        const code = (transaction.code || '').toLowerCase();
+
+        if (!content.includes(searchLower) && !refCode.includes(searchLower) && !code.includes(searchLower)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Show notification for new transaction
+function showNotification(transaction) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'realtime-notification';
+    notification.innerHTML = `
+        <div class="notification-icon ${transaction.transfer_type === 'in' ? 'notification-success' : 'notification-danger'}">
+            <i data-lucide="arrow-${transaction.transfer_type === 'in' ? 'down' : 'up'}"></i>
+        </div>
+        <div class="notification-content">
+            <strong>${transaction.transfer_type === 'in' ? 'Tiền vào' : 'Tiền ra'}</strong>
+            <p>${formatCurrency(transaction.transfer_amount)} - ${transaction.gateway}</p>
+        </div>
+        <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+    `;
+
+    // Add to page
+    document.body.appendChild(notification);
+
+    // Initialize Lucide icons for the notification
+    lucide.createIcons();
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+// Show new data banner
+function showNewDataBanner() {
+    const existingBanner = document.querySelector('.new-data-banner');
+    if (existingBanner) return; // Already showing
+
+    const banner = document.createElement('div');
+    banner.className = 'new-data-banner';
+    banner.innerHTML = `
+        <i data-lucide="info"></i>
+        <span>Có giao dịch mới. Quay về trang 1 để xem.</span>
+        <button onclick="currentPage = 1; loadData(); this.parentElement.remove();">
+            Tải lại
+        </button>
+        <button onclick="this.parentElement.remove();">×</button>
+    `;
+
+    const container = document.querySelector('.container');
+    container.insertBefore(banner, container.querySelector('.filters'));
+
+    lucide.createIcons();
+}
+
+// Show realtime connection status
+function showRealtimeStatus(status) {
+    let statusElement = document.getElementById('realtimeStatus');
+
+    if (!statusElement) {
+        statusElement = document.createElement('div');
+        statusElement.id = 'realtimeStatus';
+        statusElement.className = 'realtime-status';
+        document.body.appendChild(statusElement);
+    }
+
+    const statusConfig = {
+        connected: {
+            icon: 'wifi',
+            text: 'Realtime',
+            class: 'status-connected'
+        },
+        error: {
+            icon: 'wifi-off',
+            text: 'Mất kết nối',
+            class: 'status-error'
+        },
+        disconnected: {
+            icon: 'wifi-off',
+            text: 'Ngắt kết nối',
+            class: 'status-disconnected'
+        }
+    };
+
+    const config = statusConfig[status] || statusConfig.disconnected;
+
+    statusElement.className = `realtime-status ${config.class}`;
+    statusElement.innerHTML = `
+        <i data-lucide="${config.icon}"></i>
+        <span>${config.text}</span>
+    `;
+
+    lucide.createIcons();
+}
+
+// Auto-connect on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Delay connection slightly to let page load first
+    setTimeout(() => {
+        connectRealtimeUpdates();
+    }, 1000);
+});
+
+// Disconnect when page unloads
+window.addEventListener('beforeunload', () => {
+    disconnectRealtimeUpdates();
+});

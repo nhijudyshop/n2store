@@ -166,12 +166,24 @@ router.post('/webhook', async (req, res) => {
             null
         );
 
-        // Broadcast realtime update nếu cần (SSE)
-        if (req.app.locals.broadcastToUsers) {
-            // Broadcast to all admin users or specific users
-            // Bạn có thể customize logic này
-            console.log('[SEPAY-WEBHOOK] Broadcasting realtime update...');
-        }
+        // Broadcast realtime update to all connected balance history clients
+        broadcastBalanceUpdate(req.app, 'new-transaction', {
+            id: insertedId,
+            sepay_id: webhookData.id,
+            gateway: webhookData.gateway,
+            transaction_date: webhookData.transactionDate,
+            account_number: webhookData.accountNumber,
+            code: webhookData.code || null,
+            content: webhookData.content || null,
+            transfer_type: webhookData.transferType,
+            transfer_amount: webhookData.transferAmount,
+            accumulated: webhookData.accumulated,
+            sub_account: webhookData.subAccount || null,
+            reference_code: webhookData.referenceCode || null,
+            description: webhookData.description || null,
+            created_at: new Date().toISOString()
+        });
+        console.log('[SEPAY-WEBHOOK] Broadcasting realtime update to clients...');
 
         // Trả về response theo spec của Sepay
         res.status(200).json({
@@ -377,6 +389,60 @@ router.get('/statistics', async (req, res) => {
         });
     }
 });
+
+/**
+ * GET /api/sepay/stream
+ * SSE endpoint for realtime balance history updates
+ */
+router.get('/stream', (req, res) => {
+    // Set headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Get or create balance SSE clients map
+    if (!req.app.locals.balanceSseClients) {
+        req.app.locals.balanceSseClients = new Set();
+    }
+
+    // Add this client to the set
+    req.app.locals.balanceSseClients.add(res);
+    console.log(`✅ [BALANCE-SSE] Client connected (Total: ${req.app.locals.balanceSseClients.size})`);
+
+    // Send initial connection event
+    res.write('event: connected\n');
+    res.write(`data: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`);
+
+    // Send keep-alive every 30 seconds
+    const keepAliveInterval = setInterval(() => {
+        res.write(': keep-alive\n\n');
+    }, 30000);
+
+    // Handle client disconnect
+    req.on('close', () => {
+        clearInterval(keepAliveInterval);
+        req.app.locals.balanceSseClients.delete(res);
+        console.log(`❌ [BALANCE-SSE] Client disconnected (Total: ${req.app.locals.balanceSseClients.size})`);
+        res.end();
+    });
+});
+
+/**
+ * Helper function: Broadcast to all balance SSE clients
+ */
+function broadcastBalanceUpdate(app, event, data) {
+    if (!app.locals.balanceSseClients) return;
+
+    app.locals.balanceSseClients.forEach(client => {
+        try {
+            client.write(`event: ${event}\n`);
+            client.write(`data: ${JSON.stringify(data)}\n\n`);
+        } catch (error) {
+            console.error('[BALANCE-SSE] Failed to send to client:', error);
+        }
+    });
+}
 
 /**
  * Helper function: Log webhook request
