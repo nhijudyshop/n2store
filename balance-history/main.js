@@ -399,5 +399,106 @@ function showError(message) {
     `;
 }
 
+// =====================================================
+// RAW DATA VIEWER
+// =====================================================
+
+let rawDataCache = null;
+
+// View Raw Data Button
+const viewRawDataBtn = document.getElementById('viewRawDataBtn');
+const rawDataModal = document.getElementById('rawDataModal');
+const closeRawDataModalBtn = document.getElementById('closeRawDataModalBtn');
+const rawDataContent = document.getElementById('rawDataContent');
+const rawDataCount = document.getElementById('rawDataCount');
+const copyRawDataBtn = document.getElementById('copyRawDataBtn');
+const downloadRawDataBtn = document.getElementById('downloadRawDataBtn');
+
+viewRawDataBtn?.addEventListener('click', async () => {
+    try {
+        rawDataContent.textContent = 'Đang tải dữ liệu...';
+        rawDataModal.classList.add('active');
+
+        // Fetch all data (no pagination limit)
+        const response = await fetch(`${API_BASE_URL}/api/sepay/history?limit=10000`);
+        const result = await response.json();
+
+        if (result.success) {
+            rawDataCache = result.data;
+            const jsonString = JSON.stringify(result.data, null, 2);
+            rawDataContent.textContent = jsonString;
+            rawDataCount.textContent = `Tổng số: ${result.data.length} records`;
+
+            // Re-initialize Lucide icons
+            setTimeout(() => lucide.createIcons(), 100);
+        } else {
+            rawDataContent.textContent = 'Lỗi: ' + (result.error || 'Không thể tải dữ liệu');
+        }
+    } catch (error) {
+        console.error('Error loading raw data:', error);
+        rawDataContent.textContent = 'Lỗi khi tải dữ liệu: ' + error.message;
+    }
+});
+
+// Copy Raw Data
+copyRawDataBtn?.addEventListener('click', async () => {
+    try {
+        const jsonString = JSON.stringify(rawDataCache, null, 2);
+        await navigator.clipboard.writeText(jsonString);
+
+        // Visual feedback
+        const originalText = copyRawDataBtn.innerHTML;
+        copyRawDataBtn.innerHTML = '<i data-lucide="check"></i> Đã copy!';
+        setTimeout(() => {
+            copyRawDataBtn.innerHTML = originalText;
+            lucide.createIcons();
+        }, 2000);
+
+        lucide.createIcons();
+    } catch (error) {
+        alert('Lỗi khi copy: ' + error.message);
+    }
+});
+
+// Download Raw Data
+downloadRawDataBtn?.addEventListener('click', () => {
+    try {
+        const jsonString = JSON.stringify(rawDataCache, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `balance_history_raw_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Visual feedback
+        const originalText = downloadRawDataBtn.innerHTML;
+        downloadRawDataBtn.innerHTML = '<i data-lucide="check"></i> Đã tải!';
+        setTimeout(() => {
+            downloadRawDataBtn.innerHTML = originalText;
+            lucide.createIcons();
+        }, 2000);
+
+        lucide.createIcons();
+    } catch (error) {
+        alert('Lỗi khi tải file: ' + error.message);
+    }
+});
+
+// Close Raw Data Modal
+closeRawDataModalBtn?.addEventListener('click', () => {
+    rawDataModal.classList.remove('active');
+});
+
+// Close modal when clicking outside
+rawDataModal?.addEventListener('click', (e) => {
+    if (e.target === rawDataModal) {
+        rawDataModal.classList.remove('active');
+    }
+});
+
 // Export for use in HTML onclick
 window.showDetail = showDetail;
