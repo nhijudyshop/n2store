@@ -4962,6 +4962,20 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         }
     } else {
         markReadBtn.style.display = 'none'; // Keep hidden for now or show if needed
+
+        // Re-enable input and send button for chat (message mode)
+        // Reset to default state in case it was disabled from previous comment modal
+        const chatSendBtn = document.getElementById('chatSendBtn');
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
+        chatInput.style.background = '#f9fafb';
+        chatInput.style.cursor = 'text';
+        chatInput.style.opacity = '1';
+        if (chatSendBtn) {
+            chatSendBtn.disabled = false;
+            chatSendBtn.style.opacity = '1';
+            chatSendBtn.style.cursor = 'pointer';
+        }
     }
 
     // Fetch messages or comments based on type
