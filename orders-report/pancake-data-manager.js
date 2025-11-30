@@ -737,6 +737,11 @@ class PancakeDataManager {
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
+        // Build correct conversationId format: pageId_userId
+        // Use from_psid if available (for INBOX), otherwise use from.id
+        const userId = conversation.from_psid || conversation.from?.id;
+        const conversationId = userId ? `${conversation.page_id}_${userId}` : conversation.id;
+
         return {
             message: lastMessage,
             messageType,
@@ -744,7 +749,7 @@ class PancakeDataManager {
             unreadCount,
             attachments,
             type: 'message',  // Return 'message' for consistency with UI
-            conversationId: conversation.id,
+            conversationId: conversationId,
             pageId: conversation.page_id,
             lastMessageTime: lastMessageTime,  // Add timestamp for 24-hour policy check
             updatedAt: conversation.updated_at,
@@ -829,13 +834,18 @@ class PancakeDataManager {
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
+        // Build correct conversationId format: pageId_userId
+        // For COMMENT, from_psid is usually null, so use from.id
+        const userId = conversation.from_psid || conversation.from?.id;
+        const conversationId = userId ? `${conversation.page_id}_${userId}` : conversation.id;
+
         return {
             message: lastMessage,
             messageType,
             hasUnread,
             unreadCount,
             type: 'comment',
-            conversationId: conversation.id,
+            conversationId: conversationId,
             pageId: conversation.page_id
         };
     }
