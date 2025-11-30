@@ -79,8 +79,26 @@ if (!conversation) {
 // tab1-orders.js:4979-4981
 if (conversation && conversation.customers && conversation.customers.length > 0) {
     pancakeCustomerUuid = conversation.customers[0].uuid || conversation.customers[0].id;
+    // NOTE: Thực tế API chỉ trả về field "id", không có "uuid"
+    // Code có fallback uuid || id để tương thích với cả 2 trường hợp
+    console.log('[CHAT-MODAL] ✅ Got Pancake customer UUID:', pancakeCustomerUuid);
 }
 ```
+
+**Response structure thực tế:**
+```json
+{
+    "customers": [
+        {
+            "fb_id": "24963016583388898",
+            "id": "27832f3f-7137-4588-9ff5-bfb93d887486",
+            "name": "Khiết Nhi"
+        }
+    ]
+}
+```
+
+→ Lấy `conversation.customers[0].id` = `"27832f3f-7137-4588-9ff5-bfb93d887486"`
 
 ### Ý nghĩa
 - **Pancake Customer UUID**: ID duy nhất của khách hàng trong hệ thống Pancake
@@ -90,21 +108,24 @@ if (conversation && conversation.customers && conversation.customers.length > 0)
 ### Cấu trúc conversation
 ```javascript
 {
-    id: "...",
+    id: "270136663390370_24963016583388898",
     type: "INBOX" hoặc "COMMENT",
-    from_psid: "7654321098765432",  // Facebook PSID
+    from_psid: "24963016583388898",  // Facebook PSID
     from: {
-        id: "123456789",
-        name: "Tên khách hàng"
+        id: "24963016583388898",
+        name: "Khiết Nhi",
+        email: "24963016583388898@facebook.com"
     },
     customers: [
         {
-            uuid: "658ffee5-09b2-40e9-94de-b7c87afb45b9",  // ← Customer ID này
-            id: "658ffee5-09b2-40e9-94de-b7c87afb45b9",
-            name: "Tên khách hàng",
-            ...
+            fb_id: "24963016583388898",
+            id: "27832f3f-7137-4588-9ff5-bfb93d887486",  // ← Customer UUID - ĐÂY LÀ GIÁ TRỊ CẦN LẤY
+            name: "Khiết Nhi"
         }
     ],
+    page_id: "270136663390370",
+    thread_id: "122106004893064602",
+    thread_key: "t_122106004893064602",
     ...
 }
 ```

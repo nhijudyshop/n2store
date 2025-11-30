@@ -136,37 +136,41 @@ const response = await API_CONFIG.smartFetch(url, {
 });
 ```
 
-**Response Data**:
+**Response Data** (real structure):
 ```json
 {
-    "data": [
+    "conversations": [
         {
-            "id": "conversation_id_123",
+            "id": "270136663390370_24963016583388898",
             "type": "INBOX" | "COMMENT",
-            "from_psid": "24948162744877764",
+            "from_psid": "24963016583388898",
             "from": {
-                "id": "123456789",
-                "name": "Tên khách hàng"
+                "id": "24963016583388898",
+                "name": "Khiết Nhi",
+                "email": "24963016583388898@facebook.com"
             },
             "customers": [
                 {
-                    "uuid": "658ffee5-09b2-40e9-94de-b7c87afb45b9",  // ← IMPORTANT!
-                    "id": "658ffee5-09b2-40e9-94de-b7c87afb45b9",
-                    "name": "Tên khách hàng",
-                    "phone": "0901234567"
+                    "fb_id": "24963016583388898",
+                    "id": "27832f3f-7137-4588-9ff5-bfb93d887486",  // ← CUSTOMER UUID - IMPORTANT!
+                    "name": "Khiết Nhi"
                 }
             ],
-            "page": {
-                "id": "117267091364524",
-                "name": "Page Name"
-            },
-            "last_message": {
-                "message": "Last message text",
-                "created_time": "2024-01-01T00:00:00+0000"
-            }
+            "page_id": "270136663390370",
+            "thread_id": "122106004893064602",
+            "thread_key": "t_122106004893064602",
+            "snippet": "Last message text",
+            "updated_at": "2025-11-30T04:28:52.000000",
+            "unread_count": 1,
+            "seen": false,
+            "message_count": 177
         }
     ],
-    "paging": { ... }
+    "pages_with_current_count": {
+        "117267091364524": 7,
+        "270136663390370": 40
+    },
+    "success": true
 }
 ```
 
@@ -426,8 +430,9 @@ fullOrderData = { Details: [...], Partner: {...}, ... }
 
 **From FETCH #2 (Conversations)**:
 ```javascript
-pancakeCustomerUuid = '658ffee5-09b2-40e9-94de-b7c87afb45b9'
-// conversation.customers[0].uuid
+pancakeCustomerUuid = '27832f3f-7137-4588-9ff5-bfb93d887486'
+// Code: conversation.customers[0].uuid || conversation.customers[0].id
+// Thực tế: conversation.customers[0].id (không có field uuid trong response)
 ```
 
 **From FETCH #3 (Comments/Messages)**:
