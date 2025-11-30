@@ -694,9 +694,9 @@ async function createNewTag() {
         // Get auth headers
         const headers = await window.tokenManager.getAuthHeader();
 
-        // Create tag via API (direct to TPOS)
+        // Create tag via API (through Cloudflare proxy)
         const response = await API_CONFIG.smartFetch(
-            'https://tomato.tpos.vn/odata/Tag',
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
             {
                 method: 'POST',
                 headers: {
@@ -720,6 +720,12 @@ async function createNewTag() {
 
         const newTag = await response.json();
         console.log('[CREATE-TAG] Tag created successfully:', newTag);
+
+        // Remove @odata.context from newTag (Firebase doesn't allow keys with dots)
+        if (newTag['@odata.context']) {
+            delete newTag['@odata.context'];
+            console.log('[CREATE-TAG] Removed @odata.context from newTag');
+        }
 
         // Show success status
         statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> Tạo tag thành công!';
