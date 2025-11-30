@@ -2,14 +2,17 @@
 
 ## ✅ FIXED
 
-**Fix implemented in**: `pancake-data-manager.js:276-294`
+**Fix implemented in**: `pancake-data-manager.js`
+- Constructor (line 13): Added `conversationsByCustomerFbId` Map
+- `buildConversationMap()` (lines 246-254): Build index by `customers[].fb_id`
+- `getConversationByUserId()` (lines 294-304): O(1) Map lookup fallback
 
-Enhanced `getConversationByUserId()` to search in `customers[].fb_id` array as a last resort when conversation is not found in the existing maps. This handles COMMENT conversations where:
+Enhanced conversation lookup to index and search by `customers[].fb_id` using a Map for O(1) performance. This handles COMMENT conversations where:
 - `from_psid` is null
 - `order.Facebook_ASUserId` doesn't match `conversation.from.id`
 - The correct match is in `customers[].fb_id`
 
-**Solution**: When conversation is not found in any map, the function now iterates through all conversations and checks if `customers[].fb_id` matches the userId.
+**Solution**: Added `conversationsByCustomerFbId` Map that indexes all conversations by their customers' Facebook IDs. This provides efficient O(1) lookup instead of O(n) iteration.
 
 ---
 
