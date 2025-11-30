@@ -10,6 +10,7 @@ class PancakeDataManager {
         this.inboxMapByFBID = new Map();   // INBOX conversations by Facebook ID
         this.commentMapByPSID = new Map(); // COMMENT conversations by PSID
         this.commentMapByFBID = new Map(); // COMMENT conversations by Facebook ID
+        this.conversationsByCustomerFbId = new Map(); // All conversations by customers[].fb_id
         this.pages = [];
         this.pageIds = [];
         this.isLoading = false;
@@ -219,6 +220,7 @@ class PancakeDataManager {
         this.inboxMapByFBID.clear();
         this.commentMapByPSID.clear();
         this.commentMapByFBID.clear();
+        this.conversationsByCustomerFbId.clear();
 
         this.conversations.forEach(conv => {
             const convType = conv.type; // "INBOX" or "COMMENT"
@@ -240,6 +242,16 @@ class PancakeDataManager {
                     this.commentMapByFBID.set(conv.from.id, conv);
                 }
             }
+
+            // Map by customers[].fb_id for both INBOX and COMMENT
+            // This is critical for COMMENT conversations where from_psid is null
+            if (conv.customers && conv.customers.length > 0) {
+                conv.customers.forEach(customer => {
+                    if (customer.fb_id) {
+                        this.conversationsByCustomerFbId.set(customer.fb_id, conv);
+                    }
+                });
+            }
         });
 
         console.log(`[PANCAKE] Built conversation maps:`);
@@ -247,6 +259,7 @@ class PancakeDataManager {
         console.log(`  - INBOX by FBID: ${this.inboxMapByFBID.size} entries`);
         console.log(`  - COMMENT by PSID: ${this.commentMapByPSID.size} entries`);
         console.log(`  - COMMENT by FBID: ${this.commentMapByFBID.size} entries`);
+        console.log(`  - By Customer FB ID: ${this.conversationsByCustomerFbId.size} entries`);
     }
 
     /**
@@ -273,22 +286,19 @@ class PancakeDataManager {
             conversation = this.commentMapByPSID.get(userId);
         }
 
-        // Last resort: Search in customers[].fb_id array
-        // This handles COMMENT conversations where from_psid is null
-        // and order.Facebook_ASUserId doesn't match conversation.from.id
-        if (!conversation && this.conversations && this.conversations.length > 0) {
-            conversation = this.conversations.find(conv => {
-                if (conv.customers && conv.customers.length > 0) {
-                    return conv.customers.some(customer => customer.fb_id === userId);
-                }
-                return false;
-            });
-
+        // Last resort: Search by customers[].fb_id
+        // This is critical for COMMENT conversations where:
+        // - from_psid is null
+        // - order.Facebook_ASUserId doesn't match conversation.from.id
+        // - The correct match is in customers[].fb_id
+        if (!conversation) {
+            conversation = this.conversationsByCustomerFbId.get(userId);
             if (conversation) {
                 console.log('[PANCAKE] ✅ Found conversation via customers[].fb_id:', {
                     userId,
                     convId: conversation.id,
-                    convType: conversation.type
+                    convType: conversation.type,
+                    customerName: conversation.customers?.[0]?.name
                 });
             }
         }

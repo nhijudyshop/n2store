@@ -5003,8 +5003,10 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         inbox_psid_count: window.pancakeDataManager.inboxMapByPSID.size,
                         inbox_fbid_count: window.pancakeDataManager.inboxMapByFBID.size,
                         comment_psid_count: window.pancakeDataManager.commentMapByPSID.size,
-                        comment_fbid_count: window.pancakeDataManager.commentMapByFBID.size
+                        comment_fbid_count: window.pancakeDataManager.commentMapByFBID.size,
+                        customer_fbid_count: window.pancakeDataManager.conversationsByCustomerFbId.size
                     });
+                    console.warn('[CHAT-MODAL] 🔍 Searched userId:', facebookPsid);
                 }
             } else {
                 console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or facebookPsid');
