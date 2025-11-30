@@ -5630,24 +5630,27 @@ async function sendReplyCommentInternal(messageData) {
                 const inboxData = await inboxResponse.json();
                 console.log('[SEND-REPLY] inbox_preview response:', inboxData);
 
-                if (inboxData.success) {
-                    // Extract thread info from response
-                    threadId = inboxData.thread_id_preview || inboxData.thread_id;
-                    threadKey = inboxData.thread_key_preview || inboxData.thread_key;
+                // Extract thread info from response (handle both with and without success field)
+                threadId = inboxData.thread_id_preview || inboxData.thread_id;
+                threadKey = inboxData.thread_key_preview || inboxData.thread_key;
 
-                    // Get from_id from the first customer message (not from page)
-                    if (inboxData.data && inboxData.data.length > 0) {
-                        const customerMessage = inboxData.data.find(msg =>
-                            msg.from && msg.from.id && msg.from.id !== pageId
-                        );
+                // Get from_id from the first customer message (not from page)
+                if (inboxData.data && inboxData.data.length > 0) {
+                    const customerMessage = inboxData.data.find(msg =>
+                        msg.from && msg.from.id && msg.from.id !== pageId
+                    );
 
-                        if (customerMessage) {
-                            fromId = customerMessage.from.id;
-                        }
+                    if (customerMessage) {
+                        fromId = customerMessage.from.id;
                     }
-
-                    console.log('[SEND-REPLY] Got thread info:', { threadId, threadKey, fromId });
                 }
+
+                // If still not found, check if from_id is at root level
+                if (!fromId && inboxData.from_id) {
+                    fromId = inboxData.from_id;
+                }
+
+                console.log('[SEND-REPLY] Got thread info:', { threadId, threadKey, fromId });
             } catch (inboxError) {
                 console.error('[SEND-REPLY] inbox_preview fetch error:', inboxError);
                 // Don't throw, fall back to regular reply_comment if needed
