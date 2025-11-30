@@ -5116,16 +5116,42 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                     if (conversation) {
                         console.log('[CHAT-MODAL] ✅ Found conversation in inbox cache');
                     } else {
-                        console.log('[CHAT-MODAL] ℹ️ Conversation not found in cache - will skip inbox_preview');
+                        console.log('[CHAT-MODAL] ℹ️ Conversation not found in cache - will try to search');
                     }
                 } else {
                     console.log('[CHAT-MODAL] ℹ️ Inbox map not initialized');
                 }
 
-                // Lấy customer UUID từ conversation nếu có
+                // Lấy customer UUID từ conversation trong cache
                 if (conversation && conversation.customers && conversation.customers.length > 0) {
                     pancakeCustomerUuid = conversation.customers[0].id;
                     console.log('[CHAT-MODAL] ✅ Got customer UUID from cache:', pancakeCustomerUuid);
+                }
+
+                // Nếu không tìm thấy trong cache, search trực tiếp theo tên Facebook (giống logic của comment modal)
+                if (!pancakeCustomerUuid) {
+                    const facebookName = order.Facebook_UserName;
+                    const facebookPsid = order.Facebook_ASUserId;
+                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName);
+                    try {
+                        // Dùng searchConversations() để tìm conversation
+                        const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
+
+                        if (searchResult.customerId) {
+                            // Nếu tìm thấy customer ID trực tiếp từ search, dùng luôn
+                            pancakeCustomerUuid = searchResult.customerId;
+                            console.log('[CHAT-MODAL] ✅ Got customer UUID from search:', pancakeCustomerUuid);
+                        } else if (searchResult.conversations.length > 0) {
+                            // Fallback: lấy từ conversation đầu tiên
+                            conversation = searchResult.conversations[0];
+                            if (conversation.customers && conversation.customers.length > 0) {
+                                pancakeCustomerUuid = conversation.customers[0].id;
+                                console.log('[CHAT-MODAL] ✅ Got customer UUID from search result:', pancakeCustomerUuid);
+                            }
+                        }
+                    } catch (searchError) {
+                        console.error('[CHAT-MODAL] ❌ Error searching conversations:', searchError);
+                    }
                 }
 
                 // Fetch inbox_preview nếu có customer UUID
@@ -5142,7 +5168,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
                     }
                 } else {
-                    console.log('[CHAT-MODAL] ℹ️ Cannot fetch inbox_preview - conversation not in cache yet');
+                    console.warn('[CHAT-MODAL] ⚠️ Cannot fetch inbox_preview - missing customer UUID after search');
                 }
             } else {
                 console.log('[CHAT-MODAL] ℹ️ PancakeDataManager not available');
