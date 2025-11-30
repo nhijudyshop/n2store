@@ -4961,13 +4961,50 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             console.log('[CHAT-MODAL] - facebookPsid:', facebookPsid);
 
             if (window.pancakeDataManager && facebookPsid) {
-                const conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
-                console.log('[CHAT-MODAL] - conversation found:', !!conversation);
+                let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                console.log('[CHAT-MODAL] - conversation found in cache:', !!conversation);
+
+                // If conversation not found in cache, try fetching from Pancake
+                if (!conversation) {
+                    console.log('[CHAT-MODAL] 🔄 Conversation not in cache, fetching from Pancake...');
+                    try {
+                        await window.pancakeDataManager.fetchConversations(true); // Force refresh
+                        conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                        console.log('[CHAT-MODAL] - conversation found after fetch:', !!conversation);
+                    } catch (fetchError) {
+                        console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
+                    }
+                }
+
                 if (conversation && conversation.customers && conversation.customers.length > 0) {
                     pancakeCustomerUuid = conversation.customers[0].uuid || conversation.customers[0].id;
                     console.log('[CHAT-MODAL] ✅ Got Pancake customer UUID:', pancakeCustomerUuid);
+                    console.log('[CHAT-MODAL] 📊 Conversation data:', {
+                        type: conversation.type,
+                        id: conversation.id,
+                        from_psid: conversation.from_psid,
+                        from_id: conversation.from?.id,
+                        customers_count: conversation.customers?.length
+                    });
+                } else if (conversation) {
+                    console.warn('[CHAT-MODAL] ⚠️ Conversation found but no customers');
+                    console.warn('[CHAT-MODAL] 📊 Conversation structure:', {
+                        type: conversation.type,
+                        id: conversation.id,
+                        from_psid: conversation.from_psid,
+                        from_id: conversation.from?.id,
+                        has_customers: !!conversation.customers,
+                        customers_length: conversation.customers?.length,
+                        keys: Object.keys(conversation)
+                    });
                 } else {
-                    console.warn('[CHAT-MODAL] ⚠️ No customers found in conversation');
+                    console.warn('[CHAT-MODAL] ⚠️ Conversation not found even after fetching from Pancake');
+                    console.warn('[CHAT-MODAL] 📊 Available conversations in cache:', {
+                        inbox_psid_count: window.pancakeDataManager.inboxMapByPSID.size,
+                        inbox_fbid_count: window.pancakeDataManager.inboxMapByFBID.size,
+                        comment_psid_count: window.pancakeDataManager.commentMapByPSID.size,
+                        comment_fbid_count: window.pancakeDataManager.commentMapByFBID.size
+                    });
                 }
             } else {
                 console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or facebookPsid');
