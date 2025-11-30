@@ -5532,10 +5532,14 @@ async function sendReplyCommentInternal(messageData) {
         }
 
         // Get customer_id from order
-        const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
-        if (!customerId) {
-            throw new Error('Không tìm thấy mã khách hàng (PartnerId) trong đơn hàng');
+        // For Pancake API, we need Facebook PSID, not TPOS PartnerId
+        const facebookPsid = order.Facebook_ASUserId;
+        if (!facebookPsid) {
+            throw new Error('Không tìm thấy Facebook PSID trong đơn hàng');
         }
+
+        // Also get TPOS PartnerId for reference
+        const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
 
         // Check 24-hour window for INBOX messages only (skip check, already validated)
         showChatSendingIndicator('Kiểm tra 24h...');
@@ -5591,7 +5595,7 @@ async function sendReplyCommentInternal(messageData) {
 
             try {
                 const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-                    `pages/${pageId}/customers/${customerId}/inbox_preview`,
+                    `pages/${pageId}/customers/${facebookPsid}/inbox_preview`,
                     `access_token=${token}`
                 );
 
