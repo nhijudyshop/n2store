@@ -5523,6 +5523,12 @@ async function sendReplyCommentInternal(messageData) {
             throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
         }
 
+        // Get customer_id from order
+        const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
+        if (!customerId) {
+            throw new Error('Không tìm thấy mã khách hàng (PartnerId) trong đơn hàng');
+        }
+
         // Check 24-hour window for INBOX messages only (skip check, already validated)
         showChatSendingIndicator('Kiểm tra 24h...');
 
@@ -5566,6 +5572,58 @@ async function sendReplyCommentInternal(messageData) {
             imageData
         });
 
+        // Step 0.5: Fetch inbox_preview to get thread_id, thread_key, from_id for private_replies
+        let threadId = null;
+        let threadKey = null;
+        let fromId = null;
+
+        if (chatType === 'comment' && parentCommentId) {
+            showChatSendingIndicator('Lấy thông tin thread...');
+            console.log('[SEND-REPLY] Fetching inbox_preview for private_replies...');
+
+            try {
+                const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
+                    `pages/${pageId}/customers/${customerId}/inbox_preview`,
+                    `access_token=${token}`
+                );
+
+                const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!inboxResponse.ok) {
+                    console.error('[SEND-REPLY] Failed to fetch inbox_preview:', inboxResponse.status);
+                    throw new Error(`Lấy thông tin inbox thất bại: ${inboxResponse.status}`);
+                }
+
+                const inboxData = await inboxResponse.json();
+                console.log('[SEND-REPLY] inbox_preview response:', inboxData);
+
+                if (inboxData.success && inboxData.data && inboxData.data.length > 0) {
+                    threadId = inboxData.thread_id;
+                    threadKey = inboxData.thread_key;
+
+                    // Get from_id from the first customer message (not from page)
+                    const customerMessage = inboxData.data.find(msg =>
+                        msg.from && msg.from.id && msg.from.id !== pageId
+                    );
+
+                    if (customerMessage) {
+                        fromId = customerMessage.from.id;
+                        console.log('[SEND-REPLY] Got thread info:', { threadId, threadKey, fromId });
+                    } else {
+                        console.warn('[SEND-REPLY] No customer message found in inbox_preview');
+                    }
+                }
+            } catch (inboxError) {
+                console.error('[SEND-REPLY] inbox_preview fetch error:', inboxError);
+                // Don't throw, fall back to regular reply_comment if needed
+            }
+        }
+
         showChatSendingIndicator('Đang gửi...');
 
         // Step 1: POST reply (comment or message)
@@ -5578,12 +5636,6 @@ async function sendReplyCommentInternal(messageData) {
 
         if (chatType === 'message') {
             // Payload for sending a message (reply_inbox)
-            // Get customer_id from order (required by backend API)
-            const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
-            if (!customerId) {
-                throw new Error('Không tìm thấy mã khách hàng (PartnerId) trong đơn hàng');
-            }
-
             // When sending with image, use FormData (multipart/form-data)
             // When sending text only, use JSON
             if (imageData) {
@@ -5633,39 +5685,28 @@ async function sendReplyCommentInternal(messageData) {
                 console.log('[SEND-REPLY] Using JSON for text-only message');
             }
         } else {
-            // Payload for replying to a comment OR creating a new top-level comment
-            let replyBody;
+            // Use private_replies for all comment replies
+            const replyBody = {
+                action: "private_replies",
+                message_id: parentCommentId,
+                post_id: postId,
+                message: finalMessage,
+                need_thread_id: false
+            };
 
-            if (parentCommentId) {
-                // Reply to specific comment
-                replyBody = {
-                    action: "reply_comment",
-                    message_id: parentCommentId,
-                    parent_id: parentCommentId,
-                    user_selected_reply_to: null,
-                    post_id: postId,
-                    message: finalMessage,
-                    send_by_platform: "web"
-                };
-
-                // Add image content_url if available
-                if (imageData) {
-                    replyBody.content_url = imageData.content_url;
-                }
+            // Add thread info if available
+            if (threadId && threadKey && fromId) {
+                replyBody.thread_id_preview = threadId;
+                replyBody.thread_key_preview = threadKey;
+                replyBody.from_id = fromId;
+                console.log('[SEND-REPLY] Using private_replies with thread info');
             } else {
-                // Top-level comment (no parent)
-                replyBody = {
-                    action: "reply_comment",
-                    post_id: postId,
-                    message: finalMessage,
-                    send_by_platform: "web"
-                };
+                console.warn('[SEND-REPLY] Missing thread info, sending without it');
+            }
 
-                // Add image content_url if available
-                if (imageData) {
-                    replyBody.content_url = imageData.content_url;
-                }
-                console.log('[SEND-REPLY] Sending top-level comment (no parent_id)');
+            // Add image content_url if available
+            if (imageData) {
+                replyBody.content_url = imageData.content_url;
             }
 
             fetchOptions = {
@@ -5676,6 +5717,8 @@ async function sendReplyCommentInternal(messageData) {
                 },
                 body: JSON.stringify(replyBody)
             };
+
+            console.log('[SEND-REPLY] Using private_replies action');
         }
 
         console.log('[SEND-REPLY] POST URL:', replyUrl);
