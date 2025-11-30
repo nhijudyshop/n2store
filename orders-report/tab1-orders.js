@@ -4815,7 +4815,6 @@ let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
 let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
-let inboxPreviewData = null; // Lưu inbox_preview data (thread_id, thread_key, from_id) khi mở modal comment
 
 window.openChatModal = async function (orderId, channelId, psid, type = 'message') {
     console.log('[CHAT] Opening modal:', { orderId, channelId, psid, type });
@@ -4951,132 +4950,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Fetch messages or comments based on type
     try {
         if (type === 'comment') {
-            // Fetch inbox_preview to get thread info for comment replies
-            inboxPreviewData = null; // Reset
-            const facebookPsid = order.Facebook_ASUserId;
-            let pancakeCustomerUuid = null;
-
-            console.log('[CHAT-MODAL] 🔍 Comment modal opened - checking conditions for inbox_preview fetch...');
-            console.log('[CHAT-MODAL] - pancakeDataManager exists:', !!window.pancakeDataManager);
-            console.log('[CHAT-MODAL] - facebookPsid:', facebookPsid);
-
-            if (window.pancakeDataManager && facebookPsid) {
-                let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
-                console.log('[CHAT-MODAL] - conversation found in cache:', !!conversation);
-
-                // If conversation not found in cache, try fetching from Pancake
-                if (!conversation) {
-                    console.log('[CHAT-MODAL] 🔄 Conversation not in cache, fetching from Pancake...');
-                    try {
-                        await window.pancakeDataManager.fetchConversations(true); // Force refresh
-                        conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
-                        console.log('[CHAT-MODAL] - conversation found after fetch:', !!conversation);
-                    } catch (fetchError) {
-                        console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
-                    }
-                }
-
-                if (conversation && conversation.customers && conversation.customers.length > 0) {
-                    pancakeCustomerUuid = conversation.customers[0].uuid || conversation.customers[0].id;
-                    console.log('[CHAT-MODAL] ✅ Got Pancake customer UUID:', pancakeCustomerUuid);
-                    console.log('[CHAT-MODAL] 📊 Conversation data:', {
-                        type: conversation.type,
-                        id: conversation.id,
-                        from_psid: conversation.from_psid,
-                        from_id: conversation.from?.id,
-                        customers_count: conversation.customers?.length
-                    });
-                } else if (conversation) {
-                    console.warn('[CHAT-MODAL] ⚠️ Conversation found but no customers');
-                    console.warn('[CHAT-MODAL] 📊 Conversation structure:', {
-                        type: conversation.type,
-                        id: conversation.id,
-                        from_psid: conversation.from_psid,
-                        from_id: conversation.from?.id,
-                        has_customers: !!conversation.customers,
-                        customers_length: conversation.customers?.length,
-                        keys: Object.keys(conversation)
-                    });
-                } else {
-                    console.warn('[CHAT-MODAL] ⚠️ Conversation not found even after fetching from Pancake');
-                    console.warn('[CHAT-MODAL] 📊 Available conversations in cache:', {
-                        inbox_psid_count: window.pancakeDataManager.inboxMapByPSID.size,
-                        inbox_fbid_count: window.pancakeDataManager.inboxMapByFBID.size,
-                        comment_psid_count: window.pancakeDataManager.commentMapByPSID.size,
-                        comment_fbid_count: window.pancakeDataManager.commentMapByFBID.size,
-                        customer_fbid_count: window.pancakeDataManager.conversationsByCustomerFbId.size
-                    });
-                    console.warn('[CHAT-MODAL] 🔍 Searched userId:', facebookPsid);
-                }
-            } else {
-                console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or facebookPsid');
-            }
-
-            if (pancakeCustomerUuid) {
-                try {
-                    const token = await window.pancakeTokenManager.getToken();
-                    console.log('[CHAT-MODAL] - token exists:', !!token);
-                    if (token) {
-                        console.log('[CHAT-MODAL] 🚀 Fetching inbox_preview for comment modal...');
-
-                        const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-                            `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
-                            `access_token=${token}`
-                        );
-                        console.log('[CHAT-MODAL] 📡 inbox_preview URL:', inboxPreviewUrl);
-
-                        const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/json'
-                            }
-                        });
-
-                        if (inboxResponse.ok) {
-                            const inboxData = await inboxResponse.json();
-                            console.log('[CHAT-MODAL] ✅ inbox_preview response:', inboxData);
-
-                            // Extract and save thread info
-                            const threadId = inboxData.thread_id_preview || inboxData.thread_id;
-                            const threadKey = inboxData.thread_key_preview || inboxData.thread_key;
-                            let fromId = null;
-
-                            // Get from_id from the first customer message (not from page)
-                            if (inboxData.data && inboxData.data.length > 0) {
-                                const customerMessage = inboxData.data.find(msg =>
-                                    msg.from && msg.from.id && msg.from.id !== channelId
-                                );
-                                if (customerMessage) {
-                                    fromId = customerMessage.from.id;
-                                }
-                            }
-
-                            // If still not found, check if from_id is at root level
-                            if (!fromId && inboxData.from_id) {
-                                fromId = inboxData.from_id;
-                            }
-
-                            inboxPreviewData = {
-                                threadId,
-                                threadKey,
-                                fromId,
-                                inboxConvId: inboxData.inbox_conv_id,
-                                canInbox: inboxData.can_inbox
-                            };
-
-                            console.log('[CHAT-MODAL] Saved inbox_preview data:', inboxPreviewData);
-                        } else {
-                            console.warn('[CHAT-MODAL] Failed to fetch inbox_preview:', inboxResponse.status);
-                        }
-                    }
-                } catch (inboxError) {
-                    console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
-                    // Continue without inbox_preview data
-                }
-            } else {
-                console.warn('[CHAT-MODAL] ⚠️ Cannot fetch inbox_preview - missing pancakeCustomerUuid');
-            }
-
             // Fetch initial comments with pagination support
             const response = await window.chatDataManager.fetchComments(channelId, psid);
             allChatComments = response.comments || [];
@@ -5706,21 +5579,10 @@ async function sendReplyCommentInternal(messageData) {
             imageData
         });
 
-        // Get thread info from inboxPreviewData (fetched when modal was opened for comments)
+        // Thread info variables (no longer fetched from inbox_preview)
         let threadId = null;
         let threadKey = null;
         let fromId = null;
-
-        if (chatType === 'comment' && inboxPreviewData) {
-            threadId = inboxPreviewData.threadId;
-            threadKey = inboxPreviewData.threadKey;
-            fromId = inboxPreviewData.fromId;
-            console.log('[SEND-REPLY] Using inbox_preview data from modal:', {
-                threadId,
-                threadKey,
-                fromId
-            });
-        }
 
         showChatSendingIndicator('Đang gửi...');
 
