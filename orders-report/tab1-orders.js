@@ -4956,24 +4956,35 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             const facebookPsid = order.Facebook_ASUserId;
             let pancakeCustomerUuid = null;
 
+            console.log('[CHAT-MODAL] 🔍 Comment modal opened - checking conditions for inbox_preview fetch...');
+            console.log('[CHAT-MODAL] - pancakeDataManager exists:', !!window.pancakeDataManager);
+            console.log('[CHAT-MODAL] - facebookPsid:', facebookPsid);
+
             if (window.pancakeDataManager && facebookPsid) {
                 const conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                console.log('[CHAT-MODAL] - conversation found:', !!conversation);
                 if (conversation && conversation.customers && conversation.customers.length > 0) {
                     pancakeCustomerUuid = conversation.customers[0].uuid || conversation.customers[0].id;
-                    console.log('[CHAT-MODAL] Got Pancake customer UUID:', pancakeCustomerUuid);
+                    console.log('[CHAT-MODAL] ✅ Got Pancake customer UUID:', pancakeCustomerUuid);
+                } else {
+                    console.warn('[CHAT-MODAL] ⚠️ No customers found in conversation');
                 }
+            } else {
+                console.warn('[CHAT-MODAL] ⚠️ Missing pancakeDataManager or facebookPsid');
             }
 
             if (pancakeCustomerUuid) {
                 try {
                     const token = await window.pancakeTokenManager.getToken();
+                    console.log('[CHAT-MODAL] - token exists:', !!token);
                     if (token) {
-                        console.log('[CHAT-MODAL] Fetching inbox_preview for comment modal...');
+                        console.log('[CHAT-MODAL] 🚀 Fetching inbox_preview for comment modal...');
 
                         const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
                             `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
                             `access_token=${token}`
                         );
+                        console.log('[CHAT-MODAL] 📡 inbox_preview URL:', inboxPreviewUrl);
 
                         const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
                             method: 'GET',
@@ -4984,7 +4995,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
                         if (inboxResponse.ok) {
                             const inboxData = await inboxResponse.json();
-                            console.log('[CHAT-MODAL] inbox_preview response:', inboxData);
+                            console.log('[CHAT-MODAL] ✅ inbox_preview response:', inboxData);
 
                             // Extract and save thread info
                             const threadId = inboxData.thread_id_preview || inboxData.thread_id;
@@ -5020,9 +5031,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         }
                     }
                 } catch (inboxError) {
-                    console.error('[CHAT-MODAL] inbox_preview fetch error:', inboxError);
+                    console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
                     // Continue without inbox_preview data
                 }
+            } else {
+                console.warn('[CHAT-MODAL] ⚠️ Cannot fetch inbox_preview - missing pancakeCustomerUuid');
             }
 
             // Fetch initial comments with pagination support
