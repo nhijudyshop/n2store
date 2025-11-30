@@ -579,6 +579,71 @@ class PancakeDataManager {
     }
 
     /**
+     * Lấy inbox preview và conversationId cho một customer
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} customerId - Customer ID (PartnerId UUID)
+     * @returns {Promise<Object>} { conversationId, messages, success }
+     */
+    async fetchInboxPreview(pageId, customerId) {
+        try {
+            console.log(`[PANCAKE] Fetching inbox preview for pageId=${pageId}, customerId=${customerId}`);
+
+            const token = await this.getToken();
+            if (!token) {
+                throw new Error('No Pancake token available');
+            }
+
+            // Build URL: GET /api/v1/pages/{pageId}/customers/{customerId}/inbox_preview
+            const queryString = `access_token=${token}`;
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/customers/${customerId}/inbox_preview`,
+                queryString
+            );
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[PANCAKE] Inbox preview response:`, data);
+
+            if (!data.success) {
+                throw new Error('Inbox preview API returned success=false');
+            }
+
+            // Extract conversationId from inbox_conv_id
+            const conversationId = data.inbox_conv_id;
+            console.log(`[PANCAKE] ✅ Got conversationId from inbox_preview: ${conversationId}`);
+
+            return {
+                conversationId: conversationId,
+                messages: data.data || [],
+                threadId: data.thread_id,
+                threadKey: data.thread_key,
+                canInbox: data.can_inbox,
+                updatedAt: data.updated_at,
+                success: true
+            };
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error fetching inbox preview:', error);
+            return {
+                conversationId: null,
+                messages: [],
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
      * Tìm tin nhắn cuối cùng TỪ KHÁCH (không phải từ page)
      * Dùng để kiểm tra Facebook 24-hour messaging policy
      * @param {Array} messages - Array of messages from fetchMessagesForConversation
@@ -615,7 +680,7 @@ class PancakeDataManager {
      * Lấy tin nhắn cuối cùng cho order từ Pancake conversation
      * CHỈ LẤY INBOX conversations (type === "INBOX")
      * @param {Object} order - Order object
-     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type }
+     * @returns {Object} { message, messageType, hasUnread, unreadCount, attachments, type, pageId, customerId }
      */
     getLastMessageForOrder(order) {
         const userId = order.Facebook_ASUserId;
@@ -737,9 +802,11 @@ class PancakeDataManager {
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
-        // Use conversation.id directly from Pancake API
-        // Do NOT construct conversationId manually as Pancake uses complex format
-        const conversationId = conversation.id;
+        // Return pageId and customerId for caller to fetch conversationId from inbox_preview if needed
+        const pageId = conversation.page_id;
+        const customerId = conversation.customers && conversation.customers.length > 0
+            ? conversation.customers[0].id
+            : null;
 
         return {
             message: lastMessage,
@@ -748,8 +815,8 @@ class PancakeDataManager {
             unreadCount,
             attachments,
             type: 'message',  // Return 'message' for consistency with UI
-            conversationId: conversationId,
-            pageId: conversation.page_id,
+            pageId: pageId,
+            customerId: customerId,  // Return customerId to fetch conversationId from inbox_preview
             lastMessageTime: lastMessageTime,  // Add timestamp for 24-hour policy check
             updatedAt: conversation.updated_at,
             canSendMessage: lastMessageTime ? ((new Date() - new Date(lastMessageTime)) / (1000 * 60 * 60) < 24) : false

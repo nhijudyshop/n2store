@@ -5041,32 +5041,15 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 }
             }
 
-            // Fetch inbox_preview nếu có customer UUID
+            // Fetch inbox_preview nếu có customer UUID và lưu conversationId
             if (pancakeCustomerUuid) {
                 try {
-                    const token = await window.pancakeTokenManager.getToken();
-                    if (token) {
-                        const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-                            `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
-                            `access_token=${token}`
-                        );
-                        console.log('[CHAT-MODAL] 📡 inbox_preview URL:', inboxPreviewUrl);
-
-                        const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/json'
-                            }
-                        });
-
-                        if (inboxResponse.ok) {
-                            const inboxData = await inboxResponse.json();
-                            console.log('[CHAT-MODAL] ✅ inbox_preview response:', inboxData);
-                        } else {
-                            console.warn('[CHAT-MODAL] ⚠️ Failed to fetch inbox_preview:', inboxResponse.status);
-                        }
+                    const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
+                    if (inboxPreview.success && inboxPreview.conversationId) {
+                        window.currentConversationId = inboxPreview.conversationId;
+                        console.log('[CHAT-MODAL] ✅ Got conversationId from inbox_preview:', window.currentConversationId);
                     } else {
-                        console.warn('[CHAT-MODAL] ⚠️ No token available for inbox_preview fetch');
+                        console.warn('[CHAT-MODAL] ⚠️ Failed to get conversationId from inbox_preview');
                     }
                 } catch (inboxError) {
                     console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
@@ -5084,23 +5067,26 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             // Fetch messages
             const chatInfo = window.chatDataManager.getLastMessageForOrder(order);
 
-            // Try to get conversation ID from Pancake data manager if available
+            // Get conversation ID from Pancake inbox_preview API
             if (window.pancakeDataManager) {
-                // Get conversation info from Pancake to extract correct conversationId format
                 const pancakeMessageInfo = window.pancakeDataManager.getLastMessageForOrder(order);
-                if (pancakeMessageInfo && pancakeMessageInfo.conversationId) {
-                    // Use conversationId from Pancake API (format: pageId_userId)
-                    window.currentConversationId = pancakeMessageInfo.conversationId;
-                    console.log(`[CHAT] Got conversationId from Pancake: ${window.currentConversationId}`);
+                if (pancakeMessageInfo && pancakeMessageInfo.pageId && pancakeMessageInfo.customerId) {
+                    // Fetch conversationId from inbox_preview API
+                    const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(
+                        pancakeMessageInfo.pageId,
+                        pancakeMessageInfo.customerId
+                    );
+                    if (inboxPreview.success && inboxPreview.conversationId) {
+                        window.currentConversationId = inboxPreview.conversationId;
+                        console.log(`[CHAT] ✅ Got conversationId from inbox_preview: ${window.currentConversationId}`);
+                    } else {
+                        console.warn(`[CHAT] ⚠️ Failed to get conversationId from inbox_preview`);
+                    }
                 } else {
-                    // Fallback: construct conversationId manually
-                    window.currentConversationId = `${channelId}_${psid}`;
-                    console.log(`[CHAT] Fallback constructed conversationId: ${window.currentConversationId}`);
+                    console.warn(`[CHAT] ⚠️ Missing pageId or customerId from Pancake message info`);
                 }
             } else {
-                // No Pancake manager, construct manually
-                window.currentConversationId = `${channelId}_${psid}`;
-                console.log(`[CHAT] Constructed conversationId (no Pancake): ${window.currentConversationId}`);
+                console.warn('[CHAT] ⚠️ PancakeDataManager not available');
             }
 
             if (chatInfo.hasUnread) {
