@@ -300,11 +300,13 @@ export default {
       // ========== GENERIC PROXY (like your working code) ==========
       let targetUrl;
       let isTPOSRequest = false;
+      let isPancakeRequest = false;
 
       if (pathname.startsWith('/api/pancake/')) {
         // Pancake API
         const apiPath = pathname.replace(/^\/api\/pancake\//, '');
         targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
+        isPancakeRequest = true;
       } else if (pathname === '/api/realtime/start') {
         // Realtime Server (Render)
         targetUrl = `https://n2store-fallback.onrender.com/api/realtime/start`;
@@ -338,10 +340,19 @@ export default {
       // Get request headers
       const headers = new Headers(request.headers);
 
-      // Only set Origin/Referer for TPOS requests
+      // Set headers based on target API
       if (isTPOSRequest) {
+        // TPOS API headers
         headers.set('Origin', 'https://tomato.tpos.vn/');
         headers.set('Referer', 'https://tomato.tpos.vn/');
+      } else if (isPancakeRequest) {
+        // Pancake API headers
+        headers.set('Accept', 'application/json, text/plain, */*');
+        headers.set('Referer', 'https://pancake.vn/multi_pages');
+        // Keep existing Content-Type if present
+        if (!headers.has('Content-Type') && request.method === 'POST') {
+          headers.set('Content-Type', 'application/json');
+        }
       }
 
       // Forward request

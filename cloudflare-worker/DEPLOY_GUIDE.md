@@ -46,7 +46,12 @@ https://chatomni-proxy.nhijudyshop.workers.dev
 
 Mở terminal và test:
 
-### Test API Proxy:
+### Test Pancake API Proxy (MỚI):
+```bash
+curl "https://YOUR-WORKER-URL.workers.dev/api/pancake/pages?access_token=YOUR_PANCAKE_TOKEN"
+```
+
+### Test ChatOmni API Proxy:
 ```bash
 curl "https://YOUR-WORKER-URL.workers.dev/api/api-ms/chatomni/v1/conversations/search" \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -72,12 +77,46 @@ Gửi Worker URL cho Claude để update `chat-data-manager.js`
 
 ---
 
+## 📡 API Routes được hỗ trợ
+
+Worker hỗ trợ các API sau:
+
+### 1. Pancake API (MỚI)
+```
+/api/pancake/* → https://pancake.vn/api/v1/*
+```
+Headers tự động thêm:
+- `Accept: application/json, text/plain, */*`
+- `Referer: https://pancake.vn/multi_pages`
+
+### 2. TPOS API
+```
+/api/odata/* → https://tomato.tpos.vn/odata/*
+/api/token → https://tomato.tpos.vn/token (có cache)
+```
+
+### 3. ChatOmni API
+```
+/api/api-ms/chatomni/v1/* → https://api-ms.chatomni.com/v1/*
+```
+
+### 4. Image Proxy
+```
+/api/image-proxy?url=<image_url>
+```
+
+### 5. Generic Proxy
+```
+/api/proxy?url=<target_url>&headers=<json_headers>
+```
+
 ## 💡 Tips
 
 - **Free tier**: 100,000 requests/ngày
 - **Không sleep**: Response luôn nhanh
 - **Edge network**: Deploy toàn cầu
 - **Monitor**: Xem logs tại Workers Dashboard
+- **Auto headers**: Worker tự động thêm headers đúng cho từng API
 
 ## 🔧 Troubleshooting
 

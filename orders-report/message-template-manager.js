@@ -944,9 +944,7 @@ class MessageTemplateManager {
         fetchOptions = {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json, text/plain, */*',
-                'Referer': 'https://pancake.vn/multi_pages'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
         };
