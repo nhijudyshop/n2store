@@ -5600,14 +5600,16 @@ async function sendReplyCommentInternal(messageData) {
             imageData
         });
 
-        // Step 0.5: Fetch inbox_preview to get thread_id, thread_key, from_id for private_replies
+        // Step 0.5: Fetch inbox_preview to get full conversation data before sending message
         let threadId = null;
         let threadKey = null;
         let fromId = null;
+        let inboxData = null;
 
-        if (chatType === 'comment' && parentCommentId && pancakeCustomerUuid) {
-            showChatSendingIndicator('Lấy thông tin thread...');
-            console.log('[SEND-REPLY] Fetching inbox_preview for private_replies...');
+        // Always fetch inbox_preview if we have pancakeCustomerUuid (for both INBOX and COMMENT)
+        if (pancakeCustomerUuid) {
+            showChatSendingIndicator('Lấy thông tin conversation...');
+            console.log('[SEND-REPLY] Fetching inbox_preview to get full conversation data...');
 
             try {
                 const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
@@ -5627,7 +5629,7 @@ async function sendReplyCommentInternal(messageData) {
                     throw new Error(`Lấy thông tin inbox thất bại: ${inboxResponse.status}`);
                 }
 
-                const inboxData = await inboxResponse.json();
+                inboxData = await inboxResponse.json();
                 console.log('[SEND-REPLY] inbox_preview response:', inboxData);
 
                 // Extract thread info from response (handle both with and without success field)
@@ -5650,10 +5652,27 @@ async function sendReplyCommentInternal(messageData) {
                     fromId = inboxData.from_id;
                 }
 
-                console.log('[SEND-REPLY] Got thread info:', { threadId, threadKey, fromId });
+                console.log('[SEND-REPLY] Got conversation data:', {
+                    threadId,
+                    threadKey,
+                    fromId,
+                    inboxConvId: inboxData.inbox_conv_id,
+                    canInbox: inboxData.can_inbox
+                });
+
+                // Validate can_inbox for INBOX messages
+                if (chatType === 'message' && inboxData.can_inbox === false) {
+                    throw new Error('Không thể gửi tin nhắn inbox cho khách hàng này. Vui lòng kiểm tra lại.');
+                }
             } catch (inboxError) {
                 console.error('[SEND-REPLY] inbox_preview fetch error:', inboxError);
-                // Don't throw, fall back to regular reply_comment if needed
+                // Don't throw for INBOX messages, only for comments that need thread info
+                if (chatType === 'comment' && parentCommentId) {
+                    console.warn('[SEND-REPLY] Missing inbox_preview for comment reply, will continue anyway');
+                } else {
+                    // Re-throw for INBOX messages as we need the data
+                    throw inboxError;
+                }
             }
         }
 
