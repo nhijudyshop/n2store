@@ -879,8 +879,18 @@ class MessageTemplateManager {
             throw new Error(`Thiếu thông tin PartnerId (customer_id). Order: ${order.code}`);
         }
 
-        // Construct conversationId
-        const conversationId = `${channelId}_${psid}`;
+        // Get conversation from Pancake to get correct conversationId
+        if (!window.pancakeDataManager) {
+            throw new Error('pancakeDataManager không có sẵn');
+        }
+
+        const conversation = window.pancakeDataManager.getConversationByUserId(psid);
+        if (!conversation) {
+            throw new Error(`Không tìm thấy conversation cho PSID ${psid}. Order: ${order.code}`);
+        }
+
+        // Use conversation.id from Pancake API (format: pageId_threadId)
+        const conversationId = conversation.id;
 
         // Send via Pancake API
         const apiUrl = window.API_CONFIG.buildUrl.pancake(
