@@ -4950,15 +4950,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Fetch messages or comments based on type
     try {
         if (type === 'comment') {
-            // Lấy conversationId từ Pancake để dùng cho reply
-            if (window.pancakeDataManager) {
-                const pancakeCommentInfo = window.pancakeDataManager.getLastCommentForOrder(order);
-                if (pancakeCommentInfo.conversationId) {
-                    window.currentConversationId = pancakeCommentInfo.conversationId;
-                    console.log(`[CHAT] Got conversationId from Pancake: ${window.currentConversationId}`);
-                }
-            }
-
             // Fetch initial comments with pagination support
             const response = await window.chatDataManager.fetchComments(channelId, psid);
             allChatComments = response.comments || [];
@@ -4974,6 +4965,23 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
                     // Debug log to help identify correct field
                     console.log('[CHAT] Root comment object:', rootComment);
+                }
+            }
+
+            // Construct conversationId from postId and parentCommentId
+            // Format: postId_commentId (e.g., "117267091364524_1382798016618291_817929370998475")
+            const postId = order.Facebook_PostId || currentPostId;
+            if (postId && currentParentCommentId) {
+                window.currentConversationId = `${postId}_${currentParentCommentId}`;
+                console.log(`[CHAT] Constructed conversationId for comment: ${window.currentConversationId}`);
+            } else {
+                // Fallback: Try to get from Pancake data manager
+                if (window.pancakeDataManager) {
+                    const pancakeCommentInfo = window.pancakeDataManager.getLastCommentForOrder(order);
+                    if (pancakeCommentInfo && pancakeCommentInfo.conversationId) {
+                        window.currentConversationId = pancakeCommentInfo.conversationId;
+                        console.log(`[CHAT] Got conversationId from Pancake: ${window.currentConversationId}`);
+                    }
                 }
             }
 
