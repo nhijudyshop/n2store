@@ -703,8 +703,6 @@ async function createNewTag() {
                     ...headers,
                     'accept': 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
-                    'tposappversion': '5.11.16.1',
-                    'x-tpos-lang': 'vi',
                 },
                 body: JSON.stringify({
                     Name: name,
