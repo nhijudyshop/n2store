@@ -5086,11 +5086,21 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Try to get conversation ID from Pancake data manager if available
             if (window.pancakeDataManager) {
-                // We might need a method to get conversation ID for messages too
-                // For now, let's try to construct it or find it in chatInfo
-                // Usually conversationId is pageId_psid
+                // Get conversation info from Pancake to extract correct conversationId format
+                const pancakeMessageInfo = window.pancakeDataManager.getLastMessageForOrder(order);
+                if (pancakeMessageInfo && pancakeMessageInfo.conversationId) {
+                    // Use conversationId from Pancake API (format: pageId_userId)
+                    window.currentConversationId = pancakeMessageInfo.conversationId;
+                    console.log(`[CHAT] Got conversationId from Pancake: ${window.currentConversationId}`);
+                } else {
+                    // Fallback: construct conversationId manually
+                    window.currentConversationId = `${channelId}_${psid}`;
+                    console.log(`[CHAT] Fallback constructed conversationId: ${window.currentConversationId}`);
+                }
+            } else {
+                // No Pancake manager, construct manually
                 window.currentConversationId = `${channelId}_${psid}`;
-                console.log(`[CHAT] Constructed conversationId: ${window.currentConversationId}`);
+                console.log(`[CHAT] Constructed conversationId (no Pancake): ${window.currentConversationId}`);
             }
 
             if (chatInfo.hasUnread) {
