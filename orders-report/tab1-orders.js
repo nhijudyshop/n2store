@@ -5100,24 +5100,52 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Get conversation ID from Pancake inbox_preview API
             if (window.pancakeDataManager) {
-                const pancakeMessageInfo = window.pancakeDataManager.getLastMessageForOrder(order);
-                if (pancakeMessageInfo && pancakeMessageInfo.pageId && pancakeMessageInfo.customerId) {
-                    // Fetch conversationId from inbox_preview API
-                    const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(
-                        pancakeMessageInfo.pageId,
-                        pancakeMessageInfo.customerId
-                    );
-                    if (inboxPreview.success && inboxPreview.conversationId) {
-                        window.currentConversationId = inboxPreview.conversationId;
-                        console.log(`[CHAT] ✅ Got conversationId from inbox_preview: ${window.currentConversationId}`);
+                // Tìm conversation trong cache (giống logic của modal comment)
+                let pancakeCustomerUuid = null;
+                let conversation = null;
+
+                // Tìm conversation của user này trong inbox cache bằng PSID
+                if (window.pancakeDataManager.inboxMapByPSID) {
+                    conversation = window.pancakeDataManager.inboxMapByPSID.get(String(psid));
+
+                    if (!conversation) {
+                        // Thử tìm bằng FBID
+                        conversation = window.pancakeDataManager.inboxMapByFBID.get(String(psid));
+                    }
+
+                    if (conversation) {
+                        console.log('[CHAT-MODAL] ✅ Found conversation in inbox cache');
                     } else {
-                        console.warn(`[CHAT] ⚠️ Failed to get conversationId from inbox_preview`);
+                        console.log('[CHAT-MODAL] ℹ️ Conversation not found in cache - will skip inbox_preview');
                     }
                 } else {
-                    console.warn(`[CHAT] ⚠️ Missing pageId or customerId from Pancake message info`);
+                    console.log('[CHAT-MODAL] ℹ️ Inbox map not initialized');
+                }
+
+                // Lấy customer UUID từ conversation nếu có
+                if (conversation && conversation.customers && conversation.customers.length > 0) {
+                    pancakeCustomerUuid = conversation.customers[0].id;
+                    console.log('[CHAT-MODAL] ✅ Got customer UUID from cache:', pancakeCustomerUuid);
+                }
+
+                // Fetch inbox_preview nếu có customer UUID
+                if (pancakeCustomerUuid) {
+                    try {
+                        const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
+                        if (inboxPreview.success && inboxPreview.conversationId) {
+                            window.currentConversationId = inboxPreview.conversationId;
+                            console.log(`[CHAT-MODAL] ✅ Got conversationId from inbox_preview: ${window.currentConversationId}`);
+                        } else {
+                            console.log(`[CHAT-MODAL] ℹ️ Could not get conversationId from inbox_preview`);
+                        }
+                    } catch (inboxError) {
+                        console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
+                    }
+                } else {
+                    console.log('[CHAT-MODAL] ℹ️ Cannot fetch inbox_preview - conversation not in cache yet');
                 }
             } else {
-                console.warn('[CHAT] ⚠️ PancakeDataManager not available');
+                console.log('[CHAT-MODAL] ℹ️ PancakeDataManager not available');
             }
 
             if (chatInfo.hasUnread) {
