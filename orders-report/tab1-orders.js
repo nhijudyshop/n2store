@@ -4930,6 +4930,19 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
     if (type === 'comment') {
         markReadBtn.style.display = 'none';
+
+        // Disable input and send button by default for comments
+        // Only enable when replying to a specific comment
+        const chatSendBtn = document.getElementById('chatSendBtn');
+        chatInput.disabled = true;
+        chatInput.placeholder = 'Chọn "Trả lời" một bình luận để reply...';
+        chatInput.style.background = '#f3f4f6';
+        chatInput.style.cursor = 'not-allowed';
+        if (chatSendBtn) {
+            chatSendBtn.disabled = true;
+            chatSendBtn.style.opacity = '0.5';
+            chatSendBtn.style.cursor = 'not-allowed';
+        }
     } else {
         markReadBtn.style.display = 'none'; // Keep hidden for now or show if needed
     }
@@ -5266,10 +5279,23 @@ window.cancelReplyComment = function () {
         previewContainer.style.display = 'none';
     }
 
-    // Reset input placeholder
+    // Reset input and disable it (only allow replying to comments)
     const input = document.getElementById('chatReplyInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+
     if (input) {
-        input.placeholder = 'Nhập bình luận... (Shift+Enter để xuống dòng)';
+        input.value = ''; // Clear input content
+        input.disabled = true;
+        input.placeholder = 'Chọn "Trả lời" một bình luận để reply...';
+        input.style.background = '#f3f4f6';
+        input.style.cursor = 'not-allowed';
+    }
+
+    // Disable send button
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.style.opacity = '0.5';
+        sendBtn.style.cursor = 'not-allowed';
     }
 
     console.log('[REPLY] Cancelled comment reply');
@@ -5434,8 +5460,8 @@ window.sendReplyComment = async function () {
             previewContainer.style.display = 'none';
         }
 
-        // Re-enable text input when image is sent
-        if (messageInput) {
+        // Re-enable text input when image is sent (only for message mode, not comment mode)
+        if (messageInput && currentChatType !== 'comment') {
             messageInput.disabled = false;
             messageInput.style.opacity = '1';
             messageInput.style.cursor = 'text';
@@ -5855,11 +5881,24 @@ function handleReplyToComment(commentId, postId) {
         console.log('[REPLY] Showing preview for comment:', senderName, truncatedText);
     }
 
-    // Focus input
+    // Focus input and enable it for replying
     const input = document.getElementById('chatReplyInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+
     if (input) {
+        // Enable input and send button
+        input.disabled = false;
+        input.style.cursor = 'text';
+        input.style.background = '#f9fafb';
         input.focus();
         input.placeholder = `Nhập nội dung trả lời...`;
+
+        // Enable send button
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.style.opacity = '1';
+            sendBtn.style.cursor = 'pointer';
+        }
 
         // Add visual feedback (optional)
         input.style.borderColor = '#3b82f6';
