@@ -5707,51 +5707,32 @@ async function sendReplyCommentInternal(messageData) {
 
         if (chatType === 'message') {
             // Payload for sending a message (reply_inbox)
-            // When sending with image, use FormData (multipart/form-data)
-            // When sending text only, use JSON
+            // ALWAYS use FormData (multipart/form-data) for messages
+            const formData = new FormData();
+            formData.append('action', 'reply_inbox');
+            formData.append('message', finalMessage);
+            formData.append('send_by_platform', 'web');
+
+            // Add image data if exists
             if (imageData) {
-                const formData = new FormData();
-                formData.append('action', 'reply_inbox');
-                formData.append('message', finalMessage);
-                formData.append('send_by_platform', 'web');
                 formData.append('content_url', imageData.content_url);
                 formData.append('content_id', imageData.content_id);
                 formData.append('width', imageData.width.toString());
                 formData.append('height', imageData.height.toString());
-
-                if (repliedMessageId) {
-                    formData.append('replied_message_id', repliedMessageId);
-                    console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
-                }
-
-                fetchOptions = {
-                    method: 'POST',
-                    body: formData
-                };
-
-                console.log('[SEND-REPLY] Using FormData (multipart) for image message');
-            } else {
-                const replyBody = {
-                    action: "reply_inbox",
-                    message: finalMessage,
-                    send_by_platform: "web"
-                };
-
-                if (repliedMessageId) {
-                    replyBody.replied_message_id = repliedMessageId;
-                    console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
-                }
-
-                fetchOptions = {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(replyBody)
-                };
-
-                console.log('[SEND-REPLY] Using JSON for text-only message');
             }
+
+            // Add replied_message_id if exists
+            if (repliedMessageId) {
+                formData.append('replied_message_id', repliedMessageId);
+                console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
+            }
+
+            fetchOptions = {
+                method: 'POST',
+                body: formData
+            };
+
+            console.log('[SEND-REPLY] Using FormData (multipart) for message');
 
             console.log('[SEND-REPLY] POST URL:', replyUrl);
             console.log('[SEND-REPLY] Request options:', fetchOptions);
