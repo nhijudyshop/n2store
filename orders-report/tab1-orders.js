@@ -5531,11 +5531,29 @@ async function sendReplyCommentInternal(messageData) {
             throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
         }
 
-        // Get customer_id from order
-        const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
-        if (!customerId) {
-            throw new Error('Không tìm thấy mã khách hàng (PartnerId) trong đơn hàng');
+        // Get Facebook PSID from order
+        const facebookPsid = order.Facebook_ASUserId;
+        if (!facebookPsid) {
+            throw new Error('Không tìm thấy Facebook PSID trong đơn hàng');
         }
+
+        // Get customer UUID from Pancake conversation data
+        let pancakeCustomerUuid = null;
+        if (window.pancakeDataManager) {
+            const conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+            if (conversation && conversation.customers && conversation.customers.length > 0) {
+                // Extract UUID from first customer in the array
+                pancakeCustomerUuid = conversation.customers[0].uuid || conversation.customers[0].id;
+                console.log('[SEND-REPLY] Got Pancake customer UUID:', pancakeCustomerUuid);
+            }
+        }
+
+        if (!pancakeCustomerUuid) {
+            console.warn('[SEND-REPLY] Could not get Pancake customer UUID, will skip inbox_preview');
+        }
+
+        // Also get TPOS PartnerId for reference
+        const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
 
         // Check 24-hour window for INBOX messages only (skip check, already validated)
         showChatSendingIndicator('Kiểm tra 24h...');
@@ -5585,13 +5603,13 @@ async function sendReplyCommentInternal(messageData) {
         let threadKey = null;
         let fromId = null;
 
-        if (chatType === 'comment' && parentCommentId) {
+        if (chatType === 'comment' && parentCommentId && pancakeCustomerUuid) {
             showChatSendingIndicator('Lấy thông tin thread...');
             console.log('[SEND-REPLY] Fetching inbox_preview for private_replies...');
 
             try {
                 const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-                    `pages/${pageId}/customers/${customerId}/inbox_preview`,
+                    `pages/${pageId}/customers/${pancakeCustomerUuid}/inbox_preview`,
                     `access_token=${token}`
                 );
 
@@ -5610,21 +5628,23 @@ async function sendReplyCommentInternal(messageData) {
                 const inboxData = await inboxResponse.json();
                 console.log('[SEND-REPLY] inbox_preview response:', inboxData);
 
-                if (inboxData.success && inboxData.data && inboxData.data.length > 0) {
-                    threadId = inboxData.thread_id;
-                    threadKey = inboxData.thread_key;
+                if (inboxData.success) {
+                    // Extract thread info from response
+                    threadId = inboxData.thread_id_preview || inboxData.thread_id;
+                    threadKey = inboxData.thread_key_preview || inboxData.thread_key;
 
                     // Get from_id from the first customer message (not from page)
-                    const customerMessage = inboxData.data.find(msg =>
-                        msg.from && msg.from.id && msg.from.id !== pageId
-                    );
+                    if (inboxData.data && inboxData.data.length > 0) {
+                        const customerMessage = inboxData.data.find(msg =>
+                            msg.from && msg.from.id && msg.from.id !== pageId
+                        );
 
-                    if (customerMessage) {
-                        fromId = customerMessage.from.id;
-                        console.log('[SEND-REPLY] Got thread info:', { threadId, threadKey, fromId });
-                    } else {
-                        console.warn('[SEND-REPLY] No customer message found in inbox_preview');
+                        if (customerMessage) {
+                            fromId = customerMessage.from.id;
+                        }
                     }
+
+                    console.log('[SEND-REPLY] Got thread info:', { threadId, threadKey, fromId });
                 }
             } catch (inboxError) {
                 console.error('[SEND-REPLY] inbox_preview fetch error:', inboxError);
