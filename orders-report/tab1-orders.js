@@ -4969,11 +4969,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             }
 
             // Construct conversationId from postId and parentCommentId
-            // Format: postId_commentId (e.g., "117267091364524_1382798016618291_817929370998475")
-            const postId = order.Facebook_PostId || currentPostId;
-            if (postId && currentParentCommentId) {
+            // Format: postId_commentId (e.g., "1382798016618291_817929370998475")
+            const facebookPostId = order.Facebook_PostId || currentPostId;
+            if (facebookPostId && currentParentCommentId) {
+                // Extract just the post ID (without pageId prefix)
+                const postId = extractPostId(facebookPostId);
                 window.currentConversationId = `${postId}_${currentParentCommentId}`;
-                console.log(`[CHAT] Constructed conversationId for comment: ${window.currentConversationId}`);
+                console.log(`[CHAT] Constructed conversationId for comment: ${window.currentConversationId} (from ${facebookPostId})`);
             } else {
                 // Fallback: Try to get from Pancake data manager
                 if (window.pancakeDataManager) {
@@ -7068,6 +7070,25 @@ function getFacebookCommentId(comment) {
 
     // 3. Fallback to Id if nothing else found (might fail if it's internal)
     return comment.Id;
+}
+
+/**
+ * Helper to extract just the post ID from a Facebook post identifier
+ * Facebook_PostId format: "pageId_postId" (e.g., "117267091364524_1382798016618291")
+ * Returns: just the postId part (e.g., "1382798016618291")
+ */
+function extractPostId(facebookPostId) {
+    if (!facebookPostId) return null;
+
+    // If it contains underscore, it's in format pageId_postId
+    if (facebookPostId.includes('_')) {
+        const parts = facebookPostId.split('_');
+        // Return the second part (postId)
+        return parts.length >= 2 ? parts[1] : facebookPostId;
+    }
+
+    // Otherwise return as-is (already just the postId)
+    return facebookPostId;
 }
 // =====================================================
 // REALTIME UI UPDATES
