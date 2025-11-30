@@ -694,15 +694,17 @@ async function createNewTag() {
         // Get auth headers
         const headers = await window.tokenManager.getAuthHeader();
 
-        // Create tag via API (through Cloudflare proxy)
+        // Create tag via API (direct to TPOS)
         const response = await API_CONFIG.smartFetch(
-            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
+            'https://tomato.tpos.vn/odata/Tag',
             {
                 method: 'POST',
                 headers: {
                     ...headers,
                     'accept': 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
+                    'tposappversion': '5.11.16.1',
+                    'x-tpos-lang': 'vi',
                 },
                 body: JSON.stringify({
                     Name: name,
