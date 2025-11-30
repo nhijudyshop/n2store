@@ -4991,37 +4991,71 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             renderComments(allChatComments, true);
 
-            // Fetch inbox_preview for comment modal với customer ID cố định
-            const hardcodedCustomerId = "658ffee5-09b2-40e9-94de-b7c87afb45b9";
-            console.log('[CHAT-MODAL] 🚀 Fetching inbox_preview for comment modal...');
+            // Fetch inbox_preview for comment modal - lấy customer ID từ conversations
+            const facebookPsid = order.Facebook_ASUserId;
+            let pancakeCustomerUuid = null;
 
-            try {
-                const token = await window.pancakeTokenManager.getToken();
-                if (token) {
-                    const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-                        `pages/${channelId}/customers/${hardcodedCustomerId}/inbox_preview`,
-                        `access_token=${token}`
-                    );
-                    console.log('[CHAT-MODAL] 📡 inbox_preview URL:', inboxPreviewUrl);
+            console.log('[CHAT-MODAL] 🔍 Starting inbox_preview fetch...');
+            console.log('[CHAT-MODAL] - Facebook PSID:', facebookPsid);
 
-                    const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
+            if (window.pancakeDataManager && facebookPsid) {
+                // Tìm conversation trong cache
+                let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                console.log('[CHAT-MODAL] - Conversation found in cache:', !!conversation);
 
-                    if (inboxResponse.ok) {
-                        const inboxData = await inboxResponse.json();
-                        console.log('[CHAT-MODAL] ✅ inbox_preview response:', inboxData);
-                    } else {
-                        console.warn('[CHAT-MODAL] ⚠️ Failed to fetch inbox_preview:', inboxResponse.status);
+                // Nếu không tìm thấy trong cache, fetch từ Pancake API
+                if (!conversation) {
+                    console.log('[CHAT-MODAL] 🔄 Fetching conversations from Pancake...');
+                    try {
+                        await window.pancakeDataManager.fetchConversations(true); // Force refresh
+                        conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                        console.log('[CHAT-MODAL] - Conversation found after fetch:', !!conversation);
+                    } catch (fetchError) {
+                        console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
                     }
-                } else {
-                    console.warn('[CHAT-MODAL] ⚠️ No token available for inbox_preview fetch');
                 }
-            } catch (inboxError) {
-                console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
+
+                // Lấy customer UUID từ conversation
+                if (conversation && conversation.customers && conversation.customers.length > 0) {
+                    pancakeCustomerUuid = conversation.customers[0].id; // Lấy ID từ customers[0].id
+                    console.log('[CHAT-MODAL] ✅ Got customer UUID:', pancakeCustomerUuid);
+                } else {
+                    console.warn('[CHAT-MODAL] ⚠️ No customer found in conversation');
+                }
+            }
+
+            // Fetch inbox_preview nếu có customer UUID
+            if (pancakeCustomerUuid) {
+                try {
+                    const token = await window.pancakeTokenManager.getToken();
+                    if (token) {
+                        const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
+                            `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
+                            `access_token=${token}`
+                        );
+                        console.log('[CHAT-MODAL] 📡 inbox_preview URL:', inboxPreviewUrl);
+
+                        const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        if (inboxResponse.ok) {
+                            const inboxData = await inboxResponse.json();
+                            console.log('[CHAT-MODAL] ✅ inbox_preview response:', inboxData);
+                        } else {
+                            console.warn('[CHAT-MODAL] ⚠️ Failed to fetch inbox_preview:', inboxResponse.status);
+                        }
+                    } else {
+                        console.warn('[CHAT-MODAL] ⚠️ No token available for inbox_preview fetch');
+                    }
+                } catch (inboxError) {
+                    console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
+                }
+            } else {
+                console.warn('[CHAT-MODAL] ⚠️ Cannot fetch inbox_preview - missing customer UUID');
             }
 
             // Setup infinite scroll for comments
