@@ -252,7 +252,7 @@ class PancakeDataManager {
     /**
      * Lấy conversation theo Facebook User ID (bất kỳ type nào)
      * Tìm trong cả INBOX và COMMENT maps
-     * Ưu tiên: INBOX by PSID → INBOX by FBID → COMMENT by FBID → COMMENT by PSID
+     * Ưu tiên: INBOX by PSID → INBOX by FBID → COMMENT by FBID → COMMENT by PSID → customers[].fb_id
      * @param {string} userId - Facebook User ID (Facebook_ASUserId)
      * @returns {Object|null}
      */
@@ -271,6 +271,26 @@ class PancakeDataManager {
         }
         if (!conversation) {
             conversation = this.commentMapByPSID.get(userId);
+        }
+
+        // Last resort: Search in customers[].fb_id array
+        // This handles COMMENT conversations where from_psid is null
+        // and order.Facebook_ASUserId doesn't match conversation.from.id
+        if (!conversation && this.conversations && this.conversations.length > 0) {
+            conversation = this.conversations.find(conv => {
+                if (conv.customers && conv.customers.length > 0) {
+                    return conv.customers.some(customer => customer.fb_id === userId);
+                }
+                return false;
+            });
+
+            if (conversation) {
+                console.log('[PANCAKE] ✅ Found conversation via customers[].fb_id:', {
+                    userId,
+                    convId: conversation.id,
+                    convType: conversation.type
+                });
+            }
         }
 
         return conversation || null;
