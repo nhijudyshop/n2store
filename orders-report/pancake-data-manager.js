@@ -737,10 +737,9 @@ class PancakeDataManager {
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
-        // Build correct conversationId format: pageId_userId
-        // Use from_psid if available (for INBOX), otherwise use from.id
-        const conversationUserId = conversation.from_psid || conversation.from?.id;
-        const conversationId = conversationUserId ? `${conversation.page_id}_${conversationUserId}` : conversation.id;
+        // Use conversation.id directly from Pancake API
+        // Do NOT construct conversationId manually as Pancake uses complex format
+        const conversationId = conversation.id;
 
         return {
             message: lastMessage,
@@ -834,10 +833,9 @@ class PancakeDataManager {
         const hasUnread = conversation.seen === false && conversation.unread_count > 0;
         const unreadCount = conversation.unread_count || 0;
 
-        // Build correct conversationId format: pageId_userId
-        // For COMMENT, from_psid is usually null, so use from.id
-        const conversationUserId = conversation.from_psid || conversation.from?.id;
-        const conversationId = conversationUserId ? `${conversation.page_id}_${conversationUserId}` : conversation.id;
+        // Use conversation.id directly from Pancake API
+        // Do NOT construct conversationId manually as Pancake uses complex format
+        const conversationId = conversation.id;
 
         return {
             message: lastMessage,
