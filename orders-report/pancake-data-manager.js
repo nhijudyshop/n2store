@@ -127,6 +127,88 @@ class PancakeDataManager {
     }
 
     /**
+     * Search conversations theo query (tên khách hàng, fb_id, etc.)
+     * Tối ưu hơn fetchConversations() vì chỉ search những gì cần
+     * @param {string} query - Search query (tên hoặc fb_id)
+     * @param {Array<string>} pageIds - Danh sách page IDs để search (optional)
+     * @returns {Promise<Object>} { conversations: Array, customerId: string|null }
+     */
+    async searchConversations(query, pageIds = null) {
+        try {
+            if (!query) {
+                console.warn('[PANCAKE] searchConversations: No query provided');
+                return { conversations: [], customerId: null };
+            }
+
+            console.log(`[PANCAKE] Searching conversations for query: "${query}"`);
+
+            const token = await this.getToken();
+            if (!token) {
+                throw new Error('No Pancake token available');
+            }
+
+            // Use pageIds from parameter or default to all pageIds
+            const searchPageIds = pageIds || this.pageIds;
+
+            if (searchPageIds.length === 0) {
+                await this.fetchPages();
+                if (this.pageIds.length === 0) {
+                    console.warn('[PANCAKE] No pages found for search');
+                    return { conversations: [], customerId: null };
+                }
+            }
+
+            // Build search URL with query parameter
+            // Format: /conversations/search?q={query}&page_ids={pageIds}&access_token={token}
+            const pageIdsParam = (searchPageIds || this.pageIds).join(',');
+            const encodedQuery = encodeURIComponent(query);
+            const queryString = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
+
+            const url = window.API_CONFIG.buildUrl.pancake('conversations/search', queryString);
+
+            console.log('[PANCAKE] Search URL:', url);
+
+            // Need to send page_ids in request body as FormData
+            const formData = new FormData();
+            formData.append('page_ids', pageIdsParam);
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                body: formData
+            });
+
+            console.log('[PANCAKE] Search response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[PANCAKE] Search error response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('[PANCAKE] Search results:', data);
+
+            const conversations = data.conversations || [];
+
+            // Extract customer ID from first conversation's customers array
+            let customerId = null;
+            if (conversations.length > 0 && conversations[0].customers && conversations[0].customers.length > 0) {
+                customerId = conversations[0].customers[0].id;
+                console.log(`[PANCAKE] ✅ Found customer ID from search: ${customerId}`);
+            }
+
+            return {
+                conversations,
+                customerId
+            };
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error searching conversations:', error);
+            return { conversations: [], customerId: null };
+        }
+    }
+
+    /**
      * Lấy danh sách conversations từ Pancake API
      * @param {boolean} forceRefresh - Bắt buộc refresh
      * @returns {Promise<Array>}
