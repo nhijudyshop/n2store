@@ -568,6 +568,212 @@ async function refreshTags() {
     }
 }
 
+// Open Create Tag Modal
+function openCreateTagModal() {
+    const modal = document.getElementById('createTagModal');
+    if (modal) {
+        modal.style.display = 'flex';
+
+        // Reset form
+        document.getElementById('newTagName').value = '';
+        document.getElementById('newTagColor').value = '#3b82f6';
+        document.getElementById('newTagColorHex').value = '#3b82f6';
+        document.getElementById('colorPreview').style.background = '#3b82f6';
+
+        // Hide status message
+        const status = document.getElementById('createTagStatus');
+        if (status) {
+            status.style.display = 'none';
+        }
+
+        // Setup color input sync (only once)
+        const colorInput = document.getElementById('newTagColor');
+        if (colorInput && !colorInput.dataset.listenerAdded) {
+            colorInput.addEventListener('input', function() {
+                const color = this.value;
+                document.getElementById('newTagColorHex').value = color;
+                document.getElementById('colorPreview').style.background = color;
+            });
+            colorInput.dataset.listenerAdded = 'true';
+        }
+
+        // Focus on name input
+        setTimeout(() => {
+            document.getElementById('newTagName').focus();
+        }, 100);
+    }
+}
+
+// Close Create Tag Modal
+function closeCreateTagModal() {
+    const modal = document.getElementById('createTagModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Update Color Preview
+function updateColorPreview() {
+    const hexInput = document.getElementById('newTagColorHex');
+    const colorInput = document.getElementById('newTagColor');
+    const preview = document.getElementById('colorPreview');
+
+    let hex = hexInput.value.trim();
+
+    // Add # if missing
+    if (hex && !hex.startsWith('#')) {
+        hex = '#' + hex;
+    }
+
+    // Validate hex color (3 or 6 digits)
+    const validHex = /^#([0-9A-F]{3}){1,2}$/i.test(hex);
+
+    if (validHex) {
+        colorInput.value = hex;
+        preview.style.background = hex;
+        hexInput.style.borderColor = '#d1d5db';
+    } else if (hex === '#') {
+        // Just started typing
+        hexInput.style.borderColor = '#d1d5db';
+    } else {
+        // Invalid hex
+        hexInput.style.borderColor = '#ef4444';
+    }
+}
+
+// Select Preset Color
+function selectPresetColor(color) {
+    document.getElementById('newTagColor').value = color;
+    document.getElementById('newTagColorHex').value = color;
+    document.getElementById('colorPreview').style.background = color;
+}
+
+// Create New Tag
+async function createNewTag() {
+    const nameInput = document.getElementById('newTagName');
+    const colorInput = document.getElementById('newTagColor');
+    const statusDiv = document.getElementById('createTagStatus');
+    const createBtn = document.getElementById('createTagBtn');
+
+    const name = nameInput.value.trim();
+    const color = colorInput.value;
+
+    // Validate
+    if (!name) {
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Vui lòng nhập tên tag';
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#fef3c7';
+        statusDiv.style.color = '#92400e';
+        nameInput.focus();
+        return;
+    }
+
+    // Validate color
+    const validHex = /^#([0-9A-F]{3}){1,2}$/i.test(color);
+    if (!validHex) {
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Màu không hợp lệ';
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#fef3c7';
+        statusDiv.style.color = '#92400e';
+        return;
+    }
+
+    try {
+        // Disable button
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo...';
+
+        // Show loading status
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo tag...';
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#dbeafe';
+        statusDiv.style.color = '#1e40af';
+
+        console.log('[CREATE-TAG] Creating tag:', { name, color });
+
+        // Get auth headers
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Create tag via API (through Cloudflare proxy)
+        const response = await API_CONFIG.smartFetch(
+            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                },
+                body: JSON.stringify({
+                    Name: name,
+                    Color: color
+                })
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const newTag = await response.json();
+        console.log('[CREATE-TAG] Tag created successfully:', newTag);
+
+        // Show success status
+        statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> Tạo tag thành công!';
+        statusDiv.style.background = '#d1fae5';
+        statusDiv.style.color = '#065f46';
+
+        // Update local tags list
+        if (Array.isArray(availableTags)) {
+            availableTags.push(newTag);
+            window.availableTags = availableTags;
+            window.cacheManager.set("tags", availableTags, "tags");
+        }
+
+        // Save to Firebase
+        if (database) {
+            await database.ref('settings/tags').set(availableTags);
+            console.log('[CREATE-TAG] Saved updated tags to Firebase');
+        }
+
+        // Update UI
+        populateTagFilter();
+
+        // Clear search and render updated tag list
+        const searchInput = document.getElementById("tagSearchInput");
+        if (searchInput) {
+            searchInput.value = "";
+        }
+        renderTagList("");
+
+        // Show notification
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã tạo tag "${name}" thành công!`);
+        }
+
+        // Close modal after 1 second
+        setTimeout(() => {
+            closeCreateTagModal();
+        }, 1000);
+
+    } catch (error) {
+        console.error('[CREATE-TAG] Error creating tag:', error);
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Lỗi: ' + error.message;
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#fee2e2';
+        statusDiv.style.color = '#991b1b';
+
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi tạo tag: ' + error.message);
+        }
+    } finally {
+        // Re-enable button
+        createBtn.disabled = false;
+        createBtn.innerHTML = '<i class="fas fa-check"></i> Tạo tag';
+    }
+}
+
 function populateTagFilter() {
     const tagFilterOptions = document.getElementById('tagFilterOptions');
     if (!tagFilterOptions) {
