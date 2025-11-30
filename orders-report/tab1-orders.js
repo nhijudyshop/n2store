@@ -4991,6 +4991,73 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             renderComments(allChatComments, true);
 
+            // Fetch inbox_preview for comment modal - lấy customer ID từ conversations
+            const facebookPsid = order.Facebook_ASUserId;
+            let pancakeCustomerUuid = null;
+
+            console.log('[CHAT-MODAL] 🔍 Starting inbox_preview fetch...');
+            console.log('[CHAT-MODAL] - Facebook PSID:', facebookPsid);
+
+            if (window.pancakeDataManager && facebookPsid) {
+                // Tìm conversation trong cache
+                let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                console.log('[CHAT-MODAL] - Conversation found in cache:', !!conversation);
+
+                // Nếu không tìm thấy trong cache, fetch từ Pancake API
+                if (!conversation) {
+                    console.log('[CHAT-MODAL] 🔄 Fetching conversations from Pancake...');
+                    try {
+                        await window.pancakeDataManager.fetchConversations(true); // Force refresh
+                        conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                        console.log('[CHAT-MODAL] - Conversation found after fetch:', !!conversation);
+                    } catch (fetchError) {
+                        console.error('[CHAT-MODAL] ❌ Error fetching conversations:', fetchError);
+                    }
+                }
+
+                // Lấy customer UUID từ conversation
+                if (conversation && conversation.customers && conversation.customers.length > 0) {
+                    pancakeCustomerUuid = conversation.customers[0].id; // Lấy ID từ customers[0].id
+                    console.log('[CHAT-MODAL] ✅ Got customer UUID:', pancakeCustomerUuid);
+                } else {
+                    console.warn('[CHAT-MODAL] ⚠️ No customer found in conversation');
+                }
+            }
+
+            // Fetch inbox_preview nếu có customer UUID
+            if (pancakeCustomerUuid) {
+                try {
+                    const token = await window.pancakeTokenManager.getToken();
+                    if (token) {
+                        const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
+                            `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
+                            `access_token=${token}`
+                        );
+                        console.log('[CHAT-MODAL] 📡 inbox_preview URL:', inboxPreviewUrl);
+
+                        const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        if (inboxResponse.ok) {
+                            const inboxData = await inboxResponse.json();
+                            console.log('[CHAT-MODAL] ✅ inbox_preview response:', inboxData);
+                        } else {
+                            console.warn('[CHAT-MODAL] ⚠️ Failed to fetch inbox_preview:', inboxResponse.status);
+                        }
+                    } else {
+                        console.warn('[CHAT-MODAL] ⚠️ No token available for inbox_preview fetch');
+                    }
+                } catch (inboxError) {
+                    console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
+                }
+            } else {
+                console.warn('[CHAT-MODAL] ⚠️ Cannot fetch inbox_preview - missing customer UUID');
+            }
+
             // Setup infinite scroll for comments
             setupChatInfiniteScroll();
 
@@ -5644,62 +5711,29 @@ async function sendReplyCommentInternal(messageData) {
 
                 console.log('[SEND-REPLY] Using JSON for text-only message');
             }
+
+            console.log('[SEND-REPLY] POST URL:', replyUrl);
+            console.log('[SEND-REPLY] Request options:', fetchOptions);
+
+            const replyResponse = await API_CONFIG.smartFetch(replyUrl, fetchOptions);
+
+            if (!replyResponse.ok) {
+                const errorText = await replyResponse.text();
+                console.error('[SEND-REPLY] Reply failed:', errorText);
+                throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+            }
+
+            const replyData = await replyResponse.json();
+            console.log('[SEND-REPLY] Reply response:', replyData);
+
+            if (!replyData.success) {
+                console.error('[SEND-REPLY] API Error Data:', replyData);
+                const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
+                throw new Error('Gửi tin nhắn thất bại: ' + errorMessage + ' (Success: false)');
+            }
         } else {
-            // Use private_replies for all comment replies
-            const replyBody = {
-                action: "private_replies",
-                message_id: parentCommentId,
-                post_id: postId,
-                message: finalMessage,
-                need_thread_id: false
-            };
-
-            // Add thread info if available
-            if (threadId && threadKey && fromId) {
-                replyBody.thread_id_preview = threadId;
-                replyBody.thread_key_preview = threadKey;
-                replyBody.from_id = fromId;
-                console.log('[SEND-REPLY] Using private_replies with thread info');
-            } else {
-                console.warn('[SEND-REPLY] Missing thread info, sending without it');
-            }
-
-            // Add image content_url if available
-            if (imageData) {
-                replyBody.content_url = imageData.content_url;
-            }
-
-            fetchOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(replyBody)
-            };
-
-            console.log('[SEND-REPLY] Using private_replies action');
-        }
-
-        console.log('[SEND-REPLY] POST URL:', replyUrl);
-        console.log('[SEND-REPLY] Request options:', fetchOptions);
-
-        const replyResponse = await API_CONFIG.smartFetch(replyUrl, fetchOptions);
-
-        if (!replyResponse.ok) {
-            const errorText = await replyResponse.text();
-            console.error('[SEND-REPLY] Reply failed:', errorText);
-            throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
-        }
-
-        const replyData = await replyResponse.json();
-        console.log('[SEND-REPLY] Reply response:', replyData);
-
-        if (!replyData.success) {
-            console.error('[SEND-REPLY] API Error Data:', replyData);
-            const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
-            throw new Error('Gửi tin nhắn thất bại: ' + errorMessage + ' (Success: false)');
-
+            // Comment replies: Skip POST, only sync comments
+            console.log('[SEND-REPLY] Skipping POST for comment reply, will only sync comments');
         }
 
         // Step 2: Sync comments (fetch3.txt)
