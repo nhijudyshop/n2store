@@ -5713,7 +5713,6 @@ async function sendReplyCommentInternal(messageData) {
                 const formData = new FormData();
                 formData.append('action', 'reply_inbox');
                 formData.append('message', finalMessage);
-                formData.append('customer_id', customerId);
                 formData.append('send_by_platform', 'web');
                 formData.append('content_url', imageData.content_url);
                 formData.append('content_id', imageData.content_id);
@@ -5735,7 +5734,6 @@ async function sendReplyCommentInternal(messageData) {
                 const replyBody = {
                     action: "reply_inbox",
                     message: finalMessage,
-                    customer_id: customerId,
                     send_by_platform: "web"
                 };
 
