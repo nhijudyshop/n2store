@@ -5749,8 +5749,138 @@ async function sendReplyCommentInternal(messageData) {
                 throw new Error('Gửi tin nhắn thất bại: ' + errorMessage + ' (Success: false)');
             }
         } else {
-            // Comment replies: Skip POST, only sync comments
-            console.log('[SEND-REPLY] Skipping POST for comment reply, will only sync comments');
+            // Comment replies: Fetch inbox_preview and send via reply_inbox
+            console.log('[SEND-REPLY] Fetching inbox_preview for comment reply...');
+            showChatSendingIndicator('Lấy thông tin inbox...');
+
+            // Step 1: Get customer UUID from conversation
+            const facebookPsid = order.Facebook_ASUserId;
+            let pancakeCustomerUuid = null;
+
+            if (window.pancakeDataManager && facebookPsid) {
+                // Try to find conversation in cache first
+                let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+
+                if (!conversation) {
+                    // Fallback: Search by Facebook name
+                    const facebookName = order.Facebook_UserName;
+                    console.log('[SEND-REPLY] Searching conversation by Facebook Name:', facebookName);
+                    try {
+                        const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
+                        if (searchResult.customerId) {
+                            pancakeCustomerUuid = searchResult.customerId;
+                        } else if (searchResult.conversations.length > 0) {
+                            conversation = searchResult.conversations[0];
+                            if (conversation.customers && conversation.customers.length > 0) {
+                                pancakeCustomerUuid = conversation.customers[0].id;
+                            }
+                        }
+                    } catch (searchError) {
+                        console.error('[SEND-REPLY] Error searching conversations:', searchError);
+                    }
+                } else {
+                    // Get customer UUID from cached conversation
+                    if (conversation.customers && conversation.customers.length > 0) {
+                        pancakeCustomerUuid = conversation.customers[0].id;
+                    }
+                }
+            }
+
+            if (!pancakeCustomerUuid) {
+                throw new Error('Không tìm thấy customer UUID để fetch inbox_preview');
+            }
+
+            console.log('[SEND-REPLY] Customer UUID:', pancakeCustomerUuid);
+
+            // Step 2: Fetch inbox_preview to get thread info
+            const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
+                `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
+                `access_token=${token}`
+            );
+
+            console.log('[SEND-REPLY] Fetching inbox_preview:', inboxPreviewUrl);
+            const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!inboxResponse.ok) {
+                throw new Error(`Fetch inbox_preview failed: ${inboxResponse.status}`);
+            }
+
+            const inboxData = await inboxResponse.json();
+            console.log('[SEND-REPLY] inbox_preview response:', inboxData);
+
+            // Extract thread info
+            threadId = inboxData.thread_id_preview || inboxData.thread_id;
+            threadKey = inboxData.thread_key_preview || inboxData.thread_key;
+
+            // Get from_id from first customer message (not from page)
+            if (inboxData.data && inboxData.data.length > 0) {
+                const customerMessage = inboxData.data.find(msg =>
+                    msg.from && msg.from.id && msg.from.id !== channelId
+                );
+                if (customerMessage) {
+                    fromId = customerMessage.from.id;
+                }
+            }
+
+            // Fallback: check if from_id is at root level
+            if (!fromId && inboxData.from_id) {
+                fromId = inboxData.from_id;
+            }
+
+            console.log('[SEND-REPLY] Thread info:', { threadId, threadKey, fromId });
+
+            if (!threadId || !fromId) {
+                throw new Error('Không tìm thấy thread_id hoặc from_id trong inbox_preview');
+            }
+
+            // Step 3: Send message via conversations/messages API
+            showChatSendingIndicator('Đang gửi bình luận...');
+
+            const replyUrl = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/conversations/${conversationId}/messages`,
+                `access_token=${token}`
+            );
+
+            // Build FormData for comment reply (always use FormData for comment replies)
+            const formData = new FormData();
+            formData.append('action', 'reply_inbox');
+            formData.append('message', finalMessage);
+
+            // Add image if exists
+            if (imageData) {
+                formData.append('content_url', imageData.content_url);
+                formData.append('content_id', imageData.content_id);
+                formData.append('width', imageData.width.toString());
+                formData.append('height', imageData.height.toString());
+            }
+
+            console.log('[SEND-REPLY] Sending comment reply via inbox...');
+            console.log('[SEND-REPLY] POST URL:', replyUrl);
+
+            const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!replyResponse.ok) {
+                const errorText = await replyResponse.text();
+                console.error('[SEND-REPLY] Reply failed:', errorText);
+                throw new Error(`Gửi bình luận thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+            }
+
+            const replyData = await replyResponse.json();
+            console.log('[SEND-REPLY] Reply response:', replyData);
+
+            if (!replyData.success) {
+                console.error('[SEND-REPLY] API Error Data:', replyData);
+                const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
+                throw new Error('Gửi bình luận thất bại: ' + errorMessage);
+            }
         }
 
         // Step 2: Sync comments (fetch3.txt)
