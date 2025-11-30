@@ -5644,62 +5644,29 @@ async function sendReplyCommentInternal(messageData) {
 
                 console.log('[SEND-REPLY] Using JSON for text-only message');
             }
+
+            console.log('[SEND-REPLY] POST URL:', replyUrl);
+            console.log('[SEND-REPLY] Request options:', fetchOptions);
+
+            const replyResponse = await API_CONFIG.smartFetch(replyUrl, fetchOptions);
+
+            if (!replyResponse.ok) {
+                const errorText = await replyResponse.text();
+                console.error('[SEND-REPLY] Reply failed:', errorText);
+                throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+            }
+
+            const replyData = await replyResponse.json();
+            console.log('[SEND-REPLY] Reply response:', replyData);
+
+            if (!replyData.success) {
+                console.error('[SEND-REPLY] API Error Data:', replyData);
+                const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
+                throw new Error('Gửi tin nhắn thất bại: ' + errorMessage + ' (Success: false)');
+            }
         } else {
-            // Use private_replies for all comment replies
-            const replyBody = {
-                action: "private_replies",
-                message_id: parentCommentId,
-                post_id: postId,
-                message: finalMessage,
-                need_thread_id: false
-            };
-
-            // Add thread info if available
-            if (threadId && threadKey && fromId) {
-                replyBody.thread_id_preview = threadId;
-                replyBody.thread_key_preview = threadKey;
-                replyBody.from_id = fromId;
-                console.log('[SEND-REPLY] Using private_replies with thread info');
-            } else {
-                console.warn('[SEND-REPLY] Missing thread info, sending without it');
-            }
-
-            // Add image content_url if available
-            if (imageData) {
-                replyBody.content_url = imageData.content_url;
-            }
-
-            fetchOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(replyBody)
-            };
-
-            console.log('[SEND-REPLY] Using private_replies action');
-        }
-
-        console.log('[SEND-REPLY] POST URL:', replyUrl);
-        console.log('[SEND-REPLY] Request options:', fetchOptions);
-
-        const replyResponse = await API_CONFIG.smartFetch(replyUrl, fetchOptions);
-
-        if (!replyResponse.ok) {
-            const errorText = await replyResponse.text();
-            console.error('[SEND-REPLY] Reply failed:', errorText);
-            throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
-        }
-
-        const replyData = await replyResponse.json();
-        console.log('[SEND-REPLY] Reply response:', replyData);
-
-        if (!replyData.success) {
-            console.error('[SEND-REPLY] API Error Data:', replyData);
-            const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
-            throw new Error('Gửi tin nhắn thất bại: ' + errorMessage + ' (Success: false)');
-
+            // Comment replies: Skip POST, only sync comments
+            console.log('[SEND-REPLY] Skipping POST for comment reply, will only sync comments');
         }
 
         // Step 2: Sync comments (fetch3.txt)
