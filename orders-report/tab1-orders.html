@@ -490,6 +490,10 @@
                 <button class="tag-btn-save-header" onclick="saveOrderTags()">
                     Lưu (Ctrl + Enter)
                 </button>
+                <button class="tag-btn-refresh" onclick="openCreateTagModal()" title="Tạo tag mới"
+                    style="margin-left: 8px; padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    <i class="fas fa-plus"></i>
+                </button>
                 <button class="tag-btn-refresh" onclick="refreshTags()" title="Tải lại từ TPOS"
                     style="margin-left: 8px; padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">
                     <i class="fas fa-sync"></i>
@@ -515,6 +519,70 @@
                         <p>Đang tải danh sách tag...</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Tag Modal -->
+    <div class="tag-modal" id="createTagModal" style="display: none;">
+        <div class="tag-modal-content" style="max-width: 500px;">
+            <div class="tag-modal-header">
+                <h3><i class="fas fa-plus-circle"></i> Tạo tag mới</h3>
+                <button class="tag-modal-close" onclick="closeCreateTagModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                        <i class="fas fa-tag"></i> Tên tag:
+                    </label>
+                    <input type="text" id="newTagName" placeholder="Nhập tên tag..."
+                        style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;" />
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                        <i class="fas fa-palette"></i> Màu sắc:
+                    </label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="color" id="newTagColor" value="#3b82f6"
+                            style="width: 60px; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;" />
+                        <input type="text" id="newTagColorHex" value="#3b82f6" placeholder="#000000"
+                            style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 14px;"
+                            oninput="updateColorPreview()" />
+                        <div id="colorPreview"
+                            style="width: 40px; height: 40px; border-radius: 6px; background: #3b82f6; border: 2px solid #d1d5db;">
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">Màu gợi ý:</div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <div onclick="selectPresetColor('#ef4444')" style="width: 32px; height: 32px; background: #ef4444; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Đỏ"></div>
+                            <div onclick="selectPresetColor('#f59e0b')" style="width: 32px; height: 32px; background: #f59e0b; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Cam"></div>
+                            <div onclick="selectPresetColor('#eab308')" style="width: 32px; height: 32px; background: #eab308; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Vàng"></div>
+                            <div onclick="selectPresetColor('#22c55e')" style="width: 32px; height: 32px; background: #22c55e; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xanh lá"></div>
+                            <div onclick="selectPresetColor('#10b981')" style="width: 32px; height: 32px; background: #10b981; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xanh lá đậm"></div>
+                            <div onclick="selectPresetColor('#06b6d4')" style="width: 32px; height: 32px; background: #06b6d4; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Cyan"></div>
+                            <div onclick="selectPresetColor('#3b82f6')" style="width: 32px; height: 32px; background: #3b82f6; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xanh dương"></div>
+                            <div onclick="selectPresetColor('#6366f1')" style="width: 32px; height: 32px; background: #6366f1; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Indigo"></div>
+                            <div onclick="selectPresetColor('#8b5cf6')" style="width: 32px; height: 32px; background: #8b5cf6; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Tím"></div>
+                            <div onclick="selectPresetColor('#ec4899')" style="width: 32px; height: 32px; background: #ec4899; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Hồng"></div>
+                            <div onclick="selectPresetColor('#f43f5e')" style="width: 32px; height: 32px; background: #f43f5e; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Hồng đậm"></div>
+                            <div onclick="selectPresetColor('#64748b')" style="width: 32px; height: 32px; background: #64748b; border-radius: 4px; cursor: pointer; border: 2px solid transparent;" title="Xám"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="createTagStatus" style="display: none; padding: 10px; border-radius: 6px; margin-bottom: 16px; font-size: 14px;"></div>
+            </div>
+            <div class="tag-modal-footer" style="display: flex; gap: 12px; padding: 16px; border-top: 1px solid #e5e7eb;">
+                <button onclick="closeCreateTagModal()"
+                    style="flex: 1; padding: 10px; background: #e5e7eb; color: #374151; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+                <button onclick="createNewTag()" id="createTagBtn"
+                    style="flex: 1; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    <i class="fas fa-check"></i> Tạo tag
+                </button>
             </div>
         </div>
     </div>
