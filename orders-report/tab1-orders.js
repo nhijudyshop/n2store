@@ -4991,6 +4991,39 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             renderComments(allChatComments, true);
 
+            // Fetch inbox_preview for comment modal với customer ID cố định
+            const hardcodedCustomerId = "658ffee5-09b2-40e9-94de-b7c87afb45b9";
+            console.log('[CHAT-MODAL] 🚀 Fetching inbox_preview for comment modal...');
+
+            try {
+                const token = await window.pancakeTokenManager.getToken();
+                if (token) {
+                    const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
+                        `pages/${channelId}/customers/${hardcodedCustomerId}/inbox_preview`,
+                        `access_token=${token}`
+                    );
+                    console.log('[CHAT-MODAL] 📡 inbox_preview URL:', inboxPreviewUrl);
+
+                    const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (inboxResponse.ok) {
+                        const inboxData = await inboxResponse.json();
+                        console.log('[CHAT-MODAL] ✅ inbox_preview response:', inboxData);
+                    } else {
+                        console.warn('[CHAT-MODAL] ⚠️ Failed to fetch inbox_preview:', inboxResponse.status);
+                    }
+                } else {
+                    console.warn('[CHAT-MODAL] ⚠️ No token available for inbox_preview fetch');
+                }
+            } catch (inboxError) {
+                console.error('[CHAT-MODAL] ❌ inbox_preview fetch error:', inboxError);
+            }
+
             // Setup infinite scroll for comments
             setupChatInfiniteScroll();
 
