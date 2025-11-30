@@ -5081,6 +5081,13 @@ window.closeChatModal = async function () {
     currentChatOrderId = null;
     window.currentConversationId = null;
     currentParentCommentId = null;
+    currentPostId = null;
+
+    // Hide reply preview
+    const replyPreviewContainer = document.getElementById('chatReplyPreviewContainer');
+    if (replyPreviewContainer) {
+        replyPreviewContainer.style.display = 'none';
+    }
 
     // Detach Firebase listener
     if (currentChatProductsRef) {
@@ -5246,6 +5253,41 @@ window.cancelReplyMessage = function () {
 };
 
 /**
+ * Cancel replying to a comment
+ */
+window.cancelReplyComment = function () {
+    // Clear reply state
+    currentParentCommentId = null;
+    currentPostId = null;
+
+    // Hide reply preview
+    const previewContainer = document.getElementById('chatReplyPreviewContainer');
+    if (previewContainer) {
+        previewContainer.style.display = 'none';
+    }
+
+    // Reset input placeholder
+    const input = document.getElementById('chatReplyInput');
+    if (input) {
+        input.placeholder = 'Nhập bình luận... (Shift+Enter để xuống dòng)';
+    }
+
+    console.log('[REPLY] Cancelled comment reply');
+};
+
+/**
+ * Cancel reply - works for both messages and comments
+ */
+window.cancelReply = function () {
+    // Check if we're in comment or message mode
+    if (currentChatType === 'comment') {
+        window.cancelReplyComment();
+    } else {
+        window.cancelReplyMessage();
+    }
+};
+
+/**
  * Extract text from message object (handles both text and HTML)
  */
 function extractMessageText(message) {
@@ -5400,8 +5442,8 @@ window.sendReplyComment = async function () {
             messageInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
         }
 
-        // Clear reply state
-        window.cancelReplyMessage();
+        // Clear reply state (works for both messages and comments)
+        window.cancelReply();
 
         // Process queue
         processChatMessageQueue();
@@ -5783,11 +5825,41 @@ function handleReplyToComment(commentId, postId) {
         currentPostId = null;
     }
 
+    // Show reply preview
+    const previewContainer = document.getElementById('chatReplyPreviewContainer');
+    const previewText = document.getElementById('chatReplyPreviewText');
+
+    if (previewContainer && previewText && comment) {
+        // Extract comment text (handle both text and HTML)
+        let commentText = comment.Message || comment.message || comment.text || '';
+
+        // If HTML, extract text content
+        if (commentText.includes('<')) {
+            const div = document.createElement('div');
+            div.innerHTML = commentText;
+            commentText = div.textContent || div.innerText || '';
+        }
+
+        // Get sender name
+        const senderName = comment.FromName || comment.from?.name || 'Khách hàng';
+
+        // Show preview with sender name and truncated message
+        const maxLength = 100;
+        const truncatedText = commentText.length > maxLength
+            ? commentText.substring(0, maxLength) + '...'
+            : commentText;
+
+        previewText.innerHTML = `<strong>${senderName}:</strong> ${truncatedText}`;
+        previewContainer.style.display = 'block';
+
+        console.log('[REPLY] Showing preview for comment:', senderName, truncatedText);
+    }
+
     // Focus input
     const input = document.getElementById('chatReplyInput');
     if (input) {
         input.focus();
-        input.placeholder = `Đang trả lời bình luận...`;
+        input.placeholder = `Nhập nội dung trả lời...`;
 
         // Add visual feedback (optional)
         input.style.borderColor = '#3b82f6';
