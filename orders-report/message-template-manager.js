@@ -945,7 +945,8 @@ class MessageTemplateManager {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Accept': 'application/json, text/plain, */*',
+                'Referer': 'https://pancake.vn/multi_pages'
             },
             body: JSON.stringify(requestBody)
         };

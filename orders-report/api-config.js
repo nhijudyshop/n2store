@@ -29,8 +29,8 @@ const API_CONFIG = {
     // ChatOmni API (Messages, Conversations)
     CHATOMNI: `${WORKER_URL}/api/api-ms/chatomni/v1`,
 
-    // Pancake API (Pages, Conversations)
-    PANCAKE: `${WORKER_URL}/api/pancake`,
+    // Pancake API (Pages, Conversations) - Direct API, not via proxy
+    PANCAKE: `https://pancake.vn/api/v1`,
 
     // Helper functions
     buildUrl: {
@@ -58,10 +58,10 @@ const API_CONFIG = {
          * Build Pancake API URL
          * @param {string} endpoint - e.g., "pages", "conversations"
          * @param {string} params - Query string (optional)
-         * @returns {string} - Full URL through worker
+         * @returns {string} - Full URL directly to pancake.vn
          */
         pancake: (endpoint, params = '') => {
-            const baseUrl = `${WORKER_URL}/api/pancake/${endpoint}`;
+            const baseUrl = `https://pancake.vn/api/v1/${endpoint}`;
             return params ? `${baseUrl}?${params}` : baseUrl;
         }
     },
