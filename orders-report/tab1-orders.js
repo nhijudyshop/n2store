@@ -530,7 +530,24 @@ async function refreshTags() {
 
         // Update UI
         populateTagFilter();
-        renderTagList(document.getElementById("tagSearchInput").value);
+
+        // Clear search input and render full tag list
+        const searchInput = document.getElementById("tagSearchInput");
+        if (searchInput) {
+            searchInput.value = "";
+        }
+
+        // Update current order tags with new tag info (if modal is open)
+        if (currentOrderTags && currentOrderTags.length > 0) {
+            currentOrderTags = currentOrderTags.map(selectedTag => {
+                const updatedTag = newTags.find(t => t.Id === selectedTag.Id);
+                return updatedTag ? { Id: updatedTag.Id, Name: updatedTag.Name, Color: updatedTag.Color } : selectedTag;
+            });
+            updateSelectedTagsDisplay();
+        }
+
+        // Render tag list without search filter
+        renderTagList("");
 
         if (window.notificationManager) {
             window.notificationManager.success(`Đã cập nhật ${newTags.length} tags thành công!`);
