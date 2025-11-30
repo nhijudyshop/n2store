@@ -739,8 +739,8 @@ class PancakeDataManager {
 
         // Build correct conversationId format: pageId_userId
         // Use from_psid if available (for INBOX), otherwise use from.id
-        const userId = conversation.from_psid || conversation.from?.id;
-        const conversationId = userId ? `${conversation.page_id}_${userId}` : conversation.id;
+        const conversationUserId = conversation.from_psid || conversation.from?.id;
+        const conversationId = conversationUserId ? `${conversation.page_id}_${conversationUserId}` : conversation.id;
 
         return {
             message: lastMessage,
@@ -836,8 +836,8 @@ class PancakeDataManager {
 
         // Build correct conversationId format: pageId_userId
         // For COMMENT, from_psid is usually null, so use from.id
-        const userId = conversation.from_psid || conversation.from?.id;
-        const conversationId = userId ? `${conversation.page_id}_${userId}` : conversation.id;
+        const conversationUserId = conversation.from_psid || conversation.from?.id;
+        const conversationId = conversationUserId ? `${conversation.page_id}_${conversationUserId}` : conversation.id;
 
         return {
             message: lastMessage,
