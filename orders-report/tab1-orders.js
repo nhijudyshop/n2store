@@ -5003,13 +5003,14 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
                 console.log('[CHAT-MODAL] - Conversation found in cache:', !!conversation);
 
-                // Nếu không tìm thấy trong cache, search trực tiếp theo Facebook PSID
+                // Nếu không tìm thấy trong cache, search trực tiếp theo tên Facebook
                 if (!conversation) {
-                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook PSID...');
+                    const facebookName = order.Facebook_UserName;
+                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName);
                     try {
                         // Dùng searchConversations() thay vì fetchConversations() để tối ưu
-                        // Search theo Facebook PSID để tìm conversation
-                        const searchResult = await window.pancakeDataManager.searchConversations(facebookPsid);
+                        // Search theo tên Facebook để tìm conversation (sẽ được encode URL tự động)
+                        const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
 
                         if (searchResult.customerId) {
                             // Nếu tìm thấy customer ID trực tiếp từ search, dùng luôn
