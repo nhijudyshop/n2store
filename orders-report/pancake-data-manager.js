@@ -91,7 +91,8 @@ class PancakeDataManager {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json, text/plain, */*',
+                    'Referer': 'https://pancake.vn/multi_pages'
                 }
             });
 
@@ -257,7 +258,8 @@ class PancakeDataManager {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json, text/plain, */*',
+                    'Referer': 'https://pancake.vn/multi_pages'
                 }
             });
 
@@ -556,7 +558,8 @@ class PancakeDataManager {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json, text/plain, */*',
+                    'Referer': 'https://pancake.vn/multi_pages'
                 }
             });
 
