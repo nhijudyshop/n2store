@@ -4815,6 +4815,7 @@ let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
 let currentParentCommentId = null;  // Lưu parent comment ID
 let currentPostId = null; // Lưu post ID của comment đang reply
+let inboxPreviewData = null; // Lưu inbox_preview data (thread_id, thread_key, from_id) khi mở modal comment
 
 window.openChatModal = async function (orderId, channelId, psid, type = 'message') {
     console.log('[CHAT] Opening modal:', { orderId, channelId, psid, type });
@@ -4950,6 +4951,80 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Fetch messages or comments based on type
     try {
         if (type === 'comment') {
+            // Fetch inbox_preview to get thread info for comment replies
+            inboxPreviewData = null; // Reset
+            const facebookPsid = order.Facebook_ASUserId;
+            let pancakeCustomerUuid = null;
+
+            if (window.pancakeDataManager && facebookPsid) {
+                const conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+                if (conversation && conversation.customers && conversation.customers.length > 0) {
+                    pancakeCustomerUuid = conversation.customers[0].uuid || conversation.customers[0].id;
+                    console.log('[CHAT-MODAL] Got Pancake customer UUID:', pancakeCustomerUuid);
+                }
+            }
+
+            if (pancakeCustomerUuid) {
+                try {
+                    const token = await window.pancakeTokenManager.getToken();
+                    if (token) {
+                        console.log('[CHAT-MODAL] Fetching inbox_preview for comment modal...');
+
+                        const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
+                            `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
+                            `access_token=${token}`
+                        );
+
+                        const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        if (inboxResponse.ok) {
+                            const inboxData = await inboxResponse.json();
+                            console.log('[CHAT-MODAL] inbox_preview response:', inboxData);
+
+                            // Extract and save thread info
+                            const threadId = inboxData.thread_id_preview || inboxData.thread_id;
+                            const threadKey = inboxData.thread_key_preview || inboxData.thread_key;
+                            let fromId = null;
+
+                            // Get from_id from the first customer message (not from page)
+                            if (inboxData.data && inboxData.data.length > 0) {
+                                const customerMessage = inboxData.data.find(msg =>
+                                    msg.from && msg.from.id && msg.from.id !== channelId
+                                );
+                                if (customerMessage) {
+                                    fromId = customerMessage.from.id;
+                                }
+                            }
+
+                            // If still not found, check if from_id is at root level
+                            if (!fromId && inboxData.from_id) {
+                                fromId = inboxData.from_id;
+                            }
+
+                            inboxPreviewData = {
+                                threadId,
+                                threadKey,
+                                fromId,
+                                inboxConvId: inboxData.inbox_conv_id,
+                                canInbox: inboxData.can_inbox
+                            };
+
+                            console.log('[CHAT-MODAL] Saved inbox_preview data:', inboxPreviewData);
+                        } else {
+                            console.warn('[CHAT-MODAL] Failed to fetch inbox_preview:', inboxResponse.status);
+                        }
+                    }
+                } catch (inboxError) {
+                    console.error('[CHAT-MODAL] inbox_preview fetch error:', inboxError);
+                    // Continue without inbox_preview data
+                }
+            }
+
             // Fetch initial comments with pagination support
             const response = await window.chatDataManager.fetchComments(channelId, psid);
             allChatComments = response.comments || [];
@@ -5533,28 +5608,7 @@ async function sendReplyCommentInternal(messageData) {
             throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
         }
 
-        // Get Facebook PSID from order
-        const facebookPsid = order.Facebook_ASUserId;
-        if (!facebookPsid) {
-            throw new Error('Không tìm thấy Facebook PSID trong đơn hàng');
-        }
-
-        // Get customer UUID from Pancake conversation data
-        let pancakeCustomerUuid = null;
-        if (window.pancakeDataManager) {
-            const conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
-            if (conversation && conversation.customers && conversation.customers.length > 0) {
-                // Extract UUID from first customer in the array
-                pancakeCustomerUuid = conversation.customers[0].uuid || conversation.customers[0].id;
-                console.log('[SEND-REPLY] Got Pancake customer UUID:', pancakeCustomerUuid);
-            }
-        }
-
-        if (!pancakeCustomerUuid) {
-            console.warn('[SEND-REPLY] Could not get Pancake customer UUID, will skip inbox_preview');
-        }
-
-        // Also get TPOS PartnerId for reference
+        // Get TPOS PartnerId for message sending
         const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
 
         // Check 24-hour window for INBOX messages only (skip check, already validated)
@@ -5600,80 +5654,20 @@ async function sendReplyCommentInternal(messageData) {
             imageData
         });
 
-        // Step 0.5: Fetch inbox_preview to get full conversation data before sending message
+        // Get thread info from inboxPreviewData (fetched when modal was opened for comments)
         let threadId = null;
         let threadKey = null;
         let fromId = null;
-        let inboxData = null;
 
-        // Always fetch inbox_preview if we have pancakeCustomerUuid (for both INBOX and COMMENT)
-        if (pancakeCustomerUuid) {
-            showChatSendingIndicator('Lấy thông tin conversation...');
-            console.log('[SEND-REPLY] Fetching inbox_preview to get full conversation data...');
-
-            try {
-                const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-                    `pages/${pageId}/customers/${pancakeCustomerUuid}/inbox_preview`,
-                    `access_token=${token}`
-                );
-
-                const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!inboxResponse.ok) {
-                    console.error('[SEND-REPLY] Failed to fetch inbox_preview:', inboxResponse.status);
-                    throw new Error(`Lấy thông tin inbox thất bại: ${inboxResponse.status}`);
-                }
-
-                inboxData = await inboxResponse.json();
-                console.log('[SEND-REPLY] inbox_preview response:', inboxData);
-
-                // Extract thread info from response (handle both with and without success field)
-                threadId = inboxData.thread_id_preview || inboxData.thread_id;
-                threadKey = inboxData.thread_key_preview || inboxData.thread_key;
-
-                // Get from_id from the first customer message (not from page)
-                if (inboxData.data && inboxData.data.length > 0) {
-                    const customerMessage = inboxData.data.find(msg =>
-                        msg.from && msg.from.id && msg.from.id !== pageId
-                    );
-
-                    if (customerMessage) {
-                        fromId = customerMessage.from.id;
-                    }
-                }
-
-                // If still not found, check if from_id is at root level
-                if (!fromId && inboxData.from_id) {
-                    fromId = inboxData.from_id;
-                }
-
-                console.log('[SEND-REPLY] Got conversation data:', {
-                    threadId,
-                    threadKey,
-                    fromId,
-                    inboxConvId: inboxData.inbox_conv_id,
-                    canInbox: inboxData.can_inbox
-                });
-
-                // Validate can_inbox for INBOX messages
-                if (chatType === 'message' && inboxData.can_inbox === false) {
-                    throw new Error('Không thể gửi tin nhắn inbox cho khách hàng này. Vui lòng kiểm tra lại.');
-                }
-            } catch (inboxError) {
-                console.error('[SEND-REPLY] inbox_preview fetch error:', inboxError);
-                // Don't throw for INBOX messages, only for comments that need thread info
-                if (chatType === 'comment' && parentCommentId) {
-                    console.warn('[SEND-REPLY] Missing inbox_preview for comment reply, will continue anyway');
-                } else {
-                    // Re-throw for INBOX messages as we need the data
-                    throw inboxError;
-                }
-            }
+        if (chatType === 'comment' && inboxPreviewData) {
+            threadId = inboxPreviewData.threadId;
+            threadKey = inboxPreviewData.threadKey;
+            fromId = inboxPreviewData.fromId;
+            console.log('[SEND-REPLY] Using inbox_preview data from modal:', {
+                threadId,
+                threadKey,
+                fromId
+            });
         }
 
         showChatSendingIndicator('Đang gửi...');
