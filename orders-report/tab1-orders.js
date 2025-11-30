@@ -703,6 +703,8 @@ async function createNewTag() {
                     ...headers,
                     'accept': 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
+                    'tposappversion': '5.11.16.1',
+                    'x-tpos-lang': 'vi',
                 },
                 body: JSON.stringify({
                     Name: name,
@@ -718,6 +720,12 @@ async function createNewTag() {
 
         const newTag = await response.json();
         console.log('[CREATE-TAG] Tag created successfully:', newTag);
+
+        // Remove @odata.context from newTag (Firebase doesn't allow keys with dots)
+        if (newTag['@odata.context']) {
+            delete newTag['@odata.context'];
+            console.log('[CREATE-TAG] Removed @odata.context from newTag');
+        }
 
         // Show success status
         statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> Tạo tag thành công!';
