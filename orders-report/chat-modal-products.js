@@ -2615,33 +2615,77 @@
                 chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
             }
 
-            // Show preview like pasted image
+            // Show preview with loading state and upload immediately
             const reader = new FileReader();
-            reader.onload = function (e) {
+            reader.onload = async function (e) {
                 const previewContainer = document.getElementById('chatImagePreviewContainer');
-                if (previewContainer) {
-                    previewContainer.style.display = 'flex';
-                    previewContainer.style.alignItems = 'center';
-                    previewContainer.style.justifyContent = 'space-between';
+                if (!previewContainer) return;
 
-                    previewContainer.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <img src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd;">
-                            <span style="font-size: 12px; color: #666;">${Math.round(blob.size / 1024)} KB</span>
+                // Show preview with loading overlay
+                previewContainer.style.display = 'flex';
+                previewContainer.style.alignItems = 'center';
+                previewContainer.style.justifyContent = 'space-between';
+
+                previewContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; position: relative;">
+                        <img id="pastedImagePreview" src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd; opacity: 0.5;">
+                        <div id="uploadOverlay" style="position: absolute; left: 0; top: 0; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8);">
+                            <i class="fas fa-spinner fa-spin" style="color: #3b82f6;"></i>
                         </div>
-                        <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
+                        <span id="uploadStatus" style="font-size: 12px; color: #3b82f6;">Đang tải lên Pancake...</span>
+                    </div>
+                    <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+
+                // Upload immediately (with productId this time!)
+                const channelId = window.currentChatChannelId;
+
+                if (!channelId) {
+                    console.warn('[SEND-IMAGE] No channelId available');
+                    if (window.updateUploadPreviewUI) {
+                        window.updateUploadPreviewUI(false, 'Không thể upload: Thiếu thông tin', false);
+                    }
+                    return;
+                }
+
+                // Call uploadImageWithCache from tab1-orders.js
+                if (typeof window.uploadImageWithCache === 'function') {
+                    const result = await window.uploadImageWithCache(blob, productId, productName, channelId);
+
+                    if (result.success) {
+                        // Upload success
+                        window.uploadedImageData = result.data;
+                        if (window.updateUploadPreviewUI) {
+                            window.updateUploadPreviewUI(true, `${Math.round(blob.size / 1024)} KB`, result.data.cached);
+                        }
+
+                        if (window.notificationManager) {
+                            if (result.data.cached) {
+                                window.notificationManager.show('♻️ Dùng lại ảnh đã có sẵn', 'success');
+                            } else {
+                                window.notificationManager.show('✓ Đã upload ảnh thành công', 'success');
+                            }
+                        }
+                    } else {
+                        // Upload failed
+                        window.uploadedImageData = null;
+                        if (window.updateUploadPreviewUI) {
+                            window.updateUploadPreviewUI(false, result.error, false);
+                        }
+
+                        if (window.notificationManager) {
+                            window.notificationManager.show('❌ Upload thất bại: ' + result.error, 'error');
+                        }
+                    }
+                } else {
+                    console.error('[SEND-IMAGE] uploadImageWithCache function not available');
                 }
             };
             reader.readAsDataURL(blob);
 
-            console.log('[SEND-IMAGE] Image downloaded and set to clipboard');
-
-            if (window.notificationManager) {
-                window.notificationManager.show('✓ Đã thêm ảnh vào chat', 'success');
-            }
+            console.log('[SEND-IMAGE] Image downloaded, uploading to Pancake...');
 
         } catch (error) {
             console.error('[SEND-IMAGE] Error processing image:', error);
