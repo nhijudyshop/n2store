@@ -710,6 +710,84 @@
     }
 
     /**
+     * Send product image to chat (with auto-load if image not available)
+     * If product has ImageUrl, send directly
+     * If not, load from ProductSearchModule first
+     */
+    window.sendProductImageToChat = async function(productId, productName, existingImageUrl = null) {
+        console.log('[DROPPED-PRODUCTS] sendProductImageToChat:', { productId, productName, existingImageUrl });
+
+        // If we already have the image URL, send it directly
+        if (existingImageUrl) {
+            if (typeof window.sendImageToChat === 'function') {
+                await window.sendImageToChat(existingImageUrl, productName, productId);
+            } else {
+                console.error('[DROPPED-PRODUCTS] sendImageToChat function not found');
+                if (window.notificationManager) {
+                    window.notificationManager.show('❌ Chức năng gửi ảnh không khả dụng', 'error');
+                }
+            }
+            return;
+        }
+
+        // No image URL - need to load from ProductSearchModule
+        if (!window.ProductSearchModule) {
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Không thể tải ảnh sản phẩm', 'error');
+            }
+            return;
+        }
+
+        try {
+            // Show loading notification
+            if (window.notificationManager) {
+                window.notificationManager.show('🔄 Đang tải ảnh sản phẩm...', 'info');
+            }
+
+            // Initialize search if needed
+            if (!productSearchInitialized) {
+                await initializeProductSearch();
+            }
+
+            // Load product details to get image
+            console.log('[DROPPED-PRODUCTS] Loading product details for image:', productId);
+            const result = await window.ProductSearchModule.loadProductDetails(productId, {
+                autoAddVariants: false
+            });
+
+            const imageUrl = result.imageUrl;
+
+            if (!imageUrl) {
+                if (window.notificationManager) {
+                    window.notificationManager.show('❌ Sản phẩm không có ảnh', 'error');
+                }
+                return;
+            }
+
+            // Update the product in Firebase with the image URL
+            const product = droppedProducts.find(p => p.ProductId === productId);
+            if (product && product.id && firebaseDb) {
+                const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`);
+                await itemRef.update({
+                    ImageUrl: imageUrl
+                });
+                console.log('[DROPPED-PRODUCTS] ✓ Updated product with image URL');
+            }
+
+            // Now send the image to chat
+            if (typeof window.sendImageToChat === 'function') {
+                await window.sendImageToChat(imageUrl, productName, productId);
+            }
+
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] ❌ Error loading product image:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show('❌ Lỗi khi tải ảnh sản phẩm: ' + error.message, 'error');
+            }
+        }
+    };
+
+    /**
      * Remove product from dropped list
      * FIREBASE-ONLY: Listener will update UI automatically
      */
@@ -1055,7 +1133,11 @@
             <tr class="chat-product-row" data-index="${actualIndex}" style="opacity: ${rowOpacity};">
                 <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
-                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="opacity: ${isOutOfStock ? '0.7' : '1'}; cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`}
+                    ${p.ImageUrl ?
+                        `<img src="${p.ImageUrl}" class="chat-product-image" style="opacity: ${isOutOfStock ? '0.7' : '1'}; cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" oncontextmenu="sendProductImageToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}', '${p.ImageUrl}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">`
+                        :
+                        `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center; cursor: pointer;" oncontextmenu="sendProductImageToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}', null); return false;" title="Chuột phải: Tải và gửi ảnh vào chat"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`
+                    }
                 </td>
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">
