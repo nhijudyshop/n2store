@@ -1686,7 +1686,7 @@
             <tr class="chat-product-row" data-index="${i}">
                 <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
-                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
+                    ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}', '${p.ProductId}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : '<div class="chat-product-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>'}
                 </td>
                 <td>
                     <div style="font-weight: 600; margin-bottom: 2px; color: ${nameColor};">${p.ProductNameGet || p.ProductName}</div>
@@ -2565,9 +2565,12 @@
     /**
      * Send product image to chat input (triggered by right-click)
      * Downloads image and pastes to chat input like clipboard paste
+     * @param {string} productImageUrl - URL of product image
+     * @param {string} productName - Name of product
+     * @param {string|number} productId - ID of product (optional, for Firebase cache)
      */
-    window.sendImageToChat = async function(productImageUrl, productName) {
-        console.log('[SEND-IMAGE] Sending image to chat:', { productImageUrl, productName });
+    window.sendImageToChat = async function(productImageUrl, productName, productId = null) {
+        console.log('[SEND-IMAGE] Sending image to chat:', { productImageUrl, productName, productId });
 
         // SAFETY CHECK: Only work in chat modal context
         if (!window.currentChatOrderData) {
@@ -2595,6 +2598,10 @@
 
             // Set to currentPastedImage (global variable from tab1-orders.js)
             window.currentPastedImage = blob;
+
+            // Store product info for Firebase cache (NEW - for image caching)
+            window.currentPastedImageProductId = productId;
+            window.currentPastedImageProductName = productName;
 
             // Clear chat input text
             const chatInput = document.getElementById('chatReplyInput');

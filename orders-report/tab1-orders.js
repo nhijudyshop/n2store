@@ -5922,25 +5922,74 @@ async function sendReplyCommentInternal(messageData) {
 
         // Handle pasted image
         if (pastedImage) {
-            console.log('[SEND-REPLY] Uploading pasted image...');
+            console.log('[SEND-REPLY] Processing pasted image...');
             showChatSendingIndicator('Đang tải ảnh...');
             try {
-                // Upload image and get dimensions in parallel
-                const [uploadResult, dimensions] = await Promise.all([
-                    window.pancakeDataManager.uploadImage(channelId, pastedImage),
-                    getImageDimensions(pastedImage)
-                ]);
+                // Get product info if available (set by sendImageToChat)
+                const productId = window.currentPastedImageProductId || null;
+                const productName = window.currentPastedImageProductName || null;
+
+                let contentUrl = null;
+                let contentId = null;
+                let dimensions = null;
+
+                // Check Firebase cache if productId exists
+                if (productId && window.firebaseImageCache) {
+                    console.log('[SEND-REPLY] Checking Firebase cache for product:', productId);
+                    showChatSendingIndicator('Kiểm tra cache...');
+
+                    const cached = await window.firebaseImageCache.get(productId);
+
+                    if (cached && cached.content_url) {
+                        // ✅ CACHE HIT - Reuse cached image
+                        console.log('[SEND-REPLY] ✅ Cache HIT! Reusing image:', cached.content_url);
+                        contentUrl = cached.content_url;
+                        contentId = null; // Cached images don't have content_id
+                        // Get dimensions from blob (still needed for message payload)
+                        dimensions = await getImageDimensions(pastedImage);
+
+                        showChatSendingIndicator('Dùng lại ảnh đã lưu...');
+                    }
+                }
+
+                // If no cache hit OR no productId, upload normally
+                if (!contentUrl) {
+                    console.log('[SEND-REPLY] Cache miss or no productId - uploading to Pancake...');
+                    showChatSendingIndicator('Đang tải ảnh lên Pancake...');
+
+                    // Upload image and get dimensions in parallel
+                    const [uploadResult, dims] = await Promise.all([
+                        window.pancakeDataManager.uploadImage(channelId, pastedImage),
+                        getImageDimensions(pastedImage)
+                    ]);
+
+                    contentUrl = uploadResult.content_url;
+                    contentId = uploadResult.id;
+                    dimensions = dims;
+
+                    console.log('[SEND-REPLY] Image uploaded:', contentUrl);
+
+                    // Save to Firebase cache if productId exists
+                    if (productId && productName && window.firebaseImageCache) {
+                        console.log('[SEND-REPLY] Saving to Firebase cache...');
+                        await window.firebaseImageCache.set(productId, productName, contentUrl)
+                            .catch(err => {
+                                // Non-critical error - log but don't fail the send
+                                console.warn('[SEND-REPLY] Failed to save to cache (non-critical):', err);
+                            });
+                    }
+                }
 
                 imageData = {
-                    content_url: uploadResult.content_url,
-                    content_id: uploadResult.id,
+                    content_url: contentUrl,
+                    content_id: contentId,
                     width: dimensions.width,
                     height: dimensions.height
                 };
 
-                console.log('[SEND-REPLY] Image uploaded:', imageData);
+                console.log('[SEND-REPLY] Image data ready:', imageData);
             } catch (uploadError) {
-                console.error('[SEND-REPLY] Image upload failed:', uploadError);
+                console.error('[SEND-REPLY] Image processing failed:', uploadError);
                 throw new Error('Tải ảnh thất bại: ' + uploadError.message);
             }
         }

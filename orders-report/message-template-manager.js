@@ -922,11 +922,61 @@ class MessageTemplateManager {
                 throw new Error('pancakeDataManager không có sẵn');
             }
 
-            const uploadResult = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+            // NEW: Firebase cache check for order products
+            let contentUrl = null;
+            let contentId = null;
 
-            // Handle both old (string) and new (object) return formats for compatibility
-            const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
-            const contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
+            // Get list of product IDs from order
+            const productIds = orderDataForTemplate.products
+                ? orderDataForTemplate.products.map(p => p.id).filter(Boolean)
+                : [];
+
+            this.log('📦 Order has products:', productIds);
+
+            // Check cache for any product in the order
+            if (productIds.length > 0 && window.firebaseImageCache) {
+                this.log('🔍 Checking Firebase cache for products...');
+
+                for (const productId of productIds) {
+                    const cached = await window.firebaseImageCache.get(productId);
+                    if (cached && cached.content_url) {
+                        // ✅ CACHE HIT - Reuse first cached image found
+                        this.log(`✅ Cache HIT for product ${productId}! Reusing:`, cached.content_url);
+                        contentUrl = cached.content_url;
+                        break; // Use first match
+                    }
+                }
+            }
+
+            // If cache miss, upload new image
+            if (!contentUrl) {
+                this.log('❌ Cache miss - uploading new image to Pancake...');
+
+                const uploadResult = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+
+                // Handle both old (string) and new (object) return formats for compatibility
+                contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
+
+                this.log('✅ Image uploaded:', contentUrl);
+
+                // Save to Firebase cache for ALL products in order
+                if (productIds.length > 0 && window.firebaseImageCache) {
+                    this.log('💾 Saving to Firebase cache for all products...');
+
+                    for (const product of orderDataForTemplate.products || []) {
+                        if (product.id && product.name) {
+                            await window.firebaseImageCache.set(product.id, product.name, contentUrl)
+                                .catch(err => {
+                                    // Non-critical error
+                                    this.log('⚠️ Failed to cache for product', product.id, '(non-critical):', err);
+                                });
+                        }
+                    }
+                }
+            } else {
+                this.log('♻️ Using cached image - skip upload');
+            }
 
             requestBody = {
                 action: "reply_inbox",
@@ -936,11 +986,11 @@ class MessageTemplateManager {
                 content_url: contentUrl
             };
 
-            // Store contentId for cleanup
-            if (contentId) {
-                context.cleanupImageId = contentId;
-                context.cleanupPageId = channelId;
-            }
+            // Store contentId for cleanup (DISABLED - we keep images now)
+            // if (contentId) {
+            //     context.cleanupImageId = contentId;
+            //     context.cleanupPageId = channelId;
+            // }
         } else {
             // TEXT MODE
             requestBody = {
@@ -975,15 +1025,15 @@ class MessageTemplateManager {
 
             return true;
         } finally {
-            // CLEANUP IMAGE IF NEEDED
-            if (context.cleanupImageId && context.cleanupPageId) {
-                // Run in background, don't await
-                window.pancakeDataManager.deleteImage(context.cleanupPageId, context.cleanupImageId)
-                    .then(success => {
-                        if (success) console.log(`[CLEANUP] Deleted image ${context.cleanupImageId}`);
-                    })
-                    .catch(err => console.error('[CLEANUP] Failed to delete image:', err));
-            }
+            // CLEANUP IMAGE IF NEEDED (DISABLED - we now keep images in Firebase cache)
+            // if (context.cleanupImageId && context.cleanupPageId) {
+            //     // Run in background, don't await
+            //     window.pancakeDataManager.deleteImage(context.cleanupPageId, context.cleanupImageId)
+            //         .then(success => {
+            //             if (success) console.log(`[CLEANUP] Deleted image ${context.cleanupImageId}`);
+            //         })
+            //         .catch(err => console.error('[CLEANUP] Failed to delete image:', err));
+            // }
         }
     }
 
