@@ -2615,98 +2615,91 @@
                 chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
             }
 
-            // Show preview with loading state and upload immediately
-            const reader = new FileReader();
-            reader.onload = async function (e) {
-                const previewContainer = document.getElementById('chatImagePreviewContainer');
-                if (!previewContainer) return;
+            // NEW: Add to array immediately with loading state (no need for FileReader)
+            if (!window.uploadedImagesData) {
+                window.uploadedImagesData = [];
+            }
 
-                // Show preview with loading overlay
-                previewContainer.style.display = 'flex';
-                previewContainer.style.alignItems = 'center';
-                previewContainer.style.justifyContent = 'space-between';
+            const imageIndex = window.uploadedImagesData.length;
+            window.uploadedImagesData.push({
+                blob: blob,
+                productId: productId,
+                productName: productName
+                // No content_url yet = loading state
+            });
 
-                previewContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px; position: relative;">
-                        <img id="pastedImagePreview" src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd; opacity: 0.5;">
-                        <div id="uploadOverlay" style="position: absolute; left: 0; top: 0; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8);">
-                            <i class="fas fa-spinner fa-spin" style="color: #3b82f6;"></i>
-                        </div>
-                        <span id="uploadStatus" style="font-size: 12px; color: #3b82f6;">Đang tải lên Pancake...</span>
-                    </div>
-                    <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
+            // Show preview immediately (will show loading spinner)
+            if (window.updateMultipleImagesPreview) {
+                window.updateMultipleImagesPreview();
+            }
 
-                // Upload immediately (with productId this time!)
-                const channelId = window.currentChatChannelId;
+            // Upload immediately in background (with productId this time!)
+            const channelId = window.currentChatChannelId;
 
-                if (!channelId) {
-                    console.warn('[SEND-IMAGE] No channelId available');
-                    if (window.updateUploadPreviewUI) {
-                        window.updateUploadPreviewUI(false, 'Không thể upload: Thiếu thông tin', false);
-                    }
-                    return;
+            if (!channelId) {
+                console.warn('[SEND-IMAGE] No channelId available');
+                // Update array with error
+                window.uploadedImagesData[imageIndex].uploadFailed = true;
+                window.uploadedImagesData[imageIndex].error = 'Không thể upload: Thiếu thông tin';
+                if (window.updateMultipleImagesPreview) {
+                    window.updateMultipleImagesPreview();
                 }
+                return;
+            }
 
-                // Call uploadImageWithCache from tab1-orders.js
-                if (typeof window.uploadImageWithCache === 'function') {
-                    const result = await window.uploadImageWithCache(blob, productId, productName, channelId);
+            // Call uploadImageWithCache from tab1-orders.js
+            if (typeof window.uploadImageWithCache === 'function') {
+                const result = await window.uploadImageWithCache(blob, productId, productName, channelId);
 
-                    if (result.success) {
-                        // Upload success - ADD to array (not replace)
-                        if (!window.uploadedImagesData) {
-                            window.uploadedImagesData = [];
-                        }
+                if (result.success) {
+                    // Upload success - UPDATE the object in array (not push again)
+                    window.uploadedImagesData[imageIndex] = {
+                        ...result.data,
+                        blob: blob,
+                        productId: productId,
+                        productName: productName
+                    };
 
-                        window.uploadedImagesData.push({
-                            ...result.data,
-                            blob: blob,
-                            productId: productId,
-                            productName: productName
-                        });
+                    // Update preview with all images
+                    if (window.updateMultipleImagesPreview) {
+                        window.updateMultipleImagesPreview();
+                    }
 
-                        // Update preview with all images
-                        if (window.updateMultipleImagesPreview) {
-                            window.updateMultipleImagesPreview();
-                        }
-
-                        if (window.notificationManager) {
-                            if (result.data.cached) {
-                                window.notificationManager.show('♻️ Dùng lại ảnh đã có sẵn', 'success');
-                            } else {
-                                window.notificationManager.show('✓ Đã upload ảnh thành công', 'success');
-                            }
-                        }
-                    } else {
-                        // Upload failed - still add to array with error
-                        if (!window.uploadedImagesData) {
-                            window.uploadedImagesData = [];
-                        }
-
-                        window.uploadedImagesData.push({
-                            blob: blob,
-                            productId: productId,
-                            productName: productName,
-                            error: result.error,
-                            uploadFailed: true
-                        });
-
-                        // Update preview
-                        if (window.updateMultipleImagesPreview) {
-                            window.updateMultipleImagesPreview();
-                        }
-
-                        if (window.notificationManager) {
-                            window.notificationManager.show('❌ Upload thất bại: ' + result.error, 'error');
+                    if (window.notificationManager) {
+                        if (result.data.cached) {
+                            window.notificationManager.show('♻️ Dùng lại ảnh đã có sẵn', 'success');
+                        } else {
+                            window.notificationManager.show('✓ Đã upload ảnh thành công', 'success');
                         }
                     }
                 } else {
-                    console.error('[SEND-IMAGE] uploadImageWithCache function not available');
+                    // Upload failed - update with error (not push again)
+                    window.uploadedImagesData[imageIndex] = {
+                        blob: blob,
+                        productId: productId,
+                        productName: productName,
+                        error: result.error,
+                        uploadFailed: true
+                    };
+
+                    // Update preview
+                    if (window.updateMultipleImagesPreview) {
+                        window.updateMultipleImagesPreview();
+                    }
+
+                    if (window.notificationManager) {
+                        window.notificationManager.show('❌ Upload thất bại: ' + result.error, 'error');
+                    }
                 }
-            };
-            reader.readAsDataURL(blob);
+            } else {
+                console.error('[SEND-IMAGE] uploadImageWithCache function not available');
+                // Update with error
+                window.uploadedImagesData[imageIndex].uploadFailed = true;
+                window.uploadedImagesData[imageIndex].error = 'Chức năng upload không khả dụng';
+                if (window.updateMultipleImagesPreview) {
+                    window.updateMultipleImagesPreview();
+                }
+            }
 
             console.log('[SEND-IMAGE] Image downloaded, uploading to Pancake...');
 
