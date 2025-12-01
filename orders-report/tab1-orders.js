@@ -29,8 +29,8 @@ let currentChatOrderId = null;
 let currentChatProductsRef = null;
 let currentOrderTags = [];
 let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backspace
-let currentPastedImage = null; // Track pasted image for chat reply
-let uploadedImageData = null; // Track uploaded image data (after upload)
+let currentPastedImage = null; // Track pasted image for chat reply (deprecated - use array below)
+let uploadedImagesData = []; // Track uploaded images data (array for multiple images)
 
 // =====================================================
 // FIREBASE CONFIGURATION FOR NOTE TRACKING
@@ -5644,15 +5644,28 @@ function handleChatInputPaste(event) {
                 const result = await uploadImageWithCache(blob, productId, productName, channelId);
 
                 if (result.success) {
-                    // Upload success
-                    uploadedImageData = result.data;
-                    window.uploadedImageData = result.data; // Expose globally
-                    updateUploadPreviewUI(true, `${Math.round(blob.size / 1024)} KB`, result.data.cached);
+                    // Upload success - ADD to array (not replace)
+                    const imageIndex = uploadedImagesData.length;
+                    uploadedImagesData.push({
+                        ...result.data,
+                        blob: blob,
+                        productId: productId,
+                        productName: productName
+                    });
+                    window.uploadedImagesData = uploadedImagesData; // Expose globally
+                    updateMultipleImagesPreview(); // NEW: Update preview with all images
                 } else {
-                    // Upload failed
-                    uploadedImageData = null;
-                    window.uploadedImageData = null;
-                    updateUploadPreviewUI(false, result.error, false);
+                    // Upload failed - still show in preview with error
+                    const imageIndex = uploadedImagesData.length;
+                    uploadedImagesData.push({
+                        blob: blob,
+                        productId: productId,
+                        productName: productName,
+                        error: result.error,
+                        uploadFailed: true
+                    });
+                    window.uploadedImagesData = uploadedImagesData;
+                    updateMultipleImagesPreview();
                 }
             };
             reader.readAsDataURL(blob);
@@ -5662,7 +5675,95 @@ function handleChatInputPaste(event) {
 }
 
 /**
- * Update upload preview UI based on upload result
+ * NEW: Update preview UI for multiple images (horizontal scroll)
+ */
+window.updateMultipleImagesPreview = function updateMultipleImagesPreview() {
+    const previewContainer = document.getElementById('chatImagePreviewContainer');
+    if (!previewContainer) return;
+
+    if (uploadedImagesData.length === 0) {
+        // No images - hide preview
+        previewContainer.innerHTML = '';
+        previewContainer.style.display = 'none';
+
+        // Re-enable text input
+        const chatInput = document.getElementById('chatReplyInput');
+        if (chatInput) {
+            chatInput.disabled = false;
+            chatInput.style.opacity = '1';
+            chatInput.style.cursor = 'text';
+            chatInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
+        }
+        return;
+    }
+
+    // Show preview with horizontal scroll
+    previewContainer.style.display = 'block';
+    previewContainer.style.overflowX = 'auto';
+    previewContainer.style.whiteSpace = 'nowrap';
+    previewContainer.style.padding = '8px';
+    previewContainer.style.background = '#f9fafb';
+    previewContainer.style.borderRadius = '4px';
+
+    let html = '<div style="display: flex; gap: 8px; align-items: flex-start;">';
+
+    uploadedImagesData.forEach((imageData, index) => {
+        const imageUrl = imageData.blob ? URL.createObjectURL(imageData.blob) : '';
+        const isUploading = !imageData.content_url && !imageData.uploadFailed;
+        const isSuccess = imageData.content_url && !imageData.uploadFailed;
+        const isFailed = imageData.uploadFailed;
+        const isCached = imageData.cached;
+
+        html += `
+            <div style="display: inline-flex; flex-direction: column; align-items: center; gap: 4px; position: relative;">
+                <!-- Image preview -->
+                <div style="position: relative; width: 80px; height: 80px;">
+                    <img src="${imageUrl}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 2px solid ${isFailed ? '#ef4444' : isSuccess ? '#10b981' : '#3b82f6'}; opacity: ${isUploading ? '0.5' : '1'};">
+
+                    ${isUploading ? `
+                        <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8);">
+                            <i class="fas fa-spinner fa-spin" style="color: #3b82f6;"></i>
+                        </div>
+                    ` : ''}
+
+                    <!-- Delete button (top-right) -->
+                    <button onclick="removeImageAtIndex(${index})" style="position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: #ef4444; color: white; border: 2px solid white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; padding: 0;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- Status text -->
+                <span style="font-size: 10px; max-width: 80px; text-align: center; white-space: normal; line-height: 1.2;">
+                    ${isUploading ? '<span style="color: #3b82f6;">Đang tải...</span>' :
+                      isFailed ? `<span style="color: #ef4444;">${imageData.error || 'Lỗi'}</span><br><button onclick="retryUploadAtIndex(${index})" style="margin-top: 2px; padding: 2px 6px; font-size: 9px; background: #3b82f6; color: white; border: none; border-radius: 3px; cursor: pointer;">Retry</button>` :
+                      isCached ? '<span style="color: #10b981;"><i class="fas fa-recycle"></i> Đã có sẵn</span>' :
+                      `<span style="color: #10b981;"><i class="fas fa-check"></i> ${Math.round((imageData.blob?.size || 0) / 1024)} KB</span>`}
+                </span>
+            </div>
+        `;
+    });
+
+    html += `
+        <!-- Clear all button -->
+        <button onclick="clearAllImages()" style="margin-left: 8px; padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; align-self: center; white-space: normal; font-size: 12px;">
+            <i class="fas fa-trash"></i><br>Xóa tất cả
+        </button>
+    </div>`;
+
+    previewContainer.innerHTML = html;
+
+    // Disable text input when images are present
+    const chatInput = document.getElementById('chatReplyInput');
+    if (chatInput) {
+        chatInput.disabled = true;
+        chatInput.style.opacity = '0.6';
+        chatInput.style.cursor = 'not-allowed';
+        chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
+    }
+};
+
+/**
+ * Update upload preview UI based on upload result (DEPRECATED - use updateMultipleImagesPreview)
  */
 window.updateUploadPreviewUI = function updateUploadPreviewUI(success, message, cached) {
     const preview = document.getElementById('pastedImagePreview');
@@ -5693,7 +5794,107 @@ window.updateUploadPreviewUI = function updateUploadPreviewUI(success, message, 
 }
 
 /**
- * Retry upload when failed
+ * NEW: Remove a single image at index
+ */
+window.removeImageAtIndex = function(index) {
+    if (index < 0 || index >= uploadedImagesData.length) return;
+
+    // Revoke blob URL if exists
+    const imageData = uploadedImagesData[index];
+    if (imageData.blob) {
+        URL.revokeObjectURL(URL.createObjectURL(imageData.blob));
+    }
+
+    // Remove from array
+    uploadedImagesData.splice(index, 1);
+    window.uploadedImagesData = uploadedImagesData;
+
+    // Update preview
+    updateMultipleImagesPreview();
+
+    console.log('[REMOVE-IMAGE] Removed image at index', index, '- remaining:', uploadedImagesData.length);
+};
+
+/**
+ * NEW: Clear all images
+ */
+window.clearAllImages = function() {
+    // Revoke all blob URLs
+    uploadedImagesData.forEach(imageData => {
+        if (imageData.blob) {
+            URL.revokeObjectURL(URL.createObjectURL(imageData.blob));
+        }
+    });
+
+    // Clear array
+    uploadedImagesData = [];
+    window.uploadedImagesData = [];
+
+    // Update preview (will hide it)
+    updateMultipleImagesPreview();
+
+    console.log('[CLEAR-ALL-IMAGES] Cleared all images');
+};
+
+/**
+ * NEW: Retry upload at specific index (for failed uploads)
+ */
+window.retryUploadAtIndex = async function(index) {
+    if (index < 0 || index >= uploadedImagesData.length) return;
+
+    const imageData = uploadedImagesData[index];
+    if (!imageData.blob) return;
+
+    console.log('[RETRY-UPLOAD] Retrying upload at index', index);
+
+    // Mark as uploading
+    uploadedImagesData[index] = {
+        blob: imageData.blob,
+        productId: imageData.productId,
+        productName: imageData.productName
+    };
+    updateMultipleImagesPreview();
+
+    // Retry upload
+    const channelId = window.currentChatChannelId;
+    if (!channelId) {
+        uploadedImagesData[index].uploadFailed = true;
+        uploadedImagesData[index].error = 'Không thể upload: Thiếu thông tin';
+        updateMultipleImagesPreview();
+        return;
+    }
+
+    const result = await window.uploadImageWithCache(
+        imageData.blob,
+        imageData.productId,
+        imageData.productName,
+        channelId
+    );
+
+    if (result.success) {
+        // Update with success data
+        uploadedImagesData[index] = {
+            ...result.data,
+            blob: imageData.blob,
+            productId: imageData.productId,
+            productName: imageData.productName
+        };
+    } else {
+        // Update with error
+        uploadedImagesData[index] = {
+            blob: imageData.blob,
+            productId: imageData.productId,
+            productName: imageData.productName,
+            error: result.error,
+            uploadFailed: true
+        };
+    }
+
+    updateMultipleImagesPreview();
+};
+
+/**
+ * Retry upload when failed (DEPRECATED - use retryUploadAtIndex)
  */
 window.retryUpload = async function() {
     if (!currentPastedImage) return;
@@ -5730,36 +5931,16 @@ window.retryUpload = async function() {
  * Clear pasted image (UI only - keeps uploaded image on Pancake/Firebase)
  */
 window.clearPastedImage = function () {
-    // Clear blob references
+    // NEW: Use clearAllImages for multiple images
+    clearAllImages();
+
+    // Legacy cleanup
     currentPastedImage = null;
     window.currentPastedImage = null;
-
-    // Clear uploaded data
-    uploadedImageData = null;
-    window.uploadedImageData = null;
-
-    // Clear product info
     window.currentPastedImageProductId = null;
     window.currentPastedImageProductName = null;
 
-    // Clear UI preview
-    const previewContainer = document.getElementById('chatImagePreviewContainer');
-    if (previewContainer) {
-        previewContainer.innerHTML = '';
-        previewContainer.style.display = 'none';
-    }
-
-    // Re-enable text input when image is cleared
-    const chatInput = document.getElementById('chatReplyInput');
-    if (chatInput) {
-        chatInput.disabled = false;
-        chatInput.style.opacity = '1';
-        chatInput.style.cursor = 'text';
-        chatInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
-        chatInput.focus();
-    }
-
-    console.log('[CLEAR-IMAGE] Cleared pasted image (UI only - image still on Pancake/Firebase)');
+    console.log('[CLEAR-IMAGE] Cleared all images (UI only - images still on Pancake/Firebase)');
 }
 
 // Message Queue Management
@@ -5990,8 +6171,9 @@ window.sendReplyComment = async function () {
             }
         }
 
-        // Validate
-        if (!message && !currentPastedImage && !window.currentPastedImage) {
+        // Validate - NEW: Check uploadedImagesData array
+        const hasImages = (window.uploadedImagesData && window.uploadedImagesData.length > 0);
+        if (!message && !hasImages) {
             alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
             return;
         }
@@ -6014,11 +6196,10 @@ window.sendReplyComment = async function () {
             (window.currentReplyingToMessage.id || window.currentReplyingToMessage.Id || null) : null;
 
         // Add message to queue
-        console.log('[QUEUE] Adding message to queue', { repliedMessageId });
+        console.log('[QUEUE] Adding message to queue', { repliedMessageId, imageCount: window.uploadedImagesData?.length || 0 });
         window.chatMessageQueue.push({
             message,
-            pastedImage: currentPastedImage || window.currentPastedImage,
-            uploadedImageData: uploadedImageData || window.uploadedImageData, // NEW: Pre-uploaded data
+            uploadedImagesData: window.uploadedImagesData || [], // NEW: Array of pre-uploaded images
             order: currentOrder,
             conversationId: window.currentConversationId,
             channelId: window.currentChatChannelId,
@@ -6032,23 +6213,17 @@ window.sendReplyComment = async function () {
         messageInput.value = '';
         // Reset textarea height to default
         messageInput.style.height = 'auto';
-        currentPastedImage = null;
-        window.currentPastedImage = null;
-        uploadedImageData = null;
-        window.uploadedImageData = null;
-        const previewContainer = document.getElementById('chatImagePreviewContainer');
-        if (previewContainer) {
-            previewContainer.innerHTML = '';
-            previewContainer.style.display = 'none';
+
+        // Clear all images using new multiple images logic
+        if (window.clearAllImages) {
+            window.clearAllImages();
         }
 
-        // Re-enable text input when image is sent (only for message mode, not comment mode)
-        if (messageInput && currentChatType !== 'comment') {
-            messageInput.disabled = false;
-            messageInput.style.opacity = '1';
-            messageInput.style.cursor = 'text';
-            messageInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
-        }
+        // Legacy cleanup
+        currentPastedImage = null;
+        window.currentPastedImage = null;
+        window.currentPastedImageProductId = null;
+        window.currentPastedImageProductName = null;
 
         // Clear reply state (works for both messages and comments)
         window.cancelReply();
@@ -6094,7 +6269,7 @@ function getImageDimensions(blob) {
  * Internal function to actually send the message (called by queue processor)
  */
 async function sendReplyCommentInternal(messageData) {
-    const { message, pastedImage, uploadedImageData, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
+    const { message, uploadedImagesData, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
 
     const isMessage = chatType === 'message';
 
@@ -6111,40 +6286,50 @@ async function sendReplyCommentInternal(messageData) {
         // Check 24-hour window for INBOX messages only (skip check, already validated)
         showChatSendingIndicator('Kiểm tra 24h...');
 
-        // Step 0: Upload image if exists (pasted image)
-        let imageData = null;
+        // Step 0: Process multiple images (NEW: Array of images)
+        let imagesDataArray = [];
         let finalMessage = message;
 
-        // Handle pasted image - NEW: Use pre-uploaded data if available
-        if (pastedImage) {
-            try {
-                // Check if image was already uploaded
-                if (uploadedImageData && uploadedImageData.content_url) {
-                    // ✅ Use pre-uploaded data (uploaded when paste/right-click)
-                    console.log('[SEND-REPLY] Using pre-uploaded image:', uploadedImageData.content_url);
-                    imageData = uploadedImageData;
-                    showChatSendingIndicator('Đang gửi...');
-                } else {
-                    // ❌ Not uploaded yet (or upload failed) - Retry upload
-                    console.log('[SEND-REPLY] No pre-uploaded data - uploading now...');
-                    showChatSendingIndicator('Đang tải ảnh...');
+        // Handle multiple images - NEW: Process array of uploaded images
+        if (uploadedImagesData && uploadedImagesData.length > 0) {
+            console.log('[SEND-REPLY] Processing', uploadedImagesData.length, 'images');
+            showChatSendingIndicator(`Đang xử lý ${uploadedImagesData.length} ảnh...`);
 
-                    const productId = window.currentPastedImageProductId || null;
-                    const productName = window.currentPastedImageProductName || null;
+            for (let i = 0; i < uploadedImagesData.length; i++) {
+                const imageData = uploadedImagesData[i];
 
-                    const result = await window.uploadImageWithCache(pastedImage, productId, productName, channelId);
+                try {
+                    // Check if image was already uploaded successfully
+                    if (imageData.content_url && !imageData.uploadFailed) {
+                        // ✅ Use pre-uploaded data
+                        console.log(`[SEND-REPLY] Image ${i + 1}: Using pre-uploaded:`, imageData.content_url);
+                        imagesDataArray.push(imageData);
+                    } else if (imageData.blob) {
+                        // ❌ Not uploaded yet (or upload failed) - Retry upload
+                        console.log(`[SEND-REPLY] Image ${i + 1}: Retrying upload...`);
+                        showChatSendingIndicator(`Đang tải ảnh ${i + 1}/${uploadedImagesData.length}...`);
 
-                    if (!result.success) {
-                        throw new Error(result.error || 'Upload failed');
+                        const result = await window.uploadImageWithCache(
+                            imageData.blob,
+                            imageData.productId || null,
+                            imageData.productName || null,
+                            channelId
+                        );
+
+                        if (!result.success) {
+                            throw new Error(`Ảnh ${i + 1} upload failed: ${result.error || 'Unknown error'}`);
+                        }
+
+                        console.log(`[SEND-REPLY] Image ${i + 1}: Uploaded:`, result.data.content_url);
+                        imagesDataArray.push(result.data);
                     }
-
-                    imageData = result.data;
-                    console.log('[SEND-REPLY] Image uploaded:', imageData.content_url);
+                } catch (uploadError) {
+                    console.error(`[SEND-REPLY] Image ${i + 1} processing failed:`, uploadError);
+                    throw new Error(`Tải ảnh ${i + 1} thất bại: ${uploadError.message}`);
                 }
-            } catch (uploadError) {
-                console.error('[SEND-REPLY] Image processing failed:', uploadError);
-                throw new Error('Tải ảnh thất bại: ' + uploadError.message);
             }
+
+            console.log('[SEND-REPLY] All images processed:', imagesDataArray.length);
         }
 
         const pageId = channelId;
@@ -6155,7 +6340,7 @@ async function sendReplyCommentInternal(messageData) {
             postId,
             parentCommentId,
             message: finalMessage,
-            imageData
+            imageCount: imagesDataArray.length
         });
 
         // Thread info variables (no longer fetched from inbox_preview)
@@ -6181,12 +6366,27 @@ async function sendReplyCommentInternal(messageData) {
             formData.append('message', finalMessage);
             formData.append('send_by_platform', 'web');
 
-            // Add image data if exists
-            if (imageData) {
-                formData.append('content_url', imageData.content_url);
-                formData.append('content_id', imageData.content_id);
-                formData.append('width', imageData.width.toString());
-                formData.append('height', imageData.height.toString());
+            // Add multiple images data if exists (NEW: Arrays for multiple images)
+            if (imagesDataArray.length > 0) {
+                console.log('[SEND-REPLY] Adding', imagesDataArray.length, 'images to FormData');
+
+                imagesDataArray.forEach((imageData, index) => {
+                    // API expects arrays: content_urls[], content_ids[], dimensions[], attachment_ids[]
+                    formData.append('content_urls', imageData.content_url);
+                    if (imageData.content_id) {
+                        formData.append('content_ids', imageData.content_id);
+                        formData.append('attachment_ids', imageData.content_id);
+                    }
+
+                    // Dimensions as JSON string for each image
+                    const dimensionJson = JSON.stringify({
+                        width: imageData.width || 0,
+                        height: imageData.height || 0
+                    });
+                    formData.append('dimensions', dimensionJson);
+                });
+
+                console.log('[SEND-REPLY] FormData prepared with', imagesDataArray.length, 'images');
             }
 
             // Add replied_message_id if exists
