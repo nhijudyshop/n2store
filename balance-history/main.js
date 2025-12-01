@@ -12,6 +12,7 @@ const API_BASE_URL = window.CONFIG?.API_BASE_URL || (
 // State
 let currentPage = 1;
 let totalPages = 1;
+let currentQuickFilter = 'thisMonth'; // Default quick filter
 let filters = {
     type: '',
     gateway: '',
@@ -55,6 +56,114 @@ function setDefaultCurrentMonth() {
     filters.endDate = lastDayFormatted;
 }
 
+// Quick Filter Date Ranges
+function getQuickFilterDates(filterType) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let startDate, endDate;
+
+    switch(filterType) {
+        case 'today':
+            startDate = new Date(today);
+            endDate = new Date(today);
+            break;
+
+        case 'yesterday':
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 1);
+            endDate = new Date(startDate);
+            break;
+
+        case 'thisWeek':
+            // Monday to Sunday (current week)
+            startDate = new Date(today);
+            const dayOfWeek = startDate.getDay();
+            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            startDate.setDate(startDate.getDate() + diffToMonday);
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+            break;
+
+        case 'lastWeek':
+            // Previous Monday to Sunday
+            startDate = new Date(today);
+            const lastWeekDay = startDate.getDay();
+            const diffToLastMonday = lastWeekDay === 0 ? -13 : -6 - lastWeekDay;
+            startDate.setDate(startDate.getDate() + diffToLastMonday);
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+            break;
+
+        case 'thisMonth':
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            break;
+
+        case 'lastMonth':
+            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+            break;
+
+        case 'last7days':
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 6);
+            endDate = new Date(today);
+            break;
+
+        case 'last30days':
+            startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 29);
+            endDate = new Date(today);
+            break;
+
+        default:
+            return null;
+    }
+
+    // Format dates as YYYY-MM-DD
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    return {
+        startDate: formatDate(startDate),
+        endDate: formatDate(endDate)
+    };
+}
+
+// Apply Quick Filter
+function applyQuickFilter(filterType) {
+    const dates = getQuickFilterDates(filterType);
+
+    if (dates) {
+        // Update date inputs
+        document.getElementById('filterStartDate').value = dates.startDate;
+        document.getElementById('filterEndDate').value = dates.endDate;
+
+        // Update filters state
+        filters.startDate = dates.startDate;
+        filters.endDate = dates.endDate;
+
+        // Update active button
+        document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-filter="${filterType}"]`)?.classList.add('active');
+
+        // Store current filter
+        currentQuickFilter = filterType;
+
+        // Reload data
+        currentPage = 1;
+        loadData();
+        loadStatistics();
+    }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setDefaultCurrentMonth();
@@ -65,6 +174,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners
 function setupEventListeners() {
+    // Quick Filter Buttons
+    document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const filterType = btn.getAttribute('data-filter');
+            applyQuickFilter(filterType);
+        });
+    });
+
     refreshBtn.addEventListener('click', () => {
         currentPage = 1;
         loadData();
@@ -76,6 +193,11 @@ function setupEventListeners() {
         applyFilters();
         loadData();
         loadStatistics();
+
+        // Clear quick filter active state when manually applying filters
+        document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
     });
 
     resetFiltersBtn.addEventListener('click', () => {
@@ -118,6 +240,19 @@ function setupEventListeners() {
             }
         });
     });
+
+    // Date input change - clear quick filter active state
+    document.getElementById('filterStartDate').addEventListener('change', () => {
+        document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    });
+
+    document.getElementById('filterEndDate').addEventListener('change', () => {
+        document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    });
 }
 
 // Apply Filters
@@ -137,6 +272,13 @@ function resetFilters() {
 
     // Reset dates to current month
     setDefaultCurrentMonth();
+
+    // Reset quick filter to "thisMonth"
+    document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector('[data-filter="thisMonth"]')?.classList.add('active');
+    currentQuickFilter = 'thisMonth';
 
     filters.type = '';
     filters.gateway = '';
