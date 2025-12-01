@@ -30,6 +30,7 @@ let currentChatProductsRef = null;
 let currentOrderTags = [];
 let pendingDeleteTagIndex = -1; // Track which tag is pending deletion on backspace
 let currentPastedImage = null; // Track pasted image for chat reply
+let uploadedImageData = null; // Track uploaded image data (after upload)
 
 // =====================================================
 // FIREBASE CONFIGURATION FOR NOTE TRACKING
@@ -5497,7 +5498,91 @@ window.closeChatModal = async function () {
 }
 
 /**
+ * Upload image with Firebase cache check
+ * Returns uploaded image data or error
+ * @param {Blob} imageBlob - Image blob to upload
+ * @param {string|number} productId - Product ID (optional, for cache)
+ * @param {string} productName - Product name (optional, for cache)
+ * @param {string} channelId - Channel ID for Pancake upload
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+window.uploadImageWithCache = async function uploadImageWithCache(imageBlob, productId, productName, channelId) {
+    try {
+        let contentUrl = null;
+        let contentId = null;
+        let dimensions = null;
+
+        // Check Firebase cache if productId exists
+        if (productId && window.firebaseImageCache) {
+            console.log('[UPLOAD-CACHE] Checking Firebase cache for product:', productId);
+
+            const cached = await window.firebaseImageCache.get(productId);
+
+            if (cached && cached.content_url) {
+                // ✅ CACHE HIT
+                console.log('[UPLOAD-CACHE] ✅ Cache HIT! Reusing:', cached.content_url);
+                contentUrl = cached.content_url;
+                dimensions = await getImageDimensions(imageBlob);
+
+                return {
+                    success: true,
+                    data: {
+                        content_url: contentUrl,
+                        content_id: null,
+                        width: dimensions.width,
+                        height: dimensions.height,
+                        cached: true
+                    }
+                };
+            }
+        }
+
+        // Cache miss or no productId - Upload to Pancake
+        console.log('[UPLOAD-CACHE] Uploading to Pancake...');
+
+        const [uploadResult, dims] = await Promise.all([
+            window.pancakeDataManager.uploadImage(channelId, imageBlob),
+            getImageDimensions(imageBlob)
+        ]);
+
+        contentUrl = uploadResult.content_url;
+        contentId = uploadResult.id;
+        dimensions = dims;
+
+        console.log('[UPLOAD-CACHE] Upload success:', contentUrl);
+
+        // Save to Firebase cache if productId exists
+        if (productId && productName && window.firebaseImageCache) {
+            console.log('[UPLOAD-CACHE] Saving to Firebase cache...');
+            await window.firebaseImageCache.set(productId, productName, contentUrl)
+                .catch(err => {
+                    console.warn('[UPLOAD-CACHE] Cache save failed (non-critical):', err);
+                });
+        }
+
+        return {
+            success: true,
+            data: {
+                content_url: contentUrl,
+                content_id: contentId,
+                width: dimensions.width,
+                height: dimensions.height,
+                cached: false
+            }
+        };
+
+    } catch (error) {
+        console.error('[UPLOAD-CACHE] Upload failed:', error);
+        return {
+            success: false,
+            error: error.message || 'Upload failed'
+        };
+    }
+}
+
+/**
  * Handle paste event on chat input
+ * NOW: Upload immediately after paste
  */
 function handleChatInputPaste(event) {
     const items = (event.clipboardData || event.originalEvent.clipboardData).items;
@@ -5521,24 +5606,53 @@ function handleChatInputPaste(event) {
                 chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
             }
 
-            // Show preview
+            // Show preview with loading state
             const reader = new FileReader();
-            reader.onload = function (e) {
+            reader.onload = async function (e) {
                 const previewContainer = document.getElementById('chatImagePreviewContainer');
-                if (previewContainer) {
-                    previewContainer.style.display = 'flex';
-                    previewContainer.style.alignItems = 'center';
-                    previewContainer.style.justifyContent = 'space-between';
+                if (!previewContainer) return;
 
-                    previewContainer.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <img src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd;">
-                            <span style="font-size: 12px; color: #666;">${blob.name || 'Image'} (${Math.round(blob.size / 1024)} KB)</span>
+                // Show preview with loading overlay
+                previewContainer.style.display = 'flex';
+                previewContainer.style.alignItems = 'center';
+                previewContainer.style.justifyContent = 'space-between';
+
+                previewContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; position: relative;">
+                        <img id="pastedImagePreview" src="${e.target.result}" style="height: 50px; border-radius: 4px; border: 1px solid #ddd; opacity: 0.5;">
+                        <div id="uploadOverlay" style="position: absolute; left: 0; top: 0; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8);">
+                            <i class="fas fa-spinner fa-spin" style="color: #3b82f6;"></i>
                         </div>
-                        <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
+                        <span id="uploadStatus" style="font-size: 12px; color: #3b82f6;">Đang tải lên Pancake...</span>
+                    </div>
+                    <button onclick="clearPastedImage()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+
+                // Upload immediately
+                const productId = null; // Paste doesn't have productId
+                const productName = null;
+                const channelId = window.currentChatChannelId;
+
+                if (!channelId) {
+                    console.warn('[PASTE] No channelId available, skipping upload');
+                    updateUploadPreviewUI(false, 'Không thể upload: Thiếu thông tin', false);
+                    return;
+                }
+
+                const result = await uploadImageWithCache(blob, productId, productName, channelId);
+
+                if (result.success) {
+                    // Upload success
+                    uploadedImageData = result.data;
+                    window.uploadedImageData = result.data; // Expose globally
+                    updateUploadPreviewUI(true, `${Math.round(blob.size / 1024)} KB`, result.data.cached);
+                } else {
+                    // Upload failed
+                    uploadedImageData = null;
+                    window.uploadedImageData = null;
+                    updateUploadPreviewUI(false, result.error, false);
                 }
             };
             reader.readAsDataURL(blob);
@@ -5548,11 +5662,87 @@ function handleChatInputPaste(event) {
 }
 
 /**
- * Clear pasted image
+ * Update upload preview UI based on upload result
+ */
+window.updateUploadPreviewUI = function updateUploadPreviewUI(success, message, cached) {
+    const preview = document.getElementById('pastedImagePreview');
+    const overlay = document.getElementById('uploadOverlay');
+    const status = document.getElementById('uploadStatus');
+
+    if (!preview || !overlay || !status) return;
+
+    if (success) {
+        // Success - show normal preview
+        preview.style.opacity = '1';
+        overlay.style.display = 'none';
+
+        if (cached) {
+            status.innerHTML = '<i class="fas fa-recycle" style="color: #10b981; margin-right: 4px;"></i>Ảnh đã có sẵn';
+            status.style.color = '#10b981';
+        } else {
+            status.innerHTML = '<i class="fas fa-check-circle" style="color: #10b981; margin-right: 4px;"></i>' + message;
+            status.style.color = '#10b981';
+        }
+    } else {
+        // Failed - show error with retry option
+        preview.style.opacity = '1';
+        overlay.style.display = 'none';
+        status.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-right: 4px;"></i>${message} <button onclick="retryUpload()" style="margin-left: 6px; padding: 2px 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">Retry</button>`;
+        status.style.color = '#ef4444';
+    }
+}
+
+/**
+ * Retry upload when failed
+ */
+window.retryUpload = async function() {
+    if (!currentPastedImage) return;
+
+    const status = document.getElementById('uploadStatus');
+    const overlay = document.getElementById('uploadOverlay');
+    const preview = document.getElementById('pastedImagePreview');
+
+    if (status && overlay && preview) {
+        status.textContent = 'Đang thử lại...';
+        status.style.color = '#3b82f6';
+        overlay.style.display = 'flex';
+        preview.style.opacity = '0.5';
+    }
+
+    const productId = window.currentPastedImageProductId || null;
+    const productName = window.currentPastedImageProductName || null;
+    const channelId = window.currentChatChannelId;
+
+    const result = await uploadImageWithCache(currentPastedImage, productId, productName, channelId);
+
+    if (result.success) {
+        uploadedImageData = result.data;
+        window.uploadedImageData = result.data;
+        updateUploadPreviewUI(true, `${Math.round(currentPastedImage.size / 1024)} KB`, result.data.cached);
+    } else {
+        uploadedImageData = null;
+        window.uploadedImageData = null;
+        updateUploadPreviewUI(false, result.error, false);
+    }
+};
+
+/**
+ * Clear pasted image (UI only - keeps uploaded image on Pancake/Firebase)
  */
 window.clearPastedImage = function () {
+    // Clear blob references
     currentPastedImage = null;
     window.currentPastedImage = null;
+
+    // Clear uploaded data
+    uploadedImageData = null;
+    window.uploadedImageData = null;
+
+    // Clear product info
+    window.currentPastedImageProductId = null;
+    window.currentPastedImageProductName = null;
+
+    // Clear UI preview
     const previewContainer = document.getElementById('chatImagePreviewContainer');
     if (previewContainer) {
         previewContainer.innerHTML = '';
@@ -5568,6 +5758,8 @@ window.clearPastedImage = function () {
         chatInput.placeholder = 'Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)';
         chatInput.focus();
     }
+
+    console.log('[CLEAR-IMAGE] Cleared pasted image (UI only - image still on Pancake/Firebase)');
 }
 
 // Message Queue Management
@@ -5826,6 +6018,7 @@ window.sendReplyComment = async function () {
         window.chatMessageQueue.push({
             message,
             pastedImage: currentPastedImage || window.currentPastedImage,
+            uploadedImageData: uploadedImageData || window.uploadedImageData, // NEW: Pre-uploaded data
             order: currentOrder,
             conversationId: window.currentConversationId,
             channelId: window.currentChatChannelId,
@@ -5841,6 +6034,8 @@ window.sendReplyComment = async function () {
         messageInput.style.height = 'auto';
         currentPastedImage = null;
         window.currentPastedImage = null;
+        uploadedImageData = null;
+        window.uploadedImageData = null;
         const previewContainer = document.getElementById('chatImagePreviewContainer');
         if (previewContainer) {
             previewContainer.innerHTML = '';
@@ -5899,7 +6094,7 @@ function getImageDimensions(blob) {
  * Internal function to actually send the message (called by queue processor)
  */
 async function sendReplyCommentInternal(messageData) {
-    const { message, pastedImage, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
+    const { message, pastedImage, uploadedImageData, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
 
     const isMessage = chatType === 'message';
 
@@ -5920,74 +6115,32 @@ async function sendReplyCommentInternal(messageData) {
         let imageData = null;
         let finalMessage = message;
 
-        // Handle pasted image
+        // Handle pasted image - NEW: Use pre-uploaded data if available
         if (pastedImage) {
-            console.log('[SEND-REPLY] Processing pasted image...');
-            showChatSendingIndicator('Đang tải ảnh...');
             try {
-                // Get product info if available (set by sendImageToChat)
-                const productId = window.currentPastedImageProductId || null;
-                const productName = window.currentPastedImageProductName || null;
+                // Check if image was already uploaded
+                if (uploadedImageData && uploadedImageData.content_url) {
+                    // ✅ Use pre-uploaded data (uploaded when paste/right-click)
+                    console.log('[SEND-REPLY] Using pre-uploaded image:', uploadedImageData.content_url);
+                    imageData = uploadedImageData;
+                    showChatSendingIndicator('Đang gửi...');
+                } else {
+                    // ❌ Not uploaded yet (or upload failed) - Retry upload
+                    console.log('[SEND-REPLY] No pre-uploaded data - uploading now...');
+                    showChatSendingIndicator('Đang tải ảnh...');
 
-                let contentUrl = null;
-                let contentId = null;
-                let dimensions = null;
+                    const productId = window.currentPastedImageProductId || null;
+                    const productName = window.currentPastedImageProductName || null;
 
-                // Check Firebase cache if productId exists
-                if (productId && window.firebaseImageCache) {
-                    console.log('[SEND-REPLY] Checking Firebase cache for product:', productId);
-                    showChatSendingIndicator('Kiểm tra cache...');
+                    const result = await window.uploadImageWithCache(pastedImage, productId, productName, channelId);
 
-                    const cached = await window.firebaseImageCache.get(productId);
-
-                    if (cached && cached.content_url) {
-                        // ✅ CACHE HIT - Reuse cached image
-                        console.log('[SEND-REPLY] ✅ Cache HIT! Reusing image:', cached.content_url);
-                        contentUrl = cached.content_url;
-                        contentId = null; // Cached images don't have content_id
-                        // Get dimensions from blob (still needed for message payload)
-                        dimensions = await getImageDimensions(pastedImage);
-
-                        showChatSendingIndicator('Dùng lại ảnh đã lưu...');
+                    if (!result.success) {
+                        throw new Error(result.error || 'Upload failed');
                     }
+
+                    imageData = result.data;
+                    console.log('[SEND-REPLY] Image uploaded:', imageData.content_url);
                 }
-
-                // If no cache hit OR no productId, upload normally
-                if (!contentUrl) {
-                    console.log('[SEND-REPLY] Cache miss or no productId - uploading to Pancake...');
-                    showChatSendingIndicator('Đang tải ảnh lên Pancake...');
-
-                    // Upload image and get dimensions in parallel
-                    const [uploadResult, dims] = await Promise.all([
-                        window.pancakeDataManager.uploadImage(channelId, pastedImage),
-                        getImageDimensions(pastedImage)
-                    ]);
-
-                    contentUrl = uploadResult.content_url;
-                    contentId = uploadResult.id;
-                    dimensions = dims;
-
-                    console.log('[SEND-REPLY] Image uploaded:', contentUrl);
-
-                    // Save to Firebase cache if productId exists
-                    if (productId && productName && window.firebaseImageCache) {
-                        console.log('[SEND-REPLY] Saving to Firebase cache...');
-                        await window.firebaseImageCache.set(productId, productName, contentUrl)
-                            .catch(err => {
-                                // Non-critical error - log but don't fail the send
-                                console.warn('[SEND-REPLY] Failed to save to cache (non-critical):', err);
-                            });
-                    }
-                }
-
-                imageData = {
-                    content_url: contentUrl,
-                    content_id: contentId,
-                    width: dimensions.width,
-                    height: dimensions.height
-                };
-
-                console.log('[SEND-REPLY] Image data ready:', imageData);
             } catch (uploadError) {
                 console.error('[SEND-REPLY] Image processing failed:', uploadError);
                 throw new Error('Tải ảnh thất bại: ' + uploadError.message);
