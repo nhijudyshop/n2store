@@ -2655,10 +2655,21 @@
                     const result = await window.uploadImageWithCache(blob, productId, productName, channelId);
 
                     if (result.success) {
-                        // Upload success
-                        window.uploadedImageData = result.data;
-                        if (window.updateUploadPreviewUI) {
-                            window.updateUploadPreviewUI(true, `${Math.round(blob.size / 1024)} KB`, result.data.cached);
+                        // Upload success - ADD to array (not replace)
+                        if (!window.uploadedImagesData) {
+                            window.uploadedImagesData = [];
+                        }
+
+                        window.uploadedImagesData.push({
+                            ...result.data,
+                            blob: blob,
+                            productId: productId,
+                            productName: productName
+                        });
+
+                        // Update preview with all images
+                        if (window.updateMultipleImagesPreview) {
+                            window.updateMultipleImagesPreview();
                         }
 
                         if (window.notificationManager) {
@@ -2669,10 +2680,22 @@
                             }
                         }
                     } else {
-                        // Upload failed
-                        window.uploadedImageData = null;
-                        if (window.updateUploadPreviewUI) {
-                            window.updateUploadPreviewUI(false, result.error, false);
+                        // Upload failed - still add to array with error
+                        if (!window.uploadedImagesData) {
+                            window.uploadedImagesData = [];
+                        }
+
+                        window.uploadedImagesData.push({
+                            blob: blob,
+                            productId: productId,
+                            productName: productName,
+                            error: result.error,
+                            uploadFailed: true
+                        });
+
+                        // Update preview
+                        if (window.updateMultipleImagesPreview) {
+                            window.updateMultipleImagesPreview();
                         }
 
                         if (window.notificationManager) {
