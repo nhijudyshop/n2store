@@ -5761,7 +5761,39 @@ window.updateMultipleImagesPreview = function updateMultipleImagesPreview() {
         chatInput.style.cursor = 'not-allowed';
         chatInput.placeholder = 'Xóa hoặc gửi ảnh để nhập tin nhắn...';
     }
+
+    // Update send button state based on upload status
+    updateSendButtonState();
 };
+
+/**
+ * Update send button state - disable if any image is still uploading
+ */
+function updateSendButtonState() {
+    const sendBtn = document.getElementById('chatSendBtn');
+    if (!sendBtn) return;
+
+    // Check if any image is still uploading
+    const hasUploadingImages = window.uploadedImagesData && window.uploadedImagesData.some(img =>
+        !img.content_url && !img.uploadFailed
+    );
+
+    if (hasUploadingImages) {
+        // Disable send button
+        sendBtn.disabled = true;
+        sendBtn.style.opacity = '0.5';
+        sendBtn.style.cursor = 'not-allowed';
+        sendBtn.title = 'Đang tải ảnh... Vui lòng đợi';
+        window.isUploadingImages = true;
+    } else {
+        // Enable send button
+        sendBtn.disabled = false;
+        sendBtn.style.opacity = '1';
+        sendBtn.style.cursor = 'pointer';
+        sendBtn.title = 'Gửi tin nhắn';
+        window.isUploadingImages = false;
+    }
+}
 
 /**
  * Update upload preview UI based on upload result (DEPRECATED - use updateMultipleImagesPreview)
@@ -6168,6 +6200,14 @@ window.sendMessage = async function () {
         console.log('[MESSAGE] Already sending, skipping duplicate call');
         return;
     }
+
+    // Check if images are still uploading
+    if (window.isUploadingImages) {
+        alert('Ảnh đang được tải lên. Vui lòng đợi cho đến khi tải xong.');
+        console.warn('[MESSAGE] Cannot send while images are uploading');
+        return;
+    }
+
     isSendingMessage = true;
 
     try {
@@ -6253,6 +6293,14 @@ window.sendComment = async function () {
         console.log('[COMMENT] Already sending, skipping duplicate call');
         return;
     }
+
+    // Check if images are still uploading
+    if (window.isUploadingImages) {
+        alert('Ảnh đang được tải lên. Vui lòng đợi cho đến khi tải xong.');
+        console.warn('[COMMENT] Cannot send while images are uploading');
+        return;
+    }
+
     isSendingMessage = true;
 
     try {
