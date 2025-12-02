@@ -356,7 +356,7 @@
         if (!products || products.length === 0) return '';
 
         return products.map(p =>
-            `Product: ${p.productCode} - Quantity: ${p.quantity} - Price: ${p.price}`
+            `${p.productCode} - ${p.quantity} - ${p.price}`
         ).join('\n');
     }
 
@@ -428,7 +428,7 @@
                 if (decoded) {
                     // ✅ Successfully decoded → convert to plain text
                     console.log(`[NOTE] ✓ Decoded line: ${decoded.productCode} x${decoded.quantity}`);
-                    return `Product: ${decoded.productCode} - Quantity: ${decoded.quantity} - Price: ${decoded.price}`;
+                    return `${decoded.productCode} - ${decoded.quantity} - ${decoded.price}`;
                 }
             }
 
