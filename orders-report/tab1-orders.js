@@ -6487,9 +6487,8 @@ async function sendMessageInternal(messageData) {
             imagesDataArray.forEach((imageData) => {
                 payload.content_urls.push(imageData.content_url);
 
-                if (imageData.id) {
-                    payload.content_ids.push(imageData.id);
-                }
+                // Always push content_id to keep arrays aligned (use null for cached images)
+                payload.content_ids.push(imageData.content_id || imageData.id || null);
 
                 payload.dimensions.push({
                     width: imageData.image_data?.width || imageData.width || 0,
