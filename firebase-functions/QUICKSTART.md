@@ -51,9 +51,9 @@ Firebase Cloud Functions require **Blaze Plan** (pay-as-you-go).
 
 **Cost:** ~$1/month for this project
 
-### 2. Node.js 18+
+### 2. Node.js 20+
 ```bash
-node --version  # Should be v18 or higher
+node --version  # Should be v20 or higher
 ```
 
 If not installed: https://nodejs.org/

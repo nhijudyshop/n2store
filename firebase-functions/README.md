@@ -109,7 +109,7 @@ https://console.firebase.google.com/project/n2shop-69e37/functions/logs
 - **Version:** 1.0.0
 - **Created:** 2025-12-02
 - **Firebase Project:** n2shop-69e37
-- **Node Version:** 18
+- **Node Version:** 20
 
 ## 🔗 Related Files
 
