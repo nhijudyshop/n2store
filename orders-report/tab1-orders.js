@@ -180,8 +180,8 @@ function handleRealtimeTagUpdate(updateData, source) {
 
     console.log(`[TAG-REALTIME] Processing update from ${source}:`, updateData);
 
-    // ✅ Validate tags
-    if (!tags || !Array.isArray(tags)) {
+    // ✅ Validate tags - allow empty array for "delete all tags" case
+    if (tags === undefined || tags === null || !Array.isArray(tags)) {
         console.error('[TAG-REALTIME] Invalid tags data:', tags);
         console.error('[TAG-REALTIME] Full updateData:', updateData);
         return;
@@ -218,9 +218,17 @@ function handleRealtimeTagUpdate(updateData, source) {
     updateOrderInTable(orderId, updatedOrderData);
 
     // Show notification
-    const tagNames = tags.map(t => t.Name).join(', ');
     const sourceIcon = source === 'firebase' ? '🔥' : '⚡';
-    const message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode} (STT: ${STT}): ${tagNames}`;
+    let message;
+
+    if (tags.length === 0) {
+        // Case: All tags removed
+        message = `${sourceIcon} ${updatedBy} đã xóa hết TAG cho đơn ${orderCode} (STT: ${STT})`;
+    } else {
+        // Case: Tags added/updated
+        const tagNames = tags.map(t => t.Name).join(', ');
+        message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode} (STT: ${STT}): ${tagNames}`;
+    }
 
     if (window.notificationManager) {
         window.notificationManager.show(message, 'info', 4000);
