@@ -45,6 +45,179 @@ try {
 }
 
 // =====================================================
+// REALTIME TAG SYNC - Firebase & WebSocket
+// =====================================================
+let currentCampaignId = null; // Track current campaign for realtime filtering
+let currentUserName = null; // Track current user name for notifications
+
+/**
+ * Emit TAG update to Firebase for realtime sync across users
+ */
+async function emitTagUpdateToFirebase(orderId, tags) {
+    if (!database) {
+        console.warn('[TAG-REALTIME] Firebase not available, skipping emit');
+        return;
+    }
+
+    try {
+        // Get current campaign ID and order code
+        const order = allData.find(o => o.Id === orderId);
+        if (!order) {
+            console.warn('[TAG-REALTIME] Order not found in allData:', orderId);
+            return;
+        }
+
+        const campaignId = document.getElementById('campaignFilter')?.value;
+        if (!campaignId || campaignId === 'all') {
+            console.warn('[TAG-REALTIME] No specific campaign selected, using order campaign');
+        }
+
+        // Get current user name (from token manager or localStorage)
+        let userName = 'Unknown User';
+        if (window.tokenManager && window.tokenManager.getTokenInfo) {
+            const tokenInfo = window.tokenManager.getTokenInfo();
+            userName = tokenInfo?.name || tokenInfo?.email || userName;
+        }
+
+        // Emit to Firebase
+        const updateData = {
+            orderId: orderId,
+            orderCode: order.Code,
+            tags: tags,
+            updatedBy: userName,
+            campaignId: order.CampaignId || campaignId,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        // Write to Firebase path: /tag_updates/{campaignId}/{orderId}
+        const refPath = `tag_updates/${updateData.campaignId}/${orderId}`;
+        await database.ref(refPath).set(updateData);
+
+        console.log('[TAG-REALTIME] Tag update emitted to Firebase:', refPath, updateData);
+    } catch (error) {
+        console.error('[TAG-REALTIME] Error emitting tag update:', error);
+    }
+}
+
+/**
+ * Setup Firebase & WebSocket listeners for realtime TAG updates
+ */
+function setupTagRealtimeListeners() {
+    // 1. Setup Firebase listener
+    if (database) {
+        const campaignId = document.getElementById('campaignFilter')?.value;
+        if (!campaignId || campaignId === 'all') {
+            console.warn('[TAG-REALTIME] No campaign selected, skipping Firebase listener');
+        } else {
+            currentCampaignId = campaignId;
+            const refPath = `tag_updates/${campaignId}`;
+
+            console.log('[TAG-REALTIME] Setting up Firebase listener on:', refPath);
+
+            database.ref(refPath).on('child_changed', (snapshot) => {
+                const updateData = snapshot.val();
+                console.log('[TAG-REALTIME] Firebase tag update received:', updateData);
+
+                // Check if update is from another user
+                let currentUserName = 'Unknown';
+                if (window.tokenManager && window.tokenManager.getTokenInfo) {
+                    const tokenInfo = window.tokenManager.getTokenInfo();
+                    currentUserName = tokenInfo?.name || tokenInfo?.email || currentUserName;
+                }
+
+                if (updateData.updatedBy !== currentUserName) {
+                    handleRealtimeTagUpdate(updateData, 'firebase');
+                }
+            });
+
+            database.ref(refPath).on('child_added', (snapshot) => {
+                const updateData = snapshot.val();
+
+                // Only process if timestamp is recent (within last 5 seconds)
+                // This prevents showing notifications for old data when first connecting
+                if (updateData.timestamp && (Date.now() - updateData.timestamp < 5000)) {
+                    console.log('[TAG-REALTIME] Firebase new tag update:', updateData);
+
+                    let currentUserName = 'Unknown';
+                    if (window.tokenManager && window.tokenManager.getTokenInfo) {
+                        const tokenInfo = window.tokenManager.getTokenInfo();
+                        currentUserName = tokenInfo?.name || tokenInfo?.email || currentUserName;
+                    }
+
+                    if (updateData.updatedBy !== currentUserName) {
+                        handleRealtimeTagUpdate(updateData, 'firebase');
+                    }
+                }
+            });
+        }
+    }
+
+    // 2. Setup WebSocket listener (for future backend support)
+    window.addEventListener('realtimeOrderTagsUpdate', (event) => {
+        const updateData = event.detail;
+        console.log('[TAG-REALTIME] WebSocket tag update received:', updateData);
+        handleRealtimeTagUpdate(updateData, 'websocket');
+    });
+
+    console.log('[TAG-REALTIME] Realtime listeners setup complete');
+}
+
+/**
+ * Handle realtime TAG update from Firebase or WebSocket
+ */
+function handleRealtimeTagUpdate(updateData, source) {
+    const { orderId, orderCode, tags, updatedBy, campaignId } = updateData;
+
+    console.log(`[TAG-REALTIME] Processing update from ${source}:`, updateData);
+
+    // 🚨 CONFLICT RESOLUTION: Check if user is currently editing this order's tags
+    if (currentEditingOrderId === orderId) {
+        console.warn('[TAG-REALTIME] Conflict detected: User is editing this order!');
+
+        // Close modal and show warning
+        const modal = document.getElementById('tagModal');
+        if (modal && modal.style.display !== 'none') {
+            closeTagModal();
+
+            if (window.notificationManager) {
+                window.notificationManager.show(
+                    `⚠️ ${updatedBy} vừa cập nhật TAG cho đơn ${orderCode}. Modal đã được đóng để tránh conflict.`,
+                    'warning',
+                    6000
+                );
+            }
+        }
+    }
+
+    // Update order in table
+    const updatedOrderData = { Tags: JSON.stringify(tags) };
+    updateOrderInTable(orderId, updatedOrderData);
+
+    // Show notification
+    const tagNames = tags.map(t => t.Name).join(', ');
+    const sourceIcon = source === 'firebase' ? '🔥' : '⚡';
+    const message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode}: ${tagNames}`;
+
+    if (window.notificationManager) {
+        window.notificationManager.show(message, 'info', 4000);
+    } else {
+        console.log('[TAG-REALTIME] Notification:', message);
+    }
+}
+
+/**
+ * Cleanup Firebase listeners when changing campaign
+ */
+function cleanupTagRealtimeListeners() {
+    if (database && currentCampaignId) {
+        const refPath = `tag_updates/${currentCampaignId}`;
+        database.ref(refPath).off();
+        console.log('[TAG-REALTIME] Cleaned up Firebase listeners for:', refPath);
+        currentCampaignId = null;
+    }
+}
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 window.addEventListener("DOMContentLoaded", async function () {
@@ -1096,6 +1269,9 @@ async function saveOrderTags() {
         const updatedData = { Tags: JSON.stringify(currentOrderTags) };
         updateOrderInTable(currentEditingOrderId, updatedData);
 
+        // 🔥 Emit TAG update to Firebase for realtime sync
+        await emitTagUpdateToFirebase(currentEditingOrderId, currentOrderTags);
+
         window.cacheManager.clear("orders");
         showLoading(false);
         closeTagModal();
@@ -1849,6 +2025,9 @@ async function handleCampaignChange() {
         ? JSON.parse(selectedOption.dataset.campaign)
         : null;
 
+    // 🔥 Cleanup old Firebase TAG listeners
+    cleanupTagRealtimeListeners();
+
     // Tự động load dữ liệu khi chọn chiến dịch
     if (selectedCampaign?.campaignId || selectedCampaign?.campaignIds) {
         await handleSearch();
@@ -1858,6 +2037,9 @@ async function handleCampaignChange() {
             console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
             window.realtimeManager.connectServerMode();
         }
+
+        // 🔥 Setup new Firebase TAG listeners for this campaign
+        setupTagRealtimeListeners();
     }
 }
 
