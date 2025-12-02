@@ -7920,6 +7920,36 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
         }
     }
 
+    // NEW: Check if chat modal is open for THIS conversation
+    const chatModal = document.getElementById('chatModal');
+    const isChatModalOpen = chatModal && chatModal.style.display !== 'none';
+
+    if (isChatModalOpen && window.currentChatPSID) {
+        const conversationPsid = conversation.from_psid || conversation.customers?.[0]?.fb_id;
+        const conversationId = conversation.id;
+
+        // IMPORTANT: Only update if this is THE conversation currently open in modal
+        const isCurrentConversation =
+            conversationPsid === window.currentChatPSID ||
+            conversationId === window.currentChatConversationId;
+
+        if (isCurrentConversation) {
+            console.log('[REALTIME] Update for OPEN chat modal - fetching new messages for PSID:', conversationPsid);
+
+            // Prevent fetch if we're currently sending (skipWebhookUpdate flag)
+            if (!window.skipWebhookUpdate) {
+                // Async fetch new messages without blocking table update
+                fetchAndAppendNewMessages(conversation).catch(err => {
+                    console.error('[REALTIME] Error fetching new messages:', err);
+                });
+            } else {
+                console.log('[REALTIME] Skipping fetch - currently sending message');
+            }
+        } else {
+            console.log('[REALTIME] Update for DIFFERENT conversation - only updating table');
+        }
+    }
+
     // 2. CHECK FILTER
     // If filtering by read/unread, we MUST re-run search to show/hide rows
     const currentFilter = document.getElementById('conversationFilter') ? document.getElementById('conversationFilter').value : 'all';
@@ -8072,119 +8102,206 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
             }, 100);
         }
     }
+});
 
-    // 🔄 REALTIME CHAT MODAL UPDATE - COMPLETELY REWRITTEN
-    const chatModal = document.getElementById('chatModal');
-    const isChatModalOpen = chatModal && chatModal.classList.contains('show');
+// =====================================================
+// INCREMENTAL MESSAGE UPDATE HELPERS
+// =====================================================
 
-    if (isChatModalOpen) {
-        // Normalize IDs for comparison
-        const isMatchingPsid = String(window.currentChatPSID) === String(psid);
-        const isMatchingChannel = String(window.currentChatChannelId) === String(pageId);
-        const incomingType = type === 'INBOX' ? 'message' : 'comment';
-        const isMatchingType = currentChatType === incomingType;
+/**
+ * Fetch only NEW messages and append to chat (WebSocket triggered)
+ */
+async function fetchAndAppendNewMessages(conversation) {
+    try {
+        const channelId = window.currentChatChannelId;
+        const psid = window.currentChatPSID;
+        const chatType = window.currentChatType || 'message';
 
-        if (isMatchingPsid && isMatchingChannel && isMatchingType) {
-            // Skip webhook update if we just sent a message
-            if (skipWebhookUpdate) {
-                console.log('[CHAT MODAL] ⏭️ Skipping webhook (just sent message)');
-                return;
-            }
+        if (!channelId || !psid) {
+            console.log('[REALTIME] Missing channelId or psid, cannot fetch');
+            return;
+        }
 
-            console.log('[CHAT MODAL] 🔄 Realtime update detected - updating UI...');
+        // Get last message/comment ID from current list
+        let lastId = null;
+        if (chatType === 'message' && window.allChatMessages && window.allChatMessages.length > 0) {
+            const lastMsg = window.allChatMessages[window.allChatMessages.length - 1];
+            lastId = lastMsg.id || lastMsg.Id;
+        } else if (chatType === 'comment' && window.allChatComments && window.allChatComments.length > 0) {
+            const lastComment = window.allChatComments[window.allChatComments.length - 1];
+            lastId = lastComment.id || lastComment.Id;
+        }
 
-            // Get modal body for scroll detection
-            const modalBody = document.getElementById('chatModalBody');
-            if (!modalBody) return;
+        console.log('[REALTIME] Fetching messages after ID:', lastId);
 
-            // Check if user was at bottom (100px threshold)
-            const wasAtBottom = (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight) < 100;
+        let newItems = [];
 
-            // Fetch ALL new messages/comments to update UI
-            if (currentChatType === 'comment') {
-                window.chatDataManager.fetchComments(pageId, psid, null).then(response => {
-                    if (!response || !response.comments || response.comments.length === 0) {
-                        console.log('[CHAT MODAL] ℹ️ No comments received');
-                        return;
-                    }
+        if (chatType === 'message') {
+            // Fetch ALL messages (API doesn't support 'after' parameter yet)
+            const response = await window.chatDataManager.fetchMessages(channelId, psid, null);
 
-                    // Remove temp comments first
-                    allChatComments = allChatComments.filter(c => !c.is_temp);
-
-                    // Get ALL new comments that don't exist yet
-                    const newComments = response.comments.filter(newComment => {
-                        const newId = newComment.Id || newComment.id;
-                        return !allChatComments.some(existing =>
-                            (existing.Id === newId || existing.id === newId)
-                        );
-                    });
-
-                    if (newComments.length > 0) {
-                        console.log(`[CHAT MODAL] ✅ ${newComments.length} new comment(s) detected, adding to UI`);
-
-                        // Add all new comments to beginning (renderComments reverses the array)
-                        // Add in reverse order so newest appears first after unshift
-                        newComments.reverse().forEach(comment => {
-                            allChatComments.unshift(comment);
-                        });
-
-                        // Re-render with smart scroll
-                        renderComments(allChatComments, wasAtBottom);
-
-                        // Show indicator if user wasn't at bottom
-                        if (!wasAtBottom) {
-                            showNewMessageIndicator();
-                        }
-                    } else {
-                        console.log('[CHAT MODAL] ℹ️ No new comments');
-                    }
-                }).catch(err => {
-                    console.error('[CHAT MODAL] ❌ Error fetching comment:', err);
+            if (response && response.messages) {
+                // Filter to only get messages we don't have yet
+                const existingIds = new Set(window.allChatMessages.map(m => m.id || m.Id));
+                newItems = response.messages.filter(msg => {
+                    const msgId = msg.id || msg.Id;
+                    return !existingIds.has(msgId);
                 });
-            } else {
-                window.chatDataManager.fetchMessages(pageId, psid, null).then(response => {
-                    if (!response || !response.messages || response.messages.length === 0) {
-                        console.log('[CHAT MODAL] ℹ️ No messages received');
-                        return;
-                    }
+            }
+        } else {
+            // Fetch ALL comments
+            const response = await window.chatDataManager.fetchComments(channelId, psid, null);
 
-                    // Remove temp messages first
-                    allChatMessages = allChatMessages.filter(m => !m.is_temp);
-
-                    // Get ALL new messages that don't exist yet
-                    const newMessages = response.messages.filter(newMsg => {
-                        const newId = newMsg.Id || newMsg.id;
-                        return !allChatMessages.some(existing =>
-                            (existing.Id === newId || existing.id === newId)
-                        );
-                    });
-
-                    if (newMessages.length > 0) {
-                        console.log(`[CHAT MODAL] ✅ ${newMessages.length} new message(s) detected, adding to UI`);
-
-                        // Add all new messages to beginning (renderChatMessages reverses the array)
-                        // Add in reverse order so newest appears first after unshift
-                        newMessages.reverse().forEach(msg => {
-                            allChatMessages.unshift(msg);
-                        });
-
-                        // Re-render with smart scroll
-                        renderChatMessages(allChatMessages, wasAtBottom);
-
-                        // Show indicator if user wasn't at bottom
-                        if (!wasAtBottom) {
-                            showNewMessageIndicator();
-                        }
-                    } else {
-                        console.log('[CHAT MODAL] ℹ️ No new messages');
-                    }
-                }).catch(err => {
-                    console.error('[CHAT MODAL] ❌ Error fetching message:', err);
+            if (response && response.comments) {
+                // Filter to only get comments we don't have yet
+                const existingIds = new Set(window.allChatComments.map(c => c.id || c.Id));
+                newItems = response.comments.filter(comment => {
+                    const commentId = comment.id || comment.Id;
+                    return !existingIds.has(commentId);
                 });
             }
         }
+
+        if (newItems.length > 0) {
+            console.log('[REALTIME] Got', newItems.length, 'new items');
+
+            // Add to global array
+            if (chatType === 'message') {
+                window.allChatMessages.push(...newItems);
+            } else {
+                window.allChatComments.push(...newItems);
+            }
+
+            // Incremental render (NEW)
+            appendNewMessages(newItems, chatType);
+        } else {
+            console.log('[REALTIME] No new items found');
+        }
+
+    } catch (error) {
+        console.error('[REALTIME] Error fetching new messages:', error);
     }
-});
+}
+
+/**
+ * Create DOM element for a single message (without re-rendering all)
+ */
+function createMessageElement(msg, chatType = 'message') {
+    const div = document.createElement('div');
+    const isOwner = msg.IsOwner || msg.is_owner;
+
+    div.className = `chat-message ${isOwner ? 'chat-message-right' : 'chat-message-left'}`;
+    div.dataset.messageId = msg.id || msg.Id;
+
+    const bgClass = isOwner ? 'chat-bubble-owner' : 'chat-bubble-customer';
+
+    let content = '';
+
+    // Message text
+    if (msg.Message || msg.message) {
+        const messageText = msg.Message || msg.message;
+        content += `<p class="chat-message-text">${messageText}</p>`;
+    }
+
+    // Attachments (capital A - messages)
+    if (msg.Attachments && msg.Attachments.length > 0) {
+        msg.Attachments.forEach(att => {
+            if (att.Type === 'image' && att.Payload && att.Payload.Url) {
+                content += `<img src="${att.Payload.Url}" class="chat-message-image" loading="lazy">`;
+            } else if (att.Type === 'audio' && att.Payload && att.Payload.Url) {
+                content += `<div class="chat-audio-message">
+                    <audio controls><source src="${att.Payload.Url}" type="audio/mp4"></audio>
+                </div>`;
+            }
+        });
+    }
+
+    // attachments (lowercase a - comments)
+    if (msg.attachments && msg.attachments.length > 0) {
+        msg.attachments.forEach(att => {
+            if (att.mime_type && att.mime_type.startsWith('image/') && att.file_url) {
+                content += `<img src="${att.file_url}" class="chat-message-image" loading="lazy">`;
+            } else if (att.mime_type === 'audio/mp4' && att.file_url) {
+                content += `<div class="chat-audio-message">
+                    <audio controls><source src="${att.file_url}" type="audio/mp4"></audio>
+                </div>`;
+            }
+        });
+    }
+
+    // Format time
+    const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const diffMs = Date.now() - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        const diffHours = Math.floor(diffMs / 3600000);
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        const diffDays = Math.floor(diffMs / 86400000);
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+    };
+
+    const timeStr = formatTime(msg.CreatedTime || msg.created_at);
+
+    div.innerHTML = `
+        <div class="chat-bubble ${bgClass}">
+            ${content}
+            <p class="chat-message-time">${timeStr}</p>
+        </div>
+    `;
+
+    return div;
+}
+
+/**
+ * Append new messages to chat (incremental update)
+ */
+function appendNewMessages(messages, chatType = 'message') {
+    const modalBody = document.getElementById('chatModalBody');
+    if (!modalBody) {
+        console.warn('[APPEND] No modal body found');
+        return;
+    }
+
+    const container = modalBody.querySelector('.chat-messages-container');
+    if (!container) {
+        console.warn('[APPEND] No messages container found');
+        return;
+    }
+
+    // Check if user is at bottom (before adding new messages)
+    const wasAtBottom = modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100;
+
+    // Create document fragment for batch append (better performance)
+    const fragment = document.createDocumentFragment();
+
+    messages.forEach(msg => {
+        const msgEl = createMessageElement(msg, chatType);
+        fragment.appendChild(msgEl);
+    });
+
+    // Append all at once
+    container.appendChild(fragment);
+
+    // Smart scroll - only auto-scroll if user was already at bottom
+    if (wasAtBottom) {
+        requestAnimationFrame(() => {
+            modalBody.scrollTop = modalBody.scrollHeight;
+
+            // Hide new message indicator
+            const indicator = document.getElementById('chatNewMessageIndicator');
+            if (indicator) indicator.style.display = 'none';
+        });
+    } else {
+        // Show "new messages" indicator if user scrolled up
+        showNewMessageIndicator();
+    }
+
+    console.log('[APPEND] Added', messages.length, 'new messages to DOM');
+}
+
 // =====================================================
 // QUICK ADD PRODUCT LOGIC
 // =====================================================
