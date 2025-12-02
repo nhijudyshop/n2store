@@ -5023,10 +5023,10 @@ window.currentConversationId = null;  // Lưu conversation ID cho reply
 // Module-scoped variables (not needed externally)
 let currentChatType = null;
 let currentChatCursor = null;
-let allChatMessages = [];
+window.allChatMessages = []; // Make global for WebSocket access
 let skipWebhookUpdate = false; // Flag to skip webhook updates right after sending message
 let isSendingMessage = false; // Flag to prevent double message sending
-let allChatComments = [];
+window.allChatComments = []; // Make global for WebSocket access
 let isLoadingMoreMessages = false;
 let currentOrder = null;  // Lưu order hiện tại để gửi reply
 let currentParentCommentId = null;  // Lưu parent comment ID
@@ -5044,8 +5044,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     window.currentChatPSID = psid;
     currentChatType = type;
     currentChatCursor = null;
-    allChatMessages = [];
-    allChatComments = [];
+    window.allChatMessages = [];
+    window.allChatComments = [];
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentChatOrderId = null;
@@ -5182,13 +5182,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
         if (type === 'comment') {
             // Fetch initial comments with pagination support
             const response = await window.chatDataManager.fetchComments(channelId, psid);
-            allChatComments = response.comments || [];
+            window.allChatComments = response.comments || [];
             currentChatCursor = response.after; // Store cursor for next page
 
             // Lấy parent comment ID từ comment đầu tiên (comment gốc)
-            if (allChatComments.length > 0) {
+            if (window.allChatComments.length > 0) {
                 // Tìm comment gốc (parent comment) - thường là comment không có ParentId hoặc comment đầu tiên
-                const rootComment = allChatComments.find(c => !c.ParentId) || allChatComments[0];
+                const rootComment = window.allChatComments.find(c => !c.ParentId) || window.allChatComments[0];
                 if (rootComment && rootComment.Id) {
                     currentParentCommentId = getFacebookCommentId(rootComment);
                     console.log(`[CHAT] Got parent comment ID: ${currentParentCommentId} (from ${rootComment.Id})`);
@@ -5217,9 +5217,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 }
             }
 
-            console.log(`[CHAT] Initial load: ${allChatComments.length} comments, cursor: ${currentChatCursor}`);
+            console.log(`[CHAT] Initial load: ${window.allChatComments.length} comments, cursor: ${currentChatCursor}`);
 
-            renderComments(allChatComments, true);
+            renderComments(window.allChatComments, true);
 
             // Fetch inbox_preview for comment modal - lấy customer ID từ conversations
             const facebookPsid = order.Facebook_ASUserId;
@@ -5379,12 +5379,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
             // Fetch initial messages with pagination support
             const response = await window.chatDataManager.fetchMessages(channelId, psid);
-            allChatMessages = response.messages || [];
+            window.allChatMessages = response.messages || [];
             currentChatCursor = response.after; // Store cursor for next page
 
-            console.log(`[CHAT] Initial load: ${allChatMessages.length} messages, cursor: ${currentChatCursor}`);
+            console.log(`[CHAT] Initial load: ${window.allChatMessages.length} messages, cursor: ${currentChatCursor}`);
 
-            renderChatMessages(allChatMessages, true);
+            renderChatMessages(window.allChatMessages, true);
 
             // Setup infinite scroll for messages
             setupChatInfiniteScroll();
@@ -5461,8 +5461,8 @@ window.closeChatModal = async function () {
     window.currentChatPSID = null;
     currentChatType = null;
     currentChatCursor = null;
-    allChatMessages = [];
-    allChatComments = [];
+    window.allChatMessages = [];
+    window.allChatComments = [];
     isLoadingMoreMessages = false;
     currentOrder = null;
     currentChatOrderId = null;
@@ -6558,8 +6558,8 @@ async function sendMessageInternal(messageData) {
             }));
         }
 
-        allChatMessages.push(tempMessage);
-        renderChatMessages(allChatMessages, true);
+        window.allChatMessages.push(tempMessage);
+        renderChatMessages(window.allChatMessages, true);
 
         console.log('[MESSAGE] Added optimistic message to UI');
 
@@ -6569,8 +6569,8 @@ async function sendMessageInternal(messageData) {
                 if (window.currentChatPSID) {
                     const response = await window.chatDataManager.fetchMessages(channelId, window.currentChatPSID);
                     if (response.messages && response.messages.length > 0) {
-                        allChatMessages = response.messages;
-                        renderChatMessages(allChatMessages, false);
+                        window.allChatMessages = response.messages;
+                        renderChatMessages(window.allChatMessages, false);
                         console.log('[MESSAGE] Replaced temp messages with real data');
                     }
                 }
@@ -6828,8 +6828,8 @@ async function sendCommentInternal(commentData) {
             ParentId: parentCommentId
         };
 
-        allChatComments.push(tempComment);
-        renderComments(allChatComments, true);
+        window.allChatComments.push(tempComment);
+        renderComments(window.allChatComments, true);
 
         console.log('[COMMENT] Added optimistic comment to UI');
 
@@ -6839,16 +6839,16 @@ async function sendCommentInternal(commentData) {
                 if (window.currentChatPSID) {
                     const response = await window.chatDataManager.fetchComments(channelId, window.currentChatPSID);
                     if (response.comments && response.comments.length > 0) {
-                        allChatComments = allChatComments.filter(c => !c.is_temp);
+                        window.allChatComments = window.allChatComments.filter(c => !c.is_temp);
 
                         response.comments.forEach(newComment => {
-                            const exists = allChatComments.some(c => c.Id === newComment.Id);
+                            const exists = window.allChatComments.some(c => c.Id === newComment.Id);
                             if (!exists) {
-                                allChatComments.push(newComment);
+                                window.allChatComments.push(newComment);
                             }
                         });
 
-                        renderComments(allChatComments, false);
+                        renderComments(window.allChatComments, false);
                         console.log('[COMMENT] Replaced temp comments with real data');
                     }
                 }
@@ -6885,7 +6885,7 @@ function handleReplyToComment(commentId, postId) {
 
     // Set current parent comment ID
     // Look up the comment in allChatComments to get the full object
-    const comment = allChatComments.find(c => c.Id === commentId);
+    const comment = window.allChatComments.find(c => c.Id === commentId);
 
     if (comment) {
         // Use helper to get the correct ID (FacebookId, OriginalId, etc.)
@@ -7081,7 +7081,7 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 <i class="fas fa-arrow-up" style="margin-right: 6px; color: #3b82f6;"></i>
                 <span style="font-weight: 500;">Cuộn lên để tải thêm tin nhắn</span>
             </div>`;
-    } else if (allChatMessages.length > 0 && !currentChatCursor) {
+    } else if (window.allChatMessages.length > 0 && !currentChatCursor) {
         // No more messages (reached the beginning)
         loadingIndicator = `
             <div style="
@@ -7305,7 +7305,7 @@ function renderComments(comments, scrollToBottom = false) {
                 <i class="fas fa-arrow-up" style="margin-right: 6px; color: #3b82f6;"></i>
                 <span style="font-weight: 500;">Cuộn lên để tải thêm bình luận</span>
             </div>`;
-    } else if (allChatComments.length > 0 && !currentChatCursor) {
+    } else if (window.allChatComments.length > 0 && !currentChatCursor) {
         // No more comments (reached the beginning)
         loadingIndicator = `
             <div style="
@@ -7538,8 +7538,8 @@ async function loadMoreMessages() {
         // Append older messages to the beginning of the array
         const newMessages = response.messages || [];
         if (newMessages.length > 0) {
-            allChatMessages = [...allChatMessages, ...newMessages];
-            console.log(`[CHAT] ✅ Loaded ${newMessages.length} more messages. Total: ${allChatMessages.length}`);
+            window.allChatMessages = [...window.allChatMessages, ...newMessages];
+            console.log(`[CHAT] ✅ Loaded ${newMessages.length} more messages. Total: ${window.allChatMessages.length}`);
         } else {
             console.log(`[CHAT] ⚠️ No new messages loaded. Reached end or empty batch.`);
         }
@@ -7553,7 +7553,7 @@ async function loadMoreMessages() {
         }
 
         // Re-render with all messages, don't scroll to bottom
-        renderChatMessages(allChatMessages, false);
+        renderChatMessages(window.allChatMessages, false);
 
         // Restore scroll position (adjust for new content height)
         setTimeout(() => {
@@ -7605,8 +7605,8 @@ async function loadMoreComments() {
         // Append older comments to the beginning of the array
         const newComments = response.comments || [];
         if (newComments.length > 0) {
-            allChatComments = [...allChatComments, ...newComments];
-            console.log(`[CHAT] ✅ Loaded ${newComments.length} more comments. Total: ${allChatComments.length}`);
+            window.allChatComments = [...window.allChatComments, ...newComments];
+            console.log(`[CHAT] ✅ Loaded ${newComments.length} more comments. Total: ${window.allChatComments.length}`);
         } else {
             console.log(`[CHAT] ⚠️ No new comments loaded. Reached end or empty batch.`);
         }
@@ -7620,7 +7620,7 @@ async function loadMoreComments() {
         }
 
         // Re-render with all comments, don't scroll to bottom
-        renderComments(allChatComments, false);
+        renderComments(window.allChatComments, false);
 
         // Restore scroll position (adjust for new content height)
         setTimeout(() => {
