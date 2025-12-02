@@ -33,29 +33,15 @@ let currentPastedImage = null; // Track pasted image for chat reply (deprecated 
 let uploadedImagesData = []; // Track uploaded images data (array for multiple images)
 
 // =====================================================
-// FIREBASE CONFIGURATION FOR NOTE TRACKING
+// FIREBASE DATABASE REFERENCE FOR NOTE TRACKING
 // =====================================================
-const firebaseConfig = {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D"
-};
-
-// Initialize Firebase
+// Note: Firebase is already initialized in config.js which loads before this file
 let database = null;
 try {
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-        console.log('[NOTE-TRACKER] Firebase initialized successfully');
-    }
     database = firebase.database();
+    console.log('[NOTE-TRACKER] Firebase database reference obtained');
 } catch (error) {
-    console.error('[NOTE-TRACKER] Firebase initialization error:', error);
+    console.error('[NOTE-TRACKER] Firebase database reference error:', error);
 }
 
 // =====================================================
