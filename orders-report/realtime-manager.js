@@ -212,6 +212,9 @@ class RealtimeManager {
                 if (data.type === 'pages:update_conversation') {
                     console.log('[REALTIME] Received update from Proxy:', data.payload);
                     this.handleUpdateConversation(data.payload);
+                } else if (data.type === 'order:tags_updated') {
+                    console.log('[REALTIME] Received tag update from Proxy:', data.payload);
+                    this.handleOrderTagsUpdate(data.payload);
                 }
             } catch (e) {
                 console.error('[REALTIME] Error parsing proxy message:', e);
@@ -427,6 +430,8 @@ class RealtimeManager {
                 }
             } else if (event === 'pages:update_conversation') {
                 this.handleUpdateConversation(payload);
+            } else if (event === 'order:tags_updated') {
+                this.handleOrderTagsUpdate(payload);
             } else if (event === 'online_status') {
                 // Handle online status if needed
             }
@@ -456,6 +461,32 @@ class RealtimeManager {
             // Optional: Toast notification
             // console.log('New message:', conversation.snippet);
         }
+    }
+
+    /**
+     * Handle order tags update from WebSocket
+     * Payload format: { orderId, tags, updatedBy, orderCode, campaignId, timestamp }
+     */
+    handleOrderTagsUpdate(payload) {
+        console.log('[REALTIME] Order Tags Updated:', payload);
+
+        const { orderId, tags, updatedBy, orderCode, campaignId } = payload;
+        if (!orderId || !tags) return;
+
+        // Dispatch event for UI to update
+        const event = new CustomEvent('realtimeOrderTagsUpdate', {
+            detail: {
+                orderId,
+                tags,
+                updatedBy,
+                orderCode,
+                campaignId,
+                timestamp: payload.timestamp || Date.now()
+            }
+        });
+        window.dispatchEvent(event);
+
+        console.log(`[REALTIME] Tag update dispatched for order ${orderCode}`);
     }
 }
 
