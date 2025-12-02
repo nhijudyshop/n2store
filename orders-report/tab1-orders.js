@@ -47,8 +47,6 @@ try {
 // =====================================================
 // REALTIME TAG SYNC - Firebase & WebSocket
 // =====================================================
-let currentCampaignId = null; // Track current campaign for realtime filtering
-let currentUserName = null; // Track current user name for notifications
 
 /**
  * Emit TAG update to Firebase for realtime sync across users
@@ -60,37 +58,33 @@ async function emitTagUpdateToFirebase(orderId, tags) {
     }
 
     try {
-        // Get current campaign ID and order code
+        // Get current order data
         const order = allData.find(o => o.Id === orderId);
         if (!order) {
             console.warn('[TAG-REALTIME] Order not found in allData:', orderId);
             return;
         }
 
-        const campaignId = document.getElementById('campaignFilter')?.value;
-        if (!campaignId || campaignId === 'all') {
-            console.warn('[TAG-REALTIME] No specific campaign selected, using order campaign');
-        }
-
-        // Get current user name (from token manager or localStorage)
+        // Get current user display name from authManager
         let userName = 'Unknown User';
-        if (window.tokenManager && window.tokenManager.getTokenInfo) {
-            const tokenInfo = window.tokenManager.getTokenInfo();
-            userName = tokenInfo?.name || tokenInfo?.email || userName;
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        if (auth && auth.displayName) {
+            userName = auth.displayName;
         }
 
         // Emit to Firebase
         const updateData = {
             orderId: orderId,
             orderCode: order.Code,
+            STT: order.STT, // Add STT
             tags: tags,
             updatedBy: userName,
-            campaignId: order.CampaignId || campaignId,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
 
-        // Write to Firebase path: /tag_updates/{campaignId}/{orderId}
-        const refPath = `tag_updates/${updateData.campaignId}/${orderId}`;
+        // Write to Firebase path: /tag_updates/{orderId}
+        // Remove campaignId nesting
+        const refPath = `tag_updates/${orderId}`;
         await database.ref(refPath).set(updateData);
 
         console.log('[TAG-REALTIME] Tag update emitted to Firebase:', refPath, updateData);
@@ -105,51 +99,38 @@ async function emitTagUpdateToFirebase(orderId, tags) {
 function setupTagRealtimeListeners() {
     // 1. Setup Firebase listener
     if (database) {
-        const campaignId = document.getElementById('campaignFilter')?.value;
-        if (!campaignId || campaignId === 'all') {
-            console.warn('[TAG-REALTIME] No campaign selected, skipping Firebase listener');
-        } else {
-            currentCampaignId = campaignId;
-            const refPath = `tag_updates/${campaignId}`;
+        const refPath = `tag_updates`;
+        console.log('[TAG-REALTIME] Setting up Firebase listener on:', refPath);
 
-            console.log('[TAG-REALTIME] Setting up Firebase listener on:', refPath);
+        // Get current user name
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const currentUserName = auth && auth.displayName ? auth.displayName : 'Unknown';
 
-            database.ref(refPath).on('child_changed', (snapshot) => {
-                const updateData = snapshot.val();
-                console.log('[TAG-REALTIME] Firebase tag update received:', updateData);
+        // Listen for tag updates
+        database.ref(refPath).on('child_changed', (snapshot) => {
+            const updateData = snapshot.val();
+            console.log('[TAG-REALTIME] Firebase tag update received:', updateData);
 
-                // Check if update is from another user
-                let currentUserName = 'Unknown';
-                if (window.tokenManager && window.tokenManager.getTokenInfo) {
-                    const tokenInfo = window.tokenManager.getTokenInfo();
-                    currentUserName = tokenInfo?.name || tokenInfo?.email || currentUserName;
-                }
+            // Only process if update is from another user
+            if (updateData.updatedBy !== currentUserName) {
+                handleRealtimeTagUpdate(updateData, 'firebase');
+            }
+        });
 
+        database.ref(refPath).on('child_added', (snapshot) => {
+            const updateData = snapshot.val();
+
+            // Only process if timestamp is recent (within last 5 seconds)
+            // This prevents showing notifications for old data when first connecting
+            if (updateData.timestamp && (Date.now() - updateData.timestamp < 5000)) {
+                console.log('[TAG-REALTIME] Firebase new tag update:', updateData);
+
+                // Only process if update is from another user
                 if (updateData.updatedBy !== currentUserName) {
                     handleRealtimeTagUpdate(updateData, 'firebase');
                 }
-            });
-
-            database.ref(refPath).on('child_added', (snapshot) => {
-                const updateData = snapshot.val();
-
-                // Only process if timestamp is recent (within last 5 seconds)
-                // This prevents showing notifications for old data when first connecting
-                if (updateData.timestamp && (Date.now() - updateData.timestamp < 5000)) {
-                    console.log('[TAG-REALTIME] Firebase new tag update:', updateData);
-
-                    let currentUserName = 'Unknown';
-                    if (window.tokenManager && window.tokenManager.getTokenInfo) {
-                        const tokenInfo = window.tokenManager.getTokenInfo();
-                        currentUserName = tokenInfo?.name || tokenInfo?.email || currentUserName;
-                    }
-
-                    if (updateData.updatedBy !== currentUserName) {
-                        handleRealtimeTagUpdate(updateData, 'firebase');
-                    }
-                }
-            });
-        }
+            }
+        });
     }
 
     // 2. Setup WebSocket listener (for future backend support)
@@ -166,9 +147,16 @@ function setupTagRealtimeListeners() {
  * Handle realtime TAG update from Firebase or WebSocket
  */
 function handleRealtimeTagUpdate(updateData, source) {
-    const { orderId, orderCode, tags, updatedBy, campaignId } = updateData;
+    const { orderId, orderCode, STT, tags, updatedBy } = updateData;
 
     console.log(`[TAG-REALTIME] Processing update from ${source}:`, updateData);
+
+    // Check if this order is in current view
+    const orderExists = allData.find(o => o.Id === orderId);
+    if (!orderExists) {
+        console.log('[TAG-REALTIME] Order not in current view, skipping update');
+        return;
+    }
 
     // 🚨 CONFLICT RESOLUTION: Check if user is currently editing this order's tags
     if (currentEditingOrderId === orderId) {
@@ -181,7 +169,7 @@ function handleRealtimeTagUpdate(updateData, source) {
 
             if (window.notificationManager) {
                 window.notificationManager.show(
-                    `⚠️ ${updatedBy} vừa cập nhật TAG cho đơn ${orderCode}. Modal đã được đóng để tránh conflict.`,
+                    `⚠️ ${updatedBy} vừa cập nhật TAG cho đơn ${orderCode} (STT: ${STT}). Modal đã được đóng để tránh conflict.`,
                     'warning',
                     6000
                 );
@@ -196,7 +184,7 @@ function handleRealtimeTagUpdate(updateData, source) {
     // Show notification
     const tagNames = tags.map(t => t.Name).join(', ');
     const sourceIcon = source === 'firebase' ? '🔥' : '⚡';
-    const message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode}: ${tagNames}`;
+    const message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode} (STT: ${STT}): ${tagNames}`;
 
     if (window.notificationManager) {
         window.notificationManager.show(message, 'info', 4000);
@@ -209,11 +197,10 @@ function handleRealtimeTagUpdate(updateData, source) {
  * Cleanup Firebase listeners when changing campaign
  */
 function cleanupTagRealtimeListeners() {
-    if (database && currentCampaignId) {
-        const refPath = `tag_updates/${currentCampaignId}`;
+    if (database) {
+        const refPath = `tag_updates`;
         database.ref(refPath).off();
         console.log('[TAG-REALTIME] Cleaned up Firebase listeners for:', refPath);
-        currentCampaignId = null;
     }
 }
 

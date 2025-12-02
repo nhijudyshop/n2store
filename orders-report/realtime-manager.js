@@ -465,28 +465,28 @@ class RealtimeManager {
 
     /**
      * Handle order tags update from WebSocket
-     * Payload format: { orderId, tags, updatedBy, orderCode, campaignId, timestamp }
+     * Payload format: { orderId, orderCode, STT, tags, updatedBy, timestamp }
      */
     handleOrderTagsUpdate(payload) {
         console.log('[REALTIME] Order Tags Updated:', payload);
 
-        const { orderId, tags, updatedBy, orderCode, campaignId } = payload;
+        const { orderId, tags, updatedBy, orderCode, STT } = payload;
         if (!orderId || !tags) return;
 
         // Dispatch event for UI to update
         const event = new CustomEvent('realtimeOrderTagsUpdate', {
             detail: {
                 orderId,
+                orderCode,
+                STT,
                 tags,
                 updatedBy,
-                orderCode,
-                campaignId,
                 timestamp: payload.timestamp || Date.now()
             }
         });
         window.dispatchEvent(event);
 
-        console.log(`[REALTIME] Tag update dispatched for order ${orderCode}`);
+        console.log(`[REALTIME] Tag update dispatched for order ${orderCode} (STT: ${STT})`);
     }
 }
 

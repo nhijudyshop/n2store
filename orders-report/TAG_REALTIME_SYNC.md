@@ -127,9 +127,9 @@ Nếu backend TPOS hỗ trợ WebSocket, có thể emit event để tăng tốc 
 socket.broadcast.emit('order:tags_updated', {
   orderId: req.body.OrderId,
   orderCode: order.Code,
+  STT: order.STT,
   tags: req.body.Tags,
-  updatedBy: req.user.name || req.user.email,
-  campaignId: order.CampaignId,
+  updatedBy: req.user.displayName || req.user.name,
   timestamp: Date.now()
 });
 ```
@@ -146,9 +146,9 @@ const message = [
   {
     orderId: '...',
     orderCode: '...',
+    STT: 123,
     tags: [...],
-    updatedBy: '...',
-    campaignId: '...',
+    updatedBy: 'Display Name',
     timestamp: 1234567890
   }
 ];
@@ -188,18 +188,22 @@ T2: Kết nối lại
 
 ```
 /tag_updates
-  /{campaignId}
-    /{orderId}
-      orderId: "uuid"
-      orderCode: "DH123"
-      tags: [
-        { Id: 123, Name: "VIP", Color: "#ff0000" },
-        { Id: 456, Name: "Ưu tiên", Color: "#00ff00" }
-      ]
-      updatedBy: "user@example.com"
-      campaignId: "campaign-uuid"
-      timestamp: 1234567890
+  /{orderId}
+    orderId: "uuid"
+    orderCode: "DH123"
+    STT: 123
+    tags: [
+      { Id: 123, Name: "VIP", Color: "#ff0000" },
+      { Id: 456, Name: "Ưu tiên", Color: "#00ff00" }
+    ]
+    updatedBy: "Display Name"
+    timestamp: 1234567890
 ```
+
+**Note:**
+- No `campaignId` nesting - simpler structure
+- `STT` field included for better notification context
+- `updatedBy` uses `authManager.getAuthState().displayName`
 
 **Retention Policy:**
 - Data tự động expire sau 24h (có thể config trong Firebase Rules)
