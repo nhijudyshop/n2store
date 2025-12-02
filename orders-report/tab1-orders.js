@@ -5123,9 +5123,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     const chatInput = document.getElementById('chatReplyInput');
     chatInput.value = '';
 
-    // Reset pasted image
+    // Reset pasted image and uploaded images array
     currentPastedImage = null;
     window.currentPastedImage = null;
+    window.uploadedImagesData = [];
+    window.isUploadingImages = false;
     const previewContainer = document.getElementById('chatImagePreviewContainer');
     if (previewContainer) {
         previewContainer.innerHTML = '';
@@ -5174,8 +5176,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             chatSendBtn.disabled = false;
             chatSendBtn.style.opacity = '1';
             chatSendBtn.style.cursor = 'pointer';
+            chatSendBtn.title = 'Gửi tin nhắn';
         }
     }
+
+    // Ensure send button is in correct state after modal initialization
+    updateSendButtonState();
 
     // Fetch messages or comments based on type
     try {
@@ -5469,6 +5475,12 @@ window.closeChatModal = async function () {
     window.currentConversationId = null;
     currentParentCommentId = null;
     currentPostId = null;
+
+    // Reset image upload state
+    currentPastedImage = null;
+    window.currentPastedImage = null;
+    window.uploadedImagesData = [];
+    window.isUploadingImages = false;
 
     // Hide reply preview
     const replyPreviewContainer = document.getElementById('chatReplyPreviewContainer');
