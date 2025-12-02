@@ -367,15 +367,17 @@
      * @returns {string} Final encoded note
      */
     function processNoteForUpload(currentNote, products) {
-        // Step 1: Decode current note if it's encoded
+        // Step 1: Decode current note
         let plainNote = '';
         if (currentNote && currentNote.trim() !== '') {
             if (isNoteEncoded(currentNote)) {
-                console.log('[NOTE] Current note is encoded, decoding...');
+                // Full note is encoded → decode it
+                console.log('[NOTE] Current note is full-encoded, decoding...');
                 plainNote = decodeFullNote(currentNote) || '';
             } else {
-                console.log('[NOTE] Current note is plain text');
-                plainNote = currentNote;
+                // Note might have per-line encoded strings → decode each line
+                console.log('[NOTE] Decoding note line-by-line...');
+                plainNote = decodeNoteLineByLine(currentNote);
             }
         }
 
@@ -401,6 +403,40 @@
         console.log('[NOTE] Encoded note length:', encoded.length);
 
         return encoded;
+    }
+
+    /**
+     * Decode note line by line - for migration from old format (per-line encoding)
+     * @param {string} note - Note text (may contain encoded product lines)
+     * @returns {string} Decoded plain text note
+     */
+    function decodeNoteLineByLine(note) {
+        if (!note) return '';
+
+        const lines = note.split('\n');
+        const decodedLines = lines.map(line => {
+            const trimmed = line.trim();
+
+            // Empty line → keep as-is
+            if (!trimmed) return line;
+
+            // Check if line looks like it might be encoded (no spaces, reasonable length)
+            if (trimmed.length > 20 && !trimmed.includes(' ')) {
+                // Try to decode as product line
+                const decoded = decodeProductLine(trimmed);
+
+                if (decoded) {
+                    // ✅ Successfully decoded → convert to plain text
+                    console.log(`[NOTE] ✓ Decoded line: ${decoded.productCode} x${decoded.quantity}`);
+                    return `Product: ${decoded.productCode} - Quantity: ${decoded.quantity} - Price: ${decoded.price}`;
+                }
+            }
+
+            // ❌ Not encoded or decode failed → keep original line
+            return line;
+        });
+
+        return decodedLines.join('\n');
     }
 
     /**
