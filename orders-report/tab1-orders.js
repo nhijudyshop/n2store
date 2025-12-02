@@ -6018,7 +6018,31 @@ window.setReplyMessage = function (message) {
         const messageText = extractMessageText(message);
         const truncated = messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText;
 
-        previewText.textContent = truncated;
+        // Get sender name
+        const senderName = message.FromName || message.from?.name || 'Khách hàng';
+
+        // Get timestamp
+        const timestamp = message.CreatedTime || message.updated_at || message.created_at;
+        let timeStr = '';
+        if (timestamp) {
+            const date = new Date(timestamp);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            timeStr = `${day}/${month}/${year} ${hours}:${minutes}`;
+        }
+
+        // Display with timestamp
+        previewText.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 8px;">
+                <div style="flex: 1; min-width: 0;">
+                    <strong>${senderName}:</strong> ${truncated}
+                </div>
+                ${timeStr ? `<div style="color: #6b7280; font-size: 12px; white-space: nowrap; flex-shrink: 0;">${timeStr}</div>` : ''}
+            </div>
+        `;
         previewContainer.style.display = 'block';
     }
 
@@ -6026,7 +6050,7 @@ window.setReplyMessage = function (message) {
     const input = document.getElementById('chatReplyInput');
     if (input) input.focus();
 
-    console.log('[REPLY] Set reply to message:', message.id || message.Id);
+    console.log('[REPLY] Set reply to message:', message.id || message.Id, 'at', timestamp);
 };
 
 /**
@@ -6921,16 +6945,38 @@ function handleReplyToComment(commentId, postId) {
         // Get sender name
         const senderName = comment.FromName || comment.from?.name || 'Khách hàng';
 
+        // Get timestamp (use CreatedTime or updated_at)
+        const timestamp = comment.CreatedTime || comment.updated_at || comment.created_at;
+        let timeStr = '';
+        if (timestamp) {
+            const date = new Date(timestamp);
+            // Format: DD/MM/YYYY HH:mm
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            timeStr = `${day}/${month}/${year} ${hours}:${minutes}`;
+        }
+
         // Show preview with sender name and truncated message
         const maxLength = 100;
         const truncatedText = commentText.length > maxLength
             ? commentText.substring(0, maxLength) + '...'
             : commentText;
 
-        previewText.innerHTML = `<strong>${senderName}:</strong> ${truncatedText}`;
+        // Display with timestamp
+        previewText.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 8px;">
+                <div style="flex: 1; min-width: 0;">
+                    <strong>${senderName}:</strong> ${truncatedText}
+                </div>
+                ${timeStr ? `<div style="color: #6b7280; font-size: 12px; white-space: nowrap; flex-shrink: 0;">${timeStr}</div>` : ''}
+            </div>
+        `;
         previewContainer.style.display = 'block';
 
-        console.log('[REPLY] Showing preview for comment:', senderName, truncatedText);
+        console.log('[REPLY] Showing preview for comment:', senderName, truncatedText, 'at', timeStr);
     }
 
     // Focus input and enable it for replying
