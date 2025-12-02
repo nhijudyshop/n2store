@@ -2808,10 +2808,16 @@ ${encodedString}
             // Get current user ID
             const currentUserId = userStorageManager ? userStorageManager.getUserIdentifier() : null;
 
-            // Calculate total assignments (including duplicates) from beforeSnapshot
+            // Calculate total assignments and success/fail counts (including duplicates) from beforeSnapshot
             // This counts all product-STT assignments, not just unique STTs
             let totalAssignments = 0;
+            let successfulAssignments = 0;
+            let failedAssignments = 0;
+
+            // Create maps for quick lookup
             const uploadedSTTsSet = new Set(results.map(r => r.stt));
+            const successfulSTTsSet = new Set(results.filter(r => r.success).map(r => r.stt));
+            const failedSTTsSet = new Set(results.filter(r => !r.success).map(r => r.stt));
 
             if (beforeSnapshot && beforeSnapshot.assignments) {
                 beforeSnapshot.assignments.forEach(assignment => {
@@ -2821,6 +2827,13 @@ ${encodedString}
                             // Only count assignments for STTs that were uploaded
                             if (uploadedSTTsSet.has(stt)) {
                                 totalAssignments++;
+
+                                // Count as success or fail based on upload result
+                                if (successfulSTTsSet.has(stt)) {
+                                    successfulAssignments++;
+                                } else if (failedSTTsSet.has(stt)) {
+                                    failedAssignments++;
+                                }
                             }
                         });
                     }
@@ -2828,6 +2841,8 @@ ${encodedString}
             }
 
             console.log('[HISTORY] 📊 Total assignments (including duplicates):', totalAssignments);
+            console.log('[HISTORY] 📊 Successful assignments:', successfulAssignments);
+            console.log('[HISTORY] 📊 Failed assignments:', failedAssignments);
             console.log('[HISTORY] 📊 Unique STTs:', results.length);
 
             // Build history record
@@ -2861,8 +2876,8 @@ ${encodedString}
                 // Statistics
                 totalSTTs: results.length, // Unique STTs count (for backward compatibility)
                 totalAssignments: totalAssignments, // Total assignments including duplicates
-                successCount: results.filter(r => r.success).length,
-                failCount: results.filter(r => !r.success).length,
+                successCount: successfulAssignments, // Total successful assignments (including duplicates)
+                failCount: failedAssignments, // Total failed assignments (including duplicates)
 
                 // Status
                 uploadStatus: status,
@@ -3724,16 +3739,29 @@ ${encodedString}
             });
         }
 
-        // Get successful and failed STTs
+        // Get successful and failed STTs (including all assignments with duplicates)
         const successfulSTTs = [];
         const failedSTTs = [];
-        Object.entries(uploadResultsMap).forEach(([stt, result]) => {
-            if (result.success) {
-                successfulSTTs.push(stt);
-            } else {
-                failedSTTs.push(stt);
-            }
-        });
+
+        // Iterate through all products and their STT assignments
+        if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+            record.beforeSnapshot.assignments.forEach(assignment => {
+                if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                    assignment.sttList.forEach(sttItem => {
+                        const stt = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+                        const result = uploadResultsMap[stt];
+
+                        if (result) {
+                            if (result.success) {
+                                successfulSTTs.push(stt);
+                            } else {
+                                failedSTTs.push(stt);
+                            }
+                        }
+                    });
+                }
+            });
+        }
 
         // Render products grouped by product code
         html += '<h6 class="mb-3"><i class="fas fa-box"></i> Sản phẩm đã upload</h6>';
