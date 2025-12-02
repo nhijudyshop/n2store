@@ -6361,46 +6361,57 @@ async function sendReplyCommentInternal(messageData) {
 
         if (chatType === 'message') {
             // Payload for sending a message (reply_inbox)
-            // ALWAYS use FormData (multipart/form-data) for messages
-            const formData = new FormData();
-            formData.append('action', 'reply_inbox');
-            formData.append('message', finalMessage);
-            formData.append('send_by_platform', 'web');
+            // Use JSON for messages (Pancake API requires JSON, not multipart)
+            const payload = {
+                action: 'reply_inbox',
+                message: finalMessage,
+                send_by_platform: 'web'
+            };
 
             // Add multiple images data if exists (NEW: Arrays for multiple images)
             if (imagesDataArray.length > 0) {
-                console.log('[SEND-REPLY] Adding', imagesDataArray.length, 'images to FormData');
+                console.log('[SEND-REPLY] Adding', imagesDataArray.length, 'images to payload');
+
+                // Build arrays for content_ids, content_urls, dimensions
+                payload.content_ids = [];
+                payload.content_urls = [];
+                payload.dimensions = [];
 
                 imagesDataArray.forEach((imageData, index) => {
-                    // API expects arrays: content_urls[], content_ids[], dimensions[]
-                    formData.append('content_urls', imageData.content_url);
-                    if (imageData.content_id) {
-                        formData.append('content_ids', imageData.content_id);
+                    // Add to arrays
+                    payload.content_urls.push(imageData.content_url);
+
+                    if (imageData.id) {
+                        // Use 'id' field (UUID) for content_ids
+                        payload.content_ids.push(imageData.id);
                     }
 
-                    // Dimensions as JSON string for each image
-                    const dimensionJson = JSON.stringify({
-                        width: imageData.width || 0,
-                        height: imageData.height || 0
+                    // Dimensions as object
+                    payload.dimensions.push({
+                        width: imageData.image_data?.width || imageData.width || 0,
+                        height: imageData.image_data?.height || imageData.height || 0
                     });
-                    formData.append('dimensions', dimensionJson);
                 });
 
-                console.log('[SEND-REPLY] FormData prepared with', imagesDataArray.length, 'images');
+                console.log('[SEND-REPLY] Payload prepared with', imagesDataArray.length, 'images');
             }
 
             // Add replied_message_id if exists
             if (repliedMessageId) {
-                formData.append('replied_message_id', repliedMessageId);
+                payload.replied_message_id = repliedMessageId;
                 console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
             }
 
             fetchOptions = {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
             };
 
-            console.log('[SEND-REPLY] Using FormData (multipart) for message');
+            console.log('[SEND-REPLY] Using JSON payload for message');
+            console.log('[SEND-REPLY] Payload:', JSON.stringify(payload, null, 2));
 
             console.log('[SEND-REPLY] POST URL:', replyUrl);
             console.log('[SEND-REPLY] Request options:', fetchOptions);
