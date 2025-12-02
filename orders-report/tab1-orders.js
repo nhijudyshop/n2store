@@ -6136,9 +6136,17 @@ async function processChatMessageQueue() {
 
         const messageData = window.chatMessageQueue.shift();
         try {
-            await sendReplyCommentInternal(messageData);
+            // Route to correct function based on chatType
+            if (messageData.chatType === 'message') {
+                await sendMessageInternal(messageData);
+            } else if (messageData.chatType === 'comment') {
+                await sendCommentInternal(messageData);
+            } else {
+                console.error('[QUEUE] Unknown chatType:', messageData.chatType);
+                throw new Error('Unknown chatType: ' + messageData.chatType);
+            }
         } catch (error) {
-            console.error('[QUEUE] Error sending message:', error);
+            console.error('[QUEUE] Error sending:', error);
             // Continue with next message even if this one fails
         }
     }
@@ -6147,14 +6155,17 @@ async function processChatMessageQueue() {
     hideChatSendingIndicator();
 }
 
+// =====================================================
+// PUBLIC API - Message Modal
+// =====================================================
+
 /**
- * Gửi reply comment theo Pancake API (Public wrapper - add to queue)
- * Flow: POST /conversations/{conversationId}/messages -> POST /sync_comments -> Refresh
+ * Send message (MESSAGE modal only)
+ * Public wrapper - adds to queue
  */
-window.sendReplyComment = async function () {
-    // Prevent double sending (e.g., from Enter key + button click)
+window.sendMessage = async function () {
     if (isSendingMessage) {
-        console.log('[SEND-REPLY] Already sending, skipping duplicate call');
+        console.log('[MESSAGE] Already sending, skipping duplicate call');
         return;
     }
     isSendingMessage = true;
@@ -6163,7 +6174,7 @@ window.sendReplyComment = async function () {
         const messageInput = document.getElementById('chatReplyInput');
         let message = messageInput.value.trim();
 
-        // Add signature to message (only for text messages, not images/files)
+        // Add signature
         if (message) {
             const auth = window.authManager ? window.authManager.getAuthState() : null;
             const displayName = auth && auth.displayName ? auth.displayName : null;
@@ -6172,7 +6183,7 @@ window.sendReplyComment = async function () {
             }
         }
 
-        // Validate - NEW: Check uploadedImagesData array
+        // Validate
         const hasImages = (window.uploadedImagesData && window.uploadedImagesData.length > 0);
         if (!message && !hasImages) {
             alert('Vui lòng nhập tin nhắn hoặc dán ảnh!');
@@ -6180,42 +6191,33 @@ window.sendReplyComment = async function () {
         }
 
         // Validate required info
-        const missingInfo = !currentOrder || !window.currentConversationId || !window.currentChatChannelId;
-        if (missingInfo) {
+        if (!currentOrder || !window.currentConversationId || !window.currentChatChannelId) {
             alert('Thiếu thông tin để gửi tin nhắn. Vui lòng đóng và mở lại modal.');
-            console.error('[SEND-REPLY] Missing required info:', {
-                currentOrder: !!currentOrder,
-                currentConversationId: !!window.currentConversationId,
-                currentChatChannelId: !!window.currentChatChannelId,
-                currentChatType
-            });
+            console.error('[MESSAGE] Missing required info');
             return;
         }
 
-        // Capture replied message ID before clearing state
+        // Capture replied message ID
         const repliedMessageId = window.currentReplyingToMessage ?
             (window.currentReplyingToMessage.id || window.currentReplyingToMessage.Id || null) : null;
 
-        // Add message to queue
-        console.log('[QUEUE] Adding message to queue', { repliedMessageId, imageCount: window.uploadedImagesData?.length || 0 });
+        // Add to queue
+        console.log('[MESSAGE] Adding to queue', { repliedMessageId, imageCount: window.uploadedImagesData?.length || 0 });
         window.chatMessageQueue.push({
             message,
-            uploadedImagesData: window.uploadedImagesData || [], // NEW: Array of pre-uploaded images
+            uploadedImagesData: window.uploadedImagesData || [],
             order: currentOrder,
             conversationId: window.currentConversationId,
             channelId: window.currentChatChannelId,
-            chatType: currentChatType,
-            parentCommentId: currentParentCommentId,
-            postId: currentPostId || currentOrder.Facebook_PostId,
-            repliedMessageId: repliedMessageId  // Add replied message ID
+            chatType: 'message', // EXPLICITLY set to message
+            repliedMessageId: repliedMessageId
         });
 
-        // Clear input immediately for next message
+        // Clear input
         messageInput.value = '';
-        // Reset textarea height to default
         messageInput.style.height = 'auto';
 
-        // Clear all images using new multiple images logic
+        // Clear images
         if (window.clearAllImages) {
             window.clearAllImages();
         }
@@ -6226,16 +6228,121 @@ window.sendReplyComment = async function () {
         window.currentPastedImageProductId = null;
         window.currentPastedImageProductName = null;
 
-        // Clear reply state (works for both messages and comments)
+        // Clear reply state
         window.cancelReply();
 
         // Process queue
         processChatMessageQueue();
     } finally {
-        // Reset flag after a short delay to allow the function to complete
         setTimeout(() => {
             isSendingMessage = false;
         }, 100);
+    }
+};
+
+// =====================================================
+// PUBLIC API - Comment Modal
+// =====================================================
+
+/**
+ * Send comment reply (COMMENT modal only)
+ * Public wrapper - adds to queue
+ */
+window.sendComment = async function () {
+    if (isSendingMessage) {
+        console.log('[COMMENT] Already sending, skipping duplicate call');
+        return;
+    }
+    isSendingMessage = true;
+
+    try {
+        const messageInput = document.getElementById('chatReplyInput');
+        let message = messageInput.value.trim();
+
+        // Add signature
+        if (message) {
+            const auth = window.authManager ? window.authManager.getAuthState() : null;
+            const displayName = auth && auth.displayName ? auth.displayName : null;
+            if (displayName) {
+                message = message + '\nNv. ' + displayName;
+            }
+        }
+
+        // Validate
+        const hasImages = (window.uploadedImagesData && window.uploadedImagesData.length > 0);
+        if (!message && !hasImages) {
+            alert('Vui lòng nhập bình luận hoặc dán ảnh!');
+            return;
+        }
+
+        // Validate required info
+        if (!currentOrder || !window.currentConversationId || !window.currentChatChannelId) {
+            alert('Thiếu thông tin để gửi bình luận. Vui lòng đóng và mở lại modal.');
+            console.error('[COMMENT] Missing required info');
+            return;
+        }
+
+        // Add to queue
+        console.log('[COMMENT] Adding to queue', { imageCount: window.uploadedImagesData?.length || 0 });
+        window.chatMessageQueue.push({
+            message,
+            uploadedImagesData: window.uploadedImagesData || [],
+            order: currentOrder,
+            conversationId: window.currentConversationId,
+            channelId: window.currentChatChannelId,
+            chatType: 'comment', // EXPLICITLY set to comment
+            parentCommentId: currentParentCommentId,
+            postId: currentPostId || currentOrder.Facebook_PostId
+        });
+
+        // Clear input
+        messageInput.value = '';
+        messageInput.style.height = 'auto';
+
+        // Clear images
+        if (window.clearAllImages) {
+            window.clearAllImages();
+        }
+
+        // Legacy cleanup
+        currentPastedImage = null;
+        window.currentPastedImage = null;
+        window.currentPastedImageProductId = null;
+        window.currentPastedImageProductName = null;
+
+        // Clear reply state (for nested comments)
+        if (window.cancelReply) {
+            window.cancelReply();
+        }
+
+        // Process queue
+        processChatMessageQueue();
+    } finally {
+        setTimeout(() => {
+            isSendingMessage = false;
+        }, 100);
+    }
+};
+
+// =====================================================
+// LEGACY WRAPPER - For backwards compatibility
+// =====================================================
+
+/**
+ * Legacy wrapper - routes to correct function based on currentChatType
+ * @deprecated Use window.sendMessage() or window.sendComment() directly
+ */
+window.sendReplyComment = async function () {
+    console.log('[LEGACY] sendReplyComment called, routing to:', currentChatType);
+
+    // Route to correct function based on chat type
+    if (currentChatType === 'message') {
+        return window.sendMessage();
+    } else if (currentChatType === 'comment') {
+        return window.sendComment();
+    } else {
+        console.error('[LEGACY] Unknown currentChatType:', currentChatType);
+        alert('Lỗi: Không xác định được loại modal (message/comment)');
     }
 };
 
@@ -6266,13 +6373,16 @@ function getImageDimensions(blob) {
     });
 }
 
-/**
- * Internal function to actually send the message (called by queue processor)
- */
-async function sendReplyCommentInternal(messageData) {
-    const { message, uploadedImagesData, order, conversationId, channelId, chatType, parentCommentId, postId, repliedMessageId } = messageData;
+// =====================================================
+// MESSAGE MODAL - Send message functions
+// =====================================================
 
-    const isMessage = chatType === 'message';
+/**
+ * Send message (MESSAGE modal only)
+ * Called by queue processor
+ */
+async function sendMessageInternal(messageData) {
+    const { message, uploadedImagesData, order, conversationId, channelId, repliedMessageId } = messageData;
 
     try {
         // Get Pancake token
@@ -6281,19 +6391,12 @@ async function sendReplyCommentInternal(messageData) {
             throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
         }
 
-        // Get TPOS PartnerId for message sending
-        const customerId = order.PartnerId || (order.Partner && order.Partner.Id);
+        showChatSendingIndicator('Đang gửi tin nhắn...');
 
-        // Check 24-hour window for INBOX messages only (skip check, already validated)
-        showChatSendingIndicator('Kiểm tra 24h...');
-
-        // Step 0: Process multiple images (NEW: Array of images)
+        // Step 1: Process multiple images
         let imagesDataArray = [];
-        let finalMessage = message;
-
-        // Handle multiple images - NEW: Process array of uploaded images
         if (uploadedImagesData && uploadedImagesData.length > 0) {
-            console.log('[SEND-REPLY] Processing', uploadedImagesData.length, 'images');
+            console.log('[MESSAGE] Processing', uploadedImagesData.length, 'images');
             showChatSendingIndicator(`Đang xử lý ${uploadedImagesData.length} ảnh...`);
 
             for (let i = 0; i < uploadedImagesData.length; i++) {
@@ -6302,12 +6405,11 @@ async function sendReplyCommentInternal(messageData) {
                 try {
                     // Check if image was already uploaded successfully
                     if (imageData.content_url && !imageData.uploadFailed) {
-                        // ✅ Use pre-uploaded data
-                        console.log(`[SEND-REPLY] Image ${i + 1}: Using pre-uploaded:`, imageData.content_url);
+                        console.log(`[MESSAGE] Image ${i + 1}: Using pre-uploaded:`, imageData.content_url);
                         imagesDataArray.push(imageData);
                     } else if (imageData.blob) {
-                        // ❌ Not uploaded yet (or upload failed) - Retry upload
-                        console.log(`[SEND-REPLY] Image ${i + 1}: Retrying upload...`);
+                        // Retry upload
+                        console.log(`[MESSAGE] Image ${i + 1}: Retrying upload...`);
                         showChatSendingIndicator(`Đang tải ảnh ${i + 1}/${uploadedImagesData.length}...`);
 
                         const result = await window.uploadImageWithCache(
@@ -6321,359 +6423,390 @@ async function sendReplyCommentInternal(messageData) {
                             throw new Error(`Ảnh ${i + 1} upload failed: ${result.error || 'Unknown error'}`);
                         }
 
-                        console.log(`[SEND-REPLY] Image ${i + 1}: Uploaded:`, result.data.content_url);
+                        console.log(`[MESSAGE] Image ${i + 1}: Uploaded:`, result.data.content_url);
                         imagesDataArray.push(result.data);
                     }
                 } catch (uploadError) {
-                    console.error(`[SEND-REPLY] Image ${i + 1} processing failed:`, uploadError);
+                    console.error(`[MESSAGE] Image ${i + 1} processing failed:`, uploadError);
                     throw new Error(`Tải ảnh ${i + 1} thất bại: ${uploadError.message}`);
                 }
             }
 
-            console.log('[SEND-REPLY] All images processed:', imagesDataArray.length);
+            console.log('[MESSAGE] All images processed:', imagesDataArray.length);
         }
 
-        const pageId = channelId;
+        // Step 2: Build JSON payload
+        const payload = {
+            action: 'reply_inbox',
+            message: message,
+            send_by_platform: 'web'
+        };
 
-        console.log('[SEND-REPLY] Sending reply comment...', {
-            pageId,
-            conversationId,
-            postId,
-            parentCommentId,
-            message: finalMessage,
-            imageCount: imagesDataArray.length
+        // Add multiple images data
+        if (imagesDataArray.length > 0) {
+            console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to payload');
+
+            payload.content_ids = [];
+            payload.content_urls = [];
+            payload.dimensions = [];
+
+            imagesDataArray.forEach((imageData) => {
+                payload.content_urls.push(imageData.content_url);
+
+                if (imageData.id) {
+                    payload.content_ids.push(imageData.id);
+                }
+
+                payload.dimensions.push({
+                    width: imageData.image_data?.width || imageData.width || 0,
+                    height: imageData.image_data?.height || imageData.height || 0
+                });
+            });
+        }
+
+        // Add replied_message_id if exists
+        if (repliedMessageId) {
+            payload.replied_message_id = repliedMessageId;
+            console.log('[MESSAGE] Adding replied_message_id:', repliedMessageId);
+        }
+
+        // Step 3: Send message
+        const replyUrl = window.API_CONFIG.buildUrl.pancake(
+            `pages/${channelId}/conversations/${conversationId}/messages`,
+            `access_token=${token}`
+        );
+
+        console.log('[MESSAGE] Sending message...');
+        console.log('[MESSAGE] URL:', replyUrl);
+        console.log('[MESSAGE] Payload:', JSON.stringify(payload, null, 2));
+
+        const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
         });
 
-        // Thread info variables (no longer fetched from inbox_preview)
-        let threadId = null;
-        let threadKey = null;
-        let fromId = null;
+        if (!replyResponse.ok) {
+            const errorText = await replyResponse.text();
+            console.error('[MESSAGE] Send failed:', errorText);
+            throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+        }
 
-        showChatSendingIndicator('Đang gửi...');
+        const replyData = await replyResponse.json();
+        console.log('[MESSAGE] Response:', replyData);
 
-        // Step 1: POST reply (comment or message)
-        const replyUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${pageId}/conversations/${conversationId}/messages`,
-            `access_token=${token}`
-        );
+        if (!replyData.success) {
+            console.error('[MESSAGE] API Error:', replyData);
+            const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
+            throw new Error('Gửi tin nhắn thất bại: ' + errorMessage);
+        }
 
-        let fetchOptions;
+        // Step 4: Optimistic UI update
+        const now = new Date().toISOString();
+        skipWebhookUpdate = true;
 
-        if (chatType === 'message') {
-            // Payload for sending a message (reply_inbox)
-            // Use JSON for messages (Pancake API requires JSON, not multipart)
-            const payload = {
-                action: 'reply_inbox',
-                message: finalMessage,
-                send_by_platform: 'web'
-            };
+        const tempMessage = {
+            Id: `temp_${Date.now()}`,
+            id: `temp_${Date.now()}`,
+            Message: message,
+            CreatedTime: now,
+            IsOwner: true,
+            is_temp: true
+        };
 
-            // Add multiple images data if exists (NEW: Arrays for multiple images)
-            if (imagesDataArray.length > 0) {
-                console.log('[SEND-REPLY] Adding', imagesDataArray.length, 'images to payload');
+        // Add image attachments
+        if (imagesDataArray && imagesDataArray.length > 0) {
+            tempMessage.Attachments = imagesDataArray.map(img => ({
+                Type: 'image',
+                Payload: { Url: img.content_url }
+            }));
+        }
 
-                // Build arrays for content_ids, content_urls, dimensions
-                payload.content_ids = [];
-                payload.content_urls = [];
-                payload.dimensions = [];
+        allChatMessages.push(tempMessage);
+        renderChatMessages(allChatMessages, true);
 
-                imagesDataArray.forEach((imageData, index) => {
-                    // Add to arrays
-                    payload.content_urls.push(imageData.content_url);
+        console.log('[MESSAGE] Added optimistic message to UI');
 
-                    if (imageData.id) {
-                        // Use 'id' field (UUID) for content_ids
-                        payload.content_ids.push(imageData.id);
+        // Step 5: Refresh messages from API
+        setTimeout(async () => {
+            try {
+                if (window.currentChatPSID) {
+                    const response = await window.chatDataManager.fetchMessages(channelId, window.currentChatPSID);
+                    if (response.messages && response.messages.length > 0) {
+                        allChatMessages = response.messages;
+                        renderChatMessages(allChatMessages, false);
+                        console.log('[MESSAGE] Replaced temp messages with real data');
                     }
-
-                    // Dimensions as object
-                    payload.dimensions.push({
-                        width: imageData.image_data?.width || imageData.width || 0,
-                        height: imageData.image_data?.height || imageData.height || 0
-                    });
-                });
-
-                console.log('[SEND-REPLY] Payload prepared with', imagesDataArray.length, 'images');
+                }
+            } finally {
+                skipWebhookUpdate = false;
             }
+        }, 300);
 
-            // Add replied_message_id if exists
-            if (repliedMessageId) {
-                payload.replied_message_id = repliedMessageId;
-                console.log('[SEND-REPLY] Adding replied_message_id:', repliedMessageId);
-            }
+        // Success notification
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã gửi tin nhắn thành công!', 'success');
+        }
 
-            fetchOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            };
+        console.log('[MESSAGE] ✅ Sent successfully');
 
-            console.log('[SEND-REPLY] Using JSON payload for message');
-            console.log('[SEND-REPLY] Payload:', JSON.stringify(payload, null, 2));
-
-            console.log('[SEND-REPLY] POST URL:', replyUrl);
-            console.log('[SEND-REPLY] Request options:', fetchOptions);
-
-            const replyResponse = await API_CONFIG.smartFetch(replyUrl, fetchOptions);
-
-            if (!replyResponse.ok) {
-                const errorText = await replyResponse.text();
-                console.error('[SEND-REPLY] Reply failed:', errorText);
-                throw new Error(`Gửi tin nhắn thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
-            }
-
-            const replyData = await replyResponse.json();
-            console.log('[SEND-REPLY] Reply response:', replyData);
-
-            if (!replyData.success) {
-                console.error('[SEND-REPLY] API Error Data:', replyData);
-                const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
-                throw new Error('Gửi tin nhắn thất bại: ' + errorMessage + ' (Success: false)');
-            }
+    } catch (error) {
+        console.error('[MESSAGE] ❌ Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi khi gửi tin nhắn: ' + error.message, 'error');
         } else {
-            // Comment replies: Fetch inbox_preview and send via reply_inbox
-            console.log('[SEND-REPLY] Fetching inbox_preview for comment reply...');
-            showChatSendingIndicator('Lấy thông tin inbox...');
+            alert('❌ Lỗi khi gửi tin nhắn: ' + error.message);
+        }
+        throw error;
+    }
+}
 
-            // Step 1: Get customer UUID from conversation
-            const facebookPsid = order.Facebook_ASUserId;
-            let pancakeCustomerUuid = null;
+// =====================================================
+// COMMENT MODAL - Send comment functions
+// =====================================================
 
-            if (window.pancakeDataManager && facebookPsid) {
-                // Try to find conversation in cache first
-                let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+/**
+ * Send comment reply (COMMENT modal only)
+ * Called by queue processor
+ */
+async function sendCommentInternal(commentData) {
+    const { message, uploadedImagesData, order, conversationId, channelId, parentCommentId, postId } = commentData;
 
-                if (!conversation) {
-                    // Fallback: Search by Facebook name
-                    const facebookName = order.Facebook_UserName;
-                    console.log('[SEND-REPLY] Searching conversation by Facebook Name:', facebookName);
-                    try {
-                        const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
-                        if (searchResult.customerId) {
-                            pancakeCustomerUuid = searchResult.customerId;
-                        } else if (searchResult.conversations.length > 0) {
-                            conversation = searchResult.conversations[0];
-                            if (conversation.customers && conversation.customers.length > 0) {
-                                pancakeCustomerUuid = conversation.customers[0].id;
-                            }
-                        }
-                    } catch (searchError) {
-                        console.error('[SEND-REPLY] Error searching conversations:', searchError);
+    try {
+        // Get Pancake token
+        const token = await window.pancakeTokenManager.getToken();
+        if (!token) {
+            throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
+        }
+
+        showChatSendingIndicator('Đang gửi bình luận...');
+
+        // Step 1: Process single image (comments only support 1 image)
+        let imageData = null;
+        if (uploadedImagesData && uploadedImagesData.length > 0) {
+            const firstImage = uploadedImagesData[0];
+            console.log('[COMMENT] Processing image');
+            showChatSendingIndicator('Đang xử lý ảnh...');
+
+            try {
+                if (firstImage.content_url && !firstImage.uploadFailed) {
+                    console.log('[COMMENT] Using pre-uploaded image:', firstImage.content_url);
+                    imageData = firstImage;
+                } else if (firstImage.blob) {
+                    console.log('[COMMENT] Uploading image...');
+                    const result = await window.uploadImageWithCache(
+                        firstImage.blob,
+                        firstImage.productId || null,
+                        firstImage.productName || null,
+                        channelId
+                    );
+
+                    if (!result.success) {
+                        throw new Error(`Upload failed: ${result.error || 'Unknown error'}`);
                     }
-                } else {
-                    // Get customer UUID from cached conversation
-                    if (conversation.customers && conversation.customers.length > 0) {
-                        pancakeCustomerUuid = conversation.customers[0].id;
-                    }
+
+                    console.log('[COMMENT] Image uploaded:', result.data.content_url);
+                    imageData = result.data;
                 }
-            }
-
-            if (!pancakeCustomerUuid) {
-                throw new Error('Không tìm thấy customer UUID để fetch inbox_preview');
-            }
-
-            console.log('[SEND-REPLY] Customer UUID:', pancakeCustomerUuid);
-
-            // Step 2: Fetch inbox_preview to get thread info
-            const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-                `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
-                `access_token=${token}`
-            );
-
-            console.log('[SEND-REPLY] Fetching inbox_preview:', inboxPreviewUrl);
-            const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!inboxResponse.ok) {
-                throw new Error(`Fetch inbox_preview failed: ${inboxResponse.status}`);
-            }
-
-            const inboxData = await inboxResponse.json();
-            console.log('[SEND-REPLY] inbox_preview response:', inboxData);
-
-            // Extract thread info
-            threadId = inboxData.thread_id_preview || inboxData.thread_id;
-            threadKey = inboxData.thread_key_preview || inboxData.thread_key;
-
-            // Get from_id from first customer message (not from page)
-            if (inboxData.data && inboxData.data.length > 0) {
-                const customerMessage = inboxData.data.find(msg =>
-                    msg.from && msg.from.id && msg.from.id !== channelId
-                );
-                if (customerMessage) {
-                    fromId = customerMessage.from.id;
-                }
-            }
-
-            // Fallback 1: check if from_id is at root level
-            if (!fromId && inboxData.from_id) {
-                fromId = inboxData.from_id;
-            }
-
-            // Fallback 2: Extract customer PSID from inbox_conv_id or conversation_id
-            // Format: "pageId_psid" (e.g., "117267091364524_24948162744877764")
-            if (!fromId) {
-                const convId = inboxData.inbox_conv_id || inboxData.conversation_id;
-                if (convId && convId.includes('_')) {
-                    const parts = convId.split('_');
-                    if (parts.length === 2 && parts[1]) {
-                        fromId = parts[1]; // Use PSID as fromId
-                        console.log('[SEND-REPLY] Extracted PSID from conversation_id:', fromId);
-                    }
-                }
-            }
-
-            console.log('[SEND-REPLY] Thread info:', { threadId, threadKey, fromId });
-
-            // Only thread_id is required for sending via conversations/messages API
-            if (!threadId) {
-                throw new Error('Không tìm thấy thread_id trong inbox_preview');
-            }
-
-            // fromId is optional - just log warning if missing
-            if (!fromId) {
-                console.warn('[SEND-REPLY] Warning: from_id not found, but will attempt to send anyway');
-            }
-
-            // Step 3: Send message via conversations/messages API
-            showChatSendingIndicator('Đang gửi bình luận...');
-
-            const replyUrl = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/conversations/${conversationId}/messages`,
-                `access_token=${token}`
-            );
-
-            // Build FormData for comment reply (always use FormData for comment replies)
-            const formData = new FormData();
-            formData.append('action', 'reply_inbox');
-            formData.append('message', finalMessage);
-
-            // Add image if exists
-            if (imageData) {
-                formData.append('content_url', imageData.content_url);
-                formData.append('content_id', imageData.content_id);
-                formData.append('width', imageData.width.toString());
-                formData.append('height', imageData.height.toString());
-            }
-
-            console.log('[SEND-REPLY] Sending comment reply via inbox...');
-            console.log('[SEND-REPLY] POST URL:', replyUrl);
-
-            const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!replyResponse.ok) {
-                const errorText = await replyResponse.text();
-                console.error('[SEND-REPLY] Reply failed:', errorText);
-                throw new Error(`Gửi bình luận thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
-            }
-
-            const replyData = await replyResponse.json();
-            console.log('[SEND-REPLY] Reply response:', replyData);
-
-            if (!replyData.success) {
-                console.error('[SEND-REPLY] API Error Data:', replyData);
-                const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
-                throw new Error('Gửi bình luận thất bại: ' + errorMessage);
+            } catch (uploadError) {
+                console.error('[COMMENT] Image processing failed:', uploadError);
+                throw new Error(`Tải ảnh thất bại: ${uploadError.message}`);
             }
         }
 
-        // Step 2: Sync comments (fetch3.txt)
-        console.log('[SEND-REPLY] Syncing comments...');
-        const syncUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${pageId}/sync_comments`,
+        // Step 2: Get customer UUID and fetch inbox_preview
+        console.log('[COMMENT] Fetching inbox_preview...');
+        showChatSendingIndicator('Lấy thông tin inbox...');
+
+        const facebookPsid = order.Facebook_ASUserId;
+        let pancakeCustomerUuid = null;
+
+        if (window.pancakeDataManager && facebookPsid) {
+            let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
+
+            if (!conversation) {
+                const facebookName = order.Facebook_UserName;
+                console.log('[COMMENT] Searching by name:', facebookName);
+                try {
+                    const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
+                    if (searchResult.customerId) {
+                        pancakeCustomerUuid = searchResult.customerId;
+                    } else if (searchResult.conversations.length > 0) {
+                        conversation = searchResult.conversations[0];
+                        if (conversation.customers && conversation.customers.length > 0) {
+                            pancakeCustomerUuid = conversation.customers[0].id;
+                        }
+                    }
+                } catch (searchError) {
+                    console.error('[COMMENT] Search error:', searchError);
+                }
+            } else {
+                if (conversation.customers && conversation.customers.length > 0) {
+                    pancakeCustomerUuid = conversation.customers[0].id;
+                }
+            }
+        }
+
+        if (!pancakeCustomerUuid) {
+            throw new Error('Không tìm thấy customer UUID để fetch inbox_preview');
+        }
+
+        console.log('[COMMENT] Customer UUID:', pancakeCustomerUuid);
+
+        // Fetch inbox_preview to get thread info
+        const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
+            `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
             `access_token=${token}`
         );
 
-        // Build multipart/form-data body
-        const formData = new FormData();
-        formData.append('post_id', postId);
+        const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
 
-        const syncResponse = await API_CONFIG.smartFetch(syncUrl, {
+        if (!inboxResponse.ok) {
+            throw new Error(`Fetch inbox_preview failed: ${inboxResponse.status}`);
+        }
+
+        const inboxData = await inboxResponse.json();
+        console.log('[COMMENT] inbox_preview response:', inboxData);
+
+        // Extract thread info
+        const threadId = inboxData.thread_id_preview || inboxData.thread_id;
+        const threadKey = inboxData.thread_key_preview || inboxData.thread_key;
+
+        // Get from_id with fallbacks
+        let fromId = null;
+        if (inboxData.data && inboxData.data.length > 0) {
+            const customerMessage = inboxData.data.find(msg =>
+                msg.from && msg.from.id && msg.from.id !== channelId
+            );
+            if (customerMessage) {
+                fromId = customerMessage.from.id;
+            }
+        }
+
+        if (!fromId && inboxData.from_id) {
+            fromId = inboxData.from_id;
+        }
+
+        // Fallback: Extract PSID from conversation_id
+        if (!fromId) {
+            const convId = inboxData.inbox_conv_id || inboxData.conversation_id;
+            if (convId && convId.includes('_')) {
+                const parts = convId.split('_');
+                if (parts.length === 2 && parts[1]) {
+                    fromId = parts[1];
+                    console.log('[COMMENT] Extracted PSID from conversation_id:', fromId);
+                }
+            }
+        }
+
+        console.log('[COMMENT] Thread info:', { threadId, threadKey, fromId });
+
+        if (!threadId) {
+            throw new Error('Không tìm thấy thread_id trong inbox_preview');
+        }
+
+        if (!fromId) {
+            console.warn('[COMMENT] Warning: from_id not found, but will attempt to send anyway');
+        }
+
+        // Step 3: Send comment via conversations/messages API
+        showChatSendingIndicator('Đang gửi bình luận...');
+
+        const replyUrl = window.API_CONFIG.buildUrl.pancake(
+            `pages/${channelId}/conversations/${conversationId}/messages`,
+            `access_token=${token}`
+        );
+
+        const formData = new FormData();
+        formData.append('action', 'reply_inbox');
+        formData.append('message', message);
+
+        if (imageData) {
+            formData.append('content_url', imageData.content_url);
+            formData.append('content_id', imageData.id || imageData.content_id);
+            formData.append('width', (imageData.image_data?.width || imageData.width || 0).toString());
+            formData.append('height', (imageData.image_data?.height || imageData.height || 0).toString());
+        }
+
+        console.log('[COMMENT] Sending comment...');
+        console.log('[COMMENT] URL:', replyUrl);
+
+        const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
             method: 'POST',
             body: formData
         });
 
+        if (!replyResponse.ok) {
+            const errorText = await replyResponse.text();
+            console.error('[COMMENT] Send failed:', errorText);
+            throw new Error(`Gửi bình luận thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+        }
+
+        const replyData = await replyResponse.json();
+        console.log('[COMMENT] Response:', replyData);
+
+        if (!replyData.success) {
+            console.error('[COMMENT] API Error:', replyData);
+            const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
+            throw new Error('Gửi bình luận thất bại: ' + errorMessage);
+        }
+
+        // Step 4: Sync comments (ONLY for comments!)
+        console.log('[COMMENT] Syncing comments...');
+        const syncUrl = window.API_CONFIG.buildUrl.pancake(
+            `pages/${channelId}/sync_comments`,
+            `access_token=${token}`
+        );
+
+        const syncFormData = new FormData();
+        syncFormData.append('post_id', postId);
+
+        const syncResponse = await API_CONFIG.smartFetch(syncUrl, {
+            method: 'POST',
+            body: syncFormData
+        });
+
         if (!syncResponse.ok) {
-            console.warn('[SEND-REPLY] Sync comments failed, but message was sent');
+            console.warn('[COMMENT] Sync comments failed, but comment was sent');
         } else {
             const syncData = await syncResponse.json();
-            console.log('[SEND-REPLY] Sync response:', syncData);
+            console.log('[COMMENT] Sync response:', syncData);
         }
 
-        // Optimistic Update: Show message immediately with correct format
+        // Step 5: Optimistic UI update
         const now = new Date().toISOString();
-
-        // Set flag to skip webhook updates (will be reset after refetch)
         skipWebhookUpdate = true;
 
-        if (chatType === 'message') {
-            const tempMessage = {
-                Id: `temp_${Date.now()}`,
-                id: `temp_${Date.now()}`, // Both formats for compatibility
-                Message: message,
-                CreatedTime: now,
-                IsOwner: true,
-                is_temp: true
-            };
+        const tempComment = {
+            Id: `temp_${Date.now()}`,
+            Message: message,
+            From: {
+                Name: 'Me',
+                Id: channelId
+            },
+            CreatedTime: now,
+            is_temp: true,
+            ParentId: parentCommentId
+        };
 
-            // Add image attachments if exists (multiple images support)
-            if (imagesDataArray && imagesDataArray.length > 0) {
-                tempMessage.Attachments = imagesDataArray.map(img => ({
-                    Type: 'image',
-                    Payload: { Url: img.content_url }
-                }));
-            }
+        allChatComments.push(tempComment);
+        renderComments(allChatComments, true);
 
-            allChatMessages.push(tempMessage);
-            renderChatMessages(allChatMessages, true);
+        console.log('[COMMENT] Added optimistic comment to UI');
 
-            console.log('[SEND-REPLY] Added optimistic message to UI');
-        } else {
-            const tempComment = {
-                Id: `temp_${Date.now()}`,
-                Message: message,
-                From: {
-                    Name: 'Me',
-                    Id: pageId
-                },
-                CreatedTime: now,
-                is_temp: true,
-                ParentId: parentCommentId
-            };
-            allChatComments.push(tempComment);
-            renderComments(allChatComments, true);
-        }
-
-        // Step 3: Refresh data (Fetch latest from API) and replace temp messages
-        console.log(`[SEND-REPLY] Refreshing ${chatType}s...`);
+        // Step 6: Refresh comments from API
         setTimeout(async () => {
             try {
-                if (chatType === 'message' && window.currentChatPSID) {
-                    const response = await window.chatDataManager.fetchMessages(channelId, window.currentChatPSID);
-                    if (response.messages && response.messages.length > 0) {
-                        // Replace entire array with fresh data from API (simpler and more reliable)
-                        allChatMessages = response.messages;
-
-                        // Don't force scroll to bottom - let wasAtBottom logic decide
-                        renderChatMessages(allChatMessages, false);
-                        console.log('[SEND-REPLY] Replaced temp messages with real messages');
-                    }
-                } else if (chatType === 'comment' && window.currentChatPSID) {
+                if (window.currentChatPSID) {
                     const response = await window.chatDataManager.fetchComments(channelId, window.currentChatPSID);
                     if (response.comments && response.comments.length > 0) {
-                        // Remove temp comments before replacing
                         allChatComments = allChatComments.filter(c => !c.is_temp);
 
-                        // Merge with new comments from API
                         response.comments.forEach(newComment => {
                             const exists = allChatComments.some(c => c.Id === newComment.Id);
                             if (!exists) {
@@ -6681,31 +6814,30 @@ async function sendReplyCommentInternal(messageData) {
                             }
                         });
 
-                        // Don't force scroll to bottom - let wasAtBottom logic decide
                         renderComments(allChatComments, false);
+                        console.log('[COMMENT] Replaced temp comments with real data');
                     }
                 }
             } finally {
-                // Reset flag to allow webhook updates again
                 skipWebhookUpdate = false;
             }
-        }, 300); // Reduced delay for faster update
+        }, 300);
 
-        // Show success notification
+        // Success notification
         if (window.notificationManager) {
-            window.notificationManager.show('✅ Đã gửi tin nhắn thành công!', 'success');
+            window.notificationManager.show('✅ Đã gửi bình luận thành công!', 'success');
         }
 
-        console.log('[SEND-REPLY] ✅ Reply sent successfully');
+        console.log('[COMMENT] ✅ Sent successfully');
 
     } catch (error) {
-        console.error('[SEND-REPLY] ❌ Error:', error);
+        console.error('[COMMENT] ❌ Error:', error);
         if (window.notificationManager) {
-            window.notificationManager.show('❌ Lỗi khi gửi tin nhắn: ' + error.message, 'error');
+            window.notificationManager.show('❌ Lỗi khi gửi bình luận: ' + error.message, 'error');
         } else {
-            alert('❌ Lỗi khi gửi tin nhắn: ' + error.message);
+            alert('❌ Lỗi khi gửi bình luận: ' + error.message);
         }
-        throw error; // Re-throw để queue processor biết có lỗi
+        throw error;
     }
 }
 
