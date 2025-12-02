@@ -72,24 +72,40 @@ async function emitTagUpdateToFirebase(orderId, tags) {
             userName = auth.displayName;
         }
 
+        // ✅ Validate tags array
+        if (!Array.isArray(tags)) {
+            console.error('[TAG-REALTIME] Tags is not an array:', tags);
+            return;
+        }
+
+        console.log('[TAG-REALTIME] Preparing to emit:', {
+            orderId,
+            orderCode: order.Code,
+            STT: order.SessionIndex,
+            tagsCount: tags.length,
+            tags: tags,
+            updatedBy: userName
+        });
+
         // Emit to Firebase
         const updateData = {
             orderId: orderId,
             orderCode: order.Code || 'Unknown',
-            STT: order.SessionIndex || 0, // SessionIndex is the STT field
-            tags: tags,
+            STT: order.SessionIndex || 0,
+            tags: tags, // Array of tag objects
             updatedBy: userName,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
 
         // Write to Firebase path: /tag_updates/{orderId}
-        // Remove campaignId nesting
         const refPath = `tag_updates/${orderId}`;
         await database.ref(refPath).set(updateData);
 
-        console.log('[TAG-REALTIME] Tag update emitted to Firebase:', refPath, updateData);
+        console.log('[TAG-REALTIME] ✅ Tag update emitted successfully to Firebase:', refPath);
+        console.log('[TAG-REALTIME] Data written:', updateData);
     } catch (error) {
-        console.error('[TAG-REALTIME] Error emitting tag update:', error);
+        console.error('[TAG-REALTIME] ❌ Error emitting tag update:', error);
+        console.error('[TAG-REALTIME] Error stack:', error.stack);
     }
 }
 
