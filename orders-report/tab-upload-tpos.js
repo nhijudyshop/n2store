@@ -3444,6 +3444,56 @@ ${encodedString}
 
         const config = statusConfig[record.uploadStatus] || { icon: '❓', text: 'Unknown', class: 'unknown' };
 
+        // Calculate counts from beforeSnapshot if not present (for backward compatibility with old records)
+        let totalAssignmentsCalc = record.totalAssignments;
+        let successCountCalc = record.successCount;
+        let failCountCalc = record.failCount;
+
+        if (!totalAssignmentsCalc || !successCountCalc) {
+            // Create upload results map for quick lookup
+            const resultsMap = {};
+            if (record.uploadResults) {
+                record.uploadResults.forEach(result => {
+                    resultsMap[result.stt] = result;
+                });
+            }
+
+            const successfulSet = new Set(record.uploadResults ? record.uploadResults.filter(r => r.success).map(r => r.stt) : []);
+            const failedSet = new Set(record.uploadResults ? record.uploadResults.filter(r => !r.success).map(r => r.stt) : []);
+
+            totalAssignmentsCalc = 0;
+            successCountCalc = 0;
+            failCountCalc = 0;
+
+            // Calculate from beforeSnapshot
+            if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+                record.beforeSnapshot.assignments.forEach(assignment => {
+                    if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                        assignment.sttList.forEach(sttItem => {
+                            const stt = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+                            const result = resultsMap[stt];
+
+                            if (result) {
+                                totalAssignmentsCalc++;
+                                if (result.success || successfulSet.has(stt)) {
+                                    successCountCalc++;
+                                } else if (!result.success || failedSet.has(stt)) {
+                                    failCountCalc++;
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Fallback to original values if calculation failed
+            if (totalAssignmentsCalc === 0) {
+                totalAssignmentsCalc = record.totalSTTs || 0;
+                successCountCalc = record.successCount || 0;
+                failCountCalc = record.failCount || 0;
+            }
+        }
+
         // Format date
         const date = new Date(record.timestamp);
         const dateStr = date.toLocaleString('vi-VN');
@@ -3473,15 +3523,15 @@ ${encodedString}
                 <div class="history-stats">
                     <div class="history-stat-item history-stat-success">
                         <i class="fas fa-check-circle"></i>
-                        <span><strong>${record.successCount}</strong> thành công</span>
+                        <span><strong>${successCountCalc}</strong> thành công</span>
                     </div>
                     <div class="history-stat-item history-stat-failed">
                         <i class="fas fa-times-circle"></i>
-                        <span><strong>${record.failCount}</strong> thất bại</span>
+                        <span><strong>${failCountCalc}</strong> thất bại</span>
                     </div>
                     <div class="history-stat-item history-stat-total">
                         <i class="fas fa-list"></i>
-                        <span><strong>${record.totalAssignments || record.totalSTTs}</strong> tổng STT</span>
+                        <span><strong>${totalAssignmentsCalc}</strong> tổng STT</span>
                     </div>
                 </div>
 
@@ -3670,6 +3720,49 @@ ${encodedString}
         // Format date
         const date = new Date(record.timestamp).toLocaleString('vi-VN');
 
+        // Calculate counts from beforeSnapshot if not present (for backward compatibility with old records)
+        let totalAssignmentsCalc = record.totalAssignments;
+        let successCountCalc = record.successCount;
+        let failCountCalc = record.failCount;
+
+        if (!totalAssignmentsCalc || !successCountCalc) {
+            // Create upload results map for quick lookup
+            const resultsMap = {};
+            if (record.uploadResults) {
+                record.uploadResults.forEach(result => {
+                    resultsMap[result.stt] = result;
+                });
+            }
+
+            const successfulSet = new Set(record.uploadResults ? record.uploadResults.filter(r => r.success).map(r => r.stt) : []);
+            const failedSet = new Set(record.uploadResults ? record.uploadResults.filter(r => !r.success).map(r => r.stt) : []);
+
+            totalAssignmentsCalc = 0;
+            successCountCalc = 0;
+            failCountCalc = 0;
+
+            // Calculate from beforeSnapshot
+            if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
+                record.beforeSnapshot.assignments.forEach(assignment => {
+                    if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                        assignment.sttList.forEach(sttItem => {
+                            const stt = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+                            const result = resultsMap[stt];
+
+                            if (result) {
+                                totalAssignmentsCalc++;
+                                if (result.success || successfulSet.has(stt)) {
+                                    successCountCalc++;
+                                } else if (!result.success || failedSet.has(stt)) {
+                                    failCountCalc++;
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        }
+
         // Build info section
         let html = `
             <div class="history-detail-info mb-4">
@@ -3693,8 +3786,8 @@ ${encodedString}
                     <div class="col-md-6">
                         <span class="history-detail-label">Tổng STT:</span>
                         <span class="history-detail-value">
-                            <strong>${record.totalAssignments || record.totalSTTs}</strong>
-                            (✅ ${record.successCount} | ❌ ${record.failCount})
+                            <strong>${totalAssignmentsCalc}</strong>
+                            (✅ ${successCountCalc} | ❌ ${failCountCalc})
                         </span>
                     </div>
                 </div>
