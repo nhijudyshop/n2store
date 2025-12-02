@@ -2808,6 +2808,28 @@ ${encodedString}
             // Get current user ID
             const currentUserId = userStorageManager ? userStorageManager.getUserIdentifier() : null;
 
+            // Calculate total assignments (including duplicates) from beforeSnapshot
+            // This counts all product-STT assignments, not just unique STTs
+            let totalAssignments = 0;
+            const uploadedSTTsSet = new Set(results.map(r => r.stt));
+
+            if (beforeSnapshot && beforeSnapshot.assignments) {
+                beforeSnapshot.assignments.forEach(assignment => {
+                    if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                        assignment.sttList.forEach(sttItem => {
+                            const stt = String(typeof sttItem === 'object' ? sttItem.stt : sttItem);
+                            // Only count assignments for STTs that were uploaded
+                            if (uploadedSTTsSet.has(stt)) {
+                                totalAssignments++;
+                            }
+                        });
+                    }
+                });
+            }
+
+            console.log('[HISTORY] 📊 Total assignments (including duplicates):', totalAssignments);
+            console.log('[HISTORY] 📊 Unique STTs:', results.length);
+
             // Build history record
             const historyRecord = {
                 uploadId: uploadId,
@@ -2837,7 +2859,8 @@ ${encodedString}
                 })),
 
                 // Statistics
-                totalSTTs: results.length,
+                totalSTTs: results.length, // Unique STTs count (for backward compatibility)
+                totalAssignments: totalAssignments, // Total assignments including duplicates
                 successCount: results.filter(r => r.success).length,
                 failCount: results.filter(r => !r.success).length,
 
@@ -3443,7 +3466,7 @@ ${encodedString}
                     </div>
                     <div class="history-stat-item history-stat-total">
                         <i class="fas fa-list"></i>
-                        <span><strong>${record.totalSTTs}</strong> tổng STT</span>
+                        <span><strong>${record.totalAssignments || record.totalSTTs}</strong> tổng STT</span>
                     </div>
                 </div>
 
@@ -3655,7 +3678,7 @@ ${encodedString}
                     <div class="col-md-6">
                         <span class="history-detail-label">Tổng STT:</span>
                         <span class="history-detail-value">
-                            <strong>${record.totalSTTs}</strong>
+                            <strong>${record.totalAssignments || record.totalSTTs}</strong>
                             (✅ ${record.successCount} | ❌ ${record.failCount})
                         </span>
                     </div>
