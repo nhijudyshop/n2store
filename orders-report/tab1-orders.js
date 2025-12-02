@@ -75,8 +75,8 @@ async function emitTagUpdateToFirebase(orderId, tags) {
         // Emit to Firebase
         const updateData = {
             orderId: orderId,
-            orderCode: order.Code,
-            STT: order.STT, // Add STT
+            orderCode: order.Code || 'Unknown',
+            STT: order.SessionIndex || 0, // SessionIndex is the STT field
             tags: tags,
             updatedBy: userName,
             timestamp: firebase.database.ServerValue.TIMESTAMP
