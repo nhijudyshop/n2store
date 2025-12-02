@@ -20,7 +20,7 @@ Hướng dẫn deploy Cloud Function tự động xóa TAG updates cũ hơn 7 ng
 node --version
 
 # Nếu chưa có, download từ: https://nodejs.org/
-# Yêu cầu: Node.js 18 trở lên
+# Yêu cầu: Node.js 20 trở lên (Node 18 đã bị decommission)
 ```
 
 ### 1.2. Cài đặt Firebase CLI
@@ -101,7 +101,7 @@ File `functions/package.json`:
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {
