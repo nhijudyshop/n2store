@@ -47,6 +47,7 @@ try {
 // =====================================================
 // REALTIME TAG SYNC - Firebase & WebSocket
 // =====================================================
+let tagListenersSetup = false; // Flag to prevent duplicate listener setup
 
 /**
  * Emit TAG update to Firebase for realtime sync across users
@@ -113,6 +114,12 @@ async function emitTagUpdateToFirebase(orderId, tags) {
  * Setup Firebase & WebSocket listeners for realtime TAG updates
  */
 function setupTagRealtimeListeners() {
+    // Prevent duplicate setup
+    if (tagListenersSetup) {
+        console.log('[TAG-REALTIME] Listeners already setup, skipping...');
+        return;
+    }
+
     // 1. Setup Firebase listener
     if (database) {
         const refPath = `tag_updates`;
@@ -121,6 +128,7 @@ function setupTagRealtimeListeners() {
         // Get current user name
         const auth = window.authManager ? window.authManager.getAuthState() : null;
         const currentUserName = auth && auth.displayName ? auth.displayName : 'Unknown';
+        console.log('[TAG-REALTIME] Current user:', currentUserName);
 
         // Listen for tag updates
         database.ref(refPath).on('child_changed', (snapshot) => {
@@ -130,6 +138,8 @@ function setupTagRealtimeListeners() {
             // Only process if update is from another user
             if (updateData.updatedBy !== currentUserName) {
                 handleRealtimeTagUpdate(updateData, 'firebase');
+            } else {
+                console.log('[TAG-REALTIME] Skipping own update');
             }
         });
 
@@ -144,9 +154,14 @@ function setupTagRealtimeListeners() {
                 // Only process if update is from another user
                 if (updateData.updatedBy !== currentUserName) {
                     handleRealtimeTagUpdate(updateData, 'firebase');
+                } else {
+                    console.log('[TAG-REALTIME] Skipping own update');
                 }
             }
         });
+
+        tagListenersSetup = true;
+        console.log('[TAG-REALTIME] ✅ Firebase listeners setup complete');
     }
 
     // 2. Setup WebSocket listener (for future backend support)
@@ -155,8 +170,6 @@ function setupTagRealtimeListeners() {
         console.log('[TAG-REALTIME] WebSocket tag update received:', updateData);
         handleRealtimeTagUpdate(updateData, 'websocket');
     });
-
-    console.log('[TAG-REALTIME] Realtime listeners setup complete');
 }
 
 /**
@@ -295,6 +308,15 @@ window.addEventListener("DOMContentLoaded", async function () {
         window.realtimeManager.initialize();
     } else {
         console.warn('[REALTIME] ⚠️ RealtimeManager class not found');
+    }
+
+    // 🔥 Setup TAG realtime listeners on page load
+    // This ensures listeners are active even if user doesn't change campaign
+    if (database) {
+        console.log('[TAG-REALTIME] Setting up Firebase TAG listeners on page load...');
+        setupTagRealtimeListeners();
+    } else {
+        console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');
     }
 
     // Scroll to top button
