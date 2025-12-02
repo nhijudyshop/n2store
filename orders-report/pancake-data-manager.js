@@ -1141,8 +1141,9 @@ class PancakeDataManager {
 
                 const uploadData = await uploadResponse.json();
                 console.log('[PANCAKE] Upload response:', uploadData);
+                console.log('[PANCAKE] Upload response FULL:', JSON.stringify(uploadData, null, 2));
 
-                return extractResult(uploadData);
+                return uploadData; // Return full response instead of extractResult
             } else {
                 // Should have content_url if need_create is false
                 // fileInfo usually has 'id' as well
