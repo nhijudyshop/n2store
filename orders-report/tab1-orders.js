@@ -6606,12 +6606,12 @@ async function sendReplyCommentInternal(messageData) {
                 is_temp: true
             };
 
-            // Add image attachment if exists
-            if (imageData) {
-                tempMessage.Attachments = [{
+            // Add image attachments if exists (multiple images support)
+            if (imagesDataArray && imagesDataArray.length > 0) {
+                tempMessage.Attachments = imagesDataArray.map(img => ({
                     Type: 'image',
-                    Payload: { Url: imageData.content_url }
-                }];
+                    Payload: { Url: img.content_url }
+                }));
             }
 
             allChatMessages.push(tempMessage);
