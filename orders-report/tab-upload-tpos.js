@@ -3167,6 +3167,34 @@ ${encodedString}
      * Only loads summary fields for performance
      * Supports loading by user filter: current, all, or specific userId
      */
+    /**
+     * Helper function to ensure uploadedSTTs is always an array
+     * Firebase sometimes stores arrays as objects, need to convert back
+     * @param {Array|Object} uploadedSTTs - The uploadedSTTs value from Firebase
+     * @returns {Array} Always returns an array, preserving duplicates
+     */
+    function normalizeUploadedSTTs(uploadedSTTs) {
+        if (!uploadedSTTs) {
+            return [];
+        }
+
+        // If it's already an array, return as-is (preserves duplicates)
+        if (Array.isArray(uploadedSTTs)) {
+            return uploadedSTTs;
+        }
+
+        // If it's an object (Firebase converted array to object), convert back to array
+        if (typeof uploadedSTTs === 'object') {
+            // Get keys, sort them numerically, and map to values
+            // This preserves the original order and duplicates
+            const keys = Object.keys(uploadedSTTs).sort((a, b) => parseInt(a) - parseInt(b));
+            return keys.map(key => uploadedSTTs[key]);
+        }
+
+        // Fallback: return empty array
+        return [];
+    }
+
     async function loadUploadHistory() {
         try {
             console.log('[HISTORY] 📥 Loading history from Firebase...');
@@ -3262,7 +3290,7 @@ ${encodedString}
                                 totalSTTs: record.totalSTTs || 0,
                                 successCount: record.successCount || 0,
                                 failCount: record.failCount || 0,
-                                uploadedSTTs: record.uploadedSTTs || [],
+                                uploadedSTTs: normalizeUploadedSTTs(record.uploadedSTTs),
                                 note: record.note || '',
                                 committedAt: record.committedAt || null,
                                 restoredAt: record.restoredAt || null,
@@ -3283,7 +3311,7 @@ ${encodedString}
                         totalSTTs: record.totalSTTs || 0,
                         successCount: record.successCount || 0,
                         failCount: record.failCount || 0,
-                        uploadedSTTs: record.uploadedSTTs || [],
+                        uploadedSTTs: normalizeUploadedSTTs(record.uploadedSTTs),
                         note: record.note || '',
                         committedAt: record.committedAt || null,
                         restoredAt: record.restoredAt || null,
