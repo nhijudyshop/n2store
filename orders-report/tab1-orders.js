@@ -6511,15 +6511,34 @@ async function sendReplyCommentInternal(messageData) {
                 }
             }
 
-            // Fallback: check if from_id is at root level
+            // Fallback 1: check if from_id is at root level
             if (!fromId && inboxData.from_id) {
                 fromId = inboxData.from_id;
             }
 
+            // Fallback 2: Extract customer PSID from inbox_conv_id or conversation_id
+            // Format: "pageId_psid" (e.g., "117267091364524_24948162744877764")
+            if (!fromId) {
+                const convId = inboxData.inbox_conv_id || inboxData.conversation_id;
+                if (convId && convId.includes('_')) {
+                    const parts = convId.split('_');
+                    if (parts.length === 2 && parts[1]) {
+                        fromId = parts[1]; // Use PSID as fromId
+                        console.log('[SEND-REPLY] Extracted PSID from conversation_id:', fromId);
+                    }
+                }
+            }
+
             console.log('[SEND-REPLY] Thread info:', { threadId, threadKey, fromId });
 
-            if (!threadId || !fromId) {
-                throw new Error('Không tìm thấy thread_id hoặc from_id trong inbox_preview');
+            // Only thread_id is required for sending via conversations/messages API
+            if (!threadId) {
+                throw new Error('Không tìm thấy thread_id trong inbox_preview');
+            }
+
+            // fromId is optional - just log warning if missing
+            if (!fromId) {
+                console.warn('[SEND-REPLY] Warning: from_id not found, but will attempt to send anyway');
             }
 
             // Step 3: Send message via conversations/messages API
