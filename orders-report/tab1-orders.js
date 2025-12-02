@@ -6018,8 +6018,9 @@ window.setReplyMessage = function (message) {
         const messageText = extractMessageText(message);
         const truncated = messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText;
 
-        // Get sender name
+        // Get sender name and Facebook ID
         const senderName = message.FromName || message.from?.name || 'Khách hàng';
+        const fbId = message.From?.id || message.from?.id || message.FromId || null;
 
         // Get timestamp
         const timestamp = message.CreatedTime || message.updated_at || message.created_at;
@@ -6032,6 +6033,14 @@ window.setReplyMessage = function (message) {
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
             timeStr = `${day}/${month}/${year} ${hours}:${minutes}`;
+        }
+
+        // Verify fb_id matches current conversation's customer (if available)
+        if (fbId && window.currentChatPSID && fbId !== window.currentChatPSID) {
+            console.warn('[REPLY] ⚠️ Facebook ID mismatch!', {
+                messageFbId: fbId,
+                conversationPSID: window.currentChatPSID
+            });
         }
 
         // Display with timestamp
@@ -6050,7 +6059,7 @@ window.setReplyMessage = function (message) {
     const input = document.getElementById('chatReplyInput');
     if (input) input.focus();
 
-    console.log('[REPLY] Set reply to message:', message.id || message.Id, 'at', timestamp);
+    console.log('[REPLY] Set reply to message:', message.id || message.Id, 'fb_id:', fbId, 'at', timestamp);
 };
 
 /**
@@ -6942,8 +6951,9 @@ function handleReplyToComment(commentId, postId) {
             commentText = div.textContent || div.innerText || '';
         }
 
-        // Get sender name
+        // Get sender name and Facebook ID
         const senderName = comment.FromName || comment.from?.name || 'Khách hàng';
+        const fbId = comment.From?.id || comment.from?.id || comment.FromId || null;
 
         // Get timestamp (use CreatedTime or updated_at)
         const timestamp = comment.CreatedTime || comment.updated_at || comment.created_at;
@@ -6957,6 +6967,14 @@ function handleReplyToComment(commentId, postId) {
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
             timeStr = `${day}/${month}/${year} ${hours}:${minutes}`;
+        }
+
+        // Verify fb_id matches current conversation's customer (if available)
+        if (fbId && window.currentChatPSID && fbId !== window.currentChatPSID) {
+            console.warn('[REPLY] ⚠️ Facebook ID mismatch!', {
+                commentFbId: fbId,
+                conversationPSID: window.currentChatPSID
+            });
         }
 
         // Show preview with sender name and truncated message
@@ -6976,7 +6994,7 @@ function handleReplyToComment(commentId, postId) {
         `;
         previewContainer.style.display = 'block';
 
-        console.log('[REPLY] Showing preview for comment:', senderName, truncatedText, 'at', timeStr);
+        console.log('[REPLY] Showing preview for comment:', senderName, 'fb_id:', fbId, truncatedText, 'at', timeStr);
     }
 
     // Focus input and enable it for replying
