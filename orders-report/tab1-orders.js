@@ -233,6 +233,52 @@ function cleanupTagRealtimeListeners() {
     }
 }
 
+/**
+ * TEST FUNCTION - Check if TAG listeners are working
+ * Call from Console: testTagListeners()
+ */
+window.testTagListeners = function() {
+    console.log('=== TAG REALTIME LISTENER TEST ===');
+    console.log('1. Firebase:', database ? '✅ Available' : '❌ Not available');
+    console.log('2. Listeners setup:', tagListenersSetup ? '✅ Yes' : '❌ No');
+
+    const auth = window.authManager ? window.authManager.getAuthState() : null;
+    const currentUser = auth && auth.displayName ? auth.displayName : 'Unknown';
+    console.log('3. Current user:', currentUser);
+
+    console.log('4. Orders loaded:', allData ? allData.length : 0);
+
+    if (database) {
+        console.log('\n🔥 Setting up test listener...');
+
+        // Add a one-time listener to test
+        database.ref('tag_updates').once('value', (snapshot) => {
+            console.log('✅ Firebase connection working!');
+            console.log('Total TAG updates in database:', snapshot.numChildren());
+        });
+
+        // Listen for any changes
+        const testRef = database.ref('tag_updates');
+        const testListener = (snapshot) => {
+            console.log('🔥🔥🔥 FIREBASE EVENT TRIGGERED! 🔥🔥🔥');
+            console.log('Event type: child_changed');
+            console.log('Data:', snapshot.val());
+        };
+
+        testRef.on('child_changed', testListener);
+        console.log('✅ Test listener attached');
+        console.log('Now save a TAG and watch for 🔥 events...');
+
+        // Cleanup after 30 seconds
+        setTimeout(() => {
+            testRef.off('child_changed', testListener);
+            console.log('🧹 Test listener removed');
+        }, 30000);
+    }
+
+    console.log('\n=== TEST COMPLETE ===');
+};
+
 // =====================================================
 // INITIALIZATION
 // =====================================================
