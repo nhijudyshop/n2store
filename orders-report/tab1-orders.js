@@ -180,6 +180,13 @@ function handleRealtimeTagUpdate(updateData, source) {
 
     console.log(`[TAG-REALTIME] Processing update from ${source}:`, updateData);
 
+    // ✅ Validate tags
+    if (!tags || !Array.isArray(tags)) {
+        console.error('[TAG-REALTIME] Invalid tags data:', tags);
+        console.error('[TAG-REALTIME] Full updateData:', updateData);
+        return;
+    }
+
     // Check if this order is in current view
     const orderExists = allData.find(o => o.Id === orderId);
     if (!orderExists) {
