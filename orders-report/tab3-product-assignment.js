@@ -662,6 +662,27 @@
             const customerMatch = order.customerName &&
                 removeVietnameseTones(order.customerName).includes(removeVietnameseTones(searchText));
             return sttMatch || customerMatch;
+        }).sort((a, b) => {
+            // Sort to prioritize exact matches first
+            const aSTT = a.stt.toString();
+            const bSTT = b.stt.toString();
+
+            // Check for exact match
+            const aExactMatch = aSTT === searchText;
+            const bExactMatch = bSTT === searchText;
+
+            if (aExactMatch && !bExactMatch) return -1;
+            if (!aExactMatch && bExactMatch) return 1;
+
+            // Check for starts with match
+            const aStartsWith = aSTT.startsWith(searchText);
+            const bStartsWith = bSTT.startsWith(searchText);
+
+            if (aStartsWith && !bStartsWith) return -1;
+            if (!aStartsWith && bStartsWith) return 1;
+
+            // Both start with or both don't start with, sort by numeric value (ascending)
+            return parseInt(aSTT) - parseInt(bSTT);
         }).slice(0, 10);
 
         if (filteredOrders.length === 0) {
