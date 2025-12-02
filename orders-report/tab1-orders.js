@@ -6372,11 +6372,10 @@ async function sendReplyCommentInternal(messageData) {
                 console.log('[SEND-REPLY] Adding', imagesDataArray.length, 'images to FormData');
 
                 imagesDataArray.forEach((imageData, index) => {
-                    // API expects arrays: content_urls[], content_ids[], dimensions[], attachment_ids[]
+                    // API expects arrays: content_urls[], content_ids[], dimensions[]
                     formData.append('content_urls', imageData.content_url);
                     if (imageData.content_id) {
                         formData.append('content_ids', imageData.content_id);
-                        formData.append('attachment_ids', imageData.content_id);
                     }
 
                     // Dimensions as JSON string for each image
