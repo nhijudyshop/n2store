@@ -5643,28 +5643,29 @@ function handleChatInputPaste(event) {
 
                 const result = await uploadImageWithCache(blob, productId, productName, channelId);
 
+                // Initialize array if needed
+                if (!window.uploadedImagesData) {
+                    window.uploadedImagesData = [];
+                }
+
                 if (result.success) {
                     // Upload success - ADD to array (not replace)
-                    const imageIndex = uploadedImagesData.length;
-                    uploadedImagesData.push({
+                    window.uploadedImagesData.push({
                         ...result.data,
                         blob: blob,
                         productId: productId,
                         productName: productName
                     });
-                    window.uploadedImagesData = uploadedImagesData; // Expose globally
                     updateMultipleImagesPreview(); // NEW: Update preview with all images
                 } else {
                     // Upload failed - still show in preview with error
-                    const imageIndex = uploadedImagesData.length;
-                    uploadedImagesData.push({
+                    window.uploadedImagesData.push({
                         blob: blob,
                         productId: productId,
                         productName: productName,
                         error: result.error,
                         uploadFailed: true
                     });
-                    window.uploadedImagesData = uploadedImagesData;
                     updateMultipleImagesPreview();
                 }
             };
@@ -5681,7 +5682,7 @@ window.updateMultipleImagesPreview = function updateMultipleImagesPreview() {
     const previewContainer = document.getElementById('chatImagePreviewContainer');
     if (!previewContainer) return;
 
-    if (uploadedImagesData.length === 0) {
+    if (!window.uploadedImagesData || window.uploadedImagesData.length === 0) {
         // No images - hide preview
         previewContainer.innerHTML = '';
         previewContainer.style.display = 'none';
@@ -5707,7 +5708,7 @@ window.updateMultipleImagesPreview = function updateMultipleImagesPreview() {
 
     let html = '<div style="display: flex; gap: 8px; align-items: flex-start;">';
 
-    uploadedImagesData.forEach((imageData, index) => {
+    window.uploadedImagesData.forEach((imageData, index) => {
         const imageUrl = imageData.blob ? URL.createObjectURL(imageData.blob) : '';
         const isUploading = !imageData.content_url && !imageData.uploadFailed;
         const isSuccess = imageData.content_url && !imageData.uploadFailed;
@@ -5797,22 +5798,21 @@ window.updateUploadPreviewUI = function updateUploadPreviewUI(success, message, 
  * NEW: Remove a single image at index
  */
 window.removeImageAtIndex = function(index) {
-    if (index < 0 || index >= uploadedImagesData.length) return;
+    if (!window.uploadedImagesData || index < 0 || index >= window.uploadedImagesData.length) return;
 
     // Revoke blob URL if exists
-    const imageData = uploadedImagesData[index];
+    const imageData = window.uploadedImagesData[index];
     if (imageData.blob) {
         URL.revokeObjectURL(URL.createObjectURL(imageData.blob));
     }
 
     // Remove from array
-    uploadedImagesData.splice(index, 1);
-    window.uploadedImagesData = uploadedImagesData;
+    window.uploadedImagesData.splice(index, 1);
 
     // Update preview
     updateMultipleImagesPreview();
 
-    console.log('[REMOVE-IMAGE] Removed image at index', index, '- remaining:', uploadedImagesData.length);
+    console.log('[REMOVE-IMAGE] Removed image at index', index, '- remaining:', window.uploadedImagesData.length);
 };
 
 /**
@@ -5820,14 +5820,15 @@ window.removeImageAtIndex = function(index) {
  */
 window.clearAllImages = function() {
     // Revoke all blob URLs
-    uploadedImagesData.forEach(imageData => {
-        if (imageData.blob) {
-            URL.revokeObjectURL(URL.createObjectURL(imageData.blob));
-        }
-    });
+    if (window.uploadedImagesData) {
+        window.uploadedImagesData.forEach(imageData => {
+            if (imageData.blob) {
+                URL.revokeObjectURL(URL.createObjectURL(imageData.blob));
+            }
+        });
+    }
 
     // Clear array
-    uploadedImagesData = [];
     window.uploadedImagesData = [];
 
     // Update preview (will hide it)
@@ -5840,15 +5841,15 @@ window.clearAllImages = function() {
  * NEW: Retry upload at specific index (for failed uploads)
  */
 window.retryUploadAtIndex = async function(index) {
-    if (index < 0 || index >= uploadedImagesData.length) return;
+    if (!window.uploadedImagesData || index < 0 || index >= window.uploadedImagesData.length) return;
 
-    const imageData = uploadedImagesData[index];
+    const imageData = window.uploadedImagesData[index];
     if (!imageData.blob) return;
 
     console.log('[RETRY-UPLOAD] Retrying upload at index', index);
 
     // Mark as uploading
-    uploadedImagesData[index] = {
+    window.uploadedImagesData[index] = {
         blob: imageData.blob,
         productId: imageData.productId,
         productName: imageData.productName
@@ -5858,8 +5859,8 @@ window.retryUploadAtIndex = async function(index) {
     // Retry upload
     const channelId = window.currentChatChannelId;
     if (!channelId) {
-        uploadedImagesData[index].uploadFailed = true;
-        uploadedImagesData[index].error = 'Không thể upload: Thiếu thông tin';
+        window.uploadedImagesData[index].uploadFailed = true;
+        window.uploadedImagesData[index].error = 'Không thể upload: Thiếu thông tin';
         updateMultipleImagesPreview();
         return;
     }
@@ -5873,7 +5874,7 @@ window.retryUploadAtIndex = async function(index) {
 
     if (result.success) {
         // Update with success data
-        uploadedImagesData[index] = {
+        window.uploadedImagesData[index] = {
             ...result.data,
             blob: imageData.blob,
             productId: imageData.productId,
@@ -5881,7 +5882,7 @@ window.retryUploadAtIndex = async function(index) {
         };
     } else {
         // Update with error
-        uploadedImagesData[index] = {
+        window.uploadedImagesData[index] = {
             blob: imageData.blob,
             productId: imageData.productId,
             productName: imageData.productName,
