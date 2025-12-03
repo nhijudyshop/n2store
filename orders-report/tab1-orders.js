@@ -5576,6 +5576,61 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                     if (inboxPreview.success && inboxPreview.conversationId) {
                         window.currentConversationId = inboxPreview.conversationId;
                         console.log('[CHAT-MODAL] ✅ Got conversationId from inbox_preview:', window.currentConversationId);
+
+                        // Call follow-up APIs after successful inbox_preview
+                        const token = await window.pancakeTokenManager.getToken();
+                        if (token && window.currentConversationId) {
+                            // 1. Fill admin name
+                            try {
+                                const fillAdminUrl = window.API_CONFIG.buildUrl.pancake(
+                                    `pages/${channelId}/conversations/${window.currentConversationId}/messages/fill_admin_name`,
+                                    `access_token=${token}`
+                                );
+                                const fillAdminResponse = await API_CONFIG.smartFetch(fillAdminUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        timestamp: Date.now(),
+                                        need_remove_lock_crawl_fb_messages: false
+                                    })
+                                });
+                                console.log('[CHAT-MODAL] fill_admin_name response:', fillAdminResponse.status);
+                            } catch (err) {
+                                console.warn('[CHAT-MODAL] fill_admin_name failed:', err);
+                            }
+
+                            // 2. Check inbox
+                            try {
+                                const checkInboxUrl = window.API_CONFIG.buildUrl.pancake(
+                                    `pages/${channelId}/check_inbox`,
+                                    `access_token=${token}`
+                                );
+                                const checkInboxResponse = await API_CONFIG.smartFetch(checkInboxUrl, {
+                                    method: 'POST'
+                                });
+                                console.log('[CHAT-MODAL] check_inbox response:', checkInboxResponse.status);
+                            } catch (err) {
+                                console.warn('[CHAT-MODAL] check_inbox failed:', err);
+                            }
+
+                            // 3. Touch content
+                            try {
+                                const touchUrl = window.API_CONFIG.buildUrl.pancake(
+                                    `pages/${channelId}/contents/touch`,
+                                    `access_token=${token}`
+                                );
+                                const touchResponse = await API_CONFIG.smartFetch(touchUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        content_ids: []
+                                    })
+                                });
+                                console.log('[CHAT-MODAL] touch response:', touchResponse.status);
+                            } catch (err) {
+                                console.warn('[CHAT-MODAL] touch failed:', err);
+                            }
+                        }
                     } else {
                         console.warn('[CHAT-MODAL] ⚠️ Failed to get conversationId from inbox_preview');
                     }
