@@ -7131,23 +7131,36 @@ async function sendCommentInternal(commentData) {
             `access_token=${token}`
         );
 
-        const formData = new FormData();
-        formData.append('action', 'reply_inbox');
-        formData.append('message', message);
+        // Build JSON payload for private_replies action
+        const payload = {
+            action: 'private_replies',
+            message_id: parentCommentId || conversationId.split('_').pop(), // Use parent comment ID or extract from conversationId
+            thread_id_preview: threadId,
+            thread_key_preview: threadKey,
+            from_id: fromId,
+            need_thread_id: false,
+            message: message,
+            post_id: postId
+        };
 
+        // Add image data if present
         if (imageData) {
-            formData.append('content_url', imageData.content_url);
-            formData.append('content_id', imageData.id || imageData.content_id);
-            formData.append('width', (imageData.image_data?.width || imageData.width || 0).toString());
-            formData.append('height', (imageData.image_data?.height || imageData.height || 0).toString());
+            payload.content_url = imageData.content_url;
+            payload.content_id = imageData.id || imageData.content_id;
+            payload.width = imageData.image_data?.width || imageData.width || 0;
+            payload.height = imageData.image_data?.height || imageData.height || 0;
         }
 
         console.log('[COMMENT] Sending comment...');
         console.log('[COMMENT] URL:', replyUrl);
+        console.log('[COMMENT] Payload:', payload);
 
         const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
         });
 
         if (!replyResponse.ok) {
