@@ -7100,87 +7100,55 @@ async function sendCommentInternal(commentData) {
         console.log('[COMMENT] ✅ Comment reply sent successfully');
 
         // Step 5: Send inbox message (reply_inbox) after comment reply succeeds
+        // Use null for thread_id and thread_key (same as private_replies)
         let inboxSentSuccessfully = false;
         try {
             console.log('[COMMENT] Now sending inbox message...');
             showChatSendingIndicator('Đang gửi tin nhắn vào inbox...');
 
-            // Step 5.1: Search conversations to get customer UUID
-            console.log('[COMMENT] Searching conversations for customer UUID...');
-            const searchResult = await window.pancakeDataManager.searchConversationsByCommentIds(
-                facebookName,
-                facebookCommentId,
-                facebookASUserId,
-                [pageId]
+            const inboxUrl = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/conversations/${finalConversationId}/messages`,
+                `access_token=${token}`
             );
 
-            const pancakeCustomerUuid = searchResult.customerUuid;
+            const inboxFormData = new FormData();
+            inboxFormData.append('action', 'reply_inbox');
+            inboxFormData.append('message', message);
+            // thread_id and thread_key are null (no need to fetch)
+            inboxFormData.append('thread_id', 'null');
 
-            if (!pancakeCustomerUuid) {
-                console.warn('[COMMENT] Cannot send inbox message: customer UUID not found');
+            // Add image data if present
+            if (imageData) {
+                const contentUrls = [imageData.content_url];
+                const contentIds = [imageData.id || imageData.content_id || ''];
+                const dimensions = [JSON.stringify({
+                    width: imageData.image_data?.width || imageData.width || 0,
+                    height: imageData.image_data?.height || imageData.height || 0
+                })];
+
+                inboxFormData.append('content_urls', JSON.stringify(contentUrls));
+                inboxFormData.append('content_ids', JSON.stringify(contentIds));
+                inboxFormData.append('dimensions', JSON.stringify(dimensions));
+            }
+
+            console.log('[COMMENT] Sending inbox message with thread_id=null...');
+            const inboxResponse = await API_CONFIG.smartFetch(inboxUrl, {
+                method: 'POST',
+                body: inboxFormData
+            });
+
+            if (!inboxResponse.ok) {
+                const errorText = await inboxResponse.text();
+                console.warn('[COMMENT] Inbox message send failed:', errorText);
             } else {
-                console.log('[COMMENT] Customer UUID:', pancakeCustomerUuid);
+                const inboxData = await inboxResponse.json();
+                console.log('[COMMENT] Inbox response:', inboxData);
 
-                // Step 5.2: Fetch inbox_preview to get thread_id and thread_key
-                console.log('[COMMENT] Fetching inbox_preview...');
-                const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, pancakeCustomerUuid);
-
-                if (!inboxPreview.success || !inboxPreview.threadId) {
-                    console.warn('[COMMENT] Cannot send inbox message: thread_id not found');
+                if (inboxData.success) {
+                    console.log('[COMMENT] ✅ Inbox message sent successfully');
+                    inboxSentSuccessfully = true;
                 } else {
-                    const realThreadId = inboxPreview.threadId;
-                    const realThreadKey = inboxPreview.threadKey;
-
-                    console.log('[COMMENT] Thread info:', { threadId: realThreadId, threadKey: realThreadKey });
-
-                    // Step 5.3: Send inbox message with FormData
-                    const inboxUrl = window.API_CONFIG.buildUrl.pancake(
-                        `pages/${pageId}/conversations/${finalConversationId}/messages`,
-                        `access_token=${token}`
-                    );
-
-                    const inboxFormData = new FormData();
-                    inboxFormData.append('action', 'reply_inbox');
-                    inboxFormData.append('message', message);
-                    inboxFormData.append('thread_id', realThreadId);
-                    if (realThreadKey) {
-                        inboxFormData.append('thread_key', realThreadKey);
-                    }
-
-                    // Add image data if present
-                    if (imageData) {
-                        const contentUrls = [imageData.content_url];
-                        const contentIds = [imageData.id || imageData.content_id || ''];
-                        const dimensions = [JSON.stringify({
-                            width: imageData.image_data?.width || imageData.width || 0,
-                            height: imageData.image_data?.height || imageData.height || 0
-                        })];
-
-                        inboxFormData.append('content_urls', JSON.stringify(contentUrls));
-                        inboxFormData.append('content_ids', JSON.stringify(contentIds));
-                        inboxFormData.append('dimensions', JSON.stringify(dimensions));
-                    }
-
-                    console.log('[COMMENT] Sending inbox message...');
-                    const inboxResponse = await API_CONFIG.smartFetch(inboxUrl, {
-                        method: 'POST',
-                        body: inboxFormData
-                    });
-
-                    if (!inboxResponse.ok) {
-                        const errorText = await inboxResponse.text();
-                        console.warn('[COMMENT] Inbox message send failed:', errorText);
-                    } else {
-                        const inboxData = await inboxResponse.json();
-                        console.log('[COMMENT] Inbox response:', inboxData);
-
-                        if (inboxData.success) {
-                            console.log('[COMMENT] ✅ Inbox message sent successfully');
-                            inboxSentSuccessfully = true;
-                        } else {
-                            console.warn('[COMMENT] Inbox message send failed:', inboxData);
-                        }
-                    }
+                    console.warn('[COMMENT] Inbox message send failed:', inboxData);
                 }
             }
         } catch (inboxError) {
