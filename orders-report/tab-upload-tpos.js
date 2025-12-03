@@ -1422,7 +1422,69 @@ ${encodedString}
         const selectedSTTs = Array.from(selectedSessionIndexes);
         const modalBody = document.getElementById('previewModalBody');
 
+        // First pass: collect STTs with existing products
+        const sttsWithExistingProducts = [];
+
+        selectedSTTs.forEach(stt => {
+            const data = sessionIndexData[stt];
+            if (!data) return;
+
+            // Get order products from the fetched data (stored temporarily)
+            const orderProducts = data.fetchedProducts || [];
+
+            // Create map of existing products by ProductId for quick lookup
+            const existingProductsMap = {};
+            orderProducts.forEach(product => {
+                if (product.productId) {
+                    existingProductsMap[product.productId] = product;
+                }
+            });
+
+            // Check if any assigned products already exist in order
+            const existingProductsInOrder = [];
+            data.products.forEach(product => {
+                if (existingProductsMap[product.productId]) {
+                    const existingProduct = existingProductsInOrder.find(p => p.code === product.productCode);
+                    if (existingProduct) {
+                        existingProduct.quantity += 1;
+                    } else {
+                        existingProductsInOrder.push({
+                            code: product.productCode,
+                            quantity: 1,
+                            currentQuantity: existingProductsMap[product.productId].quantity
+                        });
+                    }
+                }
+            });
+
+            if (existingProductsInOrder.length > 0) {
+                sttsWithExistingProducts.push({
+                    stt: stt,
+                    products: existingProductsInOrder
+                });
+            }
+        });
+
         let html = '';
+
+        // Add summary section if there are STTs with existing products
+        if (sttsWithExistingProducts.length > 0) {
+            html += `
+                <div class="alert alert-warning mb-4" role="alert">
+                    <h6 class="alert-heading mb-3">
+                        <i class="fas fa-info-circle"></i> Các STT có mã sản phẩm sắp upload đã có sẵn trong đơn hàng
+                    </h6>
+                    <div class="small">
+                        ${sttsWithExistingProducts.map(item => `
+                            <div class="mb-2">
+                                <strong>STT ${item.stt}:</strong>
+                                ${item.products.map(p => `${p.code} +${p.quantity}`).join(', ')}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
         selectedSTTs.forEach(stt => {
             const data = sessionIndexData[stt];
@@ -1453,16 +1515,12 @@ ${encodedString}
                 assignedProductCounts[key].count++;
             });
 
-            // Filter non-encoded notes for display
-            const filteredNote = data.orderInfo?.note ? filterNonEncodedNotes(data.orderInfo.note) : '';
-
             html += `
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-hashtag"></i> STT ${stt}
                             ${data.orderInfo?.customerName ? `- ${data.orderInfo.customerName}` : ''}
-                            ${filteredNote ? `, ${filteredNote}` : ''}
                         </h5>
                     </div>
                     <div class="card-body">
