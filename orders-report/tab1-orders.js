@@ -5520,22 +5520,36 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 // Nếu không tìm thấy trong cache, search trực tiếp theo tên Facebook
                 if (!conversation) {
                     const facebookName = order.Facebook_UserName;
-                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName);
+                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'fb_id:', facebookPsid);
                     try {
                         // Dùng searchConversations() thay vì fetchConversations() để tối ưu
                         // Search theo tên Facebook để tìm conversation (sẽ được encode URL tự động)
                         const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
 
-                        if (searchResult.customerId) {
-                            // Nếu tìm thấy customer ID trực tiếp từ search, dùng luôn
-                            pancakeCustomerUuid = searchResult.customerId;
-                            console.log('[CHAT-MODAL] ✅ Got customer UUID from search:', pancakeCustomerUuid);
-                        } else if (searchResult.conversations.length > 0) {
-                            // Fallback: lấy từ conversation đầu tiên
-                            conversation = searchResult.conversations[0];
-                            if (conversation.customers && conversation.customers.length > 0) {
+                        // IMPORTANT: Don't use searchResult.customerId as it's unreliable (takes first result without checking fb_id)
+                        // Always match by fb_id to ensure we get the correct customer
+                        if (searchResult.conversations.length > 0) {
+                            console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
+
+                            // Find conversation matching fb_id (not just taking first result)
+                            conversation = searchResult.conversations.find(conv => {
+                                // Check in customers array
+                                const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
+
+                                // Check in from.id
+                                const hasMatchingFrom = conv.from?.id === facebookPsid;
+
+                                // Check in from_psid
+                                const hasMatchingPsid = conv.from_psid === facebookPsid;
+
+                                return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
+                            });
+
+                            if (conversation && conversation.customers && conversation.customers.length > 0) {
                                 pancakeCustomerUuid = conversation.customers[0].id;
-                                console.log('[CHAT-MODAL] ✅ Got customer UUID from search result:', pancakeCustomerUuid);
+                                console.log('[CHAT-MODAL] ✅ Matched conversation by fb_id:', facebookPsid, 'customer UUID:', pancakeCustomerUuid);
+                            } else {
+                                console.warn('[CHAT-MODAL] ⚠️ No conversation matched fb_id:', facebookPsid, 'in', searchResult.conversations.length, 'results');
                             }
                         }
                     } catch (searchError) {
@@ -5615,21 +5629,35 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                 if (!pancakeCustomerUuid) {
                     const facebookName = order.Facebook_UserName;
                     const facebookPsid = order.Facebook_ASUserId;
-                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName);
+                    console.log('[CHAT-MODAL] 🔍 Searching conversation by Facebook Name:', facebookName, 'fb_id:', facebookPsid);
                     try {
                         // Dùng searchConversations() để tìm conversation
                         const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
 
-                        if (searchResult.customerId) {
-                            // Nếu tìm thấy customer ID trực tiếp từ search, dùng luôn
-                            pancakeCustomerUuid = searchResult.customerId;
-                            console.log('[CHAT-MODAL] ✅ Got customer UUID from search:', pancakeCustomerUuid);
-                        } else if (searchResult.conversations.length > 0) {
-                            // Fallback: lấy từ conversation đầu tiên
-                            conversation = searchResult.conversations[0];
-                            if (conversation.customers && conversation.customers.length > 0) {
+                        // IMPORTANT: Don't use searchResult.customerId as it's unreliable (takes first result without checking fb_id)
+                        // Always match by fb_id to ensure we get the correct customer
+                        if (searchResult.conversations.length > 0) {
+                            console.log('[CHAT-MODAL] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
+
+                            // Find conversation matching fb_id (not just taking first result)
+                            conversation = searchResult.conversations.find(conv => {
+                                // Check in customers array
+                                const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
+
+                                // Check in from.id
+                                const hasMatchingFrom = conv.from?.id === facebookPsid;
+
+                                // Check in from_psid
+                                const hasMatchingPsid = conv.from_psid === facebookPsid;
+
+                                return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
+                            });
+
+                            if (conversation && conversation.customers && conversation.customers.length > 0) {
                                 pancakeCustomerUuid = conversation.customers[0].id;
-                                console.log('[CHAT-MODAL] ✅ Got customer UUID from search result:', pancakeCustomerUuid);
+                                console.log('[CHAT-MODAL] ✅ Matched conversation by fb_id:', facebookPsid, 'customer UUID:', pancakeCustomerUuid);
+                            } else {
+                                console.warn('[CHAT-MODAL] ⚠️ No conversation matched fb_id:', facebookPsid, 'in', searchResult.conversations.length, 'results');
                             }
                         }
                     } catch (searchError) {
