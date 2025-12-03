@@ -6980,9 +6980,10 @@ async function sendCommentInternal(commentData) {
                 console.log('[COMMENT] Searching by name:', facebookName, 'fb_id:', facebookPsid);
                 try {
                     const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
-                    if (searchResult.customerId) {
-                        pancakeCustomerUuid = searchResult.customerId;
-                    } else if (searchResult.conversations.length > 0) {
+
+                    // IMPORTANT: Don't use searchResult.customerId as it's unreliable (takes first result without checking fb_id)
+                    // Always match by fb_id to ensure we get the correct customer
+                    if (searchResult.conversations.length > 0) {
                         console.log('[COMMENT] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
 
                         // Find conversation matching fb_id (not just taking first result)
@@ -7000,12 +7001,13 @@ async function sendCommentInternal(commentData) {
                         });
 
                         if (conversation) {
-                            console.log('[COMMENT] Matched conversation by fb_id:', facebookPsid, 'conv_id:', conversation.id);
+                            console.log('[COMMENT] ✅ Matched conversation by fb_id:', facebookPsid, 'conv_id:', conversation.id);
                             if (conversation.customers && conversation.customers.length > 0) {
                                 pancakeCustomerUuid = conversation.customers[0].id;
+                                console.log('[COMMENT] ✅ Customer UUID:', pancakeCustomerUuid);
                             }
                         } else {
-                            console.warn('[COMMENT] No conversation matched fb_id:', facebookPsid, 'in', searchResult.conversations.length, 'results');
+                            console.warn('[COMMENT] ⚠️ No conversation matched fb_id:', facebookPsid, 'in', searchResult.conversations.length, 'results');
                             console.warn('[COMMENT] Available fb_ids:', searchResult.conversations.map(c =>
                                 c.customers?.[0]?.fb_id || c.from?.id || c.from_psid
                             ).join(', '));
