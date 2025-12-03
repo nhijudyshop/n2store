@@ -203,13 +203,14 @@ function handleRealtimeTagUpdate(updateData, source) {
         if (modal && modal.style.display !== 'none') {
             closeTagModal();
 
-            if (window.notificationManager) {
-                window.notificationManager.show(
-                    `⚠️ ${updatedBy} vừa cập nhật TAG cho đơn ${orderCode} (STT: ${STT}). Modal đã được đóng để tránh conflict.`,
-                    'warning',
-                    6000
-                );
-            }
+            // DISABLED: Removed notification
+            // if (window.notificationManager) {
+            //     window.notificationManager.show(
+            //         `⚠️ ${updatedBy} vừa cập nhật TAG cho đơn ${orderCode} (STT: ${STT}). Modal đã được đóng để tránh conflict.`,
+            //         'warning',
+            //         6000
+            //     );
+            // }
         }
     }
 
@@ -217,24 +218,25 @@ function handleRealtimeTagUpdate(updateData, source) {
     const updatedOrderData = { Tags: JSON.stringify(tags) };
     updateOrderInTable(orderId, updatedOrderData);
 
+    // DISABLED: Removed notification
     // Show notification
-    const sourceIcon = source === 'firebase' ? '🔥' : '⚡';
-    let message;
+    // const sourceIcon = source === 'firebase' ? '🔥' : '⚡';
+    // let message;
 
-    if (tags.length === 0) {
-        // Case: All tags removed
-        message = `${sourceIcon} ${updatedBy} đã xóa hết TAG cho đơn ${orderCode} (STT: ${STT})`;
-    } else {
-        // Case: Tags added/updated
-        const tagNames = tags.map(t => t.Name).join(', ');
-        message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode} (STT: ${STT}): ${tagNames}`;
-    }
+    // if (tags.length === 0) {
+    //     // Case: All tags removed
+    //     message = `${sourceIcon} ${updatedBy} đã xóa hết TAG cho đơn ${orderCode} (STT: ${STT})`;
+    // } else {
+    //     // Case: Tags added/updated
+    //     const tagNames = tags.map(t => t.Name).join(', ');
+    //     message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode} (STT: ${STT}): ${tagNames}`;
+    // }
 
-    if (window.notificationManager) {
-        window.notificationManager.show(message, 'info', 4000);
-    } else {
-        console.log('[TAG-REALTIME] Notification:', message);
-    }
+    // if (window.notificationManager) {
+    //     window.notificationManager.show(message, 'info', 4000);
+    // } else {
+    //     console.log('[TAG-REALTIME] Notification:', message);
+    // }
 }
 
 /**
@@ -2646,33 +2648,34 @@ function updateOrderInTable(orderId, updatedOrderData) {
     updateStats();
 
     // 6. Highlight row vừa được cập nhật
-    highlightUpdatedRow(orderId);
+    // highlightUpdatedRow(orderId); // DISABLED: Removed auto-scroll and highlight
 
     console.log('[UPDATE] ✓ Table updated successfully');
 }
 
 // 🌟 HIGHLIGHT ROW VỪA CẬP NHẬT
-function highlightUpdatedRow(orderId) {
-    setTimeout(() => {
-        // Tìm row trong bảng
-        const rows = document.querySelectorAll('#tableBody tr');
-        rows.forEach(row => {
-            const checkbox = row.querySelector('input[type="checkbox"]');
-            if (checkbox && checkbox.value === orderId) {
-                // Thêm class highlight
-                row.classList.add('product-row-highlight');
+// DISABLED: Removed auto-scroll and highlight functionality
+// function highlightUpdatedRow(orderId) {
+//     setTimeout(() => {
+//         // Tìm row trong bảng
+//         const rows = document.querySelectorAll('#tableBody tr');
+//         rows.forEach(row => {
+//             const checkbox = row.querySelector('input[type="checkbox"]');
+//             if (checkbox && checkbox.value === orderId) {
+//                 // Thêm class highlight
+//                 row.classList.add('product-row-highlight');
 
-                // Scroll vào view (nếu cần)
-                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+//                 // Scroll vào view (nếu cần)
+//                 row.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-                // Remove highlight sau 2 giây
-                setTimeout(() => {
-                    row.classList.remove('product-row-highlight');
-                }, 2000);
-            }
-        });
-    }, 100);
-}
+//                 // Remove highlight sau 2 giây
+//                 setTimeout(() => {
+//                     row.classList.remove('product-row-highlight');
+//                 }, 2000);
+//             }
+//         });
+//     }, 100);
+// }
 
 function renderTable() {
     if (displayedData.length === 0) {
