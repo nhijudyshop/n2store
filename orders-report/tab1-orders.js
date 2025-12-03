@@ -73,18 +73,15 @@ async function emitTagUpdateToFirebase(orderId, tags) {
             userName = auth.displayName;
         }
 
-        // ✅ Validate tags array
-        if (!Array.isArray(tags)) {
-            console.error('[TAG-REALTIME] Tags is not an array:', tags);
-            return;
-        }
+        // ✅ Validate and normalize tags array
+        const normalizedTags = Array.isArray(tags) ? tags : [];
 
         console.log('[TAG-REALTIME] Preparing to emit:', {
             orderId,
             orderCode: order.Code,
             STT: order.SessionIndex,
-            tagsCount: tags.length,
-            tags: tags,
+            tagsCount: normalizedTags.length,
+            tags: normalizedTags,
             updatedBy: userName
         });
 
@@ -93,7 +90,7 @@ async function emitTagUpdateToFirebase(orderId, tags) {
             orderId: orderId,
             orderCode: order.Code || 'Unknown',
             STT: order.SessionIndex || 0,
-            tags: tags, // Array of tag objects
+            tags: normalizedTags, // Array of tag objects (can be empty array)
             updatedBy: userName,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
@@ -180,12 +177,15 @@ function handleRealtimeTagUpdate(updateData, source) {
 
     console.log(`[TAG-REALTIME] Processing update from ${source}:`, updateData);
 
-    // ✅ Validate tags - allow empty array for "delete all tags" case
-    if (tags === undefined || tags === null || !Array.isArray(tags)) {
-        console.error('[TAG-REALTIME] Invalid tags data:', tags);
+    // ✅ Validate tags - treat undefined/null as empty array for "delete all tags" case
+    const normalizedTags = tags === undefined || tags === null ? [] : tags;
+    if (!Array.isArray(normalizedTags)) {
+        console.error('[TAG-REALTIME] Invalid tags data (not an array):', tags);
         console.error('[TAG-REALTIME] Full updateData:', updateData);
         return;
     }
+
+    console.log('[TAG-REALTIME] Normalized tags:', normalizedTags);
 
     // Check if this order is in current view
     const orderExists = allData.find(o => o.Id === orderId);
@@ -214,8 +214,8 @@ function handleRealtimeTagUpdate(updateData, source) {
         }
     }
 
-    // Update order in table
-    const updatedOrderData = { Tags: JSON.stringify(tags) };
+    // Update order in table (use normalizedTags)
+    const updatedOrderData = { Tags: JSON.stringify(normalizedTags) };
     updateOrderInTable(orderId, updatedOrderData);
 
     // DISABLED: Removed notification
@@ -223,12 +223,12 @@ function handleRealtimeTagUpdate(updateData, source) {
     // const sourceIcon = source === 'firebase' ? '🔥' : '⚡';
     // let message;
 
-    // if (tags.length === 0) {
+    // if (normalizedTags.length === 0) {
     //     // Case: All tags removed
     //     message = `${sourceIcon} ${updatedBy} đã xóa hết TAG cho đơn ${orderCode} (STT: ${STT})`;
     // } else {
     //     // Case: Tags added/updated
-    //     const tagNames = tags.map(t => t.Name).join(', ');
+    //     const tagNames = normalizedTags.map(t => t.Name).join(', ');
     //     message = `${sourceIcon} ${updatedBy} đã cập nhật TAG cho đơn ${orderCode} (STT: ${STT}): ${tagNames}`;
     // }
 
