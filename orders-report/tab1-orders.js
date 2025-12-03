@@ -5479,10 +5479,17 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             // Format: postId_commentId (e.g., "1382798016618291_817929370998475")
             const facebookPostId = order.Facebook_PostId || currentPostId;
             if (facebookPostId && currentParentCommentId) {
-                // Extract just the post ID (without pageId prefix)
-                const postId = extractPostId(facebookPostId);
-                window.currentConversationId = `${postId}_${currentParentCommentId}`;
-                console.log(`[CHAT] Constructed conversationId for comment: ${window.currentConversationId} (from ${facebookPostId})`);
+                // Check if currentParentCommentId already has format postId_commentId
+                if (currentParentCommentId.includes('_')) {
+                    // Already a full conversation ID, use as-is
+                    window.currentConversationId = currentParentCommentId;
+                    console.log(`[CHAT] Using currentParentCommentId as conversationId: ${window.currentConversationId}`);
+                } else {
+                    // Just a comment ID, need to prepend postId
+                    const postId = extractPostId(facebookPostId);
+                    window.currentConversationId = `${postId}_${currentParentCommentId}`;
+                    console.log(`[CHAT] Constructed conversationId for comment: ${window.currentConversationId} (from ${facebookPostId})`);
+                }
             } else {
                 // Fallback: Try to get from Pancake data manager
                 if (window.pancakeDataManager) {
