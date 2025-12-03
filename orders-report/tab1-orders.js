@@ -7004,17 +7004,29 @@ async function sendCommentInternal(commentData) {
             }
         }
 
-        // Step 2: Get customer UUID and thread info using new flow
-        console.log('[COMMENT] Getting thread info...');
-        showChatSendingIndicator('Lấy thông tin thread...');
-
+        // Step 2: Build conversationId and validate order data
         const facebookName = order.Facebook_UserName;
         const facebookASUserId = order.Facebook_ASUserId;
         const facebookCommentId = order.Facebook_CommentId;
+        const facebookPostId = order.Facebook_PostId;
 
-        if (!facebookName || !facebookASUserId || !facebookCommentId) {
-            throw new Error('Thiếu thông tin: Facebook_UserName, Facebook_ASUserId, hoặc Facebook_CommentId');
+        if (!facebookName || !facebookASUserId || !facebookCommentId || !facebookPostId) {
+            throw new Error('Thiếu thông tin: Facebook_UserName, Facebook_ASUserId, Facebook_CommentId, hoặc Facebook_PostId');
         }
+
+        // Build conversationId = pageId_Facebook_ASUserId
+        const pageId = facebookPostId.split('_')[0]; // Extract pageId from postId
+        const builtConversationId = `${pageId}_${facebookASUserId}`;
+
+        console.log('[COMMENT] Built conversationId:', builtConversationId);
+        console.log('[COMMENT] Param conversationId:', conversationId);
+
+        // Use built conversationId (more reliable than parameter)
+        const finalConversationId = builtConversationId;
+
+        // Step 3: Get customer UUID and thread info using new flow
+        console.log('[COMMENT] Getting thread info...');
+        showChatSendingIndicator('Lấy thông tin thread...');
 
         console.log('[COMMENT] Searching by comment IDs:', facebookCommentId);
 
@@ -7023,7 +7035,7 @@ async function sendCommentInternal(commentData) {
             facebookName,
             facebookCommentId,
             facebookASUserId,
-            [channelId] // Pass pageIds array
+            [pageId] // Pass pageIds array (from order data)
         );
 
         const pancakeCustomerUuid = searchResult.customerUuid;
@@ -7039,7 +7051,7 @@ async function sendCommentInternal(commentData) {
         // If no thread_id/thread_key from search, fetch inbox_preview
         if (!threadId || !threadKey) {
             console.log('[COMMENT] Fetching inbox_preview for thread info...');
-            const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
+            const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, pancakeCustomerUuid);
 
             if (!inboxPreview.success) {
                 throw new Error('Fetch inbox_preview failed: ' + inboxPreview.error);
@@ -7063,24 +7075,28 @@ async function sendCommentInternal(commentData) {
             console.warn('[COMMENT] Warning: from_id not found, but will attempt to send anyway');
         }
 
-        // Step 3: Send comment via conversations/messages API
+        // Step 4: Send comment via conversations/messages API
         showChatSendingIndicator('Đang gửi bình luận...');
 
         const replyUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${channelId}/conversations/${conversationId}/messages`,
+            `pages/${pageId}/conversations/${finalConversationId}/messages`,
             `access_token=${token}`
         );
 
         // Build JSON payload for private_replies action
+        // Extract message_id from Facebook_CommentId (first comment ID)
+        const commentIds = facebookCommentId.split(',').map(id => id.trim());
+        const messageId = commentIds[0]; // Use first comment ID as message_id
+
         const payload = {
             action: 'private_replies',
-            message_id: parentCommentId || conversationId.split('_').pop(), // Use parent comment ID or extract from conversationId
+            message_id: messageId,
             thread_id_preview: threadId,
             thread_key_preview: threadKey,
             from_id: fromId,
             need_thread_id: false,
             message: message,
-            post_id: postId
+            post_id: facebookPostId
         };
 
         // Add image data if present
@@ -7118,15 +7134,15 @@ async function sendCommentInternal(commentData) {
             throw new Error('Gửi bình luận thất bại: ' + errorMessage);
         }
 
-        // Step 4: Sync comments (ONLY for comments!)
+        // Step 5: Sync comments (ONLY for comments!)
         console.log('[COMMENT] Syncing comments...');
         const syncUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${channelId}/sync_comments`,
+            `pages/${pageId}/sync_comments`,
             `access_token=${token}`
         );
 
         const syncFormData = new FormData();
-        syncFormData.append('post_id', postId);
+        syncFormData.append('post_id', facebookPostId);
 
         const syncResponse = await API_CONFIG.smartFetch(syncUrl, {
             method: 'POST',
@@ -7140,7 +7156,7 @@ async function sendCommentInternal(commentData) {
             console.log('[COMMENT] Sync response:', syncData);
         }
 
-        // Step 5: Optimistic UI update
+        // Step 6: Optimistic UI update
         const now = new Date().toISOString();
         skipWebhookUpdate = true;
 
