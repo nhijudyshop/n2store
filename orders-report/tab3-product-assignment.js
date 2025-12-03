@@ -2100,4 +2100,763 @@
         return html;
     }
 
+    // =====================================================
+    // UPLOAD SECTION - NEW FEATURE (INDEPENDENT FROM TAB 2)
+    // =====================================================
+
+    // Upload state
+    let uploadData = {};
+    let selectedSTTs = new Set();
+    let currentViewMode = 'order'; // 'order' or 'product'
+
+    /**
+     * Build upload data from assignments
+     * Group by STT (SessionIndex)
+     */
+    function buildUploadData() {
+        const data = {};
+
+        assignments.forEach(assignment => {
+            if (!assignment.sttList || assignment.sttList.length === 0) return;
+
+            assignment.sttList.forEach(sttItem => {
+                const stt = typeof sttItem === 'object' ? sttItem.stt : sttItem;
+                const orderInfo = typeof sttItem === 'object' ? sttItem.orderInfo : null;
+
+                if (!data[stt]) {
+                    data[stt] = {
+                        stt: stt,
+                        orderInfo: orderInfo,
+                        products: []
+                    };
+                }
+
+                // Count duplicates (if same product assigned multiple times to same STT)
+                const existingProduct = data[stt].products.find(p => p.productId === assignment.productId);
+                if (existingProduct) {
+                    existingProduct.quantity++;
+                } else {
+                    data[stt].products.push({
+                        productId: assignment.productId,
+                        productName: assignment.productName,
+                        productCode: assignment.productCode,
+                        imageUrl: assignment.imageUrl,
+                        quantity: 1
+                    });
+                }
+            });
+        });
+
+        return data;
+    }
+
+    /**
+     * Render upload table based on view mode
+     */
+    function renderUploadTable() {
+        uploadData = buildUploadData();
+
+        if (currentViewMode === 'order') {
+            renderByOrderView();
+        } else {
+            renderByProductView();
+        }
+
+        updateUploadStats();
+        updateUploadButtons();
+    }
+
+    /**
+     * Render "By Order" view (group by STT)
+     */
+    function renderByOrderView() {
+        const thead = document.getElementById('uploadTableHead');
+        const tbody = document.getElementById('uploadTableBody');
+
+        thead.innerHTML = `
+            <tr>
+                <th class="checkbox-cell"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
+                <th>STT</th>
+                <th>Khách hàng</th>
+                <th>Sản phẩm</th>
+                <th>Số lượng</th>
+                <th>Thao tác</th>
+            </tr>
+        `;
+
+        const sttKeys = Object.keys(uploadData).sort((a, b) => Number(a) - Number(b));
+
+        if (sttKeys.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        Chưa có sản phẩm nào để upload. Hãy gán sản phẩm ở bảng trên.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = sttKeys.map(stt => {
+            const data = uploadData[stt];
+            const isSelected = selectedSTTs.has(stt);
+            const customerName = data.orderInfo?.customerName || 'N/A';
+            const totalQuantity = data.products.reduce((sum, p) => sum + p.quantity, 0);
+
+            const productsList = data.products.map(p => `${p.productName} (x${p.quantity})`).join(', ');
+
+            return `
+                <tr class="${isSelected ? 'table-success' : ''}">
+                    <td class="checkbox-cell">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSTTSelection('${stt}')">
+                    </td>
+                    <td><span class="stt-badge">${stt}</span></td>
+                    <td>${customerName}</td>
+                    <td><small>${productsList}</small></td>
+                    <td><span class="product-count-badge"><i class="fas fa-box"></i> ${totalQuantity}</span></td>
+                    <td>
+                        <button class="upload-action-btn btn-view" onclick="viewSTTDetail('${stt}')">
+                            <i class="fas fa-eye"></i> Xem
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Render "By Product" view (group by product code)
+     */
+    function renderByProductView() {
+        const thead = document.getElementById('uploadTableHead');
+        const tbody = document.getElementById('uploadTableBody');
+
+        thead.innerHTML = `
+            <tr>
+                <th class="checkbox-cell"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
+                <th>Sản phẩm</th>
+                <th>Mã SP</th>
+                <th>STT Đơn Hàng</th>
+                <th>Tổng SL</th>
+                <th>Thao tác</th>
+            </tr>
+        `;
+
+        // Group by product
+        const byProduct = {};
+        Object.entries(uploadData).forEach(([stt, data]) => {
+            data.products.forEach(product => {
+                const key = product.productId;
+                if (!byProduct[key]) {
+                    byProduct[key] = {
+                        ...product,
+                        stts: [],
+                        totalQuantity: 0
+                    };
+                }
+                byProduct[key].stts.push(stt);
+                byProduct[key].totalQuantity += product.quantity;
+            });
+        });
+
+        const products = Object.values(byProduct);
+
+        if (products.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                        Chưa có sản phẩm nào để upload. Hãy gán sản phẩm ở bảng trên.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = products.map(product => {
+            // Check if all STTs of this product are selected
+            const allSelected = product.stts.every(stt => selectedSTTs.has(stt));
+            const someSelected = product.stts.some(stt => selectedSTTs.has(stt));
+            const isIndeterminate = someSelected && !allSelected;
+
+            const imageHtml = product.imageUrl
+                ? `<img src="${product.imageUrl}" class="upload-product-image">`
+                : `<div class="upload-product-image no-image">📦</div>`;
+
+            return `
+                <tr class="${allSelected ? 'table-success' : ''}">
+                    <td class="checkbox-cell">
+                        <input type="checkbox" ${allSelected ? 'checked' : ''} ${isIndeterminate ? 'indeterminate' : ''}
+                               onchange="toggleProductSelection('${product.productId}')">
+                    </td>
+                    <td>
+                        <div class="upload-product-cell">
+                            ${imageHtml}
+                            <div>
+                                <div class="upload-product-name">${product.productName}</div>
+                                <div class="upload-product-code">${product.productCode || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${product.productCode || 'N/A'}</td>
+                    <td><small>${product.stts.join(', ')}</small></td>
+                    <td><span class="product-count-badge"><i class="fas fa-box"></i> ${product.totalQuantity}</span></td>
+                    <td>
+                        <button class="upload-action-btn btn-view" onclick="viewProductSTTs('${product.productId}')">
+                            <i class="fas fa-eye"></i> Xem
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Set indeterminate state after render
+        setTimeout(() => {
+            products.forEach(product => {
+                const allSelected = product.stts.every(stt => selectedSTTs.has(stt));
+                const someSelected = product.stts.some(stt => selectedSTTs.has(stt));
+                if (someSelected && !allSelected) {
+                    const checkbox = document.querySelector(`input[onchange*="toggleProductSelection('${product.productId}')"]`);
+                    if (checkbox) checkbox.indeterminate = true;
+                }
+            });
+        }, 0);
+    }
+
+    /**
+     * Update upload stats display
+     */
+    function updateUploadStats() {
+        const totalSTTs = Object.keys(uploadData).length;
+        let totalProducts = 0;
+        let totalItems = 0;
+
+        Object.values(uploadData).forEach(data => {
+            totalProducts += data.products.length;
+            totalItems += data.products.reduce((sum, p) => sum + p.quantity, 0);
+        });
+
+        document.getElementById('totalOrders').textContent = totalSTTs;
+        document.getElementById('totalProducts').textContent = totalProducts;
+        document.getElementById('selectedCount').textContent = selectedSTTs.size;
+        document.getElementById('totalItems').textContent = totalItems;
+    }
+
+    /**
+     * Update upload buttons enabled/disabled state
+     */
+    function updateUploadButtons() {
+        const hasSelection = selectedSTTs.size > 0;
+        document.getElementById('previewUploadBtn').disabled = !hasSelection;
+        document.getElementById('uploadBtn').disabled = !hasSelection;
+    }
+
+    /**
+     * Switch view mode (order/product)
+     */
+    window.switchViewMode = function (mode) {
+        currentViewMode = mode;
+
+        // Update button states
+        document.getElementById('viewByOrderBtn').classList.toggle('active', mode === 'order');
+        document.getElementById('viewByProductBtn').classList.toggle('active', mode === 'product');
+
+        renderUploadTable();
+    };
+
+    /**
+     * Toggle select all
+     */
+    window.toggleSelectAll = function () {
+        const checkbox = document.getElementById('selectAllCheckbox');
+        const allSTTs = Object.keys(uploadData);
+
+        if (checkbox.checked) {
+            allSTTs.forEach(stt => selectedSTTs.add(stt));
+        } else {
+            selectedSTTs.clear();
+        }
+
+        renderUploadTable();
+    };
+
+    /**
+     * Select all upload
+     */
+    window.selectAllUpload = function () {
+        const allSTTs = Object.keys(uploadData);
+        allSTTs.forEach(stt => selectedSTTs.add(stt));
+        renderUploadTable();
+    };
+
+    /**
+     * Deselect all upload
+     */
+    window.deselectAllUpload = function () {
+        selectedSTTs.clear();
+        renderUploadTable();
+    };
+
+    /**
+     * Toggle STT selection (for order view)
+     */
+    window.toggleSTTSelection = function (stt) {
+        if (selectedSTTs.has(stt)) {
+            selectedSTTs.delete(stt);
+        } else {
+            selectedSTTs.add(stt);
+        }
+        renderUploadTable();
+    };
+
+    /**
+     * Toggle product selection (for product view)
+     */
+    window.toggleProductSelection = function (productId) {
+        // Find all STTs that contain this product
+        const sttsWithProduct = [];
+        Object.entries(uploadData).forEach(([stt, data]) => {
+            if (data.products.some(p => p.productId === productId)) {
+                sttsWithProduct.push(stt);
+            }
+        });
+
+        // Check if all are selected
+        const allSelected = sttsWithProduct.every(stt => selectedSTTs.has(stt));
+
+        // Toggle all
+        if (allSelected) {
+            sttsWithProduct.forEach(stt => selectedSTTs.delete(stt));
+        } else {
+            sttsWithProduct.forEach(stt => selectedSTTs.add(stt));
+        }
+
+        renderUploadTable();
+    };
+
+    /**
+     * View STT detail
+     */
+    window.viewSTTDetail = function (stt) {
+        const data = uploadData[stt];
+        if (!data) return;
+
+        const productsHtml = data.products.map(p => {
+            const imageHtml = p.imageUrl
+                ? `<img src="${p.imageUrl}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;">`
+                : '<div style="width: 50px; height: 50px; background: #e5e7eb; border-radius: 6px; display: flex; align-items: center; justify-content: center;">📦</div>';
+
+            return `
+                <div class="d-flex align-items-center gap-3 mb-2 p-2 border-bottom">
+                    ${imageHtml}
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">${p.productName}</div>
+                        <div class="small text-muted">${p.productCode || 'N/A'}</div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-success">x${p.quantity}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        alert(`STT ${stt}\nKhách hàng: ${data.orderInfo?.customerName || 'N/A'}\n\nSản phẩm:\n${data.products.map(p => `- ${p.productName} (x${p.quantity})`).join('\n')}`);
+    };
+
+    /**
+     * View product STTs
+     */
+    window.viewProductSTTs = function (productId) {
+        const stts = [];
+        Object.entries(uploadData).forEach(([stt, data]) => {
+            if (data.products.some(p => p.productId === productId)) {
+                stts.push(stt);
+            }
+        });
+
+        alert(`Sản phẩm này có trong các STT:\n${stts.join(', ')}`);
+    };
+
+    /**
+     * Re-render upload table when assignments change
+     * Call this function after any assignment update
+     */
+    function refreshUploadSection() {
+        renderUploadTable();
+    }
+
+    // Hook into existing renderAssignmentTable to refresh upload section
+    const originalRenderAssignmentTable = renderAssignmentTable;
+    renderAssignmentTable = function () {
+        originalRenderAssignmentTable();
+        refreshUploadSection();
+    };
+
+    // Initialize upload section on load
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            refreshUploadSection();
+        }, 1000);
+    });
+
+    // =====================================================
+    // PREVIEW & UPLOAD FUNCTIONS
+    // =====================================================
+
+    /**
+     * Preview upload - Show modal with comparison
+     */
+    window.previewUpload = async function () {
+        if (selectedSTTs.size === 0) {
+            showNotification('Vui lòng chọn ít nhất 1 STT để upload', 'error');
+            return;
+        }
+
+        console.log('[PREVIEW] Opening preview modal for', selectedSTTs.size, 'STTs');
+
+        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+        modal.show();
+
+        const modalBody = document.getElementById('previewModalBody');
+        modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-info"></div><p class="text-muted mt-2">Đang tải preview...</p></div>';
+
+        try {
+            const html = await renderPreviewContent(Array.from(selectedSTTs));
+            modalBody.innerHTML = html;
+        } catch (error) {
+            console.error('[PREVIEW] Error:', error);
+            modalBody.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Lỗi: ${error.message}</div>`;
+        }
+    };
+
+    async function renderPreviewContent(stts) {
+        let html = '';
+        for (const stt of stts.sort((a, b) => Number(a) - Number(b))) {
+            const data = uploadData[stt];
+            if (!data) continue;
+
+            let existingProducts = [];
+            if (data.orderInfo?.orderId) {
+                try {
+                    existingProducts = await fetchExistingOrderProducts(data.orderInfo.orderId);
+                } catch (error) {
+                    console.warn(`Failed to fetch existing products for order ${data.orderInfo.orderId}`);
+                }
+            }
+
+            const existingProductsMap = {};
+            existingProducts.forEach(p => {
+                if (p.productId) existingProductsMap[p.productId] = p;
+            });
+
+            const productsWithStatus = data.products.map(p => ({
+                ...p,
+                isExisting: !!existingProductsMap[p.productId]
+            }));
+
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="fas fa-hashtag"></i> STT ${stt} ${data.orderInfo?.customerName ? ` - ${data.orderInfo.customerName}` : ''}</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-success"><i class="fas fa-plus-circle"></i> Sản phẩm sẽ upload (${productsWithStatus.length})</h6>
+                                <table class="table table-sm table-bordered">
+                                    <thead><tr><th>Sản phẩm</th><th class="text-center">SL</th></tr></thead>
+                                    <tbody>
+                                        ${productsWithStatus.map(p => `
+                                            <tr class="${p.isExisting ? 'table-warning' : 'table-success'}">
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                                                        <div>
+                                                            <div style="font-weight:600;">${p.productName}</div>
+                                                            <div style="font-size:12px;color:#6b7280;">${p.productCode || 'N/A'} ${p.isExisting ? '<span class="badge bg-warning text-dark ms-2"><i class="fas fa-plus"></i> Cộng SL</span>' : '<span class="badge bg-success ms-2"><i class="fas fa-star"></i> Mới</span>'}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center"><span class="badge ${p.isExisting ? 'bg-warning text-dark' : 'bg-success'}">${p.quantity}</span></td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-info"><i class="fas fa-box"></i> Sản phẩm có sẵn (${existingProducts.length})</h6>
+                                ${existingProducts.length > 0 ? `
+                                    <table class="table table-sm table-bordered">
+                                        <thead><tr><th>Sản phẩm</th><th class="text-center">SL</th></tr></thead>
+                                        <tbody>
+                                            ${existingProducts.map(p => {
+                                                const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
+                                                return `
+                                                    <tr class="${willBeUpdated ? 'table-warning' : ''}">
+                                                        <td>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:40px;background:#e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;">📦</div>'}
+                                                                <div>
+                                                                    <div style="font-weight:600;">${p.nameGet || p.name || 'N/A'}</div>
+                                                                    <div style="font-size:12px;color:#6b7280;">${p.code || 'N/A'}${willBeUpdated ? '<span class="badge bg-warning text-dark ms-1"><i class="fas fa-arrow-up"></i></span>' : ''}</div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-center"><span class="badge bg-info">${p.quantity}</span></td>
+                                                    </tr>
+                                                `;
+                                            }).join('')}
+                                        </tbody>
+                                    </table>
+                                ` : '<div class="text-center text-muted py-3 border rounded"><i class="fas fa-inbox fa-2x mb-2"></i><p class="mb-0">Không có sản phẩm có sẵn</p><small>(Tất cả sản phẩm đều là mới)</small></div>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        return html || '<div class="alert alert-warning">Không có dữ liệu</div>';
+    }
+
+    async function fetchExistingOrderProducts(orderId) {
+        try {
+            const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/odata/Order(${orderId})?$expand=Products`);
+            if (!response.ok) throw new Error('Failed to fetch order');
+            const order = await response.json();
+            return order.Products || [];
+        } catch (error) {
+            console.error('[FETCH-ORDER] Error:', error);
+            return [];
+        }
+    }
+
+    window.confirmUpload = function () {
+        const previewModal = bootstrap.Modal.getInstance(document.getElementById('previewModal'));
+        if (previewModal) previewModal.hide();
+        uploadToTPOS();
+    };
+
+    window.uploadToTPOS = async function () {
+        if (selectedSTTs.size === 0) {
+            showNotification('Vui lòng chọn ít nhất 1 STT để upload', 'error');
+            return;
+        }
+
+        if (!confirm(`Bạn có chắc muốn upload ${selectedSTTs.size} STT lên TPOS?`)) return;
+
+        const uploadBtn = document.getElementById('uploadBtn');
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang upload...';
+
+        try {
+            const uploadId = `upload_${Date.now()}`;
+            await createBackupBeforeUpload(uploadId, Array.from(selectedSTTs));
+
+            const results = [];
+            for (const stt of Array.from(selectedSTTs).sort((a, b) => Number(a) - Number(b))) {
+                const result = await uploadSingleSTT(stt);
+                results.push(result);
+            }
+
+            const successCount = results.filter(r => r.success).length;
+            const failCount = results.filter(r => !r.success).length;
+            const status = failCount === 0 ? 'completed' : (successCount > 0 ? 'partial' : 'failed');
+
+            await saveToUploadHistory(uploadId, results, status);
+
+            const successfulSTTs = results.filter(r => r.success).map(r => r.stt);
+            if (successfulSTTs.length > 0) {
+                await removeUploadedSTTsFromAssignments(successfulSTTs);
+            }
+
+            selectedSTTs.clear();
+            renderUploadTable();
+
+            if (status === 'completed') {
+                showNotification(`✅ Upload thành công ${successCount} STT và đã xóa khỏi danh sách gán`);
+            } else if (status === 'partial') {
+                showNotification(`⚠️ Upload thành công ${successCount} STT, thất bại ${failCount} STT`, 'error');
+            } else {
+                showNotification(`❌ Upload thất bại ${failCount} STT`, 'error');
+            }
+        } catch (error) {
+            console.error('[UPLOAD] Error:', error);
+            showNotification('Lỗi: ' + error.message, 'error');
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload Lên TPOS';
+        }
+    };
+
+    async function uploadSingleSTT(stt) {
+        try {
+            const data = uploadData[stt];
+            if (!data) throw new Error('STT data not found');
+
+            const orderId = data.orderInfo?.orderId;
+            if (orderId) {
+                await addProductsToOrder(orderId, data.products);
+            } else {
+                await createNewOrder(stt, data);
+            }
+
+            return { stt: stt, success: true, orderId: orderId, error: null };
+        } catch (error) {
+            console.error(`[UPLOAD] Error uploading STT ${stt}:`, error);
+            return { stt: stt, success: false, orderId: null, error: error.message };
+        }
+    }
+
+    async function addProductsToOrder(orderId, products) {
+        const orderLines = products.map(p => ({
+            ProductId: p.productId,
+            Quantity: p.quantity,
+            Price: 0,
+            Note: p.productCode || ''
+        }));
+
+        const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Order/AddProductsToOrder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ OrderId: orderId, Products: orderLines })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to add products: ${errorText}`);
+        }
+        return await response.json();
+    }
+
+    async function createNewOrder(stt, data) {
+        const orderLines = data.products.map(p => ({
+            ProductId: p.productId,
+            Quantity: p.quantity,
+            Price: 0,
+            Note: p.productCode || ''
+        }));
+
+        const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Order/CreateOrderFromApp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                CustomerName: data.orderInfo?.customerName || `STT ${stt}`,
+                Phone: data.orderInfo?.phone || '',
+                Address: data.orderInfo?.address || '',
+                Note: `STT ${stt}`,
+                Products: orderLines
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to create order: ${errorText}`);
+        }
+        return await response.json();
+    }
+
+    async function removeUploadedSTTsFromAssignments(uploadedSTTs) {
+        console.log('[DELETE] Removing uploaded STTs:', uploadedSTTs);
+
+        assignments.forEach(assignment => {
+            if (assignment.sttList && Array.isArray(assignment.sttList)) {
+                assignment.sttList = assignment.sttList.filter(sttItem => {
+                    const stt = typeof sttItem === 'object' ? sttItem.stt : sttItem;
+                    return !uploadedSTTs.includes(stt.toString());
+                });
+            }
+        });
+
+        assignments = assignments.filter(a => a.sttList && a.sttList.length > 0);
+        saveAssignments(true);
+        renderAssignmentTable();
+        console.log('[DELETE] ✅ Removed successfully');
+    }
+
+    async function createBackupBeforeUpload(uploadId, uploadedSTTs) {
+        try {
+            const backupData = {
+                uploadId: uploadId,
+                timestamp: Date.now(),
+                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(assignments)) },
+                uploadedSTTs: uploadedSTTs
+            };
+            await database.ref(getUserFirebasePath('productAssignments_backup')).child(uploadId).set(backupData);
+            console.log('[BACKUP] Created:', uploadId);
+        } catch (error) {
+            console.error('[BACKUP] Error:', error);
+        }
+    }
+
+    async function saveToUploadHistory(uploadId, results, status) {
+        try {
+            const historyRecord = {
+                uploadId: uploadId,
+                timestamp: Date.now(),
+                uploadStatus: status,
+                totalSTTs: results.length,
+                successCount: results.filter(r => r.success).length,
+                failCount: results.filter(r => !r.success).length,
+                uploadedSTTs: results.map(r => r.stt),
+                uploadResults: results,
+                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(assignments)) }
+            };
+            await database.ref(getUserFirebasePath('productAssignments_history')).child(uploadId).set(historyRecord);
+            console.log('[HISTORY] Saved:', uploadId);
+        } catch (error) {
+            console.error('[HISTORY] Error:', error);
+        }
+    }
+
+    window.finalizeSession = function () {
+        const totalSTTs = Object.keys(uploadData).length;
+        let totalProducts = 0;
+        let totalItems = 0;
+
+        Object.values(uploadData).forEach(data => {
+            totalProducts += data.products.length;
+            totalItems += data.products.reduce((sum, p) => sum + p.quantity, 0);
+        });
+
+        document.getElementById('finalizeTotalSTT').textContent = totalSTTs;
+        document.getElementById('finalizeTotalProducts').textContent = totalProducts;
+        document.getElementById('finalizeTotalItems').textContent = totalItems;
+
+        const modal = new bootstrap.Modal(document.getElementById('finalizeModal'));
+        modal.show();
+    };
+
+    window.confirmFinalize = async function () {
+        try {
+            const note = document.getElementById('finalizeNote').value.trim();
+
+            const finalizeId = `finalize_${Date.now()}`;
+            const finalizeData = {
+                finalizeId: finalizeId,
+                timestamp: Date.now(),
+                type: 'finalize',
+                totalSTTs: Object.keys(uploadData).length,
+                totalProducts: assignments.length,
+                note: note,
+                beforeSnapshot: { assignments: JSON.parse(JSON.stringify(assignments)) }
+            };
+
+            await database.ref(getUserFirebasePath('productAssignments_finalize_history')).child(finalizeId).set(finalizeData);
+
+            assignments = [];
+            saveAssignments(true);
+            renderAssignmentTable();
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('finalizeModal'));
+            if (modal) modal.hide();
+
+            showNotification('✅ Đã finalize session thành công!');
+            console.log('[FINALIZE] Success:', finalizeId);
+        } catch (error) {
+            console.error('[FINALIZE] Error:', error);
+            showNotification('Lỗi: ' + error.message, 'error');
+        }
+    };
+
 })();

@@ -101,6 +101,179 @@
                 </div>
             </div>
         </div>
+
+        <!-- ========================================= -->
+        <!-- UPLOAD SECTION - NEW FEATURE -->
+        <!-- ========================================= -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-upload"></i> Upload Sản Phẩm Lên TPOS</h5>
+                    <div class="btn-group btn-group-sm view-mode-toggle" role="group">
+                        <button type="button" class="btn btn-light active" id="viewByOrderBtn" onclick="switchViewMode('order')">
+                            <i class="fas fa-list"></i> Theo Đơn
+                        </button>
+                        <button type="button" class="btn btn-light" id="viewByProductBtn" onclick="switchViewMode('product')">
+                            <i class="fas fa-box"></i> Theo Sản Phẩm
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <!-- Upload Stats -->
+                <div class="upload-stats mb-3">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="stat-card bg-info-subtle">
+                                <i class="fas fa-hashtag text-info"></i>
+                                <div class="stat-value" id="totalOrders">0</div>
+                                <div class="stat-label">Tổng STT</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card bg-success-subtle">
+                                <i class="fas fa-box text-success"></i>
+                                <div class="stat-value" id="totalProducts">0</div>
+                                <div class="stat-label">Tổng Sản Phẩm</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card bg-warning-subtle">
+                                <i class="fas fa-check-square text-warning"></i>
+                                <div class="stat-value" id="selectedCount">0</div>
+                                <div class="stat-label">Đã Chọn</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card bg-danger-subtle">
+                                <i class="fas fa-shopping-cart text-danger"></i>
+                                <div class="stat-value" id="totalItems">0</div>
+                                <div class="stat-label">Tổng Items</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Table Container -->
+                <div class="table-responsive" id="uploadTableContainer">
+                    <table class="table table-hover mb-0" id="uploadTable">
+                        <thead class="table-light" id="uploadTableHead">
+                            <!-- Will be populated by JavaScript -->
+                        </thead>
+                        <tbody id="uploadTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-5">
+                                    <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                    Chưa có sản phẩm nào để upload. Hãy gán sản phẩm ở bảng trên.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm" id="selectAllUploadBtn" onclick="selectAllUpload()">
+                            <i class="fas fa-check-double"></i> Chọn Tất Cả
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" id="deselectAllUploadBtn" onclick="deselectAllUpload()">
+                            <i class="fas fa-times"></i> Bỏ Chọn Tất Cả
+                        </button>
+                    </div>
+                    <div>
+                        <button class="btn btn-info btn-sm me-2" id="previewUploadBtn" onclick="previewUpload()" disabled>
+                            <i class="fas fa-eye"></i> Xem Trước
+                        </button>
+                        <button class="btn btn-success btn-sm me-2" id="uploadBtn" onclick="uploadToTPOS()" disabled>
+                            <i class="fas fa-cloud-upload-alt"></i> Upload Lên TPOS
+                        </button>
+                        <button class="btn btn-warning btn-sm" id="finalizeSessionBtn" onclick="finalizeSession()">
+                            <i class="fas fa-flag-checkered"></i> Finalize Session
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- PREVIEW MODAL -->
+    <!-- ========================================= -->
+    <div class="modal fade" id="previewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye"></i> Xem Trước Upload
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="previewModalBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2">Đang tải preview...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Hủy
+                    </button>
+                    <button type="button" class="btn btn-success" id="confirmUploadBtn" onclick="confirmUpload()">
+                        <i class="fas fa-check"></i> Xác Nhận Upload
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- FINALIZE SESSION MODAL -->
+    <!-- ========================================= -->
+    <div class="modal fade" id="finalizeModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-flag-checkered"></i> Finalize Session
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Chú ý:</strong> Finalize session sẽ lưu tất cả dữ liệu hiện tại vào lịch sử và xóa toàn bộ assignments.
+                        Bạn có chắc chắn muốn tiếp tục?
+                    </div>
+
+                    <div class="finalize-summary">
+                        <h6><i class="fas fa-info-circle"></i> Thống Kê Hiện Tại:</h6>
+                        <ul>
+                            <li>Tổng STT: <strong id="finalizeTotalSTT">0</strong></li>
+                            <li>Tổng Sản Phẩm: <strong id="finalizeTotalProducts">0</strong></li>
+                            <li>Tổng Items: <strong id="finalizeTotalItems">0</strong></li>
+                        </ul>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label for="finalizeNote" class="form-label">Ghi chú (tùy chọn):</label>
+                        <textarea class="form-control" id="finalizeNote" rows="3" placeholder="Nhập ghi chú cho session này..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Hủy
+                    </button>
+                    <button type="button" class="btn btn-warning" id="confirmFinalizeBtn" onclick="confirmFinalize()">
+                        <i class="fas fa-check"></i> Xác Nhận Finalize
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Upload History Modal -->
