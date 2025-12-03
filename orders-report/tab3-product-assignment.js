@@ -2621,10 +2621,30 @@
 
     async function fetchExistingOrderProducts(orderId) {
         try {
-            const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/odata/Order(${orderId})?$expand=Products`);
+            const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product)`;
+            const headers = await window.tokenManager.getAuthHeader();
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                }
+            });
+
             if (!response.ok) throw new Error('Failed to fetch order');
             const order = await response.json();
-            return order.Products || [];
+
+            // Parse Details to products
+            return (order.Details || []).map(detail => ({
+                productId: detail.Product?.Id || detail.ProductId,
+                nameGet: detail.Product?.NameGet || detail.ProductName || 'N/A',
+                code: detail.Product?.DefaultCode || detail.ProductCode || '',
+                quantity: detail.Quantity || 0,
+                price: detail.Price || 0,
+                imageUrl: detail.Product?.ImageUrl || '',
+                note: detail.Note || ''
+            }));
         } catch (error) {
             console.error('[FETCH-ORDER] Error:', error);
             return [];
@@ -2691,69 +2711,198 @@
 
     async function uploadSingleSTT(stt) {
         try {
-            const data = uploadData[stt];
-            if (!data) throw new Error('STT data not found');
+            const sessionData = uploadData[stt];
+            if (!sessionData) throw new Error('STT data not found');
 
-            const orderId = data.orderInfo?.orderId;
-            if (orderId) {
-                await addProductsToOrder(orderId, data.products);
-            } else {
-                await createNewOrder(stt, data);
+            const orderId = sessionData.orderInfo?.orderId;
+            if (!orderId) throw new Error('No order ID for this STT');
+
+            console.log(`[UPLOAD] 📡 Fetching order ${orderId} for STT ${stt}...`);
+
+            // Fetch current order data with full expand
+            const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
+            const headers = await window.tokenManager.getAuthHeader();
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch order ${orderId}: ${response.status}`);
             }
 
+            const orderData = await response.json();
+            console.log(`[UPLOAD] ✅ Fetched order data for STT ${stt}`);
+
+            // Prepare merged Details
+            const mergedDetails = await prepareUploadDetails(orderData, sessionData, stt);
+            orderData.Details = mergedDetails;
+
+            // Recalculate totals
+            let totalQty = 0;
+            let totalAmount = 0;
+            orderData.Details.forEach(detail => {
+                totalQty += detail.Quantity || 0;
+                totalAmount += (detail.Quantity || 0) * (detail.Price || 0);
+            });
+            orderData.TotalQuantity = totalQty;
+            orderData.TotalAmount = totalAmount;
+
+            // Prepare payload
+            const payload = prepareUploadPayload(orderData);
+
+            console.log(`[UPLOAD] 📤 Uploading order ${orderId}...`);
+
+            // PUT request
+            const uploadHeaders = await window.tokenManager.getAuthHeader();
+            const uploadResponse = await fetch(
+                `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})`,
+                {
+                    method: "PUT",
+                    headers: {
+                        ...uploadHeaders,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            if (!uploadResponse.ok) {
+                const errorText = await uploadResponse.text();
+                throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+            }
+
+            console.log(`[UPLOAD] ✅ Successfully uploaded STT ${stt}`);
             return { stt: stt, success: true, orderId: orderId, error: null };
+
         } catch (error) {
-            console.error(`[UPLOAD] Error uploading STT ${stt}:`, error);
+            console.error(`[UPLOAD] ❌ Error uploading STT ${stt}:`, error);
             return { stt: stt, success: false, orderId: null, error: error.message };
         }
     }
 
-    async function addProductsToOrder(orderId, products) {
-        const orderLines = products.map(p => ({
-            ProductId: p.productId,
-            Quantity: p.quantity,
-            Price: 0,
-            Note: p.productCode || ''
-        }));
+    async function prepareUploadDetails(orderData, sessionData, stt) {
+        const existingDetails = orderData.Details || [];
 
-        const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Order/AddProductsToOrder`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ OrderId: orderId, Products: orderLines })
+        // Create map: productId -> existing detail
+        const existingByProductId = {};
+        existingDetails.forEach(detail => {
+            const pid = detail.Product?.Id || detail.ProductId;
+            if (pid) existingByProductId[pid] = detail;
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to add products: ${errorText}`);
+        // Create map: productId -> assigned count from sessionData
+        const assignedByProductId = {};
+        sessionData.products.forEach(p => {
+            const pid = p.productId;
+            if (!assignedByProductId[pid]) {
+                assignedByProductId[pid] = { count: 0, productCode: p.productCode, imageUrl: p.imageUrl };
+            }
+            assignedByProductId[pid].count += p.quantity;
+        });
+
+        // Clone existing details
+        const mergedDetails = [...existingDetails];
+
+        // Process assigned products
+        for (const productId of Object.keys(assignedByProductId)) {
+            const assignedData = assignedByProductId[productId];
+            const existingDetail = existingByProductId[productId];
+
+            if (existingDetail) {
+                // Product exists - increase quantity
+                const oldQty = existingDetail.Quantity || 0;
+                existingDetail.Quantity = oldQty + assignedData.count;
+                console.log(`   ✏️ Updated ${existingDetail.ProductCode || productId}: ${oldQty} → ${existingDetail.Quantity}`);
+            } else {
+                // New product - fetch and add
+                console.log(`   ➕ Adding new product: ${productId} x${assignedData.count}`);
+
+                const fullProduct = await fetchProductDetails(productId);
+                if (!fullProduct) {
+                    console.error(`   ❌ Cannot fetch product ${productId}, skipping...`);
+                    continue;
+                }
+
+                const newProduct = {
+                    ProductId: fullProduct.Id,
+                    Quantity: assignedData.count,
+                    Price: fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.StandardPrice || 0,
+                    Note: null,
+                    UOMId: fullProduct.UOM?.Id || 1,
+                    Factor: 1,
+                    Priority: 0,
+                    OrderId: orderData.Id,
+                    LiveCampaign_DetailId: null,
+                    ProductWeight: 0,
+                    ProductName: fullProduct.Name || fullProduct.NameTemplate,
+                    ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                    ProductCode: fullProduct.DefaultCode || fullProduct.Barcode,
+                    UOMName: fullProduct.UOM?.Name || "Cái",
+                    ImageUrl: fullProduct.ImageUrl || assignedData.imageUrl,
+                    IsOrderPriority: null,
+                    QuantityRegex: null,
+                    IsDisabledLiveCampaignDetail: false,
+                    CreatedById: orderData.UserId || orderData.CreatedById,
+                };
+
+                mergedDetails.push(newProduct);
+                console.log(`   ✅ Added new product`);
+            }
         }
-        return await response.json();
+
+        return mergedDetails;
     }
 
-    async function createNewOrder(stt, data) {
-        const orderLines = data.products.map(p => ({
-            ProductId: p.productId,
-            Quantity: p.quantity,
-            Price: 0,
-            Note: p.productCode || ''
-        }));
+    async function fetchProductDetails(productId) {
+        try {
+            const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM`;
+            const headers = await window.tokenManager.getAuthHeader();
 
-        const response = await authenticatedFetch(`${API_CONFIG.WORKER_URL}/api/Order/CreateOrderFromApp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                CustomerName: data.orderInfo?.customerName || `STT ${stt}`,
-                Phone: data.orderInfo?.phone || '',
-                Address: data.orderInfo?.address || '',
-                Note: `STT ${stt}`,
-                Products: orderLines
-            })
-        });
+            const response = await fetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                }
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to create order: ${errorText}`);
+            if (!response.ok) {
+                console.error(`Failed to fetch product ${productId}: ${response.status}`);
+                return null;
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error(`Error fetching product ${productId}:`, error);
+            return null;
         }
-        return await response.json();
+    }
+
+    function prepareUploadPayload(orderData) {
+        const payload = JSON.parse(JSON.stringify(orderData));
+
+        if (!payload['@odata.context']) {
+            payload['@odata.context'] = 'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+        }
+
+        if (payload.Details && Array.isArray(payload.Details)) {
+            payload.Details = payload.Details.map(detail => {
+                const cleaned = { ...detail };
+                if (!cleaned.Id || cleaned.Id === null || cleaned.Id === undefined) {
+                    delete cleaned.Id;
+                }
+                cleaned.OrderId = payload.Id;
+                return cleaned;
+            });
+        }
+
+        return payload;
     }
 
     async function removeUploadedSTTsFromAssignments(uploadedSTTs) {
