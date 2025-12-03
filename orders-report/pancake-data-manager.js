@@ -618,6 +618,21 @@ class PancakeDataManager {
                 throw new Error('Inbox preview API returned success=false');
             }
 
+            // Extract from_id from data array (first message from customer)
+            let fromId = null;
+            if (data.data && data.data.length > 0) {
+                const customerMessage = data.data.find(msg =>
+                    msg.from && msg.from.id && msg.from.id !== pageId
+                );
+                if (customerMessage) {
+                    fromId = customerMessage.from.id;
+                }
+            }
+            // Fallback to from_id field if available
+            if (!fromId && data.from_id) {
+                fromId = data.from_id;
+            }
+
             // Extract conversationId from inbox_conv_id
             const conversationId = data.inbox_conv_id;
             console.log(`[PANCAKE] ✅ Got conversationId from inbox_preview: ${conversationId}`);
@@ -625,8 +640,9 @@ class PancakeDataManager {
             return {
                 conversationId: conversationId,
                 messages: data.data || [],
-                threadId: data.thread_id,
-                threadKey: data.thread_key,
+                threadId: data.thread_id_preview || data.thread_id,
+                threadKey: data.thread_key_preview || data.thread_key,
+                fromId: fromId,
                 canInbox: data.can_inbox,
                 updatedAt: data.updated_at,
                 success: true
