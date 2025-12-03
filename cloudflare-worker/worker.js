@@ -337,22 +337,33 @@ export default {
         });
       }
 
-      // Get request headers
-      const headers = new Headers(request.headers);
+      // Build headers based on target API
+      let headers;
 
-      // Set headers based on target API
       if (isTPOSRequest) {
-        // TPOS API headers
+        // TPOS API headers - copy from original request
+        headers = new Headers(request.headers);
         headers.set('Origin', 'https://tomato.tpos.vn/');
         headers.set('Referer', 'https://tomato.tpos.vn/');
       } else if (isPancakeRequest) {
-        // Pancake API headers
-        headers.set('Accept', 'application/json, text/plain, */*');
-        headers.set('Referer', 'https://pancake.vn/multi_pages');
-        // Keep existing Content-Type if present
-        if (!headers.has('Content-Type') && request.method === 'POST') {
-          headers.set('Content-Type', 'application/json');
+        // Pancake API headers - build clean headers
+        headers = new Headers();
+
+        // Only forward essential headers
+        const contentType = request.headers.get('Content-Type');
+        if (contentType) {
+          headers.set('Content-Type', contentType);
         }
+
+        // Set Pancake-specific headers
+        headers.set('Accept', 'application/json, text/plain, */*');
+        headers.set('Accept-Language', 'vi,en-US;q=0.9,en;q=0.8');
+        headers.set('Origin', 'https://pancake.vn');
+        headers.set('Referer', 'https://pancake.vn/multi_pages');
+        headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36');
+      } else {
+        // Other APIs - copy all headers
+        headers = new Headers(request.headers);
       }
 
       // Forward request
