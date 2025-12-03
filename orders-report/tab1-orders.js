@@ -6820,37 +6820,44 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] All images processed:', imagesDataArray.length);
         }
 
-        // Step 2: Build JSON payload
-        const payload = {
-            action: 'reply_inbox',
-            message: message,
-            send_by_platform: 'web'
-        };
+        // Step 2: Build FormData payload (INBOX uses multipart/form-data)
+        const formData = new FormData();
+        formData.append('action', 'reply_inbox');
+        formData.append('message', message);
+
+        // Add send_by_platform (optional, but Pancake might expect it)
+        // Note: Real Pancake doesn't seem to use this field, but keeping for compatibility
+        // formData.append('send_by_platform', 'web');
 
         // Add multiple images data
         if (imagesDataArray.length > 0) {
-            console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to payload');
+            console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to FormData');
 
-            payload.content_ids = [];
-            payload.content_urls = [];
-            payload.dimensions = [];
+            // For multiple images, we need to append arrays as JSON strings or individual fields
+            // Based on Pancake API, images might be sent differently
+            // Let's try appending as comma-separated values or individual entries
+            const contentUrls = [];
+            const contentIds = [];
+            const dimensions = [];
 
             imagesDataArray.forEach((imageData) => {
-                payload.content_urls.push(imageData.content_url);
-
-                // Always push content_id to keep arrays aligned (use null for cached images)
-                payload.content_ids.push(imageData.content_id || imageData.id || null);
-
-                payload.dimensions.push({
+                contentUrls.push(imageData.content_url);
+                contentIds.push(imageData.content_id || imageData.id || '');
+                dimensions.push(JSON.stringify({
                     width: imageData.image_data?.width || imageData.width || 0,
                     height: imageData.image_data?.height || imageData.height || 0
-                });
+                }));
             });
+
+            // Append as arrays (check if Pancake accepts this format)
+            formData.append('content_urls', JSON.stringify(contentUrls));
+            formData.append('content_ids', JSON.stringify(contentIds));
+            formData.append('dimensions', JSON.stringify(dimensions));
         }
 
         // Add replied_message_id if exists
         if (repliedMessageId) {
-            payload.replied_message_id = repliedMessageId;
+            formData.append('replied_message_id', repliedMessageId);
             console.log('[MESSAGE] Adding replied_message_id:', repliedMessageId);
         }
 
@@ -6862,14 +6869,11 @@ async function sendMessageInternal(messageData) {
 
         console.log('[MESSAGE] Sending message...');
         console.log('[MESSAGE] URL:', replyUrl);
-        console.log('[MESSAGE] Payload:', JSON.stringify(payload, null, 2));
+        console.log('[MESSAGE] FormData fields:', Array.from(formData.entries()).map(([k, v]) => `${k}: ${v}`).join(', '));
 
         const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
+            body: formData // FormData automatically sets Content-Type with boundary
         });
 
         if (!replyResponse.ok) {
@@ -7000,118 +7004,54 @@ async function sendCommentInternal(commentData) {
             }
         }
 
-        // Step 2: Get customer UUID and fetch inbox_preview
-        console.log('[COMMENT] Fetching inbox_preview...');
-        showChatSendingIndicator('Lấy thông tin inbox...');
+        // Step 2: Get customer UUID and thread info using new flow
+        console.log('[COMMENT] Getting thread info...');
+        showChatSendingIndicator('Lấy thông tin thread...');
 
-        const facebookPsid = order.Facebook_ASUserId;
-        let pancakeCustomerUuid = null;
+        const facebookName = order.Facebook_UserName;
+        const facebookASUserId = order.Facebook_ASUserId;
+        const facebookCommentId = order.Facebook_CommentId;
 
-        if (window.pancakeDataManager && facebookPsid) {
-            let conversation = window.pancakeDataManager.getConversationByUserId(facebookPsid);
-
-            if (!conversation) {
-                const facebookName = order.Facebook_UserName;
-                console.log('[COMMENT] Searching by name:', facebookName, 'fb_id:', facebookPsid);
-                try {
-                    const searchResult = await window.pancakeDataManager.searchConversations(facebookName);
-
-                    // IMPORTANT: Don't use searchResult.customerId as it's unreliable (takes first result without checking fb_id)
-                    // Always match by fb_id to ensure we get the correct customer
-                    if (searchResult.conversations.length > 0) {
-                        console.log('[COMMENT] Found', searchResult.conversations.length, 'conversations with name:', facebookName);
-
-                        // Find conversation matching fb_id (not just taking first result)
-                        conversation = searchResult.conversations.find(conv => {
-                            // Check in customers array
-                            const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === facebookPsid);
-
-                            // Check in from.id
-                            const hasMatchingFrom = conv.from?.id === facebookPsid;
-
-                            // Check in from_psid
-                            const hasMatchingPsid = conv.from_psid === facebookPsid;
-
-                            return hasMatchingCustomer || hasMatchingFrom || hasMatchingPsid;
-                        });
-
-                        if (conversation) {
-                            console.log('[COMMENT] ✅ Matched conversation by fb_id:', facebookPsid, 'conv_id:', conversation.id);
-                            if (conversation.customers && conversation.customers.length > 0) {
-                                pancakeCustomerUuid = conversation.customers[0].id;
-                                console.log('[COMMENT] ✅ Customer UUID:', pancakeCustomerUuid);
-                            }
-                        } else {
-                            console.warn('[COMMENT] ⚠️ No conversation matched fb_id:', facebookPsid, 'in', searchResult.conversations.length, 'results');
-                            console.warn('[COMMENT] Available fb_ids:', searchResult.conversations.map(c =>
-                                c.customers?.[0]?.fb_id || c.from?.id || c.from_psid
-                            ).join(', '));
-                        }
-                    }
-                } catch (searchError) {
-                    console.error('[COMMENT] Search error:', searchError);
-                }
-            } else {
-                if (conversation.customers && conversation.customers.length > 0) {
-                    pancakeCustomerUuid = conversation.customers[0].id;
-                }
-            }
+        if (!facebookName || !facebookASUserId || !facebookCommentId) {
+            throw new Error('Thiếu thông tin: Facebook_UserName, Facebook_ASUserId, hoặc Facebook_CommentId');
         }
 
+        console.log('[COMMENT] Searching by comment IDs:', facebookCommentId);
+
+        // Use new search method that matches comment IDs
+        const searchResult = await window.pancakeDataManager.searchConversationsByCommentIds(
+            facebookName,
+            facebookCommentId,
+            facebookASUserId,
+            [channelId] // Pass pageIds array
+        );
+
+        const pancakeCustomerUuid = searchResult.customerUuid;
+        let threadId = searchResult.threadId;
+        let threadKey = searchResult.threadKey;
+
         if (!pancakeCustomerUuid) {
-            throw new Error('Không tìm thấy customer UUID để fetch inbox_preview');
+            throw new Error('Không tìm thấy customer UUID từ comment search');
         }
 
         console.log('[COMMENT] Customer UUID:', pancakeCustomerUuid);
 
-        // Fetch inbox_preview to get thread info
-        const inboxPreviewUrl = window.API_CONFIG.buildUrl.pancake(
-            `pages/${channelId}/customers/${pancakeCustomerUuid}/inbox_preview`,
-            `access_token=${token}`
-        );
+        // If no thread_id/thread_key from search, fetch inbox_preview
+        if (!threadId || !threadKey) {
+            console.log('[COMMENT] Fetching inbox_preview for thread info...');
+            const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(channelId, pancakeCustomerUuid);
 
-        const inboxResponse = await API_CONFIG.smartFetch(inboxPreviewUrl, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-
-        if (!inboxResponse.ok) {
-            throw new Error(`Fetch inbox_preview failed: ${inboxResponse.status}`);
-        }
-
-        const inboxData = await inboxResponse.json();
-        console.log('[COMMENT] inbox_preview response:', inboxData);
-
-        // Extract thread info
-        const threadId = inboxData.thread_id_preview || inboxData.thread_id;
-        const threadKey = inboxData.thread_key_preview || inboxData.thread_key;
-
-        // Get from_id with fallbacks
-        let fromId = null;
-        if (inboxData.data && inboxData.data.length > 0) {
-            const customerMessage = inboxData.data.find(msg =>
-                msg.from && msg.from.id && msg.from.id !== channelId
-            );
-            if (customerMessage) {
-                fromId = customerMessage.from.id;
+            if (!inboxPreview.success) {
+                throw new Error('Fetch inbox_preview failed: ' + inboxPreview.error);
             }
+
+            threadId = inboxPreview.threadId;
+            threadKey = inboxPreview.threadKey;
+            console.log('[COMMENT] Got thread info from inbox_preview');
         }
 
-        if (!fromId && inboxData.from_id) {
-            fromId = inboxData.from_id;
-        }
-
-        // Fallback: Extract PSID from conversation_id
-        if (!fromId) {
-            const convId = inboxData.inbox_conv_id || inboxData.conversation_id;
-            if (convId && convId.includes('_')) {
-                const parts = convId.split('_');
-                if (parts.length === 2 && parts[1]) {
-                    fromId = parts[1];
-                    console.log('[COMMENT] Extracted PSID from conversation_id:', fromId);
-                }
-            }
-        }
+        // Use fromId from Facebook_ASUserId (most reliable)
+        const fromId = facebookASUserId;
 
         console.log('[COMMENT] Thread info:', { threadId, threadKey, fromId });
 

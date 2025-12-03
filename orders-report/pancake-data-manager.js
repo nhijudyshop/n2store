@@ -208,6 +208,87 @@ class PancakeDataManager {
     }
 
     /**
+     * Search conversations by comment IDs and fb_id to get customer UUID
+     * @param {string} facebookUserName - Facebook user name for search
+     * @param {string} commentIds - Comma-separated comment IDs
+     * @param {string} fbId - Facebook AS User ID to match
+     * @param {Array<string>} pageIds - Page IDs to search (optional)
+     * @returns {Promise<Object>} { customerUuid: string|null, threadId: string|null, threadKey: string|null }
+     */
+    async searchConversationsByCommentIds(facebookUserName, commentIds, fbId, pageIds = null) {
+        try {
+            console.log(`[PANCAKE] Searching by comment IDs for user: ${facebookUserName}, fb_id: ${fbId}`);
+
+            // Step 1: Search conversations by name
+            const searchResult = await this.searchConversations(facebookUserName, pageIds);
+
+            if (!searchResult.conversations || searchResult.conversations.length === 0) {
+                console.warn('[PANCAKE] No conversations found in search');
+                return { customerUuid: null, threadId: null, threadKey: null };
+            }
+
+            // Step 2: Split comment IDs
+            const commentIdArray = commentIds.split(',').map(id => id.trim());
+            console.log('[PANCAKE] Looking for comment IDs:', commentIdArray);
+
+            // Step 3: Find conversation matching comment ID
+            let matchedConversation = null;
+            for (const conv of searchResult.conversations) {
+                // Match by conversation.id with any comment ID
+                if (commentIdArray.includes(conv.id)) {
+                    // Verify fb_id matches
+                    const hasMatchingCustomer = conv.customers?.some(c => c.fb_id === fbId);
+                    if (hasMatchingCustomer) {
+                        matchedConversation = conv;
+                        console.log('[PANCAKE] ✅ Found COMMENT conversation matching comment ID:', conv.id);
+                        break;
+                    }
+                }
+            }
+
+            if (!matchedConversation) {
+                console.warn('[PANCAKE] No COMMENT conversation found matching comment IDs and fb_id');
+                return { customerUuid: null, threadId: null, threadKey: null };
+            }
+
+            // Step 4: Extract customer UUID
+            const customerUuid = matchedConversation.customers?.[0]?.id || null;
+
+            if (!customerUuid) {
+                console.warn('[PANCAKE] Customer UUID not found in matched conversation');
+                return { customerUuid: null, threadId: null, threadKey: null };
+            }
+
+            console.log('[PANCAKE] ✅ Found customer UUID:', customerUuid);
+
+            // Step 5: Find INBOX conversation with same customer UUID to get thread_id and thread_key
+            const inboxConversation = searchResult.conversations.find(conv =>
+                conv.type === 'INBOX' &&
+                conv.customers?.some(c => c.id === customerUuid)
+            );
+
+            const threadId = inboxConversation?.thread_id || null;
+            const threadKey = inboxConversation?.thread_key || null;
+
+            if (threadId && threadKey) {
+                console.log('[PANCAKE] ✅ Found thread_id and thread_key from INBOX conversation');
+            } else {
+                console.log('[PANCAKE] ℹ️ No thread_id/thread_key found in search, will use inbox_preview');
+            }
+
+            return {
+                customerUuid,
+                threadId,
+                threadKey
+            };
+
+        } catch (error) {
+            console.error('[PANCAKE] ❌ Error in searchConversationsByCommentIds:', error);
+            return { customerUuid: null, threadId: null, threadKey: null };
+        }
+    }
+
+    /**
      * Lấy danh sách conversations từ Pancake API
      * @param {boolean} forceRefresh - Bắt buộc refresh
      * @returns {Promise<Array>}
