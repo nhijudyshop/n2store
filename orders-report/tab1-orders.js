@@ -7048,32 +7048,34 @@ async function sendCommentInternal(commentData) {
 
         console.log('[COMMENT] Customer UUID:', pancakeCustomerUuid);
 
-        // If no thread_id/thread_key from search, fetch inbox_preview
+        // Try to get thread_id/thread_key from inbox_preview if not found in search
+        // NOTE: thread_id_preview and thread_key_preview can be null in the actual API call
         if (!threadId || !threadKey) {
-            console.log('[COMMENT] Fetching inbox_preview for thread info...');
-            const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, pancakeCustomerUuid);
+            console.log('[COMMENT] Attempting to fetch inbox_preview for thread info...');
+            try {
+                const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, pancakeCustomerUuid);
 
-            if (!inboxPreview.success) {
-                throw new Error('Fetch inbox_preview failed: ' + inboxPreview.error);
+                if (inboxPreview.success) {
+                    threadId = inboxPreview.threadId || null;
+                    threadKey = inboxPreview.threadKey || null;
+                    console.log('[COMMENT] Got thread info from inbox_preview:', { threadId, threadKey });
+                } else {
+                    console.log('[COMMENT] inbox_preview fetch failed, will use null values');
+                    threadId = null;
+                    threadKey = null;
+                }
+            } catch (error) {
+                console.log('[COMMENT] inbox_preview error, will use null values:', error.message);
+                threadId = null;
+                threadKey = null;
             }
-
-            threadId = inboxPreview.threadId;
-            threadKey = inboxPreview.threadKey;
-            console.log('[COMMENT] Got thread info from inbox_preview');
         }
 
         // Use fromId from Facebook_ASUserId (most reliable)
         const fromId = facebookASUserId;
 
         console.log('[COMMENT] Thread info:', { threadId, threadKey, fromId });
-
-        if (!threadId) {
-            throw new Error('Không tìm thấy thread_id trong inbox_preview');
-        }
-
-        if (!fromId) {
-            console.warn('[COMMENT] Warning: from_id not found, but will attempt to send anyway');
-        }
+        console.log('[COMMENT] ℹ️ Note: thread_id and thread_key can be null (as per real API calls)');
 
         // Step 4: Send comment via conversations/messages API
         showChatSendingIndicator('Đang gửi bình luận...');
