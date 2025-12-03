@@ -7024,58 +7024,19 @@ async function sendCommentInternal(commentData) {
         // Use built conversationId (more reliable than parameter)
         const finalConversationId = builtConversationId;
 
-        // Step 3: Get customer UUID and thread info using new flow
-        console.log('[COMMENT] Getting thread info...');
-        showChatSendingIndicator('Lấy thông tin thread...');
-
-        console.log('[COMMENT] Searching by comment IDs:', facebookCommentId);
-
-        // Use new search method that matches comment IDs
-        const searchResult = await window.pancakeDataManager.searchConversationsByCommentIds(
-            facebookName,
-            facebookCommentId,
-            facebookASUserId,
-            [pageId] // Pass pageIds array (from order data)
-        );
-
-        const pancakeCustomerUuid = searchResult.customerUuid;
-        let threadId = searchResult.threadId;
-        let threadKey = searchResult.threadKey;
-
-        if (!pancakeCustomerUuid) {
-            throw new Error('Không tìm thấy customer UUID từ comment search');
-        }
-
-        console.log('[COMMENT] Customer UUID:', pancakeCustomerUuid);
-
-        // Try to get thread_id/thread_key from inbox_preview if not found in search
-        // NOTE: thread_id_preview and thread_key_preview can be null in the actual API call
-        if (!threadId || !threadKey) {
-            console.log('[COMMENT] Attempting to fetch inbox_preview for thread info...');
-            try {
-                const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, pancakeCustomerUuid);
-
-                if (inboxPreview.success) {
-                    threadId = inboxPreview.threadId || null;
-                    threadKey = inboxPreview.threadKey || null;
-                    console.log('[COMMENT] Got thread info from inbox_preview:', { threadId, threadKey });
-                } else {
-                    console.log('[COMMENT] inbox_preview fetch failed, will use null values');
-                    threadId = null;
-                    threadKey = null;
-                }
-            } catch (error) {
-                console.log('[COMMENT] inbox_preview error, will use null values:', error.message);
-                threadId = null;
-                threadKey = null;
-            }
-        }
-
-        // Use fromId from Facebook_ASUserId (most reliable)
+        // Step 3: Prepare payload data from order (no need to fetch search/inbox_preview)
+        // As per real API calls, thread_id_preview and thread_key_preview are null
+        const threadId = null;
+        const threadKey = null;
         const fromId = facebookASUserId;
 
-        console.log('[COMMENT] Thread info:', { threadId, threadKey, fromId });
-        console.log('[COMMENT] ℹ️ Note: thread_id and thread_key can be null (as per real API calls)');
+        console.log('[COMMENT] Using data from order:', {
+            pageId,
+            conversationId: finalConversationId,
+            fromId,
+            threadId: 'null (as per real API)',
+            threadKey: 'null (as per real API)'
+        });
 
         // Step 4: Send comment via conversations/messages API
         showChatSendingIndicator('Đang gửi bình luận...');
