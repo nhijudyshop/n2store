@@ -7015,14 +7015,33 @@ async function sendCommentInternal(commentData) {
             throw new Error('Thiếu thông tin: Facebook_UserName, Facebook_ASUserId, Facebook_CommentId, hoặc Facebook_PostId');
         }
 
-        // Build conversationId = pageId_Facebook_ASUserId
+        // Extract pageId and message_id
         const pageId = facebookPostId.split('_')[0]; // Extract pageId from postId
-        const builtConversationId = `${pageId}_${facebookASUserId}`;
 
+        // For message_id: use parentCommentId if replying to specific comment, otherwise use order's comment ID
+        let messageId;
+        if (parentCommentId) {
+            // Replying to a specific comment - use parentCommentId
+            messageId = parentCommentId;
+            console.log('[COMMENT] Using parentCommentId as messageId:', messageId);
+        } else {
+            // Replying to root comment or no specific parent - use order's comment ID
+            const commentIds = facebookCommentId.split(',').map(id => id.trim());
+            messageId = commentIds[0];
+            console.log('[COMMENT] Using order comment ID as messageId:', messageId);
+        }
+
+        // Build conversationId for comment reply: pageId_commentSuffix
+        // Extract comment suffix from messageId (e.g., "1573633073980967_1321788936417741" -> "1321788936417741")
+        const messageIdParts = messageId.split('_');
+        const commentSuffix = messageIdParts[messageIdParts.length - 1];
+        const builtConversationId = `${pageId}_${commentSuffix}`;
+
+        console.log('[COMMENT] Message ID:', messageId);
         console.log('[COMMENT] Built conversationId:', builtConversationId);
         console.log('[COMMENT] Param conversationId:', conversationId);
 
-        // Use built conversationId (more reliable than parameter)
+        // Use built conversationId (matches message_id format)
         const finalConversationId = builtConversationId;
 
         // Step 3: Prepare payload data from order (no need to fetch search/inbox_preview)
@@ -7046,10 +7065,6 @@ async function sendCommentInternal(commentData) {
             `pages/${pageId}/conversations/${finalConversationId}/messages`,
             `access_token=${token}`
         );
-
-        // Extract message_id from Facebook_CommentId (first comment ID)
-        const commentIds = facebookCommentId.split(',').map(id => id.trim());
-        const messageId = commentIds[0];
 
         // Prepare private_replies payload (JSON)
         const privateRepliesPayload = {
