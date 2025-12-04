@@ -7038,20 +7038,20 @@ async function sendCommentInternal(commentData) {
             threadKey: 'null (as per real API)'
         });
 
-        // Step 4: Send comment via conversations/messages API
-        showChatSendingIndicator('Đang gửi bình luận...');
+        // Step 4: Send both private_replies and reply_inbox in parallel
+        showChatSendingIndicator('Đang gửi bình luận và tin nhắn...');
 
-        const replyUrl = window.API_CONFIG.buildUrl.pancake(
+        const apiUrl = window.API_CONFIG.buildUrl.pancake(
             `pages/${pageId}/conversations/${finalConversationId}/messages`,
             `access_token=${token}`
         );
 
-        // Build JSON payload for private_replies action
         // Extract message_id from Facebook_CommentId (first comment ID)
         const commentIds = facebookCommentId.split(',').map(id => id.trim());
-        const messageId = commentIds[0]; // Use first comment ID as message_id
+        const messageId = commentIds[0];
 
-        const payload = {
+        // Prepare private_replies payload (JSON)
+        const privateRepliesPayload = {
             action: 'private_replies',
             message_id: messageId,
             thread_id_preview: threadId,
@@ -7062,99 +7062,102 @@ async function sendCommentInternal(commentData) {
             post_id: facebookPostId
         };
 
-        // Add image data if present
         if (imageData) {
-            payload.content_url = imageData.content_url;
-            payload.content_id = imageData.id || imageData.content_id;
-            payload.width = imageData.image_data?.width || imageData.width || 0;
-            payload.height = imageData.image_data?.height || imageData.height || 0;
+            privateRepliesPayload.content_url = imageData.content_url;
+            privateRepliesPayload.content_id = imageData.id || imageData.content_id;
+            privateRepliesPayload.width = imageData.image_data?.width || imageData.width || 0;
+            privateRepliesPayload.height = imageData.image_data?.height || imageData.height || 0;
         }
 
-        console.log('[COMMENT] Sending comment...');
-        console.log('[COMMENT] URL:', replyUrl);
-        console.log('[COMMENT] Payload:', payload);
+        // Prepare reply_inbox payload (FormData)
+        const replyInboxFormData = new FormData();
+        replyInboxFormData.append('action', 'reply_inbox');
+        replyInboxFormData.append('message', message);
+        replyInboxFormData.append('thread_id', 'null');
 
-        const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
+        if (imageData) {
+            const contentUrls = [imageData.content_url];
+            const contentIds = [imageData.id || imageData.content_id || ''];
+            const dimensions = [JSON.stringify({
+                width: imageData.image_data?.width || imageData.width || 0,
+                height: imageData.image_data?.height || imageData.height || 0
+            })];
 
-        if (!replyResponse.ok) {
-            const errorText = await replyResponse.text();
-            console.error('[COMMENT] Send failed:', errorText);
-            throw new Error(`Gửi bình luận thất bại: ${replyResponse.status} ${replyResponse.statusText}`);
+            replyInboxFormData.append('content_urls', JSON.stringify(contentUrls));
+            replyInboxFormData.append('content_ids', JSON.stringify(contentIds));
+            replyInboxFormData.append('dimensions', JSON.stringify(dimensions));
         }
 
-        const replyData = await replyResponse.json();
-        console.log('[COMMENT] Response:', replyData);
+        console.log('[COMMENT] Sending BOTH actions in parallel...');
+        console.log('[COMMENT] 1. private_replies payload:', privateRepliesPayload);
+        console.log('[COMMENT] 2. reply_inbox with thread_id=null');
 
-        if (!replyData.success) {
-            console.error('[COMMENT] API Error:', replyData);
-            const errorMessage = replyData.error || replyData.message || replyData.reason || 'Unknown error';
-            throw new Error('Gửi bình luận thất bại: ' + errorMessage);
-        }
-
-        console.log('[COMMENT] ✅ Comment reply sent successfully');
-
-        // Step 5: Send inbox message (reply_inbox) after comment reply succeeds
-        // Use null for thread_id and thread_key (same as private_replies)
-        let inboxSentSuccessfully = false;
-        try {
-            console.log('[COMMENT] Now sending inbox message...');
-            showChatSendingIndicator('Đang gửi tin nhắn vào inbox...');
-
-            const inboxUrl = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/conversations/${finalConversationId}/messages`,
-                `access_token=${token}`
-            );
-
-            const inboxFormData = new FormData();
-            inboxFormData.append('action', 'reply_inbox');
-            inboxFormData.append('message', message);
-            // thread_id and thread_key are null (no need to fetch)
-            inboxFormData.append('thread_id', 'null');
-
-            // Add image data if present
-            if (imageData) {
-                const contentUrls = [imageData.content_url];
-                const contentIds = [imageData.id || imageData.content_id || ''];
-                const dimensions = [JSON.stringify({
-                    width: imageData.image_data?.width || imageData.width || 0,
-                    height: imageData.image_data?.height || imageData.height || 0
-                })];
-
-                inboxFormData.append('content_urls', JSON.stringify(contentUrls));
-                inboxFormData.append('content_ids', JSON.stringify(contentIds));
-                inboxFormData.append('dimensions', JSON.stringify(dimensions));
-            }
-
-            console.log('[COMMENT] Sending inbox message with thread_id=null...');
-            const inboxResponse = await API_CONFIG.smartFetch(inboxUrl, {
+        // Send both requests in parallel (non-blocking)
+        const results = await Promise.allSettled([
+            // Request 1: private_replies (JSON)
+            API_CONFIG.smartFetch(apiUrl, {
                 method: 'POST',
-                body: inboxFormData
-            });
-
-            if (!inboxResponse.ok) {
-                const errorText = await inboxResponse.text();
-                console.warn('[COMMENT] Inbox message send failed:', errorText);
-            } else {
-                const inboxData = await inboxResponse.json();
-                console.log('[COMMENT] Inbox response:', inboxData);
-
-                if (inboxData.success) {
-                    console.log('[COMMENT] ✅ Inbox message sent successfully');
-                    inboxSentSuccessfully = true;
-                } else {
-                    console.warn('[COMMENT] Inbox message send failed:', inboxData);
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(privateRepliesPayload)
+            }).then(async (response) => {
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`private_replies failed: ${response.status} - ${errorText}`);
                 }
-            }
-        } catch (inboxError) {
-            console.warn('[COMMENT] Failed to send inbox message (non-fatal):', inboxError);
-            // Don't throw - comment reply already succeeded
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(`private_replies API error: ${data.error || data.message || 'Unknown'}`);
+                }
+                return { action: 'private_replies', success: true, data };
+            }),
+
+            // Request 2: reply_inbox (FormData)
+            API_CONFIG.smartFetch(apiUrl, {
+                method: 'POST',
+                body: replyInboxFormData
+            }).then(async (response) => {
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`reply_inbox failed: ${response.status} - ${errorText}`);
+                }
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(`reply_inbox API error: ${data.error || data.message || 'Unknown'}`);
+                }
+                return { action: 'reply_inbox', success: true, data };
+            })
+        ]);
+
+        // Check results
+        const privateRepliesResult = results[0];
+        const replyInboxResult = results[1];
+
+        let privateRepliesSuccess = false;
+        let replyInboxSuccess = false;
+
+        console.log('[COMMENT] === Results ===');
+
+        if (privateRepliesResult.status === 'fulfilled') {
+            console.log('[COMMENT] ✅ private_replies succeeded:', privateRepliesResult.value);
+            privateRepliesSuccess = true;
+        } else {
+            console.warn('[COMMENT] ❌ private_replies failed:', privateRepliesResult.reason?.message || privateRepliesResult.reason);
         }
+
+        if (replyInboxResult.status === 'fulfilled') {
+            console.log('[COMMENT] ✅ reply_inbox succeeded:', replyInboxResult.value);
+            replyInboxSuccess = true;
+        } else {
+            console.warn('[COMMENT] ❌ reply_inbox failed:', replyInboxResult.reason?.message || replyInboxResult.reason);
+        }
+
+        // At least one must succeed
+        if (!privateRepliesSuccess && !replyInboxSuccess) {
+            console.error('[COMMENT] ❌ Both actions failed!');
+            throw new Error('Cả 2 actions đều thất bại: private_replies và reply_inbox');
+        }
+
+        console.log('[COMMENT] ✅ At least one action succeeded (private_replies:', privateRepliesSuccess, ', reply_inbox:', replyInboxSuccess, ')');
 
         // Step 6: Sync comments (ONLY for comments!)
         console.log('[COMMENT] Syncing comments...');
@@ -7225,14 +7228,16 @@ async function sendCommentInternal(commentData) {
 
         // Success notification
         if (window.notificationManager) {
-            if (inboxSentSuccessfully) {
-                window.notificationManager.show('✅ Đã gửi bình luận và tin nhắn inbox thành công!', 'success');
-            } else {
-                window.notificationManager.show('✅ Đã gửi bình luận thành công! (Inbox message không gửi được)', 'success');
+            if (privateRepliesSuccess && replyInboxSuccess) {
+                window.notificationManager.show('✅ Đã gửi cả bình luận và tin nhắn inbox thành công!', 'success');
+            } else if (privateRepliesSuccess) {
+                window.notificationManager.show('✅ Đã gửi bình luận thành công! (Inbox message lỗi)', 'success');
+            } else if (replyInboxSuccess) {
+                window.notificationManager.show('✅ Đã gửi tin nhắn inbox thành công! (Comment reply lỗi)', 'success');
             }
         }
 
-        console.log('[COMMENT] ✅ Sent successfully (inbox:', inboxSentSuccessfully, ')');
+        console.log('[COMMENT] ✅ Sent successfully (private_replies:', privateRepliesSuccess, ', reply_inbox:', replyInboxSuccess, ')');
 
     } catch (error) {
         console.error('[COMMENT] ❌ Error:', error);
