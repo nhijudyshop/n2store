@@ -53,21 +53,10 @@ window.SoOrderUI = {
         const offDayInfo = config.currentOffDays.get(order.ngay);
         const showOffDayColumns = !!offDayInfo;
 
-        // STT
-        const tdSTT = document.createElement("td");
-        tdSTT.className = "text-center";
-        tdSTT.textContent = index + 1;
-        tr.appendChild(tdSTT);
-
         // Ngày
         const tdNgay = document.createElement("td");
         tdNgay.textContent = utils.formatDisplayDate(order.ngay);
         tr.appendChild(tdNgay);
-
-        // Mã đơn
-        const tdMaDon = document.createElement("td");
-        tdMaDon.innerHTML = `<strong>${order.maDon || ""}</strong>`;
-        tr.appendChild(tdMaDon);
 
         // NCC
         const tdNCC = document.createElement("td");
@@ -716,9 +705,7 @@ window.SoOrderUI = {
         // Update header based on off day presence
         if (hasOffDay) {
             thead.innerHTML = `
-                <th>STT</th>
                 <th>Ngày</th>
-                <th>Mã Đơn</th>
                 <th>NCC</th>
                 <th>Thành Tiền</th>
                 <th>Trạng Thái</th>
@@ -731,9 +718,7 @@ window.SoOrderUI = {
             `;
         } else {
             thead.innerHTML = `
-                <th>STT</th>
                 <th>Ngày</th>
-                <th>Mã Đơn</th>
                 <th>NCC</th>
                 <th>Thành Tiền</th>
                 <th>Trạng Thái</th>

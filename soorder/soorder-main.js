@@ -11,6 +11,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     console.log("Sổ Order: Initializing...");
 
+    // Set DOM elements after DOM is ready
+    config.tbody = document.getElementById("orderTableBody");
+    config.searchInput = document.getElementById("searchInput");
+    config.dateFilterDropdown = document.getElementById("dateFilter");
+    config.filterNCCSelect = document.getElementById("filterNCC");
+    config.filterPhanLoaiSelect = document.getElementById("filterPhanLoai");
+    config.filterThanhToanSelect = document.getElementById("filterThanhToan");
+    config.btnAddOrder = document.getElementById("btnAddOrder");
+    config.btnManageOffDays = document.getElementById("btnManageOffDays");
+
     // Initialize auth
     if (typeof authManager !== "undefined") {
         await authManager.checkAuth();
