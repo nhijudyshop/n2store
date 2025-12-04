@@ -13,48 +13,94 @@ const firebaseConfig = {
     measurementId: "G-TEJH3S2T1D",
 };
 
-// Cache configuration
-const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
-const FILTER_DEBOUNCE_DELAY = 300;
-
 // Initialize Firebase
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// Collections
-const ordersCollectionRef = db.collection("soorder");
-const offDaysCollectionRef = db.collection("soorder_off_days");
-const historyCollectionRef = db.collection("soorder_edit_history");
+// Collection reference - using new structure
+// Each document represents one day: { date, isHoliday, orders: [] }
+const orderLogsCollectionRef = db.collection("order-logs");
 
-// Global variables
-let allOrders = [];
-let filteredOrders = [];
-let searchFilter = "";
-let filterTimeout = null;
-let currentOffDays = new Map(); // Map of date -> offDay info
+// Global state
+window.SoOrderState = {
+    currentDate: new Date(),
+    currentDateString: "",
+    currentDayData: null, // { date, isHoliday, orders }
+    editingOrderId: null,
+    deleteOrderId: null,
+};
+
+// DOM elements (will be set after DOM ready)
+window.SoOrderElements = {
+    // Date navigation
+    dateInput: null,
+    dateDisplay: null,
+    btnPrevDay: null,
+    btnNextDay: null,
+    btnToday: null,
+    holidayBadge: null,
+
+    // Add form
+    btnToggleAddForm: null,
+    addOrderFormContainer: null,
+    btnCloseAddForm: null,
+    btnCancelAdd: null,
+    btnSubmitAdd: null,
+    addSupplier: null,
+    addAmount: null,
+    addDifference: null,
+    addNote: null,
+    addPerformer: null,
+    addIsReconciled: null,
+    holidayFieldsAdd: null,
+
+    // Table
+    tableContainer: null,
+    orderTableBody: null,
+    emptyState: null,
+    footerSummary: null,
+    totalAmount: null,
+    totalDifference: null,
+
+    // Edit modal
+    editOrderModal: null,
+    editModalOverlay: null,
+    btnCloseEditModal: null,
+    btnCancelEdit: null,
+    btnSubmitEdit: null,
+    editSupplier: null,
+    editAmount: null,
+    editDifference: null,
+    editNote: null,
+    editPerformer: null,
+    editIsReconciled: null,
+    holidayFieldsEdit: null,
+
+    // Holiday modal
+    btnManageHolidays: null,
+    holidayModal: null,
+    holidayModalOverlay: null,
+    btnCloseHolidayModal: null,
+    btnCancelHoliday: null,
+    btnSaveHoliday: null,
+    holidayDate: null,
+    isHolidayCheck: null,
+
+    // Delete modal
+    deleteConfirmModal: null,
+    deleteModalOverlay: null,
+    btnCloseDeleteModal: null,
+    btnCancelDelete: null,
+    btnConfirmDelete: null,
+
+    // Toast
+    toastContainer: null,
+};
 
 // Export for other modules
 window.SoOrderConfig = {
     firebaseConfig,
-    CACHE_EXPIRY,
-    FILTER_DEBOUNCE_DELAY,
     app,
     db,
-    ordersCollectionRef,
-    offDaysCollectionRef,
-    historyCollectionRef,
-    allOrders,
-    filteredOrders,
-    searchFilter,
-    filterTimeout,
-    currentOffDays,
-    // DOM elements - will be set after DOM ready
-    tbody: null,
-    searchInput: null,
-    dateFilterDropdown: null,
-    filterNCCSelect: null,
-    filterPhanLoaiSelect: null,
-    filterThanhToanSelect: null,
-    btnAddOrder: null,
-    btnManageOffDays: null,
+    orderLogsCollectionRef,
 };

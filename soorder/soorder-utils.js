@@ -1,263 +1,261 @@
 // =====================================================
-// UTILITIES
+// UTILITY FUNCTIONS
 // File: soorder-utils.js
 // =====================================================
 
 window.SoOrderUtils = {
-    // =====================================================
-    // NOTIFICATION & LOADING
-    // =====================================================
-
-    showSuccess(message) {
-        this.showToast(message, "success");
+    // Format number to Vietnamese currency
+    formatCurrency(amount) {
+        if (!amount && amount !== 0) return "0đ";
+        return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
     },
 
-    showError(message) {
-        this.showToast(message, "error");
-    },
-
-    showToast(message, type = "info") {
-        const toast = document.createElement("div");
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-
-        const container = document.getElementById("toastContainer") || this.createToastContainer();
-        container.appendChild(toast);
-
-        setTimeout(() => toast.classList.add("show"), 10);
-
-        setTimeout(() => {
-            toast.classList.remove("show");
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    },
-
-    createToastContainer() {
-        const container = document.createElement("div");
-        container.id = "toastContainer";
-        container.className = "toast-container";
-        document.body.appendChild(container);
-        return container;
-    },
-
-    showLoading(message = "Đang xử lý...") {
-        const loadingId = `loading-${Date.now()}`;
-        const loading = document.createElement("div");
-        loading.id = loadingId;
-        loading.className = "loading-overlay";
-        loading.innerHTML = `
-            <div class="loading-spinner">
-                <div class="spinner"></div>
-                <p>${message}</p>
-            </div>
-        `;
-        document.body.appendChild(loading);
-        return loadingId;
-    },
-
-    hideLoading(loadingId) {
-        const loading = document.getElementById(loadingId);
-        if (loading) loading.remove();
-    },
-
-    // =====================================================
-    // DATE UTILITIES
-    // =====================================================
-
+    // Format date to YYYY-MM-DD
     formatDate(date) {
-        if (!date) return "";
-        const d = new Date(date);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
     },
 
-    formatDisplayDate(date) {
-        if (!date) return "";
-        const d = new Date(date);
-        const day = String(d.getDate()).padStart(2, "0");
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        return `${day}/${month}`;
+    // Format date to Vietnamese display (e.g., "Thứ Hai, 04/12/2025")
+    formatDateDisplay(date) {
+        const days = [
+            "Chủ Nhật",
+            "Thứ Hai",
+            "Thứ Ba",
+            "Thứ Tư",
+            "Thứ Năm",
+            "Thứ Sáu",
+            "Thứ Bảy",
+        ];
+        const dayName = days[date.getDay()];
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        return `${dayName}, ${day}/${month}/${year}`;
     },
 
-    getTodayString() {
-        return this.formatDate(new Date());
+    // Parse YYYY-MM-DD to Date object
+    parseDate(dateString) {
+        const [year, month, day] = dateString.split("-");
+        return new Date(year, month - 1, day);
     },
 
-    getDateRange(filter) {
-        const today = new Date();
-        const start = new Date(today);
-        const end = new Date(today);
+    // Generate UUID
+    generateUUID() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+            /[xy]/g,
+            function (c) {
+                const r = (Math.random() * 16) | 0;
+                const v = c === "x" ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            }
+        );
+    },
 
-        switch (filter) {
-            case "today":
-                break;
-            case "yesterday":
-                start.setDate(today.getDate() - 1);
-                end.setDate(today.getDate() - 1);
-                break;
-            case "week":
-                start.setDate(today.getDate() - 7);
-                break;
-            case "month":
-                start.setMonth(today.getMonth() - 1);
-                break;
-            case "all":
-                return null;
-            default:
-                return null;
+    // Show toast notification
+    showToast(message, type = "info") {
+        const elements = window.SoOrderElements;
+        if (!elements.toastContainer) return;
+
+        const toast = document.createElement("div");
+        toast.className = `toast toast-${type}`;
+
+        const iconMap = {
+            success: "check-circle",
+            error: "x-circle",
+            warning: "alert-triangle",
+            info: "info",
+        };
+
+        toast.innerHTML = `
+            <i data-lucide="${iconMap[type] || "info"}"></i>
+            <span>${message}</span>
+        `;
+
+        elements.toastContainer.appendChild(toast);
+
+        // Initialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
         }
 
-        return {
-            start: this.formatDate(start),
-            end: this.formatDate(end),
-        };
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            toast.classList.add("toast-hide");
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 3000);
     },
 
-    // =====================================================
-    // MONEY UTILITIES
-    // =====================================================
-
-    formatMoney(amount) {
-        if (!amount && amount !== 0) return "";
-        return new Intl.NumberFormat("vi-VN").format(amount);
-    },
-
-    parseMoney(str) {
-        if (!str) return 0;
-        return parseInt(str.toString().replace(/[^\d-]/g, "")) || 0;
-    },
-
-    // =====================================================
-    // UUID GENERATOR
-    // =====================================================
-
-    generateId() {
-        return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    },
-
-    // =====================================================
-    // LOGGING
-    // =====================================================
-
-    async logAction(action, description, oldData = null, newData = null, orderId = null) {
-        try {
-            const config = window.SoOrderConfig;
-            const auth = authManager ? authManager.getAuthState() : null;
-
-            await config.historyCollectionRef.add({
-                action,
-                description,
-                oldData,
-                newData,
-                orderId: orderId || (newData ? newData.id : null),
-                userId: auth?.userId || "unknown",
-                userName: auth?.userName || "Unknown",
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            });
-        } catch (error) {
-            console.error("Error logging action:", error);
+    // Show/hide loading state
+    showLoading(show = true) {
+        const elements = window.SoOrderElements;
+        if (show) {
+            elements.tableContainer?.classList.add("loading");
+        } else {
+            elements.tableContainer?.classList.remove("loading");
         }
     },
 
-    // =====================================================
-    // VALIDATION
-    // =====================================================
+    // Navigate to a specific date
+    navigateToDate(date) {
+        const state = window.SoOrderState;
+        state.currentDate = date;
+        state.currentDateString = this.formatDate(date);
 
-    validateOrder(order) {
-        const errors = [];
-
-        if (!order.ngay) errors.push("Ngày không được để trống");
-        if (!order.maDon) errors.push("Mã đơn không được để trống");
-        if (!order.ncc) errors.push("NCC không được để trống");
-        if (order.thanhTien === null || order.thanhTien === undefined) {
-            errors.push("Thành tiền không được để trống");
+        // Update date input and display
+        const elements = window.SoOrderElements;
+        if (elements.dateInput) {
+            elements.dateInput.value = state.currentDateString;
+        }
+        if (elements.dateDisplay) {
+            elements.dateDisplay.textContent = this.formatDateDisplay(date);
         }
 
-        return errors;
+        // Load data for this date
+        window.SoOrderCRUD.loadDayData(state.currentDateString);
     },
 
-    // =====================================================
-    // PHÂN LOẠI VẤN ĐỀ HELPERS
-    // =====================================================
-
-    getPhanLoaiDisplay(phanLoai) {
-        const map = {
-            binhThuong: "🔹 Bình thường",
-            duHang: "🔸 Dư hàng",
-            thieuHang: "🔸 Thiếu hàng",
-            saiGia: "🔸 Sai giá",
-        };
-        return map[phanLoai] || "🔹 Bình thường";
+    // Navigate to previous day
+    gotoPrevDay() {
+        const state = window.SoOrderState;
+        const prevDay = new Date(state.currentDate);
+        prevDay.setDate(prevDay.getDate() - 1);
+        this.navigateToDate(prevDay);
     },
 
-    getPhanLoaiClass(phanLoai) {
-        const map = {
-            binhThuong: "status-normal",
-            duHang: "status-warning",
-            thieuHang: "status-warning",
-            saiGia: "status-warning",
-        };
-        return map[phanLoai] || "status-normal";
+    // Navigate to next day
+    gotoNextDay() {
+        const state = window.SoOrderState;
+        const nextDay = new Date(state.currentDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        this.navigateToDate(nextDay);
     },
 
-    // =====================================================
-    // FILTER HELPERS
-    // =====================================================
+    // Navigate to today
+    gotoToday() {
+        this.navigateToDate(new Date());
+    },
 
-    applyFilters() {
-        const config = window.SoOrderConfig;
-        const searchTerm = config.searchInput?.value.toLowerCase() || "";
-        const dateFilter = config.dateFilterDropdown?.value || "all";
-        const nccFilter = config.filterNCCSelect?.value || "all";
-        const phanLoaiFilter = config.filterPhanLoaiSelect?.value || "all";
-        const thanhToanFilter = config.filterThanhToanSelect?.value || "all";
+    // Calculate summary
+    calculateSummary(orders) {
+        let totalAmount = 0;
+        let totalDifference = 0;
 
-        let filtered = [...config.allOrders];
+        orders.forEach((order) => {
+            totalAmount += Number(order.amount) || 0;
+            totalDifference += Number(order.difference) || 0;
+        });
 
-        // Search filter
-        if (searchTerm) {
-            filtered = filtered.filter(
-                (order) =>
-                    order.maDon?.toLowerCase().includes(searchTerm) ||
-                    order.ncc?.toLowerCase().includes(searchTerm) ||
-                    order.ghiChu?.toLowerCase().includes(searchTerm)
+        return { totalAmount, totalDifference };
+    },
+
+    // Update footer summary
+    updateSummary(orders) {
+        const elements = window.SoOrderElements;
+        const { totalAmount, totalDifference } = this.calculateSummary(orders);
+
+        if (elements.totalAmount) {
+            elements.totalAmount.textContent = this.formatCurrency(totalAmount);
+        }
+
+        if (elements.totalDifference) {
+            elements.totalDifference.textContent = this.formatCurrency(
+                totalDifference
             );
-        }
-
-        // Date filter
-        if (dateFilter !== "all") {
-            const range = this.getDateRange(dateFilter);
-            if (range) {
-                filtered = filtered.filter(
-                    (order) =>
-                        order.ngay >= range.start && order.ngay <= range.end
-                );
+            // Color based on positive/negative
+            if (totalDifference > 0) {
+                elements.totalDifference.style.color = "#10b981"; // Green for profit
+            } else if (totalDifference < 0) {
+                elements.totalDifference.style.color = "#ef4444"; // Red for loss
+            } else {
+                elements.totalDifference.style.color = "inherit";
             }
         }
 
-        // NCC filter
-        if (nccFilter !== "all") {
-            filtered = filtered.filter((order) => order.ncc === nccFilter);
+        // Show/hide footer
+        if (elements.footerSummary) {
+            if (orders.length > 0) {
+                elements.footerSummary.style.display = "flex";
+            } else {
+                elements.footerSummary.style.display = "none";
+            }
+        }
+    },
+
+    // Toggle holiday columns visibility
+    toggleHolidayColumns(isHoliday) {
+        const holidayCols = document.querySelectorAll(".holiday-col");
+        holidayCols.forEach((col) => {
+            col.style.display = isHoliday ? "" : "none";
+        });
+
+        // Toggle holiday badge
+        const elements = window.SoOrderElements;
+        if (elements.holidayBadge) {
+            elements.holidayBadge.style.display = isHoliday ? "block" : "none";
         }
 
-        // Phân loại filter
-        if (phanLoaiFilter !== "all") {
-            filtered = filtered.filter(
-                (order) => order.phanLoaiVanDe === phanLoaiFilter
-            );
+        // Toggle holiday fields in add form
+        if (elements.holidayFieldsAdd) {
+            elements.holidayFieldsAdd.style.display = isHoliday
+                ? "flex"
+                : "none";
         }
 
-        // Thanh toán filter
-        if (thanhToanFilter !== "all") {
-            const isPaid = thanhToanFilter === "paid";
-            filtered = filtered.filter(
-                (order) => order.daThanhToan === isPaid
-            );
+        // Toggle holiday fields in edit modal
+        if (elements.holidayFieldsEdit) {
+            elements.holidayFieldsEdit.style.display = isHoliday
+                ? "block"
+                : "none";
         }
+    },
 
-        config.filteredOrders = filtered;
-        window.SoOrderUI.renderTable();
+    // Keyboard navigation
+    setupKeyboardNavigation() {
+        document.addEventListener("keydown", (e) => {
+            // Ignore if user is typing in an input
+            if (
+                e.target.tagName === "INPUT" ||
+                e.target.tagName === "TEXTAREA"
+            ) {
+                return;
+            }
+
+            // Left arrow: previous day
+            if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                this.gotoPrevDay();
+            }
+
+            // Right arrow: next day
+            if (e.key === "ArrowRight") {
+                e.preventDefault();
+                this.gotoNextDay();
+            }
+        });
+    },
+
+    // Validate order data
+    validateOrder(data) {
+        if (!data.supplier || data.supplier.trim() === "") {
+            this.showToast("Vui lòng nhập tên NCC", "error");
+            return false;
+        }
+        return true;
+    },
+
+    // Clear add form
+    clearAddForm() {
+        const elements = window.SoOrderElements;
+        if (elements.addSupplier) elements.addSupplier.value = "";
+        if (elements.addAmount) elements.addAmount.value = "";
+        if (elements.addDifference) elements.addDifference.value = "";
+        if (elements.addNote) elements.addNote.value = "";
+        if (elements.addPerformer) elements.addPerformer.value = "";
+        if (elements.addIsReconciled) elements.addIsReconciled.checked = false;
     },
 };
