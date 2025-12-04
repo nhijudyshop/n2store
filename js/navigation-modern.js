@@ -111,6 +111,14 @@ const MENU_CONFIG = [
         permissionRequired: "order-management",
     },
     {
+        href: "../order-log/index.html",
+        icon: "book-open",
+        text: "Sổ Order",
+        shortText: "Sổ Order",
+        pageIdentifier: "order-log",
+        permissionRequired: "order-log",
+    },
+    {
         href: "../soluong-live/index.html",
         icon: "bar-chart",
         text: "Quản Lý Số Lượng",
