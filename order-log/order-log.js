@@ -2,10 +2,10 @@
 // ORDER LOG - MAIN APPLICATION (Phase 2 with Holiday Management)
 // =====================================================
 
-// API Configuration
+// API Configuration - Using Cloudflare Worker to bypass CORS
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api'
-    : 'https://n2store.onrender.com/api';
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api';
 
 // State
 let currentDate = new Date();
