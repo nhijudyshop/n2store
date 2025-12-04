@@ -1,5 +1,5 @@
 // =====================================================
-// ORDER LOG - MAIN APPLICATION
+// ORDER LOG - MAIN APPLICATION (Phase 2 with Holiday Management)
 // =====================================================
 
 // API Configuration
@@ -10,6 +10,8 @@ const API_BASE = window.location.hostname === 'localhost'
 // State
 let currentDate = new Date();
 let orders = [];
+let holidays = [];
+let isCurrentDateHoliday = false;
 let editingOrderId = null;
 let currentUserId = null;
 
@@ -37,6 +39,32 @@ function getDateString(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+// Check if a date is a holiday
+function checkIsHoliday(dateStr) {
+    return holidays.some(h => getDateString(new Date(h.date)) === dateStr);
+}
+
+// Toggle holiday UI elements
+function toggleHolidayUI(isHoliday) {
+    isCurrentDateHoliday = isHoliday;
+
+    const holidayBadge = document.getElementById('holidayBadge');
+    const holidayColumns = document.querySelectorAll('.holiday-column');
+    const holidayFields = document.querySelectorAll('.holiday-field');
+
+    if (isHoliday) {
+        document.body.classList.add('is-holiday');
+        holidayBadge.style.display = 'inline-block';
+        holidayColumns.forEach(col => col.style.display = 'table-cell');
+        holidayFields.forEach(field => field.style.display = 'block');
+    } else {
+        document.body.classList.remove('is-holiday');
+        holidayBadge.style.display = 'none';
+        holidayColumns.forEach(col => col.style.display = 'none');
+        holidayFields.forEach(field => field.style.display = 'none');
+    }
 }
 
 // Initialize
@@ -72,8 +100,10 @@ function initializeApp() {
     // Set initial date
     updateDateDisplay();
 
-    // Load orders for current date
-    loadOrders();
+    // Load holidays first, then orders
+    loadHolidays().then(() => {
+        loadOrders();
+    });
 
     // Event listeners
     document.getElementById('prevDayBtn').addEventListener('click', () => {
@@ -122,6 +152,25 @@ function initializeApp() {
         }
     });
 
+    // Holiday management
+    document.getElementById('manageHolidaysBtn').addEventListener('click', () => {
+        openHolidayModal();
+    });
+
+    document.getElementById('closeHolidayModalBtn').addEventListener('click', () => {
+        closeHolidayModal();
+    });
+
+    document.getElementById('addHolidayBtn').addEventListener('click', () => {
+        addHoliday();
+    });
+
+    document.getElementById('holidayModal').addEventListener('click', (e) => {
+        if (e.target.id === 'holidayModal') {
+            closeHolidayModal();
+        }
+    });
+
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
         // Don't trigger when typing in input fields
@@ -152,6 +201,31 @@ function updateDateDisplay() {
     dateInput.value = getDateString(currentDate);
 }
 
+// Load holidays from API
+async function loadHolidays() {
+    try {
+        console.log('[ORDER-LOG] Loading holidays...');
+
+        const response = await fetch(`${API_BASE}/holidays`, {
+            headers: {
+                'X-User-Id': currentUserId
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        holidays = data.holidays || [];
+        console.log('[ORDER-LOG] Loaded holidays:', holidays.length);
+
+    } catch (error) {
+        console.error('[ORDER-LOG] Failed to load holidays:', error);
+        holidays = [];
+    }
+}
+
 // Load orders from API
 async function loadOrders() {
     try {
@@ -171,6 +245,11 @@ async function loadOrders() {
         console.log('[ORDER-LOG] Loaded orders:', data);
 
         orders = data.orders || [];
+        isCurrentDateHoliday = data.isHoliday || false;
+
+        // Toggle UI based on holiday status
+        toggleHolidayUI(isCurrentDateHoliday);
+
         updateStats(data.summary);
         renderOrders();
 
@@ -217,11 +296,17 @@ function renderOrders() {
 
     noData.style.display = 'none';
 
-    tbody.innerHTML = orders.map((order, index) => `
-        <tr>
+    tbody.innerHTML = orders.map((order, index) => {
+        let row = `<tr>
             <td>${index + 1}</td>
-            <td><span class="ncc-badge">${escapeHtml(order.ncc)}</span></td>
-            <td>
+            <td><span class="ncc-badge">${escapeHtml(order.ncc)}</span></td>`;
+
+        // Add "Người thực hiện" column if holiday
+        if (isCurrentDateHoliday) {
+            row += `<td>${escapeHtml(order.performedBy || '-')}</td>`;
+        }
+
+        row += `<td>
                 <div class="amount-cell">
                     <input
                         type="checkbox"
@@ -233,8 +318,21 @@ function renderOrders() {
                         ${formatCurrency(order.amount)}
                     </span>
                 </div>
-            </td>
-            <td class="${order.difference > 0 ? 'difference-positive' : order.difference < 0 ? 'difference-negative' : 'difference-zero'}">
+            </td>`;
+
+        // Add "Đối soát" column if holiday
+        if (isCurrentDateHoliday) {
+            row += `<td>
+                <input
+                    type="checkbox"
+                    class="paid-checkbox"
+                    ${order.isReconciled ? 'checked' : ''}
+                    onchange="toggleReconciled(${order.id}, this.checked)"
+                />
+            </td>`;
+        }
+
+        row += `<td class="${order.difference > 0 ? 'difference-positive' : order.difference < 0 ? 'difference-negative' : 'difference-zero'}">
                 ${order.difference > 0 ? '+' : ''}${formatCurrency(order.difference)}
             </td>
             <td>
@@ -252,8 +350,10 @@ function renderOrders() {
                     </button>
                 </div>
             </td>
-        </tr>
-    `).join('');
+        </tr>`;
+
+        return row;
+    }).join('');
 
     // Re-initialize icons
     if (typeof lucide !== 'undefined') {
@@ -307,6 +407,43 @@ async function togglePaid(orderId, isPaid) {
     }
 }
 
+// Toggle reconciled status
+async function toggleReconciled(orderId, isReconciled) {
+    try {
+        console.log('[ORDER-LOG] Toggling reconciled status:', orderId, isReconciled);
+
+        const response = await fetch(`${API_BASE}/order-logs/${orderId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': currentUserId
+            },
+            body: JSON.stringify({ isReconciled })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('[ORDER-LOG] Updated order:', data);
+
+        // Update local state
+        const orderIndex = orders.findIndex(o => o.id === orderId);
+        if (orderIndex !== -1) {
+            orders[orderIndex].isReconciled = isReconciled;
+        }
+
+        showNotification('Đã cập nhật trạng thái đối soát', 'success');
+
+    } catch (error) {
+        console.error('[ORDER-LOG] Failed to toggle reconciled:', error);
+        showNotification('Không thể cập nhật. Vui lòng thử lại.', 'error');
+        // Reload to revert UI
+        loadOrders();
+    }
+}
+
 // Open modal
 function openModal(order = null) {
     const modal = document.getElementById('orderModal');
@@ -319,17 +456,24 @@ function openModal(order = null) {
         modalTitle.textContent = 'Sửa Order';
         document.getElementById('orderId').value = order.id;
         document.getElementById('nccInput').value = order.ncc;
+        document.getElementById('performedByInput').value = order.performedBy || '';
         document.getElementById('amountInput').value = order.amount;
         document.getElementById('isPaidCheck').checked = order.isPaid;
+        document.getElementById('isReconciledCheck').checked = order.isReconciled || false;
         document.getElementById('differenceInput').value = order.difference;
         document.getElementById('noteInput').value = order.note || '';
     } else {
-        modalTitle.textContent = 'Thêm Order Mới';
+        modalTitle.textContent = isCurrentDateHoliday ? 'Thêm Order Mới - NGÀY NGHỈ' : 'Thêm Order Mới';
         form.reset();
         document.getElementById('orderId').value = '';
     }
 
     modal.classList.add('show');
+
+    // Re-initialize icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 // Close modal
@@ -348,6 +492,10 @@ async function saveOrder() {
         const difference = parseInt(document.getElementById('differenceInput').value || 0);
         const note = document.getElementById('noteInput').value.trim();
 
+        // Holiday-specific fields
+        const performedBy = isCurrentDateHoliday ? document.getElementById('performedByInput').value.trim() : null;
+        const isReconciled = isCurrentDateHoliday ? document.getElementById('isReconciledCheck').checked : false;
+
         if (!ncc || isNaN(amount)) {
             showNotification('Vui lòng điền đầy đủ thông tin', 'error');
             return;
@@ -359,7 +507,9 @@ async function saveOrder() {
             amount,
             isPaid,
             difference,
-            note
+            note,
+            performedBy,
+            isReconciled
         };
 
         console.log('[ORDER-LOG] Saving order:', orderData);
@@ -443,6 +593,144 @@ async function deleteOrder(orderId) {
     }
 }
 
+// =====================================================
+// HOLIDAY MANAGEMENT
+// =====================================================
+
+// Open holiday modal
+function openHolidayModal() {
+    const modal = document.getElementById('holidayModal');
+    modal.classList.add('show');
+    renderHolidayList();
+
+    // Re-initialize icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+// Close holiday modal
+function closeHolidayModal() {
+    const modal = document.getElementById('holidayModal');
+    modal.classList.remove('show');
+}
+
+// Render holiday list
+function renderHolidayList() {
+    const listContainer = document.getElementById('holidayList');
+
+    if (holidays.length === 0) {
+        listContainer.innerHTML = '<p class="loading-text">Chưa có ngày nghỉ nào</p>';
+        return;
+    }
+
+    listContainer.innerHTML = holidays.map(holiday => {
+        const date = new Date(holiday.date);
+        const dateStr = formatDate(date);
+
+        return `
+            <div class="holiday-item">
+                <div>
+                    <div class="holiday-item-date">${getDateString(date)}</div>
+                    <div class="holiday-item-day">${dateStr}</div>
+                </div>
+                <button class="holiday-item-delete" onclick="deleteHoliday(${holiday.id})" title="Xóa">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    // Re-initialize icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+// Add holiday
+async function addHoliday() {
+    try {
+        const dateInput = document.getElementById('holidayDateInput');
+        const date = dateInput.value;
+
+        if (!date) {
+            showNotification('Vui lòng chọn ngày', 'error');
+            return;
+        }
+
+        console.log('[ORDER-LOG] Adding holiday:', date);
+
+        const response = await fetch(`${API_BASE}/holidays`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': currentUserId
+            },
+            body: JSON.stringify({ date })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('[ORDER-LOG] Added holiday:', data);
+
+        // Reload holidays and update UI
+        await loadHolidays();
+        renderHolidayList();
+
+        // Check if current date is affected
+        if (getDateString(currentDate) === date) {
+            loadOrders();
+        }
+
+        dateInput.value = '';
+        showNotification('Đã thêm ngày nghỉ', 'success');
+
+    } catch (error) {
+        console.error('[ORDER-LOG] Failed to add holiday:', error);
+        showNotification('Không thể thêm ngày nghỉ. Vui lòng thử lại.', 'error');
+    }
+}
+
+// Delete holiday
+async function deleteHoliday(holidayId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa ngày nghỉ này?')) {
+        return;
+    }
+
+    try {
+        console.log('[ORDER-LOG] Deleting holiday:', holidayId);
+
+        const response = await fetch(`${API_BASE}/holidays/${holidayId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-User-Id': currentUserId
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        console.log('[ORDER-LOG] Deleted holiday:', holidayId);
+
+        // Reload holidays and update UI
+        await loadHolidays();
+        renderHolidayList();
+
+        // Reload orders if viewing the deleted holiday
+        loadOrders();
+
+        showNotification('Đã xóa ngày nghỉ', 'success');
+
+    } catch (error) {
+        console.error('[ORDER-LOG] Failed to delete holiday:', error);
+        showNotification('Không thể xóa ngày nghỉ. Vui lòng thử lại.', 'error');
+    }
+}
+
 // Show notification
 function showNotification(message, type = 'info') {
     // Check if notification system exists
@@ -456,7 +744,9 @@ function showNotification(message, type = 'info') {
 
 // Make functions global for inline event handlers
 window.togglePaid = togglePaid;
+window.toggleReconciled = toggleReconciled;
 window.editOrder = editOrder;
 window.deleteOrder = deleteOrder;
+window.deleteHoliday = deleteHoliday;
 
-console.log('[ORDER-LOG] Script loaded');
+console.log('[ORDER-LOG] Script loaded with Phase 2 holiday management');

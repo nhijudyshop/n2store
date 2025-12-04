@@ -68,6 +68,51 @@
     user-select: none;
 }
 
+.btn-holiday {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-holiday:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-holiday:active {
+    transform: translateY(0);
+}
+
+.holiday-badge {
+    display: inline-block;
+    margin-left: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
 /* Stats Cards */
 .stats-cards {
     display: grid;
@@ -530,4 +575,92 @@ textarea.form-control {
     .orders-table td {
         padding: 0.75rem 0.5rem;
     }
+}
+
+/* Holiday Management Modal */
+.holiday-add-form {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.holiday-add-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.75rem;
+}
+
+.holiday-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.holiday-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: #f9f9f9;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    transition: background 0.2s;
+}
+
+.holiday-item:hover {
+    background: #f0f0f0;
+}
+
+.holiday-item-date {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.95rem;
+}
+
+.holiday-item-day {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.holiday-item-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: #999;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.holiday-item-delete:hover {
+    background: #ffebee;
+    color: #f44336;
+}
+
+.loading-text {
+    text-align: center;
+    color: #999;
+    padding: 2rem;
+}
+
+/* Holiday columns (hidden by default, shown on holiday dates) */
+.holiday-column {
+    display: none !important;
+}
+
+.holiday-field {
+    display: none;
+}
+
+/* Show holiday columns when it's a holiday */
+body.is-holiday .holiday-column {
+    display: table-cell !important;
+}
+
+body.is-holiday .holiday-field {
+    display: block;
 }
