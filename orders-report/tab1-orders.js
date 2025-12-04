@@ -1560,16 +1560,86 @@ function populateBulkTagDropdown() {
 }
 
 /**
+ * Refresh tags for bulk tag dropdown
+ */
+async function refreshBulkTagDropdown() {
+    const container = document.getElementById('bulkTagOptions');
+    if (!container) return;
+
+    try {
+        // Show loading state
+        container.innerHTML = '<div style="padding: 12px; color: #6b7280; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Đang tải tags...</div>';
+
+        console.log("[BULK-TAG] Fetching tags from API...");
+        const headers = await window.tokenManager.getAuthHeader();
+
+        // Fetch từ API với $top=1000
+        const response = await API_CONFIG.smartFetch(
+            "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000",
+            {
+                method: "GET",
+                headers: {
+                    ...headers,
+                    accept: "application/json",
+                    "content-type": "application/json"
+                },
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const newTags = data.value || [];
+
+        console.log(`[BULK-TAG] Fetched ${newTags.length} tags from API`);
+
+        // Update global tags
+        availableTags = newTags;
+        window.availableTags = availableTags;
+        window.cacheManager.set("tags", availableTags, "tags");
+
+        // Save to Firebase
+        if (database) {
+            await database.ref('settings/tags').set(newTags);
+            console.log('[BULK-TAG] Saved tags to Firebase settings/tags');
+        }
+
+        // Update both dropdowns
+        populateTagFilter();
+        populateBulkTagDropdown();
+
+        console.log('[BULK-TAG] Tags refreshed successfully');
+
+    } catch (error) {
+        console.error("[BULK-TAG] Error refreshing tags:", error);
+        container.innerHTML = '<div style="padding: 12px; color: #ef4444; text-align: center;"><i class="fas fa-exclamation-triangle"></i> Lỗi tải tags</div>';
+
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi tải tags: ${error.message}`, 3000);
+        }
+    }
+}
+
+/**
  * Toggle bulk tag dropdown
  */
-function toggleBulkTagDropdown() {
+async function toggleBulkTagDropdown() {
     const container = document.getElementById('bulkTagContainer');
     const input = document.getElementById('bulkTagSearchInput');
 
     if (container) {
-        container.classList.toggle('show');
-        if (container.classList.contains('show') && input) {
-            input.focus();
+        const isOpening = !container.classList.contains('show');
+
+        if (isOpening) {
+            // Fetch fresh tags before opening
+            container.classList.add('show');
+            await refreshBulkTagDropdown();
+            if (input) input.focus();
+        } else {
+            // Just close
+            container.classList.remove('show');
         }
     }
 }
