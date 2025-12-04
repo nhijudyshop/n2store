@@ -333,6 +333,22 @@ window.addEventListener("DOMContentLoaded", async function () {
         .getElementById("campaignFilter")
         .addEventListener("change", handleCampaignChange);
 
+    // Event listener for employee campaign selector
+    const employeeCampaignSelector = document.getElementById('employeeCampaignSelector');
+    if (employeeCampaignSelector) {
+        employeeCampaignSelector.addEventListener('change', function(e) {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            if (selectedOption && selectedOption.dataset.campaign) {
+                const campaign = JSON.parse(selectedOption.dataset.campaign);
+                const campaignId = campaign.campaignIds[0];
+                console.log(`[EMPLOYEE] Campaign changed in drawer, loading ranges for: ${campaign.displayName}`);
+                loadEmployeeRangesForCampaign(campaignId);
+            } else {
+                console.log('[EMPLOYEE] Loading general employee ranges');
+                loadEmployeeRangesForCampaign(null);
+            }
+        });
+    }
 
     // Initialize TPOS Token Manager Firebase connection
     if (window.tokenManager) {
@@ -588,14 +604,32 @@ function applyEmployeeRanges() {
         }
     });
 
+    // Determine save path based on selected campaign
+    const campaignSelector = document.getElementById('employeeCampaignSelector');
+    let savePath = 'settings/employee_ranges'; // Default path for general config
+    let campaignInfo = '(cấu hình chung)';
+
+    if (campaignSelector && campaignSelector.value) {
+        // Get selected campaign data
+        const selectedOption = campaignSelector.options[campaignSelector.selectedIndex];
+        if (selectedOption && selectedOption.dataset.campaign) {
+            const campaign = JSON.parse(selectedOption.dataset.campaign);
+            // Use first campaign ID as the key for storage
+            const campaignId = campaign.campaignIds[0];
+            savePath = `settings/employee_ranges_by_campaign/${campaignId}`;
+            campaignInfo = `cho chiến dịch "${campaign.displayName}"`;
+            console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaign.displayName} (ID: ${campaignId})`);
+        }
+    }
+
     // Save to Firebase
     if (database) {
-        database.ref('settings/employee_ranges').set(newRanges)
+        database.ref(savePath).set(newRanges)
             .then(() => {
                 if (window.notificationManager) {
-                    window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên lên Firebase`, 'success');
+                    window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
                 } else {
-                    alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên lên Firebase`);
+                    alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`);
                 }
                 toggleEmployeeDrawer();
             })
@@ -623,6 +657,35 @@ function getEmployeeName(stt) {
     return null;
 }
 
+function populateEmployeeCampaignSelector() {
+    const select = document.getElementById('employeeCampaignSelector');
+    if (!select) return;
+
+    // Get campaigns from the main campaign filter
+    const mainCampaignSelect = document.getElementById('campaignFilter');
+    if (!mainCampaignSelect) {
+        console.log('[EMPLOYEE] Main campaign filter not found');
+        return;
+    }
+
+    // Clear and add default option
+    select.innerHTML = '<option value="">Cấu hình chung (tất cả chiến dịch)</option>';
+
+    // Copy campaigns from main filter
+    const options = mainCampaignSelect.querySelectorAll('option');
+    options.forEach(option => {
+        if (option.value !== '') {
+            const newOption = document.createElement('option');
+            newOption.value = option.value;
+            newOption.textContent = option.textContent;
+            newOption.dataset.campaign = option.dataset.campaign;
+            select.appendChild(newOption);
+        }
+    });
+
+    console.log(`[EMPLOYEE] Populated campaign selector with ${select.options.length - 1} campaigns`);
+}
+
 function toggleEmployeeDrawer() {
     const drawer = document.getElementById('employeeDrawer');
     const overlay = document.getElementById('employeeDrawerOverlay');
@@ -636,6 +699,7 @@ function toggleEmployeeDrawer() {
             overlay.classList.remove('active');
         } else {
             // Open drawer - Reload table to show latest data
+            populateEmployeeCampaignSelector();
             loadAndRenderEmployeeTable();
             drawer.classList.add('active');
             overlay.classList.add('active');
@@ -675,6 +739,56 @@ function checkAdminPermission() {
             btn.style.display = 'inline-flex';
         }
     }
+}
+
+function loadEmployeeRangesForCampaign(campaignId = null) {
+    if (!database) {
+        console.log('[EMPLOYEE] Database not initialized');
+        return;
+    }
+
+    let loadPath = 'settings/employee_ranges'; // Default: general config
+
+    if (campaignId) {
+        loadPath = `settings/employee_ranges_by_campaign/${campaignId}`;
+        console.log(`[EMPLOYEE] Loading ranges for campaign ID: ${campaignId}`);
+    } else {
+        console.log('[EMPLOYEE] Loading general employee ranges');
+    }
+
+    database.ref(loadPath).once('value')
+        .then((snapshot) => {
+            const data = snapshot.val();
+            if (data && data.length > 0) {
+                employeeRanges = data;
+                console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from ${loadPath}`);
+            } else if (campaignId) {
+                // If no campaign-specific ranges found, fall back to general config
+                console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
+                database.ref('settings/employee_ranges').once('value')
+                    .then((snapshot) => {
+                        employeeRanges = snapshot.val() || [];
+                        console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from general config (fallback)`);
+                        performTableSearch();
+                    });
+                return;
+            } else {
+                employeeRanges = [];
+                console.log('[EMPLOYEE] No ranges found');
+            }
+
+            // Re-apply filter to current view
+            performTableSearch();
+
+            // Update employee table if drawer is open
+            const drawer = document.getElementById('employeeDrawer');
+            if (drawer && drawer.classList.contains('active')) {
+                loadAndRenderEmployeeTable();
+            }
+        })
+        .catch((error) => {
+            console.error('[EMPLOYEE] Error loading ranges:', error);
+        });
 }
 
 function syncEmployeeRanges() {
@@ -2542,6 +2656,13 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             ? JSON.parse(selectedOption.dataset.campaign)
             : null;
 
+        // Load employee ranges for the selected campaign
+        if (selectedCampaign?.campaignIds && selectedCampaign.campaignIds.length > 0) {
+            const campaignId = selectedCampaign.campaignIds[0];
+            console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
+            loadEmployeeRangesForCampaign(campaignId);
+        }
+
         if (autoLoad) {
             // 🎯 TỰ ĐỘNG TẢI DỮ LIỆU NGAY LẬP TỨC
             console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
@@ -2578,6 +2699,16 @@ async function handleCampaignChange() {
 
     // 🔥 Cleanup old Firebase TAG listeners
     cleanupTagRealtimeListeners();
+
+    // Load employee ranges for the selected campaign
+    if (selectedCampaign?.campaignIds && selectedCampaign.campaignIds.length > 0) {
+        const campaignId = selectedCampaign.campaignIds[0];
+        console.log(`[EMPLOYEE] Loading employee ranges for campaign: ${selectedCampaign.displayName}`);
+        loadEmployeeRangesForCampaign(campaignId);
+    } else {
+        console.log('[EMPLOYEE] Loading general employee ranges (no campaign selected)');
+        loadEmployeeRangesForCampaign(null);
+    }
 
     // Tự động load dữ liệu khi chọn chiến dịch
     if (selectedCampaign?.campaignId || selectedCampaign?.campaignIds) {
