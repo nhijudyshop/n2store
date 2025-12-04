@@ -7031,18 +7031,13 @@ async function sendCommentInternal(commentData) {
             console.log('[COMMENT] Using order comment ID as messageId:', messageId);
         }
 
-        // Build conversationId for comment reply: pageId_commentSuffix
-        // Extract comment suffix from messageId (e.g., "1573633073980967_1321788936417741" -> "1321788936417741")
-        const messageIdParts = messageId.split('_');
-        const commentSuffix = messageIdParts[messageIdParts.length - 1];
-        const builtConversationId = `${pageId}_${commentSuffix}`;
+        // IMPORTANT: For private_replies, conversationId MUST equal message_id!
+        // This matches the real Pancake API format (e.g., both are "1573633073980967_1544674883102468")
+        const finalConversationId = messageId;
 
         console.log('[COMMENT] Message ID:', messageId);
-        console.log('[COMMENT] Built conversationId:', builtConversationId);
+        console.log('[COMMENT] ConversationId (same as messageId):', finalConversationId);
         console.log('[COMMENT] Param conversationId:', conversationId);
-
-        // Use built conversationId (matches message_id format)
-        const finalConversationId = builtConversationId;
 
         // Step 3: Prepare payload data from order (no need to fetch search/inbox_preview)
         // As per real API calls, thread_id_preview and thread_key_preview are null
