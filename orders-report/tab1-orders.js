@@ -6661,7 +6661,8 @@ window.sendComment = async function () {
         }
 
         // Validate required info
-        if (!currentOrder || !window.currentConversationId || !window.currentChatChannelId) {
+        // Note: conversationId will be built from order data in sendCommentInternal, so it's OK if null here
+        if (!currentOrder || !window.currentChatChannelId) {
             alert('Thiếu thông tin để gửi bình luận. Vui lòng đóng và mở lại modal.');
             console.error('[COMMENT] Missing required info');
             return;
