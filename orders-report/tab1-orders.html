@@ -336,6 +336,60 @@
                     <option value="Confirmed">Đơn hàng</option>
                 </select>
             </div>
+
+            <!-- Bulk Tag Assignment Row -->
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #e5e7eb; margin-top: 12px;">
+                <label style="font-weight: 600; color: #374151;">Gán tag hàng loạt:</label>
+
+                <!-- STT Input Container -->
+                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; max-width: 400px;">
+                    <div style="position: relative;">
+                        <input
+                            type="text"
+                            id="bulkTagSTTInput"
+                            placeholder="Nhập STT (VD: 1, 2, 5-10, 15)"
+                            style="width: 100%; padding: 8px 40px 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;"
+                            onkeydown="handleBulkTagSTTInput(event)">
+                        <button
+                            onclick="clearBulkTagSTT()"
+                            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px;"
+                            title="Xóa tất cả">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    </div>
+                    <div id="bulkTagSTTDisplay" style="display: flex; gap: 4px; flex-wrap: wrap; min-height: 20px;">
+                        <!-- STT pills will be displayed here -->
+                    </div>
+                </div>
+
+                <!-- Tag Dropdown -->
+                <label>Chọn tag:</label>
+                <div class="custom-dropdown" id="bulkTagDropdown" style="min-width: 250px;">
+                    <div class="dropdown-selected" onclick="toggleBulkTagDropdown()" id="bulkTagSelected">
+                        <span style="color: #9ca3af;">-- Chọn tag --</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="dropdown-container" id="bulkTagContainer">
+                        <input type="text" id="bulkTagSearchInput" placeholder="Tìm tag..."
+                            onkeyup="filterBulkTagDropdown()" onclick="event.stopPropagation()">
+                        <div id="bulkTagOptions" class="dropdown-options">
+                            <!-- Options populated by JS -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="bulkTagValue" value="">
+                </div>
+
+                <!-- Assign Button -->
+                <button
+                    class="btn-primary"
+                    id="bulkAssignTagBtn"
+                    onclick="executeBulkTagAssignment()"
+                    style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 8px 20px; display: flex; align-items: center; gap: 8px;"
+                    title="Gán tag cho các đơn hàng theo STT đã nhập">
+                    <i class="fas fa-tags"></i>
+                    Gán tag
+                </button>
+            </div>
         </div>
 
         <!-- Action Buttons Section (New) -->

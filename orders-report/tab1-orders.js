@@ -22,6 +22,11 @@ let searchTimeout = null;
 let availableTags = [];
 let currentEditingOrderId = null;
 
+// Bulk Tag Assignment State
+let bulkTagSTTSet = new Set(); // Set of STT numbers
+let selectedBulkTagId = null;
+let selectedBulkTagName = null;
+
 // Edit Modal State
 let currentEditOrderData = null;
 let currentChatOrderDetails = [];
@@ -697,6 +702,7 @@ async function loadAvailableTags() {
             availableTags = cached;
             window.availableTags = availableTags; // Export to window
             populateTagFilter(); // Populate filter dropdown
+            populateBulkTagDropdown(); // Populate bulk tag dropdown
             return;
         }
 
@@ -725,6 +731,7 @@ async function loadAvailableTags() {
         window.cacheManager.set("tags", availableTags, "tags");
         console.log(`[TAG] Loaded ${availableTags.length} tags from API`);
         populateTagFilter(); // Populate filter dropdown
+        populateBulkTagDropdown(); // Populate bulk tag dropdown
     } catch (error) {
         console.error("[TAG] Error loading tags:", error);
         availableTags = [];
@@ -778,6 +785,7 @@ async function refreshTags() {
 
         // Update UI
         populateTagFilter();
+        populateBulkTagDropdown();
 
         // Clear search input and render full tag list
         const searchInput = document.getElementById("tagSearchInput");
@@ -993,6 +1001,7 @@ async function createNewTag() {
 
         // Update UI
         populateTagFilter();
+        populateBulkTagDropdown();
 
         // Clear search and render updated tag list
         const searchInput = document.getElementById("tagSearchInput");
@@ -1385,6 +1394,387 @@ async function saveOrderTags() {
             window.notificationManager.error(`Lỗi khi lưu tag: ${error.message}`, 4000);
         } else {
             alert(`Lỗi khi lưu tag:\n${error.message}`);
+        }
+    }
+}
+
+// =====================================================
+// BULK TAG ASSIGNMENT FUNCTIONS
+// =====================================================
+
+/**
+ * Parse STT input string into array of numbers
+ * Supports formats: "1, 2, 3", "1-5", "1, 5-10, 15"
+ */
+function parseBulkSTTInput(input) {
+    const sttNumbers = new Set();
+
+    if (!input || !input.trim()) {
+        return sttNumbers;
+    }
+
+    // Split by comma or space
+    const parts = input.split(/[,\s]+/).filter(p => p.trim());
+
+    parts.forEach(part => {
+        part = part.trim();
+
+        // Check if it's a range (e.g., "5-10")
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(n => parseInt(n.trim()));
+            if (!isNaN(start) && !isNaN(end) && start <= end) {
+                for (let i = start; i <= end; i++) {
+                    sttNumbers.add(i);
+                }
+            }
+        } else {
+            // Single number
+            const num = parseInt(part);
+            if (!isNaN(num)) {
+                sttNumbers.add(num);
+            }
+        }
+    });
+
+    return sttNumbers;
+}
+
+/**
+ * Handle STT input keydown events
+ */
+function handleBulkTagSTTInput(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const input = document.getElementById('bulkTagSTTInput');
+        const value = input.value.trim();
+
+        if (value) {
+            // Parse and add STT numbers to set
+            const newSTTs = parseBulkSTTInput(value);
+            newSTTs.forEach(stt => bulkTagSTTSet.add(stt));
+
+            // Clear input and update display
+            input.value = '';
+            updateBulkTagSTTDisplay();
+        }
+    }
+}
+
+/**
+ * Update STT pills display
+ */
+function updateBulkTagSTTDisplay() {
+    const container = document.getElementById('bulkTagSTTDisplay');
+
+    if (bulkTagSTTSet.size === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    // Sort STT numbers
+    const sortedSTTs = Array.from(bulkTagSTTSet).sort((a, b) => a - b);
+
+    // Create pills
+    container.innerHTML = sortedSTTs.map(stt => `
+        <span style="
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        ">
+            ${stt}
+            <button
+                onclick="removeBulkSTT(${stt})"
+                style="
+                    background: none;
+                    border: none;
+                    color: #1e40af;
+                    cursor: pointer;
+                    padding: 0;
+                    display: flex;
+                    align-items: center;
+                    font-size: 14px;
+                "
+                title="Xóa STT ${stt}">
+                ×
+            </button>
+        </span>
+    `).join('');
+}
+
+/**
+ * Remove a single STT from the set
+ */
+function removeBulkSTT(stt) {
+    bulkTagSTTSet.delete(stt);
+    updateBulkTagSTTDisplay();
+}
+
+/**
+ * Clear all STT numbers
+ */
+function clearBulkTagSTT() {
+    bulkTagSTTSet.clear();
+    document.getElementById('bulkTagSTTInput').value = '';
+    updateBulkTagSTTDisplay();
+}
+
+/**
+ * Populate bulk tag dropdown with available tags
+ */
+function populateBulkTagDropdown() {
+    const container = document.getElementById('bulkTagOptions');
+    if (!container) {
+        console.log('[BULK-TAG] bulkTagOptions element not found');
+        return;
+    }
+
+    // Clear existing options
+    container.innerHTML = '';
+
+    // Add tag options
+    if (availableTags && availableTags.length > 0) {
+        availableTags.forEach(tag => {
+            const option = document.createElement('div');
+            option.className = 'dropdown-option';
+            option.dataset.value = tag.Id;
+
+            // Create color dot
+            const colorDot = tag.Color ?
+                `<span style="width: 10px; height: 10px; background-color: ${tag.Color}; border-radius: 50%; display: inline-block; margin-right: 6px;"></span>` :
+                '';
+
+            option.innerHTML = `${colorDot}<span>${tag.Name || 'Unnamed Tag'}</span>`;
+            option.onclick = () => selectBulkTag(tag.Id, tag.Name, tag.Color);
+            container.appendChild(option);
+        });
+        console.log(`[BULK-TAG] Populated ${availableTags.length} tags in dropdown`);
+    } else {
+        container.innerHTML = '<div style="padding: 8px; color: #9ca3af; text-align: center;">Không có tag nào</div>';
+    }
+}
+
+/**
+ * Toggle bulk tag dropdown
+ */
+function toggleBulkTagDropdown() {
+    const container = document.getElementById('bulkTagContainer');
+    const input = document.getElementById('bulkTagSearchInput');
+
+    if (container) {
+        container.classList.toggle('show');
+        if (container.classList.contains('show') && input) {
+            input.focus();
+        }
+    }
+}
+
+/**
+ * Filter bulk tag dropdown based on search input
+ */
+function filterBulkTagDropdown() {
+    const input = document.getElementById('bulkTagSearchInput');
+    const filter = input.value.toLowerCase();
+    const options = document.querySelectorAll('#bulkTagOptions .dropdown-option');
+
+    options.forEach(option => {
+        const text = option.textContent.toLowerCase();
+        option.style.display = text.includes(filter) ? '' : 'none';
+    });
+}
+
+/**
+ * Select a tag from bulk tag dropdown
+ */
+function selectBulkTag(tagId, tagName, tagColor) {
+    selectedBulkTagId = tagId;
+    selectedBulkTagName = tagName;
+
+    // Update selected display
+    const selected = document.getElementById('bulkTagSelected');
+    const colorDot = tagColor ?
+        `<span style="width: 10px; height: 10px; background-color: ${tagColor}; border-radius: 50%; display: inline-block; margin-right: 6px;"></span>` :
+        '';
+
+    selected.innerHTML = `
+        <span>${colorDot}${tagName}</span>
+        <i class="fas fa-chevron-down"></i>
+    `;
+
+    // Update hidden input
+    document.getElementById('bulkTagValue').value = tagId;
+
+    // Close dropdown
+    document.getElementById('bulkTagContainer').classList.remove('show');
+
+    // Clear search
+    document.getElementById('bulkTagSearchInput').value = '';
+    filterBulkTagDropdown();
+}
+
+/**
+ * Execute bulk tag assignment
+ */
+async function executeBulkTagAssignment() {
+    // Validate inputs
+    if (bulkTagSTTSet.size === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng nhập STT cần gán tag', 3000);
+        } else {
+            alert('Vui lòng nhập STT cần gán tag');
+        }
+        return;
+    }
+
+    if (!selectedBulkTagId) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn tag cần gán', 3000);
+        } else {
+            alert('Vui lòng chọn tag cần gán');
+        }
+        return;
+    }
+
+    try {
+        showLoading(true);
+
+        // Get selected tag info
+        const selectedTag = availableTags.find(t => t.Id === selectedBulkTagId);
+        if (!selectedTag) {
+            throw new Error('Tag không tồn tại');
+        }
+
+        // Find orders matching STT in displayedData (current view)
+        const sttArray = Array.from(bulkTagSTTSet);
+        const matchingOrders = displayedData.filter(order =>
+            sttArray.includes(order.SessionIndex)
+        );
+
+        if (matchingOrders.length === 0) {
+            throw new Error(`Không tìm thấy đơn hàng nào có STT: ${sttArray.join(', ')} trong bảng hiện tại`);
+        }
+
+        console.log(`[BULK-TAG] Found ${matchingOrders.length} orders matching STT:`, sttArray);
+
+        // Process each order
+        let successCount = 0;
+        let errorCount = 0;
+        const errors = [];
+
+        for (const order of matchingOrders) {
+            try {
+                // Get current tags
+                const currentTags = order.Tags ? JSON.parse(order.Tags) : [];
+
+                // Check if tag already exists
+                const tagExists = currentTags.some(t => t.Id === selectedBulkTagId);
+                if (tagExists) {
+                    console.log(`[BULK-TAG] Tag already exists for order ${order.Code} (STT ${order.SessionIndex})`);
+                    successCount++; // Count as success since tag is already there
+                    continue;
+                }
+
+                // Add new tag
+                const updatedTags = [
+                    ...currentTags,
+                    {
+                        Id: selectedTag.Id,
+                        Name: selectedTag.Name,
+                        Color: selectedTag.Color
+                    }
+                ];
+
+                // Call API to assign tag
+                const headers = await window.tokenManager.getAuthHeader();
+                const response = await API_CONFIG.smartFetch(
+                    "https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag",
+                    {
+                        method: "POST",
+                        headers: {
+                            ...headers,
+                            "Content-Type": "application/json",
+                            Accept: "application/json"
+                        },
+                        body: JSON.stringify({
+                            Tags: updatedTags,
+                            OrderId: order.Id
+                        }),
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                // Update local data
+                const updatedData = { Tags: JSON.stringify(updatedTags) };
+                updateOrderInTable(order.Id, updatedData);
+
+                // Emit Firebase update
+                await emitTagUpdateToFirebase(order.Id, updatedTags);
+
+                successCount++;
+                console.log(`[BULK-TAG] Successfully tagged order ${order.Code} (STT ${order.SessionIndex})`);
+
+            } catch (error) {
+                console.error(`[BULK-TAG] Error tagging order ${order.Code}:`, error);
+                errorCount++;
+                errors.push(`STT ${order.SessionIndex} (${order.Code}): ${error.message}`);
+            }
+        }
+
+        // Clear cache
+        window.cacheManager.clear("orders");
+
+        showLoading(false);
+
+        // Show result notification
+        if (successCount > 0 && errorCount === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.success(
+                    `Đã gán tag "${selectedBulkTagName}" cho ${successCount} đơn hàng thành công!`,
+                    3000
+                );
+            } else {
+                alert(`Đã gán tag cho ${successCount} đơn hàng thành công!`);
+            }
+
+            // Clear inputs after success
+            clearBulkTagSTT();
+            selectedBulkTagId = null;
+            selectedBulkTagName = null;
+            document.getElementById('bulkTagSelected').innerHTML = `
+                <span style="color: #9ca3af;">-- Chọn tag --</span>
+                <i class="fas fa-chevron-down"></i>
+            `;
+            document.getElementById('bulkTagValue').value = '';
+
+        } else if (successCount > 0 && errorCount > 0) {
+            if (window.notificationManager) {
+                window.notificationManager.warning(
+                    `Đã gán tag cho ${successCount} đơn. Lỗi: ${errorCount} đơn`,
+                    4000
+                );
+            } else {
+                alert(`Thành công: ${successCount} đơn\nLỗi: ${errorCount} đơn\n\n${errors.join('\n')}`);
+            }
+        } else {
+            throw new Error(`Không thể gán tag cho bất kỳ đơn hàng nào.\n\n${errors.join('\n')}`);
+        }
+
+    } catch (error) {
+        console.error("[BULK-TAG] Error in bulk tag assignment:", error);
+        showLoading(false);
+
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi gán tag hàng loạt: ${error.message}`, 5000);
+        } else {
+            alert(`Lỗi gán tag hàng loạt:\n${error.message}`);
         }
     }
 }
