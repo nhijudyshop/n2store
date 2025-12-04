@@ -1152,6 +1152,9 @@ function openTagModal(orderId, orderCode) {
     updateSelectedTagsDisplay();
     document.getElementById("tagModal").classList.add("show");
 
+    // Auto-refresh tags when modal opens
+    refreshTags();
+
     // Focus on search input
     setTimeout(() => {
         document.getElementById("tagSearchInput").focus();
