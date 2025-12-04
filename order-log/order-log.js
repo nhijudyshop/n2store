@@ -71,24 +71,17 @@ function toggleHolidayUI(isHoliday) {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[ORDER-LOG] Initializing...');
 
-    // Get user ID from Firebase auth
-    if (firebase && firebase.auth) {
-        firebase.auth().onAuthStateChanged((user) => {
-            if (user) {
-                currentUserId = user.uid;
-                console.log('[ORDER-LOG] User authenticated:', currentUserId);
-                initializeApp();
-            } else {
-                console.warn('[ORDER-LOG] User not authenticated');
-                currentUserId = 'anonymous';
-                initializeApp();
-            }
-        });
+    // Get user ID from authManager
+    if (window.authManager && window.authManager.isAuthenticated()) {
+        const userInfo = window.authManager.getUserInfo();
+        currentUserId = userInfo.userType || userInfo.username || 'authenticated-user';
+        console.log('[ORDER-LOG] User authenticated:', currentUserId);
     } else {
-        console.warn('[ORDER-LOG] Firebase not available');
+        console.warn('[ORDER-LOG] User not authenticated, using anonymous');
         currentUserId = 'anonymous';
-        initializeApp();
     }
+
+    initializeApp();
 });
 
 function initializeApp() {
@@ -731,11 +724,11 @@ async function deleteHoliday(holidayId) {
     }
 }
 
-// Show notification
+// Show notification using floating alert from common-utils.js
 function showNotification(message, type = 'info') {
-    // Check if notification system exists
-    if (typeof window.showNotification === 'function') {
-        window.showNotification(message, type);
+    // Use floating alert from common-utils.js (NOT window.showNotification to avoid recursion!)
+    if (typeof window.showFloatingAlert === 'function') {
+        window.showFloatingAlert(message, type);
     } else {
         // Fallback to alert
         alert(message);
