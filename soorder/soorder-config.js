@@ -26,16 +26,6 @@ const ordersCollectionRef = db.collection("soorder");
 const offDaysCollectionRef = db.collection("soorder_off_days");
 const historyCollectionRef = db.collection("soorder_edit_history");
 
-// DOM Elements
-const tbody = document.getElementById("orderTableBody");
-const searchInput = document.getElementById("searchInput");
-const dateFilterDropdown = document.getElementById("dateFilter");
-const filterNCCSelect = document.getElementById("filterNCC");
-const filterPhanLoaiSelect = document.getElementById("filterPhanLoai");
-const filterThanhToanSelect = document.getElementById("filterThanhToan");
-const btnAddOrder = document.getElementById("btnAddOrder");
-const btnManageOffDays = document.getElementById("btnManageOffDays");
-
 // Global variables
 let allOrders = [];
 let filteredOrders = [];
@@ -58,13 +48,13 @@ window.SoOrderConfig = {
     searchFilter,
     filterTimeout,
     currentOffDays,
-    // DOM elements
-    tbody,
-    searchInput,
-    dateFilterDropdown,
-    filterNCCSelect,
-    filterPhanLoaiSelect,
-    filterThanhToanSelect,
-    btnAddOrder,
-    btnManageOffDays,
+    // DOM elements - will be set after DOM ready
+    tbody: null,
+    searchInput: null,
+    dateFilterDropdown: null,
+    filterNCCSelect: null,
+    filterPhanLoaiSelect: null,
+    filterThanhToanSelect: null,
+    btnAddOrder: null,
+    btnManageOffDays: null,
 };
