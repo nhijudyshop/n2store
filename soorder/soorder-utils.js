@@ -141,7 +141,7 @@ window.SoOrderUtils = {
     // LOGGING
     // =====================================================
 
-    async logAction(action, description, oldData = null, newData = null) {
+    async logAction(action, description, oldData = null, newData = null, orderId = null) {
         try {
             const config = window.SoOrderConfig;
             const auth = authManager ? authManager.getAuthState() : null;
@@ -151,6 +151,7 @@ window.SoOrderUtils = {
                 description,
                 oldData,
                 newData,
+                orderId: orderId || (newData ? newData.id : null),
                 userId: auth?.userId || "unknown",
                 userName: auth?.userName || "Unknown",
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
