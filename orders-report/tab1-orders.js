@@ -7015,10 +7015,21 @@ async function sendCommentInternal(commentData) {
             throw new Error('Thiếu thông tin: Facebook_UserName, Facebook_ASUserId, Facebook_CommentId, hoặc Facebook_PostId');
         }
 
-        // Extract pageId and message_id first to build correct conversationId
+        // Extract pageId and message_id
         const pageId = facebookPostId.split('_')[0]; // Extract pageId from postId
-        const commentIds = facebookCommentId.split(',').map(id => id.trim());
-        const messageId = commentIds[0];
+
+        // For message_id: use parentCommentId if replying to specific comment, otherwise use order's comment ID
+        let messageId;
+        if (parentCommentId) {
+            // Replying to a specific comment - use parentCommentId
+            messageId = parentCommentId;
+            console.log('[COMMENT] Using parentCommentId as messageId:', messageId);
+        } else {
+            // Replying to root comment or no specific parent - use order's comment ID
+            const commentIds = facebookCommentId.split(',').map(id => id.trim());
+            messageId = commentIds[0];
+            console.log('[COMMENT] Using order comment ID as messageId:', messageId);
+        }
 
         // Build conversationId for comment reply: pageId_commentSuffix
         // Extract comment suffix from messageId (e.g., "1573633073980967_1321788936417741" -> "1321788936417741")
