@@ -612,9 +612,8 @@ function applyEmployeeRanges() {
         }
     });
 
-    // Determine save path based on selected campaign
+    // Determine save logic based on selected campaign
     const campaignSelector = document.getElementById('employeeCampaignSelector');
-    let savePath = 'settings/employee_ranges'; // Default path for general config
     let campaignInfo = '(cấu hình chung)';
 
     if (campaignSelector && campaignSelector.value) {
@@ -622,17 +621,45 @@ function applyEmployeeRanges() {
         const selectedOption = campaignSelector.options[campaignSelector.selectedIndex];
         if (selectedOption && selectedOption.dataset.campaign) {
             const campaign = JSON.parse(selectedOption.dataset.campaign);
-            // Use campaign display name as the key for storage
             const sanitizedName = sanitizeCampaignName(campaign.displayName);
-            savePath = `settings/employee_ranges_by_campaign/${sanitizedName}`;
             campaignInfo = `cho chiến dịch "${campaign.displayName}"`;
+
             console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaign.displayName} (key: ${sanitizedName})`);
+
+            // Load current campaign configs, update the specific campaign, then save
+            if (database) {
+                database.ref('settings/employee_ranges_by_campaign').once('value')
+                    .then((snapshot) => {
+                        const allCampaignRanges = snapshot.val() || {};
+
+                        // Update this campaign's ranges
+                        allCampaignRanges[sanitizedName] = newRanges;
+
+                        // Save back to Firebase
+                        return database.ref('settings/employee_ranges_by_campaign').set(allCampaignRanges);
+                    })
+                    .then(() => {
+                        if (window.notificationManager) {
+                            window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
+                        } else {
+                            alert(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`);
+                        }
+                        toggleEmployeeDrawer();
+                    })
+                    .catch((error) => {
+                        console.error('[EMPLOYEE] Error saving ranges to Firebase:', error);
+                        alert('❌ Lỗi khi lưu lên Firebase: ' + error.message);
+                    });
+            } else {
+                alert('❌ Lỗi: Không thể kết nối Firebase');
+            }
+            return; // Exit early for campaign-specific save
         }
     }
 
-    // Save to Firebase
+    // Save general config (default path)
     if (database) {
-        database.ref(savePath).set(newRanges)
+        database.ref('settings/employee_ranges').set(newRanges)
             .then(() => {
                 if (window.notificationManager) {
                     window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
@@ -755,49 +782,65 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
         return;
     }
 
-    let loadPath = 'settings/employee_ranges'; // Default: general config
-
     if (campaignName) {
+        // Load from campaign-specific config (object with campaign names as keys)
         const sanitizedName = sanitizeCampaignName(campaignName);
-        loadPath = `settings/employee_ranges_by_campaign/${sanitizedName}`;
         console.log(`[EMPLOYEE] Loading ranges for campaign: ${campaignName} (key: ${sanitizedName})`);
+
+        database.ref('settings/employee_ranges_by_campaign').once('value')
+            .then((snapshot) => {
+                const allCampaignRanges = snapshot.val() || {};
+                const data = allCampaignRanges[sanitizedName];
+
+                if (data && data.length > 0) {
+                    employeeRanges = data;
+                    console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
+                } else {
+                    // If no campaign-specific ranges found, fall back to general config
+                    console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
+                    database.ref('settings/employee_ranges').once('value')
+                        .then((snapshot) => {
+                            employeeRanges = snapshot.val() || [];
+                            console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from general config (fallback)`);
+                            performTableSearch();
+                        });
+                    return;
+                }
+
+                // Re-apply filter to current view
+                performTableSearch();
+
+                // Update employee table if drawer is open
+                const drawer = document.getElementById('employeeDrawer');
+                if (drawer && drawer.classList.contains('active')) {
+                    loadAndRenderEmployeeTable();
+                }
+            })
+            .catch((error) => {
+                console.error('[EMPLOYEE] Error loading ranges:', error);
+            });
     } else {
+        // Load general config
         console.log('[EMPLOYEE] Loading general employee ranges');
+
+        database.ref('settings/employee_ranges').once('value')
+            .then((snapshot) => {
+                employeeRanges = snapshot.val() || [];
+                console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from general config`);
+
+                // Re-apply filter to current view
+                performTableSearch();
+
+                // Update employee table if drawer is open
+                const drawer = document.getElementById('employeeDrawer');
+                if (drawer && drawer.classList.contains('active')) {
+                    loadAndRenderEmployeeTable();
+                }
+            })
+            .catch((error) => {
+                console.error('[EMPLOYEE] Error loading ranges:', error);
+            });
     }
-
-    database.ref(loadPath).once('value')
-        .then((snapshot) => {
-            const data = snapshot.val();
-            if (data && data.length > 0) {
-                employeeRanges = data;
-                console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from ${loadPath}`);
-            } else if (campaignName) {
-                // If no campaign-specific ranges found, fall back to general config
-                console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
-                database.ref('settings/employee_ranges').once('value')
-                    .then((snapshot) => {
-                        employeeRanges = snapshot.val() || [];
-                        console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from general config (fallback)`);
-                        performTableSearch();
-                    });
-                return;
-            } else {
-                employeeRanges = [];
-                console.log('[EMPLOYEE] No ranges found');
-            }
-
-            // Re-apply filter to current view
-            performTableSearch();
-
-            // Update employee table if drawer is open
-            const drawer = document.getElementById('employeeDrawer');
-            if (drawer && drawer.classList.contains('active')) {
-                loadAndRenderEmployeeTable();
-            }
-        })
-        .catch((error) => {
-            console.error('[EMPLOYEE] Error loading ranges:', error);
-        });
 }
 
 function syncEmployeeRanges() {
