@@ -3111,8 +3111,21 @@
             </button>
         </div>
         <div class="employee-drawer-body">
+            <!-- Campaign Selector -->
+            <div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #374151;">
+                    <i class="fas fa-video"></i> Chọn chiến dịch live:
+                </label>
+                <select id="employeeCampaignSelector" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+                    <option value="">Cấu hình chung (tất cả chiến dịch)</option>
+                </select>
+                <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+                    <i class="fas fa-info-circle"></i>
+                    Chọn chiến dịch để cấu hình phân chia riêng, hoặc để trống để áp dụng cho tất cả
+                </div>
+            </div>
             <div id="employeeAssignmentTable"
-                style="max-height: calc(100vh - 200px); overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 16px;">
+                style="max-height: calc(100vh - 280px); overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 16px;">
                 <table style="width: 100%; font-size: 13px;">
                     <thead
                         style="position: sticky; top: 0; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; z-index: 1;">
