@@ -118,6 +118,8 @@ window.SoOrderCRUD = {
         const config = window.SoOrderConfig;
         const utils = window.SoOrderUtils;
 
+        const loadingId = utils.showLoading("Đang cập nhật...");
+
         try {
             const doc = await config.ordersCollectionRef.doc("orders").get();
 
@@ -134,19 +136,26 @@ window.SoOrderCRUD = {
             }
 
             const oldOrder = { ...orders[index] };
+
+            // Increment edit count
+            const editCount = (oldOrder.editCount || 0) + 1;
+
             orders[index] = {
                 ...orders[index],
                 ...updates,
+                editCount: editCount,
                 updatedAt: new Date().toISOString(),
             };
 
             await config.ordersCollectionRef.doc("orders").set({ data: orders });
 
-            utils.logAction(
+            // Save detailed history
+            await utils.logAction(
                 "update",
                 `Cập nhật đơn: ${orders[index].maDon}`,
                 oldOrder,
-                orders[index]
+                orders[index],
+                orderId
             );
 
             // Update local data
@@ -156,8 +165,11 @@ window.SoOrderCRUD = {
                 utils.applyFilters();
             }
 
+            utils.hideLoading(loadingId);
+            utils.showSuccess("Cập nhật thành công!");
             return true;
         } catch (error) {
+            utils.hideLoading(loadingId);
             console.error("Error updating order:", error);
             utils.showError("Lỗi khi cập nhật: " + error.message);
             return false;
@@ -242,6 +254,31 @@ window.SoOrderCRUD = {
             console.error("Error deleting off day:", error);
             utils.showError("Lỗi khi xóa ngày nghỉ: " + error.message);
             return false;
+        }
+    },
+
+    // =====================================================
+    // HISTORY
+    // =====================================================
+
+    async getOrderHistory(orderId) {
+        const config = window.SoOrderConfig;
+
+        try {
+            const snapshot = await config.historyCollectionRef
+                .where("orderId", "==", orderId)
+                .orderBy("timestamp", "desc")
+                .get();
+
+            const history = [];
+            snapshot.forEach((doc) => {
+                history.push(doc.data());
+            });
+
+            return history;
+        } catch (error) {
+            console.error("Error getting order history:", error);
+            return [];
         }
     },
 
