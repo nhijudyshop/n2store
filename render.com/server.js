@@ -200,7 +200,6 @@ const chatUsersRoutes = require('./routes/chat-users'); // 🆕 PostgreSQL chat 
 const chatConversationsRoutes = require('./routes/chat-conversations'); // 🆕 PostgreSQL chat - Conversations
 const chatMessagesRoutes = require('./routes/chat-messages'); // 🆕 PostgreSQL chat - Messages
 const sepayWebhookRoutes = require('./routes/sepay-webhook'); // 🆕 Sepay webhook & balance history
-const orderLogsRoutes = require('./routes/order-logs'); // 🆕 Order logs from suppliers
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -214,7 +213,6 @@ app.use('/api/chat', chatUsersRoutes);
 app.use('/api/chat', chatConversationsRoutes);
 app.use('/api/chat', chatMessagesRoutes);
 app.use('/api/sepay', sepayWebhookRoutes); // 🆕 Sepay webhook & balance history
-app.use('/api', orderLogsRoutes); // 🆕 Order logs from suppliers
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
 // =====================================================

@@ -47,6 +47,14 @@ const MENU_CONFIG = [
         permissionRequired: "hangrotxa",
     },
     {
+        href: "../soorder/index.html",
+        icon: "notebook-pen",
+        text: "Sổ Order",
+        shortText: "Sổ Order",
+        pageIdentifier: "soorder",
+        permissionRequired: "soorder",
+    },
+    {
         href: "../ib/index.html",
         icon: "message-circle",
         text: "Check Inbox Khách",
@@ -109,14 +117,6 @@ const MENU_CONFIG = [
         shortText: "Order",
         pageIdentifier: "order-management",
         permissionRequired: "order-management",
-    },
-    {
-        href: "../order-log/index.html",
-        icon: "book-open",
-        text: "Sổ Order",
-        shortText: "Sổ Order",
-        pageIdentifier: "order-log",
-        permissionRequired: "order-log",
     },
     {
         href: "../soluong-live/index.html",
