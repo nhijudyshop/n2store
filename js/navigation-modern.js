@@ -47,14 +47,6 @@ const MENU_CONFIG = [
         permissionRequired: "hangrotxa",
     },
     {
-        href: "../soorder/index.html",
-        icon: "notebook-pen",
-        text: "Sổ Order",
-        shortText: "Sổ Order",
-        pageIdentifier: "soorder",
-        permissionRequired: "soorder",
-    },
-    {
         href: "../ib/index.html",
         icon: "message-circle",
         text: "Check Inbox Khách",
