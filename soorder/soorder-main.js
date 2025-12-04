@@ -21,6 +21,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     config.btnAddOrder = document.getElementById("btnAddOrder");
     config.btnManageOffDays = document.getElementById("btnManageOffDays");
 
+    console.log("DOM elements:", {
+        btnAddOrder: config.btnAddOrder,
+        btnManageOffDays: config.btnManageOffDays
+    });
+
+    // Setup event listeners FIRST (before async operations)
+    setupEventListeners();
+
     // Initialize auth
     if (typeof authManager !== "undefined") {
         await authManager.checkAuth();
@@ -30,9 +38,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     await crud.loadOffDays();
     await crud.loadAllOrders();
 
-    // Setup event listeners
-    setupEventListeners();
-
     console.log("Sổ Order: Ready!");
 });
 
@@ -41,18 +46,28 @@ function setupEventListeners() {
     const utils = window.SoOrderUtils;
     const ui = window.SoOrderUI;
 
+    console.log("Setting up event listeners...");
+
     // Add order button
     if (config.btnAddOrder) {
+        console.log("Attaching click listener to btnAddOrder");
         config.btnAddOrder.addEventListener("click", () => {
+            console.log("Add Order button clicked!");
             ui.showAddOrderModal();
         });
+    } else {
+        console.error("btnAddOrder not found!");
     }
 
     // Manage off days button
     if (config.btnManageOffDays) {
+        console.log("Attaching click listener to btnManageOffDays");
         config.btnManageOffDays.addEventListener("click", () => {
+            console.log("Manage Off Days button clicked!");
             ui.showOffDaysModal();
         });
+    } else {
+        console.error("btnManageOffDays not found!");
     }
 
     // Search input
