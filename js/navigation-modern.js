@@ -111,7 +111,7 @@ const MENU_CONFIG = [
         permissionRequired: "order-management",
     },
     {
-        href: "../order-log/index.html",
+        href: "../soorder/index.html",
         icon: "book-open",
         text: "Sổ Order",
         shortText: "Sổ Order",
