@@ -12,9 +12,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Setup event listeners
     setupEventListeners();
 
-    // Initialize auth
-    if (typeof authManager !== "undefined") {
-        await authManager.checkAuth();
+    // Auth is already checked in auth.js - no need to call again
+    // Just verify user is authenticated
+    if (typeof authManager !== "undefined" && !authManager.isAuthenticated()) {
+        console.warn("User not authenticated, redirecting...");
+        return;
     }
 
     // Setup keyboard navigation

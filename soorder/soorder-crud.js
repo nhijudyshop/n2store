@@ -80,6 +80,15 @@ window.SoOrderCRUD = {
             return false;
         }
 
+        // Initialize currentDayData if null
+        if (!state.currentDayData) {
+            state.currentDayData = {
+                date: state.currentDateString,
+                isHoliday: false,
+                orders: [],
+            };
+        }
+
         // Create new order
         const newOrder = {
             id: utils.generateUUID(),
@@ -124,6 +133,12 @@ window.SoOrderCRUD = {
 
         // Validate
         if (!utils.validateOrder(updatedData)) {
+            return false;
+        }
+
+        // Check if currentDayData exists
+        if (!state.currentDayData || !state.currentDayData.orders) {
+            utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
         }
 
@@ -172,6 +187,12 @@ window.SoOrderCRUD = {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
+        // Check if currentDayData exists
+        if (!state.currentDayData || !state.currentDayData.orders) {
+            utils.showToast("Không tìm thấy dữ liệu ngày", "error");
+            return false;
+        }
+
         // Find order
         const orderIndex = state.currentDayData.orders.findIndex(
             (o) => o.id === orderId
@@ -206,6 +227,12 @@ window.SoOrderCRUD = {
     async togglePaidStatus(orderId) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
+
+        // Check if currentDayData exists
+        if (!state.currentDayData || !state.currentDayData.orders) {
+            utils.showToast("Không tìm thấy dữ liệu ngày", "error");
+            return false;
+        }
 
         // Find order
         const order = state.currentDayData.orders.find((o) => o.id === orderId);
