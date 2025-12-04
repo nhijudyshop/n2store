@@ -696,7 +696,13 @@ class PancakeDataManager {
             console.log(`[PANCAKE] Inbox preview response:`, data);
 
             if (!data.success) {
-                throw new Error('Inbox preview API returned success=false');
+                console.warn('[PANCAKE] ⚠️ Inbox preview API returned success=false:', data.message || 'No message');
+                return {
+                    conversationId: null,
+                    messages: [],
+                    success: false,
+                    error: data.message || 'Inbox preview API returned success=false'
+                };
             }
 
             // Extract from_id from data array (first message from customer)
