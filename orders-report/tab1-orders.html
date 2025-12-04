@@ -2685,10 +2685,8 @@
                 // Open dropdown
                 container.classList.add('show');
 
-                // Load tags if not loaded yet
-                if (!window.availableTags || window.availableTags.length === 0) {
-                    loadAvailableTags();
-                }
+                // Always load fresh tags data when opening dropdown
+                loadAvailableTags();
             } else {
                 // Close dropdown
                 container.classList.remove('show');
