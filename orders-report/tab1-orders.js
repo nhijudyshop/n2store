@@ -340,9 +340,8 @@ window.addEventListener("DOMContentLoaded", async function () {
             const selectedOption = e.target.options[e.target.selectedIndex];
             if (selectedOption && selectedOption.dataset.campaign) {
                 const campaign = JSON.parse(selectedOption.dataset.campaign);
-                const campaignId = campaign.campaignIds[0];
                 console.log(`[EMPLOYEE] Campaign changed in drawer, loading ranges for: ${campaign.displayName}`);
-                loadEmployeeRangesForCampaign(campaignId);
+                loadEmployeeRangesForCampaign(campaign.displayName);
             } else {
                 console.log('[EMPLOYEE] Loading general employee ranges');
                 loadEmployeeRangesForCampaign(null);
@@ -566,6 +565,15 @@ function renderEmployeeTable(users) {
     tbody.innerHTML = html;
 }
 
+// Sanitize campaign name for Firebase path (remove invalid chars: . $ # [ ] /)
+function sanitizeCampaignName(campaignName) {
+    if (!campaignName) return null;
+    // Replace invalid Firebase path characters with underscore
+    return campaignName
+        .replace(/[.$#\[\]\/]/g, '_')
+        .trim();
+}
+
 function applyEmployeeRanges() {
     const inputs = document.querySelectorAll('.employee-range-input');
     const rangesMap = {};
@@ -614,11 +622,11 @@ function applyEmployeeRanges() {
         const selectedOption = campaignSelector.options[campaignSelector.selectedIndex];
         if (selectedOption && selectedOption.dataset.campaign) {
             const campaign = JSON.parse(selectedOption.dataset.campaign);
-            // Use first campaign ID as the key for storage
-            const campaignId = campaign.campaignIds[0];
-            savePath = `settings/employee_ranges_by_campaign/${campaignId}`;
+            // Use campaign display name as the key for storage
+            const sanitizedName = sanitizeCampaignName(campaign.displayName);
+            savePath = `settings/employee_ranges_by_campaign/${sanitizedName}`;
             campaignInfo = `cho chiến dịch "${campaign.displayName}"`;
-            console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaign.displayName} (ID: ${campaignId})`);
+            console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaign.displayName} (key: ${sanitizedName})`);
         }
     }
 
@@ -741,7 +749,7 @@ function checkAdminPermission() {
     }
 }
 
-function loadEmployeeRangesForCampaign(campaignId = null) {
+function loadEmployeeRangesForCampaign(campaignName = null) {
     if (!database) {
         console.log('[EMPLOYEE] Database not initialized');
         return;
@@ -749,9 +757,10 @@ function loadEmployeeRangesForCampaign(campaignId = null) {
 
     let loadPath = 'settings/employee_ranges'; // Default: general config
 
-    if (campaignId) {
-        loadPath = `settings/employee_ranges_by_campaign/${campaignId}`;
-        console.log(`[EMPLOYEE] Loading ranges for campaign ID: ${campaignId}`);
+    if (campaignName) {
+        const sanitizedName = sanitizeCampaignName(campaignName);
+        loadPath = `settings/employee_ranges_by_campaign/${sanitizedName}`;
+        console.log(`[EMPLOYEE] Loading ranges for campaign: ${campaignName} (key: ${sanitizedName})`);
     } else {
         console.log('[EMPLOYEE] Loading general employee ranges');
     }
@@ -762,7 +771,7 @@ function loadEmployeeRangesForCampaign(campaignId = null) {
             if (data && data.length > 0) {
                 employeeRanges = data;
                 console.log(`[EMPLOYEE] Loaded ${employeeRanges.length} ranges from ${loadPath}`);
-            } else if (campaignId) {
+            } else if (campaignName) {
                 // If no campaign-specific ranges found, fall back to general config
                 console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
                 database.ref('settings/employee_ranges').once('value')
@@ -2657,10 +2666,9 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             : null;
 
         // Load employee ranges for the selected campaign
-        if (selectedCampaign?.campaignIds && selectedCampaign.campaignIds.length > 0) {
-            const campaignId = selectedCampaign.campaignIds[0];
+        if (selectedCampaign?.displayName) {
             console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
-            loadEmployeeRangesForCampaign(campaignId);
+            loadEmployeeRangesForCampaign(selectedCampaign.displayName);
         }
 
         if (autoLoad) {
@@ -2701,10 +2709,9 @@ async function handleCampaignChange() {
     cleanupTagRealtimeListeners();
 
     // Load employee ranges for the selected campaign
-    if (selectedCampaign?.campaignIds && selectedCampaign.campaignIds.length > 0) {
-        const campaignId = selectedCampaign.campaignIds[0];
+    if (selectedCampaign?.displayName) {
         console.log(`[EMPLOYEE] Loading employee ranges for campaign: ${selectedCampaign.displayName}`);
-        loadEmployeeRangesForCampaign(campaignId);
+        loadEmployeeRangesForCampaign(selectedCampaign.displayName);
     } else {
         console.log('[EMPLOYEE] Loading general employee ranges (no campaign selected)');
         loadEmployeeRangesForCampaign(null);
