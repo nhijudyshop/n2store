@@ -323,9 +323,8 @@
                         || allOrders[0].campaignName;
 
                     // Sanitize campaign name to match Firebase key format (same as tab1-orders.js)
-                    // Only replace invalid Firebase key characters: . $ # [ ]
-                    // Forward slash (/) is allowed in Firebase keys
-                    currentCampaignName = rawCampaignName ? rawCampaignName.replace(/[.$#\[\]]/g, '_').trim() : null;
+                    // Replace invalid Firebase key characters and forward slash, dash: . $ # [ ] / -
+                    currentCampaignName = rawCampaignName ? rawCampaignName.replace(/[.$#\[\]\/\-]/g, '_').trim() : null;
 
                     console.log('[OVERVIEW] Detected campaign (raw):', rawCampaignName);
                     console.log('[OVERVIEW] Sanitized campaign:', currentCampaignName);

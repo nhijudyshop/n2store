@@ -107,8 +107,8 @@ async function loadEmployeeRangesForCampaign(campaignName) {
     console.log('[OVERVIEW] Loading employee ranges for campaign:', campaignName);
 
     try {
-        // Sanitize campaign name for Firebase key
-        const sanitizedName = campaignName.replace(/[.#$[\]]/g, '_');
+        // Sanitize campaign name for Firebase key - replace invalid characters and forward slash, dash
+        const sanitizedName = campaignName.replace(/[.$#\[\]\/\-]/g, '_');
 
         const snapshot = await database.ref('settings/employee_ranges_by_campaign').once('value');
         const allCampaignRanges = snapshot.val() || {};
