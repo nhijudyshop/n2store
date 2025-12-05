@@ -103,10 +103,6 @@ window.SoOrderUI = {
         // Ghi Chú
         const tdNote = document.createElement("td");
         tdNote.textContent = order.note || "-";
-        tdNote.style.maxWidth = "200px";
-        tdNote.style.overflow = "hidden";
-        tdNote.style.textOverflow = "ellipsis";
-        tdNote.style.whiteSpace = "nowrap";
         tr.appendChild(tdNote);
 
         // Người thực hiện (holiday only)
