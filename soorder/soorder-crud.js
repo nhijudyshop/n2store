@@ -116,6 +116,7 @@ window.SoOrderCRUD = {
             utils.showToast("Đã thêm đơn hàng thành công", "success");
             // Re-render
             window.SoOrderUI.renderTable();
+            window.SoOrderUI.toggleHolidayColumnsVisibility();
             window.SoOrderUI.updateFooterSummary();
             return true;
         }
@@ -172,6 +173,7 @@ window.SoOrderCRUD = {
             utils.showToast("Đã cập nhật đơn hàng thành công", "success");
             // Re-render
             window.SoOrderUI.renderTable();
+            window.SoOrderUI.toggleHolidayColumnsVisibility();
             window.SoOrderUI.updateFooterSummary();
             return true;
         }
@@ -213,6 +215,7 @@ window.SoOrderCRUD = {
             utils.showToast("Đã xóa đơn hàng thành công", "success");
             // Re-render
             window.SoOrderUI.renderTable();
+            window.SoOrderUI.toggleHolidayColumnsVisibility();
             window.SoOrderUI.updateFooterSummary();
             return true;
         }
@@ -252,6 +255,47 @@ window.SoOrderCRUD = {
         if (success) {
             // Re-render
             window.SoOrderUI.renderTable();
+            window.SoOrderUI.toggleHolidayColumnsVisibility();
+            window.SoOrderUI.updateFooterSummary();
+            return true;
+        }
+
+        return false;
+    },
+
+    // =====================================================
+    // TOGGLE RECONCILED STATUS
+    // =====================================================
+
+    async toggleReconciledStatus(orderId) {
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        // Check if currentDayData exists
+        if (!state.currentDayData || !state.currentDayData.orders) {
+            utils.showToast("Không tìm thấy dữ liệu ngày", "error");
+            return false;
+        }
+
+        // Find order
+        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+
+        if (!order) {
+            utils.showToast("Không tìm thấy đơn hàng", "error");
+            return false;
+        }
+
+        // Toggle reconciled status
+        order.isReconciled = !order.isReconciled;
+        order.updatedAt = firebase.firestore.Timestamp.now();
+
+        // Save to Firebase
+        const success = await this.saveDayData();
+
+        if (success) {
+            // Re-render
+            window.SoOrderUI.renderTable();
+            window.SoOrderUI.toggleHolidayColumnsVisibility();
             window.SoOrderUI.updateFooterSummary();
             return true;
         }
