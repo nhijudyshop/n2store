@@ -864,7 +864,6 @@ async function syncFromTPOS() {
         let batch = db.batch();
         let batchCount = 0;
         let newCustomersCount = 0;
-        let duplicateCount = 0;
 
         // Process each customer
         for (const tposCustomer of result.customers) {
@@ -877,9 +876,9 @@ async function syncFromTPOS() {
             const exists = await customerExists(tposCustomer.Phone);
 
             if (exists) {
-                console.log(`Duplicate skipped: ${tposCustomer.Name} (${tposCustomer.Phone})`);
-                duplicateCount++;
-                continue;
+                // Gặp duplicate → DỪNG NGAY
+                console.log(`Duplicate found, stopping sync: ${tposCustomer.Name} (${tposCustomer.Phone})`);
+                break;
             }
 
             // Map and add new customer
@@ -913,7 +912,7 @@ async function syncFromTPOS() {
         localStorage.setItem('lastTPOSSync', new Date().toISOString());
 
         if (newCustomersCount > 0) {
-            showNotification(`Đồng bộ thành công ${newCustomersCount} khách hàng mới từ TPOS (bỏ qua ${duplicateCount} khách đã tồn tại)`, 'success');
+            showNotification(`Đồng bộ thành công ${newCustomersCount} khách hàng mới từ TPOS`, 'success');
 
             // Reload data
             updateStatistics(); // Update in background
@@ -922,7 +921,7 @@ async function syncFromTPOS() {
             firstVisible = null;
             await loadCustomers();
         } else {
-            showNotification(`Không có khách hàng mới (${duplicateCount} khách đã tồn tại)`, 'info');
+            showNotification('Không có khách hàng mới để đồng bộ', 'info');
         }
     } catch (error) {
         console.error('Error syncing from TPOS:', error);
