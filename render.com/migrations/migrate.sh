@@ -65,27 +65,37 @@ echo ""
 
 # Get script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-MIGRATION_FILE="$SCRIPT_DIR/create_balance_history.sql"
+MIGRATION_FILES=(
+    "$SCRIPT_DIR/create_balance_history.sql"
+    "$SCRIPT_DIR/create_customer_info.sql"
+)
 
-# Check if migration file exists
-if [ ! -f "$MIGRATION_FILE" ]; then
-    echo -e "${RED}❌ Error: Migration file not found: $MIGRATION_FILE${NC}"
-    exit 1
-fi
+# Check if migration files exist
+for MIGRATION_FILE in "${MIGRATION_FILES[@]}"; do
+    if [ ! -f "$MIGRATION_FILE" ]; then
+        echo -e "${RED}❌ Error: Migration file not found: $MIGRATION_FILE${NC}"
+        exit 1
+    fi
+done
 
-# Run migration
-echo -e "${YELLOW}🚀 Running migration...${NC}"
-echo -e "${BLUE}   File: $MIGRATION_FILE${NC}"
+# Run migrations
+echo -e "${YELLOW}🚀 Running migrations...${NC}"
 echo ""
 
-if psql "$DATABASE_URL" -f "$MIGRATION_FILE"; then
+for MIGRATION_FILE in "${MIGRATION_FILES[@]}"; do
+    echo -e "${BLUE}   Applying: $(basename $MIGRATION_FILE)${NC}"
+
+    if psql "$DATABASE_URL" -f "$MIGRATION_FILE"; then
+        echo -e "${GREEN}   ✅ Success${NC}"
+    else
+        echo ""
+        echo -e "${RED}❌ Migration failed: $(basename $MIGRATION_FILE)${NC}"
+        exit 1
+    fi
     echo ""
-    echo -e "${GREEN}✅ Migration completed successfully!${NC}"
-else
-    echo ""
-    echo -e "${RED}❌ Migration failed${NC}"
-    exit 1
-fi
+done
+
+echo -e "${GREEN}✅ All migrations completed successfully!${NC}"
 
 echo ""
 echo "======================================================"
@@ -95,14 +105,15 @@ echo ""
 
 # Verify tables
 echo -e "${BLUE}Checking tables...${NC}"
-TABLES=$(psql "$DATABASE_URL" -t -c "\dt" | grep -E "balance_history|sepay_webhook_logs" | wc -l)
+TABLES=$(psql "$DATABASE_URL" -t -c "\dt" | grep -E "balance_history|sepay_webhook_logs|balance_customer_info" | wc -l)
 
-if [ "$TABLES" -ge 2 ]; then
+if [ "$TABLES" -ge 3 ]; then
     echo -e "${GREEN}✅ Tables created:${NC}"
     psql "$DATABASE_URL" -c "\dt balance_history"
     psql "$DATABASE_URL" -c "\dt sepay_webhook_logs"
+    psql "$DATABASE_URL" -c "\dt balance_customer_info"
 else
-    echo -e "${RED}❌ Tables not found${NC}"
+    echo -e "${RED}❌ Tables not found (expected 3, found ${TABLES})${NC}"
     exit 1
 fi
 

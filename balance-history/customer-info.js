@@ -9,6 +9,44 @@
 
 const CustomerInfoManager = {
     STORAGE_KEY: 'balance_history_customer_info',
+    API_BASE_URL: null, // Will be set from CONFIG
+
+    /**
+     * Initialize the manager
+     */
+    init() {
+        this.API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        // Load data from database on init
+        this.syncFromDatabase();
+    },
+
+    /**
+     * Sync customer info from database to localStorage
+     */
+    async syncFromDatabase() {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/api/sepay/customer-info`);
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                // Convert array to object keyed by unique_code
+                const customerData = {};
+                result.data.forEach(item => {
+                    customerData[item.unique_code] = {
+                        name: item.customer_name || '',
+                        phone: item.customer_phone || '',
+                        updatedAt: item.updated_at
+                    };
+                });
+
+                // Save to localStorage
+                this.saveAllCustomerInfo(customerData);
+                console.log('[CUSTOMER-INFO] ✅ Synced from database:', Object.keys(customerData).length, 'records');
+            }
+        } catch (error) {
+            console.error('[CUSTOMER-INFO] Failed to sync from database:', error);
+        }
+    },
 
     /**
      * Get all customer info from storage
@@ -58,18 +96,46 @@ const CustomerInfoManager = {
      * @param {string} customerInfo.phone - Customer phone
      * @returns {boolean} Success status
      */
-    saveCustomerInfo(uniqueCode, customerInfo) {
+    async saveCustomerInfo(uniqueCode, customerInfo) {
         if (!uniqueCode) return false;
 
+        // Save to localStorage first (for offline support)
         const allData = this.getAllCustomerInfo();
-
         allData[uniqueCode] = {
             name: customerInfo.name || '',
             phone: customerInfo.phone || '',
             updatedAt: new Date().toISOString()
         };
+        this.saveAllCustomerInfo(allData);
 
-        return this.saveAllCustomerInfo(allData);
+        // Then save to database via API
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/api/sepay/customer-info`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    uniqueCode: uniqueCode,
+                    customerName: customerInfo.name || '',
+                    customerPhone: customerInfo.phone || ''
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                console.log('[CUSTOMER-INFO] ✅ Saved to database:', uniqueCode);
+                return true;
+            } else {
+                console.error('[CUSTOMER-INFO] Failed to save to database:', result.error);
+                return false;
+            }
+        } catch (error) {
+            console.error('[CUSTOMER-INFO] Error saving to database:', error);
+            // Still return true since we saved to localStorage
+            return true;
+        }
     },
 
     /**
