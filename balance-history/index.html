@@ -207,6 +207,8 @@
                             <th>Số dư</th>
                             <th>Nội dung</th>
                             <th>Mã tham chiếu</th>
+                            <th>Tên khách hàng</th>
+                            <th>Số điện thoại</th>
                             <th>QR Code</th>
                             <th>Thao tác</th>
                         </tr>
@@ -280,6 +282,46 @@
         </div>
     </div>
 
+    <!-- Edit Customer Info Modal -->
+    <div id="editCustomerModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i data-lucide="user-pen"></i> Chỉnh sửa thông tin khách hàng</h2>
+                <button class="modal-close" id="closeEditCustomerModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editCustomerForm" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="padding: 10px; background: #f8f9fa; border-radius: 6px; font-family: monospace; font-size: 13px; color: #495057;">
+                        <strong>Mã giao dịch:</strong> <span id="editCustomerUniqueCode"></span>
+                    </div>
+
+                    <div>
+                        <label for="editCustomerName" style="display: block; margin-bottom: 5px; font-weight: 500;">
+                            <i data-lucide="user" style="width: 16px; height: 16px; vertical-align: middle;"></i> Tên khách hàng:
+                        </label>
+                        <input type="text" id="editCustomerName" class="filter-input" placeholder="Nhập tên khách hàng" style="width: 100%;">
+                    </div>
+
+                    <div>
+                        <label for="editCustomerPhone" style="display: block; margin-bottom: 5px; font-weight: 500;">
+                            <i data-lucide="phone" style="width: 16px; height: 16px; vertical-align: middle;"></i> Số điện thoại:
+                        </label>
+                        <input type="tel" id="editCustomerPhone" class="filter-input" placeholder="Nhập số điện thoại" style="width: 100%;">
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">
+                            <i data-lucide="save"></i> Lưu thông tin
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="cancelEditCustomerBtn" style="flex: 1;">
+                            <i data-lucide="x"></i> Hủy
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -292,6 +334,7 @@
     <script src="cache.js"></script>
     <script src="config.js"></script>
     <script src="qr-generator.js"></script>
+    <script src="customer-info.js"></script>
     <script src="main.js"></script>
 
     <!-- Initialize Lucide Icons -->
