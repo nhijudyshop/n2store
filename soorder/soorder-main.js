@@ -151,44 +151,41 @@ function setupEventListeners() {
 
     // Date range dropdown
     if (elements.dateRangeSelect) {
-        elements.dateRangeSelect.addEventListener("change", (e) => {
+        elements.dateRangeSelect.addEventListener("change", async (e) => {
             const value = e.target.value;
 
             if (value === "custom") {
                 // Show date range picker modal
                 ui.showDateRangeModal();
-                // Reset dropdown
-                setTimeout(() => {
-                    e.target.value = "today";
-                }, 100);
                 return;
             }
 
             const today = new Date();
-            let targetDate;
 
             switch (value) {
                 case "today":
-                    targetDate = today;
+                    // Navigate to today (single day mode)
+                    utils.navigateToDate(today);
                     break;
-                case "3days":
-                    targetDate = new Date(today);
-                    targetDate.setDate(targetDate.getDate() - 3);
+                case "3days": {
+                    // Show last 3 days (including today)
+                    const startDate = new Date(today);
+                    startDate.setDate(startDate.getDate() - 2); // Go back 2 days to get 3 days total
+                    const startDateStr = utils.formatDate(startDate);
+                    const endDateStr = utils.formatDate(today);
+                    await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
                     break;
-                case "7days":
-                    targetDate = new Date(today);
-                    targetDate.setDate(targetDate.getDate() - 7);
+                }
+                case "7days": {
+                    // Show last 7 days (including today)
+                    const startDate = new Date(today);
+                    startDate.setDate(startDate.getDate() - 6); // Go back 6 days to get 7 days total
+                    const startDateStr = utils.formatDate(startDate);
+                    const endDateStr = utils.formatDate(today);
+                    await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
                     break;
-                default:
-                    targetDate = today;
+                }
             }
-
-            utils.navigateToDate(targetDate);
-
-            // Reset to "today" option after navigation
-            setTimeout(() => {
-                e.target.value = "today";
-            }, 100);
         });
     }
 

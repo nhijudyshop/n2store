@@ -468,6 +468,26 @@ window.SoOrderCRUD = {
                 elements.dateDisplay.textContent = `${startDisplay} - ${endDisplay}`;
             }
 
+            // Update dropdown based on range
+            if (elements.dateRangeSelect) {
+                const today = new Date();
+                const todayStr = utils.formatDate(today);
+
+                // Check if this matches a predefined range
+                if (endDateStr === todayStr) {
+                    const numDays = dateStrings.length;
+                    if (numDays === 3) {
+                        elements.dateRangeSelect.value = "3days";
+                    } else if (numDays === 7) {
+                        elements.dateRangeSelect.value = "7days";
+                    } else {
+                        elements.dateRangeSelect.value = "custom";
+                    }
+                } else {
+                    elements.dateRangeSelect.value = "custom";
+                }
+            }
+
             // Render UI
             window.SoOrderUI.renderTable();
             window.SoOrderUI.updateFooterSummary();
