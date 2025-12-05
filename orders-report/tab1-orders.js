@@ -5902,6 +5902,8 @@ function sendOrdersDataToTab3() {
         note: order.Note,
         state: order.Status || order.State,
         dateOrder: order.DateCreated || order.DateOrder,
+        Tags: order.Tags, // Tags JSON array for overview aggregation
+        LiveCampaignName: order.LiveCampaignName, // Campaign name for overview filtering
         products: order.Details?.map(d => ({
             id: d.ProductId,
             name: d.ProductName,

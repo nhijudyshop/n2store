@@ -44,8 +44,11 @@ function setupMessageListener() {
                 return;
             }
 
-            // Debug: Log first order to see structure
+            // Debug: Log first order structure
             console.log('[OVERVIEW] First order structure:', allOrders[0]);
+            console.log('[OVERVIEW] First order Tags:', allOrders[0].Tags);
+            console.log('[OVERVIEW] First order LiveCampaignName:', allOrders[0].LiveCampaignName);
+            console.log('[OVERVIEW] Order fields:', Object.keys(allOrders[0]));
 
             // Auto-detect campaign from first order
             // Try different field names
@@ -225,16 +228,19 @@ function aggregateTagsByEmployee() {
         let totalOrders = empOrders.length;
 
         empOrders.forEach(order => {
-            // Primary tag
-            if (order.Tag) {
-                const tagName = getTagName(order.Tag);
-                tagCounts[tagName] = (tagCounts[tagName] || 0) + 1;
-            }
-
-            // Secondary tag
-            if (order.TagSecondary) {
-                const tagName = getTagName(order.TagSecondary);
-                tagCounts[tagName] = (tagCounts[tagName] || 0) + 1;
+            // Parse Tags JSON array (same format as tab1-orders)
+            if (order.Tags) {
+                try {
+                    const tags = JSON.parse(order.Tags);
+                    if (Array.isArray(tags)) {
+                        tags.forEach(tag => {
+                            const tagName = tag.Name || `Tag #${tag.Id}`;
+                            tagCounts[tagName] = (tagCounts[tagName] || 0) + 1;
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`[OVERVIEW] Failed to parse tags for order ${order.Id}:`, e);
+                }
             }
         });
 
