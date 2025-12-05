@@ -468,4 +468,120 @@ async function logWebhook(db, sepayId, req, statusCode, responseBody, errorMessa
     }
 }
 
+/**
+ * GET /api/sepay/customer-info/:uniqueCode
+ * Lấy thông tin khách hàng theo mã giao dịch
+ */
+router.get('/customer-info/:uniqueCode', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { uniqueCode } = req.params;
+
+    try {
+        const result = await db.query(
+            'SELECT unique_code, customer_name, customer_phone, updated_at FROM balance_customer_info WHERE unique_code = $1',
+            [uniqueCode]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({
+                success: true,
+                data: null
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[CUSTOMER-INFO] Error fetching:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch customer info',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/customer-info
+ * Lưu hoặc cập nhật thông tin khách hàng
+ */
+router.post('/customer-info', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { uniqueCode, customerName, customerPhone } = req.body;
+
+    try {
+        // Validate input
+        if (!uniqueCode) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required field: uniqueCode'
+            });
+        }
+
+        // Insert or update customer info
+        const query = `
+            INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (unique_code)
+            DO UPDATE SET
+                customer_name = EXCLUDED.customer_name,
+                customer_phone = EXCLUDED.customer_phone,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *
+        `;
+
+        const result = await db.query(query, [
+            uniqueCode,
+            customerName || null,
+            customerPhone || null
+        ]);
+
+        console.log('[CUSTOMER-INFO] ✅ Saved:', {
+            uniqueCode,
+            customerName,
+            customerPhone
+        });
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        console.error('[CUSTOMER-INFO] Error saving:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to save customer info',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/sepay/customer-info
+ * Lấy tất cả thông tin khách hàng
+ */
+router.get('/customer-info', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        const result = await db.query(
+            'SELECT unique_code, customer_name, customer_phone, updated_at FROM balance_customer_info ORDER BY updated_at DESC'
+        );
+
+        res.json({
+            success: true,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('[CUSTOMER-INFO] Error fetching all:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch customer info',
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;

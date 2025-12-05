@@ -166,6 +166,11 @@ function applyQuickFilter(filterType) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize CustomerInfoManager and sync from database
+    if (window.CustomerInfoManager) {
+        window.CustomerInfoManager.init();
+    }
+
     setDefaultCurrentMonth();
     loadData();
     loadStatistics();
@@ -1125,13 +1130,13 @@ async function downloadQR(qrUrl, uniqueCode) {
 // =====================================================
 
 // Save customer info from QR modal
-function saveQRCustomerInfo(uniqueCode) {
+async function saveQRCustomerInfo(uniqueCode) {
     if (!window.CustomerInfoManager) return;
 
     const name = document.getElementById('qrCustomerName')?.value || '';
     const phone = document.getElementById('qrCustomerPhone')?.value || '';
 
-    const success = window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
+    const success = await window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
 
     if (success) {
         if (window.NotificationManager) {
@@ -1180,7 +1185,7 @@ function editCustomerInfo(uniqueCode) {
 }
 
 // Save customer info from edit modal
-function saveEditCustomerInfo(event) {
+async function saveEditCustomerInfo(event) {
     event.preventDefault();
 
     if (!window.CustomerInfoManager) return;
@@ -1189,7 +1194,7 @@ function saveEditCustomerInfo(event) {
     const name = document.getElementById('editCustomerName').value;
     const phone = document.getElementById('editCustomerPhone').value;
 
-    const success = window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
+    const success = await window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
 
     if (success) {
         if (window.NotificationManager) {
