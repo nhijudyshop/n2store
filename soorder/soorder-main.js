@@ -41,7 +41,7 @@ function initDOMElements() {
     elements.dateDisplay = document.getElementById("dateDisplay");
     elements.btnPrevDay = document.getElementById("btnPrevDay");
     elements.btnNextDay = document.getElementById("btnNextDay");
-    elements.btnToday = document.getElementById("btnToday");
+    elements.dateRangeSelect = document.getElementById("dateRangeSelect");
     elements.holidayBadge = document.getElementById("holidayBadge");
 
     // Add form
@@ -140,10 +140,35 @@ function setupEventListeners() {
         });
     }
 
-    // Today button
-    if (elements.btnToday) {
-        elements.btnToday.addEventListener("click", () => {
-            utils.gotoToday();
+    // Date range dropdown
+    if (elements.dateRangeSelect) {
+        elements.dateRangeSelect.addEventListener("change", (e) => {
+            const value = e.target.value;
+            const today = new Date();
+            let targetDate;
+
+            switch (value) {
+                case "today":
+                    targetDate = today;
+                    break;
+                case "3days":
+                    targetDate = new Date(today);
+                    targetDate.setDate(targetDate.getDate() - 3);
+                    break;
+                case "7days":
+                    targetDate = new Date(today);
+                    targetDate.setDate(targetDate.getDate() - 7);
+                    break;
+                default:
+                    targetDate = today;
+            }
+
+            utils.navigateToDate(targetDate);
+
+            // Reset to "today" option after navigation
+            setTimeout(() => {
+                e.target.value = "today";
+            }, 100);
         });
     }
 
@@ -154,6 +179,15 @@ function setupEventListeners() {
             if (dateString) {
                 const date = utils.parseDate(dateString);
                 utils.navigateToDate(date);
+            }
+        });
+    }
+
+    // Date display click - trigger date picker
+    if (elements.dateDisplay) {
+        elements.dateDisplay.addEventListener("click", () => {
+            if (elements.dateInput) {
+                elements.dateInput.showPicker();
             }
         });
     }

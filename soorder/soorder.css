@@ -6,7 +6,7 @@
     padding: 2rem;
     max-width: 1600px;
     margin: 0 auto;
-    font-size: 15px;
+    font-size: 21px;
 }
 
 /* Date Navigator */
@@ -73,21 +73,32 @@
     position: absolute;
     opacity: 0;
     width: 100%;
+    height: 100%;
     cursor: pointer;
-    padding: 0.5rem;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 14px;
+    top: 0;
+    left: 0;
+    z-index: 2;
 }
 
 .date-text {
     display: inline-block;
     padding: 0.5rem 1rem;
-    font-size: 1rem;
+    font-size: 1.4rem;
     font-weight: 600;
     color: #333;
     cursor: pointer;
     user-select: none;
+    background: #f5f5f5;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+    z-index: 1;
+}
+
+.date-text:hover {
+    background: #e8e8e8;
+    border-color: #667eea;
 }
 
 .btn-secondary {
@@ -96,7 +107,7 @@
     color: #333;
     border: none;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: 1.33rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -104,6 +115,37 @@
 
 .btn-secondary:hover {
     background: #e0e0e0;
+}
+
+.btn-date-range {
+    padding: 0.75rem 1.5rem;
+    background: #f5f5f5;
+    color: #333;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    font-size: 1.33rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+    min-width: 180px;
+}
+
+.btn-date-range:hover {
+    background: #e0e0e0;
+    border-color: #667eea;
+}
+
+.btn-date-range:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .btn-holiday {
@@ -142,7 +184,7 @@
     padding: 0.25rem 0.75rem;
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: white;
-    font-size: 0.75rem;
+    font-size: 1.05rem;
     font-weight: 700;
     border-radius: 12px;
     letter-spacing: 0.5px;
@@ -179,7 +221,7 @@
     color: white;
     border: none;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: 1.33rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -223,7 +265,7 @@
     align-items: center;
     gap: 0.5rem;
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.75rem;
     font-weight: 600;
     color: #333;
 }
@@ -265,7 +307,7 @@
     margin-bottom: 0.5rem;
     font-weight: 600;
     color: #333;
-    font-size: 0.875rem;
+    font-size: 1.225rem;
 }
 
 .form-group.required label::after {
@@ -282,7 +324,7 @@
     padding: 0.75rem;
     border: 1px solid #ddd;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: 1.33rem;
     transition: border-color 0.2s;
 }
 
@@ -310,7 +352,7 @@
 }
 
 .checkbox-label.checkbox-large {
-    font-size: 15px;
+    font-size: 21px;
     font-weight: 500;
 }
 
@@ -347,7 +389,7 @@ textarea.form-control {
     text-align: left;
     font-weight: 600;
     color: #555;
-    font-size: 13px;
+    font-size: 18.2px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
     border-bottom: 2px solid #e5e7eb;
@@ -365,7 +407,7 @@ textarea.form-control {
 .order-table td {
     padding: 0.875rem 1rem;
     color: #333;
-    font-size: 14px;
+    font-size: 19.6px;
     vertical-align: middle;
 }
 
@@ -415,6 +457,33 @@ textarea.form-control {
     font-weight: 500;
 }
 
+/* Editable performer cell */
+.performer-cell {
+    cursor: text;
+    background: #f9f9f9;
+    border: 1px solid transparent;
+    padding: 0.625rem 0.75rem !important;
+    transition: all 0.2s;
+}
+
+.performer-cell:hover {
+    background: #f0f0f0;
+    border-color: #e0e0e0;
+}
+
+.performer-cell:focus {
+    outline: none;
+    background: #fff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.performer-cell:empty::before {
+    content: "Nhấp để nhập...";
+    color: #aaa;
+    font-style: italic;
+}
+
 /* Đối soát column (holiday) */
 .order-table td:nth-child(7) {
     text-align: center;
@@ -444,7 +513,7 @@ textarea.form-control {
 .amount-text {
     font-weight: 600;
     color: #1a1a1a;
-    font-size: 14px;
+    font-size: 19.6px;
 }
 
 /* Difference */
@@ -465,7 +534,7 @@ textarea.form-control {
 /* Note */
 .note-text {
     color: #666;
-    font-size: 0.875rem;
+    font-size: 1.225rem;
     max-width: 300px;
     white-space: nowrap;
     overflow: hidden;
@@ -525,7 +594,7 @@ textarea.form-control {
 }
 
 .empty-state p {
-    font-size: 1rem;
+    font-size: 1.4rem;
     margin: 0;
 }
 
@@ -547,7 +616,7 @@ textarea.form-control {
 }
 
 .summary-label {
-    font-size: 13px;
+    font-size: 18.2px;
     font-weight: 600;
     color: #666;
     text-transform: uppercase;
@@ -555,7 +624,7 @@ textarea.form-control {
 }
 
 .summary-value {
-    font-size: 17px;
+    font-size: 23.8px;
     font-weight: 700;
     color: #1a1a1a;
 }
@@ -634,7 +703,7 @@ textarea.form-control {
     align-items: center;
     gap: 0.5rem;
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.75rem;
     font-weight: 600;
     color: #333;
 }
@@ -683,12 +752,12 @@ textarea.form-control {
 
 .modal-body p {
     margin: 0 0 0.5rem 0;
-    font-size: 15px;
+    font-size: 21px;
     color: #333;
 }
 
 .modal-body p.text-muted {
-    font-size: 13px;
+    font-size: 18.2px;
     color: #666;
 }
 
@@ -711,7 +780,7 @@ textarea.form-control {
     padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 8px;
-    font-size: 0.95rem;
+    font-size: 1.33rem;
     font-weight: 600;
     cursor: pointer;
     display: inline-flex;
@@ -765,7 +834,7 @@ textarea.form-control {
 }
 
 .toast span {
-    font-size: 14px;
+    font-size: 19.6px;
     font-weight: 500;
     color: #333;
 }
@@ -881,11 +950,11 @@ textarea.form-control {
 .holiday-item-date {
     font-weight: 600;
     color: #333;
-    font-size: 0.95rem;
+    font-size: 1.33rem;
 }
 
 .holiday-item-day {
-    font-size: 0.85rem;
+    font-size: 1.19rem;
     color: #666;
     margin-top: 0.25rem;
 }
@@ -934,7 +1003,7 @@ textarea.form-control {
 
 .calendar-controls h4 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 1.54rem;
     font-weight: 600;
     color: #333;
 }
@@ -949,7 +1018,7 @@ textarea.form-control {
 .calendar-day-header {
     text-align: center;
     padding: 0.75rem;
-    font-size: 0.75rem;
+    font-size: 1.05rem;
     font-weight: 600;
     color: #666;
     text-transform: uppercase;
@@ -967,7 +1036,7 @@ textarea.form-control {
     background: white;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 0.95rem;
+    font-size: 1.33rem;
     font-weight: 500;
     color: #333;
     position: relative;
@@ -1030,7 +1099,7 @@ textarea.form-control {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.875rem;
+    font-size: 1.225rem;
     color: #666;
 }
 
@@ -1068,7 +1137,7 @@ textarea.form-control {
     }
 
     .date-text {
-        font-size: 14px;
+        font-size: 19.6px;
         min-width: auto;
     }
 
@@ -1077,7 +1146,7 @@ textarea.form-control {
     }
 
     .order-table {
-        font-size: 12px;
+        font-size: 16.8px;
     }
 
     .order-table thead th,

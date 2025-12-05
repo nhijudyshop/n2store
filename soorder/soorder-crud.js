@@ -304,6 +304,42 @@ window.SoOrderCRUD = {
     },
 
     // =====================================================
+    // UPDATE ORDER FIELD
+    // =====================================================
+
+    async updateOrderField(orderId, fieldName, value) {
+        const state = window.SoOrderState;
+        const utils = window.SoOrderUtils;
+
+        // Check if currentDayData exists
+        if (!state.currentDayData || !state.currentDayData.orders) {
+            utils.showToast("Không tìm thấy dữ liệu ngày", "error");
+            return false;
+        }
+
+        // Find order
+        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+
+        if (!order) {
+            utils.showToast("Không tìm thấy đơn hàng", "error");
+            return false;
+        }
+
+        // Update field
+        order[fieldName] = value;
+        order.updatedAt = firebase.firestore.Timestamp.now();
+
+        // Save to Firebase
+        const success = await this.saveDayData();
+
+        if (success) {
+            return true;
+        }
+
+        return false;
+    },
+
+    // =====================================================
     // HOLIDAY MANAGEMENT
     // =====================================================
 
