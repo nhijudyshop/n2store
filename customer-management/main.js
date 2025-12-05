@@ -11,6 +11,11 @@ let lastVisible = null;
 let firstVisible = null;
 let isSearching = false;
 
+// TPOS API Configuration
+const TPOS_API_URL = 'https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2';
+const TPOS_BEARER_TOKEN = 'Bearer eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI3MDI4MTYiLCJzZXNzaW9uaWQiOiI0YjJmZTg4Ny1iM2VkLTRkMTQtOWM0Ny0yN2RjZmZiYzQ5ZDUiLCJ1bmlxdWVfbmFtZSI6Imd1ZXN0MTA2NDU3NCIsImJyYW5jaGlkIjoiMTE5OTY1IiwibmJmIjoxNzMzMzk4NjM0LCJleHAiOjE3NjQ5MzQ2MzQsImlhdCI6MTczMzM5ODYzNH0.Z8zSJ3LPG-H5y3C0HsjvSy_OGsKhWQv7-Rgu_-QClWs';
+let isSyncing = false;
+
 // Check authentication - Admin only
 if (typeof authManager !== 'undefined') {
     if (!authManager.requireAuth()) {
@@ -41,6 +46,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load statistics in background (slow - don't block UI)
     loadTotalCountAndStats();
+
+    // Auto-sync from TPOS if needed
+    autoSyncFromTPOS();
 });
 
 // Initialize event listeners
@@ -49,6 +57,7 @@ function initializeEventListeners() {
     document.getElementById('addCustomerBtn').addEventListener('click', openAddCustomerModal);
     document.getElementById('importExcelBtn').addEventListener('click', openImportModal);
     document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+    document.getElementById('syncTPOSBtn').addEventListener('click', syncFromTPOS);
     document.getElementById('selectAll').addEventListener('click', handleSelectAll);
 
     // Pagination
@@ -663,6 +672,246 @@ function exportToExcel() {
     XLSX.writeFile(workbook, fileName);
 
     showNotification('Export Excel thành công', 'success');
+}
+
+// ============================================
+// TPOS API SYNCHRONIZATION
+// ============================================
+
+// Fetch customers from TPOS API
+async function fetchTPOSCustomers(skip = 0, top = 100) {
+    try {
+        const url = `${TPOS_API_URL}?$skip=${skip}&$top=${top}&$orderby=CreatedDate desc`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': TPOS_BEARER_TOKEN,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return {
+            count: data['@odata.count'] || 0,
+            customers: data.value || []
+        };
+    } catch (error) {
+        console.error('Error fetching from TPOS:', error);
+        throw error;
+    }
+}
+
+// Map TPOS customer to Firestore format
+function mapTPOSToFirestore(tposCustomer) {
+    // Detect carrier from phone
+    const carrier = detectCarrier(tposCustomer.Phone || '');
+
+    // Map status
+    let status = 'Bình thường';
+    if (tposCustomer.Status) {
+        const statusLower = tposCustomer.Status.toLowerCase();
+        if (statusLower.includes('bom') || statusLower.includes('danger')) {
+            status = 'Bom hàng';
+        } else if (statusLower.includes('cảnh báo') || statusLower.includes('warning')) {
+            status = 'Cảnh báo';
+        } else if (statusLower.includes('nguy hiểm') || statusLower.includes('critical')) {
+            status = 'Nguy hiểm';
+        } else if (statusLower.includes('vip')) {
+            status = 'VIP';
+        }
+    }
+
+    return {
+        tposId: tposCustomer.Id,
+        name: tposCustomer.Name || '',
+        phone: (tposCustomer.Phone || '').trim(),
+        email: tposCustomer.Email || '',
+        address: tposCustomer.Street || '',
+        carrier: carrier,
+        status: status,
+        debt: parseFloat(tposCustomer.Credit || 0) || 0,
+        active: tposCustomer.IsActive !== false,
+        tposData: {
+            code: tposCustomer.Code,
+            createdDate: tposCustomer.CreatedDate,
+            modifiedDate: tposCustomer.ModifiedDate
+        }
+    };
+}
+
+// Check if customer already exists
+async function customerExists(phone, tposId) {
+    try {
+        // Check by phone
+        if (phone) {
+            const phoneQuery = await customersCollection.where('phone', '==', phone).limit(1).get();
+            if (!phoneQuery.empty) {
+                return true;
+            }
+        }
+
+        // Check by TPOS ID
+        if (tposId) {
+            const tposIdQuery = await customersCollection.where('tposId', '==', tposId).limit(1).get();
+            if (!tposIdQuery.empty) {
+                return true;
+            }
+        }
+
+        return false;
+    } catch (error) {
+        console.error('Error checking customer existence:', error);
+        return false;
+    }
+}
+
+// Sync customers from TPOS
+async function syncFromTPOS() {
+    if (isSyncing) {
+        showNotification('Đang đồng bộ, vui lòng đợi...', 'warning');
+        return;
+    }
+
+    isSyncing = true;
+    const syncBtn = document.getElementById('syncTPOSBtn');
+    if (syncBtn) {
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Đang đồng bộ...';
+        lucide.createIcons();
+    }
+
+    try {
+        showNotification('Bắt đầu đồng bộ từ TPOS...', 'info');
+
+        let skip = 0;
+        const top = 100;
+        let newCustomersCount = 0;
+        let duplicateFound = false;
+        let batch = db.batch();
+        let batchCount = 0;
+
+        while (!duplicateFound) {
+            // Fetch customers from TPOS
+            const result = await fetchTPOSCustomers(skip, top);
+
+            if (!result.customers || result.customers.length === 0) {
+                break; // No more customers
+            }
+
+            console.log(`Fetched ${result.customers.length} customers from TPOS (skip: ${skip})`);
+
+            // Process each customer
+            for (const tposCustomer of result.customers) {
+                // Skip if no phone number
+                if (!tposCustomer.Phone || !tposCustomer.Phone.trim()) {
+                    continue;
+                }
+
+                // Check if customer already exists
+                const exists = await customerExists(tposCustomer.Phone, tposCustomer.Id);
+
+                if (exists) {
+                    console.log(`Duplicate found: ${tposCustomer.Name} (${tposCustomer.Phone})`);
+                    duplicateFound = true;
+                    break;
+                }
+
+                // Map and add new customer
+                const customerData = mapTPOSToFirestore(tposCustomer);
+                const docRef = customersCollection.doc();
+                batch.set(docRef, {
+                    ...customerData,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                batchCount++;
+                newCustomersCount++;
+
+                // Commit batch every 500 documents
+                if (batchCount >= 500) {
+                    await batch.commit();
+                    console.log(`Committed batch of ${batchCount} customers`);
+                    batch = db.batch();
+                    batchCount = 0;
+                }
+            }
+
+            if (duplicateFound) {
+                break;
+            }
+
+            // Move to next page
+            skip += top;
+
+            // Safety limit to prevent infinite loop
+            if (skip >= 10000) {
+                console.log('Reached safety limit of 10000 customers');
+                break;
+            }
+        }
+
+        // Commit remaining customers
+        if (batchCount > 0) {
+            await batch.commit();
+            console.log(`Committed final batch of ${batchCount} customers`);
+        }
+
+        // Save sync timestamp
+        localStorage.setItem('lastTPOSSync', new Date().toISOString());
+
+        if (newCustomersCount > 0) {
+            showNotification(`Đồng bộ thành công ${newCustomersCount} khách hàng mới từ TPOS`, 'success');
+
+            // Reload data
+            updateStatistics(); // Update in background
+            currentPage = 1;
+            lastVisible = null;
+            firstVisible = null;
+            await loadCustomers();
+        } else {
+            showNotification('Không có khách hàng mới để đồng bộ', 'info');
+        }
+    } catch (error) {
+        console.error('Error syncing from TPOS:', error);
+        showNotification('Lỗi khi đồng bộ từ TPOS: ' + error.message, 'error');
+    } finally {
+        isSyncing = false;
+        if (syncBtn) {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Sync từ TPOS';
+            lucide.createIcons();
+        }
+    }
+}
+
+// Auto-sync on page load if needed
+async function autoSyncFromTPOS() {
+    try {
+        const lastSync = localStorage.getItem('lastTPOSSync');
+        const now = new Date();
+
+        // Auto-sync if never synced or last sync was more than 1 hour ago
+        if (!lastSync) {
+            console.log('No previous sync found, skipping auto-sync');
+            return;
+        }
+
+        const lastSyncDate = new Date(lastSync);
+        const hoursSinceSync = (now - lastSyncDate) / (1000 * 60 * 60);
+
+        if (hoursSinceSync >= 1) {
+            console.log(`Auto-syncing from TPOS (${hoursSinceSync.toFixed(1)} hours since last sync)`);
+            await syncFromTPOS();
+        }
+    } catch (error) {
+        console.error('Error during auto-sync:', error);
+    }
 }
 
 // Utility functions
