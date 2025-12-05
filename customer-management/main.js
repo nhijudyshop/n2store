@@ -490,7 +490,7 @@ async function handleImportConfirm() {
     confirmBtn.textContent = 'Đang import...';
 
     try {
-        const batch = db.batch();
+        let batch = db.batch();
         let count = 0;
 
         for (const customer of importData) {
@@ -506,6 +506,7 @@ async function handleImportConfirm() {
             // Firestore batch limit is 500
             if (count % 500 === 0) {
                 await batch.commit();
+                batch = db.batch(); // Create new batch after commit
             }
         }
 
