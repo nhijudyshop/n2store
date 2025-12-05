@@ -108,8 +108,43 @@ window.SoOrderUI = {
         // Người thực hiện (holiday only)
         if (isHoliday) {
             const tdPerformer = document.createElement("td");
-            tdPerformer.textContent = order.performer || "-";
-            tdPerformer.className = "holiday-col";
+            tdPerformer.className = "holiday-col performer-cell";
+            tdPerformer.contentEditable = "true";
+            tdPerformer.textContent = order.performer || "";
+            tdPerformer.dataset.orderId = order.id;
+            tdPerformer.dataset.originalValue = order.performer || "";
+
+            // Handle blur event to save changes
+            tdPerformer.addEventListener("blur", async (e) => {
+                const newValue = e.target.textContent.trim();
+                const originalValue = e.target.dataset.originalValue;
+
+                if (newValue !== originalValue) {
+                    // Update in Firebase
+                    const success = await window.SoOrderCRUD.updateOrderField(
+                        order.id,
+                        "performer",
+                        newValue
+                    );
+
+                    if (success) {
+                        e.target.dataset.originalValue = newValue;
+                        window.SoOrderUtils.showToast("Đã cập nhật người thực hiện", "success");
+                    } else {
+                        // Revert on failure
+                        e.target.textContent = originalValue;
+                    }
+                }
+            });
+
+            // Handle Enter key to blur
+            tdPerformer.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.target.blur();
+                }
+            });
+
             tr.appendChild(tdPerformer);
 
             // Đối soát (holiday only)

@@ -96,7 +96,11 @@
                         <button class="btn-icon btn-nav" id="btnNextDay" title="Ngày sau (→)">
                             <i data-lucide="chevron-right"></i>
                         </button>
-                        <button class="btn-secondary" id="btnToday">Hôm nay</button>
+                        <select class="btn-date-range" id="dateRangeSelect">
+                            <option value="today">Hôm nay</option>
+                            <option value="3days">3 ngày trước</option>
+                            <option value="7days">7 ngày trước</option>
+                        </select>
                     </div>
                     <div class="date-nav-right" id="holidayBadge" style="display: none;">
                         <span class="badge badge-holiday">
