@@ -584,4 +584,107 @@ router.get('/customer-info', async (req, res) => {
     }
 });
 
+/**
+ * 🆕 GET /api/sepay/transactions-by-phone
+ * Lấy lịch sử giao dịch theo số điện thoại khách hàng
+ * Query params:
+ * - phone: Số điện thoại khách hàng (required)
+ * - limit: Số lượng giao dịch tối đa (default: 50, max: 200)
+ */
+router.get('/transactions-by-phone', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone, limit = 50 } = req.query;
+
+    // Validate phone number
+    if (!phone) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required parameter: phone'
+        });
+    }
+
+    try {
+        // Validate limit
+        const queryLimit = Math.min(parseInt(limit) || 50, 200);
+
+        // Query to find all transactions for this phone number
+        // Join balance_history with balance_customer_info to get customer details
+        const query = `
+            SELECT
+                bh.id,
+                bh.sepay_id,
+                bh.gateway,
+                bh.transaction_date,
+                bh.account_number,
+                bh.code,
+                bh.content,
+                bh.transfer_type,
+                bh.transfer_amount,
+                bh.accumulated,
+                bh.sub_account,
+                bh.reference_code,
+                bh.description,
+                bh.created_at,
+                bci.unique_code,
+                bci.customer_name,
+                bci.customer_phone
+            FROM balance_history bh
+            LEFT JOIN balance_customer_info bci ON bh.code = bci.unique_code
+            WHERE bci.customer_phone = $1
+            ORDER BY bh.transaction_date DESC
+            LIMIT $2
+        `;
+
+        const result = await db.query(query, [phone, queryLimit]);
+
+        // Calculate statistics
+        let totalIn = 0;
+        let totalOut = 0;
+        let totalInCount = 0;
+        let totalOutCount = 0;
+
+        result.rows.forEach(row => {
+            if (row.transfer_type === 'in') {
+                totalIn += parseInt(row.transfer_amount) || 0;
+                totalInCount++;
+            } else {
+                totalOut += parseInt(row.transfer_amount) || 0;
+                totalOutCount++;
+            }
+        });
+
+        console.log('[TRANSACTIONS-BY-PHONE] ✅ Found transactions:', {
+            phone,
+            count: result.rows.length,
+            totalIn,
+            totalOut
+        });
+
+        res.json({
+            success: true,
+            data: result.rows,
+            statistics: {
+                total_transactions: result.rows.length,
+                total_in_count: totalInCount,
+                total_out_count: totalOutCount,
+                total_in: totalIn,
+                total_out: totalOut,
+                net_change: totalIn - totalOut
+            },
+            customer: {
+                phone: phone,
+                name: result.rows.length > 0 ? result.rows[0].customer_name : null
+            }
+        });
+
+    } catch (error) {
+        console.error('[TRANSACTIONS-BY-PHONE] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch transactions',
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;
