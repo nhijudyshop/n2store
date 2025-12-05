@@ -10,6 +10,8 @@ let totalCustomers = 0;
 let lastVisible = null;
 let firstVisible = null;
 let isSearching = false;
+let currentSearchTerm = ''; // Track current search term
+let searchDebounceTimer = null; // Debounce timer
 
 // TPOS API Configuration - using Cloudflare Worker proxy
 const CLOUDFLARE_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -501,25 +503,158 @@ function updateStatistics() {
     });
 }
 
-// Search handler - only searches current page
+// Search handler - server-side search across ALL 80k+ customers
 function handleSearch(e) {
-    const searchTerm = e.target.value.toLowerCase().trim();
+    const searchTerm = e.target.value.trim();
 
-    if (searchTerm === '') {
-        filteredCustomers = [...customers];
-    } else {
-        // Search only in current page
-        filteredCustomers = customers.filter(customer => {
-            return (
-                (customer.name || '').toLowerCase().includes(searchTerm) ||
-                (customer.phone || '').toLowerCase().includes(searchTerm) ||
-                (customer.email || '').toLowerCase().includes(searchTerm) ||
-                (customer.address || '').toLowerCase().includes(searchTerm)
-            );
-        });
+    // Clear previous debounce timer
+    if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
     }
 
-    applyStatusFilter();
+    // Debounce search - wait 500ms after user stops typing
+    searchDebounceTimer = setTimeout(async () => {
+        currentSearchTerm = searchTerm;
+
+        if (searchTerm === '') {
+            // No search term - reset to normal pagination mode
+            isSearching = false;
+            currentPage = 1;
+            await loadCustomers();
+        } else {
+            // Has search term - switch to search mode
+            isSearching = true;
+            currentPage = 1;
+            await searchCustomers(searchTerm);
+        }
+    }, 500); // Wait 500ms after user stops typing
+}
+
+/**
+ * 🆕 Server-side search across ALL customers in Firebase (80k+)
+ * Supports:
+ * - Phone number (exact match or prefix)
+ * - Name (prefix match)
+ * - Email (prefix match)
+ */
+async function searchCustomers(searchTerm) {
+    try {
+        showLoading(true);
+
+        // Detect search type
+        const isPhoneSearch = /^\d+$/.test(searchTerm); // Only digits = phone search
+        let query;
+
+        if (isPhoneSearch) {
+            // Phone search - exact match or prefix
+            // Try exact match first, then prefix
+            query = customersCollection
+                .where('phone', '>=', searchTerm)
+                .where('phone', '<=', searchTerm + '\uf8ff')
+                .limit(100);
+        } else {
+            // Name/Email search - case-insensitive prefix match
+            // Note: Firebase doesn't support full-text search, so we use prefix matching
+            const searchLower = searchTerm.toLowerCase();
+            const searchUpper = searchTerm.toUpperCase();
+            const searchCapitalized = searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1).toLowerCase();
+
+            // Try name search with different case variations
+            query = customersCollection
+                .orderBy('name')
+                .startAt(searchCapitalized)
+                .endAt(searchCapitalized + '\uf8ff')
+                .limit(100);
+        }
+
+        const snapshot = await query.get();
+
+        if (snapshot.empty) {
+            // No results - try broader search
+            if (!isPhoneSearch) {
+                // For name search, also try lowercase
+                const searchLower = searchTerm.toLowerCase();
+                const queryLower = customersCollection
+                    .orderBy('name')
+                    .startAt(searchLower)
+                    .endAt(searchLower + '\uf8ff')
+                    .limit(100);
+
+                const snapshotLower = await queryLower.get();
+
+                if (snapshotLower.empty) {
+                    customers = [];
+                    filteredCustomers = [];
+                    renderCustomers();
+                    updatePaginationUI();
+                    showEmptyState(true);
+                    showLoading(false);
+                    showNotification(`Không tìm thấy khách hàng: "${searchTerm}"`, 'info');
+                    return;
+                }
+
+                // Process lowercase results
+                customers = [];
+                snapshotLower.forEach(doc => {
+                    customers.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+            } else {
+                customers = [];
+                filteredCustomers = [];
+                renderCustomers();
+                updatePaginationUI();
+                showEmptyState(true);
+                showLoading(false);
+                showNotification(`Không tìm thấy SĐT: "${searchTerm}"`, 'info');
+                return;
+            }
+        } else {
+            // Process search results
+            customers = [];
+            snapshot.forEach(doc => {
+                customers.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+        }
+
+        // Apply additional client-side filtering for broader matches
+        if (!isPhoneSearch) {
+            // For name search, also check email and address
+            const searchLower = searchTerm.toLowerCase();
+            customers = customers.filter(customer => {
+                return (
+                    (customer.name || '').toLowerCase().includes(searchLower) ||
+                    (customer.email || '').toLowerCase().includes(searchLower) ||
+                    (customer.address || '').toLowerCase().includes(searchLower)
+                );
+            });
+        }
+
+        filteredCustomers = [...customers];
+        renderCustomers();
+        updatePaginationUI();
+        showEmptyState(false);
+        showLoading(false);
+
+        // Show results count
+        showNotification(`Tìm thấy ${customers.length} khách hàng`, 'success');
+
+        console.log('[SEARCH] ✅ Found customers:', {
+            searchTerm,
+            count: customers.length,
+            type: isPhoneSearch ? 'phone' : 'name'
+        });
+
+    } catch (error) {
+        console.error('[SEARCH] Error:', error);
+        showNotification('Lỗi khi tìm kiếm khách hàng', 'error');
+        showLoading(false);
+    }
 }
 
 // Filter handler
