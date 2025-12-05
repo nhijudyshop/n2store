@@ -34,13 +34,13 @@ const customersCollection = db.collection('customers');
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
-    await Promise.all([
-        loadTotalCount(),
-        updateStatistics()
-    ]);
+    // Load customers first (fast - only 100 records)
     await loadCustomers();
     initializeEventListeners();
     lucide.createIcons();
+
+    // Load statistics in background (slow - don't block UI)
+    loadTotalCountAndStats();
 });
 
 // Initialize event listeners
@@ -76,14 +76,40 @@ function initializeEventListeners() {
     uploadArea.addEventListener('drop', handleDrop);
 }
 
-// Load total customer count
-async function loadTotalCount() {
+// Load total customer count and statistics (runs in background)
+async function loadTotalCountAndStats() {
     try {
-        const snapshot = await customersCollection.get();
-        totalCustomers = snapshot.size;
+        // Show loading state
+        document.getElementById('totalCount').textContent = '...';
+        document.getElementById('normalCount').textContent = '...';
+        document.getElementById('dangerCount').textContent = '...';
+        document.getElementById('warningCount').textContent = '...';
+        document.getElementById('criticalCount').textContent = '...';
+        document.getElementById('vipCount').textContent = '...';
+
+        // Load counts (this is slow for 80K records but doesn't block UI)
+        const [totalSnap, normalSnap, dangerSnap, warningSnap, criticalSnap, vipSnap] = await Promise.all([
+            customersCollection.get(),
+            customersCollection.where('status', '==', 'Bình thường').get(),
+            customersCollection.where('status', '==', 'Bom hàng').get(),
+            customersCollection.where('status', '==', 'Cảnh báo').get(),
+            customersCollection.where('status', '==', 'Nguy hiểm').get(),
+            customersCollection.where('status', '==', 'VIP').get()
+        ]);
+
+        totalCustomers = totalSnap.size;
+
+        document.getElementById('totalCount').textContent = formatNumber(totalSnap.size);
+        document.getElementById('normalCount').textContent = formatNumber(normalSnap.size);
+        document.getElementById('dangerCount').textContent = formatNumber(dangerSnap.size);
+        document.getElementById('warningCount').textContent = formatNumber(warningSnap.size);
+        document.getElementById('criticalCount').textContent = formatNumber(criticalSnap.size);
+        document.getElementById('vipCount').textContent = formatNumber(vipSnap.size);
+
+        updatePaginationUI();
     } catch (error) {
-        console.error('Error loading total count:', error);
-        totalCustomers = 0;
+        console.error('Error loading statistics:', error);
+        document.getElementById('totalCount').textContent = '?';
     }
 }
 
@@ -251,28 +277,12 @@ function getStatusClass(status) {
     return statusMap[status] || 'normal';
 }
 
-// Update statistics - load from entire database
-async function updateStatistics() {
-    try {
-        // Get counts for each status
-        const [totalSnap, normalSnap, dangerSnap, warningSnap, criticalSnap, vipSnap] = await Promise.all([
-            customersCollection.get(),
-            customersCollection.where('status', '==', 'Bình thường').get(),
-            customersCollection.where('status', '==', 'Bom hàng').get(),
-            customersCollection.where('status', '==', 'Cảnh báo').get(),
-            customersCollection.where('status', '==', 'Nguy hiểm').get(),
-            customersCollection.where('status', '==', 'VIP').get()
-        ]);
-
-        document.getElementById('totalCount').textContent = formatNumber(totalSnap.size);
-        document.getElementById('normalCount').textContent = formatNumber(normalSnap.size);
-        document.getElementById('dangerCount').textContent = formatNumber(dangerSnap.size);
-        document.getElementById('warningCount').textContent = formatNumber(warningSnap.size);
-        document.getElementById('criticalCount').textContent = formatNumber(criticalSnap.size);
-        document.getElementById('vipCount').textContent = formatNumber(vipSnap.size);
-    } catch (error) {
-        console.error('Error updating statistics:', error);
-    }
+// Update statistics - load from entire database (runs in background)
+function updateStatistics() {
+    // Run in background, don't await
+    loadTotalCountAndStats().catch(err => {
+        console.error('Failed to update statistics:', err);
+    });
 }
 
 // Search handler - only searches current page
@@ -401,10 +411,9 @@ async function handleCustomerSubmit(e) {
         }
 
         closeCustomerModal();
+        // Update statistics in background if adding new customer
         if (!editingCustomerId) {
-            // Only update counts when adding new customer
-            await loadTotalCount();
-            await updateStatistics();
+            updateStatistics();
         }
         await loadCustomers();
     } catch (error) {
@@ -424,8 +433,7 @@ async function deleteCustomer(customerId) {
     try {
         await customersCollection.doc(customerId).delete();
         showNotification('Xóa khách hàng thành công', 'success');
-        await loadTotalCount();
-        await updateStatistics();
+        updateStatistics(); // Update in background
         await loadCustomers();
     } catch (error) {
         console.error('Error deleting customer:', error);
@@ -617,8 +625,7 @@ async function handleImportConfirm() {
 
         showNotification(`Import thành công ${importData.length} khách hàng`, 'success');
         closeImportModal();
-        await loadTotalCount();
-        await updateStatistics();
+        updateStatistics(); // Update in background
         await loadCustomers();
     } catch (error) {
         console.error('Error importing customers:', error);
