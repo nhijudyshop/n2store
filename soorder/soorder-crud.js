@@ -475,10 +475,10 @@ window.SoOrderCRUD = {
 
                 // Check if this matches a predefined range
                 if (endDateStr === todayStr) {
-                    const daysDiff = dateStrings.length - 1;
-                    if (daysDiff === 3) {
+                    const numDays = dateStrings.length;
+                    if (numDays === 3) {
                         elements.dateRangeSelect.value = "3days";
-                    } else if (daysDiff === 7) {
+                    } else if (numDays === 7) {
                         elements.dateRangeSelect.value = "7days";
                     } else {
                         elements.dateRangeSelect.value = "custom";

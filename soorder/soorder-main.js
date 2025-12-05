@@ -168,18 +168,18 @@ function setupEventListeners() {
                     utils.navigateToDate(today);
                     break;
                 case "3days": {
-                    // Show range from 3 days ago to today
+                    // Show last 3 days (including today)
                     const startDate = new Date(today);
-                    startDate.setDate(startDate.getDate() - 3);
+                    startDate.setDate(startDate.getDate() - 2); // Go back 2 days to get 3 days total
                     const startDateStr = utils.formatDate(startDate);
                     const endDateStr = utils.formatDate(today);
                     await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
                     break;
                 }
                 case "7days": {
-                    // Show range from 7 days ago to today
+                    // Show last 7 days (including today)
                     const startDate = new Date(today);
-                    startDate.setDate(startDate.getDate() - 7);
+                    startDate.setDate(startDate.getDate() - 6); // Go back 6 days to get 7 days total
                     const startDateStr = utils.formatDate(startDate);
                     const endDateStr = utils.formatDate(today);
                     await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr);
