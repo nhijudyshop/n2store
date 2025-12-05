@@ -21,9 +21,33 @@ document.addEventListener('DOMContentLoaded', function () {
     database = firebase.database();
     console.log('[OVERVIEW] Firebase initialized');
 
+    // Setup listener for messages from tab1
+    setupMessageListener();
+
     // Load initial data
     initializeData();
 });
+
+// Setup Message Listener to receive data from tab1-orders
+function setupMessageListener() {
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'ORDERS_DATA_RESPONSE') {
+            console.log('[OVERVIEW] Received orders data from tab1:', event.data.orders.length);
+
+            // Update allOrders with data from tab1
+            allOrders = event.data.orders || [];
+
+            // If we have a selected campaign, aggregate and display
+            if (currentCampaignData && employeeRanges.length > 0) {
+                const aggregatedData = aggregateTagsByEmployee();
+                renderOverview(aggregatedData);
+                document.getElementById('exportBtn').disabled = false;
+            }
+        }
+    });
+
+    console.log('[OVERVIEW] Message listener setup complete');
+}
 
 // Initialize Data
 async function initializeData() {
@@ -173,7 +197,7 @@ async function loadData() {
 
     console.log('[OVERVIEW] Loading data for campaign:', currentCampaignData.name);
 
-    showLoading('Đang tải dữ liệu...');
+    showLoading('Đang tải dữ liệu từ tab Quản Lý Đơn Hàng...');
     document.getElementById('exportBtn').disabled = true;
 
     try {
@@ -186,17 +210,10 @@ async function loadData() {
             return;
         }
 
-        // Load orders directly by campaign name (no date filtering)
-        await loadOrdersByCampaignName(currentCampaignData.name);
+        // Request orders data from tab1-orders via parent window
+        requestOrdersDataFromTab1();
 
-        // Aggregate data
-        const aggregatedData = aggregateTagsByEmployee();
-
-        // Render overview
-        renderOverview(aggregatedData);
-
-        // Enable export
-        document.getElementById('exportBtn').disabled = false;
+        console.log('[OVERVIEW] Waiting for orders data from tab1...');
 
     } catch (error) {
         console.error('[OVERVIEW] Error loading data:', error);
@@ -204,40 +221,14 @@ async function loadData() {
     }
 }
 
-// Load Orders by Campaign Name (Simple - No Date Filter)
-async function loadOrdersByCampaignName(campaignName) {
-    console.log('[OVERVIEW] Loading orders for campaign:', campaignName);
+// Request orders data from tab1-orders
+function requestOrdersDataFromTab1() {
+    console.log('[OVERVIEW] Requesting orders data from tab1-orders...');
 
-    allOrders = [];
-
-    try {
-        // Simple filter by LiveCampaignName - load all orders from this campaign
-        const filter = `substringof('${campaignName}',LiveCampaignName)`;
-        const url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=5000&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$select=Id,STT,Tag,TagSecondary,DateCreated,OrderStatus,LiveCampaignName`;
-
-        console.log('[OVERVIEW] Fetching orders with filter:', filter);
-
-        const headers = await window.tokenManager.getAuthHeader();
-        const response = await API_CONFIG.smartFetch(url, {
-            headers: {
-                ...headers,
-                'accept': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        allOrders = data.value || [];
-
-        console.log(`[OVERVIEW] Total orders loaded: ${allOrders.length}`);
-
-    } catch (error) {
-        console.error('[OVERVIEW] Error loading orders:', error);
-        throw error;
-    }
+    // Send message to parent window, which will forward to tab1
+    window.parent.postMessage({
+        type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
+    }, '*');
 }
 
 // Aggregate Tags by Employee
