@@ -183,6 +183,7 @@ const CustomerInfoManager = {
 
     /**
      * 🆕 Sync customer info to Firebase (for customer-management integration)
+     * ONLY maps existing customers - does NOT create new ones
      * @param {Object} customerInfo - Customer information
      * @param {string} customerInfo.name - Customer name
      * @param {string} customerInfo.phone - Customer phone
@@ -202,56 +203,40 @@ const CustomerInfoManager = {
 
         try {
             // Check if customer exists in Firebase by phone number
+            // Note: Searching in 80,000+ customers - ensure 'phone' field is indexed
             const querySnapshot = await this.customersCollection
                 .where('phone', '==', customerInfo.phone)
                 .limit(1)
                 .get();
 
-            const now = firebase.firestore.FieldValue.serverTimestamp();
-
             if (!querySnapshot.empty) {
-                // Customer exists → Update name if provided
+                // Customer exists → Update mapping information
                 const existingDoc = querySnapshot.docs[0];
+                const existingData = existingDoc.data();
                 const updateData = {
-                    updatedAt: now
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
                 // Only update name if it's provided and different
-                if (customerInfo.name && customerInfo.name !== existingDoc.data().name) {
+                if (customerInfo.name && customerInfo.name !== existingData.name) {
                     updateData.name = customerInfo.name;
                 }
+
+                // Add metadata about balance-history sync
+                updateData.lastSyncFrom = 'balance-history';
+                updateData.lastSyncAt = firebase.firestore.FieldValue.serverTimestamp();
 
                 await existingDoc.ref.update(updateData);
 
                 console.log('[CUSTOMER-INFO] ✅ Updated existing customer in Firebase:', {
                     id: existingDoc.id,
                     phone: customerInfo.phone,
-                    name: customerInfo.name
+                    name: customerInfo.name,
+                    previousName: existingData.name
                 });
             } else {
-                // Customer doesn't exist → Create new with default status
-                const newCustomer = {
-                    name: customerInfo.name || '',
-                    phone: customerInfo.phone,
-                    email: '',
-                    address: '',
-                    carrier: this.detectCarrier(customerInfo.phone),
-                    status: 'Bình thường', // Default status
-                    debt: 0,
-                    active: true,
-                    createdAt: now,
-                    updatedAt: now,
-                    // Mark as synced from balance-history
-                    syncedFrom: 'balance-history'
-                };
-
-                const docRef = await this.customersCollection.add(newCustomer);
-
-                console.log('[CUSTOMER-INFO] ✅ Created new customer in Firebase:', {
-                    id: docRef.id,
-                    phone: customerInfo.phone,
-                    name: customerInfo.name
-                });
+                // Customer NOT found → Only log warning, DO NOT create new
+                console.warn('[CUSTOMER-INFO] ⚠️ Customer not found in Firebase (phone: ' + customerInfo.phone + '). Skipping sync. Customer must be created in customer-management first.');
             }
         } catch (error) {
             console.error('[CUSTOMER-INFO] ❌ Failed to sync to Firebase:', error);
