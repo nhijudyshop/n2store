@@ -379,11 +379,25 @@
                         "*"
                     );
                 }
+            } else if (e.data.type === "REQUEST_ORDERS_DATA_FROM_OVERVIEW") {
+                // Overview tab requesting orders data
+                const ordersFrame = document.getElementById("ordersFrame");
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    // Request orders data from tab1
+                    ordersFrame.contentWindow.postMessage(
+                        { type: "REQUEST_ORDERS_DATA" },
+                        "*"
+                    );
+                }
             } else if (e.data.type === "ORDERS_DATA_RESPONSE") {
-                // Forward orders data from Tab 1 to Tab 3
+                // Forward orders data from Tab 1 to Tab 3 and Overview
                 const productAssignmentFrame = document.getElementById("productAssignmentFrame");
                 if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
                     productAssignmentFrame.contentWindow.postMessage(e.data, "*");
+                }
+                const overviewFrame = document.getElementById("overviewFrame");
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, "*");
                 }
             }
         });
