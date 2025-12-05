@@ -267,10 +267,14 @@ async function loadOrdersForCampaign(dates) {
 
     try {
         // Convert dates to UTC ranges
+        // Use proper UTC date formatting to avoid timezone issues
         const dateRanges = dates.map(dateStr => {
-            const date = new Date(dateStr);
-            const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
-            const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+            // Parse YYYY-MM-DD format and create UTC dates
+            const [year, month, day] = dateStr.split('-').map(Number);
+
+            // Create UTC dates (month is 0-indexed)
+            const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+            const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59));
 
             return {
                 start: startOfDay.toISOString(),
