@@ -728,13 +728,14 @@ async function fetchTPOSCustomers(skip = 0, top = 100) {
         // Get access token first
         const token = await getTPOSToken();
 
-        const url = `${TPOS_API_URL}?$skip=${skip}&$top=${top}&$orderby=CreatedDate desc`;
+        const url = `${TPOS_API_URL}?Type=Customer&Active=true&$skip=${skip}&$top=${top}&$orderby=DateCreated+desc&$count=true`;
 
         const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/javascript, */*; q=0.01'
             }
         });
 
@@ -749,7 +750,8 @@ async function fetchTPOSCustomers(skip = 0, top = 100) {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${newToken}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/javascript, */*; q=0.01'
                     }
                 });
 
