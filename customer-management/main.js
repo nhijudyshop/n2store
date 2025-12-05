@@ -293,13 +293,13 @@ async function loadCustomers(direction = 'next', forceRefresh = false) {
                 console.log('⚡ Loading from cache (instant)');
                 customers = cached.customers || [];
                 filteredCustomers = [...customers];
-                firstVisible = cached.firstVisible;
-                lastVisible = cached.lastVisible;
+                // Note: firstVisible and lastVisible are not cached (can't clone Firestore cursors)
+                // They will be set after background refresh
                 renderCustomers();
                 updatePaginationUI();
                 showEmptyState(customers.length === 0);
 
-                // Refresh in background
+                // Refresh in background to get fresh cursors
                 loadCustomersFromFirestore(direction, cacheKey);
                 return;
             }
@@ -356,12 +356,12 @@ async function loadCustomersFromFirestore(direction = 'next', cacheKey = null) {
 
         filteredCustomers = [...customers];
 
-        // Cache the data
+        // Cache the data (only customer data, not Firestore cursors)
         if (cacheKey) {
             await saveToCache(cacheKey, {
-                customers: customers,
-                firstVisible: firstVisible,
-                lastVisible: lastVisible
+                customers: customers
+                // Note: firstVisible/lastVisible are Firestore DocumentSnapshots
+                // They contain functions and cannot be cloned to IndexedDB
             });
         }
 
