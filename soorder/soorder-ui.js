@@ -123,7 +123,9 @@ window.SoOrderUI = {
             const reconciledCheckbox = document.createElement("input");
             reconciledCheckbox.type = "checkbox";
             reconciledCheckbox.checked = order.isReconciled;
-            reconciledCheckbox.disabled = true; // Read-only, can edit via edit modal
+            reconciledCheckbox.onclick = () => {
+                window.SoOrderCRUD.toggleReconciledStatus(order.id);
+            };
             tdReconciled.appendChild(reconciledCheckbox);
             tr.appendChild(tdReconciled);
         }
