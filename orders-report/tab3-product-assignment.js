@@ -2615,7 +2615,7 @@
                         ${sttsWithExistingProducts.map(item => `
                             <div class="mb-2">
                                 <strong>STT ${item.stt}:</strong>
-                                ${item.products.map(p => `${p.code} +${p.quantity}`).join(', ')}
+                                ${item.products.map(p => `${p.code}`).join(', ')}
                             </div>
                         `).join('')}
                     </div>
