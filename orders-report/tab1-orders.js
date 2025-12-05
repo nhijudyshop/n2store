@@ -451,8 +451,10 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Check admin permission
     checkAdminPermission();
 
-    // Sync employee ranges from Firebase
-    syncEmployeeRanges();
+    // ⚠️ DISABLED: syncEmployeeRanges() - No longer needed!
+    // Employee ranges are now loaded per-campaign in handleCampaignChange()
+    // syncEmployeeRanges() would overwrite campaign-specific ranges with general config
+    // syncEmployeeRanges();
 
     // Close modals when clicking outside
     window.addEventListener('click', function (event) {
