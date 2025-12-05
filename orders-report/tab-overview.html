@@ -361,18 +361,43 @@
                 employeeRanges = snapshot.val();
 
                 console.log('[OVERVIEW] Employee ranges loaded:', employeeRanges);
+                console.log('[OVERVIEW] Current campaign name:', currentCampaignName);
 
                 if (!employeeRanges) {
-                    showError('Chưa có dữ liệu phân chia nhân viên trong Firebase');
+                    showError('Chưa có dữ liệu phân chia nhân viên trong Firebase.<br>Vui lòng kiểm tra node: <code>employee_ranges_by_campaign</code>');
                     return;
                 }
 
-                if (!employeeRanges[currentCampaignName]) {
-                    showError(`Chiến dịch "${currentCampaignName}" chưa có phân chia nhân viên`);
+                // Show available campaigns
+                const availableCampaigns = Object.keys(employeeRanges);
+                console.log('[OVERVIEW] Available campaigns in Firebase:', availableCampaigns);
+
+                // Try exact match first
+                if (employeeRanges[currentCampaignName]) {
+                    console.log('[OVERVIEW] ✅ Found exact match');
+                    processAndDisplay();
                     return;
                 }
 
-                processAndDisplay();
+                // Try to find partial match
+                const matchedCampaign = availableCampaigns.find(campaign =>
+                    campaign.includes(currentCampaignName) || currentCampaignName.includes(campaign)
+                );
+
+                if (matchedCampaign) {
+                    console.log('[OVERVIEW] ✅ Found partial match:', matchedCampaign);
+                    currentCampaignName = matchedCampaign;
+                    processAndDisplay();
+                    return;
+                }
+
+                // No match found
+                showError(`
+                    Không tìm thấy phân chia nhân viên cho chiến dịch: <strong>"${currentCampaignName}"</strong><br><br>
+                    Các chiến dịch có sẵn trong Firebase:<br>
+                    ${availableCampaigns.map(c => `• ${c}`).join('<br>')}
+                `);
+
             } catch (error) {
                 console.error('[OVERVIEW] Error loading employee ranges:', error);
                 showError('Lỗi khi tải phân chia nhân viên: ' + error.message);
