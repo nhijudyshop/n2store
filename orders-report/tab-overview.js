@@ -118,11 +118,9 @@ async function loadEmployeeRangesForCampaign(campaignName) {
             employeeRanges = data;
             console.log(`[OVERVIEW] ✅ Loaded ${employeeRanges.length} employee ranges for campaign`);
         } else {
-            // Fallback to general config
-            console.log('[OVERVIEW] No campaign-specific ranges found, trying general config');
-            const generalSnapshot = await database.ref('settings/employee_ranges').once('value');
-            employeeRanges = generalSnapshot.val() || [];
-            console.log(`[OVERVIEW] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
+            // No campaign-specific ranges found - no filtering
+            employeeRanges = [];
+            console.log('[OVERVIEW] No campaign-specific ranges found - employee filtering disabled');
         }
 
     } catch (error) {
