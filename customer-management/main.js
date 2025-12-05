@@ -818,33 +818,22 @@ function mapTPOSToFirestore(tposCustomer) {
     };
 }
 
-// Check if customer already exists
-async function customerExists(phone, tposId) {
+// Check if customer already exists by phone
+async function customerExists(phone) {
     try {
-        // Check by phone
-        if (phone) {
-            const phoneQuery = await customersCollection.where('phone', '==', phone).limit(1).get();
-            if (!phoneQuery.empty) {
-                return true;
-            }
+        if (!phone) {
+            return false;
         }
 
-        // Check by TPOS ID
-        if (tposId) {
-            const tposIdQuery = await customersCollection.where('tposId', '==', tposId).limit(1).get();
-            if (!tposIdQuery.empty) {
-                return true;
-            }
-        }
-
-        return false;
+        const phoneQuery = await customersCollection.where('phone', '==', phone).limit(1).get();
+        return !phoneQuery.empty;
     } catch (error) {
         console.error('Error checking customer existence:', error);
         return false;
     }
 }
 
-// Sync customers from TPOS
+// Sync customers from TPOS (fetch 100 newest only)
 async function syncFromTPOS() {
     if (isSyncing) {
         showNotification('Đang đồng bộ, vui lòng đợi...', 'warning');
@@ -862,71 +851,55 @@ async function syncFromTPOS() {
     try {
         showNotification('Bắt đầu đồng bộ từ TPOS...', 'info');
 
-        let skip = 0;
-        const top = 100;
-        let newCustomersCount = 0;
-        let duplicateFound = false;
+        // Fetch only 100 newest customers from TPOS
+        const result = await fetchTPOSCustomers(0, 100);
+
+        if (!result.customers || result.customers.length === 0) {
+            showNotification('Không có dữ liệu từ TPOS', 'warning');
+            return;
+        }
+
+        console.log(`Fetched ${result.customers.length} customers from TPOS`);
+
         let batch = db.batch();
         let batchCount = 0;
+        let newCustomersCount = 0;
+        let duplicateCount = 0;
 
-        while (!duplicateFound) {
-            // Fetch customers from TPOS
-            const result = await fetchTPOSCustomers(skip, top);
-
-            if (!result.customers || result.customers.length === 0) {
-                break; // No more customers
+        // Process each customer
+        for (const tposCustomer of result.customers) {
+            // Skip if no phone number
+            if (!tposCustomer.Phone || !tposCustomer.Phone.trim()) {
+                continue;
             }
 
-            console.log(`Fetched ${result.customers.length} customers from TPOS (skip: ${skip})`);
+            // Check if customer already exists by phone
+            const exists = await customerExists(tposCustomer.Phone);
 
-            // Process each customer
-            for (const tposCustomer of result.customers) {
-                // Skip if no phone number
-                if (!tposCustomer.Phone || !tposCustomer.Phone.trim()) {
-                    continue;
-                }
-
-                // Check if customer already exists
-                const exists = await customerExists(tposCustomer.Phone, tposCustomer.Id);
-
-                if (exists) {
-                    console.log(`Duplicate found: ${tposCustomer.Name} (${tposCustomer.Phone})`);
-                    duplicateFound = true;
-                    break;
-                }
-
-                // Map and add new customer
-                const customerData = mapTPOSToFirestore(tposCustomer);
-                const docRef = customersCollection.doc();
-                batch.set(docRef, {
-                    ...customerData,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                batchCount++;
-                newCustomersCount++;
-
-                // Commit batch every 500 documents
-                if (batchCount >= 500) {
-                    await batch.commit();
-                    console.log(`Committed batch of ${batchCount} customers`);
-                    batch = db.batch();
-                    batchCount = 0;
-                }
+            if (exists) {
+                console.log(`Duplicate skipped: ${tposCustomer.Name} (${tposCustomer.Phone})`);
+                duplicateCount++;
+                continue;
             }
 
-            if (duplicateFound) {
-                break;
-            }
+            // Map and add new customer
+            const customerData = mapTPOSToFirestore(tposCustomer);
+            const docRef = customersCollection.doc();
+            batch.set(docRef, {
+                ...customerData,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
 
-            // Move to next page
-            skip += top;
+            batchCount++;
+            newCustomersCount++;
 
-            // Safety limit to prevent infinite loop
-            if (skip >= 10000) {
-                console.log('Reached safety limit of 10000 customers');
-                break;
+            // Commit batch every 500 documents
+            if (batchCount >= 500) {
+                await batch.commit();
+                console.log(`Committed batch of ${batchCount} customers`);
+                batch = db.batch();
+                batchCount = 0;
             }
         }
 
@@ -940,7 +913,7 @@ async function syncFromTPOS() {
         localStorage.setItem('lastTPOSSync', new Date().toISOString());
 
         if (newCustomersCount > 0) {
-            showNotification(`Đồng bộ thành công ${newCustomersCount} khách hàng mới từ TPOS`, 'success');
+            showNotification(`Đồng bộ thành công ${newCustomersCount} khách hàng mới từ TPOS (bỏ qua ${duplicateCount} khách đã tồn tại)`, 'success');
 
             // Reload data
             updateStatistics(); // Update in background
@@ -949,7 +922,7 @@ async function syncFromTPOS() {
             firstVisible = null;
             await loadCustomers();
         } else {
-            showNotification('Không có khách hàng mới để đồng bộ', 'info');
+            showNotification(`Không có khách hàng mới (${duplicateCount} khách đã tồn tại)`, 'info');
         }
     } catch (error) {
         console.error('Error syncing from TPOS:', error);
